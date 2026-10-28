@@ -50,7 +50,8 @@ export async function POST(request: Request) {
   const number = readOrderNumber(String(form?.get("number") ?? ""))
   /* The page's language, kept on the way back and in the email (only one of the website's own, lib/markets/checkout-language). */
   const asked = String(form?.get("lang") ?? "").trim().toLowerCase().slice(0, 20)
-  const language = asked ? await emailLanguageFor(site.creatorId, asked).catch(() => null) : null
+  /* With none named, the store's default language (lib/markets/buyer-language.ts), never English by omission. */
+  const language = await emailLanguageFor(site.creatorId, asked || null).catch(() => null)
   const lang = language && language.lang.toLowerCase() === asked ? asked : ""
   if (!number) return back(site.origin, { error: "number", lang })
   if (!EMAIL.test(email)) return back(site.origin, { error: "email", lang })
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
           orders: [{ number: found.number, date: found.date, url, status: found.status }],
           brand: { logoUrl: brand.logoUrl ?? store.logoUrl, email: store.email, phone: store.phone, websiteUrl: site.origin },
         })
-      const mail = language && lang ? inEmailLanguage(language.lang, language.words, build) : build()
+      const mail = language ? inEmailLanguage(language.lang, language.words, build) : build()
       /* Asked for this minute: transactional, so it leaves at once with no tracking rewriting the link. Anybody can type an email here, so its bounce record is kept (keepBounce). */
       await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true, keepBounce: true })
     } catch (e) {

@@ -1745,7 +1745,7 @@ export const CANVAS_BRIDGE = `
     Object.keys(names).forEach(function (n) {
       var va = a.getAttribute(n), vb = b.getAttribute(n);
       if (va === vb) return;
-      if (n.indexOf("data-") === 0 || tag.indexOf("-") > 0) ops.restart = true;
+      if (n.indexOf("data-") === 0 || tag.indexOf("-") > 0) { ops.restart = true; (ops.restartAt || (ops.restartAt = [])).push(live); }
       if (n === "class") {
         var wa = words(va), wb = words(vb);
         var gone = wa.filter(function (w) { return wb.indexOf(w) < 0; }), added = wb.filter(function (w) { return wa.indexOf(w) < 0; });
@@ -1766,19 +1766,94 @@ export const CANVAS_BRIDGE = `
         ops.push(function () { live.setAttribute(n, vb); });
       }
     });
-    if (tag === "SCRIPT") { if (a.textContent !== b.textContent) ops.restart = true; return true; }
+    if (tag === "SCRIPT") { if (a.textContent !== b.textContent) { ops.restart = true; ops.restartAll = true; } return true; }
     if (tag === "STYLE" || tag === "TEXTAREA" || tag === "TITLE") {
       if (a.textContent !== b.textContent) ops.push(function () { live.__slText = undefined; live.textContent = b.textContent; });
       return true;
     }
     if (tag === "TEMPLATE") {
-      if (a.innerHTML !== b.innerHTML) { ops.restart = true; ops.push(function () { live.innerHTML = b.innerHTML; }); }
+      if (a.innerHTML !== b.innerHTML) { ops.restart = true; ops.restartAll = true; ops.push(function () { live.innerHTML = b.innerHTML; }); }
       return true;
     }
     var ka = childrenOf(a), kb = childrenOf(b), kl = childrenOf(live);
     if (ka.length !== kb.length || kl.length !== ka.length) return false;
     for (i = 0; i < ka.length; i++) if (!plan(kl[i], ka[i], kb[i], ops)) return false;
     return true;
+  };
+  /*
+    A VALUE A SCRIPT READS ONCE, STARTED AGAIN WHERE IT IS READ. A countdown
+    block's end date is a data- attribute (or an attribute of its own custom
+    element) that its script reads as it starts, so the section was swapped
+    whole once the changes stopped: on a product page that is the gallery,
+    every picture decoded again and the slider back on its first slide, for
+    a date. When every value that changed sits inside a custom element with
+    no pictures or video in it (the countdown's own <countdown-timer>), that
+    element alone is put back fresh from the new markup, and it starts again
+    as it connects. Anything else (a script's text, a data- attribute
+    outside such an element, an element holding media) swaps the section as
+    before.
+  */
+  var RESTART_MEDIA = "img,picture,video,iframe,model-viewer,canvas";
+  var restartRoot = function (sec, n) {
+    for (var x = n; x && x !== sec; x = x.parentElement) {
+      if (x.tagName.indexOf("-") > 0) return x.querySelector(RESTART_MEDIA) ? null : x;
+    }
+    return null;
+  };
+  var drawnCounterpart = function (sec, x, drawnRoot) {
+    var id = x.getAttribute("id");
+    if (id) { var byId = drawnRoot.querySelector("#" + CSS.escape(id)); return byId && byId.tagName === x.tagName ? byId : null; }
+    var cands = drawnRoot.getElementsByTagName(x.tagName);
+    for (var i = 0; i < cands.length; i++) {
+      var k = kindOf(cands[i]), mine = ofKind(drawnRoot, k), theirs = ofKind(sec, k);
+      if (mine.length === theirs.length && theirs[mine.indexOf(cands[i])] === x) return cands[i];
+    }
+    return null;
+  };
+  var restartInPlace = function (id, html, els) {
+    var sec = document.getElementById("shopify-section-" + id);
+    if (!sec || !els || !els.length) return false;
+    var roots = [], i;
+    for (i = 0; i < els.length; i++) {
+      if (!els[i].isConnected || !sec.contains(els[i])) return false;
+      var r = restartRoot(sec, els[i]);
+      if (!r) return false;
+      if (roots.indexOf(r) < 0) roots.push(r);
+    }
+    roots = roots.filter(function (r) { return !roots.some(function (o) { return o !== r && o.contains(r); }); });
+    var t = document.createElement("template");
+    t.innerHTML = html;
+    var drawnRoot = t.content.firstElementChild;
+    if (!drawnRoot) return false;
+    var pairs = [];
+    for (i = 0; i < roots.length; i++) {
+      var c = drawnCounterpart(sec, roots[i], drawnRoot);
+      if (!c) return false;
+      pairs.push([roots[i], c]);
+    }
+    var y = scrollY;
+    pairs.forEach(function (p) {
+      var fresh = document.importNode(p[1], true);
+      p[0].replaceWith(fresh);
+      if (fresh.querySelector("script")) runScripts(fresh);
+    });
+    if (watcher) watcher.takeRecords();
+    if (scrollY !== y) scrollTo(0, y);
+    if (selected.section === id) mark(selected.section, selected.block, false, true);
+    reportSoon();
+    return true;
+  };
+  /* els: the elements whose read-once values changed, or null for the whole section. */
+  var restartLater = function (id, html, els) {
+    clearTimeout(settleTimers[id]);
+    settleTimers[id] = setTimeout(function () {
+      queue = queue.then(function () {
+        if (drawn[id] !== html) return;
+        var inPlace = false;
+        try { inPlace = restartInPlace(id, html, els); } catch (e) { inPlace = false; }
+        if (!inPlace) return swap(id, html);
+      }).catch(function () {});
+    }, restartIn);
   };
   var morph = function (id, html, prev) {
     var el = document.getElementById("shopify-section-" + id);
@@ -1808,11 +1883,7 @@ export const CANVAS_BRIDGE = `
     if (scrollY !== y) scrollTo(0, y);
     drawn[id] = html;
     clearTimeout(settleTimers[id]);
-    if (ops.restart) {
-      settleTimers[id] = setTimeout(function () {
-        queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
-      }, restartIn);
-    }
+    if (ops.restart) restartLater(id, html, ops.restartAll ? null : ops.restartAt || null);
     if (selected.section === id) mark(selected.section, selected.block, false, true);
     reportSoon();
     return true;
@@ -1967,18 +2038,14 @@ export const CANVAS_BRIDGE = `
     return function () { t.setAttribute(name, to); };
   };
   /* What was written is the section as drawn now; a value a script reads once starts it again when the changes stop (as morph). */
-  var written = function (id, html, ops, restart) {
+  var written = function (id, html, ops, restart, restartAt) {
     /* Nothing added or taken away, so the scroll is not read back: reading it was a layout of the page for every value. */
     ops.forEach(function (op) { op(); });
     if (watcher) watcher.takeRecords();
     streaming();
     drawn[id] = html;
     clearTimeout(settleTimers[id]);
-    if (restart) {
-      settleTimers[id] = setTimeout(function () {
-        queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
-      }, restartIn);
-    }
+    if (restart) restartLater(id, html, restartAt || null);
     /* The same elements, changed: the selection's marks are still on them, so only where they are is read again (mark took them all off and put them back, a style pass of its own for every value). */
     var sel = selected.section === id ? document.getElementById("shopify-section-" + id) : null;
     if (sel && inspect && !sel.hasAttribute("data-sl-selected") && !sel.querySelector("[data-sl-selected-block]")) mark(selected.section, selected.block, false, true);
@@ -1997,7 +2064,7 @@ export const CANVAS_BRIDGE = `
     if (!a || !b) return false;
     var diffs = [];
     if (!differences(a, b, diffs)) return false;
-    var styles = null, liveStyles = null, ops = [], restart = false;
+    var styles = null, liveStyles = null, ops = [], restart = false, restartAt = [];
     for (var i = 0; i < diffs.length; i++) {
       var d = diffs[i];
       if (d.style) {
@@ -2024,13 +2091,13 @@ export const CANVAS_BRIDGE = `
         if (d.name === "id") return false;
         var live = onPage(d.el, a, el);
         if (!live) return false;
-        if (restartsFor(d.name, d.el.tagName)) restart = true;
+        if (restartsFor(d.name, d.el.tagName)) { restart = true; restartAt.push(live); }
         ops.push(writeAttr(live, d.name, d.from, d.to));
       }
     }
     Array.prototype.forEach.call(b.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { keep(l.getAttribute("href")); });
     parsedAt[id] = { html: html, el: b };
-    return written(id, html, ops, restart);
+    return written(id, html, ops, restart, restartAt);
   };
   /*
     THE ONE CHANGE, NAMED BY THE BUILDER. While a finger is on a slider the
@@ -2065,7 +2132,7 @@ export const CANVAS_BRIDGE = `
     var found = ofKind(el, kindOf(a)).filter(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.from; }); });
     if (found.length !== 1) return false;
     var restart = changed.some(function (d) { return restartsFor(d.name, a.tagName); });
-    return written(id, html, changed.map(function (d) { return writeAttr(found[0], d.name, d.from, d.to); }), restart);
+    return written(id, html, changed.map(function (d) { return writeAttr(found[0], d.name, d.from, d.to); }), restart, [found[0]]);
   };
   /* A named change anywhere in the page: every place holding what it was is written; a page already showing it needs nothing. */
   var editAnywhere = function (e) {

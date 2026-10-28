@@ -9,7 +9,8 @@ import { photoViewUrl } from "@/lib/reviews/photos-server"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { ReviewPageForm, type ReviewPageProps } from "./review-form"
 import { CheckoutWords } from "@/app/checkout/parts/words"
-import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { buyerPageLanguage } from "@/lib/markets/checkout-language"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { cleanOrigin } from "@/lib/orders/order-source"
 
 export const dynamic = "force-dynamic"
@@ -28,7 +29,8 @@ export const dynamic = "force-dynamic"
  * changed for as long as the store allows.
  *
  * IN THE STORE'S LANGUAGE (round K5): the language the order was placed in
- * when the website still publishes it, else the website's own, with the
+ * when the website still publishes it, else the store's default (English
+ * for a purchase on Storelib, as the email that links here), with the
  * store's approved translations of the page's sentences (the checkout's
  * words, lib/markets/checkout-language). A store whose website is in English
  * and has no other language reads in English, as before.
@@ -57,7 +59,10 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
   const expired = !review && (!ctx.settings.enabled || !requestLinkOpen(ctx.request as { sent_at?: string | null; created_at?: string | null }))
   const closed = !ctx.order || !canDeliver(ctx.order) || ctx.product.status === "deleted" || expired
   /* The page's words, read beside the photos' signed addresses; English if the languages cannot be read. */
-  const languageLoad = checkoutLanguage(ctx.request.creator_id, null, cleanOrigin(ctx.order?.source_detail)?.lang ?? null).catch(() => null)
+  /* Where it was bought and in which language, as the review ask was written (lib/reviews/requests-server.ts, lib/markets/buyer-language.ts). */
+  const origin = cleanOrigin(ctx.order?.source_detail)
+  const channel = buyerChannel({ family: ctx.order?.requires_shipping ? "physical" : "digital", source: ctx.order?.source, surface: origin?.surface, lang: origin?.lang })
+  const languageLoad = buyerPageLanguage(ctx.request.creator_id, { channel, order: origin?.lang }).catch(() => null)
   const props: ReviewPageProps = {
     token,
     /* The link names one order of this buyer's: whatever they write here is a verified purchase. */

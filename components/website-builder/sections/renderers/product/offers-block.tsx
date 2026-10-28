@@ -37,6 +37,11 @@ function colorOf(value: unknown, palette: Palette, fallback: string): string {
 }
 const str = (v: unknown, d = ""): string => (typeof v === "string" && v.trim() ? v : d)
 const on = (v: unknown, d: boolean): boolean => (typeof v === "boolean" ? v : d)
+/** The store's own label, or undefined while it is the English default (or empty). */
+const own = (v: unknown, english: string): string | undefined => {
+  const t = str(v).trim()
+  return t && t !== english ? t : undefined
+}
 
 /** What the builder's stand-in product shows: a bundle of two and an upsell, priced as a store would. */
 const SAMPLE: ProductOffersData = {
@@ -130,6 +135,7 @@ export function OffersBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
           muted={ctx.palette.text_muted ?? ctx.palette.paragraph ?? palette.text}
           radius={Math.min(24, radiusPx)}
           disabled={ctx.inert}
+          display={ctx.sample || ctx.product.pay_what_you_want ? null : (ctx.product.display ?? null)}
         />
       ) : null}
       <BundleOffers
@@ -145,8 +151,10 @@ export function OffersBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
         muted={ctx.palette.text_muted ?? ctx.palette.paragraph ?? palette.text}
         accent={palette.heading}
         disabled={ctx.inert || ctx.sample || !ctx.offers}
-        labels={{ addAll: str(s.add_all_label, "Add all to cart"), add: str(s.add_label, "Add") }}
+        /* A label left as the English default is the shop's own word, drawn in the page's language (lib/markets/ui-words.ts); one the store wrote is translated with its section. */
+        labels={{ addAll: own(s.add_all_label, "Add all to cart"), add: own(s.add_label, "Add") }}
         money={ctx.money}
+        display={ctx.sample || ctx.product.pay_what_you_want ? null : (ctx.product.display ?? null)}
       />
     </div>
   )

@@ -98,6 +98,8 @@ const SUITES = [
   "tests/builder25.test.ts",
   "tests/help23.test.ts",
   "tests/help-center.test.ts",
+  /* The upsells and bundles guide (lib/help/offer-articles.ts): the screens' words and real screenshots, scripts/help-offer-shots.mjs. */
+  "tests/help-offers.test.ts",
   "tests/select22.test.ts",
   "tests/files-picker19.test.ts",
   "tests/polish21.test.ts",
@@ -636,6 +638,8 @@ const SUITES = [
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
   "tests/emails-families.test.ts",
   "tests/emails-language.test.ts",
+  /* One language for everything about a placed order: the store's default unless the order or a link names another it publishes; never a cookie, the browser or the country (lib/markets/buyer-language.ts). */
+  "tests/buyer-language.test.ts",
   "tests/emails-identity.test.ts",
   "tests/emails-preview.test.ts",
   /* Round AE2: every buyer and member email editable (Digital, Physical, Community), every community email in the community's name, picture, reply address and domain, per community unsubscribe; scripts/check-ae2-email-branding.mjs opens a sample at 390 and 600. SQL part 301. */
@@ -650,6 +654,8 @@ const SUITES = [
   "tests/offers-af.test.ts",
   /* Round AG: offers end to end: a download basket's offers and properties on its order lines (receipt, invoice, emails, admin, export, each offer by name), a currency change converting quantity break amounts (SQL part 306, on Postgres when OFFERS_PG_HOST is set), /cart.js and the Liquid cart with Shopify's automatic discounts to the cent of checkout, the builder's canvas, the native tiers, the creator's try-a-cart and warnings. */
   "tests/offers-ag.test.ts",
+  /* Offers, one number everywhere: the checkout's saving rows, the cart's and the product page's in a market that rounds; pay what you want never shown discounted; a break on a download; the offers' words translated. */
+  "tests/offers-parity.test.ts",
   /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
   "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",
@@ -750,6 +756,8 @@ const SUITES = [
   "tests/pills17.test.ts",
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
+  /* Round 26: the pull's spinner capped (lib/ui/pull-refresh-cap), the pill's pages kept warm through a router.refresh, the menu closed on the tap, the creator's reads started when the creator is known. */
+  "tests/nav-speed.test.ts",
   /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
   "tests/editor-perf-v.test.ts",
   "tests/editor-y1.test.ts",

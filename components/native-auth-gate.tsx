@@ -50,6 +50,14 @@ import { isSignedOutAnswer } from "@/lib/auth/auth-error"
  */
 const RECOVERY_KEY = "storelib_auth_recovery"
 const MAX_RECOVERIES = 2
+/**
+ * How long the trip through /auth/sync-session may take before this screen
+ * stops waiting on it. That route asks Supabase too, the same Supabase that
+ * was too slow for the page, and while it hangs the browser keeps showing
+ * this spinner: the white screen that span for ever on OnePage. Past this
+ * it says the connection dropped, with Try again.
+ */
+export const SYNC_NAVIGATION_MS = 12_000
 
 function recoveryCount(): number {
   try {
@@ -143,6 +151,10 @@ export function NativeAuthGate({
           /** Counted BEFORE navigating, or a reload loop never counts itself. */
           noteRecovery()
           window.location.assign(syncUrl)
+          /* A navigation that never commits leaves this page up: it ends in the retry screen, not a spinner. */
+          window.setTimeout(() => {
+            if (!cancelled) setStuck(true)
+          }, SYNC_NAVIGATION_MS)
           // Do not unblock — we are navigating away.
           // The destination page's NativeAuthGate (mode 1) will call
           // nativeAppReadyForce() once the full layout is painted.

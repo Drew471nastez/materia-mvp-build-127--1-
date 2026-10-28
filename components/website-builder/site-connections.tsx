@@ -47,6 +47,7 @@ import {
   type ConnectionsBrief,
 } from "@/lib/agent-access/connection-mark"
 import { tt } from "@/lib/i18n/text"
+import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, briefDue, isPile, nextCursor, readMore, slept, withinTime } from "@/lib/website-builder/live-follow"
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
@@ -57,6 +58,55 @@ const CATCH_UP_AWAY_MS = 8_000
 /** How many pages of the log one pass will fold together. */
 const CATCH_UP_PAGES = 6
 const ACTIVITY_PAGE = 20
+
+/**
+ * The app coming back to the front, or going to the back, in the iOS and
+ * Android shells (Capacitor's App plugin). A suspended WKWebView does not
+ * always say `visibilitychange` on its way back; this does. Nothing in a
+ * browser.
+ */
+function onNativeAppState(listener: (active: boolean) => void): () => void {
+  if (typeof document === "undefined" || !document.documentElement.classList.contains("capacitor")) return () => {}
+  let removed = false
+  let handle: { remove: () => unknown } | null = null
+  import("@capacitor/app")
+    .then(({ App }) => App.addListener("appStateChange", ({ isActive }) => listener(isActive)))
+    .then((h) => {
+      if (removed) void h.remove()
+      else handle = h
+    })
+    .catch(() => {
+      /* no plugin in this shell: visibilitychange and focus still wake it */
+    })
+  return () => {
+    removed = true
+    void handle?.remove()
+  }
+}
+
+/**
+ * Two frames, so a page restored from the background has painted, then a
+ * moment the browser has free: coming back also reads the shop's cards and
+ * measures the canvas again, and the pile landing on those same frames was
+ * the stutter on the way back. A web view that runs no frames still goes on.
+ */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      clearTimeout(cap)
+      resolve()
+    }
+    const cap = setTimeout(finish, 1_200)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(finish, { timeout: 800 })
+      else finish()
+    }))
+  })
+}
 
 export function useSiteActivity({
   installId,
@@ -88,6 +138,10 @@ export function useSiteActivity({
   onStaleRef.current = onStale
   /** When the link last changed, as last read; undefined until the first answer. */
   const syncAt = useRef<string | null | undefined>(undefined)
+  /** The database has no activity table: nothing to follow, and nothing to ask again. */
+  const [missing, setMissing] = useState(false)
+  /** Raised to read the brief again while nothing is connected (a connection made in another tab or on another device). */
+  const [briefAsk, setBriefAsk] = useState(0)
 
   useEffect(() => {
     if (!installId) return
@@ -106,6 +160,7 @@ export function useSiteActivity({
           }
           if (d.missing === true) {
             setReady(false)
+            setMissing(true)
             return
           }
           if (d.connections) setBrief(d.connections)
@@ -131,9 +186,38 @@ export function useSiteActivity({
       live = false
       if (timer) clearTimeout(timer)
     }
-  }, [installId, recheck])
+  }, [installId, recheck, briefAsk])
 
   const connected = ready && !!brief && (brief.agents.length > 0 || !!brief.github)
+
+  /*
+    NOTHING CONNECTED WHEN THE EDITOR OPENED IS NOT NOTHING FOR GOOD. A key
+    made on another device, a repository linked in another tab: the brief
+    was read once and the log was never followed. Asked again on a return to
+    the tab, on a connection coming back, and once a minute while visible.
+  */
+  useEffect(() => {
+    if (!installId || connected || missing || !settled) return
+    let last = Date.now()
+    const again = (reason: "timer" | "wake") => {
+      if (document.visibilityState !== "visible" || !briefDue(last, Date.now(), reason)) return
+      last = Date.now()
+      setBriefAsk((n) => n + 1)
+    }
+    const wake = () => again("wake")
+    const every = setInterval(() => again("timer"), BRIEF_RECHECK_MS)
+    document.addEventListener("visibilitychange", wake)
+    window.addEventListener("focus", wake)
+    window.addEventListener("online", wake)
+    const offNative = onNativeAppState((active) => { if (active) wake() })
+    return () => {
+      clearInterval(every)
+      document.removeEventListener("visibilitychange", wake)
+      window.removeEventListener("focus", wake)
+      window.removeEventListener("online", wake)
+      offNative()
+    }
+  }, [installId, connected, missing, settled])
 
   useEffect(() => {
     if (!connected) return
@@ -146,9 +230,12 @@ export function useSiteActivity({
     /** When the tab was hidden, so a return after a while is one catch-up, not a storm. */
     let hiddenAt = 0
     let catchUpPending = false
+    /** When the scheduled read was due: one that runs far later slept through it (a lid closed, the app put away). */
+    let dueAt = 0
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
+      dueAt = Date.now() + ms
       timer = stopped ? null : setTimeout(tick, ms)
     }
     async function tick() {
@@ -160,16 +247,20 @@ export function useSiteActivity({
       let arrived = false
       let eventsFull = false
       let retry = false
-      const catchUp = catchUpPending
+      /* Timers frozen with no visibilitychange (sleep, a suspended web view): that is an absence too. */
+      const away = slept(dueAt, Date.now(), CATCH_UP_AWAY_MS)
+      const pending = catchUpPending
       catchUpPending = false
+      let catchUp = pending || away
       try {
         /* Coming back after a while: let the restored page paint before the catch-up draws over it. */
-        if (catchUp) await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        if (catchUp) await afterPaint()
         const events: ActivityEvent[] = []
         let after = cursor.current
         let pages = 0
         let syncSeen: string | null | undefined
-        while (after !== null && pages < (catchUp ? CATCH_UP_PAGES : 1)) {
+        /* A full page means more is waiting: read it now and apply the lot once, however the pile came about. */
+        while (after !== null && pages < CATCH_UP_PAGES) {
           const res = await fetch(
             `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}`,
             { cache: "no-store", signal: AbortSignal.timeout(12_000) },
@@ -190,15 +281,18 @@ export function useSiteActivity({
           const batch = d.events ?? []
           for (const ev of batch) events.push(ev)
           pages++
-          if (batch.length < ACTIVITY_PAGE) break
+          if (!readMore(batch.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE)) break
         }
+        catchUp = isPile({ pending, slept: away, pagesRead: pages })
         /* Apply before moving the cursor. A throw used to skip the lines and never read them again. */
         if (events.length) {
           arrived = true
-          eventsFull = events.length >= ACTIVITY_PAGE * (catchUp ? CATCH_UP_PAGES : 1)
+          eventsFull = events.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
-            await onEventsRef.current(events, { catchUp })
+            const applying = (async () => { await onEventsRef.current(events, { catchUp }) })()
+            /* An apply that never answers (a read suspended with the web view) held the loop busy for good: the theme is read again instead. */
+            if ((await withinTime(applying, APPLY_CEILING_MS)) === "late") onStaleRef.current?.()
           } catch {
             try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
           }
@@ -207,7 +301,7 @@ export function useSiteActivity({
         }
         /* A failed page is not consumed: `after` is the last page that was read.
            With no events and a failure, the cursor stays so the same read is asked again. */
-        if (after !== null && (!retry || events.length > 0)) cursor.current = after
+        cursor.current = nextCursor(cursor.current, after, retry, events.length)
         if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
           syncAt.current = syncSeen
@@ -261,8 +355,31 @@ export function useSiteActivity({
         schedule(delay)
       }
     }
+    /* Back online after a drop, restored from the back and forward cache, or the app brought back to the front. */
+    const online = () => {
+      woke = 0
+      wake()
+    }
+    const shown = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        catchUpPending = true
+        online()
+      }
+    }
+    const offNative = onNativeAppState((active) => {
+      if (!active) {
+        hiddenAt = Date.now()
+        if (timer) clearTimeout(timer)
+        timer = null
+        return
+      }
+      if (hiddenAt > 0 && Date.now() - hiddenAt >= CATCH_UP_AWAY_MS) catchUpPending = true
+      online()
+    })
     document.addEventListener("visibilitychange", wake)
     window.addEventListener("focus", wake)
+    window.addEventListener("online", online)
+    window.addEventListener("pageshow", shown)
     /* Back from the terminal or GitHub in a window beside this one: no focus change, but the pointer comes back. */
     document.documentElement.addEventListener("pointerenter", wake)
     window.addEventListener("pointerdown", stir, true)
@@ -271,6 +388,9 @@ export function useSiteActivity({
     return () => {
       stopped = true
       if (timer) clearTimeout(timer)
+      offNative()
+      window.removeEventListener("online", online)
+      window.removeEventListener("pageshow", shown)
       document.removeEventListener("visibilitychange", wake)
       window.removeEventListener("focus", wake)
       document.documentElement.removeEventListener("pointerenter", wake)

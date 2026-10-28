@@ -18,6 +18,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { LanguageProvider } from "@/lib/i18n/context"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"
 import { commerceReport } from "@/lib/analytics/commerce"
 import { parseMode } from "@/lib/analytics/sections"
@@ -139,8 +140,11 @@ const extra = {
 const Client = AnalyticsClient as unknown as React.ComponentType<Record<string, unknown>>
 createRoot(document.getElementById("app")!).render(
   <LanguageProvider>
-    <div style={{ height: "100vh" }}>
-      <Client creatorId="c1" userId="u1" products={PRODUCTS} properties={PLACES} {...extra} />
-    </div>
+    {/* `?physical=1`: physical commerce on, so the kind chips show all four (scripts/check-analytics-mobile-row.mjs). */}
+    <PlatformSettingsProvider exploreMarketplace={false} buyerHeaderLight={false} physicalCommerce={params.get("physical") === "1"}>
+      <div style={{ height: "100vh" }}>
+        <Client creatorId="c1" userId="u1" products={PRODUCTS} properties={PLACES} {...extra} />
+      </div>
+    </PlatformSettingsProvider>
   </LanguageProvider>,
 )

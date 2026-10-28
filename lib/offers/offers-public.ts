@@ -29,7 +29,7 @@ import "server-only"
  */
 import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { breakCovers, bundlePrice, bundlesWith, offerLive, offerUnitPrice, placementsOf, upsellsFor, type Offer } from "./offers"
-import { tierTotals, type Tier } from "./pricing"
+import { tierDiscounts, tierTotals, type Tier } from "./pricing"
 import { collectionsOf, loadOffers, offerLabeler, offerProducts, type OfferProduct } from "./offers-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,6 +109,15 @@ export function publicTiers(tiers: Tier[], priceCents: number, compareAtCents: n
   })
 }
 
+/** A product a buyer gets one of per order: anything that doesn't ship (lib/physical/checkout-pricing-server, lib/website-builder/cart). Unknown type reads as physical, as before. */
+export const oneEach = (type: string | null | undefined) => typeof type === "string" && type !== "" && type !== "physical"
+
+/** The tiers one unit can be bought at: a block of exactly one, and only when one of them takes something off. */
+export function singleUnitTiers(tiers: Tier[]): Tier[] {
+  const one = tiers.filter((t) => t.quantity + t.freeQuantity === 1)
+  return one.some(tierDiscounts) ? one : []
+}
+
 /**
  * Everything a published product's page offers with it, or nothing. `only`
  * narrows what is read (the bundles endpoint reads no quantity breaks).
@@ -116,8 +125,8 @@ export function publicTiers(tiers: Tier[], priceCents: number, compareAtCents: n
 export async function productOffers(db: Db, productId: unknown, opts: { only?: (keyof ProductOffers)[]; now?: Date } = {}): Promise<ProductOffers> {
   if (!isUuid(productId)) return NO_OFFERS
   const want = new Set(opts.only ?? ["bundles", "quantityBreaks", "checkoutOffers"])
-  const { data: product } = await selectTolerant("offer product", "id, creator_id, status, price_cents, compare_at_cents", ["compare_at_cents"], (columns) => db.from("products").select(columns).eq("id", productId).maybeSingle())
-  const p = product as { id: string; creator_id: string; status: string; price_cents: number | null; compare_at_cents?: number | null } | null
+  const { data: product } = await selectTolerant("offer product", "id, creator_id, status, type, price_cents, compare_at_cents", ["compare_at_cents"], (columns) => db.from("products").select(columns).eq("id", productId).maybeSingle())
+  const p = product as { id: string; creator_id: string; status: string; type?: string | null; price_cents: number | null; compare_at_cents?: number | null } | null
   if (!p || p.status !== "published") return NO_OFFERS
   const creatorId = p.creator_id
   const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
@@ -141,14 +150,19 @@ export async function productOffers(db: Db, productId: unknown, opts: { only?: (
     const list = items as OfferProduct[]
     /* This product first, as Shopify's "Frequently bought together" does. */
     list.sort((a, c) => (a.id === p.id ? -1 : c.id === p.id ? 1 : 0))
-    const { fullCents, priceCents } = bundlePrice(b, list.map((i) => i.priceCents))
+    const { fullCents, priceCents } = bundlePrice(b, list.map((i) => i.priceCents), list.map((i) => i.payWhatYouWant === true))
     return [{ offerId: b.id, title: b.title, label: label(b), discountType: b.discountType, discountValue: b.discountValue, items: list, fullCents, priceCents }]
   })
   const checkoutOffers: PublicCheckoutOffer[] = upsells.flatMap((u) => {
     const item = products.get(u.productIds[0])
     if (!item) return []
-    return [{ offerId: u.id, title: u.title, label: label(u), discountType: u.discountType, discountValue: u.discountValue, product: item, offerPriceCents: offerUnitPrice(u, item.priceCents) }]
+    return [{ offerId: u.id, title: u.title, label: label(u), discountType: u.discountType, discountValue: u.discountValue, product: item, offerPriceCents: offerUnitPrice(u, item.priceCents, item.payWhatYouWant === true) }]
   })
-  const quantityBreaks: PublicBreak[] = price ? breaks.map((o) => ({ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(o.tiers ?? [], price.priceCents, price.compareAtCents) })) : []
+  /* Only what can go in the cart: something that doesn't ship is one per order (the cart and the checkout hold it to 1), so only its one-item tiers can apply. */
+  const breakTiers = (tiers: Tier[]) => (oneEach(p.type) ? singleUnitTiers(tiers) : tiers)
+  const quantityBreaks: PublicBreak[] = price ? breaks.flatMap((o) => {
+    const tiers = breakTiers(o.tiers ?? [])
+    return tiers.length ? [{ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(tiers, price.priceCents, price.compareAtCents) }] : []
+  }) : []
   return { bundles: bundleCards, quantityBreaks, checkoutOffers }
 }

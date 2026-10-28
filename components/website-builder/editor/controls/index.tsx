@@ -36,6 +36,7 @@ import { ColorSchemeControl } from "./color-scheme-control"
 import { REVIEW_CONFIG_FIELD, ReviewWidgetConfigControl } from "./review-widget-config-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
+export { CountdownControl } from "./countdown-control"
 export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerProduct } from "./context"
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */

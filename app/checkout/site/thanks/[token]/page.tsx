@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { cookies, headers } from "next/headers"
+import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { orderNumber } from "@/lib/physical/status"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -11,7 +11,7 @@ import { ClearCart } from "./clear-cart"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaItem, type GaItem } from "@/lib/store/ga"
 import { storeCurrencyFor } from "@/lib/store/ga-server"
-import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { CheckoutWords } from "../../../parts/words"
 import { ThanksView, type Line, type Summary } from "./thanks-view"
@@ -67,6 +67,25 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
         method: co.delivery_method !== "pickup" && co.delivery_method !== "none" && typeof rate?.name === "string" && rate.name.trim() ? { name: rate.name.trim(), minDays: days(rate.min_days), maxDays: days(rate.max_days), local: rate.kind === "local", note: typeof rate.local_note === "string" ? rate.local_note : null } : null,
       },
     }
+  } catch {
+    return null
+  }
+}
+
+/** The language the order's checkout was drawn in (lib/orders/order-source.ts), from a cart that shipped or a cart of downloads; null when none was kept. */
+async function orderLanguageOf(db: Db, token: string): Promise<string | null> {
+  const lang = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
+  try {
+    const { data } = await db.from("commerce_checkouts").select("origin").eq("receipt_token", token).maybeSingle()
+    const kept = lang((data?.origin as { lang?: unknown } | null)?.lang)
+    if (kept || data) return kept
+  } catch {
+    /* Read the download's below. */
+  }
+  try {
+    /* source_detail is optional (its SQL may not have run): an error reads as none kept. */
+    const { data, error } = await db.from("orders").select("source_detail").eq("receipt_token", token).maybeSingle()
+    return error ? null : lang((data?.source_detail as { lang?: unknown } | null)?.lang)
   } catch {
     return null
   }
@@ -137,12 +156,11 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
   const admin = createAdminClient()
   const site = await siteOfHost(admin, (await headers()).get("host"))
   if (!site) notFound()
-  /* In the language the checkout was in (?lang, which it hands on), else the one chosen on the website (lib/markets/checkout-language.ts). */
-  const chosen = sp.lang ?? (await cookies()).get("sl_lang")?.value
+  /* In the language the checkout was in (kept with the order; ?lang names one), else the store's default (lib/markets/buyer-language.ts): never a cookie from another visit. */
   const [brand, order, language] = await Promise.all([
     checkoutBrand(admin, site.creatorId),
     shippedOrder(admin, site.creatorId, token).then((o) => o ?? basketOrder(admin, site.creatorId, token)),
-    checkoutLanguage(site.creatorId, null, chosen).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null })),
+    orderLanguageOf(admin, token).then((order) => buyerPageLanguage(site.creatorId, { channel: "website", named: sp.lang, order })).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null })),
   ])
   if (!order) notFound()
   const shopUrl = `${site.origin}/`

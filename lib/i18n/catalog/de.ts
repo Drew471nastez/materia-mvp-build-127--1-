@@ -11025,6 +11025,7 @@ const words: Record<string, string> = {
  "{title} (Copy)": "{title} (Kopie)",
  "{title} added": "{title} hinzugefügt",
  "{title} also has the quantity break “{offer}”. Only one applies to it: the one that saves more on the whole cart.": "{title} hat auch die Mengenstaffel „{offer}“. Nur eine greift: die, die beim ganzen Warenkorb mehr spart.",
+ "{title} is one per order, so buyers can't reach these tiers. Quantity breaks are for products that ship.": "{title} gibt es nur einmal pro Bestellung, daher erreichen Käufer diese Stufen nicht. Mengenstaffeln sind für Produkte, die versendet werden.",
  "{title} deleted": "{title} gelöscht",
  "{title} gets no shipping price": "{title} bekommt keinen Versandpreis",
  "{title} has no shipping rate": "{title} hat keinen Versandtarif",

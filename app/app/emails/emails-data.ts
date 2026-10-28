@@ -67,6 +67,9 @@ export async function loadSubscribers(): Promise<SubscribersData> {
   const me = await currentCreator()
   if (!me) throw new Error(tt("Sign in again to see your subscribers."))
   const supabase = createClient()
+  /* The store's products are asked for alongside the list, not after it: one round trip fewer on every read, a pull to refresh's included. */
+  /* `.then` starts it now: a Supabase query is not sent until something waits on it. */
+  const productsRead = supabase.from("products").select("id").eq("creator_id", me.creatorId).then((r: { data: { id: string }[] | null }) => r)
   const { data, error } = await supabase
     .from("subscribers")
     .select("id, email, name, source, source_detail, consent_text, status, subscribed_at, unsubscribed_at")
@@ -82,7 +85,7 @@ export async function loadSubscribers(): Promise<SubscribersData> {
   const list = rows ?? []
 
   let buyers = 0
-  const { data: products } = await supabase.from("products").select("id").eq("creator_id", me.creatorId)
+  const { data: products } = await productsRead
   if (products && products.length > 0) {
     const { data: orders } = await supabase
       .from("orders")

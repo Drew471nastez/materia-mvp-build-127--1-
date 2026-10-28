@@ -74,7 +74,7 @@ const productsOf = (o: Offer) => (o.kind === "checkout" ? o.productIds.slice(0, 
  * important first. `products`: the store's, with whether each is published
  * and its price (a quantity break's tiers are checked at it).
  */
-export function offerWarnings(draft: Offer, offers: Offer[], products: { id: string; title: string; published: boolean; priceCents: number }[], now: Date = new Date()): string[] {
+export function offerWarnings(draft: Offer, offers: Offer[], products: { id: string; title: string; published: boolean; priceCents: number; type?: string }[], now: Date = new Date()): string[] {
   const out: string[] = []
   const byId = new Map(products.map((p) => [p.id, p]))
   const name = (id: string) => byId.get(id)?.title ?? tt("A product")
@@ -84,6 +84,12 @@ export function offerWarnings(draft: Offer, offers: Offer[], products: { id: str
     const p = byId.get(id)
     if (!p) out.push(tt("A product in this offer is no longer in your store, so the offer can't apply."))
     else if (!p.published) out.push(tt("{title} is a draft. Buyers see this offer once it's published.", { title: p.title }))
+  }
+
+  /* A quantity break on something that doesn't ship: a buyer gets one per order, so only a one-item tier can apply. */
+  if (draft.kind === "quantity_break" && draft.productIds.length) {
+    const p = byId.get(draft.productIds[0])
+    if (p?.type && p.type !== "physical" && !(draft.tiers ?? []).some((t) => t.quantity + t.freeQuantity === 1 && (t.freeQuantity > 0 || t.discountValue > 0))) out.push(tt("{title} is one per order, so buyers can't reach these tiers. Quantity breaks are for products that ship.", { title: p.title }))
   }
 
   /* Tiers that make buying more cost more per item. */

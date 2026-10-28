@@ -48,6 +48,9 @@ import { announceCase, caseTopic } from "@/lib/support/case-live-server"
 /* Round 27, M27's helper: the live website an order was placed on, "" when there is none. */
 import { orderStoreUrl } from "@/lib/physical/store-link"
 import { orderPagePath } from "@/lib/physical/order-link"
+import { buyerChannel, type BuyerChannel } from "@/lib/emails/buyer-channel"
+
+const LANG_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -182,21 +185,30 @@ export interface BuyerCaseOrder {
   path: string | null
   storeUrl: string | null
   lang: string | null
+  /** Where it was bought (lib/emails/buyer-channel.ts), so the page reads in the language its emails do (lib/markets/buyer-language.ts). */
+  channel: BuyerChannel
 }
 async function buyerCaseOrder(db: Db, row: CaseRow, store: StoreIdentity): Promise<BuyerCaseOrder> {
   if (row.checkout_id) {
     const co = await checkoutOf(db, row.checkout_id)
     const storeUrl = co ? await orderStoreUrl({ creator_id: row.creator_id, origin: co.origin ?? null }, { db }).catch(() => "") : ""
-    const lang = co?.origin && typeof co.origin === "object" ? (co.origin as { lang?: unknown }).lang : null
-    return { path: orderPagePath(co?.receipt_token ?? null), storeUrl: storeUrl || null, lang: typeof lang === "string" && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(lang) ? lang : null }
+    const origin = co?.origin && typeof co.origin === "object" ? (co.origin as { lang?: unknown; surface?: unknown }) : null
+    const lang = origin?.lang
+    return { path: orderPagePath(co?.receipt_token ?? null), storeUrl: storeUrl || null, lang: typeof lang === "string" && LANG_TAG.test(lang) ? lang : null, channel: buyerChannel({ family: "physical", surface: origin?.surface, lang }) }
   }
   let path: string | null = null
+  let lang: string | null = null
+  let channel: BuyerChannel = "storelib"
   if (row.order_id) {
-    const { data } = await db.from("orders").select("receipt_token").eq("id", row.order_id).maybeSingle()
-    const token = (data as { receipt_token?: string | null } | null)?.receipt_token
+    const { data } = await db.from("orders").select("receipt_token, source, source_detail").eq("id", row.order_id).maybeSingle()
+    const order = data as { receipt_token?: string | null; source?: unknown; source_detail?: { lang?: unknown; surface?: unknown } | null } | null
+    const token = order?.receipt_token
     if (typeof token === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(token)) path = `/receipt/${encodeURIComponent(token)}`
+    const asked = order?.source_detail?.lang
+    lang = typeof asked === "string" && LANG_TAG.test(asked) ? asked : null
+    channel = buyerChannel({ family: "digital", source: order?.source, surface: order?.source_detail?.surface, lang })
   }
-  return { path, storeUrl: store.websiteUrl, lang: null }
+  return { path, storeUrl: store.websiteUrl, lang, channel }
 }
 
 function failed(where: string, error: { code?: string } | null | undefined, said: string): Failure {

@@ -668,7 +668,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
               return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} line={false} />
             })}
             {/* More figures that way: the home chart's arrow, which pages the row along and turns back at its end. */}
-            <StripArrow strip={metricStripRef} className="md:hidden" />
+            <StripArrow className="md:hidden" />
           </div>
 
           <div className="border-t border-[#e5e7eb]/60 px-2 pt-7 pb-3 sm:px-4 sm:pb-4">

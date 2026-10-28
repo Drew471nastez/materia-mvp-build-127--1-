@@ -3,21 +3,19 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
 import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges, type DeleteKind } from "@/lib/products/delete-client"
-import { forwardRef, memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
+import { memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
+import { ArrowUpDown, ChevronLeft, ChevronRight, Download, Plus, Search, X } from "lucide-react"
 import { getCanonicalSiteUrl, getProductUrl } from "@/lib/url-helpers"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
 import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { productPriceCurrency } from "@/lib/money/product-currency"
-import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
-import { quietDepth } from "./new/editor-buttons"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonSecondary, card, formatMoney, iconButton } from "../orders/order-parts"
 import { accentDepth } from "@/components/ui/depth-button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { editorAnswered, isReturning, listShown, openEditor, takeEdited, warmEditor, warmInTurn, whenIdle, WAIT_LONGEST_MS, WAIT_TICK_MS } from "./list-return"
 import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
@@ -52,131 +50,26 @@ interface Product {
   sales_count?: number | null
 }
 
-/**
- * A link drawn at the Orders page's 32px that a finger still gets 44px of
- * under 768px: an invisible box 6px bigger on every side, so the page stays
- * as compact as Orders and nothing on it is hard to press. Links only:
- * Chromium clips a button's hit test to its own box, so a button does the
- * same with `Press` below.
- */
-const PRESS = "relative max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
-
-/** order-parts' buttonSecondary, drawn by the span inside a `Press`. */
-const SECONDARY_LOOK =
-  "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] group-disabled/press:opacity-50 select-none"
-
 /*
- * ONE SCALE, ABOUT A TENTH SMALLER, THEN BIGGER FROM 1024px. "Reduce the
- * products page's overall scale by about 10%" brought the bar's buttons,
- * the search and the views to 32px from 768px, the table to 13px, its rows
- * to 56px (64px from 1280px) with a 40px picture (44px), and a phone's rows
- * to 64px with a 50px picture. Then: "On desktop larger screens, make the
- * page just 7% bigger, a little bit", and after it "just make the products
- * page 3% bigger". From 1024px every size on the page is the 7% one times
- * 1.03: the column (1284 to 1323px) and its gutters, the bar, the title,
- * the buttons, the search, the views, the table's heading, text, rows,
- * pictures and columns, the row buttons and the footer. Boxes are rounded
- * to the whole pixel, so edges stay crisp; text to the half pixel, because
- * 13, 14 and 15px times 1.03 round back to themselves and the words would
- * not have grown at all. Real sizes, not zoom, so text stays sharp and every
- * press is where it is drawn. A phone and a tablet keep their sizes, and
- * every press on a phone is still 44px.
+ * ORDERS' AND EMAILS' LIST, FOR PRODUCTS. The page wears the same parts as
+ * Orders and Emails (../orders/order-parts): the 1200px column and its bar,
+ * the 24px title (28px from 640px), a white card whose first row is the
+ * toolbar (the views as tabs, Search, Sort), and rows drawn the way those
+ * lists draw them. Only what a product has that an order does not is its
+ * own: the picture, and New product in violet (the owner: "The New product
+ * button needs to be purple there, both on mobile and desktop").
  */
-const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
-
-/** The page's column: Orders' 1200px, 10% wider from 1024px (7%, then 3%), with its gutters wider too. */
-const PAGE_WIDTH = "max-w-[1200px] lg:max-w-[1323px]"
-const PAGE_GUTTER = "lg:px-[35px]"
-/** Orders' bar (LIST_BAR), taller from 1024px: 66 to 71px (7%), then 73 (3%), with 15 and 9px round the title. */
-const PAGE_BAR = "lg:min-h-[73px] lg:pb-[9px] lg:pt-[15px]"
-
-/** Export in the bar, from 768px: the secondary button with its word. On a phone it is Download, the icon beside New product. */
-const EXPORT_LOOK = cn(SECONDARY_LOOK, BAR_BUTTON_SIZE)
+const NEW_LOOK = cn(accentDepth, "h-8 gap-1.5 rounded-lg px-3 text-[13px]")
+/** A phone's press is 44px tall around a 32px bar button, as Orders' Export is. */
+const BAR_PRESS = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
 
 /**
- * THE PHONE'S QUIET ICON BUTTON: Download beside New product, and Sort at
- * the end of the list's toolbar. "Around the download icon add an extremely
- * small, subtle border to make it like a button." White, a hairline a step
- * lighter than any other border on the page, 8px round, no shadow, and a
- * grey fill while it is pressed. Drawn 32px in a 44px press.
+ * A row's more button: Orders' and Emails' (RowMenuButton), 44px on a phone.
+ * On a touch screen its pressed grey waits 130ms, as a sheet's rows do
+ * (app/globals.css A SWIPE THROUGH A SHEET OF CHOICES LIGHTS NOTHING), so a
+ * scroll that starts on it lights nothing.
  */
-const DOWNLOAD_LOOK =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#eef0f2] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:border-[#e5e7eb] group-active/press:bg-[#f1f2f4]"
-
-/**
- * SORT, AT THE END OF THE TOOLBAR ON EVERY WIDTH: Download's quiet square,
- * 32px, and 35px from 1024px with the rest of the page (the 7% and the 3%).
- * It sat beside a boxed search above the table on a computer, in that
- * field's heavier hairline; the computer has the phone's toolbar now, so it
- * wears the phone's faintest one.
- */
-const SORT_LOOK = cn(DOWNLOAD_LOOK, "lg:h-[35px] lg:w-[35px]")
-/** And when an order other than Newest is on. */
-const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
-
-/**
- * A name on a pointer: a small near-black label with no arrow, the Website
- * page's Settings tooltip to the letter. The shared tooltip's theme colours
- * and its arrow are replaced here, not added to.
- */
-const TOOLTIP = "rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] [&_svg]:hidden!"
-
-/**
- * A button that is its drawing on a computer and a 44px press around the
- * same drawing on a phone. It passes on its ref and everything it is given,
- * so it can be ResponsiveActionMenu's trigger. The keyboard's outline is
- * drawn round the drawing in near black, as the depth buttons' is.
- */
-const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { look: string }>(function Press(
-  { look, className, children, ...rest },
-  ref,
-) {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      {...rest}
-      className={cn(
-        "group/press inline-flex shrink-0 cursor-pointer items-center justify-center outline-none disabled:cursor-not-allowed max-md:min-h-11 max-md:min-w-11",
-        "[&:focus-visible>span]:outline-2 [&:focus-visible>span]:outline-offset-2 [&:focus-visible>span]:outline-[#1a1a2e]/40 [&:focus-visible>span]:outline-solid",
-        className,
-      )}
-    >
-      <span className={look}>{children}</span>
-    </button>
-  )
-})
-
-/**
- * THE NEW PRODUCT BUTTON, VIOLET. "The New product button needs to be purple
- * there, both on mobile and desktop." It had gone near black with the rest
- * of the app's primaries (primaryDepth, the editor's Save); now it is the
- * shared violet one (accentDepth, components/ui/depth-button), the only
- * violet button on the page, the same on a phone and a computer. At the
- * bar's 32px (35 from 1024px), with the 44px press on a phone. An empty
- * shop's Create product, the one way forward in the middle of the card,
- * wears it too.
- */
-const NEW_LOOK = cn(accentDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
-
-/**
- * A ROW'S TWO BUTTONS: Preview (the eye) and the more button, the same size
- * side by side, both in the editor's quieter icon depth (quietDepth), so the pair
- * reads as one. A product with no page to open draws its eye off: grey,
- * flat, and no pressed look. On a phone each is drawn 32px with a 44px
- * press (6px of invisible box on every side), 12px apart, so the two
- * presses meet and never overlap. In the table 28px, and 31px from 1024px.
- */
-const ROW_BUTTON_PHONE = "relative z-[1] h-8 w-8 rounded-lg text-[#4b5563] after:absolute after:-inset-1.5 after:content-['']"
-const ROW_BUTTON_TABLE = "h-7 w-7 rounded-[7px] text-[#4b5563] lg:h-[31px] lg:w-[31px] lg:[&>svg]:h-[18px] lg:[&>svg]:w-[18px]"
-const ROW_MENU_PHONE = cn(quietDepth, ROW_BUTTON_PHONE)
-const ROW_MENU_TABLE = cn(quietDepth, ROW_BUTTON_TABLE)
-const EYE_DEPTH = cn(
-  quietDepth,
-  "aria-disabled:cursor-not-allowed aria-disabled:text-[#b6bac1] aria-disabled:shadow-none aria-disabled:hover:bg-white aria-disabled:active:bg-white aria-disabled:active:shadow-none",
-)
-/* In the table View is a word beside the more button, the same height; a phone row has only the more button, whose menu starts with View. */
-const VIEW_TABLE = cn(EYE_DEPTH, "inline-flex h-7 items-center rounded-[7px] px-2.5 text-[13px] font-medium text-[#4b5563] lg:h-[31px] lg:px-3 lg:text-[13.5px]")
+const ROW_MENU = "relative z-[1] pointer-coarse:active:delay-[130ms] [-webkit-tap-highlight-color:transparent]"
 
 /**
  * THE PICTURES, SHARP ON EVERY SCREEN. They went through next/image at a
@@ -187,17 +80,15 @@ const VIEW_TABLE = cn(EYE_DEPTH, "inline-flex h-7 items-center rounded-[7px] px-
  * `w` descriptors and `sizes`, so the browser takes the smallest one that
  * is sharp at its own pixel ratio, at quality 88 (listed in next.config's
  * images.qualities, or the optimizer answers 400). Three candidates each,
- * not Next's fifteen, so fifty rows do not add a page of markup. The
- * table's box is 40px, 44 from 1024px and 48 from 1280px (the 7% and 3%
- * steps): 48, 96 and 128 still cover it at 1x and 2x, which is what a
- * computer's screen is.
+ * not Next's fifteen, so fifty rows do not add a page of markup. A
+ * phone's box is 48px and the table's 40px.
  */
 type ThumbSize = "phone" | "table"
 const THUMB_QUALITY = PORTRAIT_QUALITY
-const THUMB_FILES: Record<ThumbSize, number[]> = { phone: [64, 128, 256], table: [48, 96, 128] }
-const THUMB_SIZES: Record<ThumbSize, string> = { phone: "50px", table: "(min-width: 1280px) 48px, (min-width: 1024px) 44px, 40px" }
-/** The largest box each size is drawn in: the width and height the picture reserves, and its fallback file. */
-const THUMB_BOX: Record<ThumbSize, number> = { phone: 50, table: 48 }
+const THUMB_FILES: Record<ThumbSize, number[]> = { phone: [48, 96, 144], table: [40, 80, 120] }
+const THUMB_SIZES: Record<ThumbSize, string> = { phone: "48px", table: "40px" }
+/** The box each size is drawn in: the width and height the picture reserves, and its fallback file. */
+const THUMB_BOX: Record<ThumbSize, number> = { phone: 48, table: 40 }
 
 /** How long a pointer rests on a row before its editor is fetched ahead. */
 const WARM_REST_MS = 50
@@ -449,6 +340,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [sort, setSort] = useState<Sort>(resumed?.sort ?? "newest")
   const [page, setPage] = useState(resumed?.page ?? 1)
   const [searchQuery, setSearchQuery] = useState(resumed?.search ?? "")
+  /* The toolbar is the views or the search field, as on Orders; a list that comes back searched comes back with the field open. */
+  const [searching, setSearching] = useState(() => !!resumed?.search)
   useEffect(() => {
     leftAt = { view, sort, search: searchQuery, page }
   }, [view, sort, searchQuery, page])
@@ -730,7 +623,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     setPage(1)
   }
   /* The toolbar's two picks: on a phone a sheet, which hands over its pick once it has gone; from 768px a dropdown, at once (./pick-sheet). */
-  const pickView = (next: string) => showView(next as View)
   const pickSort = (next: string) => sortBy(next as Sort)
   const search = (q: string) => {
     setSearchQuery(q)
@@ -740,12 +632,21 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     search("")
     searchInputRef.current?.focus({ preventScroll: true })
   }
-  /* Escape clears the field, as its clear button does. */
+  /* Search opens the field in place of the views, focused; Cancel empties it and brings the views back. */
+  const openSearch = () => {
+    setSearching(true)
+    requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }))
+  }
+  const closeSearch = () => {
+    search("")
+    setSearching(false)
+  }
+  /* Escape clears the field, as its clear button does, and a second Escape closes it. */
   const searchKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape" && searchQuery) {
-      e.preventDefault()
-      search("")
-    }
+    if (e.key !== "Escape") return
+    e.preventDefault()
+    if (searchQuery) search("")
+    else closeSearch()
   }
 
   /*
@@ -962,26 +863,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   )
 
   /*
-    PREVIEW. The product's own page, the address View in its menu opens, in
-    a new tab. A draft or an archived product has no public page (the page
-    serves published products only) and there is no preview address for
-    one, so its View is drawn but off: "Publish to view" on a pointer, and
-    in a toast on a phone. In the app the page opens in the phone's browser
-    through openExternal, as the editor's View does, with the whole address
-    when View is the live route on Storelib itself. Never the row's press.
+    VIEW, IN THE ROW'S MENU. The product's own page in a new tab: a link, so
+    the browser itself honours the new tab. In the app the page opens in the
+    phone's browser through openExternal, as the editor's View does, with the
+    whole address when View is the live route on Storelib itself. A draft or
+    an archived product has no public page, so its View is there but off,
+    with why under it.
   */
-  const openPreview = (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
-    e.stopPropagation()
-    if (isNativeApp()) {
-      e.preventDefault()
-      openExternal(url.startsWith("/") ? `${getCanonicalSiteUrl()}${url}` : url)
-    }
-  }
-  const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!window.matchMedia("(hover: hover)").matches) showNotification(tt("Publish to view"))
-  }
+  const viewIn = isNativeApp()
+    ? (url: string) => openExternal(url.startsWith("/") ? `${getCanonicalSiteUrl()}${url}` : url)
+    : null
 
   /*
     A ROW IS DRAWN ONCE. Each row (PhoneRow, TableRow, below) is memoised on
@@ -1007,8 +898,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       warm,
       open: openFromLink,
       openRow: open,
-      openPreview,
-      previewOff,
+      viewIn,
       share: handleShare,
       archive: handleArchive,
       duplicate: handleDuplicate,
@@ -1030,6 +920,35 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
   const viewLabel = views.find((v) => v.value === view)?.label ?? t("products.all")
 
+  /*
+    THE BANNER THAT ARRIVES LATE. ReadinessBanner asks the server once the
+    page has drawn (components/physical/readiness-client), so on a first
+    visit it came in a moment after the list and pushed the whole card down
+    in one frame: the jump on landing. One that was already there when the
+    page drew stays put; one that arrives later opens its own room over
+    BANNER_IN_MS, on the slot's height, once, so the card glides down rather
+    than jumping.
+  */
+  const bannerSlot = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const slot = bannerSlot.current
+    if (!slot || typeof MutationObserver === "undefined") return
+    const observer = new MutationObserver(() => {
+      if (!slot.firstElementChild || typeof slot.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+      const height = slot.getBoundingClientRect().height
+      if (!height) return
+      slot.style.overflow = "hidden"
+      const a = slot.animate([{ height: "0px", opacity: 0 }, { height: `${height}px`, opacity: 1 }], { duration: BANNER_IN_MS, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+      const done = () => {
+        slot.style.overflow = ""
+      }
+      a.onfinish = done
+      a.oncancel = done
+    })
+    observer.observe(slot, { childList: true })
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {notification.visible && (
@@ -1041,51 +960,27 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       )}
 
       {/*
-        A CREATOR'S SHELF IN ONE WHITE CARD. On a phone the card's first row
-        is its toolbar, the way Shopify's app has it: the view ("All", its
-        own sheet of views), a search that takes the rest of the row, and
-        Sort after a thin divider (a sheet of the orders alone). Nothing above
-        the card but the bar. Then a "Product" heading and the rows: a 50px
-        picture, the name, and under it the price and how many sold in quiet
-        grey, with Preview and the more button at the right. A row only says
-        its status when it is not on sale. The bar keeps the title, Download
-        and New product, top right, so nothing floats over the list or the
-        navigation pill. From 768px the same card and the same toolbar, over
-        a light table instead of the list: the view opens a dropdown under
-        it rather than a sheet, and nothing sits between the bar and the card.
+        THE BAR, AS ORDERS' AND EMAILS': the title, then Collections (from
+        768px; on a phone it is under Products in the menu), Export and New
+        product. Export is the Download icon alone on a phone. An empty shop
+        has nothing to export or group, and its one way forward is the
+        button in the middle of the card.
       */}
-      <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
-        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{t("products.title")}</h1>
-        {/*
-          An empty shop has nothing to export, and its one way forward is the
-          button in the middle of the page. On a phone Export is Download, the
-          quiet icon beside New product: its 44px press and New product's meet
-          (6px between the press and the violet button, whose own press reaches
-          6px out), so the two drawings are 12px apart and no press overlaps.
-        */}
+      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
+        <h1 className="min-w-0 truncate text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("products.title")}</h1>
         {products.length > 0 ? (
-          <div className="flex shrink-0 items-center gap-1.5 md:gap-2 lg:gap-[9px]">
-            {/* Products › Collections, beside the list it groups (on a phone it is under Products in the menu). */}
-            <Link href="/app/products/collections" data-products-collections="" className={cn(EXPORT_LOOK, "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] max-md:hidden")}>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/app/products/collections" data-products-collections="" className={cn(buttonSecondary, "max-md:hidden")}>
               {tt("Collections")}
             </Link>
             <ResponsiveActionMenu
               title={tt("Export")}
               align="end"
               trigger={
-                <Press aria-label={tt("Export products")} className="max-md:hidden" look={EXPORT_LOOK}>
-                  {tt("Export")}
-                </Press>
-              }
-              items={exportItems}
-            />
-            <ResponsiveActionMenu
-              title={tt("Export")}
-              align="end"
-              trigger={
-                <Press aria-label={tt("Export products")} data-download="" className="md:hidden" look={DOWNLOAD_LOOK}>
+                <button type="button" aria-label={tt("Export products")} data-export="" className={cn(buttonSecondary, BAR_PRESS, "max-sm:w-8 max-sm:px-0")}>
                   <Download className="h-4 w-4" />
-                </Press>
+                  <span className="hidden sm:inline">{tt("Export")}</span>
+                </button>
               }
               items={exportItems}
             />
@@ -1097,9 +992,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               onTouchStart={warmNew}
               onPointerDown={warmNew}
               onFocus={warmNew}
-              className={NEW_LOOK}
+              className={cn(NEW_LOOK, BAR_PRESS)}
             >
-              {t("products.newProduct")}
+              <Plus className="h-4 w-4" aria-hidden />
+              <span>{t("products.newProduct")}</span>
             </Link>
           </div>
         ) : null}
@@ -1107,103 +1003,80 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
       {/* The bar stays put; the list under it is what a pull moves (components/ui/pull-to-refresh). */}
       <PullToRefresh onRefresh={refreshList}>
-      <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
-        {/* Physical products on sale that buyers can't check out with yet, and why (components/physical/readiness-banner). */}
-        <ReadinessBanner surface="products" className="mt-1 md:mt-2 lg:mt-[9px]" />
+      <div className={cn("mx-auto pb-6", LIST_WIDTH, GUTTER)}>
+        {/* Physical products on sale that buyers can't check out with yet, and why (components/physical/readiness-banner). A late one opens its room (bannerSlot). */}
+        <div ref={bannerSlot} data-readiness-slot="" className="flow-root">
+          <ReadinessBanner surface="products" className="mt-4" />
+        </div>
         <section
           ref={sectionRef}
           aria-label={tt("Products")}
-          className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]"
+          data-products-list=""
+          className={cn(card, "relative mt-4 overflow-hidden")}
         >
           {/*
-            THE TOOLBAR, THE CARD'S FIRST ROW, ON EVERY WIDTH. The view as a
-            word and an up and down chevron, opening the views alone; a
-            search with no box of its own that takes the rest of the row; a
-            thin divider; and Sort, the arrows in the faintest square,
-            opening the orders alone. Then the column's name on a phone, and
-            the table's heading from 768px.
-
-            "On desktop large screens, the search input is different from
-            that row thing, and the tabs are up there instead of being like
-            on the mobile version. Make it more good and clean: like mobile,
-            with an inline modal for All / Active / Draft / Archived." A
-            computer had a segmented control of the views and a boxed search
-            with Sort above the card, and a phone this row inside it. Now it
-            is this row everywhere, one element with one field, and only its
-            sizes and what a pick opens change with the width (./pick-sheet:
-            a sheet on a phone, the app's dropdown from 768px).
-
-            A PHONE: 48px, every press 44px, the search in 16px so iOS does
-            not zoom into it. FROM 768px: the buttons, the field and Sort at
-            the bar's 32px, in 48px, and from 1024px the page's 7% and 3%
-            (35px in 53px, 14.5px words). The row's insides line up with the
-            table under it: the view's word starts where the Product column
-            does (16px, 18 from 1024px, 22 from 1280px) and Sort ends where
-            the rows' more buttons end (12, 13 and 18px from the right).
+            THE TOOLBAR, ORDERS' TO THE LETTER: one 48px row, the same height
+            whether searching or not. The views as tabs (only the ones with
+            something in them, plus the open one), then Search and Sort at
+            the right. Search swaps the tabs for a boxed field and Cancel.
+            Sort opens the orders alone (./pick-sheet: a sheet on a phone,
+            the app's dropdown from 768px).
           */}
           {products.length > 0 ? (
-            <>
-              <div
-                data-toolbar=""
-                className="flex h-12 items-center gap-1 border-b border-[#eef0f2] pl-0.5 pr-1.5 md:pl-2 md:pr-3 lg:h-[53px] lg:gap-[5px] lg:pl-[9px] lg:pr-[13px] xl:pl-[13px] xl:pr-[18px]"
-              >
-                <PickSheet
-                  name="views"
-                  title={tt("View")}
-                  options={views}
-                  value={view}
-                  onPick={pickView}
-                  trigger={
-                    <button
-                      type="button"
-                      data-view-select=""
-                      aria-label={tt("Showing {viewLabel}. Change view", { viewLabel })}
-                      className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef] lg:h-[35px] lg:gap-[5px] lg:px-[9px] lg:text-[14.5px]"
-                    >
-                      {/* Its own element: see TRANSLATED TEXT below. */}
-                      <span>{viewLabel}</span>
-                      <ChevronsUpDown className="h-4 w-4 text-[#6b7280] md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" aria-hidden />
-                    </button>
-                  }
-                />
-                <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1.5 md:h-8 md:pl-2 lg:h-[35px] lg:gap-[9px] lg:pl-[9px]">
-                  <Search className="h-4 w-4 shrink-0 text-[#9ca3af] md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" aria-hidden />
-                  <input
-                    ref={searchInputRef}
-                    type="search"
-                    enterKeyHint="search"
-                    aria-label={tt("Search products")}
-                    value={searchQuery}
-                    onChange={(e) => search(e.target.value)}
-                    onKeyDown={searchKey}
-                    placeholder={tt("Search products")}
-                    className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:h-8 md:text-[13px] lg:h-[35px] lg:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
-                  />
-                  {searchQuery ? (
-                    <button type="button" aria-label={tt("Clear search")} className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] active:text-[#4b5563] md:h-8 md:w-8 md:hover:text-[#4b5563] lg:h-[35px] lg:w-[35px]" onClick={clearSearch}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : null}
-                </label>
-                <span aria-hidden data-divider="" className="h-6 w-px shrink-0 bg-[#e5e7eb] md:h-5 lg:h-[22px]" />
-                <PickSheet
-                  name="sort"
-                  title={tt("Sort by")}
-                  options={SORTS}
-                  value={sort}
-                  onPick={pickSort}
-                  align="end"
-                  trigger={
-                    <Press aria-label={tt("Sort")} data-sort="" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open/press:bg-[#ececef]")}>
-                      <ArrowUpDown className="h-4 w-4 md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" />
-                    </Press>
-                  }
-                />
-              </div>
-              <div data-list-head="" aria-hidden hidden={pageProducts.length === 0} className="flex h-9 items-center border-b border-[#eef0f2] px-3 text-[12px] font-medium text-[#6b7280] md:hidden">
-                {tt("Product")}
-              </div>
-            </>
+            <div data-toolbar="" className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
+              {searching ? (
+                <>
+                  <label data-search="" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] max-sm:h-9">
+                    <Search className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
+                    <input
+                      ref={searchInputRef}
+                      type="search"
+                      enterKeyHint="search"
+                      aria-label={tt("Search products")}
+                      value={searchQuery}
+                      onChange={(e) => search(e.target.value)}
+                      onKeyDown={searchKey}
+                      placeholder={tt("Search products")}
+                      className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] max-sm:text-[16px] [&::-webkit-search-cancel-button]:hidden"
+                    />
+                    {searchQuery ? (
+                      <button type="button" aria-label={tt("Clear search")} className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center text-[#9ca3af] hover:text-[#4b5563]" onClick={clearSearch}>
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </label>
+                  <button type="button" data-search-cancel="" className="h-8 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] max-sm:h-9 max-sm:text-[15px]" onClick={closeSearch}>
+                    {tt("Cancel")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <ViewTabs views={views} value={view} onPick={showView} />
+                  <button type="button" data-search-open="" aria-label={tt("Search products")} title={tt("Search products")} className={cn(iconButton, "ml-auto shrink-0 max-sm:h-9 max-sm:w-9")} onClick={openSearch}>
+                    <Search className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+              <PickSheet
+                name="sort"
+                title={tt("Sort by")}
+                options={SORTS}
+                value={sort}
+                onPick={pickSort}
+                align="end"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={tt("Sort")}
+                    title={tt("Sort")}
+                    data-sort=""
+                    className={cn(iconButton, "shrink-0 max-sm:h-9 max-sm:w-9 data-open:bg-[#eceef1]", sort !== "newest" && "bg-[#eceef1] text-[#1a1a2e]")}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </button>
+                }
+              />
+            </div>
           ) : null}
 
           {/*
@@ -1215,57 +1088,43 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           {drawn.length > 0 ? (
             <>
               {/*
-                A PHONE: one 64px row per product inside the card, the whole
-                row the press. The picture at 50px, the name on one line, and
-                under it the price and sales in grey, ending in an ellipsis
-                when they do not fit. A Draft says so with a small amber dot
-                in All, where live and draft products are mixed; in its own
-                view the sheet already says it. The hairline between rows
-                starts where the text does, on every row shown after another
-                shown row. At the right, Preview and the more button, 32px
-                each and 12px apart, on the row's middle; the name gives way
-                (an ellipsis) before they move.
+                A PHONE: Orders' and Emails' stacked row, with the picture in
+                front. The name at 17px and the price at the right of it,
+                then the status as Orders' badge and how many sold in grey.
+                The whole row opens the product; the more button is at the
+                end, where a thumb is. Every row is the same height, so a
+                hidden one coming back moves nothing but itself.
               */}
               <ul aria-label={tt("Products")} data-list="" className="md:hidden" hidden={pageProducts.length === 0}>
-                {drawn.map((product) => {
-                  const status = productStatus(product)
-                  return (
-                    <PhoneRow
-                      key={product.id}
-                      product={product}
-                      hidden={!shownIds.has(product.id)}
-                      mark={view === "all" && status !== "live" ? statusLabel[status] : null}
-                      opening={opening === product.id}
-                      username={creatorUsername}
-                      labels={rowLabels}
-                      api={rowApi}
-                    />
-                  )
-                })}
+                {drawn.map((product) => (
+                  <PhoneRow
+                    key={product.id}
+                    product={product}
+                    hidden={!shownIds.has(product.id)}
+                    opening={opening === product.id}
+                    statusText={statusLabel[productStatus(product)]}
+                    username={creatorUsername}
+                    labels={rowLabels}
+                    api={rowApi}
+                  />
+                ))}
               </ul>
 
               {/*
-                A COMPUTER: the same parts as a light table. 56px rows with a
-                40px picture and 13px text (64px rows, a 44px picture and 14px
-                names from 1280px), and bigger from 1024px (7%, then 3%):
-                62 and 70px rows, 44 and 48px pictures, 14.5 and 15.5px
-                text. The status as a
-                dot and a word rather than a tinted badge, numbers right
-                aligned in figures of one width, and the whole row opens the
-                product. No grey heading band and no line above the first row
-                shown. Sales joins from 1024px, where the sidebar leaves room
-                for it. Preview and the more button share the last column;
-                under 1024px Status and Price are 96 and 88px, so the name
-                keeps the room it had.
+                FROM 768px: Emails' table. A quiet grey heading, 56px rows
+                with a 40px picture and 13px text, the status as a badge,
+                numbers right aligned in figures of one width (Sales from
+                1024px), and the more button last. The whole row opens the
+                product.
               */}
-              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14.5px]" hidden={pageProducts.length === 0}>
+              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table" hidden={pageProducts.length === 0}>
                 <thead>
-                  <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13.5px] xl:h-[44px]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">{tt("Product")}</th>
-                    <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">{tt("Status")}</th>
-                    <th scope="col" className="hidden w-[97px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[110px]">{tt("Sales")}</th>
-                    <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">{tt("Price")}</th>
-                    <th scope="col" className="w-[106px] border-b border-[#eef0f2] lg:w-[117px] xl:w-[124px]" aria-label={tt("Actions")} />
+                  <tr className="h-9 text-left text-[12px] font-medium text-[#4b5563]">
+                    <th scope="col" className="border-b border-[#eef0f2] bg-[#fafbfb] pl-4 pr-3 font-medium">{tt("Product")}</th>
+                    <th scope="col" className="w-[120px] border-b border-[#eef0f2] bg-[#fafbfb] px-3 font-medium">{tt("Status")}</th>
+                    <th scope="col" className="hidden w-[96px] border-b border-[#eef0f2] bg-[#fafbfb] px-3 text-right font-medium lg:table-cell">{tt("Sales")}</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] bg-[#fafbfb] px-3 text-right font-medium">{tt("Price")}</th>
+                    <th scope="col" className="w-14 border-b border-[#eef0f2] bg-[#fafbfb]" aria-label={tt("Actions")} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1286,9 +1145,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             </>
           ) : null}
           {pageProducts.length === 0 ? (
-            <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
-              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{emptyTitle}</p>
-              <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:max-w-[352px] lg:text-[14.5px]">
+            <div data-empty="" className="flex flex-col items-center px-6 py-14 text-center">
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{emptyTitle}</p>
+              <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
                 {searchQuery
                   ? tt("Try another name, or clear the search.")
                   : products.length === 0
@@ -1298,16 +1157,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       : tt("Nothing in this view right now.")}
               </p>
               {searchQuery ? (
-                <Press className="mt-4 max-md:mt-2.5" look={cn(SECONDARY_LOOK, BAR_BUTTON_SIZE)} onClick={clearSearch}>
+                <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={clearSearch}>
                   {tt("Clear search")}
-                </Press>
+                </button>
               ) : products.length === 0 ? (
                 <Link
                   href="/app/products/new"
                   onClick={askNew}
                   onMouseEnter={warmNew}
                   onTouchStart={warmNew}
-                  className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}
+                  className={cn(NEW_LOOK, "mt-4 max-sm:h-10 max-sm:px-4 max-sm:text-[14px]")}
                 >
                   {tt("Create product")}
                 </Link>
@@ -1316,30 +1175,30 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           ) : null}
 
           {/*
-            THE FOOTER. On a computer it counts what is shown, as Orders'
-            does. On a phone a count of the rows you can see is noise, so it
-            is drawn only when there is a second page to go to.
+            THE FOOTER, ORDERS': the count of what is shown and the arrows,
+            on the faintest grey. On a phone a count of the rows you can see
+            is noise, so it is drawn only when there is a second page.
           */}
           {filteredProducts.length > 0 ? (
             <div
               data-footer=""
               className={cn(
-                "flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] pl-3 pr-1.5 md:h-10 md:px-4 lg:h-[44px] lg:px-[18px] xl:h-[48px] xl:px-[22px]",
+                "flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3",
                 pages === 1 && "max-md:hidden",
               )}
             >
-              <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">
+              <span className="text-[12px] tabular-nums text-[#6b7280] max-sm:text-[14px]">
                 {/* One string, so a page turn replaces the words (see TRANSLATED TEXT below). */}
                 {tt("{value}–{value2} of {value3}", { value: from + 1, value2: from + pageProducts.length, value3: filteredProducts.length.toLocaleString(appLocale()) })}
               </span>
               {pages > 1 ? (
-                <div className="flex items-center gap-1 max-md:gap-0">
-                  <Press aria-label={tt("Previous page")} look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
+                <div className="flex items-center gap-1">
+                  <button type="button" aria-label={tt("Previous page")} className={cn(buttonSecondary, BAR_PRESS, "h-7 w-8 px-0 max-sm:h-9 max-sm:w-10")} disabled={pageNow <= 1} onClick={() => setPage(pageNow - 1)}>
                     <ChevronLeft className="h-4 w-4" />
-                  </Press>
-                  <Press aria-label={tt("Next page")} look={cn(SECONDARY_LOOK, "h-7 w-8 px-0 lg:h-[31px] lg:w-[35px]")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
+                  </button>
+                  <button type="button" aria-label={tt("Next page")} className={cn(buttonSecondary, BAR_PRESS, "h-7 w-8 px-0 max-sm:h-9 max-sm:w-10")} disabled={pageNow >= pages} onClick={() => setPage(pageNow + 1)}>
                     <ChevronRight className="h-4 w-4" />
-                  </Press>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1415,6 +1274,44 @@ function productStatus(product: Product): Status {
   return isArchived(product) ? "archived" : product.status === "published" ? "live" : "draft"
 }
 
+/** Orders' badge tones: on sale in green, a draft in amber (it is not on sale), archived in grey. */
+const STATUS_TONE: Record<Status, "success" | "attention" | "neutral"> = { live: "success", draft: "attention", archived: "neutral" }
+
+/** BANNER_IN_MS: a late readiness banner opening its room (see bannerSlot). */
+const BANNER_IN_MS = 240
+
+/**
+ * THE VIEWS AS TABS, Orders' ViewTabs: a word each, the open one on a grey
+ * pill, a strip that scrolls sideways when a language makes it wider than
+ * the phone. A pick is played by ./list-motion.
+ */
+function ViewTabs({ views, value, onPick }: { views: Array<{ value: View; label: string }>; value: View; onPick: (next: View) => void }) {
+  return (
+    <div role="tablist" aria-label={tt("Views")} data-views="" className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2">
+      {views.map((v) => {
+        const active = v.value === value
+        return (
+          <button
+            key={v.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-view={v.value}
+            onClick={() => onPick(v.value)}
+            className={cn(
+              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 [-webkit-tap-highlight-color:transparent] max-sm:h-9 max-sm:text-[15px]",
+              active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+            )}
+          >
+            {/* Its own element: see TRANSLATED TEXT below. */}
+            <span>{v.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** What the rows call on, read at the moment of a press: the page keeps it current (rowApi). */
 interface RowApi {
   /** A pointer rests on a row for WARM_REST_MS, or has left it. */
@@ -1425,8 +1322,8 @@ interface RowApi {
   /** The product's editor, from its link (a modifier key left to the browser) or from anywhere else on its row. */
   open: (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
   openRow: (id: string) => void
-  openPreview: (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
-  previewOff: (e: ReactMouseEvent<HTMLButtonElement>) => void
+  /** In the app, View opens the phone's browser instead of a tab; null in a browser. */
+  viewIn: ((url: string) => void) | null
   share: (product: Product) => void
   archive: (product: Product) => void
   duplicate: (product: Product) => void
@@ -1441,18 +1338,28 @@ interface RowLabels {
   duplicate: string
 }
 
-/** A row's menu, made once per product: View, Share, Archive or Restore, Duplicate, and Delete last. */
-function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef) {
-  return useMemo(
-    () => [
-      { label: labels.view, href: viewUrl(product, username), target: "_blank" as const },
+/**
+ * A row's menu, made once per product: Edit, View, Share, then Archive or
+ * Restore and Duplicate, and Delete last. View is a link to the product's
+ * page in a new tab; a product with no public page has it off, with why.
+ */
+function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef): ActionMenuItem[] {
+  return useMemo(() => {
+    const url = viewUrl(product, username)
+    const live = productStatus(product) === "live"
+    return [
+      { label: tt("Edit"), onClick: () => api.current?.openRow(product.id) },
+      live
+        ? api.current?.viewIn
+          ? { label: labels.view, onClick: () => api.current?.viewIn?.(url) }
+          : { label: labels.view, href: url, target: "_blank" as const }
+        : { label: labels.view, disabled: true, hint: tt("Publish to view") },
       { label: labels.share, onClick: () => api.current?.share(product) },
       { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
       { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
       { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => api.current?.remove(product) },
-    ],
-    [product, username, labels, api],
-  )
+    ]
+  }, [product, username, labels, api])
 }
 
 /**
@@ -1466,60 +1373,26 @@ function viewUrl(product: Product, username: string): string {
 }
 
 /**
- * A row's View, in the table only: a link to the product's page in a new
- * tab, or, for a product that has no public page, the same word drawn off,
- * with why on a pointer. A phone row has only the more button, whose menu
- * starts with View.
- */
-function Preview({ product, username, look, api }: { product: Product; username: string; look: string; api: RowApiRef }) {
-  const on = productStatus(product) === "live"
-  const url = viewUrl(product, username)
-  const button = on ? (
-    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={tt("View {title}", { title: product.title })} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
-      {tt("View")}
-    </a>
-  ) : (
-    <button type="button" data-preview="" aria-disabled="true" aria-label={tt("View {title}", { title: product.title })} onClick={(e) => api.current?.previewOff(e)} className={look}>
-      {tt("View")}
-    </button>
-  )
-  if (on) return button
-  /* Why it is off, on a pointer: a product with no public page has nothing to view yet. */
-  return (
-    <Tooltip delayDuration={400}>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-        {tt("Publish to view")}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-/**
- * A PHONE'S ROW (see the list's note in ProductsClient). `mark` is the
- * status word, only for a row that is not on sale, in All.
- *
- * `content-visibility: auto`: a row off the screen is not styled, laid out
- * or painted until it scrolls near. Fifty rows are one screen's twelve and
- * thirty eight nobody is looking at, and a change that restyles the page (a
- * sheet opening, whose `html:has()` rules make the browser look at every
- * link again) or lays it out (a new order) paid for all fifty. The row is
- * 64px whatever is in it, so skipping its contents moves nothing.
+ * A PHONE'S ROW (see the list's note in ProductsClient). One link covers the
+ * row and is the press. A finger tints it only once it has stayed on the row
+ * (lib/press-mark: 120ms, and never once it moves), so a scroll that starts
+ * on a row lights nothing; the row you opened holds its tint while the
+ * editor is on its way.
  */
 const PhoneRow = memo(function PhoneRow({
   product,
   hidden,
-  mark,
   opening,
+  statusText,
   username,
   labels,
   api,
 }: {
   product: Product
   hidden: boolean
-  mark: string | null
-  /** This row was pressed and its editor is on its way: it holds its tint, a spinner where Preview was. */
+  /** This row was pressed and its editor is on its way: it holds its tint, a spinner where the more button's neighbour is. */
   opening: boolean
+  statusText: string
   username: string
   labels: RowLabels
   api: RowApiRef
@@ -1532,11 +1405,11 @@ const PhoneRow = memo(function PhoneRow({
       data-row={product.id}
       hidden={hidden}
       data-opening={opening ? "" : undefined}
-      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] data-[pressed]:bg-[#eef0f2] data-[opening]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
+      className="relative flex items-center gap-3 py-3 pl-4 pr-1.5 transition-colors duration-75 data-[pressed]:bg-[#f4f5f7] data-[opening]:bg-[#f4f5f7] [li:not([hidden])~&]:border-t [li:not([hidden])~&]:border-[#f1f2f4]"
     >
       <Link
         href={href}
-        aria-label={product.title}
+        aria-label={product.title || tt("Untitled draft")}
         data-row-link=""
         onTouchStart={() => api.current?.warm(product.id)}
         onClick={(e) => api.current?.open(product.id)(e)}
@@ -1545,32 +1418,28 @@ const PhoneRow = memo(function PhoneRow({
         onPointerDown={() => api.current?.warm(product.id)}
         onFocus={() => api.current?.warm(product.id)}
         {...pressMark}
-        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
+        className="absolute inset-0 z-0 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
       />
       <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
       <span className="pointer-events-none min-w-0 flex-1">
-        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title || tt("Untitled draft")}</span>
-        <span data-meta="" className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
-          {mark ? (
-            <>
-              <StatusMark status={status} label={mark} />
-              <Sep />
-            </>
-          ) : null}
-          <span data-price="" className="tabular-nums"><PriceOf cents={product.price_cents} type={product.type} /></span>
+        <span className="flex min-w-0 items-baseline justify-between gap-3">
+          <span data-name="" className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e]">{product.title || tt("Untitled draft")}</span>
+          <span data-price="" className="shrink-0 text-[16px] font-medium tabular-nums text-[#1a1a2e]"><PriceOf cents={product.price_cents} type={product.type} /></span>
+        </span>
+        <span data-meta="" className="mt-1 flex h-[22px] min-w-0 items-center gap-2">
+          <StatusBadge tone={STATUS_TONE[status]} className="shrink-0">
+            <span>{statusText}</span>
+          </StatusBadge>
           {product.sales_count ? (
-            <>
-              <Sep />
-              <span className="tabular-nums">{tt("{value} sold", { value: product.sales_count.toLocaleString(appLocale()) })}</span>
-            </>
+            <span className="truncate text-[14px] tabular-nums text-[#6b7280]">{tt("{value} sold", { value: product.sales_count.toLocaleString(appLocale()) })}</span>
           ) : null}
         </span>
       </span>
-      {opening ? <OpeningMark size="phone" /> : null}
+      {opening ? <OpeningMark /> : null}
       <ResponsiveActionMenu
         title={product.title}
         align="end"
-        trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={ROW_MENU_PHONE} />}
+        trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={cn(ROW_MENU, "h-11 w-11")} />}
         items={items}
       />
     </li>
@@ -1598,12 +1467,14 @@ const TableRow = memo(function TableRow({
   const status = productStatus(product)
   const href = `/app/products/${product.id}`
   const items = useRowActions(product, username, labels, api)
+  /* The cells are white and paint over their row, so the hover, the press and the opening tint are the cells'. */
+  const cell = "bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-data-[opening]:bg-[#f4f5f7] [tr:not([hidden])~tr>&]:border-t [tr:not([hidden])~tr>&]:border-[#f1f2f4]"
   return (
     <tr
       data-row={product.id}
       hidden={hidden}
       data-opening={opening ? "" : undefined}
-      className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4] data-[opening]:[&>td]:bg-[#f4f5f7]"
+      className="group h-14 cursor-pointer"
       onMouseEnter={() => api.current?.rest(product.id)}
       onMouseLeave={() => api.current?.leave()}
       onPointerDown={() => api.current?.warm(product.id)}
@@ -1615,34 +1486,37 @@ const TableRow = memo(function TableRow({
         api.current?.openRow(product.id)
       }}
     >
-      <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">
-        <div className="flex min-w-0 items-center gap-3 lg:gap-[13px]">
+      <td className={cn(cell, "pl-4 pr-3")}>
+        <div className="flex min-w-0 items-center gap-3">
           <Thumb src={product.thumbnail_url} title={product.title} size="table" />
           <Link
             href={href}
             onClick={(e) => api.current?.open(product.id)(e)}
-            className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
+            className="min-w-0 truncate font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
           >
             {product.title || tt("Untitled draft")}
           </Link>
         </div>
       </td>
-      <td className="whitespace-nowrap bg-white px-3 group-hover:bg-[#fafafb] lg:px-[13px]">
-        <StatusMark status={status} label={statusText} strong={status === "live"} />
+      <td className={cn(cell, "whitespace-nowrap px-3")}>
+        <StatusBadge tone={STATUS_TONE[status]}>
+          <span>{statusText}</span>
+        </StatusBadge>
       </td>
-      <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
-        {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#b6bac1]">0</span>}
+      <td className={cn(cell, "hidden whitespace-nowrap px-3 text-right tabular-nums text-[#4b5563] lg:table-cell")}>
+        {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#9ca3af]">0</span>}
       </td>
-      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]"><PriceOf cents={product.price_cents} type={product.type} /></td>
-      <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
-        <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-          {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={VIEW_TABLE} api={api} />}
-          <ResponsiveActionMenu
-            title={product.title}
-            align="end"
-            trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={ROW_MENU_TABLE} />}
-            items={items}
-          />
+      <td className={cn(cell, "whitespace-nowrap px-3 text-right font-medium tabular-nums text-[#1a1a2e]")}><PriceOf cents={product.price_cents} type={product.type} /></td>
+      <td className={cn(cell, "pr-2 text-right")}>
+        <div data-row-actions="" className="flex items-center justify-end">
+          {opening ? <OpeningMark /> : (
+            <ResponsiveActionMenu
+              title={product.title}
+              align="end"
+              trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={ROW_MENU} />}
+              items={items}
+            />
+          )}
         </div>
       </td>
     </tr>
@@ -1650,16 +1524,16 @@ const TableRow = memo(function TableRow({
 })
 
 /**
- * Where a pressed row's Preview was while its editor is on its way: the
- * spinner, in the button's own box, fading in only once the wait has lasted
- * LAYER_PRESS_WAIT_MS (components/app/page-layer), so a warm editor, which
- * rises well inside that, shows the tint alone.
+ * A pressed row's sign that its editor is on its way: the spinner, fading
+ * in only once the wait has lasted LAYER_PRESS_WAIT_MS (components/app/
+ * page-layer), so a warm editor, which rises well inside that, shows the
+ * tint alone.
  */
-function OpeningMark({ size }: { size: "phone" | "table" }) {
+function OpeningMark() {
   return (
     <span
       data-row-opening=""
-      className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[31px] lg:w-[31px]")}
+      className="relative z-[1] grid h-8 w-8 shrink-0 place-items-center"
       style={{ animation: `press-spinner-in 120ms ease-out ${LAYER_PRESS_WAIT_MS}ms both` }}
     >
       <ActivitySpinner size={16} label={tt("Opening")} className="text-[#4b5563]" />
@@ -1687,41 +1561,11 @@ function PriceOf({ cents, type }: { cents: number; type?: string | null }) {
   return <>{cents > 0 ? formatMoney(cents, productPriceCurrency({ type }, store)) : "Free"}</>
 }
 
-/** The middle dot between the parts of a phone row's second line, which ends in an ellipsis when it does not fit. */
-function Sep() {
-  return (
-    <span aria-hidden className="mx-1.5 text-[#c4c8ce]">
-      &middot;
-    </span>
-  )
-}
-
 /**
- * A status as a small dot and a word, instead of a tinted badge. Amber for a
- * draft (it is not on sale), grey for archived, green for live, which only
- * the table's Status column draws: a phone row that is on sale says nothing.
- */
-function StatusMark({ status, label, strong = false }: { status: Status; label: string; strong?: boolean }) {
-  return (
-    <span data-status={status} className={cn("inline-flex items-center gap-1.5 align-top", strong ? "text-[#303036]" : "text-[#6b7280]")}>
-      <span
-        aria-hidden
-        className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full",
-          status === "live" ? "bg-[#22a06b]" : status === "draft" ? "bg-[#e0a100]" : "bg-[#b6bac1]",
-        )}
-      />
-      <span>{label}</span>
-    </span>
-  )
-}
-
-/**
- * A product's picture: 50px on a phone and 40px in the table (44 from
- * 1024px, 48 from 1280px), rounded in proportion, with a hairline drawn inside it so a white
- * cover still has an edge. With no picture, the name's first letter on grey
- * rather than a stock box icon, so two products without covers can still be
- * told apart.
+ * A product's picture: 48px on a phone and 40px in the table, rounded in
+ * proportion, with a hairline drawn inside it so a white cover still has an
+ * edge. With no picture, the name's first letter on grey rather than a stock
+ * box icon, so two products without covers can still be told apart.
  *
  * The grey is under the picture too, so a picture still on its way shows
  * grey, never white. Its box is its size exactly, decoded off the main
@@ -1738,7 +1582,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
       data-thumb=""
       className={cn(
         "pointer-events-none relative shrink-0 overflow-hidden bg-[#eceef1] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] after:content-['']",
-        phone ? "h-[50px] w-[50px] rounded-[11px]" : "h-10 w-10 rounded-[9px] lg:h-[44px] lg:w-[44px] lg:rounded-[10px] xl:h-[48px] xl:w-[48px] xl:rounded-[11px]",
+        phone ? "h-12 w-12 rounded-[10px]" : "h-10 w-10 rounded-[9px]",
       )}
     >
       {src ? (
@@ -1756,7 +1600,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px] lg:text-[16.5px]")}>
+        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
           {letter}
         </span>
       )}

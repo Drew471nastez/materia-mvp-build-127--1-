@@ -29,7 +29,11 @@
  *                  code, which only the checkout knows)
  *   freeShipping   an offer the cart gets makes its shipping free
  *   offers         each offer the cart gets now, with what it saves
- *   lines          what each item it priced gets off, in the order sent
+ *   lines          what each item it priced gets off, in the order sent:
+ *                  its unit price and quantity as the server priced them,
+ *                  its discount, and each offer's part of it, so a cart in
+ *                  a market's currency converts each line as checkout does
+ *                  (lib/markets/cart-money offerSavingsShown)
  *   suggestions    checkout offers shown in the cart that this cart
  *                  qualifies for, their product not in it yet
  *   completions    bundles shown in the cart that it holds part of, with the
@@ -50,6 +54,8 @@ export interface OfferItem {
   priceCents: number
   /** In stock or selling past it, active (lib/offers/offers-server.ts offerProducts): an option that cannot be bought is not offered. */
   variants: { id: string; name: string; priceCents: number }[]
+  /** Pay what you want: at its minimum, counted in a set, never discounted. */
+  payWhatYouWant?: boolean
 }
 
 export interface CartOffersAnswer {
@@ -59,7 +65,7 @@ export interface CartOffersAnswer {
   totalCents: number
   freeShipping: boolean
   offers: { offerId: string; title: string; savedCents: number; freeShipping: boolean }[]
-  lines: { productId: string; variantId: string | null; discountCents: number }[]
+  lines: { productId: string; variantId: string | null; discountCents: number; unitCents?: number; quantity?: number; offers?: { offerId: string; title: string; savedCents: number }[] }[]
   suggestions: { offerId: string; title: string; label: string | null; product: OfferItem; offerPriceCents: number }[]
   completions: { offerId: string; title: string; label: string | null; missing: OfferItem[]; savingCents: number }[]
 }

@@ -524,11 +524,18 @@ export function useShownSearch(): string {
  * next.config.mjs), so the click that follows lands on the next frame. Used
  * for the sidebar and pill rows, on hover, focus and the pill's mount.
  */
-export function prefetchAppPage(router: { prefetch: (href: string, options?: never) => void }, href: string) {
+export function prefetchAppPage(
+  router: { prefetch: (href: string, options?: never) => void },
+  href: string,
+  options?: { keepWarm?: boolean },
+) {
+  const onInvalidate = options?.keepWarm ? keepWarmListener(router, href) : undefined
   try {
-    router.prefetch(href, { kind: "full" } as never)
+    if (onInvalidate) router.prefetch(href, { kind: "full", onInvalidate } as never)
+    else router.prefetch(href, { kind: "full" } as never)
   } catch {
     /* a prefetch that fails is a click that waits, nothing worse */
+    if (onInvalidate) warmListening.delete(href)
   }
   /* Analytics' page is quick; its numbers are what take the time. They are
      fetched ahead too, and kept for the page (lib/analytics/report-cache). */
@@ -544,6 +551,45 @@ export function prefetchAppPage(router: { prefetch: (href: string, options?: nev
   if (href === "/app/payouts") {
     import("@/lib/payments/overview-cache").then((m) => m.warmOverview()).catch(() => {})
   }
+}
+
+/**
+ * KEPT WARM THROUGH A REFRESH. Every router.refresh() (a pull to refresh, a
+ * save, PlanWatch) purges the router's whole cache in Next 16
+ * (refresh-reducer: revalidateEntireCache), not only the page refreshed. The
+ * pill warmed its four pages once, on mount, so after one pull on Orders the
+ * next press on Home, Products or Analytics waited for the server with the
+ * spinner up, for the rest of the five minutes. A page asked for with
+ * keepWarm is asked for again when the router drops it: `onInvalidate`, which
+ * Next calls once per prefetch, only on a real invalidation. After
+ * REWARM_AFTER_MS, so the refresh's own request goes first, and not while a
+ * navigation is under way or the app is in the background (the pill warms
+ * again on its return).
+ */
+export const REWARM_AFTER_MS = 1_200
+const warmListening = new Set<string>()
+
+function keepWarmListener(router: { prefetch: (href: string, options?: never) => void }, href: string): (() => void) | undefined {
+  /* One listener per page: a press on a warm tab does not stack a second. */
+  if (warmListening.has(href)) return undefined
+  warmListening.add(href)
+  return () => {
+    warmListening.delete(href)
+    const again = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+      if (getAppNavigation()) {
+        setTimeout(again, REWARM_AFTER_MS)
+        return
+      }
+      prefetchAppPage(router, href, { keepWarm: true })
+    }
+    setTimeout(again, REWARM_AFTER_MS)
+  }
+}
+
+/** For tests: forget which pages have a listener. */
+export function forgetKeptWarm() {
+  warmListening.clear()
 }
 
 /* ── Where the reader was, per address ─────────────────────────────────── */

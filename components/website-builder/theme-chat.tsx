@@ -1558,6 +1558,8 @@ function ThemeChatPanel({
 
       /** One snapshot, before anything moves, so Undo takes back the whole run. */
       let snapshotTaken = false
+      /* A file was written during the run: a dropped stream reads the theme back (below). */
+      let wroteCode = false
       let uploadStep = -1
       /** The run has said its last word: the chime has played, or an error made it unnecessary. */
       let finished = false
@@ -1695,7 +1697,10 @@ function ThemeChatPanel({
                 }
               } else if (type === "code") {
                 /* Checked already: drawn now, saved when the run ends. The step that wrote it changed its sections. */
-                if (typeof event.path === "string" && typeof event.source === "string") onSourceWritten?.(event.path, event.source)
+                if (typeof event.path === "string" && typeof event.source === "string") {
+                  wroteCode = true
+                  onSourceWritten?.(event.path, event.source)
+                }
                 for (const id of stepSections) changed.add(id)
               } else if (type === "page") {
                 /* Another page of the site was written as a draft: the editor lists it, and loads it when it is opened. */
@@ -1758,6 +1763,8 @@ function ThemeChatPanel({
         if (!result.ok) {
           patch((e) => ({ ...e, running: false, sent: true, error: result.error ?? tt("That did not go through."), activity: settleActivity(e.activity, true) }))
           if (!finished) playAskSound("error")
+          /* Part of the run may be saved already: the editor reads what is stored, rather than waiting for a reload. */
+          if (snapshotTaken || wroteCode) onSourcesChanged?.()
           return
         }
         patch((e) => ({ ...e, running: false, activity: settleActivity(e.activity) }))
@@ -1780,6 +1787,23 @@ function ThemeChatPanel({
           error: stopped ? undefined : tt("Lost the connection. Anything already changed is still here."),
           reply: stopped ? e.reply ?? tt("Stopped.") : e.reply,
         }))
+        /*
+          THE STREAM WENT, NOT THE RUN. A phone put away mid-run drops the
+          stream before "sources-changed" arrives, and what the run saved
+          showed only after the editor was reloaded. The files are read back
+          now, and again when the tab is next on screen.
+        */
+        if (!stopped && (snapshotTaken || wroteCode)) {
+          onSourcesChanged?.()
+          if (typeof document !== "undefined") {
+            const again = () => {
+              if (document.visibilityState !== "visible") return
+              document.removeEventListener("visibilitychange", again)
+              onSourcesChanged?.()
+            }
+            document.addEventListener("visibilitychange", again)
+          }
+        }
       } finally {
         abortRef.current = null
         /* A long task, in parts: up to MAX_CONTINUES more runs, each picking up from the conversation. A stop ends it. */

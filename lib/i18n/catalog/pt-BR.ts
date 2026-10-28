@@ -11025,6 +11025,7 @@ const words: Record<string, string> = {
  "{title} (Copy)": "{title} (cópia)",
  "{title} added": "{title} adicionado",
  "{title} also has the quantity break “{offer}”. Only one applies to it: the one that saves more on the whole cart.": "{title} também tem o desconto por quantidade “{offer}”. Só um se aplica: o que economiza mais no carrinho todo.",
+ "{title} is one per order, so buyers can't reach these tiers. Quantity breaks are for products that ship.": "{title} é um por pedido, então os compradores não chegam a essas faixas. Descontos por quantidade são para produtos que são enviados.",
  "{title} deleted": "{title} excluída",
  "{title} gets no shipping price": "{title} não recebe preço de frete",
  "{title} has no shipping rate": "{title} não tem tarifa de envio",

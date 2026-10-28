@@ -127,7 +127,8 @@ check("one component on the /app home's own engine (the hook; the spokes in thei
 check("it finds the scroller: inside (a page scroll box), around (/app), or the document", /\[data-pull-scroller\], \.page-scroll/.test(ptr) && /closest<HTMLElement>\("\.app-content-scroll"\)/.test(ptr) && /document\.scrollingElement/.test(ptr))
 check("the event contract: storelib:pull-refresh with a scope, waiting on detail.done", /export const PULL_REFRESH_EVENT = "storelib:pull-refresh"/.test(ptr) && /new CustomEvent<PullRefreshDetail>\(PULL_REFRESH_EVENT, \{ detail \}\)/.test(ptr) && /Promise\.resolve\(detail\.done\)/.test(ptr))
 check("router.refresh on a pull is not wrapped in startTransition (no stacked duplicate UI under a transform)", !/startTransition\(\(\) => router\.refresh/.test(ptr) && /router\.refresh\(\)/.test(ptr))
-check("a refresh that never ends still lets the ring go", /REFRESH_MAX_MS = 10_000/.test(ptr))
+/* Changed on purpose (round 26, tests/nav-speed.test.ts): the ring goes at the pull's own cap (lib/ui/pull-refresh-cap PULL_SPIN_MAX_MS, 1.8s), not at 10s; the refresh carries on behind it. */
+check("a refresh that never ends still lets the ring go", /REFRESH_MAX_MS = PULL_SPIN_MAX_MS/.test(ptr) && /export const PULL_SPIN_MAX_MS = 1_800/.test(code("lib/ui/pull-refresh-cap.ts")))
 const hook = code("hooks/use-pull-to-refresh.ts")
 check("pull to refresh cancels cleanly when navigation interrupts it", /export function cancelAllPullToRefresh/.test(hook) && /cancelAllPullToRefresh\(\)/.test(ptr))
 check("the hook takes a document scroller: touches on the page's own wrapper, its top watched against the viewport", /listenOn\?: React\.RefObject/.test(hook) && /root: isDocument \? null : el/.test(hook) && /target\.addEventListener\("touchstart"/.test(hook))

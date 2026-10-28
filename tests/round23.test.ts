@@ -49,7 +49,7 @@ async function main() {
   check("the route answers by the contract's type, with the server's own subtotal and the store's currency", /const answer: CartOffersAnswer = \{/.test(route) && /const subtotalCents = priced\.reduce\(\(n, l\) => n \+ l\.unitCents \* l\.quantity, 0\)/.test(route) && /readStoreCurrency\(db, shopId\)/.test(route) && /totalCents: Math\.max\(0, subtotalCents - offerCents\)/.test(route))
   check("no offer id is taken from the browser: the offers are the store's active ones", !/body\.offerId|body\.offers/.test(route) && /loadOffers\(db, shopId, \{ activeOnly: true \}\)/.test(route) && contract.includes("NO_CART_OFFERS"))
   const cartOffers = readCode("components/offers/cart-offers.tsx")
-  check("the drawer and the cart page print the server's subtotal when it answers for every line in their currency", /export function offerSubtotalCents\(lines: CartLine\[\], data: CartOffersData \| null\): number/.test(cartOffers) && /data\.lines\.length !== lines\.length/.test(cartOffers) && /offerSubtotalCents\(lines, offers\)/.test(readCode("components/website-builder/sections/renderers/HeaderSection.tsx")) && /offerSubtotalCents\(lines, offers\)/.test(readCode("components/website-builder/cart-page-body.tsx")))
+  check("the drawer and the cart page print the server's subtotal when it answers for every line in their currency", /export function offerSubtotalCents\(lines: CartLine\[\], data: CartOffersData \| null\): number/.test(cartOffers) && /data\.lines\.length !== lines\.length/.test(cartOffers) && /* Changed on purpose (offers round): through offerDiscount, which takes the server's subtotal and each line's part. */ /const subtotalCents = offerSubtotalCents\(lines, data\)/.test(cartOffers) && /offerDiscount\(lines, offers\)/.test(readCode("components/website-builder/sections/renderers/HeaderSection.tsx")) && /offerDiscount\(lines, offers\)/.test(readCode("components/website-builder/cart-page-body.tsx")))
 
   console.log("\nA press adds once, with the buyer's answers")
   const bundle = readCode("components/offers/bundle-offers.tsx")
@@ -103,7 +103,7 @@ async function main() {
   const commerce = readCode("app/app/analytics/commerce-reports.tsx")
   check("sales over time leads and the breakdown comes last", commerce.indexOf('card="sales-over-time"') < commerce.indexOf('card="sales-breakdown"') && commerce.indexOf('card="sales-by-channel"') < commerce.indexOf('card="sales-breakdown"'))
   check("the breakdown keeps gross, net and total and the lines that hold money, with no change column", /const shownRows = rows\.filter\(\(r\) => r\.key === "gross" \|\| r\.key === "net" \|\| r\.key === "total"/.test(commerce) && !/w-\[52px\] text-right", kinds/.test(commerce))
-  check("cards rise in as they are reached", /function useRevealCards\(\)/.test(readCode("app/app/analytics/analytics-client.tsx")) && /\[data-reveal="wait"\] \[data-bar\] \{\s*width: 0 !important;/.test(css))
+  check("cards rise in as they are reached", /function useRevealCards\(\)/.test(readCode("app/app/analytics/analytics-client.tsx")) && /* Changed on purpose: each bar fills by its own scale as it is reached (analytics-reports useFillIn), not by the card's width rule. */ /\[data-fill-in="wait"\] \{ transform: scaleX\(0\); \}/.test(css) && /function useFillIn</.test(readCode("app/app/analytics/analytics-reports.tsx")))
 
   console.log("\nThe editor")
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")

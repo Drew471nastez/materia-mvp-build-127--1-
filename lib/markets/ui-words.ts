@@ -306,6 +306,19 @@ export const UI_WORDS = {
   order_access: "Access",
   order_free: "Free",
   order_unavailable: "No longer available",
+  /* The store's offers (Products, Upsells and bundles; lib/offers): the product section's Bundles and upsells block and quantity breaks, and the offers in the cart drawer and on the cart page (components/offers). */
+  offer_this_item: "This item:",
+  offer_together: "Together",
+  offer_add_all: "Add all to cart",
+  offer_choose_options: "Choose your options above",
+  offer_add: "Add",
+  offer_added: "Added",
+  offer_each: "{price} each",
+  offer_save_on_set: "Save {amount} on the set",
+  offer_suggestions: "You may also like",
+  offer_option: "{title} option",
+  bundles_and_offers: "Bundles and offers",
+  discount: "Discount",
 } as const
 
 export type UiWord = keyof typeof UI_WORDS

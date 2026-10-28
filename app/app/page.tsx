@@ -100,7 +100,13 @@ export default async function AppDashboard() {
     creatorSalesTotals, by the database when it can), by the order's own
     creator, so a deleted product's sale still counts.
   */
-  const [creator, profile, { data: onepage }] = await Promise.all([
+  /*
+    THE CREATOR'S READS START WHEN THE CREATOR ROW LANDS (round 26), not when the profile and the OnePage have too:
+    one round trip fewer to wait for in the slowest case. Only for a creator who passes the two checks below, which
+    still decide first; a request they redirect drops nothing it had to wait for.
+  */
+  const now = Date.now()
+  const firstRead = Promise.all([
     homeCreator(user.id),
     homeProfile(user.id),
     /* Only whether it is published: the share panel says so under its address. */
@@ -110,13 +116,65 @@ export default async function AppDashboard() {
       .eq("owner_id", user.id)
       .maybeSingle(),
   ])
+  /* The same cached read as the batch above (homeCreator is per request), its answer the moment it lands. */
+  const creatorReads = homeCreator(user.id).then((creator) => {
+    if (!creator || !creator.onboarding_completed) return null
+    return Promise.all([
+      /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
+      adminSupabase
+        .from("products")
+        .select("id, status")
+        .eq("creator_id", creator.id),
+      adminSupabase
+        .from("custom_domains")
+        /* Every domain, not maybeSingle: a creator can have several now, and
+           one row too many read as none. The creator page's is picked below,
+           and lib/home/progress counts one whose DNS is verified as connected
+           (active, or ssl_provisioning while its certificate is issued). */
+        .select("*")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: true }),
+      /**
+       * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
+       *
+       * The share panel lists the addresses somebody hands to another person,
+       * and Getting started ticks "Build your online store" off the same
+       * answer, so the test is PUBLISHED RIGHT NOW, not "has a theme
+       * installed" (every account is seeded with installs the first time it
+       * opens the website builder) and not "was published once": the status,
+       * which the builder sets to "published" on publish and takes away on
+       * unpublish, and which every database has. published_at is only there
+       * once RUN_THEME_PUBLISHED_AT.sql has been run, and stays after an
+       * unpublish. One row is enough to know.
+       */
+      adminSupabase
+        .from("store_theme_installs")
+        .select("id")
+        .eq("creator_id", creator.id)
+        .eq("status", WEBSITE_LIVE_STATUS)
+        .limit(1)
+        .maybeSingle(),
+      creatorSalesTotals(adminSupabase, creator.id),
+      /* Subscribers, emails sent, automations on and coupons used, for the
+         challenges after Getting started (lib/home/progress-server): head
+         counts, each 0 on a database without its table. */
+      readChallengeCounts(adminSupabase, creator.id),
+      /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
+      creatorSalesRows(adminSupabase, creator.id, now),
+      /* What the store's orders need now (lib/physical/action-reminders): in the first paint, so the lines never push Home down; null past 2s, and the browser asks for them then. */
+      within(commerceActionCounts(adminSupabase, creator.id, now), 2_000, null),
+    ])
+  })
+  /* A redirect below leaves it unawaited: never an unhandled rejection. */
+  creatorReads.catch(() => {})
+  const [creator, profile, { data: onepage }] = await firstRead
 
   if (!creator) redirect("/onboarding")
 
   if (!creator.onboarding_completed) redirect("/onboarding")
 
-  const now = Date.now()
-
+  const reads = await creatorReads
+  if (!reads) redirect("/onboarding")
   const [
     { data: products },
     { data: activeDomains },
@@ -125,51 +183,7 @@ export default async function AppDashboard() {
     challengeCounts,
     bannerRows,
     attention,
-  ] = await Promise.all([
-    /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
-    adminSupabase
-      .from("products")
-      .select("id, status")
-      .eq("creator_id", creator.id),
-    adminSupabase
-      .from("custom_domains")
-      /* Every domain, not maybeSingle: a creator can have several now, and
-         one row too many read as none. The creator page's is picked below,
-         and lib/home/progress counts one whose DNS is verified as connected
-         (active, or ssl_provisioning while its certificate is issued). */
-      .select("*")
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: true }),
-    /**
-     * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
-     *
-     * The share panel lists the addresses somebody hands to another person,
-     * and Getting started ticks "Build your online store" off the same
-     * answer, so the test is PUBLISHED RIGHT NOW, not "has a theme
-     * installed" (every account is seeded with installs the first time it
-     * opens the website builder) and not "was published once": the status,
-     * which the builder sets to "published" on publish and takes away on
-     * unpublish, and which every database has. published_at is only there
-     * once RUN_THEME_PUBLISHED_AT.sql has been run, and stays after an
-     * unpublish. One row is enough to know.
-     */
-    adminSupabase
-      .from("store_theme_installs")
-      .select("id")
-      .eq("creator_id", creator.id)
-      .eq("status", WEBSITE_LIVE_STATUS)
-      .limit(1)
-      .maybeSingle(),
-    creatorSalesTotals(adminSupabase, creator.id),
-    /* Subscribers, emails sent, automations on and coupons used, for the
-       challenges after Getting started (lib/home/progress-server): head
-       counts, each 0 on a database without its table. */
-    readChallengeCounts(adminSupabase, creator.id),
-    /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
-    creatorSalesRows(adminSupabase, creator.id, now),
-    /* What the store's orders need now (lib/physical/action-reminders): in the first paint, so the lines never push Home down; null past 2s, and the browser asks for them then. */
-    within(commerceActionCounts(adminSupabase, creator.id, now), 2_000, null),
-  ])
+  ] = reads
   const bannerSales = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
 
   const productIds = products?.map((p: any) => p.id) || []

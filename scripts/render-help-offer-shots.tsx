@@ -206,7 +206,7 @@ function ProductPage() {
   }
   const palette = { heading: "#1c1917", text: "#292524", paragraph: "#57534e", text_muted: "#78716c", border: "#e7e5e4", bg: "#ffffff", background: "#ffffff", background_secondary: "#f5f5f4", primary_button_background: "#1c1917", primary_button_text: "#ffffff" }
   const ctx = {
-    product, sample: false, variant: product.variants[0], chosen: [], choose: () => {}, facts: { payWhatYouWant: false }, canBuy: true, quantity, setQuantity, maxQuantity: 20,
+    product, sample: false, variant: product.variants[0], chosen: [], choose: () => {}, facts: { priceCents: mug.priceCents, compareAtCents: null, payWhatYouWant: false, minCents: 0 }, canBuy: true, quantity, setQuantity, maxQuantity: 20,
     pwywInput: "", setPwywInput: () => {}, pwywError: null, palette, inEditor: false, inert: false,
     buy: { add: () => {}, now: () => {}, added: false, unavailable: null }, wishlist: { saved: false, toggle: () => {} }, radius: "8px", buttonRadius: { borderRadius: 8 }, money,
     offers: { chosen: { variantId: MUG_V, variantName: null, priceCents: mug.priceCents, imageUrl: mug.image }, addLines: () => true },
@@ -263,7 +263,11 @@ function fakeStripe() {
     },
     on() { return this }, off() { return this }, update() {}, destroy() {}, unmount() {}, collapse() {}, focus() {}, blur() {}, clear() {},
   })
-  ;(window as unknown as { Stripe: unknown }).Stripe = () => ({ elements: () => ({ create: element, getElement: () => null, update() {}, fetchUpdates: async () => ({}), submit: async () => ({}) }), confirmPayment: async () => ({}), confirmCardPayment: async () => ({}), paymentRequest: () => ({ canMakePayment: async () => null, on() {} }) })
+  ;(window as unknown as { Stripe: unknown }).Stripe = Object.assign(() => ({
+    _registerWrapper() {}, registerAppInfo() {}, createToken() {}, createPaymentMethod() {}, confirmCardPayment() {}, confirmSetup: async () => ({}),
+    elements: () => ({ create: (t: string) => element(t), getElement: () => null, update() {}, submit: async () => ({}), fetchUpdates: async () => ({}) }),
+    confirmPayment: async () => ({}),
+  }), { version: 3 })
 }
 
 function CheckoutView() {

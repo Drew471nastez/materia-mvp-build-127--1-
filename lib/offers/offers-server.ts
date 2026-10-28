@@ -148,6 +148,8 @@ export interface OfferProduct {
   priceCents: number
   /** Options to choose from when there's more than one; one, already chosen, when there's just one. Only options that can be bought now. */
   variants: { id: string; name: string; priceCents: number }[]
+  /** Pay what you want: shown at its minimum, counted in a set, never discounted by an offer (lib/offers applyOffers). */
+  payWhatYouWant?: boolean
 }
 
 const VARIANT_COLUMNS = "id, product_id, name, price_cents, active, track_inventory, inventory_policy"
@@ -193,7 +195,7 @@ export async function offerProducts(db: Db, creatorId: string, ids: string[]): P
     const own = p.pay_what_you_want ? Number(p.pwyw_min_price_cents) || 0 : Number(p.price_cents) || 0
     const priceCents = variants.length ? Math.min(...variants.map((v) => v.priceCents)) : Math.max(0, Math.round(own))
     if (priceCents <= 0) continue
-    out.set(p.id, { id: p.id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : null, type: p.type, priceCents, variants })
+    out.set(p.id, { id: p.id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : null, type: p.type, priceCents, variants, ...(p.pay_what_you_want === true && p.type !== "physical" ? { payWhatYouWant: true } : {}) })
   }
   return out
 }
@@ -211,7 +213,7 @@ export async function suggestionCards(db: Db, creatorId: string, offers: Offer[]
   return offers.flatMap((o) => {
     const p = products.get(o.productIds[0])
     if (!p) return []
-    return [{ offerId: o.id, title: o.title, label: label(o), product: p, offerPriceCents: offerUnitPrice(o, p.priceCents) }]
+    return [{ offerId: o.id, title: o.title, label: label(o), product: p, offerPriceCents: offerUnitPrice(o, p.priceCents, p.payWhatYouWant === true) }]
   })
 }
 

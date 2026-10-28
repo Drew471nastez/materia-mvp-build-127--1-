@@ -23,6 +23,9 @@ export const UPGRADE_FILL = "#8b5cf6"
 export const UPGRADE_FILL_HOVER = "#7c4fe6"
 export const UPGRADE_INK = "#ffffff"
 
+/** The bolt itself, on a 24 unit grid: rounded joints, so it stays smooth at 12px. Shared with the Pro mark in Publish (publish-domain.tsx). */
+export const BOLT_PATH = "M13.6 1.9 4.7 13.4a.75.75 0 0 0 .6 1.2h5.4l-1.1 7.3c-.1.7.8 1.1 1.3.5l8.9-11.5a.75.75 0 0 0-.6-1.2h-5.4l1.1-7.3c.1-.7-.8-1.1-1.3-.5z"
+
 /** At rest: light on top, a hairline inside the edge, a darker foot, and a soft shadow under it. */
 export const UPGRADE_DEPTH =
   "inset 0 1px 0 rgba(255,255,255,0.38), inset 0 0 0 1px rgba(76,29,149,0.18), inset 0 -1.5px 0 rgba(76,29,149,0.34), 0 1px 2px rgba(76,29,149,0.3), 0 4px 10px -3px rgba(76,29,149,0.34)"
@@ -37,7 +40,7 @@ export function UpgradeBolt({ size = 28 }: { size?: number }) {
       style={{ width: size, height: size }}
     >
       <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill={UPGRADE_INK} style={{ filter: "drop-shadow(0 0.5px 0.5px rgba(46,16,101,0.35))" }}>
-        <path d="M13.6 1.9 4.7 13.4a.75.75 0 0 0 .6 1.2h5.4l-1.1 7.3c-.1.7.8 1.1 1.3.5l8.9-11.5a.75.75 0 0 0-.6-1.2h-5.4l1.1-7.3c.1-.7-.8-1.1-1.3-.5z" />
+        <path d={BOLT_PATH} />
       </svg>
     </span>
   )

@@ -1596,7 +1596,7 @@ const ARTICLES: Article[] = [
     title: "Upsells and bundles: sell more to people already buying",
     summary: "Bundle products at a better price on their pages, and suggest one more thing in the checkout.",
     keywords: ["upsell", "bundle", "cross sell", "order bump", "frequently bought together", "add on", "offer", "aov", "average order", "quantity break", "buy x get y", "bogo", "volume discount", "tiered pricing"],
-    related: ["sell-on-your-website", "what-buyers-see-at-checkout"],
+    related: ["products/offers", "sell-on-your-website", "what-buyers-see-at-checkout"],
     body: [
       { type: "p", text: "Someone already buying from you is the easiest person to sell one more thing to. Open Products > Upsells and bundles. There are three kinds of offer: a bundle, an upsell and a quantity break." },
       shot("upsells-and-bundles", "The Upsells and bundles list with three offers: Breakfast set, a bundle at 10% off; Add an apron, an upsell at $5 off; and Mug offer, a quantity break."),
@@ -1639,6 +1639,7 @@ const ARTICLES: Article[] = [
       { type: "p", text: "Under Dates and limits, an offer can start and end at a set time, and a bundle or upsell can be limited to a number of sets or items per order. Discount codes can be used too is on by default: the offer's saving comes off first, and the code comes off what's left. Turn it off and a buyer with a code gets whichever saves more." },
       { type: "p", text: "Switch any offer off from the list without deleting it. The Sold, 90 days column counts the units each offer sold in the last 90 days." },
       { type: "note", text: "Offers work in the cart checkout. A digital product can be in a bundle or offered at checkout too, as long as it's bought through the cart." },
+      { type: "p", text: "Each kind step by step, the Bundles and upsells block on your website, and common problems: [the upsells and bundles guide](/help/products/offers)." },
     ],
   },
 

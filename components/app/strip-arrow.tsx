@@ -16,6 +16,9 @@
  * white fade in front of it so a figure passes under it rather than being
  * cut by a hard line. Not a tab: the row's sliding line and the strip's
  * own follow (components/app/use-tab-strip) look for `[role=tab]` only.
+ * It finds the row as its own parent: a ref handed down from the row is
+ * still empty when a child's layout effect runs on the first commit (the
+ * same reason as components/app/metric-tab MetricTabLine).
  */
 import * as React from "react"
 import { ChevronRight } from "lucide-react"
@@ -25,12 +28,12 @@ import { tt } from "@/lib/i18n/text"
 
 type Way = "next" | "back" | null
 
-export function StripArrow({ strip, className }: { strip: React.RefObject<HTMLElement | null>; className?: string }) {
+export function StripArrow({ className }: { className?: string }) {
   const [way, setWay] = React.useState<Way>(null)
   const self = React.useRef<HTMLDivElement>(null)
 
   React.useLayoutEffect(() => {
-    const el = strip.current
+    const el = self.current?.parentElement
     if (!el) return
     let frame = 0
     const read = () => {
@@ -50,10 +53,10 @@ export function StripArrow({ strip, className }: { strip: React.RefObject<HTMLEl
       ro?.disconnect()
       cancelAnimationFrame(frame)
     }
-  }, [strip])
+  }, [])
 
   const go = () => {
-    const el = strip.current
+    const el = self.current?.parentElement
     if (!el) return
     const max = el.scrollWidth - el.clientWidth
     let target = 0

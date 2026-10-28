@@ -11025,6 +11025,7 @@ const words: Record<string, string> = {
  "{title} (Copy)": "{title} (copie)",
  "{title} added": "{title} ajouté",
  "{title} also has the quantity break “{offer}”. Only one applies to it: the one that saves more on the whole cart.": "{title} a aussi le palier de quantité « {offer} ». Un seul s'applique : celui qui fait le plus économiser sur tout le panier.",
+ "{title} is one per order, so buyers can't reach these tiers. Quantity breaks are for products that ship.": "{title} est limité à un par commande, les acheteurs ne peuvent donc pas atteindre ces paliers. Les paliers de quantité sont pour les produits expédiés.",
  "{title} deleted": "{title} supprimée",
  "{title} gets no shipping price": "{title} n'obtient aucun prix d'expédition",
  "{title} has no shipping rate": "{title} n'a pas de tarif d'expédition",

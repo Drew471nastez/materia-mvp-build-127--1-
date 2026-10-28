@@ -59,6 +59,9 @@ import {
  *   every way a navigation can end takes it down (see SlowPage).
  */
 
+/** How long a stalled press loaded as a document may take before the spinner gives way (SlowPage). */
+export const DOCUMENT_LOAD_CAP_MS = 15_000
+
 type Scrollers = { outer: HTMLElement; inner: HTMLElement | null }
 
 /**
@@ -439,6 +442,20 @@ function SlowPage() {
         if (loadsAsDocumentWhenStalled(nav.href) && getAppNavigation() === nav && document.visibilityState === "visible") {
           console.warn(`[app-stage] ${nav.href} has not arrived after ${NAV_SPINNER_CAP_MS}ms: loading it as a document`)
           window.location.assign(nav.href as string)
+          /*
+            AND THAT LOAD HAS AN END TOO. A document load the web view never
+            finishes (a connection that dropped while the app was away, a
+            server that stopped answering) left this spinner up for good: the
+            white screen that span on OnePage. Past DOCUMENT_LOAD_CAP_MS it is
+            stopped and the page you were on is back, as for any other page.
+          */
+          timers.push(window.setTimeout(() => {
+            if (getAppNavigation() !== nav) return
+            try { window.stop() } catch { /* nothing to stop */ }
+            capped.current = nav
+            console.warn(`[app-stage] ${nav.href} did not load as a document after ${DOCUMENT_LOAD_CAP_MS}ms: showing the page you were on`)
+            setCapTick((n) => n + 1)
+          }, DOCUMENT_LOAD_CAP_MS))
           return
         }
         capped.current = nav

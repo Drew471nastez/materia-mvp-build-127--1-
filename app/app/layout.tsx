@@ -137,6 +137,34 @@ export default async function AppLayout({
     so a page that reads them too with its own client is not a second trip.
     All of it on the caller's own client: row-level security as before.
   */
+  /*
+    THE SETUP RING'S READS START THE MOMENT THE STORE IS KNOWN (round 26), not after the slowest read above (the
+    account menu's businesses, the team's stores). Same reads, same client, same answers; the gates below still
+    decide first, and a request they redirect just drops these. Every /app page pays this on a full load and on
+    every pull to refresh (router.refresh draws the layout again).
+  */
+  const setupRead = Promise.all([creatorForRequest(user.id), teamStoreForRequest(user.id).catch(() => null)]).then(([own, team]) => {
+    /* The store the shell draws below: the team store first, then their own. */
+    const creator = team?.store ?? own
+    if (!creator) return null
+    return Promise.all([
+      supabase.from("products").select("id").eq("creator_id", creator.id),
+      supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
+      supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
+      supabase
+        .from("orders")
+        .select("id, products!inner(creator_id)")
+        .eq("products.creator_id", creator.id)
+        .not("status", "in", "(failed,pending,disputed)")
+        .limit(1),
+      /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
+      communitiesEnabled().catch(() => false),
+      /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
+      cachedStoreCurrency(creator.id).catch(() => null),
+    ])
+  })
+  /* A redirect below leaves it unawaited: never an unhandled rejection. */
+  setupRead.catch(() => {})
   const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
@@ -201,21 +229,10 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = await Promise.all([
-    supabase.from("products").select("id").eq("creator_id", creator.id),
-    supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
-    supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
-    supabase
-      .from("orders")
-      .select("id, products!inner(creator_id)")
-      .eq("products.creator_id", creator.id)
-      .not("status", "in", "(failed,pending,disputed)")
-      .limit(1),
-    /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
-    communitiesEnabled().catch(() => false),
-    /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
-    cachedStoreCurrency(creator.id).catch(() => null),
-  ])
+  /* Started above, from the same store as `creator` (team store first, then their own). */
+  const setupRows = await setupRead
+  if (!setupRows) redirect("/sell")
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = setupRows
 
   /*
     THE PROFILE'S PHOTO, OR THE INITIALS (lib/account/avatar). This used to

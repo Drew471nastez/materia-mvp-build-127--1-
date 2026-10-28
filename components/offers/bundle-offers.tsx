@@ -24,7 +24,9 @@ import * as React from "react"
 import { useSellerMoney } from "@/components/platform/price-currency"
 import { Package, Plus } from "lucide-react"
 import type { CartLine } from "@/lib/website-builder/cart"
-import { bundlePrice, type DiscountType } from "@/lib/offers/offers"
+import { applyOffers, bundlePrice, offerUnitPrice, type DiscountType } from "@/lib/offers/offers"
+import { chargedInMarket, type PageDisplay } from "@/lib/markets/cart-money"
+import { useWord } from "@/components/website-builder/theme/storefront-context"
 import type { BreakCard } from "./quantity-breaks"
 
 interface Item {
@@ -35,6 +37,8 @@ interface Item {
   type: string
   priceCents: number
   variants: { id: string; name: string; priceCents: number }[]
+  /** Pay what you want: counted in a set, never discounted (lib/offers bundlePrice). */
+  payWhatYouWant?: boolean
 }
 export interface BundleCard {
   offerId: string
@@ -111,6 +115,7 @@ export function BundleOffers({
   data: given,
   labels = {},
   money: givenMoney,
+  display = null,
 }: {
   productId: string
   /** This product as the buy box has it: the option chosen, or null while one still has to be. */
@@ -131,9 +136,13 @@ export function BundleOffers({
   labels?: { addAll?: string; add?: string }
   /** A price as the page prints it (the website product section passes its own, in the visitor's currency). */
   money?: (cents: number) => string
+  /** The visitor's market, when the page shows its currency: a set's and an upsell's price then say what checkout charges in it (lib/markets/cart-money chargedInMarket). */
+  display?: PageDisplay | null
 }) {
   /* Else in the store's own currency, on its page and in its editor alike (components/platform/price-currency). */
   const sellerMoney = useSellerMoney()
+  /* The block's own words in the page's language (Translate › Shop words, lib/markets/ui-words.ts); English off a website. */
+  const w = useWord()
   const money = givenMoney ?? sellerMoney
   const fetched = useProductOffers(productId, given === undefined)
   const data = given === undefined ? fetched : given
@@ -205,7 +214,7 @@ export function BundleOffers({
   )
   const choice = (i: Item, k: string) =>
     i.variants.length > 1 ? (
-      <select value={picks[k] ?? i.variants[0]?.id ?? ""} onChange={(e) => setPicks((p) => ({ ...p, [k]: e.target.value }))} className="mt-1 h-9 max-w-full rounded-md border bg-transparent px-2 text-[13px]" style={{ borderColor: c.border, color: c.text }} aria-label={`${i.title} option`}>
+      <select value={picks[k] ?? i.variants[0]?.id ?? ""} onChange={(e) => setPicks((p) => ({ ...p, [k]: e.target.value }))} className="mt-1 h-9 max-w-full rounded-md border bg-transparent px-2 text-[13px]" style={{ borderColor: c.border, color: c.text }} aria-label={w("offer_option").replace("{title}", i.title)}>
         {i.variants.map((v) => (
           <option key={v.id} value={v.id}>
             {v.name}
@@ -220,7 +229,14 @@ export function BundleOffers({
         const lines = b.items.map((i) => lineFor(i, `${b.offerId}:${i.id}`))
         const ready = lines.every(Boolean) && !disabled
         /* The set as chosen right now: an option with its own price changes it. */
-        const { fullCents, priceCents } = bundlePrice(b, b.items.map((i, k) => lines[k]?.priceCents ?? i.priceCents))
+        const units = b.items.map((i, k) => lines[k]?.priceCents ?? i.priceCents)
+        const named = b.items.map((i, k) => i.payWhatYouWant === true || typeof lines[k]?.customPriceCents === "number")
+        const { fullCents, priceCents } = bundlePrice(b, units, named)
+        /* In a market's currency: the set as checkout charges it there, each item's discount the share of its converted price (applyOffers, then chargedInMarket). */
+        const set = applyOffers(b.items.map((i, k) => ({ productId: `${k}:${i.id}`, unitCents: units[k], quantity: 1, payWhatYouWant: named[k] })), [{ id: b.offerId, kind: "bundle", title: b.title, productIds: b.items.map((i, k) => `${k}:${i.id}`), triggerIds: [], discountType: b.discountType, discountValue: b.discountValue, active: true }])
+        const inMarket = chargedInMarket(units.map((u, k) => ({ unitCents: u, quantity: 1, discountCents: set.discounts[k] ?? 0 })), display)
+        const fullText = inMarket ? inMarket.write(inMarket.fullMinor) : money(fullCents)
+        const priceText = inMarket ? inMarket.write(inMarket.totalMinor) : money(priceCents)
         return (
           <section key={b.offerId} className="rounded-xl border p-4" style={{ borderColor: c.border, borderRadius: radius + 4 }} data-bundle={b.offerId} aria-label={b.title}>
             <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -242,7 +258,7 @@ export function BundleOffers({
                 <li key={i.id} className="flex items-center justify-between gap-3 text-[14px]">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate" style={{ color: c.text }}>
-                      {i.id === productId ? <span className="font-medium">This item: </span> : null}
+                      {i.id === productId ? <span className="font-medium">{w("offer_this_item")} </span> : null}
                       {i.title}
                     </span>
                     {i.id !== productId ? choice(i, `${b.offerId}:${i.id}`) : null}
@@ -255,21 +271,21 @@ export function BundleOffers({
             </ul>
             <div className="mt-3 flex items-baseline justify-between gap-3 border-t pt-3" style={{ borderColor: c.line }}>
               <span className="text-[14px] font-medium" style={{ color: c.text }}>
-                Together
+                {w("offer_together")}
               </span>
               <span className="tabular-nums">
                 {priceCents < fullCents ? (
                   <span className="mr-2 text-[14px] line-through" style={{ color: c.muted }}>
-                    {money(fullCents)}
+                    {fullText}
                   </span>
                 ) : null}
                 <span className="text-[17px] font-bold" style={{ color: c.price }} data-bundle-price="">
-                  {money(priceCents)}
+                  {priceText}
                 </span>
               </span>
             </div>
             <button type="button" disabled={!ready} aria-live="polite" onClick={() => press(b.offerId, lines as CartLine[])} className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={button} data-bundle-add="">
-              {added === b.offerId ? "Added to cart" : chosen ? labels.addAll || "Add all to cart" : "Choose your options above"}
+              {added === b.offerId ? w("added_to_cart") : chosen ? labels.addAll || w("offer_add_all") : w("offer_choose_options")}
             </button>
           </section>
         )
@@ -278,7 +294,9 @@ export function BundleOffers({
         const p = u.product
         const line = lineFor(p, u.offerId)
         const shownPrice = p.variants.length > 1 ? (optionOf(p, u.offerId)?.priceCents ?? p.priceCents) : p.priceCents
-        const offerPrice = shownPrice === p.priceCents ? u.offerPriceCents : bundlePrice(u, [shownPrice]).priceCents
+        const offerPrice = shownPrice === p.priceCents ? u.offerPriceCents : offerUnitPrice(u, shownPrice, p.payWhatYouWant === true)
+        /* In a market's currency: the unit's converted price less its discount's share of it, as checkout charges it. */
+        const upMarket = chargedInMarket([{ unitCents: shownPrice, quantity: 1, discountCents: shownPrice - offerPrice }], display)
         return (
           <section key={u.offerId} className="rounded-xl border p-3" style={{ borderColor: c.border, borderRadius: radius + 4 }} data-upsell={u.offerId} aria-label={u.title}>
             <p className="mb-2 flex items-center justify-between gap-2 text-[13px] font-medium" style={{ color: c.heading }}>
@@ -293,7 +311,7 @@ export function BundleOffers({
                 </p>
                 <p className="text-[13px] tabular-nums">
                   <span className="font-medium" style={{ color: c.price }} data-upsell-price="">
-                    {money(offerPrice)}
+                    {upMarket ? upMarket.write(upMarket.totalMinor) : money(offerPrice)}
                   </span>
                   {offerPrice < shownPrice ? (
                     <span className="ml-1.5 line-through" style={{ color: c.muted }}>
@@ -305,11 +323,11 @@ export function BundleOffers({
               </div>
               <button type="button" disabled={!line || disabled} aria-live="polite" onClick={() => line && press(u.offerId, [line])} className="inline-flex h-9 shrink-0 items-center gap-1 border px-3 text-[13.5px] font-semibold transition-opacity disabled:opacity-50" style={button} data-upsell-add="">
                 {added === u.offerId ? (
-                  "Added"
+                  w("offer_added")
                 ) : (
                   <>
                     <Plus className="h-3.5 w-3.5" aria-hidden />
-                    {labels.add || "Add"}
+                    {labels.add || w("offer_add")}
                   </>
                 )}
               </button>
