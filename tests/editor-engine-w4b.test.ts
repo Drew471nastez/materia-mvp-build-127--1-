@@ -77,7 +77,9 @@ console.log("\nE1  NO PRESS, HOVER OR FOCUS RESTYLES THE WHOLE DOCUMENT")
   check("list rows grey from the press mark their link sets", rows.every((f) => /data-\[pressed\]:bg-\[#/.test(read(f)) && /\{\.\.\.pressMark\}/.test(read(f))))
   const mark = read("lib/press-mark.ts")
   check("the press mark is set on the press and taken off on release, cancel and leave",
-    /onPointerDownCapture/.test(mark) && /onPointerUp: .*mark\(e, false\)/.test(mark) && /onPointerCancel: .*mark\(e, false\)/.test(mark) && /onPointerLeave: .*mark\(e, false\)/.test(mark))
+    /* Round 40: a touch marks only after TOUCH_MARK_MS still on the row, and a move past the slop takes it off (a scroll lights nothing). */
+    /onPointerDownCapture/.test(mark) && /onPointerUp: .*clear\(rowOf\(e\)\)/.test(mark) && /onPointerCancel: .*clear\(rowOf\(e\)\)/.test(mark) && /onPointerLeave: .*clear\(rowOf\(e\)\)/.test(mark)
+      && /export const TOUCH_MARK_MS = 120/.test(mark) && /onPointerMove:[\s\S]*?> TOUCH_SLOP_PX\) clear\(row\)/.test(mark))
 }
 
 console.log("\nC1  AN IMPORTED THEME'S FILES ARE READ ONCE, WHATEVER ITS SETTINGS")

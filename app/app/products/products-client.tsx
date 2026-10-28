@@ -938,7 +938,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       const height = slot.getBoundingClientRect().height
       if (!height) return
       slot.style.overflow = "hidden"
-      const a = slot.animate([{ height: "0px", opacity: 0 }, { height: `${height}px`, opacity: 1 }], { duration: BANNER_IN_MS, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+      const a = slot.animate([{ height: "0px", opacity: 0 }, { height: `${height}px`, opacity: 1 }], { duration: BANNER_IN_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
       const done = () => {
         slot.style.overflow = ""
       }
@@ -1278,7 +1278,7 @@ function productStatus(product: Product): Status {
 const STATUS_TONE: Record<Status, "success" | "attention" | "neutral"> = { live: "success", draft: "attention", archived: "neutral" }
 
 /** BANNER_IN_MS: a late readiness banner opening its room (see bannerSlot). */
-const BANNER_IN_MS = 240
+const BANNER_IN_MS = 320
 
 /**
  * THE VIEWS AS TABS, Orders' ViewTabs: a word each, the open one on a grey

@@ -34,6 +34,7 @@ import { ConnectionMarkIcon } from "@/components/website-builder/connection-mark
 import {
   POLL_ACTIVE_MS,
   POLL_BASE_MS,
+  POLL_MAX_MS,
   RECENT_MS,
   actedRecently,
   activityFollowUp,

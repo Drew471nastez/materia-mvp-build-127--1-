@@ -162,7 +162,7 @@ async function loop() {
       const lines = mergeLines(late, fresh, seen, floor)
       remember(seen, lines.map((r) => r.id))
       applied.push(...lines.map((r) => r.id))
-      return nextCursor(cursor, fresh.length ? fresh[fresh.length - 1].id : cursor, false, fresh.length)
+      return nextCursor(cursor, fresh.length ? fresh[fresh.length - 1].id : cursor, false, fresh.length) ?? cursor
     }
     let cursor = pass(t + 500, floor)
     committed.push({ id: 101, created_at: new Date(t - 50).toISOString() })

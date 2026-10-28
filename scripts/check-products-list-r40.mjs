@@ -111,16 +111,16 @@ try {
     pages[name] = join(dir, `${name}.html`)
   }
 
-  const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
+  /* What the device answers to hover and pointer is a browser setting (Emulation.setEmulatedMedia does not reach these two): a phone's browser and a computer's. */
+  const launch = (hover, pointer) => puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", `--blink-settings=primaryHoverType=${hover},availableHoverTypes=${hover},primaryPointerType=${pointer},availablePointerTypes=${pointer}`] })
+  const browsers = { touch: await launch(1, 2), mouse: await launch(2, 4) }
   const phone = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
   const desk = { width: 1280, height: 800 }
 
   const open = async (which, vp, touch) => {
-    const p = await browser.newPage()
+    const p = await (touch ? browsers.touch : browsers.mouse).newPage()
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
-    /* A phone's answers, through the protocol (puppeteer's own helper refuses these two names). */
-    if (touch) await (await p.target().createCDPSession()).send("Emulation.setEmulatedMedia", { features: [{ name: "hover", value: "none" }, { name: "pointer", value: "coarse" }, { name: "any-hover", value: "none" }, { name: "any-pointer", value: "coarse" }] })
     await p.evaluateOnNewDocument(() => {
       window.__cls = 0
       window.__shifts = 0
@@ -177,6 +177,8 @@ try {
       const late = await p.evaluate(async () => {
         const s = document.querySelector("section[aria-label=Products]")
         window.__tops = []
+        /* Two frames of the card where it is, before the banner comes. */
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
         const banner = document.createElement("section")
         banner.style.cssText = "height:64px;margin-top:16px;border-radius:16px;background:#fffcf5;border:1px solid #fedf89"
         const slot = document.querySelector("[data-readiness-slot]")
@@ -194,27 +196,41 @@ try {
 
       /* Hover rules that would match on this page, and whether each is gated to a mouse. */
       const hover = await p.evaluate(() => {
-        let gated = 0, open = 0
+        let gated = 0, open = 0, touchOnly = 0
         const openSamples = []
-        const walk = (rules, media) => {
+        /* Nested rules too: Tailwind writes a variant as `.x { @media … { &:hover { … } } }`. */
+        const walk = (rules, media, parent) => {
           for (const rule of rules) {
-            if (rule.cssRules && rule.media) walk(rule.cssRules, media + " " + rule.media.mediaText)
-            else if (rule.cssRules && !rule.selectorText) walk(rule.cssRules, media)
-            if (!rule.selectorText || !rule.selectorText.includes(":hover")) continue
-            let sel = rule.selectorText.replace(/:hover/g, "")
+            if (rule.media && rule.cssRules) { walk(rule.cssRules, media + " " + rule.media.mediaText, parent); continue }
+            if (!rule.selectorText) { if (rule.cssRules) walk(rule.cssRules, media, parent); continue }
+            const own = rule.selectorText
+            const full = parent ? (own.includes("&") ? own.replace(/&/g, `:is(${parent})`) : `:is(${parent}) ${own}`) : own
+            if (rule.cssRules?.length) walk(rule.cssRules, media, full)
+            if (!full.includes(":hover") || !rule.style?.length) continue
+            const sel = full.replace(/:hover/g, "")
             let hits = false
-            try { hits = !!document.querySelector("section[aria-label=Products], [data-orders-bar]") && [...document.querySelectorAll(sel)].some((el) => el.closest("section[aria-label=Products], [data-orders-bar]")) } catch { hits = false }
+            try { hits = [...document.querySelectorAll(sel)].some((el) => el.closest("section[aria-label=Products], [data-orders-bar]")) } catch { hits = false }
             if (!hits) continue
             if (/hover:\s*hover/.test(media) && /pointer:\s*fine/.test(media)) gated++
-            else { open++; if (openSamples.length < 4) openSamples.push(rule.selectorText.slice(0, 80)) }
+            /* A rule for touch screens only (hover: none, a coarse pointer) that takes a hover look away, never adds one. */
+            else if (/hover:\s*none|pointer:\s*coarse/.test(media)) touchOnly++
+            else { open++; if (openSamples.length < 4) openSamples.push(full.slice(0, 100) + " @" + media.slice(0, 60)) }
           }
         }
-        for (const sh of document.styleSheets) walk(sh.cssRules, "")
-        return { gated, open, openSamples, hoverMedia: matchMedia("(hover: hover) and (pointer: fine)").matches }
+        for (const sh of document.styleSheets) walk(sh.cssRules, "", "")
+        return { gated, open, touchOnly, openSamples, hoverMedia: matchMedia("(hover: hover) and (pointer: fine)").matches }
       })
       r[label].hover = hover
-      console.log(`  ${label}: hover rules matching this page: ${hover.gated} gated to (hover: hover) and (pointer: fine), ${hover.open} not ${hover.openSamples.length ? JSON.stringify(hover.openSamples) : ""}; the page's own query says hover ${hover.hoverMedia}`)
+      console.log(`  ${label}: hover rules matching this page: ${hover.gated} gated to (hover: hover) and (pointer: fine), ${hover.touchOnly} touch-only resets, ${hover.open} ungated ${hover.openSamples.length ? JSON.stringify(hover.openSamples) : ""}; the page's own query says hover ${hover.hoverMedia}`)
 
+      if (!touch) {
+        /* A mouse over a table row tints its cells: the hover a mouse should have is still there. */
+        const b = await p.evaluate(() => { const row = [...document.querySelectorAll("tbody > tr[data-row]:not([hidden])")][3]; const r = row.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: row.dataset.row } })
+        await p.mouse.move(b.x, b.y)
+        await wait(200)
+        r[label].mouseHover = await p.evaluate((id) => getComputedStyle(document.querySelector(`tbody > tr[data-row="${id}"] > td`)).backgroundColor, b.id)
+        console.log(`  1280: a mouse over a table row paints its cells ${r[label].mouseHover}`)
+      }
       if (touch) {
         const cdp = await p.target().createCDPSession()
         const center = await p.evaluate(() => {
@@ -273,7 +289,8 @@ try {
       await p.close()
     }
   }
-  await browser.close()
+  await browsers.touch.close()
+  await browsers.mouse.close()
 
   console.log("\nHELD TO")
   const now = results.new
@@ -281,10 +298,12 @@ try {
   expect(now["390"].topMoved === 0 && now["1280"].topMoved === 0, "the card's top never moves in the first second", [now["390"].topMoved, now["1280"].topMoved])
   expect(now["390"].late.largestJump < 16 && now["1280"].late.largestJump < 16, "a late banner moves the card in steps under 16px a frame, not one jump", [now["390"].late.largestJump, now["1280"].late.largestJump])
   expect(now["390"].hover.open === 0 && now["1280"].hover.open === 0, "every hover rule on the page is gated to (hover: hover) and (pointer: fine)", [now["390"].hover.open, now["1280"].hover.open])
-  expect(now["390"].hover.hoverMedia === false, "the touch emulation answers no hover", now["390"].hover.hoverMedia)
+  expect(now["390"].hover.hoverMedia === false && now["1280"].hover.hoverMedia === true, "the touch emulation answers no hover, the mouse one does", [now["390"].hover.hoverMedia, now["1280"].hover.hoverMedia])
   expect(now["390"].scroll.lit === 0, "a finger scrolling from a row lights it in no frame", now["390"].scroll)
   expect(!now["390"].tap.at80ms && now["390"].tap.at220ms, "a finger held still is pressed after the wait, not before", now["390"].tap)
   expect(now["390"].hovered === "rgba(0, 0, 0, 0)" || now["390"].hovered === "rgb(255, 255, 255)", "a pointer over a row on a touch screen paints nothing", now["390"].hovered)
+  expect(now["1280"].mouseHover !== "rgb(255, 255, 255)", "a mouse over a table row still tints it", now["1280"].mouseHover)
+  expect(now["1280"].hover.gated > 0, "the desktop's hover rules are found and every one is gated", now["1280"].hover)
   expect(now["390"].title === "24px" && now["1280"].title === "28px", "the title is Orders' 24px, 28px from 640px", [now["390"].title, now["1280"].title])
   expect(now["390"].bar === 66 && now["1280"].bar === 66, "the bar is Orders' 66px", [now["390"].bar, now["1280"].bar])
   expect(now["390"].toolbar === 48 && now["1280"].toolbar === 48 && now["390"].tabs && now["1280"].tabs, "the toolbar is Orders' 48px row with the views as tabs", [now["390"].toolbar, now["1280"].toolbar])

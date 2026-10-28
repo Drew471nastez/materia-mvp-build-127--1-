@@ -137,7 +137,7 @@ export function offersShown(offers: OffersJson, productId: string, own: { id: st
   const bundles = (offers.bundles ?? []).map((b) => {
     const items = b.items.map((i) => {
       const v = firstOption(i)
-      return { id: i.id, title: i.title, imageUrl: i.imageUrl ?? null, variantId: v?.id ?? i.id, variantName: v && i.variants.length > 1 ? v.name : null, minor: v?.priceCents ?? i.priceCents, named: i.payWhatYouWant === true, mine: i.id === productId }
+      return { id: i.id, title: i.title, imageUrl: i.imageUrl ?? null, variantId: v?.id ?? i.id, variantName: v && i.variants.length > 1 && i.id !== productId ? v.name : null, minor: v?.priceCents ?? i.priceCents, named: i.payWhatYouWant === true, mine: i.id === productId }
     })
     /* This product: the one item whose id is the product's (offers-public puts it first). */
     const mineAt = items.findIndex((x) => x.mine)
@@ -192,7 +192,8 @@ const STYLE = `<style>
 .slof-grow{min-width:0;flex:1}
 .slof-together{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent);font-variant-numeric:tabular-nums}
 .slof-together s{opacity:.6;margin-right:.5rem}
-.slof-btn{margin-top:.75rem;width:100%}
+.slof-btn{margin-top:.75rem;width:100%;min-height:44px;cursor:pointer}
+.slof-btn:disabled{opacity:.6;cursor:default}
 .slof-up .slof-btn{margin-top:0;width:auto;flex:none}
 .slof-say{margin:.5rem 0 0;font-size:.85em}
 .slof-say:empty{display:none}

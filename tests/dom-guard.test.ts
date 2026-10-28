@@ -122,10 +122,10 @@ console.log("\nIt is in place before the app starts")
 console.log("\nThe Products list keeps a changing word as the only child of its element")
 {
   const list = untt(readFileSync(join(process.cwd(), "app/app/products/products-client.tsx"), "utf8"), "app/app/products/products-client.tsx")
-  check("the view's name", /<span>\{viewLabel\}<\/span>/.test(list))
+  check("the view's name", /<span>\{v\.label\}<\/span>/.test(list))
   check("the footer's count is one string", (/\{`\$\{from \+ 1\}\\u2013\$\{from \+ pageProducts\.length\} of /.test(list) || /\{from \+ 1\}–\{from \+ pageProducts\.length\} of \{/.test(list) /* one tt() message: still one string */) && !/&ndash;\{from/.test(list))
   check("the delete button's word, on both sides", /<span>\{deleteKind === "archive" \? "Archiving" : "Deleting"\}<\/span>/.test(list) && /<span>\{deleteQuestion\(productToDelete\.title, deleteKind\)\.confirm\}<\/span>/.test(list))
-  check("a status word", /<span>\{label\}<\/span>/.test(list))
+  check("a status word", (list.match(/<span>\{statusText\}<\/span>/g) ?? []).length === 2)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
