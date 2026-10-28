@@ -340,7 +340,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 888 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 889 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -850,6 +850,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-white:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#1a1a2e\]\/50:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.12); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-\[\#eceef1\]:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-neutral-300:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:border-white\/25:not([data-own-look], [data-own-look] *):focus-visible { border-color: rgba(255,255,255,0.035); }
