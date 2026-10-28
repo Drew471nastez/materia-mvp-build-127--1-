@@ -118,7 +118,11 @@ import {
   Info,
   FolderOpen,
 } from "lucide-react"
-import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
+import { LinkStatsChart, type LinkStats } from "@/components/onepage/link-stats-chart"
+import { pageClickCounts } from "@/lib/onepage/stats-client"
+
+/* The blocks whose row shows a count of clicks (sign-ups for an email block) beside it. */
+const ROW_COUNT_TYPES = new Set(["link_button", "email_capture", "group", "product", "pdf_document", "food_menu", "calendly", "image", "social_row"])
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
@@ -3129,7 +3133,7 @@ function BlockItem({
   const [showAnimationSheet, setShowAnimationSheet] = useState(false)
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
-  const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
+  const [statsData, setStatsData] = useState<LinkStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [clickCount, setClickCount] = useState<number | null>(null)
   /* The date picker every page in /app shares, opened in place in this dialog. */
@@ -3203,7 +3207,8 @@ function BlockItem({
     setStatsLoading(true)
     try {
       const b = boundsOf(period, statsTimeZone, Date.now())
-      const url = `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}`
+      /* Bucketed on the creator's clock, as Analytics buckets the OnePage (lib/onepage/link-stats-server). */
+      const url = `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${encodeURIComponent(block.id)}&start=${encodeURIComponent(new Date(b.start).toISOString())}&end=${encodeURIComponent(new Date(b.end).toISOString())}&tz=${encodeURIComponent(statsTimeZone)}`
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
@@ -3222,22 +3227,15 @@ function BlockItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statsPeriod.preset, statsPeriod.start, statsPeriod.end, showStatsModal, statsSheetArrived])
 
-  // Fetch click count on mount for link buttons and email capture
+  /* The figure beside the row: the last year's clicks (an email block's sign-ups), from one answer the whole list shares (lib/onepage/stats-client). */
   useEffect(() => {
-    const fetchClickCount = async () => {
-      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group" && block.type !== "product")) return
-      try {
-        const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
-        if (response.ok) {
-          const data = await response.json()
-          setClickCount(data.total_clicks || 0)
-        }
-      } catch (error) {
-        // Silent fail for click count
-      }
-    }
-    fetchClickCount()
-  }, [onepage?.id, block.id, block.type])
+    if (!onepage?.id || !ROW_COUNT_TYPES.has(block.type)) return
+    let live = true
+    void pageClickCounts(onepage.id, statsTimeZone).then((counts) => {
+      if (live && counts) setClickCount(counts[block.id] ?? 0)
+    })
+    return () => { live = false }
+  }, [onepage?.id, block.id, block.type, statsTimeZone])
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -3317,7 +3315,8 @@ function BlockItem({
   const isFoodMenu = block.type === "food_menu"
   const isCalendly = block.type === "calendly"
   const isImage = block.type === "image"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly || isImage
+  const isSocialRow = block.type === "social_row"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly || isImage || isSocialRow
   const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
@@ -3576,11 +3575,11 @@ function BlockItem({
               onClose={closeStatsSheet}
               phone={isMobileStatsViewport}
               sheet={{ onOpened: () => setStatsSheetArrived(true) }}
-              label={isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : tt("Link Stats")}
+              label={isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : tt("Link Stats")}
               className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
             >
                 <DialogHeader className="p-4 border-b">
-                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : tt("Link Stats")}</SheetDialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : tt("Link Stats")}</SheetDialogTitle>
                 </DialogHeader>
 
                 {/* In the sheet this scrolls under the title, and a pull down from its top closes the sheet. */}
@@ -3594,7 +3593,7 @@ function BlockItem({
                   <LinkStatsChart
                     stats={statsData}
                     loading={statsLoading}
-                    clicksLabel={isEmailCapture ? tt("Submissions") : isPDFDocument ? tt("Opens") : tt("Clicks")}
+                    kind={isEmailCapture ? "signups" : isPDFDocument ? "opens" : "clicks"}
                     start={statsPeriod.start}
                     end={statsPeriod.end}
                     endIsToday={statsPeriod.end === statsToday}

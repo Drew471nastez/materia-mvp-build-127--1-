@@ -8,7 +8,8 @@ import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
+import { viewCountable } from "@/lib/onepage/visit-gate"
 import { after } from "next/server"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
@@ -21,6 +22,7 @@ import { findPublishedOnePage, liveBlocksFor, onePageOwner, publishedOnePageSeo,
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
 import { OnePageArrival } from "@/components/onepage/page-arrival"
+import { onePageShowsSomething, onePageSocialLinks } from "@/lib/onepage/page-presence"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -82,7 +84,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   /* The sitemap's rule, so a page it does not list does not ask to be listed.
      Not listed means not indexed, and not followed: the links are the whole
      page, and on a farm's page they are what it was made for. */
-  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
+  /* And a page that shows nothing past its name and photo (every block off or out of its schedule) is not listed either (lib/onepage/page-presence). */
+  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle }) &&
+    onePageShowsSomething({ blocks: drawn.blocks, bio: drawn.bio, socialLinks: drawn.social_links })
 
   return onePageMetadataFrom(seo, { handle: owner.handle, indexable, icon: drawn.avatar_url }) as Metadata
 }
@@ -172,6 +176,21 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
       .digest("hex")
       .slice(0, 32)
 
+    /*
+      COUNTED ONLY FOR A PERSON WHO IS NOT THE OWNER, by the checks Analytics
+      makes (lib/onepage/visit-gate): a robot, a link preview, a prefetch, the
+      owner, their team or a browser the app marked as theirs is not a view.
+      Asked here, while the request is still here; awaited after the page is sent.
+    */
+    const cookieStore = await cookies()
+    const countable = viewCountable({
+      headers: headersList,
+      cookie: (name) => cookieStore.get(name)?.value,
+      cookieNames: cookieStore.getAll().map((c) => c.name),
+      ownerUserId: onepage.owner_id ?? null,
+      creatorId: onepage.seller_id || onepage.creator_id || owner.creatorId || null,
+    }).catch(() => false)
+
     // Check for duplicate view (same IP within the same calendar day - UTC)
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
@@ -185,6 +204,7 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     */
     after(async () => {
       try {
+        if (!(await countable)) return
         const { data: existingView } = await adminSupabase
           .from("onepage_views")
           .select("id")
@@ -279,7 +299,9 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     can tie this page to the accounts it already knows.
   */
   const structured =
-    owner.canonical && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
+    owner.canonical &&
+    onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle }) &&
+    onePageShowsSomething({ blocks: transformedOnepage.blocks, bio: transformedOnepage.bio, socialLinks: transformedOnepage.social_links })
       ? jsonLdScript(
           profilePageJsonLd({
             url: owner.canonical,
@@ -297,7 +319,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
               settings: onepage.settings,
               pageUrl: owner.canonical ?? "",
             }).description.value,
-            sameAs: onePageSameAs(transformedOnepage.social_links),
+            /* The icons the page draws: its rows of social icons, else the profile's links (lib/onepage/page-presence). */
+            sameAs: onePageSameAs(onePageSocialLinks({ blocks: transformedOnepage.blocks, socialLinks: transformedOnepage.social_links })),
           }),
         )
       : null
