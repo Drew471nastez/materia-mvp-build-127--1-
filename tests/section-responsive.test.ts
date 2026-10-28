@@ -2077,8 +2077,9 @@ check(
   "both routes prove the caller owns the install, and a restore is scoped to it",
   // A backup id from one website cannot be restored into another even by
   // its owner.
-  /\.eq\("creator_id", creator\.id\)/.test(backupsRoute) &&
-    /\.eq\("creator_id", creator\.id\)/.test(restoreRoute) &&
+  /* Changed on purpose (round 42 team): the install is checked to be the store's in lib/team/website (storeInstall). */
+  /websiteInstallCaller\(installId\)/.test(backupsRoute) &&
+    /websiteInstallCaller\(installId\)/.test(restoreRoute) &&
     /\.eq\("id", backupId\)\s*\n\s*\.eq\("install_id", installId\)/.test(restoreRoute),
 )
 

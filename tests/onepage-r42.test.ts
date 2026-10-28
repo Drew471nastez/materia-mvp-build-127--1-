@@ -54,6 +54,12 @@ section("Buttons in a carousel: room on every side")
   check("  the old flush 5px gutter is gone", !/padding: '12px 5px 20px 5px'/.test(page))
 }
 
+section("The editor's phone: zoomed, so its edges stay on the screen's pixels")
+{
+  const live = code("components/onepage/live-preview.tsx")
+  check("the frame is zoomed, the transform only where zoom does not reach into the frame", /zoomed \? \{ zoom: scale \} : \{ transform: `scale\(\$\{scale\}\)`, transformOrigin: "0 0" \}/.test(live) && /Math\.abs\(inner - width\) > 2\) setZoomed\(false\)/.test(live))
+}
+
 section("Video: one copy plays")
 {
   const page = code("components/onepage/public-onepage.tsx")

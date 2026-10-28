@@ -153,8 +153,10 @@ async function main() {
     const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
     const list = read("app/api/website-builder/themes/[installId]/releases/route.ts")
     const owner = '.from("creators").select("id").eq("user_id", user.id)'
-    check("the creator is the signed in owner, as in Publish", route.includes(owner) && list.includes(owner) && publish.includes('.from("creators")') && publish.includes('.eq("user_id", user.id)'))
-    check("and the install is theirs", route.includes('.eq("creator_id", creator.id)') && list.includes('.eq("creator_id", creator.id)'))
+    void owner
+    /* Changed on purpose (round 42 team): the store and its install come from lib/team/website, as in Publish: the owner's, or the one a team member with Website works in, the install checked to be the store's. */
+    check("the creator is the signed in owner, as in Publish", [route, list, publish].every((r) => /websiteInstallCaller/.test(r)))
+    check("and the install is theirs", /\.eq\("creator_id", creatorId\)/.test(read("lib/team/areas.ts")))
     check("counted as a publish", route.includes('bucket: "site-publish"') && route.includes("LIMITS.sitePublish"))
     check("the release is this website's and this creator's before anything is written", route.indexOf('.eq("install_id", installId)') < route.indexOf("takeBackup(") && route.includes('.eq("creator_id", creator.id)'))
     check("the draft backed up first, and nothing happens without it", route.indexOf("takeBackup(") < route.indexOf("rollbackRelease(") && /source: "restore"/.test(route) && /if \(safety\.error\)[\s\S]{0,200}status: 500/.test(route))
