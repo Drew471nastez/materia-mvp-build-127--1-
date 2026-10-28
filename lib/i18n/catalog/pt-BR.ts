@@ -11280,7 +11280,11 @@ const words: Record<string, string> = {
  "People who join get a file to download": "Quem entrar recebe um arquivo para baixar",
  "Upload the file. Until then, people who join get nothing to download.": "Envie o arquivo. Até lá, quem entrar não recebe nada para baixar.",
  "Its style is in Design, under Layout.": "O estilo fica em Design, em Layout.",
- "This store has no communities yet. The owner makes them.": "Esta loja ainda não tem comunidades. Quem cria é o dono."
+ "This store has no communities yet. The owner makes them.": "Esta loja ainda não tem comunidades. Quem cria é o dono.",
+ "Move {title} into this group": "Mover {title} para este grupo",
+ "Move a block from your page, or add a new one.": "Mova um bloco da sua página ou adicione um novo.",
+ "Remove this block from the group?": "Remover este bloco do grupo?",
+ "Back on your page, under the group": "De volta à sua página, abaixo do grupo"
 }
 
 export default words

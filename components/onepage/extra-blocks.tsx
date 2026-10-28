@@ -38,7 +38,9 @@
  * like it belongs to the page it is on.
  */
 
-import { buttonBackground } from "@/lib/onepage/button-style"
+import { themeButtonStyle as pageButtonStyle } from "@/lib/onepage/button-style"
+import { boxRadius, buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
+import { fontStack } from "@/lib/onepage/fonts"
 import * as React from "react"
 import { useSyncExternalStore } from "react"
 import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, MapPin, Play, Plus, Trash2 } from "lucide-react"
@@ -90,37 +92,14 @@ export interface ExtraBlockLook {
   sellerId?: string | null
   /** The page (onepages.id): where a lead magnet's signups are kept (./storelib-blocks). */
   onepageId?: string | null
-}
-
-function hexToRgba(hex: string, alpha: number) {
-  const clean = (hex || "").replace("#", "")
-  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean
-  const r = Number.parseInt(full.slice(0, 2), 16) || 0
-  const g = Number.parseInt(full.slice(2, 4), 16) || 0
-  const b = Number.parseInt(full.slice(4, 6), 16) || 0
-  return `rgba(${r},${g},${b},${alpha})`
+  /** Round 41: inside a group or a carousel, where a button keeps still as a link does there. */
+  still?: boolean
 }
 
 /** The page's button, as the link blocks draw it (filled, outline or glass, its radius, border and shadow). */
 export function themeButtonStyle(theme: OnePageTheme): React.CSSProperties {
-  const t = theme as OnePageTheme & { button_shadow?: string; button_shadow_color?: string }
-  const shadowColor = t.button_shadow_color || "#000000"
-  const shadows: Record<string, string> = {
-    none: "none",
-    subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-    strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-    hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-  }
-  return {
-    backgroundColor: buttonBackground(theme),
-    color: theme.button_text_color,
-    borderRadius: `${theme.button_border_radius}px`,
-    borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : theme.button_border_width || 0}px`,
-    borderStyle: "solid",
-    borderColor: theme.button_style === "outline" ? theme.button_border_color || theme.button_color : theme.button_border_color,
-    backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-    boxShadow: shadows[t.button_shadow || "none"] || "none",
-  }
+  /* Round 41: the page's own rule (lib/onepage/button-style), not a second copy of it that could drift. */
+  return pageButtonStyle(theme)
 }
 
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
@@ -141,6 +120,8 @@ function HeadingView({ data, look }: { data: HeadingBlockData; look: ExtraBlockL
       style={{
         fontSize: px(HEADING_SIZE[data.size] ?? 18, look.scale),
         color: t.title_color || look.theme.text_color,
+        /* Round 41: Typography's title font, as the profile name has it. */
+        fontFamily: t.title_font ? fontStack(t.title_font) : undefined,
         textAlign: data.alignment || "center",
         paddingTop: px(6, look.scale),
       }}
@@ -156,7 +137,8 @@ function FaqView({ data, look }: { data: FaqBlockData; look: ExtraBlockLook }) {
   const items = (data.items || []).filter((i) => (i.question || "").trim())
   const [open, setOpen] = React.useState<string | null>(null)
   if (items.length === 0) return null
-  const button = themeButtonStyle(look.theme)
+  /* A box of several lines: the page's corners, short of an oval on a Pill page (lib/onepage/block-look boxRadius). */
+  const button = { ...themeButtonStyle(look.theme), borderRadius: `${boxRadius(look.theme)}px` }
   return (
     <div data-onepage-faq="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
@@ -167,7 +149,7 @@ function FaqView({ data, look }: { data: FaqBlockData; look: ExtraBlockLook }) {
       {items.map((item) => {
         const on = open === item.id
         return (
-          <div key={item.id} className="w-full overflow-hidden" style={button}>
+          <div key={item.id} className="op-card w-full overflow-hidden" style={button}>
             <button
               type="button"
               aria-expanded={on}
@@ -178,7 +160,7 @@ function FaqView({ data, look }: { data: FaqBlockData; look: ExtraBlockLook }) {
               <span className="min-w-0 flex-1">{item.question}</span>
               <ChevronDown
                 aria-hidden
-                className={cn("shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]", on && "rotate-180")}
+                className={cn("shrink-0 transition-[rotate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]", on && "rotate-180")}
                 style={{ width: px(16, look.scale), height: px(16, look.scale) }}
               />
             </button>
@@ -223,7 +205,7 @@ function CountdownView({ data, look }: { data: CountdownBlockData; look: ExtraBl
   if (Number.isNaN(target)) return null
   const left = now === null ? null : Math.max(0, target - now)
   const ended = left !== null && left <= 0
-  const button = themeButtonStyle(look.theme)
+  const button = { ...themeButtonStyle(look.theme), borderRadius: `${boxRadius(look.theme)}px` }
   const parts = left === null
     ? [["--", "days"], ["--", "hrs"], ["--", "min"], ["--", "sec"]]
     : [
@@ -276,8 +258,10 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   const address = useSettled(typed, 700, !!look.preview)
   if (!typed) return null
   const q = encodeURIComponent(address || typed)
-  const button = themeButtonStyle(look.theme)
-  const radius = `${look.theme.button_border_radius}px`
+  /* Round 41: Open in Maps is the page's button, hover and size included (lib/onepage/block-look); the frame stops short of an oval. */
+  const press = pressableProps(look.theme, look.still)
+  const pad = buttonPadScale(look.theme)
+  const radius = `${boxRadius(look.theme)}px`
   return (
     <div data-onepage-map="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
@@ -302,11 +286,13 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
           href={`https://www.google.com/maps/search/?api=1&query=${q}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-2 font-medium"
-          style={{ ...button, padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}
+          data-hover={press["data-hover"]}
+          data-shadow={press["data-shadow"]}
+          className={cn(press.className, "flex w-full items-center justify-center gap-2 font-medium")}
+          style={{ ...press.style, padding: `${px(14 * pad, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}
         >
           <MapPin aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
-          {tt("Open in Maps")}
+          <span className="op-label relative">{tt("Open in Maps")}</span>
         </a>
       ) : null}
     </div>
@@ -319,7 +305,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
   const source = videoSource(data.url)
   const [playing, setPlaying] = React.useState(false)
   if (!source) return null
-  const radius = `${look.theme.button_border_radius}px`
+  const radius = `${boxRadius(look.theme)}px`
   const tall = source.kind === "tiktok"
   const src =
     source.kind === "youtube"
@@ -367,7 +353,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
               <span className="absolute inset-0 bg-gradient-to-b from-[#26262b] to-[#111113]" />
             )}
             <span
-              className="relative grid place-items-center rounded-full bg-black/60 text-white transition-transform duration-150 group-active:scale-95"
+              className="relative grid place-items-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-active:scale-95"
               style={{ width: px(56, look.scale), height: px(56, look.scale) }}
             >
               <Play aria-hidden fill="currentColor" style={{ width: px(22, look.scale), height: px(22, look.scale), marginLeft: px(3, look.scale) }} />
@@ -404,7 +390,7 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <VideoView data={block.data as VideoBlockData} look={look} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
-      return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, button: themeButtonStyle(look.theme) }} />
+      return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, still: look.still, button: themeButtonStyle(look.theme) }} />
   }
 }
 
@@ -901,7 +887,7 @@ export function BlockExtras({
               <span className="block text-[14.5px] font-medium text-[#1a1a2e]">{tt("Schedule")}</span>
               <span className={cn("block truncate text-[13px]", status ? (status.live ? "text-[#15803d]" : "text-[#9a5b00]") : "text-[#6b7280]")}>{status ? status.text : tt("Show it only between two times")}</span>
             </span>
-            <ChevronRight aria-hidden data-keep-transform="" className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-transform duration-200", open && "rotate-90")} strokeWidth={1.75} />
+            <ChevronRight aria-hidden data-keep-transform="" className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-[rotate] duration-200", open && "rotate-90")} strokeWidth={1.75} />
           </button>
           {open ? (
             <div data-schedule-panel="" className="mb-2 space-y-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5">

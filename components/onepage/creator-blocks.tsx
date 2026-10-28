@@ -29,6 +29,7 @@
  */
 
 import * as React from "react"
+import { boxRadius, buttonPadScale, pressableProps, tintOf } from "@/lib/onepage/block-look"
 import { Check, ChevronRight, Loader2, Plus, Star, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -80,6 +81,8 @@ export interface CreatorBlockLook {
   onepageId?: string | null
   /** The button look of the page (./extra-blocks themeButtonStyle). */
   button: React.CSSProperties
+  /** Round 41: inside a group or a carousel, where a button keeps still. */
+  still?: boolean
 }
 
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
@@ -125,7 +128,7 @@ function CourseView({ data, look }: { data: CourseBlockData; look: CreatorBlockL
   )
   const box: React.CSSProperties = { ...look.button, borderRadius: `${radius}px`, padding: px(8, look.scale) }
   return href ? (
-    <a data-onepage-course="" href={href} className="flex w-full flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={box}>
+    <a data-onepage-course="" href={href} className="op-card flex w-full flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={box}>
       {inner}
     </a>
   ) : (
@@ -265,6 +268,7 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
   }, [])
 
   const radius = Math.min(Number(look.theme.button_border_radius) || 0, 14)
+  const send = pressableProps(look.theme, look.still)
   const field = "w-full border-0 bg-white/90 text-[16px] text-black outline-none placeholder:text-black/45 focus:ring-2 focus:ring-black/15 disabled:opacity-70 sm:text-sm"
   const fieldStyle: React.CSSProperties = { borderRadius: `${radius}px`, padding: `${px(12, look.scale)} ${px(14, look.scale)}` }
 
@@ -305,7 +309,7 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
   }
 
   return (
-    <div data-onepage-contact="" className="w-full" style={{ backgroundColor: `${look.theme.button_color}10`, borderRadius: `${Math.min(Number(look.theme.button_border_radius) || 0, 22)}px`, padding: px(18, look.scale) }}>
+    <div data-onepage-contact="" className="w-full" style={{ backgroundColor: tintOf(look.theme.button_color, 6), borderRadius: `${boxRadius(look.theme)}px`, padding: px(18, look.scale) }}>
       {data.title?.trim() ? (
         <h3 className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(17, look.scale) }}>
           {data.title}
@@ -339,9 +343,10 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
               {error}
             </p>
           ) : null}
-          <button type="submit" disabled={state === "sending"} className="inline-flex w-full items-center justify-center gap-2 font-medium transition-opacity disabled:opacity-60" style={{ ...look.button, padding: `${px(13, look.scale)} ${px(16, look.scale)}`, fontSize: px(14.5, look.scale) }}>
+          {/* Round 41: Send is the page's button, its hover and size too (lib/onepage/block-look). */}
+          <button type="submit" disabled={state === "sending"} data-hover={send["data-hover"]} data-shadow={send["data-shadow"]} className={cn(send.className, "inline-flex w-full items-center justify-center gap-2 font-medium disabled:opacity-60")} style={{ ...send.style, padding: `${px(13 * buttonPadScale(look.theme), look.scale)} ${px(16, look.scale)}`, fontSize: px(14.5, look.scale) }}>
             {state === "sending" ? <Loader2 aria-hidden className="animate-spin" style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : null}
-            {(data.button_text || "").trim() || tt("Send")}
+            <span className="op-label relative">{(data.button_text || "").trim() || tt("Send")}</span>
           </button>
         </form>
       )}

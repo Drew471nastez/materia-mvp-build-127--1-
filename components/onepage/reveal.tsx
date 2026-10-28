@@ -41,9 +41,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export const REVEAL_OPEN_MS = 300
-export const REVEAL_CLOSE_MS = 240
+export const REVEAL_CLOSE_MS = 280
 /** iOS's sheet curve: leaves quickly, lands softly (components/ui/bottom-sheet SHEET_EASE). */
 export const REVEAL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/**
+ * Round 41: a close starts gently and settles gently. On the sheet curve a
+ * 305px panel lost 250px in its first three frames (scripts/check-onepage-r41.mjs),
+ * which reads as a snap, not a close.
+ */
+export const REVEAL_CLOSE_EASE = "cubic-bezier(0.45, 0, 0.2, 1)"
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -110,7 +116,7 @@ export function Reveal({
     }
     box.style.willChange = "height"
     const ms = open ? REVEAL_OPEN_MS : REVEAL_CLOSE_MS
-    const a = box.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: ms, easing: REVEAL_EASE })
+    const a = box.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: ms, easing: open ? REVEAL_EASE : REVEAL_CLOSE_EASE })
     const fade = inner.animate(
       open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }],
       { duration: open ? ms : ms * 0.6, easing: "cubic-bezier(0.4, 0, 0.2, 1)", delay: open ? 40 : 0, fill: "backwards" },

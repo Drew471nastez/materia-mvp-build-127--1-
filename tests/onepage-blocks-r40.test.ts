@@ -245,7 +245,8 @@ async function main() {
   section("Registered wherever a block type is listed")
   {
     const page = read("components/onepage/public-onepage.tsx")
-    check("the live page draws any extra block it has no case for, with the page's id", /return isExtraBlock\(block\) \? <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId \}\} \/> : null/.test(page))
+    /* Changed on purpose (round 41): the look also says whether the block is in a group or a carousel (its buttons keep still there). */
+    check("the live page draws any extra block it has no case for, with the page's id", /return isExtraBlock\(block\) \? <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel \|\| isInsideGroup \}\} \/> : null/.test(page))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor's rows and settings do too", (tab.match(/isExtraBlock\(block\) \? extraBlockRow\(block\)/g) ?? []).length === 2 && /if \(isExtraBlock\(block\)\) return <ExtraBlockEditor/.test(tab))
     check("the live page fills shelves, posts and counts on the server", /withStorelibBlocks\(db, creatorId, products\)/.test(read("lib/onepage/published-page.ts")))
