@@ -83,20 +83,25 @@ for (const vp of [PHONE, DESK]) {
     expect(s1.scrollLeft > s0.scrollLeft + 40, `${w}: the end arrow moves the row`, { from: s0.scrollLeft, to: Math.round(s1.scrollLeft) })
     expect(s1.arrows.find((a) => a.side === "start").opacity > 0.9, `${w}: then the start arrow shows`)
     expect(s1.tops.length === 1, `${w}: still one line`)
-    /* Back to the start, then press the last pill that is cut off. */
-    await p.evaluate(() => { document.querySelector('[data-pill-row="settings-pills"]').scrollLeft = 0 })
-    await sleep(300)
+    /* To the far end, then press the pill the start fade cuts, on the part of it that shows (clear of the arrow). */
+    await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft = row.scrollWidth })
+    await sleep(400)
     const s2 = await rowState()
-    const cut = s2.tabs.find((t) => t.right > s2.right - 4) ?? s2.tabs[s2.tabs.length - 1]
-    const visibleX = Math.min(cut.left + 12, s2.right - 50)
-    await press(p, vp, visibleX, (await p.evaluate((id) => { const r = document.querySelector(`[data-pill-row="settings-pills"] [data-tab="${id}"]`).getBoundingClientRect(); return r.top + r.height / 2 }, cut.id)))
-    const frames = []
-    for (let i = 0; i < 12; i++) { frames.push(Math.round((await rowState()).scrollLeft)); await sleep(40) }
-    await sleep(500)
-    const s3 = await rowState()
-    const t = s3.tabs.find((x) => x.id === cut.id)
-    expect(t.left >= s3.left - 0.5 && t.right <= s3.right + 0.5, `${w}: the pressed pill "${cut.id}" is wholly in view`, { pill: [Math.round(t.left), Math.round(t.right)], row: [Math.round(s3.left), Math.round(s3.right)] })
-    expect(new Set(frames).size > 2, `${w}: it got there smoothly (several scroll positions on the way)`, frames)
+    const cut = s2.tabs.find((t) => t.left < s2.left + 40 && t.right > s2.left + 60)
+    expect(!!cut, `${w}: a pill is cut by the start fade`, s2.tabs.map((t) => [t.id, Math.round(t.left), Math.round(t.right)]))
+    if (cut) {
+      await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); window.__s = []; row.addEventListener("scroll", () => window.__s.push(Math.round(row.scrollLeft))) })
+      const y = await p.evaluate((id) => { const r = document.querySelector(`[data-pill-row="settings-pills"] [data-tab="${id}"]`).getBoundingClientRect(); return r.top + r.height / 2 }, cut.id)
+      await press(p, vp, cut.right - 10, y)
+      await sleep(900)
+      const s3 = await rowState()
+      const t = s3.tabs.find((x) => x.id === cut.id)
+      const path = await p.evaluate(() => window.__s)
+      const active = await p.evaluate(() => document.querySelector('[data-pill-row="settings-pills"] [aria-selected="true"]')?.dataset.tab)
+      expect(active === cut.id, `${w}: the press chose "${cut.id}"`, active)
+      expect(t.left >= s3.left + 40 - 0.5 && t.right <= s3.right + 0.5, `${w}: and it is scrolled wholly into view, clear of the fade and arrow`, { pill: [Math.round(t.left), Math.round(t.right)], row: [Math.round(s3.left), Math.round(s3.right)] })
+      expect(path.length >= 3 && new Set(path).size >= 3, `${w}: smoothly (scroll positions on the way)`, path.slice(0, 12))
+    }
   } else {
     expect(s0.arrows.every((a) => a.opacity < 0.1), `${w}: the row fits, so no arrow shows`)
   }
