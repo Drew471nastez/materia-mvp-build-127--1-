@@ -67,7 +67,7 @@ import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatMinor } from "@/lib/markets/money"
 import { changeOf, percentText, ratio, roundShares } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
-import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailRow, type DetailSection, type DetailView } from "./report-detail"
+import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailSection, type DetailView } from "./report-detail"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"

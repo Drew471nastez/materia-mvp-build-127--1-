@@ -10,8 +10,9 @@
  *             their tops make, whether the page scrolls sideways, the pickers'
  *             row's scroll range and which ends fade, and that a picker's
  *             sheet or popover opens outside the scroller, inside the screen
- *   kinds     All / Digital / Physical / Communities: each chip's box against
- *             the row's visible box and its label against its own box
+ *   kinds     All / Digital / Physical / Communities, one filter chip in the
+ *             row since round 41: each label against its own box, the dark
+ *             pill under the one chosen
  *   arrow     the metric row's arrow: each tap's scrollLeft, the state it
  *             shows (next / back), and the trip back to 0
  *   fill      a report bar below the screen: waiting (scaleX 0) before it is

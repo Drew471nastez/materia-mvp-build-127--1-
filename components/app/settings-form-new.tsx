@@ -415,20 +415,34 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     account, else the one this browser chose before it was saved anywhere,
     else the device's own. Saved with the rest of the page, to the account.
   */
-  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
-    if (accountTimeZone) return accountTimeZone
-    if (typeof window !== "undefined") {
-      try {
-        const stored = validTimeZone(localStorage.getItem(TIME_ZONE_STORAGE_KEY))
-        if (stored) return stored
-      } catch {
-        /* Storage refused: the device's zone. */
-      }
-      return validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "UTC"
-    }
-    return "UTC"
-  })
+  /*
+    THE SAME ON THE SERVER AND IN THE BROWSER'S FIRST DRAW. Settings opened on
+    its own (a reload, an email link) is drawn on the server, where there is
+    no storage and no device zone, so an account with no zone saved was drawn
+    as UTC there and as, say, Europe/Stockholm in the browser: React's
+    hydration found the text differ, threw the server's Settings away and
+    drew it all again in the browser, a visible blink of the whole sheet and
+    a hydration error in the console. Now both draw the saved zone, or UTC,
+    and the browser's own choice is put in before its first paint.
+  */
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(accountTimeZone ?? "UTC")
   const initialTimezone = useRef(selectedTimezone)
+  useLayoutEffect(() => {
+    if (accountTimeZone) return
+    let zone: string | null = null
+    try {
+      zone = validTimeZone(localStorage.getItem(TIME_ZONE_STORAGE_KEY))
+    } catch {
+      /* Storage refused: the device's zone. */
+    }
+    zone = zone ?? validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "UTC"
+    if (zone === initialTimezone.current) return
+    const was = initialTimezone.current
+    /* Not an unsaved change: it is where the page starts, as it was before. */
+    initialTimezone.current = zone
+    setSelectedTimezone((cur) => (cur === was ? (zone as string) : cur))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Support Email state - for customer receipts
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")

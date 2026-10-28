@@ -727,8 +727,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /* Things that ship are filed under their own list (Apparel, Home & Garden...), downloads under theirs. */
   const categoryKind = productType === "physical" ? "physical" : "digital"
   const suggestedCategory = useCategorySuggestion(title, description, mediaItems, categoryKind)
-  /* Switched between a download and a thing that ships: a category from the other list doesn't fit, so the suggestion takes over again. */
+  /* Switched between a download and a thing that ships: a category from the other list doesn't fit, so the suggestion takes over again.
+     Only on a switch, never as the editor opens: a saved category the lists no longer have (an older name such as
+     "Photography") was cleared on the first frame, and the product opened reading as edited, so leaving it untouched
+     asked "Discard changes?" (round 41). */
+  const kindShown = useRef(categoryKind)
   useEffect(() => {
+    if (kindShown.current === categoryKind) return
+    kindShown.current = categoryKind
     setSelectedCategory((c) => {
       if (!c || isCategoryFor(c, categoryKind)) return c
       categoryTouched.current = false
@@ -756,15 +762,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     longer a change. The names of what differs are on the page
     (data-unsaved-fields) for scripts/check-product-save-r12.mjs.
   */
+  /* A suggestion nobody has chosen is not a change of theirs (round 41): a saved product with no category opened with
+     one filled in and asked "Discard changes?" on the way out. It is still the value a save sends. */
+  const categoryAsChanged = categoryTouched.current ? selectedCategory : savedForm.selectedCategory
   const currentForm: DirtyFields = {
     title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType,
-    seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
+    seoTitle, seoDescription, callToAction, selectedCategory: categoryAsChanged, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
     mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit,
   }
   const { formChanges, formKey } = useMemo(
     () => ({ formChanges: changedFields(currentForm, savedForm), formKey: snapshotOf(currentForm) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit, savedForm],
+    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, categoryAsChanged, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit, savedForm],
   )
   const unsavedFields = [...formChanges, ...changedCards(cards)]
   const isDirty = unsavedFields.length > 0

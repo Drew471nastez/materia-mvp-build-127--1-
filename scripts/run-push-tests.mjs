@@ -641,6 +641,8 @@ const SUITES = [
   "tests/customer-email-editor.test.ts",
   /* Round 28: a customer email's six parts, per language, saved and read back, drawn as sent (preview text, footer note), reset. */
   "tests/customer-email-roundtrip.test.ts",
+  /* Round 28: a reply to a contact form message sent from its page, kept beside it, shown as a thread. */
+  "tests/site-contact-reply.test.ts",
   "tests/abandoned-cart-reminder.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",

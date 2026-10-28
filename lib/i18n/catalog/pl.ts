@@ -11280,7 +11280,26 @@ const words: Record<string, string> = {
  "People who join get a file to download": "Osoby, które dołączą, dostaną plik do pobrania",
  "Upload the file. Until then, people who join get nothing to download.": "Prześlij plik. Do tego czasu osoby, które dołączą, nie dostaną nic do pobrania.",
  "Its style is in Design, under Layout.": "Jego styl znajdziesz w Wyglądzie, w Układzie.",
- "This store has no communities yet. The owner makes them.": "Ten sklep nie ma jeszcze społeczności. Tworzy je właściciel."
+ "This store has no communities yet. The owner makes them.": "Ten sklep nie ma jeszcze społeczności. Tworzy je właściciel.",
+ "People who opened one of your pages, each counted once per day.": "Osoby, które otworzyły jedną z Twoich stron, każda liczona raz dziennie.",
+ "By page": "Według strony",
+ "By link": "Według linku",
+ "Total revenue": "Łączny przychód",
+ "By product": "Według produktu",
+ "By kind": "Według rodzaju",
+ "Total orders": "Łączna liczba zamówień",
+ "Conversion rate": "Współczynnik konwersji",
+ "Taps": "Kliknięcia",
+ "Orders by country": "Zamówienia według kraju",
+ "Visitors by country": "Odwiedzający według kraju",
+ "{range} compared with {against}": "{range} w porównaniu z {against}",
+ "Returning customers": "Powracający klienci",
+ "New customers": "Nowi klienci",
+ "This period's physical orders": "Zamówienia fizyczne w tym okresie",
+ "Parcels shipped": "Wysłane paczki",
+ "View report": "Zobacz raport",
+ "Nothing in this period.": "Nic w tym okresie.",
+ "{value} in the previous period": "{value} w poprzednim okresie"
 }
 
 export default words

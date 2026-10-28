@@ -238,6 +238,27 @@ for (const [name, vp, phone] of only && only !== "switch" ? [] : [["desktop", { 
     if (pass === "warm") console.log(`    asked again on a warm press: ${rows.filter(([, r]) => r.asked.length).map(([t, r]) => `${t} [${[...new Set(r.asked)].join(" ")}]`).join(", ") || "nothing"}`)
     results[`${name}-${pass}`] = rows
   }
+  if (!phone && process.env.SWITCH_PROFILE) {
+    const cdp = await p.createCDPSession()
+    await cdp.send("Profiler.enable")
+    await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+    const sums = new Map()
+    for (const tab of process.env.SWITCH_PROFILE.split(",")) {
+      await p.evaluate(() => document.querySelector('[data-settings-side-tab="general"]').click())
+      await wait(800)
+      await cdp.send("Profiler.start")
+      await p.evaluate((tab) => document.querySelector(`[data-settings-side-tab="${tab}"]`).click(), tab)
+      await wait(600)
+      const { profile } = await cdp.send("Profiler.stop")
+      const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+      const dt = profile.timeDeltas
+      profile.samples.forEach((id, i) => { const n = byId.get(id); const k = `${n.callFrame.functionName || "(anon)"}`; sums.set(k, (sums.get(k) ?? 0) + (dt[i] ?? 0) / 1000) })
+    }
+    const top = [...sums.entries()].filter(([k]) => !/idle|program|garbage/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 25)
+    console.log("    self time (ms) over the profiled presses:\n" + top.map(([k, v]) => `      ${v.toFixed(1).padStart(7)}  ${k}`).join("\n"))
+    const gc = sums.get("(garbage collector)") ?? 0
+    console.log(`      ${gc.toFixed(1).padStart(7)}  (garbage collector)`)
+  }
   if (!phone) {
     await p.evaluate(() => document.querySelector('[data-settings-side-tab="billing"]')?.click())
     await wait(DELAY + 600)
