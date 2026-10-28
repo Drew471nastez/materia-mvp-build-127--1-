@@ -47,12 +47,12 @@ export function pageFieldsPatch(b: Record<string, unknown>): { ok: true; patch: 
   const patch: Record<string, unknown> = {}
   if (b.summary !== undefined) {
     const r = checkSummary(b.summary)
-    if (!r.ok) return { ok: false, error: r.error, field: "summary" }
+    if ("error" in r) return { ok: false, error: r.error, field: "summary" }
     patch.summary = r.value
   }
   if (b.memberLinks !== undefined) {
     const r = checkMemberLinks(b.memberLinks)
-    if (!r.ok) return r
+    if ("error" in r) return { ok: false, error: r.error, field: r.field }
     patch.member_links = r.value
   }
   return { ok: true, patch }

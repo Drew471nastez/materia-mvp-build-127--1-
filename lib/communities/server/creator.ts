@@ -444,7 +444,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
     logoUrl: ownPicture(a.input.logoUrl),
     coverUrl: ownPicture(a.input.coverUrl),
   })
-  if (!made.ok) {
+  if ("error" in made) {
     if (made.error === "not_set_up") return no(503, "Communities are not set up on Storelib yet.")
     if (made.error === "invalid_name") return no(400, "Give your community a name up to 80 characters.", "name")
     if (made.error === "slug_taken") return no(409, "That address is taken.", "slug")
@@ -464,7 +464,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
   }
   if (a.input.type === "paid" && a.input.price) {
     const tier = await createPaidTier(db, { creatorId: a.creatorId, community, name: "Members", interval: a.input.price.interval, cents: a.input.price.cents, actorId: a.userId })
-    if (!tier.ok) {
+    if ("error" in tier) {
       await db.from("communities").delete().eq("id", community.id)
       return no(tier.status, tier.error, "price")
     }
@@ -478,7 +478,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
   if (general && a.input.spaceName && a.input.spaceName !== general.name) await db.from("community_spaces").update({ name: a.input.spaceName }).eq("id", general.id)
   if (general && a.input.welcome) {
     const posted = await createCreatorPost(db, { community, role: "owner", actorId: a.userId, spaceId: general.id, title: a.input.welcome.title, body: a.input.welcome.body, pin: true })
-    if (!posted.ok) console.error(`[communities] create ${community.slug}: the welcome post was not written: ${posted.error}`)
+    if ("error" in posted) console.error(`[communities] create ${community.slug}: the welcome post was not written: ${posted.error}`)
   }
   return { ok: true, community }
 }
@@ -765,29 +765,29 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   if (b.category !== undefined) patch.category = communityCategoryId(b.category)
   if (b.rules !== undefined) {
     const r = checkRules(b.rules)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.rules = r.value
   }
   if (b.faq !== undefined) {
     const r = checkFaq(b.faq)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.faq = r.value
   }
   if (b.benefits !== undefined) {
     const r = checkBenefits(b.benefits)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.benefits = r.value
   }
   if (b.links !== undefined) {
     const r = checkLinks(b.links)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.links = r.value
   }
   /* Checked with the rest, before anything is written; saved on its own below (./gallery.ts). */
   let gallery: GalleryItem[] | null = null
   if (b.gallery !== undefined) {
     const r = await checkGalleryForCommunity(db, c.id, b.gallery)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     gallery = r.value
     /* A cover video's still is the cover picture, so every place that draws a still keeps drawing one (./gallery.ts). */
     const cover = coverAfterGallery(c.cover_url ?? null, patch.cover_url !== undefined, gallery)
@@ -846,7 +846,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   /* Round 26: the short description and the member links (./page-fields.ts, run-now part 220). */
   {
     const r = pageFieldsPatch(b)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     Object.assign(patch, r.patch)
   }
   if (b.seoTitle !== undefined) {
@@ -879,7 +879,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
             if (type !== "free" && type !== "paid" && type !== "private") return { ok: false as const, error: "Pick who can join.", field: "type" }
             return { ok: true as const, value: accessChoiceOf(accessForType(type)) }
           })()
-    if (!asked.ok) return no(400, asked.error, asked.field)
+    if ("error" in asked) return no(400, asked.error, asked.field)
     if (asked.value.pricing === "paid") {
       const { count: paid } = await db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid").is("archived_at", null)
       if (!paid) return no(409, "Add a paid tier with a price first.", "pricing")
@@ -893,7 +893,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   /* The gallery first: before part 85 has run it answers "run the update", and nothing else is half saved. */
   if (gallery) {
     const g = await saveGallery(db, c.id, gallery)
-    if (!g.ok) return no(g.status, g.error, "gallery")
+    if ("error" in g) return no(g.status, g.error, "gallery")
     changed.push("gallery")
   }
   if (Object.keys(patch).length === 0 && !gallery) return { ok: true, community: c }

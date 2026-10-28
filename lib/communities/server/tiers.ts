@@ -190,7 +190,7 @@ export async function createPaidTier(db: Db, t: NewPaidTier): Promise<TierResult
   } else {
     billing = "recurring"
     const made = await createMembershipProduct(db, t.creatorId, title)
-    if (!made.ok) return failed(made.error, made.status)
+    if ("error" in made) return failed(made.error, made.status)
     productId = made.productId
     const linked = await db.from("products").update({ community_id: t.community.id }).eq("id", productId)
     const product = linked.error ? null : await ownedMembership(db, t.creatorId, productId)
@@ -205,7 +205,7 @@ export async function createPaidTier(db: Db, t: NewPaidTier): Promise<TierResult
       : null
     if (!saved || !saved.ok) {
       await db.from("products").delete().eq("id", productId)
-      return failed(saved && !saved.ok ? saved.error : "The price could not be saved. Try again.", saved && !saved.ok ? saved.status : 500)
+      return failed(saved && "error" in saved ? saved.error : "The price could not be saved. Try again.", saved && "error" in saved ? saved.status : 500)
     }
   }
 
@@ -318,7 +318,7 @@ export async function updateTier(db: Db, u: { creatorId: string; community: Comm
         },
         publish: null,
       })
-      if (!saved.ok) return failed(saved.error, saved.status, saved.field)
+      if ("error" in saved) return failed(saved.error, saved.status, saved.field)
     }
     if (tier.billing === "one_time" && u.patch.priceCents !== undefined) {
       const { data: product } = await db.from("products").select("id, creator_id, price_cents").eq("id", tier.product_id).maybeSingle()
