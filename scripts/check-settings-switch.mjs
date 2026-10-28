@@ -121,6 +121,8 @@ const API = {
   "/api/store/integrations": { tracking: {}, ready: true },
   "/api/store/integrations/catalog": { overrides: [] },
   "/api/physical/integrations": { integrations: [] },
+  /* scripts/render-customer-emails-probe.tsx's answer. */
+  "/api/store/emails": { shop: { name: "Mara Lind", supportEmail: "hello@maralind.se", storeUrl: "https://maralind.storelib.com", logoUrl: null, phone: null, currency: "SEK" }, copy: {}, ready: true },
   "/api/integrations/popularity": { scores: {} },
 }
 let html = ""
