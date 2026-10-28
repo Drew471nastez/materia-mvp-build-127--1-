@@ -27,6 +27,8 @@
  *   npx tsx scripts/check-editor-touch.mjs
  *   EDITOR_BUNDLE=<file>   the bundle to measure (the before/after table is two bundles)
  *   ONLY=<regexp over "kind device step">   SHOTS=<dir>   JSON=<file>   BUDGET=0 (report only)
+ *   BEFORE_JSON=<file>   the JSON of a run on the other bundle: the rows that changed, before and after
+ *   SHELL=0              without the native shell's CapacitorBounceGuard
  *
  * Budget: every swipe moves its scroller at least MIN_PX.
  */
@@ -217,7 +219,7 @@ async function run(kind, device) {
     await sleep(450)
     const after = await read()
     const log = await ed.js(() => window.__touchLog)
-    if (where === "canvas" && kind === "imported") { const inner = await inCanvas(() => window.__touchLog); if (log && inner) { log.moves += inner.moves; log.cancelled += inner.cancelled; log.asked += inner.asked; Object.assign(log.by, inner.by); Object.assign(log.scrolled, Object.fromEntries(Object.entries(inner.scrolled).map(([k, v]) => [`frame ${k}`, v]))) } }
+    if (where === "canvas" && kind === "imported") { const inner = await inCanvas(() => window.__touchLog); if (log && inner) { log.moves += inner.moves; log.cancelled += inner.cancelled; /* The theme's own cancels are the case under test, not the editor's: only the editor's count against a swipe. */ log.themeAsked = inner.asked; Object.assign(log.by, inner.by); Object.assign(log.scrolled, Object.fromEntries(Object.entries(inner.scrolled).map(([k, v]) => [`frame ${k}`, v]))) } }
     return { log, moved: Math.round(after - before), at: `${pt.x},${pt.y}${pt.on ? ` on ${pt.on}` : ""}`, dy }
   }
 
@@ -273,6 +275,17 @@ async function run(kind, device) {
   try {
     const SECTION = kind === "imported" ? (await ed.js(() => [...document.querySelectorAll("[data-mobile-bottom-sheet] [data-section-row]")].map((n) => n.textContent.trim()).filter(Boolean)[2] ?? "")) : "Product Grid"
     await record("landing", "canvas")
+    if (kind === "imported") {
+      /* A theme's hold left on with nothing open (its drawer's section drawn again): swiped at once, inside the 700ms the bridge waits after a change to <body>. */
+      await inCanvas(() => document.body.classList.add("overflow-hidden"))
+      await record("held by a class, nothing open", "canvas")
+      await inCanvas(() => document.body.classList.remove("overflow-hidden"))
+      await sleep(900)
+      /* A body-scroll-lock left listening: every touchmove on the page cancelled. */
+      await inCanvas(() => { window.__probeLock = (e) => e.preventDefault(); document.addEventListener("touchmove", window.__probeLock, { passive: false }) })
+      await record("theme cancels every move", "canvas")
+      await inCanvas(() => document.removeEventListener("touchmove", window.__probeLock))
+    }
     await toStop("half")
     await record("sheet at half", "sheet")
     await record("sheet at half, from an icon", "sheet", "icon")
@@ -418,14 +431,26 @@ async function run(kind, device) {
 }
 
 for (const kind of KINDS) for (const device of Object.keys(DEVICES)) {
-  if (ONLY && !ONLY.test(`${kind} ${device}`) && !/step/.test(String(ONLY))) {
-    /* ONLY may name a step; run the pair if any of it could match. */
-  }
+  /* ONLY naming a kind or a device skips the other pairs; naming a step runs them all and records only that step. */
+  if (ONLY && /native|imported|iphone|android/i.test(ONLY.source) && !ONLY.test(`${kind} ${device}`)) continue
   console.log(`\n${kind} on ${device}`)
   await run(kind, device)
 }
 
 if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(rows, null, 1))
+/* BEFORE_JSON=<file>: a run of the other bundle (JSON=), side by side with this one. */
+if (process.env.BEFORE_JSON) {
+  const before = JSON.parse(readFileSync(process.env.BEFORE_JSON, "utf8"))
+  const key = (r) => `${r.kind} ${r.device} ${r.step} ${r.where}`
+  const was = new Map(before.map((r) => [key(r), r]))
+  const cell = (r) => (r ? (r.moved === null ? "n/a" : `${r.moved}px${r.asked ? ` (${r.asked} cancelled)` : ""}`) : "-")
+  console.log(`\n${"swipe".padEnd(62)} ${"before".padEnd(22)} after`)
+  for (const r of rows) {
+    const b = was.get(key(r))
+    if (b && b.ok === r.ok && !process.env.ALL_ROWS) continue
+    console.log(`${key(r).padEnd(62)} ${cell(b).padEnd(22)} ${cell(r)}`)
+  }
+}
 const fails = rows.filter((r) => !r.ok)
 console.log(`\n${rows.length} swipes, ${fails.length} moved less than ${MIN_PX}px`)
 if (broken) process.exit(1)
