@@ -9,6 +9,9 @@
  *
  *   list       Products › Upsells and bundles, with four offers
  *   empty      the same page before the first offer
+ *   new        a new offer on its own page (/app/offers/new), `&kind=` as
+ *              the address takes it
+ *   offer      a saved offer on its own page (/app/offers/<id>), `&id=`
  *   product    a website product page: the Price, Quantity, Buy buttons and
  *              Bundles and upsells blocks of Storelib's product section
  *   featured   Storelib's Featured products section (the real .storelib
@@ -25,6 +28,7 @@ import * as React from "react"
 import { createRoot } from "react-dom/client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { OffersClient } from "@/app/app/offers/offers-client"
+import { OfferEditor } from "@/app/app/offers/offer-editor"
 import { ProductBlock } from "@/components/website-builder/sections/renderers/product/product-blocks"
 import { productBlockDefaults } from "@/lib/website-builder/product-page"
 import { SiteCartProvider } from "@/components/website-builder/site-cart"
@@ -322,11 +326,24 @@ function CheckoutView() {
   )
 }
 
+const SOLD: Record<string, number> = { [O1]: 14, [O2]: 9, [O3]: 23 }
+
 function App() {
   switch (view) {
     case "list":
     case "empty":
-      return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={area.offers} products={area.products} collections={[]} currency="USD" ready settingsReady breaksReady sold={{ [O1]: 14, [O2]: 9, [O3]: 23 }} physical /></div>
+      return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={area.offers} products={area.products} collections={[]} currency="USD" ready settingsReady breaksReady sold={SOLD} physical /></div>
+    case "new":
+    case "offer": {
+      /* The page the editor's routes draw (app/app/offers/new/page.tsx, [id]/page.tsx), with the props they read from the server. */
+      const offer = view === "offer" ? (OFFERS.find((o) => o.id === params.get("id")) ?? OFFERS[0]) : null
+      const kind = offer?.kind ?? ((["bundle", "checkout", "quantity_break"] as const).find((k) => k === params.get("kind")) ?? "bundle")
+      return (
+        <div id="shot">
+          <OfferEditor key={offer?.id ?? kind} offer={offer} kind={kind} products={area.products} collections={[]} others={OFFERS} currency="USD" physical ready settingsReady breaksReady sold={offer ? (SOLD[offer.id] ?? 0) : 0} />
+        </div>
+      )
+    }
     case "product":
       return <ProductPage />
     case "featured":
