@@ -340,7 +340,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 886 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 888 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -730,6 +730,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f3b4ae\]:not([data-own-look], [data-own-look] *) { border-color: hsla(5,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f3c1b9\]:not([data-own-look], [data-own-look] *) { border-color: hsla(8,50%,40%,0.45); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f3c4bd\]:not([data-own-look], [data-own-look] *) { border-color: hsla(8,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f3c4bf\]:not([data-own-look], [data-own-look] *) { border-color: hsla(6,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#fbd5d0\]:not([data-own-look], [data-own-look] *) { border-color: hsla(7,50%,40%,0.45); }
@@ -832,6 +833,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .fill-black:not([data-own-look], [data-own-look] *) { fill: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:after\:ring-\[\#1a1a2e\]\/20:not([data-own-look], [data-own-look] *):focus-visible::after { --tw-ring-color: rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:after\:ring-\[\#1a1a2e\]\/25:not([data-own-look], [data-own-look] *):focus-visible::after { --tw-ring-color: rgba(255,255,255,0.06); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f1f1f4\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }

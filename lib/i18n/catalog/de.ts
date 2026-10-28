@@ -11208,7 +11208,7 @@ const words: Record<string, string> = {
  "Ask the owner of {store} if you need it.": "Frag den Inhaber von {store}, wenn du es brauchst.",
  "Go to {area}": "Zu {area}",
  "Go to Settings": "Zu den Einstellungen",
- "Working in {store}": "Du arbeitest in {store}"
+ "Working in {store}": "Du arbeitest in {store}",
  "A row of your products, always up to date": "Eine Reihe deiner Produkte, immer aktuell",
  "Your downloads, always up to date": "Deine Downloads, immer aktuell",
  "What you ship, always up to date": "Was du versendest, immer aktuell",
@@ -11247,7 +11247,25 @@ const words: Record<string, string> = {
  "Instagram posts": "Instagram Beiträge",
  "Posts and reels in a row": "Beiträge und Reels in einer Reihe",
  "TikTok posts": "TikTok Beiträge",
- "Your TikToks in a row": "Deine TikToks in einer Reihe"
+ "Your TikToks in a row": "Deine TikToks in einer Reihe",
+ "List": "Liste",
+ "Cards": "Karten",
+ "{layout}, {spacing} spacing": "{layout}, Abstand {spacing}",
+ "tight": "eng",
+ "roomy": "großzügig",
+ "normal": "normal",
+ "Add a profile image above and it fills the top of the page.": "Füge oben ein Profilbild hinzu, dann füllt es den oberen Teil der Seite.",
+ "Font pairs": "Schriftpaare",
+ "Fill and lift": "Füllen und anheben",
+ "Search platforms": "Plattformen suchen",
+ "Edit thumbnail": "Vorschaubild bearbeiten",
+ "YouTube": "YouTube",
+ "Refresh thumbnail": "Vorschaubild aktualisieren",
+ "Spotify": "Spotify",
+ "SoundCloud": "SoundCloud",
+ "People who join get a file to download": "Wer sich anmeldet, bekommt eine Datei zum Herunterladen",
+ "Upload the file. Until then, people who join get nothing to download.": "Lade die Datei hoch. Bis dahin bekommt niemand, der sich anmeldet, etwas zum Herunterladen.",
+ "Its style is in Design, under Layout.": "Den Stil findest du unter Design, Layout."
 }
 
 export default words
