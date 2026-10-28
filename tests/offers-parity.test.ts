@@ -207,7 +207,7 @@ async function main() {
     check("each is a Shop word, translated in Translate › Shop words", words.every((k) => typeof (UI_WORDS as Record<string, string>)[k] === "string"))
     const bundleSrc = read("components/offers/bundle-offers.tsx").replace(/\/\*[\s\S]*?\*\//g, "")
     check("the bundle and upsell cards draw no English of their own", !/>\s*Together\s*</.test(bundleSrc) && !/"Choose your options above"/.test(bundleSrc) && !/"Added to cart"/.test(bundleSrc) && /w\("offer_together"\)/.test(bundleSrc))
-    check("  the tiers' price each", /w\("offer_each"\)/.test(read("components/offers/quantity-breaks.tsx")) && !/\} each\n/.test(read("components/offers/quantity-breaks.tsx")))
+    check("  the tiers' price each, handed in by the block (the tiers keep no hooks)", /\{each\(shown\.each\)\}/.test(read("components/offers/quantity-breaks.tsx")) && /each=\{\(price\) => fillWords\(w\("offer_each"\), \{ price \}\)\}/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")))
     check("  the cart's suggestions and Add", /w\("offer_add"\)/.test(read("components/offers/cart-offers.tsx")) && !/`Save \$\{money/.test(read("components/offers/cart-offers.tsx")))
     check("  the block's default labels are left to the Shop words; the store's own wins", /addAll: own\(s\.add_all_label, "Add all to cart"\)/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")))
     check("  the cart page's Bundles and offers and Discount rows", /w\("bundles_and_offers"\)/.test(read("components/website-builder/cart-page-body.tsx")) && /w\("discount"\)/.test(read("components/website-builder/cart-page-body.tsx")))
@@ -272,6 +272,7 @@ async function main() {
       }
     }
     walk(join(process.cwd(), "tests/fixtures/shopify-materia"), "")
+    walk(join(process.cwd(), "tests/fixtures/shopify-reviews"), "")
     walk(join(process.cwd(), "tests/fixtures/shopify-product-blocks"), "")
     const r = await convertShopifyTheme(zip)
     if (!r.ok) check("the fixture converts", false, r)
