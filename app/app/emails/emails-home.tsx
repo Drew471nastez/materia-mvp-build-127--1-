@@ -954,7 +954,8 @@ function MessagesTable(props: EmailsHomeProps) {
   const shown = props.messages.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const messageMenu = (m: MessageRow): ActionMenuItem[] => [
     { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
-    { label: tt("Reply"), onClick: () => { window.location.href = replyHref(m) } },
+    /* Its page has the reply box (./message-detail.tsx), and the thread of what was sent. */
+    { label: tt("Reply"), onClick: () => props.onOpenMessage(m) },
     { label: m.read_at ? tt("Mark as new") : tt("Mark as read"), onClick: () => props.onToggleRead(m) },
     { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
     { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },

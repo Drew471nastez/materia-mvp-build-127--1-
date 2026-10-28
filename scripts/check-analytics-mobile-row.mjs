@@ -122,8 +122,9 @@ try {
       await p.evaluate(() => { document.querySelector("[data-analytics-pickers]").scrollLeft = 0 })
     }
     /* Each picker opens outside the scroller, whole on screen. */
-    for (const [name, sel] of [["period", "[data-analytics-pickers] > div:first-child > :first-child button[aria-haspopup], [data-analytics-pickers] > div:first-child > button[aria-haspopup]:first-child"], ["product", "[data-analytics-pickers] > div:last-child button[aria-haspopup]"]]) {
-      const ok = await p.evaluate((sel) => { const b = document.querySelector(sel); if (!b) return false; b.click(); return true }, sel)
+    /* Changed on purpose (round 41): the pickers are the strip's own children now, the period first and the product by its words. */
+    for (const [name, sel] of [["period", 0], ["product", "products"]]) {
+      const ok = await p.evaluate((sel) => { const all = [...document.querySelectorAll("[data-analytics-pickers] button[aria-haspopup]")]; const b = typeof sel === "number" ? all[sel] : all.find((x) => x.textContent.includes(sel)); if (!b) return false; b.scrollIntoView({ inline: "nearest", block: "nearest" }); b.click(); return true }, sel)
       if (!ok) { console.log(`  note  no ${name} picker found`); continue }
       await sleep(700)
       const box = await p.evaluate(() => {
@@ -140,28 +141,29 @@ try {
 
     /* ── the kind chips ─────────────────────────────────────────────── */
     const k = await p.evaluate(() => {
-      const row = document.querySelector("[data-segmented-pills='chips']")
+      const row = document.querySelector("[data-segmented-pills='filter']")
       if (!row) return null
       const rr = row.getBoundingClientRect()
       const chips = [...row.querySelectorAll("[role=tab]")].map((b) => {
         const r = b.getBoundingClientRect()
         const cs = getComputedStyle(b)
-        return { label: b.textContent.trim(), left: +r.left.toFixed(1), right: +r.right.toFixed(1), w: +r.width.toFixed(1), cut: r.left < rr.left - 0.5 || r.right > rr.right + 0.5 || b.scrollWidth > b.clientWidth + 1, on: b.getAttribute("aria-selected") === "true", color: cs.color }
+        return { label: b.textContent.trim(), left: +r.left.toFixed(1), right: +r.right.toFixed(1), w: +r.width.toFixed(1), cut: b.scrollWidth > b.clientWidth + 1, on: b.getAttribute("aria-selected") === "true", color: cs.color }
       })
       const pill = row.querySelector("span[aria-hidden]")
       return { rowLeft: +rr.left.toFixed(1), rowRight: +rr.right.toFixed(1), scrollWidth: row.scrollWidth, clientWidth: row.clientWidth, chips, pill: pill && getComputedStyle(pill).backgroundColor, fade: row.hasAttribute("data-fade-end") }
     })
     console.log("  kinds:", JSON.stringify(k))
     expect(k && k.chips.length === 4, "All, Digital, Physical and Communities are drawn", k && k.chips.map((c) => c.label))
-    expect(k && k.chips.every((c) => !c.cut) && k.scrollWidth <= k.clientWidth, "no kind chip is cut, and the row needs no scroll", k && { scrollWidth: k.scrollWidth, clientWidth: k.clientWidth, cut: k.chips.filter((c) => c.cut).map((c) => c.label) })
+    /* Changed on purpose (round 41, "must look like the filter chips"): the kinds are one chip in the filters' row, which scrolls on a phone; no label is cut inside its own box, and the chip itself never scrolls. */
+    expect(k && k.chips.every((c) => !c.cut) && k.scrollWidth <= k.clientWidth + 1, "no kind label is cut inside the chip, and the chip itself needs no scroll", k && { scrollWidth: k.scrollWidth, clientWidth: k.clientWidth })
     expect(k && k.pill === "rgb(26, 26, 46)", "the chosen chip is the dark pill", k && k.pill)
     /* A tap moves the pill to the chip tapped. */
     if (k) {
-      await p.evaluate(() => [...document.querySelectorAll("[data-segmented-pills='chips'] [role=tab]")].find((b) => b.textContent.trim() === "Communities").click())
+      await p.evaluate(() => { const b = [...document.querySelectorAll("[data-segmented-pills='filter'] [role=tab]")].find((b) => b.textContent.trim() === "Communities"); b.scrollIntoView({ inline: "nearest", block: "nearest" }); b.click() })
       await sleep(500)
-      const moved = await p.evaluate(() => { const row = document.querySelector("[data-segmented-pills='chips']"); const pill = row.querySelector("span[aria-hidden]").getBoundingClientRect(); const on = row.querySelector("[aria-selected=true]"); const r = on.getBoundingClientRect(); return { on: on.textContent.trim(), dx: +(pill.left - r.left).toFixed(1), dw: +(pill.width - r.width).toFixed(1) } })
+      const moved = await p.evaluate(() => { const row = document.querySelector("[data-segmented-pills='filter']"); const pill = row.querySelector("span[aria-hidden]").getBoundingClientRect(); const on = row.querySelector("[aria-selected=true]"); const r = on.getBoundingClientRect(); return { on: on.textContent.trim(), dx: +(pill.left - r.left).toFixed(1), dw: +(pill.width - r.width).toFixed(1) } })
       expect(moved.on === "Communities" && Math.abs(moved.dx) < 1 && Math.abs(moved.dw) < 1, "Communities tapped: the pill is under it", moved)
-      await p.evaluate(() => [...document.querySelectorAll("[data-segmented-pills='chips'] [role=tab]")].find((b) => b.textContent.trim() === "All").click())
+      await p.evaluate(() => [...document.querySelectorAll("[data-segmented-pills='filter'] [role=tab]")].find((b) => b.textContent.trim() === "All").click())
       await sleep(900)
     }
 
