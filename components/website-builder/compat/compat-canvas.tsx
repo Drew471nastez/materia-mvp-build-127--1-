@@ -74,7 +74,21 @@ import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { localizeMenus, localizeOptions, localizeSections, type TranslationMap } from "@/lib/markets/translate"
 import { localePrefix } from "@/lib/markets/locales"
 import { compatPrices, compatShop, type ThemeCountry } from "@/lib/markets/compat-prices"
+import { minorUnits } from "@/lib/markets/money"
+import { cardOptions, withOffersShown } from "@/lib/storelib-theme/compat/offers-app-block"
 import type { Pricing } from "@/lib/markets/pricing"
+
+/**
+ * The Bundles and upsells app block's figures on the canvas
+ * (lib/storelib-theme/compat/offers-app-block.ts), at the store's own prices
+ * as the live page works them out. A market previewed has its cards already
+ * converted, so the block there keeps to the live site's figures and the
+ * canvas shows its quiet line.
+ */
+function offersOnCanvas(id: string, settings: Record<string, unknown>, currency: string | undefined, converted: boolean): Record<string, unknown> {
+  if (converted || !currency) return settings
+  return withOffersShown({ id, settings }, cardOptions({ id, settings }, currency, minorUnits), { charge: null, currency, locale: "en" })
+}
 
 export interface CompatCanvasProps {
   installId: string
@@ -683,7 +697,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const found = picked ?? products[0] ?? null
     const factsOnly = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
     /* product.metafields.storelib.offers, the same JSON as the live product page's (lib/offers/offers-public.ts). */
-    const facted = factsOnly && stock?.offers && stock.id === factsOnly.id ? ({ ...factsOnly, settings: { ...factsOnly.settings, storelib_offers: stock.offers } } as ProductCard) : factsOnly
+    const facted = factsOnly && stock?.offers && stock.id === factsOnly.id ? ({ ...factsOnly, settings: offersOnCanvas(factsOnly.id, { ...factsOnly.settings, storelib_offers: stock.offers } as unknown as Record<string, unknown>, shop.currency, !!pricing) } as unknown as ProductCard) : factsOnly
     /* The facts carry each variant's option values as saved: put in the language previewed again, as the live page's product is after its facts (compat.ts card). */
     const sample = facted && facted !== found && map ? ({ ...facted, settings: localizeOptions(facted.settings, map, { approvedOnly: true, fresh: true }) } as ProductCard) : facted
     const firstCollection = collections[0] ?? null

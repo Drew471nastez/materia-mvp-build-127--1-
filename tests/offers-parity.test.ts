@@ -33,6 +33,10 @@ import { summaryRows, rowsSum } from "../lib/checkout/summary-rows"
 import { UI_WORDS } from "../lib/markets/ui-words"
 import { CHECKOUT_SENTENCES } from "../lib/markets/checkout-words.generated"
 import type { SiteQuote } from "../lib/checkout/site-quote-server"
+import { readdirSync, statSync } from "node:fs"
+import JSZip from "jszip"
+import { defaultTierWording, fillWords, tierNameIn, TIER_WORDS } from "../lib/offers/pricing"
+import { minorUnits } from "../lib/markets/money"
 
 let passed = 0
 let failed = 0
@@ -208,6 +212,83 @@ async function main() {
     check("  the block's default labels are left to the Shop words; the store's own wins", /addAll: own\(s\.add_all_label, "Add all to cart"\)/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")))
     check("  the cart page's Bundles and offers and Discount rows", /w\("bundles_and_offers"\)/.test(read("components/website-builder/cart-page-body.tsx")) && /w\("discount"\)/.test(read("components/website-builder/cart-page-body.tsx")))
     check("the checkout's Add to your order and Add are checkout sentences", ["Add to your order", "Add", "{title} option"].every((s) => (CHECKOUT_SENTENCES as readonly string[]).includes(s)) && /ct\("Add"\)/.test(read("components/offers/checkout-suggestions.tsx")))
+  }
+
+  console.log("\nTIER NAMES: a tier with no name of its own, in the page's language")
+  {
+    check("the default names read back as what they say", JSON.stringify(defaultTierWording("Buy 2 get 1 free")) === JSON.stringify({ kind: "free", quantity: 2, free: 1 }) && defaultTierWording("Buy 3, save 15%")?.kind === "percent" && defaultTierWording("Buy 2, save $5.00")?.kind === "amount" && defaultTierWording("Buy 1")?.kind === "plain")
+    check("  a name the store typed is kept", defaultTierWording("Most popular pack") === null && defaultTierWording("Buy 2, save big") === null && tierNameIn("Family pack", () => "x") === "Family pack")
+    const fr = { free: "{quantity} achetés, {free} offert", percent: "{quantity} achetés, -{percent} %", amount: "{quantity} achetés, -{amount}", plain: "{quantity} acheté" }
+    const sayFr = (k: keyof typeof TIER_WORDS, v: Record<string, string>) => fillWords(fr[k], v)
+    check("  said in French", tierNameIn("Buy 2 get 1 free", sayFr) === "2 achetés, 1 offert" && tierNameIn("Buy 3, save 15%", sayFr) === "3 achetés, -15 %")
+    check("  an amount saved as dollars in a lei store reads in lei when the tier is known", tierNameIn("Buy 2, save $5.00", sayFr, { discountType: "amount", discountValue: 500 }, (m) => `${(m / 100).toFixed(2)} lei`) === "2 achetés, -5.00 lei")
+    check("the patterns are Shop words and checkout sentences", (UI_WORDS as Record<string, string>).offer_tier_free === TIER_WORDS.free && Object.values(TIER_WORDS).every((t) => (CHECKOUT_SENTENCES as readonly string[]).includes(t)))
+    check("the product block, the cart rows and the website checkout's rows say them so", /name=\{\(t\) => tierNameIn\(t\.label/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")) && /tierNameIn\(o\.title/.test(read("components/offers/cart-offers.tsx")) && /\{offerTitle\(o\.title\)\}/.test(read("app/checkout/site/site-checkout.tsx")))
+  }
+
+  console.log("\nIMPORTED THEMES: the Bundles and upsells app block, on a main product and a Featured product")
+  {
+    const { offersShown, offersBlockHtml, cardOptions, withOffersShown, OFFERS_APP_BLOCK } = await import("../lib/storelib-theme/compat/offers-app-block")
+    const { drawPage, themeOfInstall } = await import("../lib/storelib-theme/compat/page")
+    const { convertShopifyTheme } = await import("../lib/storelib-theme/shopify/convert")
+    const { compatPrices } = await import("../lib/markets/compat-prices")
+    const tiers = [tier(1), tier(2, 1), tier(3, 0, "percent", 15), tier(4, 0, "amount", 500)]
+    const offersJson = {
+      quantityBreaks: [{ offerId: "qb", productId: TEE, title: "Buy more, save more", tiers }],
+      bundles: [{ offerId: "bd", title: "Tee and mug", label: "20% off", discountType: "percent" as const, discountValue: 20, items: [{ id: TEE, title: "Tee", slug: "tee", imageUrl: null, type: "physical", priceCents: 2900, variants: [{ id: TEEV, name: "S", priceCents: 2900 }, { id: "tee-l", name: "L", priceCents: 3300 }] }, { id: MUG, title: "Mug", slug: "mug", imageUrl: null, type: "physical", priceCents: 1000, variants: [{ id: MUGV, name: "Default", priceCents: 1000 }] }] }],
+      checkoutOffers: [{ offerId: "up", title: "Add a mug", label: "50% off", discountType: "percent" as const, discountValue: 50, product: { id: MUG, title: "Mug", slug: "mug", imageUrl: null, type: "physical", priceCents: 1000, variants: [{ id: MUGV, name: "Default", priceCents: 1000 }] } }],
+    }
+    const card = { id: TEE, settings: { title: "Tee", slug: "tee", url: "/products/tee", price: "29.00", kind: "physical", available: true, options: [{ name: "Size", values: ["S", "L"] }], variants: [{ id: TEEV, name: "S", options: ["S"], price: "29.00", available: true }, { id: "tee-l", name: "L", options: ["L"], price: "33.00", available: true }], storelib_offers: offersJson } as Record<string, unknown> }
+    const own = cardOptions(card, "RON", minorUnits)
+    check("each option of the card at the store's price, in its minor units (yen has none)", JSON.stringify(own) === JSON.stringify([{ id: TEEV, minor: 2900 }, { id: "tee-l", minor: 3300 }]) && cardOptions({ id: "x", settings: { price: "1200.00" } }, "JPY", minorUnits)[0].minor === 1200)
+    const home = offersShown(offersJson, TEE, own, { charge: null, currency: "RON", locale: "en" })
+    const lineTotal = (unit: number, units: number) => unit * units - applyOffers([{ productId: TEE, unitCents: unit, quantity: units }], [breakOffer({ tiers })], { now: NOW }).discounts[0]
+    const ron = (m: number) => cartAmounts([{ priceCents: m, quantity: 1 }], null, "RON").subtotal
+    check("store's prices: every tier, at every option, is checkout's total", home.breaks[0].tiers.every((t) => own.every((o) => t.at[o.id].total === ron(lineTotal(o.minor, t.units)))), home.breaks[0].tiers.map((t) => t.at))
+    const setL = applyOffers([{ productId: TEE, unitCents: 3300, quantity: 1 }, { productId: MUG, unitCents: 1000, quantity: 1 }], [bundle()], { now: NOW })
+    check("  the set at the option picked (L): checkout's", home.bundles[0].at["tee-l"].price === ron(4300 - setL.discounts[0] - setL.discounts[1]) && home.bundles[0].at["tee-l"].full === ron(4300))
+    check("  the upsell at its offer price", home.upsells[0].price === ron(500) && home.upsells[0].was === ron(1000))
+    /* In the euro market that rounds to .99: worked out again by compatPrices, each through the checkout's conversion. */
+    const inMarket = compatPrices(card.settings, pricing, "en", TEE).storelib_offers_shown as ReturnType<typeof offersShown>
+    const t21 = inMarket.breaks[0].tiers[1].at[TEEV]
+    const conv = convertOrder([{ unitCents: 2900, quantity: 3, discountCents: 2900 }], { itemsSubtotalCents: 8700, discountCents: 2900, shippingCents: 0, shippingDiscountCents: 0, taxCents: 0, taxIncluded: true, totalCents: 5800 }, charge)
+    check("a market's page: the 2 + 1 tier is checkout's euros, not 58 lei converted as one price", t21.total.includes(((conv.totals.itemsSubtotalCents - conv.totals.discountCents) / 100).toFixed(2)) && t21.total.includes("€"), t21)
+    check("  the amount off tier's default name in the market's money", /€/.test(inMarket.breaks[0].tiers[3].amount), inMarket.breaks[0].tiers[3])
+    const fr = { offer_tier_free: "{quantity} achetés, {free} offert", offer_together: "Ensemble", offer_add_all: "Tout ajouter au panier", offer_each: "{price} pièce" }
+    const html = offersBlockHtml({ shown: home, selectedId: TEEV, settings: {}, words: fr, inEditor: false })
+    check("the block draws each tier's name in the page's words, the set and the upsell with their buttons", html.includes("2 achetés, 1 offert") && html.includes("Ensemble") && html.includes("Tout ajouter au panier") && html.includes('data-units="3"') && (html.match(/data-add=/g) ?? []).length === 2 && html.includes("pièce"), html.slice(0, 600))
+    check("  the set's lines go to /cart/add.js with the offer named on each, this product at the option picked", html.includes("/cart/add.js") && html.includes("&quot;mine&quot;:true") && html.includes("_sl_offer_id") && html.includes(`&quot;id&quot;:&quot;${MUGV}&quot;`))
+    check("  every option's figures for the picker to swap", (() => { const at = JSON.parse((html.match(/data-at="([^"]*)"/)?.[1] ?? "{}").replace(/&quot;/g, '"').replace(/&amp;/g, "&")); return at["tee-l"]?.s0?.price === home.bundles[0].at["tee-l"].price && /pièce/.test(at[TEEV]?.b0t1?.each ?? "") })())
+    check("  nothing for a product with no offer; a quiet line in the builder", offersBlockHtml({ shown: null, selectedId: null, settings: {}, words: {}, inEditor: false }) === "" && /set up in Offers show here/.test(offersBlockHtml({ shown: null, selectedId: null, settings: {}, words: {}, inEditor: true })))
+    check("  the store can switch each part off", !offersBlockHtml({ shown: home, selectedId: TEEV, settings: { show_bundles: false, show_upsells: false }, words: {}, inEditor: false }).includes("data-add="))
+
+    /* Drawn by an imported theme (the Materia fixture with Dawn's product sections), as a main product's and a Featured product's app block. */
+    const zip = new JSZip()
+    const walk = (dir: string, rel: string) => {
+      for (const n of readdirSync(dir)) {
+        const p = join(dir, n)
+        if (statSync(p).isDirectory()) walk(p, `${rel}${n}/`)
+        else zip.file(`${rel}${n}`, readFileSync(p))
+      }
+    }
+    walk(join(process.cwd(), "tests/fixtures/shopify-materia"), "")
+    walk(join(process.cwd(), "tests/fixtures/shopify-product-blocks"), "")
+    const r = await convertShopifyTheme(zip)
+    if (!r.ok) check("the fixture converts", false, r)
+    else {
+      const theme = themeOfInstall(r.theme.files as Record<string, string>, r.theme.settings, { assetUrl: (n: string) => `/a/${n}`, assetText: () => null })
+      const shop = { name: "Shop", currency: "RON", moneyFormat: "{{amount}} lei" }
+      const shownCard = { ...card, settings: withOffersShown(card, own, { charge: null, currency: "RON", locale: "en" }) }
+      const draw = (p: Record<string, unknown>, sections: unknown[]) => drawPage(theme, p as never, sections as never, { scripts: false }).html
+      const main = draw({ designMode: false, host: "shop.test", products: [shownCard], collections: [], menus: {}, shop, template: "product", path: "/products/tee", product: shownCard }, [{ id: "main", type: "main-product", settings: {}, blocks: [{ id: "title", type: "title", settings: {} }, { id: "offers", type: OFFERS_APP_BLOCK, settings: {} }, { id: "buy", type: "buy_buttons", settings: {} }] }])
+      check("Dawn's main product draws the block where it was placed", main.includes('data-sl-offers=""') && main.includes(home.breaks[0].tiers[1].at[TEEV].total), main.slice(main.indexOf("data-sl-offers") - 200, main.indexOf("data-sl-offers") + 300))
+      const featured = draw({ designMode: false, host: "shop.test", products: [shownCard], collections: [], menus: {}, shop, template: "index", path: "/" }, [{ id: "fp", type: "featured-product", settings: { product: TEE }, blocks: [{ id: "t", type: "title", settings: {} }, { id: "o", type: OFFERS_APP_BLOCK, settings: {} }] }])
+      check("  and a Featured product on the home page, for the product it features", featured.includes('data-sl-offers=""') && featured.includes("Tee and mug"), featured.length)
+      const { productAppBlockSchema } = await import("../lib/storelib-theme/compat/product-app-blocks")
+      check("  listed with Storelib's app blocks for Add block (a theme's @app sections)", productAppBlockSchema(OFFERS_APP_BLOCK)?.name === "Bundles and upsells")
+    }
+    const site = read("lib/website-builder/compat-site.ts")
+    check("the live site gives each product's page and each Featured product its offers and figures", /m\.withOffersShown\(\{ id: card\.id, settings: own \}/.test(site) && /catalogOffers\(admin, creator\.creatorId, cards\.map/.test(site))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
