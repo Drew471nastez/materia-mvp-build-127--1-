@@ -66,6 +66,7 @@ async function main() {
     const view = viewOnlineUrl({ kind: "recipient", id: RECIPIENT })!
     check("each reader's email links their own copy", msg.html.includes(`href="${view}"`) && msg.html.includes("View in browser"), msg.html.slice(0, 200))
     check("the link sits above the email, before the store's header", msg.html.indexOf("View in browser") < msg.html.indexOf("Atelier Ana"))
+    check("the plain text version starts with it too", msg.text.startsWith(`View in browser: ${view}\n`), msg.text.slice(0, 120))
     check("and is not rewritten through /api/email/click", !msg.html.includes(`click?u=${Buffer.from(view).toString("base64url")}`))
     check("buildEmail without it draws no line (previews, the page itself)", !buildEmail({ subject: "x", bodyHtml: "<p>x</p>", brand: frame.sender.brand, kind: "marketing" }).includes("View in browser"))
   }

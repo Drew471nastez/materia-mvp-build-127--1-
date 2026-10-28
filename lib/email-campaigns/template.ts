@@ -203,7 +203,7 @@ ${pixel}
  * lists with dashes, a link's words followed by its address, then the
  * footer the HTML has.
  */
-export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "reason" | "unsubscribeUrl">): string {
+export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "reason" | "unsubscribeUrl" | "viewOnlineUrl">): string {
   const body = f.bodyHtml
     .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/gi, "")
     .replace(/<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, label: string) => {
@@ -230,7 +230,9 @@ export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "r
   if (f.reason) lines.push(f.reason)
   else if (f.kind === "marketing") lines.push(`You are getting this because you joined ${brand.name}'s list.`)
   if (f.kind === "marketing" && f.unsubscribeUrl) lines.push(`Unsubscribe: ${f.unsubscribeUrl}`)
-  return `${text}\n\n--\n${lines.join("\n")}`
+  /* The email's own page first, as the HTML version has it above the email (./view-online.ts). */
+  const view = f.viewOnlineUrl ? `View in browser: ${f.viewOnlineUrl}\n\n` : ""
+  return `${view}${text}\n\n--\n${lines.join("\n")}`
 }
 
 /* ─── Merge fields ───────────────────────────────────────────────────── */

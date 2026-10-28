@@ -807,6 +807,7 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
   const personal = personalizeHtml(frame.body, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   const subject = personalizeSubject(frame.subject, reader)
   const brand = frame.sender.brand
+  const view = viewOnlineUrl({ kind: "recipient", id: row.id })
   const html = buildEmail({
     subject,
     previewText: personalizeSubject(frame.previewText, reader),
@@ -817,7 +818,7 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
     unsubscribeUrl: page,
     openPixelUrl: frame.trackOpens ? `${APP_URL}/api/email/track?t=${encodeURIComponent(row.tracking_token)}` : null,
     /* This reader's own page of the email: their name and their unsubscribe link, no pixel (./view-online.ts). */
-    viewOnlineUrl: viewOnlineUrl({ kind: "recipient", id: row.id }),
+    viewOnlineUrl: view,
   })
   const headers: Record<string, string> = {}
   if (oneClick) {
@@ -830,7 +831,7 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
     replyTo: frame.sender.replyTo,
     subject,
     html,
-    text: emailText({ bodyHtml: personal, brand, kind: "marketing", unsubscribeUrl: page }),
+    text: emailText({ bodyHtml: personal, brand, kind: "marketing", unsubscribeUrl: page, viewOnlineUrl: view }),
     headers,
     messageId: `<c${campaignId}.r${row.id}@${mailgunDomain()}>`,
     tags: ["campaign"],

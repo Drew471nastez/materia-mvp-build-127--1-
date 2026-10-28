@@ -13,6 +13,7 @@ import { fakeDb } from "./_fake-db"
 import { buildCreditNote, creditNoteNumber, creditNotePath, ensureCreditNotes, issueCreditNote, renderCreditNotePdf, type CreditNoteRow } from "@/lib/checkout/credit-note"
 import type { InvoiceData, OrderRow } from "@/lib/checkout/invoice"
 import { buyerRefundEmail } from "@/lib/emails/notices"
+import { refundEmail } from "@/lib/physical/email-templates"
 import { checkoutSentences, emailSentences } from "@/lib/markets/checkout-words"
 import ro from "@/lib/checkout-text/dict/ro"
 
@@ -183,6 +184,9 @@ console.log("\n6. Linked from the email, the receipt, the order page and the sel
   check("the refund email names the credit note and links its PDF", mail.html.includes("000154") && mail.html.includes(url.replace(/&/g, "&amp;")) && mail.text.includes(url), mail.html.length)
   const none = buyerRefundEmail({ storeName: "Atelier Ana", productTitle: "Ceramic mug", amount: "40.00 lei", orderDate: "Oct 1", refundDate: "Oct 28", reason: "Requested by you", orderRef: "#11111111", contactEmail: "ana@example.com" })
   check("without one (before part 329) the email is as it was", !none.html.includes("credit note") && !none.text.includes("credit note"))
+  const parcel = refundEmail({ shopName: "Atelier Ana", orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 4000, refundedCents: 4000, totalCents: 18000, currency: "RON", paymentLabel: null, statusUrl: "https://storelib.com/o/x", creditNote: { number: "000154", url } })
+  check("the physical order's refund email links it too, in HTML and text", parcel.html.includes(url.replace(/&/g, "&amp;")) && parcel.html.includes("000154") && parcel.text.includes(url))
+  check("  and its job reads the checkout's latest note", /const creditNote = await refundCreditNote\(db, co\.id, co\.creator_id\)/.test(read("lib/physical/jobs-server.ts")) && /ensureCreditNotes\(db as never, rows, creatorId\)/.test(read("lib/physical/jobs-server.ts")))
   check("the buyer's link is their receipt token and the note's id", creditNotePath("tok", "id-1") === "/api/checkout/credit-note?token=tok&id=id-1")
   const sync = read("lib/stripe/refund-sync.ts")
   check("the webhook's refund step issues it once per refund, keyed by the refund", /issueCreditNote\(db, \{ creatorId: await creatorOf\(db, rows\[0\]\.product_id\), orderId: rows\[0\]\.id, refundKey: refund\.id/.test(sync) && /emailRefund\(db, touched, refund, currency, note \?/.test(sync))

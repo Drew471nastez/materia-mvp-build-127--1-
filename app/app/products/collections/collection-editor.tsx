@@ -31,6 +31,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { ThumbScroll } from "@/components/app/thumb-scroll"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { RULE_FIELDS, inSmartCollection, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
@@ -39,10 +40,9 @@ import { FormSwitch, Segmented, SwapPanels } from "../new/editor-controls"
 import { LeaveButton } from "../new/editor-buttons"
 import { useConfirm } from "../new/confirm-sheet"
 import { StatusBadge, iconButton } from "../../orders/order-parts"
-import { CouponSaveButton, Tick, quietDanger } from "../../coupons/coupon-parts"
+import { CouponSaveButton, Tick } from "../../coupons/coupon-parts"
 import { collectionsReturn } from "./list-return"
 import {
-  CollectionCover,
   KIND_LABEL,
   NUMERIC_FIELDS,
   OP_WORDS,
@@ -53,14 +53,13 @@ import {
   countWords,
   fieldWords,
   finishedRules,
-  howWords,
   opsFor,
   ruleProduct,
   type Collection,
   type CollectionProduct,
 } from "./collection-parts"
 import { tt } from "@/lib/i18n/text"
-import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
+import { useMoneyMark } from "@/lib/store/currency-context"
 import { Rich } from "@/lib/i18n/rich"
 
 /* The coupon editor's fields (../../coupons/coupon-editor.tsx): 16px on a phone so iOS does not zoom, 44px to press. */
@@ -106,7 +105,6 @@ async function send(url: string, method: string, body?: unknown): Promise<{ ok: 
 export function CollectionPage({ collection, products }: { collection: Collection | null; products: CollectionProduct[] }) {
   const router = useRouter()
   const physical = usePhysicalCommerceEnabled()
-  const currency = useStoreCurrency()
   const c = collection
 
   const [title, setTitle] = React.useState(c?.title ?? "")
@@ -346,9 +344,6 @@ export function CollectionPage({ collection, products }: { collection: Collectio
 
   const heading = c ? c.title : tt("New collection")
   const count = kind === "manual" ? picked.length : caught.length
-  /* The summary's cover: the collection's own picture, else the first pictures of what is in it now. */
-  const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
-  const summaryPictures = (kind === "manual" ? picked.map((id) => productById.get(id)) : caught).flatMap((p) => (p?.thumbnail_url ? [p.thumbnail_url] : [])).slice(0, 3)
   const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
   const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(count)
   const saveWord = isNew ? tt("Create") : tt("Save")
@@ -454,7 +449,7 @@ export function CollectionPage({ collection, products }: { collection: Collectio
             </section>
           </div>
 
-          {/* From lg the side column stays in view while the collection is filled in, so the summary follows the change (the coupon editor's side, ../../coupons/coupon-editor.tsx). */}
+          {/* From lg the side column stays in view while the collection is filled in, drawn as the coupon editor's side is (../../coupons/coupon-editor.tsx): a card with its switch, not a settings list. */}
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
             {/* ── Shown or not, and in what order ─────────────────────── */}
             <section data-collection-status="" className={CARD} aria-labelledby="collection-status-title">
@@ -484,31 +479,9 @@ export function CollectionPage({ collection, products }: { collection: Collectio
               </div>
             </section>
 
-            {/* ── The collection in words, from lg ─────────────────────── */}
-            <section data-collection-summary="" className={cn(CARD, "hidden lg:block")} aria-labelledby="collection-summary-title">
-              <h2 id="collection-summary-title" className={CARD_TITLE}>
-                {tt("Summary")}
-              </h2>
-              <div className="flex min-w-0 items-center gap-3">
-                <CollectionCover collection={{ title: title.trim() || heading, imageUrl: c?.imageUrl ?? null }} pictures={summaryPictures} size="table" />
-                <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-[15px] font-semibold leading-5", title.trim() ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{title.trim() || tt("No title yet")}</p>
-                  <p className="truncate text-[13px] leading-[18px] text-[#6b7280] tabular-nums">{countWords(count)}</p>
-                </div>
-              </div>
-              <ul className="space-y-1.5">
-                {[howWords({ kind, rules: finished, match }, currency), published ? tt("Shown on your website") : tt("Hidden from your website"), tt(SORTS.find(([v]) => v === sort)?.[1] ?? SORTS[0][1])].map((line) => (
-                  <li key={line} className="flex gap-2 text-[14px] leading-5 text-[#4b5563]">
-                    <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
-                    <span className="min-w-0">{line}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
             {c ? (
               <div className="flex justify-start lg:justify-end">
-                <button type="button" data-delete-collection="" disabled={busy} onClick={() => void remove()} className={cn(quietDanger, "h-10 rounded-[10px] px-3.5 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}>
+                <button type="button" data-delete-collection="" disabled={busy} onClick={() => void remove()} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] text-[#4b5563] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
                   {tt("Delete collection")}
                 </button>
               </div>
