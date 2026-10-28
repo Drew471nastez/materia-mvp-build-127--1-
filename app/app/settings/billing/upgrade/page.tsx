@@ -5,7 +5,8 @@ import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
 import { ENTITLED_STATUSES } from "@/lib/billing/subscription-state"
 import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
-import { pageUser } from "@/lib/auth/page-user"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { msg } from "@/lib/i18n/text"
 
@@ -52,10 +53,10 @@ const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 export default async function UpgradePage() {
   const supabase = await createClient()
 
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /* Round 42: changing the plan is the owner's, or a team member's with Change billing, working in the store (lib/team/money). The change routes ask again. */
+  const access = await teamPageStore("billing_manage")
+  if (access.kind === "signed_out") return null
+  if (access.kind === "denied") return <TeamAreaClosed area="billing_manage" store={access.acting.name} permissions={access.acting.permissions} />
 
   let plans = FALLBACK_PLANS
   let currentPlanId = "free"
@@ -67,7 +68,7 @@ export default async function UpgradePage() {
     const { data: creator } = await createAdminClient()
       .from("creators")
       .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
-      .eq("user_id", user.id)
+      .eq(access.kind === "store" ? "id" : "user_id", access.kind === "store" ? access.creatorId : access.userId)
       .maybeSingle()
 
     if (!creator) {

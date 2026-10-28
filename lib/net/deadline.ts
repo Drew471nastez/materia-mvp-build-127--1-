@@ -147,13 +147,15 @@ export interface DeadlineOptions {
   retryStatuses?: ReadonlySet<number>
   /** false: a deadline and nothing else. */
   retry?: boolean
+  /** This request's deadline instead of the one for its kind (tests, a caller that knows better). */
+  ms?: number | null
 }
 
 export function deadlineFetch(input: RequestInfo | URL, init?: RequestInit, opts: DeadlineOptions = {}): Promise<Response> {
   const base = opts.base ?? ((...a: Parameters<typeof fetch>) => globalThis.fetch(...a))
   const url = urlOf(input)
   const method = methodOf(input, init)
-  const ms = deadlineFor(url, method)
+  const ms = opts.ms !== undefined ? opts.ms : deadlineFor(url, method)
   const caller = init?.signal ?? (typeof Request !== "undefined" && input instanceof Request ? input.signal : undefined)
   const ours = ms === null ? null : timeoutSignal(ms, url)
   const signal = ours ? merged(caller, ours) : caller

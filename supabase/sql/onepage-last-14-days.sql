@@ -34,16 +34,16 @@
  *
  * Parts included:
  *   16_storage_buckets.sql                   2026-10-26  the onepage-assets bucket (public, pictures and videos, size limit) beside the other picture buckets
- *   18_storage_cleanup_functions.sql         2026-10-26  the storage passes that read onepage-assets (and avatars) for new and unused files
+ *   18_storage_cleanup_functions.sql         2026-10-26  what no row refers to any more, and recent uploads, onepage-assets and avatars among the buckets
  *   25_analytics_speed.sql                   2026-10-26  indexes on onepage_views, onepage_clicks and onepage_leads for the stats
- *   43_onepage_forget_deleted_product.sql    2026-10-26  a deleted product leaves every OnePage it sat on (trigger on products, function over onepages)
+ *   43_onepage_forget_deleted_product.sql    2026-10-26  a deleted product leaves the OnePage blocks that named it (draft and published)
  *   44_profile_identity_follows.sql          2026-10-26  the profile's name and photo follow into onepages (title, avatar_url, published copy, SEO title)
  *   53_one_profile_photo.sql                 2026-10-26  one profile photo: every copy, onepages.avatar_url included, takes the profile's photo
  *   54_onepage_address_any_case.sql          2026-10-26  onepages.slug unique whatever its case
- *   57_onepage_share_image.sql               2026-10-26  onepages share image columns and their check
+ *   57_onepage_share_image.sql               2026-10-26  onepages.share_image_mode (profile, card or custom) and its check
  *   58_onepage_old_addresses.sql             2026-10-26  onepage_slug_history: an old address keeps working after a rename
  *   70_public_upload_safety.sql              2026-10-26  a size ceiling on onepage-assets and the recent uploads list
- *   165_columns_production_has.sql           2026-10-26  onepages.seller_id and the other columns the app reads
+ *   165_columns_production_has.sql           2026-10-26  onepages.seller_id, beside other columns production has that no file created
  *   281_onepage_leads_country.sql            2026-10-26  onepage_leads.country
  *   282_onepage_media_uploads.sql            2026-10-26  onepage-assets takes 2 GB videos and every type the editor sends; the owner folder policies
  *   315_onepage_integrations.sql             2026-10-28  onepage_integrations: the tools a OnePage's signups go to

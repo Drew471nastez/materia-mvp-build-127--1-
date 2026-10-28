@@ -23,28 +23,11 @@
  * wraps each one), so the next press starts clean.
  */
 import * as React from "react"
-import { buildReport, isStaleCodeError } from "@/lib/client-errors"
+import { buildReport, sectionFailure } from "@/lib/client-errors"
 import { newDeployKnown } from "@/lib/ui/new-deploy"
 import { tt } from "@/lib/i18n/text"
 import { forgetFailedSettingsPanels } from "@/components/app/settings/lazy-panels"
 
-/**
- * WHAT WENT WRONG, NOT ONE ANSWER FOR ALL OF IT.
- *
- *   offline  the device has no connection: Try again, never Reload (a reload
- *            while offline swaps Settings for the browser's own error page)
- *   slow     the section's code was asked for and did not come in time
- *            (lazy-panels CODE_WAIT_MS): Try again asks afresh
- *   stale    code a deploy removed: Reload
- *   fault    the section itself threw: Try again
- */
-export type SectionFailure = "offline" | "slow" | "stale" | "fault"
-
-export function sectionFailure(error: unknown, online: boolean, newDeploy: boolean): SectionFailure {
-  if ((error as { name?: unknown } | null)?.name === "SettingsCodeTimeout") return online ? "slow" : "offline"
-  if (isStaleCodeError(error, newDeploy)) return online ? "stale" : "offline"
-  return "fault"
-}
 
 interface Props {
   children: React.ReactNode
