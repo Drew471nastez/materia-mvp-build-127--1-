@@ -68,7 +68,8 @@ console.log("\nEvery way in asks the server")
   check("an owner's own team is managed from their own store, a member's from the store they work in", /const store = await ownStore\(db, userId\)/.test(server) && /if \(!permits\(acting\.permissions, "team"\)\)/.test(server))
 
   const auth = read("lib/physical/auth.ts")
-  check("physical routes default to the owner's area", /physicalCaller\(area: TeamArea = "store"\)/.test(auth) && /shopCaller\(area: TeamArea = "store"\)/.test(auth))
+  check("physical routes default to the owner's area", /physicalCaller\(area: TeamArea = "store"\)/.test(auth) && /* Changed on purpose (round 41 team): a read the OnePage editor shows may name more than one area */
+/shopCaller\(area: TeamArea \| readonly TeamArea\[\] = "store"\)/.test(auth))
   for (const p of ["app/api/physical/orders/route.ts", "app/api/physical/orders/[id]/route.ts", "app/api/physical/orders/export/route.ts"]) {
     check(`${p} opens to orders`, /physicalCaller\("orders"\)/.test(read(p)))
   }

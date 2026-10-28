@@ -30,6 +30,9 @@ export interface OnePageTeam {
   plan: "free" | "growth" | "pro"
   /** The creator page's connected domain, or null. */
   domain: string | null
+  /** Round 41: the owner's name and photo for the preview, read on the server, so the member's browser never reads the owner's profile (and never shows the member's own photo in its place). */
+  ownerName?: string | null
+  ownerAvatar?: string | null
 }
 
 const Ctx = React.createContext<OnePageTeam | null>(null)
@@ -53,17 +56,29 @@ export function photoIsOwners(store: string): string {
   editor, lib below). Set by the provider's owner, the editor, on mount.
 */
 let currentStore: string | null = null
+let currentOwner: string | null = null
 /** The store whose products the editor lists, when a team member is editing; null reads the signed in account's own. */
 export function teamStoreForProducts(): string | null {
   return currentStore
 }
+/**
+ * Round 41: the folder a team member's OnePage pictures and videos go into,
+ * the page owner's account (onepage-assets/<owner>/...), so they are the
+ * store's and not the member's. null for the owner: their own folder.
+ */
+export function teamPageOwner(): string | null {
+  return currentOwner
+}
 export function useTeamProductsStore(team: OnePageTeam | null): void {
   /* Set during render, before any child effect reads it, and cleared when the editor goes. */
   currentStore = team?.creatorId ?? null
+  currentOwner = team?.ownerUserId ?? null
   React.useEffect(() => {
     currentStore = team?.creatorId ?? null
+    currentOwner = team?.ownerUserId ?? null
     return () => {
       currentStore = null
+      currentOwner = null
     }
-  }, [team?.creatorId])
+  }, [team?.creatorId, team?.ownerUserId])
 }

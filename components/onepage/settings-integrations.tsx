@@ -32,6 +32,7 @@
  */
 
 import * as React from "react"
+import { useOnePageTeam } from "@/lib/onepage/team-context"
 import { ChevronRight, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -46,10 +47,11 @@ const PAGE_TAGS = INTEGRATIONS.filter((i) => i.kind === "tracker" && i.trackerId
 /** Shown as "not set up" when the store has none: the three most asked for. */
 const SUGGESTED = new Set(["ga4", "meta_pixel", "tiktok_pixel"])
 
-function useJson<T>(url: string): T | null | undefined {
-  /* undefined while reading, null when it could not be read. */
+function useJson<T>(url: string | null): T | null | undefined {
+  /* undefined while reading, null when it could not be read. A null address reads nothing. */
   const [value, setValue] = React.useState<T | null | undefined>(undefined)
   React.useEffect(() => {
+    if (!url) return
     let live = true
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
@@ -174,7 +176,10 @@ type DomainsAnswer = { primary?: { creator_page?: string | null }; purposes?: st
 
 /** The page's own domain, under its address in Basic info: the one it is served on, or how to connect one. */
 export function OnePageDomainRow() {
-  const answer = useJson<DomainsAnswer>("/api/domains")
+  /* Round 41: a team member is told the store's domain with the page (lib/onepage/team-context); the domains list is the owner's (Settings). */
+  const team = useOnePageTeam()
+  const fetched = useJson<DomainsAnswer>(team ? null : "/api/domains")
+  const answer: DomainsAnswer | null | undefined = team ? { primary: { creator_page: team.domain } } : fetched
   if (answer === undefined) return <div aria-hidden className="h-[60px] animate-pulse rounded-xl bg-[#f4f4f6]" />
   /* A store whose domains table cannot tell a page's domain from a website's has nowhere to connect one yet. */
   if (answer && Array.isArray(answer.purposes) && !answer.purposes.includes("creator_page")) return null

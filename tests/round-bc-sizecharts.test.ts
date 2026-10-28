@@ -247,11 +247,13 @@ function allowServerOnly() {
     for (const route of ["app/api/size-charts/route.ts", "app/api/size-charts/[id]/route.ts", "app/api/size-charts/product/route.ts"]) {
       const src = code(route)
       const handlers = (src.match(/export async function (GET|POST|PUT|DELETE)/g) ?? []).length
-      check(`${route}: every handler starts with the physical commerce owner check`, handlers > 0 && (src.match(/await physicalCaller\(\)/g) ?? []).length === handlers && !/shopCaller/.test(src))
+      /* Changed on purpose (round 41 team): the physical commerce switch first, then the owner or a team member with Products */
+      check(`${route}: every handler starts with the physical commerce owner check`, handlers > 0 && (src.match(/await physicalCaller\("products"\)/g) ?? []).length === handlers && !/shopCaller/.test(src))
     }
     check("a changed chart or choice reaches the website at the next visit", /revalidateTag\(creatorShopTag\(creatorId\), "max"\)/.test(code("app/api/size-charts/changed.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/product/route.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/[id]/route.ts")))
     const page = code("app/app/products/size-charts/page.tsx")
-    check("Products › Size charts is behind the physical commerce switch and the owner", /await requirePhysicalPage\(\)/.test(page) && /listSizeCharts\(createAdminClient\(\), creator\.id\)/.test(page))
+    /* Changed on purpose (round 41 team): the store comes from teamPageStore("products"): the owner's own, or the store a team member with Products works in */
+    check("Products › Size charts is behind the physical commerce switch and the owner", /await requirePhysicalPage\(\)/.test(page) && /listSizeCharts\(createAdminClient\(\), access\.creatorId\)/.test(page) && /teamPageStore\("products"\)/.test(page))
   }
 
   console.log("\nThe SQL part\n")

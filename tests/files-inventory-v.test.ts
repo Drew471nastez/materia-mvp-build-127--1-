@@ -228,7 +228,8 @@ async function main() {
     const waiting = await saveAltText(noTable, owner, "store-builder-images", path, "x")
     check("  before part 214: a plain message, no crash", waiting.ok === false && /Run SQL part 214/.test((waiting as { error: string }).error))
     const route = raw("app/api/files/route.ts")
-    check("the routes are the owner's: shopCaller, and the usage route too", /export async function PATCH[\s\S]*shopCaller\(\)/.test(route) && /shopCaller\(\)/.test(raw("app/api/files/usage/route.ts")))
+    check("the routes are the owner's: shopCaller, and the usage route too", /* Changed on purpose (round 41 team): Files is part of Products: the owner, or a team member with Products in the store they work in */
+/export async function PATCH[\s\S]*shopCaller\("products"\)/.test(route) && /shopCaller\("products"\)/.test(raw("app/api/files/usage/route.ts")))
   }
 
   console.log("\nInventory: adjust, the sums for every reason")

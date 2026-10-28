@@ -31,7 +31,8 @@ export const dynamic = "force-dynamic"
  * part 280 has not run.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  /* Round 41: the list is read too by the pickers of the OnePage editor and Store details (a team member with OnePage or Store settings); changing or removing a file stays Products'. */
+  const c = await shopCaller(["products", "onepage", "settings"])
   if (c instanceof NextResponse) return c
   /* `?kind=video`: the videos a video setting can use, from the same folders; `?kind=media`: both. */
   const asked = new URL(request.url).searchParams.get("kind")

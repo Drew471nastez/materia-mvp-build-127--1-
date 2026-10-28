@@ -27,7 +27,7 @@ import { actingStore, type ActingStore } from "./server"
  */
 
 /** The areas whose editors upload public pictures through the shared upload. */
-export const UPLOAD_AREAS: readonly TeamPermission[] = ["onepage", "community", "products"]
+export const UPLOAD_AREAS: readonly TeamPermission[] = ["onepage", "community", "products", "settings"]
 
 /** The areas that may upload a product's file (the private bucket): Products only. */
 export const PRODUCT_FILE_AREAS: readonly TeamPermission[] = ["products"]
@@ -105,7 +105,10 @@ export async function productCreatorFor(db: Db, userId: string, acting: ActingSt
 /** The areas whose editors write into each public bucket from the browser. A bucket not listed is never given to a member. */
 export const TEAM_BUCKET_AREAS: Readonly<Record<string, readonly TeamPermission[]>> = {
   "product-images": ["products"],
-  "store-builder-images": ["products"],
+  /* Videos, and the Files library's uploads, which the OnePage and Store details pickers upload through too. */
+  "store-builder-images": ["products", "onepage", "settings"],
+  /* The OnePage editor's pictures and videos, under the page owner's account (lib/onepage/media-upload). */
+  "onepage-assets": ["onepage"],
 }
 
 /** Pure: may this member write this path in this bucket. The path's first folder must be the store's id or its owner's account. */

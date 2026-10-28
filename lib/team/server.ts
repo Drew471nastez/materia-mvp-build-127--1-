@@ -26,6 +26,7 @@ import {
 } from "./permissions"
 import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
 import { teamHomeHref } from "./landing"
+import { teamStampDb } from "./audit"
 
 /**
  * ===========================================================================
@@ -666,7 +667,8 @@ export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | 
     viewer: viewerKey(user.id, found.acting ? found.creator.id : null),
     acting: found.acting,
     permissions: found.acting ? found.acting.permissions : [...TEAM_PERMISSIONS],
-    db,
+    /* Round 41: a member's client names them on the record lines it writes (lib/team/audit); the owner's is the plain client. */
+    db: found.acting ? teamStampDb(db, user.id) : db,
   }
 }
 

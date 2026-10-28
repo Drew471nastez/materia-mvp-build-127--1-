@@ -3,6 +3,7 @@ import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { pushStatementName } from "@/lib/payments/stripe/descriptor"
 import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
+import { OWNER_KEEPS_SETTING, memberMaySave } from "@/lib/team/settings"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -21,14 +22,16 @@ export const dynamic = "force-dynamic"
  * country the person has not chosen yet.
  */
 export async function GET() {
-  const c = await shopCaller()
+  /* Round 41: the owner, or a team member with Store settings (Store details only, lib/team/settings). */
+  const c = await shopCaller(["store", "settings"])
   if (c instanceof NextResponse) return c
   const db = c.db
   const [settings, h, creator, account, fallback, selling] = await Promise.all([
     loadStoreSettings(c.db, c.creatorId),
     headers(),
     db.from("creators").select("support_email, display_name, username").eq("id", c.creatorId).maybeSingle(),
-    db.auth.admin.getUserById(c.userId).catch(() => null),
+    /* The store owner's sign in email, never a team member's own. */
+    db.auth.admin.getUserById(c.ownerUserId ?? c.userId).catch(() => null),
     /* What receipts show when no store logo is set: the website's logo, else the person's photo. */
     storeIdentity(db, c.creatorId, { skipStoreLogo: true, logoOnly: true }).catch(() => null),
     /* The currency the store sells in (Settings › Store details), never the payout currency. */
@@ -49,10 +52,12 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller(["store", "settings"])
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
+  /* A team member changes the store's name, contact, phone and logo; checkout, business details and the rest stay the owner's. */
+  if (c.isOwner === false && !memberMaySave(body)) return physicalJson({ error: OWNER_KEEPS_SETTING }, 403)
   const saved = await saveStoreSettings(c.db, c.creatorId, body)
   if (!saved.ok) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "checkout" in body ? "settings.checkout" : "settings.store" })
@@ -71,7 +76,8 @@ export async function PUT(request: Request) {
     }
   }
   /* A renamed store renames its bank statement line too, on Stripe, unless the seller typed their own (lib/payments/statement-name-server). */
-  if ("storeName" in body) {
+  /* The bank statement line is the payments account's: renamed by the owner's save only. */
+  if ("storeName" in body && c.isOwner !== false) {
     const db = c.db
     const creatorId = c.creatorId
     after(async () => {

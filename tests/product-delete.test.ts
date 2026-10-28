@@ -397,7 +397,8 @@ async function main() {
   console.log("\n  the route")
   {
     const route = strip(read("app/api/products/delete/route.ts"))
-    check("the creator is the session's", /supabase\.auth\.getUser\(\)/.test(route) && /\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(route))
+    /* Changed on purpose (round 41 team): the store is requireTeamPermission("products")'s, read from the session on the server: the owner's own, or the one a team member with Products works in; a product with sales is archived for both */
+    check("the creator is the session's", /const gate = await requireTeamPermission\("products"\)/.test(route) && /creatorId: gate\.creatorId/.test(route))
     check("and the delete is lib/products/delete-product's", /deleteOwnProduct\(admin, \{ creatorId, productId \}\)/.test(route))
     check("a failure is answered with its status and words", /if \(result\.kind === "failed"\) return NextResponse\.json\(\{ ok: false, error: result\.error \}, \{ status: result\.status \}\)/.test(route))
     check("a deleted product: its caches and its OnePage blocks (#361)", /forgetDeletedProduct\(admin, \{ creatorId, productId/.test(route))

@@ -55,7 +55,7 @@ export function isTeamPermission(v: unknown): v is TeamPermission {
  * A permission not open yet is shown in the invite form, unticked and
  * unavailable, and is never stored or honoured.
  */
-export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(["onepage", "products", "orders", "customers", "marketing", "community", "analytics", "team"])
+export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(["onepage", "products", "orders", "customers", "marketing", "community", "analytics", "settings", "team"])
 /*
   Round 40, second pass: OnePage (lib/team/onepage, the store owner's page
   through the editor's server routes) and Community (lib/communities/server
@@ -70,7 +70,9 @@ export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>
   requireTeamPermission("products"), and the editor's writes from the
   browser go under SQL part 327 (team_can(creator_id, 'products') on the
   product tables). Pictures go into the store's folder (lib/team/uploads).
-  Still closed, and why, in tests/team-areas-r41.test.ts.
+  Store settings is open as Settings › Store details alone: the name,
+  contact, phone and logo (lib/team/settings). Still closed, and why, in
+  tests/team-areas-r41.test.ts: the website builder and the creator page.
 */
 
 export function isOpen(p: TeamPermission): boolean {
@@ -191,7 +193,8 @@ const PATH_AREAS: [prefix: string, area: TeamArea][] = [
   ["/app/onepage", "onepage"],
   ["/app/creator-page", "creator_pages"],
   ["/creator-page", "creator_pages"],
-  ["/app/integrations", "settings"],
+  /* Round 41: Store settings gives Store details alone (lib/team/settings); the Integrations page and its keys stay the owner's. */
+  ["/app/integrations", "store"],
   ["/app/payouts", "payouts_billing"],
   ["/app/settings/billing", "payouts_billing"],
   ["/app/settings/payments", "payouts_billing"],
@@ -269,7 +272,7 @@ export const PERMISSION_HINT: Record<TeamPermission, string> = {
   get marketing() { return tt("Coupons, upsells and bundles, emails") },
   get community() { return tt("Posts, members and settings of the store's communities") },
   get analytics() { return tt("Reports and exports") },
-  get settings() { return tt("Store details, shipping, taxes, checkout and integrations") },
+  get settings() { return tt("The store's name, contact email, phone and logo") },
   get team() { return tt("Invite people and change their access, up to their own") },
   get payouts_billing() { return tt("Payouts, the plan and invoices") },
 }
@@ -289,7 +292,7 @@ export const PERMISSION_CAN_EN: Record<TeamPermission, string> = {
   marketing: "Run coupons, upsells, bundles and emails",
   community: "Manage the store's communities",
   analytics: "See reports and export them",
-  settings: "Change store settings",
+  settings: "Change the store's name, contact and logo",
   team: "Invite people and change their access",
   payouts_billing: "See payouts and billing",
 }

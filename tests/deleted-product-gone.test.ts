@@ -278,7 +278,8 @@ function main() {
     check("a product that is still there only has its caches purged",
       /if \(row\?\.id\) \{\s*purgeProductCaches\(/.test(route2))
     check("only the caller's own products are reachable", /\.eq\("creator_id", creatorId\)/.test(route2))
-    check("and a stranger gets nothing", /return NextResponse\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\)/.test(route2))
+    /* Changed on purpose (round 41 team): the store comes from requireTeamPermission("products"), the owner's own or the one a team member with Products works in; signed out is still 401. */
+    check("and a stranger gets nothing", /const gate = await requireTeamPermission\("products"\)/.test(route2) && /gate\.status === 401 \? NextResponse\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\) : gate/.test(route2))
 
     console.log("\n  every screen that deletes or hides a product says so")
 

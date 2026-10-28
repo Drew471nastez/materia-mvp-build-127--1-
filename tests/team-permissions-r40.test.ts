@@ -120,7 +120,8 @@ async function main() {
       ["/creator-page", "creator_pages"],
       ["/app/payouts", "payouts_billing"],
       ["/app/settings/billing", "payouts_billing"],
-      ["/app/integrations", "settings"],
+      /* Changed on purpose (round 41 team): Store settings is Store details alone; Integrations and its keys stay the owner's. */
+      ["/app/integrations", "store"],
       ["/app/something-new", "store"],
     ]
     const wrong = paths.filter(([p, a]) => areaOfPath(p) !== a)

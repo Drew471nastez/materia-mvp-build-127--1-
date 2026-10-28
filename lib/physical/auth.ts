@@ -4,7 +4,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { creatorFor } from "@/lib/team/server"
+import { actingStore, creatorFor } from "@/lib/team/server"
+import { permits } from "@/lib/team/permissions"
+import { teamStampDb } from "@/lib/team/audit"
 import type { TeamArea } from "@/lib/team/roles"
 
 /**
@@ -58,7 +60,7 @@ export async function physicalCaller(area: TeamArea = "store"): Promise<Physical
  * collections group downloads, courses and memberships as well as goods, so
  * they are not behind the physical commerce switch.
  */
-export async function shopCaller(area: TeamArea = "store"): Promise<PhysicalCaller | NextResponse> {
+export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store"): Promise<PhysicalCaller | NextResponse> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -66,10 +68,19 @@ export async function shopCaller(area: TeamArea = "store"): Promise<PhysicalCall
   if (!user) return physicalJson({ error: "Sign in to continue." }, 401)
   const db = createAdminClient()
   /* Whose store: their own, or the one they work in when their role has this area (lib/team/server creatorFor). */
-  const found = await creatorFor(db, user.id, area)
+  /* Round 41: a route a team member reaches from more than one area (a read the OnePage editor shows, kept by Settings) names them all; the first their permissions hold is asked. One area, as before, reads the store once. */
+  const found = Array.isArray(area) ? await creatorForAny(db, user.id, area) : await creatorFor(db, user.id, area as TeamArea)
   if (found.kind === "denied") return physicalJson({ error: "Your role on this store's team does not include this. Ask the store's owner." }, 403)
   if (found.kind === "none") return physicalJson({ error: "Set up your store first." }, 403)
-  return { creatorId: found.creator.id, userId: user.id, db, isOwner: !found.acting, ownerUserId: found.acting ? found.acting.ownerUserId : user.id }
+  /* A team member's client writes their account on every line of the order's timeline and the other records (lib/team/audit, round 41). The owner's is the plain client. */
+  return { creatorId: found.creator.id, userId: user.id, db: found.acting ? teamStampDb(db, user.id) : db, isOwner: !found.acting, ownerUserId: found.acting ? found.acting.ownerUserId : user.id }
+}
+
+/** creatorFor for the first of these areas the member holds (the first named when none). The owner, in their own account, as with one area. */
+async function creatorForAny(db: Db, userId: string, areas: readonly TeamArea[]) {
+  const acting = await actingStore(db, userId).catch(() => null)
+  const area = (acting && areas.find((a) => a !== "store" && permits(acting.permissions, a))) || areas[0] || "store"
+  return creatorFor(db, userId, area, "id", acting)
 }
 
 /** The JSON body of a request, or null when it is not an object. */

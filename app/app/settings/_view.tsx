@@ -50,6 +50,7 @@ export async function SettingsForm() {
         newsletter={data.newsletter}
         otherStores={data.otherStores}
         teamActing={data.teamActing}
+        teamTabs={data.teamTabs}
         initialTab="general"
       />
     </div>

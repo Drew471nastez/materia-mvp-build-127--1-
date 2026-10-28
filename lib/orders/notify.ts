@@ -1,4 +1,5 @@
 import "server-only"
+import { TEAM_ACTOR_KEY } from "@/lib/team/audit"
 
 import { resolveSellerEmail, sendBuyerDownloadEmail } from "@/lib/email"
 import { canEmailAccess, type OwnedLine } from "./owned"
@@ -101,9 +102,11 @@ export async function recordOrderEvent(
   orderId: string,
   type: "receipt_resent" | "email_changed_by_creator",
   metadata: Record<string, unknown>,
+  /** Round 41: the team member who did it, written on the line (lib/team/audit); null for the owner. */
+  teamMember: string | null = null,
 ): Promise<void> {
   try {
-    await admin.from("security_events").insert({ order_id: orderId, event_type: type, metadata: { by: "creator", ...metadata } })
+    await admin.from("security_events").insert({ order_id: orderId, event_type: type, metadata: { by: "creator", ...metadata, ...(teamMember ? { [TEAM_ACTOR_KEY]: teamMember } : {}) } })
   } catch {
     /* The history is a record, not a gate. */
   }
