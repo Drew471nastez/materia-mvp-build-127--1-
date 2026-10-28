@@ -19,6 +19,7 @@
 
 import { apportionFee } from "./cart-items"
 import { CODE_PATTERN } from "./coupon-state"
+import { couponMinimumError } from "./coupon-scope"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 /* What the Coupons page also draws in the browser lives in ./coupon-state, which
@@ -155,10 +156,9 @@ export function checkCouponLines(
   const covers = opts.covers ?? ((l: CouponLine) => couponCovers(c, l.productId))
   const applies = lines.map((l) => l.creatorId === c.creator_id && covers(l))
   if (!applies.some(Boolean)) return { ok: false, error: opts.notCovered ?? "That code does not apply to anything in your cart." }
-  const eligibleCents = lines.reduce((n, l, i) => n + (applies[i] ? l.cents : 0), 0)
-  if (c.min_purchase_cents && eligibleCents < c.min_purchase_cents) {
-    return { ok: false, error: `That code needs an order of at least ${shopMoneyIn(c.min_purchase_cents, opts.currency ?? SHOP_CURRENCY)}.` }
-  }
+  /* The minimum is held to the covered lines after offers, before this code (./coupon-scope couponMinimumError): `cents` are already after offers here. */
+  const short = couponMinimumError(c, lines.map((l) => l.cents), applies, opts.currency)
+  if (short) return { ok: false, error: short }
   const discounts = lineDiscounts(c, lines.map((l) => l.cents), applies)
   const discountCents = discounts.reduce((n, d) => n + d, 0)
   if (discountCents <= 0) return { ok: false, error: "That code takes nothing off this price." }

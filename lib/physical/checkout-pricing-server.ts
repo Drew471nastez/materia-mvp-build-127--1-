@@ -22,7 +22,7 @@ import { salesStandings } from "@/lib/products/sales-standings"
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { ownedKey, ownedLines } from "@/lib/checkout/owned"
 import { couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
-import { needsCollections, productsInCollections, scopeCovers } from "@/lib/checkout/coupon-scope"
+import { couponMinimumError, needsCollections, productsInCollections, scopeCovers } from "@/lib/checkout/coupon-scope"
 import type { Db } from "./auth"
 import { defaultPackageGrams, loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
 import { methodOf, readMethod } from "./fulfillment"
@@ -38,7 +38,6 @@ import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
-import { shopMoneyIn } from "@/lib/store/shop-money"
 import { canSell, sellsWhenOut } from "./inventory-rules"
 import { lineProperties, propertiesKey } from "./cart-link"
 
@@ -403,10 +402,8 @@ export async function priceCheckout(
     : null
   const applies = lines.map((l) => scopeCovers(c, { id: l.productId, type: l.type }, inCollections))
   if (!applies.some(Boolean)) return { ok: false, status: 400, error: "That code does not apply to anything in your cart." }
-  const eligible = lines.reduce((n, l, i) => n + (applies[i] ? l.unitCents * l.quantity : 0), 0)
-  if (c.min_purchase_cents && eligible < c.min_purchase_cents) {
-    return { ok: false, status: 400, error: `That code needs an order of at least ${shopMoneyIn(c.min_purchase_cents, (await readStoreCurrency(db, creatorId)).currency)}.` }
-  }
+  /* Round 41: the minimum is checked on what the covered lines cost after the offers, before the code, as the basket checks it (lib/checkout/coupon-scope couponMinimumError), inside the code's turn below. */
+  const minimumCurrency = c.min_purchase_cents ? (await readStoreCurrency(db, creatorId)).currency : undefined
   if (c.per_customer_limit && c.per_customer_limit > 0 && req.buyerEmail) {
     const { count } = await db
       .from("commerce_checkouts")
@@ -421,7 +418,11 @@ export async function priceCheckout(
     The code on what each line costs after its offers, so a code and a bundle together never take a line below zero.
     An offer that doesn't combine with codes: the buyer gets whichever saves more, and a code that loses says why (lib/offers stackWithCode).
   */
-  const stacked = stackWithCode(offerLines, offers, (remaining) => ({ discounts: Number(c.discount_value) > 0 ? lineDiscounts(c, remaining, applies) : remaining.map(() => 0) }), { now })
+  const stacked = stackWithCode(offerLines, offers, (remaining) => {
+    const short = couponMinimumError(c, remaining, applies, minimumCurrency)
+    if (short) return { error: short }
+    return { discounts: Number(c.discount_value) > 0 ? lineDiscounts(c, remaining, applies) : remaining.map(() => 0) }
+  }, { now })
   if (stacked.error) return { ok: false, status: 400, error: stacked.error }
   const discounts = stacked.codeDiscounts
   lines.forEach((l, i) => (l.discountCents = Math.min(l.unitCents * l.quantity, stacked.discounts[i] + discounts[i])))
