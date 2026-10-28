@@ -388,8 +388,9 @@ function allowServerOnly() {
     check("  it writes only a change, and only once the tables exist", /if \(!ready \|\| chosen === saved\.current\) return null/.test(card))
     check("  before SQL part 283 it says so and the product saves as usual", /SQL part 283/.test(card) && /The product saves as usual/.test(card))
     check("  a chart made from the card is the one the product gets", /if \(!editing\.chart\) choose\(id\)/.test(card))
-    const editor = code("components/physical/size-chart-editor.tsx")
-    check("the table editor is the app's Modal: a dialog on a computer, the bottom sheet on a phone", /<Modal open=\{open\}/.test(editor) && /from "\.\/ui"/.test(editor))
+    /* The fields moved to size-chart-form.tsx, shared with the chart's own page (tests/offers-subpages.test.ts); the dialog stays for the product editor. */
+    const editor = code("components/physical/size-chart-editor.tsx") + code("components/physical/size-chart-form.tsx")
+    check("the table editor over the product editor is the app's Modal: a dialog on a computer, the bottom sheet on a phone", /<Modal open=\{open\}/.test(editor) && /from "\.\/ui"/.test(editor))
     check("  columns and sizes added and removed, a ruler per column, cm or in", ["addColumn", "removeColumn", "addRow", "removeRow", "data-column-measure", 'data-size-unit={u}'].every((s) => editor.includes(s)))
     check("  the first column stays while the rest scroll sideways", /sticky left-0/.test(editor) && /overflow-x-auto/.test(editor))
     check("  16px type on a phone so iOS does not zoom (the compact field)", /FIELD_COMPACT/.test(editor))
