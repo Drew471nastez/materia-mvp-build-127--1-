@@ -226,7 +226,8 @@ export function usePillPress(slideTo: (id: string) => void, value: string) {
   )
 }
 
-export type PillTabItem<T extends string> = { id: T; label: string }
+/** `dot`: a small colour before the word (round 40, Add block's categories). Optional; no pill without one changes. */
+export type PillTabItem<T extends string> = { id: T; label: string; dot?: string }
 
 /**
  * Storelib's pill, the same size chosen or not: white on a hairline, with its
@@ -350,6 +351,7 @@ export function PillTabs<T extends string>({
             <span aria-hidden data-pill-press="" className={PILL_PRESS} />
             {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
             <span aria-hidden data-pill-fill="" className={cn(PILL_FILL, on ? "opacity-100" : "opacity-0")} />
+            {item.dot ? <span aria-hidden data-pill-dot="" className="pointer-events-none relative z-[2] mr-1.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ backgroundColor: item.dot }} /> : null}
             <PillWord on={on} text={item.label} align={align} />
           </button>
         )

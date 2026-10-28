@@ -9,6 +9,7 @@ import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
+import { signupFileFor } from "@/lib/onepage/signup-file"
 
 export const runtime = "nodejs"
 
@@ -55,7 +56,6 @@ export async function POST(request: Request) {
       lead_magnet_id,
       enable_digital_product,
       digital_product_file_url,
-      digital_product_title,
     } = body
     /* A OnePage form: where the visit came from is what the page sent, as a host and the utm words. */
     let referrerHost: string | null = null
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     // Verify onepage exists and is published
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status, seller_id, owner_id, creator_id")
+      .select("id, status, seller_id, owner_id, creator_id, published_blocks, draft_blocks")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
@@ -111,8 +111,18 @@ export async function POST(request: Request) {
 
     console.log("[leads] OnePage found:", onepage.id)
 
-    const fileUrl = digital_product_file_url || null
-    const hasDigitalProduct = enable_digital_product && fileUrl
+    /*
+      THE FILE IS THE PAGE'S, NOT THE REQUEST'S (round 40). Whether this
+      signup gets a file, and which, is read from the block on the published
+      page (lib/onepage/signup-file), so a request cannot make this route
+      hand back an address of its own choosing, and a block whose file was
+      switched off or removed since the page was loaded gives nothing. The
+      request's own fields are only read for a page saved before blocks had
+      ids to find them by.
+    */
+    const pageFile = signupFileFor((onepage as { published_blocks?: unknown }).published_blocks ?? (onepage as { draft_blocks?: unknown }).draft_blocks, block_id)
+    const fileUrl = pageFile.found ? pageFile.url : (enable_digital_product && typeof digital_product_file_url === "string" && /^https:\/\//i.test(digital_product_file_url) ? digital_product_file_url : null)
+    const hasDigitalProduct = !!fileUrl
 
     // Check for existing subscription
     const { data: existingLead } = await adminSupabase

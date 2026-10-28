@@ -147,7 +147,8 @@ async function main() {
 
     const tab = read("components/onepage/tabs/products-tab.tsx")
     check("no box of its own scrolls (the fat bar, and a finger caught in it)", !/max-h-\[560px\]/.test(tab) && !/overflow-y-auto overscroll-contain" data-products-list/.test(tab) && /<div data-products-list="">/.test(tab))
-    check("it draws the page's ones, the few others and Show all", /data-products-group="on-page"/.test(tab) && /data-products-group="others"/.test(tab) && /data-products-more=/.test(tab) && /productsTabView\(products, addedProductIds, searchQuery, showAll\)/.test(tab))
+    /* Changed on purpose (round 40, "show only four by default, then a Show all"): one list of four, the page's first, the rest in a Reveal (tests/onepage-editor-r40.test.ts). */
+    check("it draws the page's ones, the few others and Show all", /data-products-first=""/.test(tab) && /data-products-rest=""/.test(tab) && /data-products-more=/.test(tab) && /productsTabList\(products, addedProductIds, searchQuery\)/.test(tab))
     check("the empty state is the words and one button, as the app's Products page has it", /data-products-empty=""[\s\S]{0,200}<h3 className="text-\[15px\] font-semibold/.test(tab) && !/ShoppingBag/.test(tab))
   }
 

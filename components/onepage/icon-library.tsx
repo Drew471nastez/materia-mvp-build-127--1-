@@ -36,7 +36,7 @@
  */
 
 import * as React from "react"
-import { ChevronLeft, Search, X } from "lucide-react"
+import { Check, ChevronLeft, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LinkIcon } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, isLinkBrandIcon } from "@/components/onepage/link-icons"
@@ -128,15 +128,21 @@ const IconTile = React.memo(function IconTile({ item, on, onPick }: { item: Icon
       title={item.name}
       onClick={() => onPick(item.id)}
       className={cn(
-        "flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 outline-none [-webkit-tap-highlight-color:transparent]",
+        "relative flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-1 outline-none [-webkit-tap-highlight-color:transparent]",
         "transition-[background-color,box-shadow] duration-150 ease-out focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)] motion-reduce:transition-none",
         on
-          ? "bg-[#f3f4f6] shadow-[inset_0_0_0_1.5px_#1a1a2e,0_1px_2px_rgba(0,0,0,0.04)]"
+          ? "bg-white shadow-[inset_0_0_0_1.5px_#1a1a2e,0_1px_3px_rgba(16,24,40,0.08)]"
           : "active:bg-[#f0f0f2] hover:bg-[#f6f6f7]",
       )}
     >
       <LinkIcon name={item.id} size={22} className="text-[#1a1a2e]" tone="brand" />
-      <span aria-hidden className="block w-full truncate text-center text-[10.5px] leading-[13px] text-[#6b7280]">{item.name}</span>
+      <span aria-hidden className={cn("block w-full truncate text-center text-[10.5px] leading-[13px]", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{item.name}</span>
+      {/* Round 40: the chosen one says so with a small check in its corner, as a picked swatch does. */}
+      {on ? (
+        <span aria-hidden data-icon-check="" className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#1a1a2e] text-white animate-in fade-in-0 zoom-in-50 duration-150">
+          <Check className="h-2.5 w-2.5" strokeWidth={3} />
+        </span>
+      ) : null}
     </button>
   )
 })
@@ -319,8 +325,8 @@ export function IconLibrary({
           />
         </div>
       </div>
-      <div ref={gridRef} data-icon-grid="" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#f0f0f2] px-3 pb-6 pt-3 [contain:strict]", !phone && "h-[460px] flex-none")}>
-        <VirtualIconGrid items={items} cols={phone ? 5 : 8} selected={selected} onPick={pick} scroller={gridRef} resetKey={`${category}|${query}`} />
+      <div ref={gridRef} data-icon-grid="" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#f0f0f2] px-3 pb-6 pt-3 [contain:strict]", !phone && "h-[420px] flex-none")}>
+        <VirtualIconGrid items={items} cols={phone ? 5 : 6} selected={selected} onPick={pick} scroller={gridRef} resetKey={`${category}|${query}`} />
         {searching && items.length === 0 ? (
           <div className="px-4 py-10 text-center">
             <p className="text-[14px] font-medium text-[#111113]">{tt("No icons found")}</p>

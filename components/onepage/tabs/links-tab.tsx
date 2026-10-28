@@ -47,6 +47,15 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 // Custom Toggle Component with theme-style design
 /** The large rounded box the link editor's own fields use (16px on a phone, or iOS zooms the page to type). */
+/* The thumbnail dialog's views, in a box that follows their height on a computer; as they are in the phone's sheet. */
+function ThumbnailViews({ glide, children }: { glide: boolean; children: React.ReactNode }) {
+  return glide ? <AutoHeight>{children}</AutoHeight> : <>{children}</>
+}
+
+/* Round 40: the thumbnail sheet's rows, drawn as Add block's: a tint on press, a grey tile, a name and one line. */
+const THUMB_ROW = "flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left outline-none transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#f6f6f7] active:bg-[#f0f0f2] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)] disabled:opacity-60"
+const THUMB_TILE = "grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-[#f2f2f4] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,17,19,0.04)]"
+
 const linkField =
   "h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[15px]"
 
@@ -112,6 +121,7 @@ import {
   Play,
   Layers,
   ArrowUpRight,
+  ExternalLink,
   Palette,
   Check,
   Calendar,
@@ -132,6 +142,10 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow } from "@/components/onepage/extra-blocks"
+import { BlockFootActions } from "@/components/onepage/block-remove"
+import { AutoHeight } from "@/components/onepage/reveal"
+import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
+import { ProductPicker } from "@/components/onepage/product-picker"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
@@ -1650,39 +1664,63 @@ export function LinksTab() {
           where they were; only the empty space under Cancel gives way.
         */
         sheet={{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT }}
-        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
+        /*
+          ROUND 40, ON A COMPUTER: one height for the list and for a platform's
+          field, so choosing a platform does not snap the dialog's edges in and
+          out (it was as tall as whatever it showed), and the dialog's own
+          open and close (components/ui/sheet-dialog SHEET_DIALOG_MOTION).
+        */
+        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-[440px] rounded-2xl h-[min(580px,85vh)] shadow-[0_24px_64px_-12px_rgba(17,17,19,0.25),0_2px_6px_rgba(17,17,19,0.06)]"
       >
-          <DialogHeader data-social-sheet="" className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
-            <SheetDialogTitle className="text-base sm:text-lg font-semibold">
+          <DialogHeader data-social-sheet="" className="flex-row items-center gap-1.5 px-4 pb-3 pt-4 sm:px-5 sm:pt-5 shrink-0 space-y-0 text-left">
+            {selectedSocial ? (
+              <button
+                type="button"
+                onClick={() => { setSelectedSocial(null); setSocialUrl(""); setSocialUrlError(null) }}
+                aria-label={tt("Back")}
+                data-social-back=""
+                className="-ml-2 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1a1a2e] outline-none transition-[background-color] duration-150 hover:bg-[#f3f4f6] active:bg-[#f0f0f2] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)]"
+              >
+                <ChevronLeft aria-hidden className="h-5 w-5" />
+              </button>
+            ) : null}
+            <SheetDialogTitle className="text-[17px] sm:text-lg font-semibold tracking-[-0.01em] text-[#111113]">
               {selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
             </SheetDialogTitle>
           </DialogHeader>
 
           {!selectedSocial ? (
             <>
-              {/* Search Bar */}
-              <div className="px-4 pt-4 shrink-0">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+              {/* Search, drawn as Add block's and Choose icon's are. */}
+              <div className="px-4 pb-3 sm:px-5 shrink-0">
+                <label className="relative block">
+                  <span className="sr-only">{tt("Search platforms")}</span>
+                  <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#9ca3af]" />
+                  <input
+                    type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={tt("Search platforms...")}
-                    className="pl-10 h-11 rounded-xl bg-gray-50 border-gray-200"
+                    placeholder={tt("Search platforms")}
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    data-social-search=""
+                    className="h-11 w-full rounded-xl border border-[#e8e8ec] bg-[#f6f6f7] pl-10 pr-10 text-[16px] text-[#111113] outline-none transition-[border-color,background-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:bg-white focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery && (
                     <button
+                      type="button"
+                      aria-label={tt("Clear search")}
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:text-[#1a1a2e]"
                     >
-                      <X className="h-4 w-4" />
+                      <X aria-hidden className="h-4 w-4" />
                     </button>
                   )}
-                </div>
+                </label>
               </div>
 
               {/* Scrollable Platform List */}
-              <div data-social-sheet="" className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-1">
+              <div data-social-sheet="" className="flex-1 min-h-0 overflow-y-auto overscroll-contain border-t border-[#f0f0f2] px-2 py-2 sm:px-3 space-y-0.5">
                 {SOCIAL_PLATFORMS.filter(p =>
                   p.label.toLowerCase().includes(searchQuery.toLowerCase())
                 ).map((platform) => {
@@ -1696,19 +1734,19 @@ export function LinksTab() {
                       }}
                       data-social-platform={platform.id}
                       className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-xl transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent] active:bg-gray-100",
+                        "w-full flex items-center gap-3 rounded-xl p-2 outline-none transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent] active:bg-[#f0f0f2] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)]",
                         isActive
-                          ? "bg-gray-100"
-                          : "hover:bg-gray-50"
+                          ? "bg-[#f6f6f7]"
+                          : "hover:bg-[#f6f6f7]"
                       )}
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
                         <SocialIcon platform={platform.id} size={21} color="#1a1a2e" tone="brand" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="font-medium text-sm">{platform.label}</p>
+                        <p className="text-[14px] font-medium leading-5 text-[#111113]">{platform.label}</p>
                         {isActive && (
-                          <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                          <p className="text-[12.5px] leading-[18px] text-[#6b7280] truncate max-w-[220px]">
                             {social_links?.[platform.id as keyof typeof social_links]}
                           </p>
                         )}
@@ -1732,12 +1770,13 @@ export function LinksTab() {
           ) : (
             // URL input for selected platform
             /* data-keyboard-own: the field is placed by the sheet (it is at its top, above any keyboard); KeyboardGuard must not centre it, which scrolled it a few pixels under the finger. */
-            <div data-social-sheet="" data-keyboard-own="" className="p-4 sm:p-5 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
+            /* The field view comes in from the side it was chosen from, and Back takes it the other way. */
+            <div data-social-sheet="" data-keyboard-own="" key={selectedSocial} className="border-t border-[#f0f0f2] p-4 sm:p-5 space-y-4 min-h-0 overflow-y-auto overscroll-contain animate-in fade-in-0 slide-in-from-right-3 duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:animate-none">
               {(() => {
                 const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
                 return (
                   <>
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3 rounded-xl bg-[#f6f6f7] p-3">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
                         <SocialIcon platform={selectedSocial ?? ""} size={21} color="#1a1a2e" tone="brand" />
                       </div>
@@ -2106,26 +2145,30 @@ export function LinksTab() {
         onClose={closeThumbnailSheet}
         phone={isMobileModalViewport}
         label={showIconLibraryInModal ? tt("Choose Icon") : getThumbnailBlockType() === 'product' ? tt("Edit Custom Thumbnail") : tt("Edit Thumbnail")}
-        className={cn(
-          "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
-          showIconLibraryInModal
-            ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
-            : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
-        )}
+        /*
+          ROUND 40: ONE WIDTH FOR BOTH VIEWS. The dialog was 416px for the
+          thumbnail's choices and 572px for Choose icon, with `transition-all`
+          between them: every frame of that change laid the dialog out again
+          and re-centred it, so it wobbled sideways. Now it is one width, and
+          the view that comes in slides a little from its own side instead.
+        */
+        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col rounded-2xl border-[#ececf1] w-[calc(100%-32px)] max-w-[480px] sm:max-w-[480px] shadow-[0_24px_64px_-12px_rgba(17,17,19,0.25),0_2px_6px_rgba(17,17,19,0.06)]"
       >
+          {/* On a computer the two views share the dialog, and its height glides from one to the other (components/onepage/reveal AutoHeight). */}
+          <ThumbnailViews glide={!isMobileModalViewport}>
           {/* Main Options View (on a phone it stays under the library's own sheet) */}
           {!(showIconLibraryInModal && !isMobileModalViewport) && (
-            <>
-              <DialogHeader className="p-4 border-b">
-                <SheetDialogTitle className="text-base font-semibold">
+            <div data-thumbnail-choices="" className={cn("flex flex-col", !isMobileModalViewport && "animate-in fade-in-0 slide-in-from-left-3 duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:animate-none")}>
+              <DialogHeader className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5 text-left">
+                <SheetDialogTitle className="text-[17px] font-semibold tracking-[-0.01em] text-[#111113]">
                   {getThumbnailBlockType() === 'product' ? tt("Edit Custom Thumbnail") : tt("Edit Thumbnail")}
                 </SheetDialogTitle>
               </DialogHeader>
-              <div className="p-4 space-y-3">
-                {/* Current thumbnail preview */}
+              <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3 sm:pb-4">
+                {/* What it is now, large enough to see */}
                 {getThumbnailBlockData() && (
-                  <div className="flex items-center justify-center pb-3 border-b">
-                    <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                  <div className="flex items-center justify-center pb-3 pt-1">
+                    <div data-thumbnail-now="" className="grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-2xl bg-[#f4f4f6] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]">
                       {(() => {
                         const blockData = getThumbnailBlockData()
                         const blockType = getThumbnailBlockType()
@@ -2144,7 +2187,7 @@ export function LinksTab() {
                             return <LinkIcon name={linkData?.icon} size={28} className="text-gray-500" />
                           }
                         }
-                        return <ImageIcon className="w-7 h-7 text-gray-400" />
+                        return <ImageIcon className="h-7 w-7 text-[#9ca3af]" strokeWidth={1.6} />
                       })()}
                     </div>
                   </div>
@@ -2155,19 +2198,20 @@ export function LinksTab() {
                   type="button"
                   onClick={() => thumbnailInputRef.current?.click()}
                   disabled={thumbnailUploading}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+                  data-thumbnail-upload=""
+                  className={THUMB_ROW}
                 >
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <span className={THUMB_TILE}>
                     {thumbnailUploading ? (
-                      <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      <Upload className="w-5 h-5 text-blue-600" />
+                      <Upload className="h-5 w-5" strokeWidth={1.75} />
                     )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{tt("Upload image")}</p>
-                    <p className="text-xs text-muted-foreground">{tt("JPG, PNG, GIF up to 5MB")}</p>
-                  </div>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-medium leading-5 text-[#111113]">{thumbnailUploading ? tt("Uploading") : tt("Upload image")}</span>
+                    <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{tt("JPG, PNG, GIF up to 5MB")}</span>
+                  </span>
                 </button>
 
                 <button
@@ -2192,16 +2236,17 @@ export function LinksTab() {
                     type="button"
                     /* On a phone its own sheet over this one (components/onepage/icon-library), opened without rendering this tab; on a computer this dialog's other view. */
                     onClick={() => (isMobileModalViewport ? setIconLibraryOpen(true) : setShowIconLibraryInModal(true))}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+                    data-thumbnail-icons=""
+                    className={THUMB_ROW}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
-                      <Grid3X3 className="w-5 h-5 text-[#1a1a2e]" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{tt("Choose icon")}</p>
-                      <p className="text-xs text-muted-foreground">{tt("From icon library")}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <span className={THUMB_TILE}>
+                      <Grid3X3 className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-medium leading-5 text-[#111113]">{tt("Choose icon")}</span>
+                      <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{tt("From icon library")}</span>
+                    </span>
+                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
                   </button>
                 )}
 
@@ -2238,21 +2283,23 @@ export function LinksTab() {
                         }
                         setShowThumbnailModal(false)
                       }}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left border border-red-200 text-red-600"
+                      data-thumbnail-remove=""
+                      className={cn(THUMB_ROW, "hover:bg-[#fef3f2] active:bg-[#fde8e6]")}
                     >
-                      <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-                        <Trash2 className="w-5 h-5" />
-                      </div>
-                      <p className="text-sm font-medium">{tt("Remove thumbnail")}</p>
+                      <span className={cn(THUMB_TILE, "bg-[#fef3f2] text-[#b42318] shadow-none")}>
+                        <Trash2 className="h-5 w-5" strokeWidth={1.75} />
+                      </span>
+                      <span className="text-[14px] font-medium text-[#b42318]">{tt("Remove thumbnail")}</span>
                     </button>
                   ) : null
                 })()}
               </div>
-            </>
+            </div>
           )}
 
           {/* The icon library, on a computer in this dialog (on a phone it is its own sheet, below). */}
           {showIconLibraryInModal && !isMobileModalViewport && (
+            <div className="flex min-h-0 flex-1 flex-col animate-in fade-in-0 slide-in-from-right-3 duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:animate-none">
             <IconLibrary
               phone={false}
               open={showThumbnailModal && showIconLibraryInModal}
@@ -2260,7 +2307,9 @@ export function LinksTab() {
               onSelect={chooseLinkIcon}
               onBack={() => setShowIconLibraryInModal(false)}
             />
+            </div>
           )}
+          </ThumbnailViews>
 
           {/* Hidden file input */}
           <input
@@ -2373,7 +2422,7 @@ export function LinksTab() {
                       // Direct upload only for small image/thumbnail files (< 2MB)
                       const DIRECT_UPLOAD_LIMIT = 2 * 1024 * 1024 // 2MB
 
-                      let url: string
+                      let url = ""
 
                       if (!isDigitalFile && file.size < DIRECT_UPLOAD_LIMIT) {
                         // Small image/thumbnail files: use FormData via server API route
@@ -2413,8 +2462,15 @@ export function LinksTab() {
                         // Step 1: Get a signed upload URL from server
                         setUploadProgress(2)
                         const getSignedUrl = async () => {
-                          // Try v2 prepare endpoint first
-                          try {
+                          /*
+                            ROUND 40: A FILE ON THE PAGE GOES WHERE A VISITOR CAN OPEN IT. The v2 endpoint puts a file
+                            ("digital") in the private product bucket and hands back no public address, so the free
+                            file of an email signup ("Enable digital product") and a PDF block's file were saved with
+                            an empty address: the signup's Download never appeared and the PDF opened nothing. A
+                            link page's own file is public by design (app/api/onepage/signed-upload-url), so it asks
+                            there; a picture still asks v2 first.
+                          */
+                          if (!isDigitalFile) try {
                             const v2Res = await fetch('/api/v2/upload/prepare', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -2599,6 +2655,8 @@ export function LinksTab() {
                           throw new Error(lastError || tt("Upload failed. Try again."))
                         }
                       }
+                      /* Never saved without an address a visitor can open (see A FILE ON THE PAGE above). */
+                      if (!url) throw new Error(tt("Upload failed. Try again."))
 
                       const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
                       if (block) {
@@ -3128,7 +3186,6 @@ function BlockItem({
   */
   const rowProducts = useCreatorProducts(block.type === "product" && !!(block.data as ProductBlockData)?.product_id)
   const productGone = block.type === "product" && !!(block.data as ProductBlockData)?.product_id && editorProductState((block.data as ProductBlockData).product_id, rowProducts) === "unavailable"
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
   const [showAnimationSheet, setShowAnimationSheet] = useState(false)
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
@@ -3323,8 +3380,9 @@ function BlockItem({
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white relative transition-[border-color,box-shadow] duration-200",
-        isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
+        /* Round 40: the card the rest of /app draws, and an open one lifted a little rather than ringed in grey. */
+        "relative rounded-2xl border bg-white transition-[border-color,box-shadow] duration-200",
+        isSelected ? "border-[#d5d7dc] shadow-[0_0_0_1px_#d5d7dc,0_8px_24px_-12px_rgba(16,24,40,0.18)]" : "border-[#ececf1] shadow-[0_1px_2px_rgba(16,24,40,0.04)] hover:border-[#d5d7dc]",
         !block.enabled && "opacity-50",
       )}
     >
@@ -3361,12 +3419,16 @@ function BlockItem({
               e.stopPropagation()
               onOpenThumbnailModal(block.id)
             }}
-            className="group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden hover:ring-2 hover:ring-gray-300 transition-all"
+            aria-label={tt("Edit thumbnail")}
+            /* Round 40: a soft ring under a mouse on the box-shadow alone (it was transition-all on a ring), and the picture decoded off the main thread. */
+            className="group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden outline-none transition-[box-shadow] duration-150 hover:shadow-[0_0_0_2px_#d5d7dc] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            data-row-thumbnail=""
           >
             {(preview as any).thumbnail_url ? (
               <img
-                src={(preview as any).thumbnail_url}
+                src={onePageImageSrc((preview as any).thumbnail_url, 80)}
                 alt=""
+                decoding="async"
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
@@ -3378,8 +3440,8 @@ function BlockItem({
             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
               <Pencil className="w-2.5 h-2.5 text-gray-500" />
             </div>
-            {/* Hover overlay */}
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+            {/* Hover overlay, under a mouse only */}
+            <div className="absolute inset-0 rounded-[11px] bg-black/20 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
           </button>
         ) : (
           <div className="w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden">
@@ -3607,7 +3669,7 @@ function BlockItem({
       </div>
 
       {isSelected && (
-        <div className="border-t p-4 space-y-4 bg-gray-50/50">
+        <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           <BlockEditor
             block={block}
             socialLinks={socialLinks}
@@ -3620,76 +3682,16 @@ function BlockItem({
             onMoveChildToMainList={onMoveChildToMainList}
           />
           {!isHeaderBlock && (
-            <div className="pt-3 border-t">
-              {!showDeleteConfirm ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1.5" />
-                    {tt("Delete")}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {/* A group lets go of its blocks rather than taking them with it (lib/onepage/context removeBlock), and says so. */}
-                  <p className="text-sm text-muted-foreground text-center" data-delete-question="">
-                    {block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
-                  </p>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onRemove()
-                          setShowDeleteConfirm(false)
-                        }}
-                        className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        {tt("Delete")}
-                      </Button>
-                      <p className="text-[10px] text-muted-foreground text-center mt-1">{tt("Permanently remove")}</p>
-                    </div>
-                    <div className="flex-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (onArchive) onArchive()
-                          setShowDeleteConfirm(false)
-                        }}
-                        className="w-full text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
-                      >
-                        <Archive className="h-3.5 w-3.5 mr-1.5" />
-                        {tt("Archive")}
-                      </Button>
-                      <p className="text-[10px] text-muted-foreground text-center mt-1">{tt("Restore anytime")}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="w-full text-muted-foreground h-7 text-xs"
-                  >
-                    {tt("Cancel")}
-                  </Button>
-                </div>
-              )}
-            </div>
+            /* Move, archive or delete (components/onepage/block-remove): the question opens under the row to its height. */
+            <BlockFootActions
+              question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
+              isFirst={isFirst}
+              isLast={isLast}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              onRemove={onRemove}
+              onArchive={onArchive}
+            />
           )}
         </div>
       )}
@@ -4313,156 +4315,81 @@ function BlockEditor({
               </div>
             )}
 
-            {/* YouTube Settings - Only shown for YouTube URLs */}
+            {/* YouTube: one choice of two (components/onepage/block-settings-kit ModeChoice), not two switches. */}
             {isYouTubeUrl(data.url) && (
-              <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("YouTube Settings")}</Label>
-                <div className="space-y-2">
-                  {[
-                    { id: 'embed_video', label: tt("Play video on page"), desc: tt("Embed video directly in Pro Layout") },
-                    { id: 'open_video', label: tt("Open YouTube video"), desc: tt("Redirect on click only") },
-                  ].map((mode) => {
-                    const currentMode = data.youtube_mode || 'embed_video'
-                    const isActive = currentMode === mode.id
-                    return (
-                      <div
-                        key={mode.id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
-                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center",
-                            isActive ? "bg-red-600 text-white" : "bg-gray-100 text-gray-500"
-                          )}>
-                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">{mode.label}</div>
-                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
-                          </div>
-                        </div>
-                        <Toggle label={mode.label}
-                          checked={isActive}
-                          onCheckedChange={async (checked) => {
-                            if (checked) {
-                              // embed_video uses Pro Layout, open_video uses Default Layout
-                              const layoutType = mode.id === 'open_video' ? 'default' : 'pro'
-                              updateData({
-                                youtube_mode: mode.id as YouTubeMode,
-                                layout_type: layoutType
-                              })
-                              // For open_video mode, fetch thumbnail
-                              if (mode.id === 'open_video') {
-                                // Extract video ID and set thumbnail
-                                const videoIdMatch = data.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
-                                if (videoIdMatch) {
-                                  updateData({
-                                    youtube_mode: mode.id as YouTubeMode,
-                                    layout_type: 'default',
-                                    thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`
-                                  })
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* Refresh thumbnail button for open_video mode */}
-                {data.youtube_mode === 'open_video' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
+              <SettingsGroup title={tt("YouTube")}>
+                <ModeChoice
+                  label={tt("YouTube")}
+                  accent="#e62117"
+                  value={(data.youtube_mode || 'embed_video') as string}
+                  options={[
+                    { id: 'embed_video', label: tt("Play video on page"), hint: tt("Embed video directly in Pro Layout"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'open_video', label: tt("Open YouTube video"), hint: tt("Redirect on click only"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                  ]}
+                  onPick={(mode) => {
+                    /* embed_video uses Pro Layout, open_video uses Default Layout, with the video's own picture. */
+                    const videoIdMatch = data.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
+                    updateData({
+                      /* 'open_video' is a mode the page reads and the type has never listed (lib/onepage/types YouTubeMode). */
+                      youtube_mode: mode as YouTubeMode,
+                      layout_type: mode === 'open_video' ? 'default' : 'pro',
+                      ...(mode === 'open_video' && videoIdMatch ? { thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg` } : {}),
+                    })
+                  }}
+                />
+                {(data.youtube_mode as string) === 'open_video' && (
+                  <QuietAction
+                    icon={<RotateCcw className="h-4 w-4" />}
+                    onClick={() => {
                       const videoIdMatch = data.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
-                      if (videoIdMatch) {
-                        updateData({
-                          thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`
-                        })
-                      }
+                      if (videoIdMatch) updateData({ thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg` })
                     }}
-                    className="w-full text-xs text-center py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    {tt("↻ Refresh thumbnail")}
-                  </button>
+                    {tt("Refresh thumbnail")}
+                  </QuietAction>
                 )}
-              </div>
+              </SettingsGroup>
             )}
 
             {/* Spotify Settings - Only shown for Spotify URLs */}
             {isSpotifyUrl(data.url) && (
-              <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Spotify Settings")}</Label>
-                <div className="space-y-2">
-                  {[
-                    { id: 'audio_preview', label: tt("Audio preview"), desc: tt("Open modern preview modal") },
-                    { id: 'go_to_url', label: tt("Go to URL"), desc: tt("Redirect to Spotify directly") },
-                    { id: 'show_streaming', label: tt("Show streaming"), desc: tt("Display all platforms") },
-                  ].map((mode) => {
-                    const currentMode = data.spotify_mode || 'go_to_url'
-                    const isActive = currentMode === mode.id
-                    return (
-                      <div
-                        key={mode.id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
-                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center",
-                            isActive ? "bg-[#1DB954] text-white" : "bg-gray-100 text-gray-500"
-                          )}>
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">{mode.label}</div>
-                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
-                          </div>
-                        </div>
-                        <Toggle label={mode.label}
-                          checked={isActive}
-                          onCheckedChange={async (checked) => {
-                            if (checked) {
-                              updateData({ spotify_mode: mode.id as SpotifyMode })
-                              // For streaming mode, fetch available services and metadata
-                              if (mode.id === 'show_streaming') {
-                                try {
-                                  const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
-                                  if (res.ok) {
-                                    const spotifyData = await res.json()
-                                    updateData({
-                                      spotify_mode: mode.id as SpotifyMode,
-                                      spotify_artist_id: spotifyData.id || null,
-                                      spotify_title: spotifyData.title || null,
-                                      spotify_artist: spotifyData.artistName || null,
-                                      spotify_type: spotifyData.type || null,
-                                      streaming_services: spotifyData.streamingServices || []
-                                    })
-                                  }
-                                } catch (e) {
-                                  console.error('Failed to fetch streaming services:', e)
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+              <div className="space-y-2.5 border-t border-[#eef0f2] pt-4">
+                <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Spotify")}</p>
+                <ModeChoice
+                  label={tt("Spotify")}
+                  accent="#1DB954"
+                  value={(data.spotify_mode || 'go_to_url') as SpotifyMode}
+                  options={[
+                    { id: 'audio_preview' as SpotifyMode, label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url' as SpotifyMode, label: tt("Go to URL"), hint: tt("Redirect to Spotify directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'show_streaming' as SpotifyMode, label: tt("Show streaming"), hint: tt("Display all platforms"), icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} /> },
+                  ]}
+                  onPick={async (mode) => {
+                    updateData({ spotify_mode: mode })
+                    /* For streaming mode, fetch available services and metadata. */
+                    if (mode === 'show_streaming') {
+                      try {
+                        const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                        if (res.ok) {
+                          const spotifyData = await res.json()
+                          updateData({
+                            spotify_mode: mode,
+                            spotify_artist_id: spotifyData.id || null,
+                            spotify_title: spotifyData.title || null,
+                            spotify_artist: spotifyData.artistName || null,
+                            spotify_type: spotifyData.type || null,
+                            streaming_services: spotifyData.streamingServices || []
+                          })
+                        }
+                      } catch (e) {
+                        console.error('Failed to fetch streaming services:', e)
+                      }
+                    }
+                  }}
+                />
 
                 {/* Enable Metadata toggle */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-white mt-2">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
                       <svg className="w-4 h-4 text-gray-600" viewBox="0 0 24 24" fill="currentColor">
@@ -4519,7 +4446,7 @@ function BlockEditor({
                       console.error('Failed to refresh Spotify thumbnail:', e)
                     }
                   }}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#f4f4f6] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#ececef] active:bg-[#e6e6ea]"
                 >
                   <RotateCcw className="w-4 h-4" />
                   {tt("Refresh Thumbnail")}
@@ -4631,8 +4558,8 @@ function BlockEditor({
 
             {/* SoundCloud Settings - Only shown for SoundCloud URLs */}
             {data.url?.includes('soundcloud.com') && (
-              <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("SoundCloud Settings")}</Label>
+              <div className="space-y-2.5 border-t border-[#eef0f2] pt-4">
+                <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("SoundCloud")}</p>
 
                 {/* Refresh Thumbnail button */}
                 <button
@@ -4654,7 +4581,7 @@ function BlockEditor({
                       console.error('Failed to refresh SoundCloud thumbnail:', e)
                     }
                   }}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#f4f4f6] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#ececef] active:bg-[#e6e6ea]"
                 >
                   <RotateCcw className="w-4 h-4" />
                   {tt("Refresh Thumbnail")}
@@ -4664,70 +4591,41 @@ function BlockEditor({
 
             {/* Apple Music Settings - Only shown for Apple Music URLs */}
             {data.url?.includes('music.apple.com') && (
-              <div className="space-y-3 pt-3 mt-3 border-t">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Apple Music Settings")}</Label>
-                <div className="space-y-2">
-                  {[
-                    { id: 'audio_preview', label: tt("Audio preview"), desc: tt("Open modern preview modal") },
-                    { id: 'go_to_url', label: tt("Go to URL"), desc: tt("Redirect to Apple Music directly") },
-                  ].map((mode) => {
-                    const currentMode = data.apple_music_mode || 'go_to_url'
-                    const isActive = currentMode === mode.id
-                    return (
-                      <div
-                        key={mode.id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
-                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center",
-                            isActive ? "bg-gradient-to-br from-[#FA233B] to-[#FB5C74] text-white" : "bg-gray-100 text-gray-500"
-                          )}>
-                            <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor">
-                              <path d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">{mode.label}</div>
-                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
-                          </div>
-                        </div>
-                        <Toggle label={mode.label}
-                          checked={isActive}
-                          onCheckedChange={async (checked) => {
-                            if (checked) {
-                              updateData({ apple_music_mode: mode.id })
-                              // For audio preview mode, fetch metadata
-                              if (mode.id === 'audio_preview') {
-                                try {
-                                  const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
-                                  if (res.ok) {
-                                    const appleMusicData = await res.json()
-                                    updateData({
-                                      apple_music_mode: mode.id,
-                                      apple_music_title: appleMusicData.title || null,
-                                      apple_music_artist: appleMusicData.artistName || null,
-                                      apple_music_type: appleMusicData.type || null,
-                                      apple_music_preview_url: appleMusicData.previewUrl || null
-                                    })
-                                  }
-                                } catch (e) {
-                                  console.error('Failed to fetch Apple Music data:', e)
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+              <div className="space-y-2.5 border-t border-[#eef0f2] pt-4">
+                <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Apple Music")}</p>
+                <ModeChoice
+                  label={tt("Apple Music")}
+                  accent="#FA233B"
+                  value={(data.apple_music_mode || 'go_to_url') as string}
+                  options={[
+                    { id: 'audio_preview', label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url', label: tt("Go to URL"), hint: tt("Redirect to Apple Music directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                  ]}
+                  onPick={async (mode) => {
+                    updateData({ apple_music_mode: mode as NonNullable<LinkButtonBlockData["apple_music_mode"]> })
+                    /* For audio preview mode, fetch metadata. */
+                    if (mode === 'audio_preview') {
+                      try {
+                        const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
+                        if (res.ok) {
+                          const appleMusicData = await res.json()
+                          updateData({
+                            apple_music_mode: mode as NonNullable<LinkButtonBlockData["apple_music_mode"]>,
+                            apple_music_title: appleMusicData.title || null,
+                            apple_music_artist: appleMusicData.artistName || null,
+                            apple_music_type: appleMusicData.type || null,
+                            apple_music_preview_url: appleMusicData.previewUrl || null
+                          })
+                        }
+                      } catch (e) {
+                        console.error('Failed to fetch Apple Music data:', e)
+                      }
+                    }
+                  }}
+                />
 
                 {/* Enable Metadata toggle */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-white mt-2">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FA233B]/10 to-[#FB5C74]/10 flex items-center justify-center">
                       <svg className="w-4 h-4" viewBox="0 0 512 512">
@@ -4791,7 +4689,7 @@ function BlockEditor({
                       console.error('Failed to refresh Apple Music thumbnail:', e)
                     }
                   }}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#f4f4f6] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#ececef] active:bg-[#e6e6ea]"
                 >
                   <RotateCcw className="w-4 h-4" />
                   {tt("Refresh Thumbnail")}
@@ -5054,18 +4952,28 @@ function BlockEditor({
                 </div>
               </div>
 
-              {/* Enable Digital Product Toggle */}
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs">{tt("Enable Digital Product")}</Label>
-                    <p className="text-[10px] text-muted-foreground">{tt("Allow subscribers get a free product on signup")}</p>
+              {/*
+                ROUND 40: A FILE AFTER SIGNUP. On, with a file, the live page turns the button into Download
+                once the address is given, and app/api/onepage/leads answers with the same file, read from the
+                published block (lib/onepage/signup-file). On with no file gives nothing, and says so here.
+              */}
+              <div className="space-y-2 border-t border-[#eef0f2] pt-3" data-signup-file="">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Enable Digital Product")}</p>
+                    <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("People who join get a file to download")}</p>
                   </div>
                   <Toggle label={tt("Enable Digital Product")}
                     checked={data.enable_digital_product || false}
                     onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
                   />
                 </div>
+
+                {data.enable_digital_product && !data.digital_product_file_url ? (
+                  <p className="rounded-xl bg-[#fff7ed] px-3 py-2 text-[12.5px] leading-snug text-[#9a4a07]" data-signup-file-missing="">
+                    {tt("Upload the file. Until then, people who join get nothing to download.")}
+                  </p>
+                ) : null}
 
                 {data.enable_digital_product && (
                   <div className="space-y-3 pt-2">
@@ -6387,110 +6295,31 @@ function BlockEditor({
 
         return (
           <div className="space-y-4">
-            {/* Product Selector - Modern dropdown style */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">{tt("Select Product")}</Label>
-              <div className="relative" ref={productDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {(selectedProduct?.thumbnail_url || (!selectedProduct && data.product_id && data.product_thumbnail)) && (
-                      <img
-                        src={selectedProduct?.thumbnail_url || data.product_thumbnail || ""}
-                        alt=""
-                        className={cn("w-6 h-6 rounded object-cover shrink-0", productState === "unavailable" && "opacity-50 grayscale")}
-                      />
-                    )}
-                    <span className={cn("truncate", productState === "unavailable" && "text-[#6b7280]")}>
-                      {selectedProduct ? selectedProduct.title : data.product_id && data.product_title ? data.product_title : tt("Select a product...")}
-                    </span>
-                    {selectedProduct && (
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents, selectedProduct) : tt("Free")}
-                      </span>
-                    )}
-                    <ProductStateBadge state={productState} />
-                  </div>
-                  <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform ml-2", showProductDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showProductDropdown && (
-                  <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
-                    {pickable.length === 0 ? (
-                      <div className="px-3 py-4 text-center">
-                        <p className="text-sm text-muted-foreground mb-3">{tt("No products found.")}</p>
-                        <a
-                          href="/app/products/new"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          {tt("Add Product")}
-                        </a>
-                      </div>
-                    ) : (
-                      pickable.map((product) => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => {
-                            // Truncate description
-                            let shortDesc = product.description || ''
-                            const words = shortDesc.split(' ')
-                            if (words.length > 7) {
-                              shortDesc = words.slice(0, 7).join(' ') + '...'
-                            }
-                            updateData({
-                              product_id: product.id,
-                              product_title: product.title,
-                              product_thumbnail: product.thumbnail_url || null,
-                              product_description: shortDesc || null,
-                              product_price_cents: product.price_cents || 0,
-                              product_slug: product.slug || null,
-                              product_type: product.type || null,
-                            })
-                            setShowProductDropdown(false)
-                          }}
-                          className={cn(
-                            "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
-                            data.product_id === product.id
-                              ? "bg-[#f4f4f6] text-[#1a1a2e]"
-                              : "text-gray-700 hover:bg-gray-50"
-                          )}
-                        >
-                          {product.thumbnail_url ? (
-                            <img
-                              src={product.thumbnail_url}
-                              alt=""
-                              className="w-8 h-8 rounded-lg object-cover shrink-0"
-                            />
-                          ) : (
-                            <span className="grid w-8 h-8 shrink-0 place-items-center rounded-lg bg-[#f4f4f6] text-[#9ca3af]">
-                              <ShoppingBag className="h-4 w-4" strokeWidth={1.7} />
-                            </span>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className={cn("flex items-center gap-1.5 font-medium", data.product_id === product.id && "text-[#1a1a2e]")}>
-                              <span className="truncate">{product.title}</span>
-                              <ProductStateBadge state={editorProductState(product.id, effectiveSellerProducts)} />
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {product.price_cents > 0 ? shopMoney(product.price_cents, product) : tt("Free")}
-                            </p>
-                          </div>
-                          {data.product_id === product.id && (
-                            <Check className="w-4 h-4 text-[#1a1a2e] shrink-0" />
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* The product this block sells, as a card, and Change opens the list (components/onepage/product-picker). */}
+            <ProductPicker
+              products={pickable}
+              stateOf={(id) => editorProductState(id, effectiveSellerProducts)}
+              selectedId={data.product_id}
+              fallback={{ title: data.product_title, thumbnail: data.product_thumbnail }}
+              state={productState}
+              money={(cents, product) => shopMoney(cents, product)}
+              onPick={(product) => {
+                const full = pickable.find((p) => p.id === product.id)
+                /* The description, cut to its first seven words. */
+                let shortDesc = full?.description || ''
+                const words = shortDesc.split(' ')
+                if (words.length > 7) shortDesc = words.slice(0, 7).join(' ') + '...'
+                updateData({
+                  product_id: product.id,
+                  product_title: product.title,
+                  product_thumbnail: product.thumbnail_url || null,
+                  product_description: shortDesc || null,
+                  product_price_cents: product.price_cents || 0,
+                  product_slug: full?.slug || null,
+                  product_type: product.type || null,
+                })
+              }}
+            />
 
             {/* The product's own editors, side by side, and what a draft or a product that is gone means for the page. */}
             {data.product_id && (

@@ -170,7 +170,8 @@ async function main() {
   check("When someone taps it, with instant checkout", /data-tap-choice/.test(editor) && /instant_checkout: on, quick_checkout: false/.test(editor) && /<ProductTapSetting/.test(tab))
   check("eight layouts to pick from", /<ProductLayoutPicker/.test(tab) && /PRODUCT_LAYOUTS\.map/.test(editor))
   check("a draft says so and how to show it; a product that is gone offers Remove", /Publish it to show it on your page/.test(read("components/onepage/tabs/product-block-editor.tsx")) && /data-product-remove/.test(editor) && /<ProductStateNote/.test(tab))
-  check("the picker lists drafts with a badge and leaves archived out", /pickableProducts\(effectiveSellerProducts/.test(tab) && /<ProductStateBadge state=\{editorProductState\(product\.id/.test(tab))
+  /* Changed on purpose (round 40): the dropdown is now the product picker (components/onepage/product-picker), given the same pickable list and each row's state. */
+  check("the picker lists drafts with a badge and leaves archived out", /pickableProducts\(effectiveSellerProducts/.test(tab) && /<ProductPicker\s+products=\{pickable\}\s+stateOf=\{\(id\) => editorProductState\(id, effectiveSellerProducts\)\}/.test(tab) && /<ProductStateBadge state=\{stateOf\(p\.id\)\} \/>/.test(read("components/onepage/product-picker.tsx")))
 
   console.log("\nRemove, on the page or inside a group")
   const page = [
