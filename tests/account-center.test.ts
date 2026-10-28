@@ -96,7 +96,7 @@ console.log("\nThe profile center's pills")
   check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /PILL_FILL/.test(pills) && /opacity-100" : "opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")
   /* Round 12: /@handle is the creator page's template; on your own, Edit profile sits on the cover as a creator's does, and Follow is not there. The pills stay /account's. */
-  check("/@<my handle> for me: Edit profile on the cover, my activity, no Follow", /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(member) && /isSelf=\{isSelf\}/.test(member) && /label: "Activity"/.test(member))
+  check("/@<my handle> for me: Edit profile on the cover, my activity, no Follow", /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(member) && /* Changed on purpose (r40): no Follow on any profile, so the block is no longer told who is looking. */ !/<FollowButton/.test(member) && /label: "Activity"/.test(member))
 }
 
 console.log("\nThe cover, Edit profile, and the person under them (round 5)")

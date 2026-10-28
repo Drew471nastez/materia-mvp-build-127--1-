@@ -29,12 +29,10 @@ import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
+import { AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
-import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
+import { Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
-import { isNativeApp } from "@/lib/platform-utils"
-import { navigateInApp } from "@/lib/native-bridge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
@@ -48,7 +46,6 @@ import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
-import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -56,10 +53,12 @@ import { tt } from "@/lib/i18n/text"
 import { useLiveLayout } from "@/lib/onepage/live-layout"
 import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
-import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
+import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
+import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
+import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -361,57 +360,6 @@ function NotificationBell({
   onLight = false,
 }: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [email, setEmail] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState("")
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
-
-    if (!sellerId) {
-      setError("Unable to subscribe - seller info unavailable")
-      return
-    }
-
-    setError("")
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          source: "onepage",
-          source_id: onepageId,
-          creator_id: sellerId,
-          origin: pageOrigin(),
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to subscribe")
-      }
-
-      setSubmitted(true)
-      setTimeout(() => {
-        setIsOpen(false)
-        setTimeout(() => {
-          setSubmitted(false)
-          setEmail("")
-        }, 300)
-      }, 2500)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to subscribe")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -484,7 +432,6 @@ function NotificationBell({
     light page (pageIsLight) the same glass is drawn in ink.
   */
   const inkGlass = onLight && !(style === "white" || style === "black")
-  const lightInk = style === "white" || inkGlass
   const s = inkGlass ? GLASS_ON_LIGHT_BELL : styles[style as keyof typeof styles] || styles.glass
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -511,41 +458,12 @@ function NotificationBell({
   const shouldShow = (isVisible || isOpen) && !hideForModal
 
   /*
-    ═══════════════════════════════════════════════════════════════════════
-     PRESSING AWAY CLOSES IT
-    ═══════════════════════════════════════════════════════════════════════
-    There was only the small x. Anywhere else you pressed, the panel stayed
-    open over the page, which is not how anything else on the page behaves.
-
-    On pointerdown rather than click, so it goes the moment you commit to
-    looking somewhere else rather than on release. The panel keeps its own
-    300ms ease-out on opacity, width and scale, so this only decides WHEN it
-    closes; it still shrinks back into the bell rather than disappearing.
-
-    The bell itself is inside `rootRef`, so its own toggle still works and is
-    not fighting a close on the same press. Escape closes it too, because a
-    panel that takes a keyboard focus should give it back.
+    THE PANEL IS A SHEET NOW (components/onepage/subscribe-sheet): its own
+    scrim, Escape and drag close it, so nothing here listens for a press
+    elsewhere. A press inside the sheet would have counted as one.
   */
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!isOpen) return
-    const away = (e: PointerEvent) => {
-      const el = e.target as Node | null
-      if (el && rootRef.current && !rootRef.current.contains(el)) setIsOpen(false)
-    }
-    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setIsOpen(false) }
-    document.addEventListener("pointerdown", away, true)
-    document.addEventListener("keydown", escape)
-    return () => {
-      document.removeEventListener("pointerdown", away, true)
-      document.removeEventListener("keydown", escape)
-    }
-  }, [isOpen])
-
   return (
     <div
-      ref={rootRef}
       className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-all duration-500 ease-out"
       style={{
         opacity: shouldShow ? 1 : 0,
@@ -558,6 +476,8 @@ function NotificationBell({
         data-onepage-bell=""
         data-ink={inkGlass ? "" : undefined}
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Subscribe to ${sellerName}`}
+        aria-haspopup="dialog"
         className={cn(
           "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
           style === "glass" && "backdrop-blur-md",
@@ -581,88 +501,14 @@ function NotificationBell({
         />
       </button>
 
-      {/* Subscribe Panel */}
-      <div
-        className={cn(
-          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl",
-          style === "glass" && "backdrop-blur-lg",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-        )}
-        style={{
-          width: isOpen ? 220 : 44,
-          background: s.panelBg,
-          border: s.panelBorder,
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
-          transformOrigin: "top right",
-          transform: isOpen ? "scale(1)" : "scale(0.5)",
-        }}
-      >
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className={cn("text-xs font-medium truncate pr-2", s.textColor)}>Subscribe to {sellerName}</span>
-            <button
-              onClick={() => setIsOpen(false)}
-              className={cn(
-                "p-1 rounded-full transition-colors",
-                lightInk ? "hover:bg-gray-100" : "hover:bg-white/20",
-              )}
-            >
-              <X className={cn("w-3.5 h-3.5", lightInk ? "text-gray-500" : "text-white/70")} />
-            </button>
-          </div>
-
-          {submitted ? (
-            <div className="text-center py-3 flex flex-col items-center gap-1">
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center mb-1",
-                  lightInk ? "bg-green-100" : "bg-green-500/30",
-                )}
-              >
-                <Check className={cn("w-5 h-5", lightInk ? "text-green-600" : "text-green-400")} />
-              </div>
-              <span className={cn("text-sm font-medium", s.textColor)}>Subscribed!</span>
-              <span className={cn("text-xs", lightInk ? "text-gray-500" : "text-white/60")}>
-                You&apos;ll receive updates
-              </span>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-2.5">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className={cn(
-                  "w-full px-3 py-2 text-sm rounded-xl border focus:outline-none",
-                  s.inputBg,
-                  s.inputBorder,
-                  s.inputText,
-                  s.inputPlaceholder,
-                  lightInk ? "focus:border-gray-400" : "focus:border-white/50",
-                )}
-                required
-                disabled={isSubmitting}
-              />
-              {error && (
-                <p className={cn("text-xs text-center", lightInk ? "text-red-600" : "text-red-300")}>
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={cn(
-                  "w-full py-2 text-sm font-medium rounded-xl transition-colors disabled:opacity-50",
-                  s.buttonSubmitBg,
-                )}
-              >
-                {isSubmitting ? "Subscribing..." : "Subscribe"}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
+      <OnePageSubscribeSheet
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        dark={!onLight}
+        sellerName={sellerName}
+        sellerId={sellerId}
+        onepageId={onepageId}
+      />
 
       {/* Bell animation keyframes */}
       <style>{`
@@ -682,11 +528,6 @@ function ShareButton({
   avatarUrl,
   avatarVideoUrl,
   style = "white",
-  showSubscribe = true,
-  accentColor,
-  themeBackgroundType,
-  themeBackgroundColor,
-  themeBackgroundGradient,
   isVisible = true,
   onLight = false,
 }: {
@@ -695,6 +536,7 @@ function ShareButton({
   avatarUrl?: string | null
   avatarVideoUrl?: string | null
   style?: "glass" | "white" | "black"
+  /* Passed by the page and no longer read: the sheet takes the page's light or dark instead of a band in its colour (components/onepage/share-sheet). */
   showSubscribe?: boolean
   accentColor?: string
   themeBackgroundType?: "solid" | "gradient" | "image" | "video"
@@ -705,59 +547,6 @@ function ShareButton({
   onLight?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  // Returns true if a hex color is near-white (all channels > 200)
-  const isNearWhite = (hex: string): boolean => {
-    const m = hex.match(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/)
-    if (!m) return false
-    let h = m[1]
-    if (h.length === 3) h = h.split("").map((c) => c + c).join("")
-    return parseInt(h.slice(0, 2), 16) > 200 && parseInt(h.slice(2, 4), 16) > 200 && parseInt(h.slice(4, 6), 16) > 200
-  }
-
-  // Compute contrast text color (white or dark) for a given background
-  const getContrastTextColor = (bg: string): "white" | "dark" => {
-    // For gradients, extract the first hex color to approximate
-    const hexMatch = bg.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/)
-    // Default to "dark" when we can't parse the color — dark text is always readable on unknown/light backgrounds
-    if (!hexMatch) return "dark"
-    let hex = hexMatch[1]
-    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
-    const r = parseInt(hex.slice(0, 2), 16)
-    const g = parseInt(hex.slice(2, 4), 16)
-    const b = parseInt(hex.slice(4, 6), 16)
-    // Relative luminance (WCAG)
-    const toLinear = (c: number) => {
-      const s = c / 255
-      return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
-    }
-    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
-    return L > 0.35 ? "dark" : "white"
-  }
-
-  // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
-  const getPopupHeaderBackground = () => {
-    if (themeBackgroundType === "gradient" && themeBackgroundGradient) {
-      return themeBackgroundGradient
-    }
-    if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
-      return themeBackgroundColor
-    }
-    // Use accent color only if it's not near-white (white accent on white bg = invisible text)
-    if (accentColor && !isNearWhite(accentColor)) {
-      return accentColor
-    }
-    return "#1a1a2e"
-  }
-
-  const popupHeaderBackground = getPopupHeaderBackground()
-  const headerTextColor = getContrastTextColor(popupHeaderBackground)
-  const headerTextClass = headerTextColor === "white" ? "text-white" : "text-gray-900"
-  const headerSubTextClass = headerTextColor === "white" ? "text-white/80" : "text-gray-600"
-  const headerCloseClass = headerTextColor === "white" ? "bg-white/20 hover:bg-white/30" : "bg-black/10 hover:bg-black/20"
-  const headerCloseIconClass = headerTextColor === "white" ? "text-white" : "text-gray-700"
-
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -789,193 +578,6 @@ function ShareButton({
   // Fallback to glass if style is not defined
   const inkGlass = onLight && !(style === "white" || style === "black")
   const s = inkGlass ? GLASS_ON_LIGHT_SHARE : styles[style as keyof typeof styles] || styles.glass
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(pageUrl)
-    } catch {
-      // Fallback for older browsers/Capacitor
-      const el = document.createElement("textarea")
-      el.value = pageUrl
-      el.style.position = "fixed"
-      el.style.opacity = "0"
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand("copy")
-      document.body.removeChild(el)
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const openExternalUrl = async (url: string) => {
-    /* In the editor's preview nothing leaves it: a note instead (lib/onepage/preview-notice). */
-    if (isOnePagePreview()) return showPreviewNotice("link")
-    /* Storelib itself (the Made with Storelib mark) opens in the app's own WebView, not a browser over it (lib/native-links.ts). */
-    if (navigateInApp(url)) return
-    if (isNativeApp()) {
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url })
-    } else {
-      window.open(url, "_blank")
-    }
-  }
-
-  /**
-   * Open a share target.
-   *
-   * Native (Capacitor iOS / Android):
-   *   window.open(scheme, '_system') is called SYNCHRONOUSLY while we are
-   *   still inside the user-gesture. Capacitor intercepts '_system' and
-   *   routes custom schemes (whatsapp://, twitter://, …) straight to
-   *   UIApplication.shared.open() on iOS and Intent.ACTION_VIEW on Android —
-   *   the target app opens instantly with no in-app browser.
-   *   If no native scheme exists (e.g. Facebook) we fall back to Browser.open
-   *   so the web URL opens in the Capacitor in-app browser.
-   *
-   * Web (mobile / desktop browser):
-   *   window.location.href = nativeScheme lets the OS intercept the custom
-   *   URL scheme and open the app without creating a new browser tab.
-   *   A visibilitychange listener detects a successful hand-off; if the page
-   *   stays visible after 1.5 s (app not installed) we open the wa.me web
-   *   fallback in a new tab instead.
-   */
-  /**
-   * Open a share target — app-first with browser fallback.
-   *
-   * @param nativeScheme  Custom URL scheme (twitter://, whatsapp://, etc.)
-   *                      Pass null to skip app-scheme and go straight to web.
-   * @param webUrl        HTTPS fallback URL (opens if app is not installed).
-   * @param preferSystem  If true, open webUrl via system browser (_system) on
-   *                      Capacitor instead of the in-app browser.  This lets
-   *                      iOS Universal Links / Android App Links redirect to
-   *                      the native app (e.g. Facebook, whose custom scheme
-   *                      is unreliable but whose Universal Links work).
-   */
-  const openShareTarget = async (
-    nativeScheme: string | null,
-    webUrl: string,
-    preferSystem = false,
-  ) => {
-    /* In the editor's preview a share would leave it (an app, a tab): a note instead. */
-    if (isOnePagePreview()) return showPreviewNotice("link")
-    if (isNativeApp()) {
-      if (nativeScheme) {
-        // Synchronous — keeps user-gesture context so the OS accepts the call.
-        window.open(nativeScheme, "_system")
-      } else if (preferSystem) {
-        // Open via the system browser so Universal Links / App Links can
-        // redirect to the native app (e.g. Facebook).  Falls back to the
-        // browser if the app is not installed.
-        window.open(webUrl, "_system")
-      } else {
-        const { Browser } = await import("@capacitor/browser")
-        await Browser.open({ url: webUrl })
-      }
-    } else if (nativeScheme) {
-      // Web: navigate current page to native scheme — opens app, no new tab.
-      let appOpened = false
-      const onVisibilityChange = () => {
-        if (document.hidden) appOpened = true
-      }
-      document.addEventListener("visibilitychange", onVisibilityChange)
-      window.location.href = nativeScheme
-      setTimeout(() => {
-        document.removeEventListener("visibilitychange", onVisibilityChange)
-        if (!appOpened) window.open(webUrl, "_blank")
-      }, 1500)
-    } else {
-      window.open(webUrl, "_blank")
-    }
-  }
-
-  const shareText = `${pageTitle} ${pageUrl}`
-  const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(pageTitle)}`
-
-  const shareOptions = [
-    {
-      name: "Copy link",
-      iconType: "copy" as const,
-      color: copied ? "#22c55e" : "#6b7280",
-      action: copyLink,
-    },
-    {
-      name: "X",
-      iconType: "x" as const,
-      color: "#000000",
-      action: () =>
-        openShareTarget(
-          `twitter://post?message=${encodeURIComponent(shareText)}`,
-          `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
-        ),
-    },
-    {
-      name: "Facebook",
-      iconType: "facebook" as const,
-      color: "#1877F2",
-      // Use system browser on Capacitor so iOS Universal Links / Android App
-      // Links redirect to the Facebook app.  Falls back to browser if not
-      // installed.  The fb:// scheme is unreliable on modern iOS/Android.
-      action: () => openShareTarget(null, fbShareUrl, true),
-    },
-    {
-      name: "WhatsApp",
-      iconType: "whatsapp" as const,
-      color: "#25D366",
-      action: () =>
-        openShareTarget(
-          `whatsapp://send?text=${encodeURIComponent(shareText)}`,
-          `https://wa.me/?text=${encodeURIComponent(shareText)}`,
-        ),
-    },
-  ]
-
-  // Render icon based on type
-  const renderIcon = (iconType: string, color: string) => {
-    switch (iconType) {
-      case "copy":
-        return copied ? <Check className="w-5 h-5" /> : <Link2 className="w-5 h-5" />
-      case "x":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-        )
-      case "facebook":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-          </svg>
-        )
-      case "whatsapp":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-          </svg>
-        )
-      case "linkedin":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-          </svg>
-        )
-      case "storelib":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )
-      default:
-        return null
-    }
-  }
 
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
@@ -1022,6 +624,8 @@ function ShareButton({
             data-onepage-share-button=""
             data-ink={inkGlass ? "" : undefined}
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={`Share ${pageTitle}`}
+            aria-haspopup="dialog"
             className={cn(
               "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
               style === "glass" && "backdrop-blur-md",
@@ -1038,127 +642,15 @@ function ShareButton({
         </div>
       </div>
 
-      {/* Share Modal - backdrop + centered wrapper */}
-      <div
-        className={cn(
-          "fixed inset-0 z-[60] flex items-center justify-center",
-          isOpen ? "pointer-events-auto" : "pointer-events-none",
-        )}
-      >
-        <div
-          className={cn(
-            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-250 ease-out will-change-[opacity]",
-            isOpen ? "opacity-100" : "opacity-0",
-          )}
-          onClick={() => setIsOpen(false)}
-        />
-
-        {/* Share Modal - content */}
-        <div
-          className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto overscroll-contain rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,translate,scale] duration-250 ease-out will-change-[opacity,translate]",
-            isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
-          )}
-          style={{
-            background: "#ffffff",
-            boxShadow: isOpen ? "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)" : "none",
-          }}
-        >
-        {/* Profile preview card with background adapted to OnePage theme */}
-        <div
-          className="relative px-6 pt-8 pb-10"
-          style={{
-            background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
-              ? popupHeaderBackground
-              : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
-          }}
-        >
-          {/* Close button */}
-          <button
-            onClick={() => setIsOpen(false)}
-            className={cn("absolute top-4 right-4 p-2 rounded-full backdrop-blur-sm transition-all cursor-pointer z-10", headerCloseClass)}
-          >
-            <X className={cn("w-4 h-4", headerCloseIconClass)} />
-          </button>
-
-          <div className="text-center">
-            {avatarVideoUrl ? (
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/25 flex items-center justify-center ring-4 ring-white/30 shadow-xl relative">
-                <SmoothAvatarVideo
-                  videoUrl={avatarVideoUrl}
-                  imageUrl={onePageImageSrc(avatarUrl, 80)}
-                  alt={pageTitle}
-                />
-              </div>
-            ) : (
-              /*
-                THE APP'S ONE AVATAR (components/app/app-avatar), round 11: "the
-                initial overlaps the profile image". The letter was drawn over the
-                photo until the photo's onLoad said otherwise, and a photo already
-                in the cache loads before React listens, so the letter stayed on
-                top of it for good. AppAvatar draws the photo when it is there and
-                the page's initials only when there is none (or it fails, or is
-                slow past its limit), never both.
-              */
-              <AppAvatar
-                src={onePageImageSrc(avatarUrl, 80)}
-                name={pageTitle}
-                alt={pageTitle}
-                size={80}
-                kind="mark"
-                sizedByClass
-                className={cn("mx-auto mb-4 flex h-20 w-20 bg-white/25 text-3xl font-bold ring-4 ring-white/30 shadow-xl", headerTextClass)}
-              />
-            )}
-            <h3 className={cn("text-xl font-bold mb-1", headerTextClass)}>{pageTitle}</h3>
-            <p className={cn("text-sm truncate max-w-[200px] mx-auto", headerSubTextClass)}>
-              {pageUrl.replace(/^https?:\/\//, "")}
-            </p>
-          </div>
-        </div>
-
-        {/* Share options - centered and well-aligned */}
-        <div className="flex justify-center items-center gap-4 px-3 pt-[6px] relative z-10">
-          {shareOptions.map(
-            (option, index) => (
-              <button
-                key={option.name}
-                onClick={option.action}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200 cursor-pointer hover:opacity-70 hover:scale-105 active:scale-95"
-              >
-                <div
-                  className="w-[46px] h-[46px] rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: `${option.color}15` }}
-                >
-                  <span style={{ color: option.color }}>{renderIcon(option.iconType, option.color)}</span>
-                </div>
-                <span className="text-[10px] font-medium text-gray-600">{option.name}</span>
-              </button>
-            ),
-          )}
-        </div>
-        <div className="px-5 pb-6 relative z-10">
-          <div
-            className="bg-gray-50 rounded-2xl p-4 border border-gray-100 cursor-pointer"
-            onClick={() => openExternalUrl("https://storelib.com")}
-          >
-            <div className="flex items-center gap-3">
-              <StorelibLogo size={40} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Create your own page</p>
-                <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); openExternalUrl("https://storelib.com") }}
-                className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
-              >
-                Join
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      </div>
+      <OnePageShareSheet
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        dark={!onLight}
+        pageUrl={pageUrl}
+        pageTitle={pageTitle}
+        avatarUrl={avatarUrl}
+        avatarVideoUrl={avatarVideoUrl}
+      />
     </>
   )
 }
@@ -1897,36 +1389,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             </a>
           </div>
         )}
-        {/* Footer Links */}
-        <div className="flex items-center justify-center gap-4 text-xs">
-          <a
-            href="https://storelib.com/legal/privacy#cookies"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline transition-colors"
-            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-          >
-            Cookies
-          </a>
-          <a
-            href="https://storelib.com/legal/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline transition-colors"
-            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-          >
-            Privacy
-          </a>
-          <a
-            href="https://storelib.com/legal/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline transition-colors"
-            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-          >
-            Report
-          </a>
-        </div>
+        {/* Footer links: Privacy, Terms and Cookies open in a sheet over the page (components/onepage/onepage-legal-links). */}
+        <OnePageLegalLinks dark={isDarkBackground} color={isDarkBackground ? "#9ca3af" : "#1f2937"} />
       </div>
     </div>
   )

@@ -119,7 +119,7 @@ async function main() {
     const written = view.slice(view.indexOf("/* 11. The row. */"), view.indexOf("const insert = async"))
     check("  the IP address is never written to the event", written.length > 100 && !/clientIp|forwarded|\bip\b/i.test(written.replace(/x-vercel-ip-(country|city|country-region)/g, "")))
     check("the funnel steps join the same visit", /visitorId = consented \? browserId\(body\.visitorId\) : anonVisitor/.test(view) && /sessionId = consented \? sessionFromBody : anonVisitor \? await anonSession\(db, anonVisitor, creatorId, now\)/.test(view))
-    check("the privacy policy says what is kept", /changes every day and cannot be turned back into either/.test(read("app/privacy/page.tsx")))
+    check("the privacy policy says what is kept", /changes every day and cannot be turned back into either/.test(read("components/legal/privacy-body.tsx"))) /* Changed on purpose (r40): the text moved out of the page so a OnePage can show it in a sheet. */
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

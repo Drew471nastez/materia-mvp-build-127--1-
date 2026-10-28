@@ -183,7 +183,7 @@ export const notFound = () => {}
         expect(!m.linksInHeader, `${tag}: no social icons under the name`)
         expect(!m.membership && !m.others, `${tag}: no Membership block, no "Other ways to join"`)
         expect(m.h2s.includes("What's inside") && !m.h2s.includes("What members get"), `${tag}: "What's inside"`, m.h2s)
-        expect(m.legal.some((h) => /\/legal\/privacy$/.test(h)) && m.legal.some((h) => /\/legal\/terms$/.test(h)), `${tag}: Privacy and Terms links`, m.legal)
+        expect(m.legal.some((h) => /storelib\.com\/privacy$/.test(h)) && m.legal.some((h) => /storelib\.com\/terms$/.test(h)), `${tag}: Privacy and Terms links`, m.legal)
         if (name === "desk") {
           expect(m.cardOn, `${tag}: the side card`)
           expect(m.linksVisible.length === 1 && m.linksVisible[0] === "card" && m.cardLinks >= 2, `${tag}: the social icons are in the card, only there`, { where: m.linksVisible, n: m.cardLinks })

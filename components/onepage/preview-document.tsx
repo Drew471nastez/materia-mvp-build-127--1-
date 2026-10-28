@@ -250,6 +250,25 @@ export function OnePagePreviewDocument() {
   const [waited, setWaited] = useState(false)
   const sellerId = sent?.seller_id ?? null
   const blocks = sent?.blocks
+  /*
+    AND ASKED AGAIN WHEN THE CREATOR COMES BACK (r40, "preview accurate and in
+    sync with the live website"). The answers were kept for as long as the
+    frame lived, and the editor keeps its frame: a price changed, a product
+    archived or renamed in another tab was still drawn the old way here while
+    the live page, which reads the catalogue on every request, had moved on.
+    Coming back to the editor's tab asks about every product on the page once
+    more, so the two say the same thing again.
+  */
+  const [round, setRound] = useState(0)
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState !== "visible") return
+      asked.current.clear()
+      setRound((n) => n + 1)
+    }
+    document.addEventListener("visibilitychange", back)
+    return () => document.removeEventListener("visibilitychange", back)
+  }, [])
   useEffect(() => {
     if (!sellerId || !blocks) return
     const fresh = productIdsInBlocks(blocks).filter((id) => !asked.current.has(id))
@@ -268,7 +287,7 @@ export function OnePagePreviewDocument() {
       .catch(() => {
         /* Fail open: the blocks stay as the editor has them. */
       })
-  }, [sellerId, blocks])
+  }, [sellerId, blocks, round])
   useEffect(() => {
     if (!sent || waited) return
     const t = window.setTimeout(() => setWaited(true), ANSWER_WAIT_MS)

@@ -175,7 +175,8 @@ check("a buyer route is neither a root nor a home of the seller's", !isAppRootRo
 
 console.log("\nThe pages that are read rather than used")
 check("Back on Terms and Privacy goes home when there is nothing behind", /backThen\(\(\) => router\.push\(fallbackHref\)\)/.test(code("components/back-button.tsx")))
-check("so does the one on the old legal address", /backThen\(\(\) => window\.location\.assign\("\/privacy"\)\)/.test(code("app/(marketing)/legal/privacy/page.tsx")))
+/* Changed on purpose (r40): the old legal address is a permanent redirect from the server now, with no page and so no Back of its own. */
+check("the old legal address sends people on from the server", /permanentRedirect\("\/privacy"\)/.test(code("app/(marketing)/legal/privacy/page.tsx")) && /permanentRedirect\("\/terms"\)/.test(code("app/(marketing)/legal/terms/page.tsx")))
 check("a return link that is a link follows its own href when the back does nothing", /backThen\(\(\) => window\.location\.assign\(href\)\)/.test(code("components/navigation/return-link.tsx")))
 check("the embedded bar's only way out always goes somewhere", /if \(canGoBack\) backThen\(page\)/.test(code("components/storefront/embedded-back-bar.tsx")))
 check("and the public wishlist's arrow", /backThen\(\(\) => router\.push\("\/explore"\)\)/.test(code("components/wishlist/public-wishlist-shell.tsx")))

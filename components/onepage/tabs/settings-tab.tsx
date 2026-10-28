@@ -57,8 +57,9 @@ export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = SETTINGS_SECTI
   The sections are kept, and switch the way Storelib's own settings do: the
   one left goes in the frame the next one lands (lib/ui/pill-switch), each
   scrolled where it was left, and what was typed in one is still there on
-  the way back (PillPanels). They sit in one grid
-  cell, so the box under the row is as tall as the tallest and never jumps.
+  the way back (PillPanels). They sit in one grid cell, and the box under the
+  row is as tall as the section shown (PillPanels `fit`): it was as tall as
+  the tallest, which left Billing on Pro a card over an empty, scrolling field.
 */
 function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<SectionId, ReactNode>; initial: SectionId; jump?: { id: SectionId; n: number } | null; onChange?: (id: SectionId) => void }) {
   const [active, setActive] = useState<SectionId>(initial)
@@ -105,7 +106,8 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
         />
       </div>
 
-      <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
+      {/* fit: the box is the shown section's height, so a short one (Billing on Pro) has no empty field and no scroll under it. */}
+      <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} fit />
     </div>
   )
 }

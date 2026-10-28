@@ -380,6 +380,7 @@ export function PillPanels<T extends string>({
   build = "idle",
   buildAfter = 0,
   layered = true,
+  fit = false,
 }: {
   value: T
   panels: readonly { id: T; node: React.ReactNode }[]
@@ -391,6 +392,16 @@ export function PillPanels<T extends string>({
   buildAfter?: number
   /** Each panel on a layer of its own, painted once (see below). Off for large panels, where the layers cost more than the paint. */
   layered?: boolean
+  /**
+   * THE BOX IS AS TALL AS THE PANEL SHOWN, not the tallest. The panels share
+   * one grid cell so nothing jumps, which also made a short panel (Billing
+   * on Pro: one card) sit on top of the height of the longest (SEO), an
+   * empty white field with a scrollbar beside it. With `fit` the panels not
+   * shown are taken out of the cell, laid over the top of it and cut to its
+   * height, so they stay painted on their layers for a free switch but add
+   * no height and no scroll.
+   */
+  fit?: boolean
 }) {
   /*
     `live` is the panel that takes presses and focus; the rest are inert.
@@ -485,6 +496,7 @@ export function PillPanels<T extends string>({
             aria-hidden={p.id === state.shown ? undefined : true}
             inert={p.id !== state.live}
             className="col-start-1 row-start-1 min-w-0 self-start"
+            data-pill-panel-fit={fit ? (drawn ? "in" : "out") : undefined}
             /*
               A panel not shown is see-through, not hidden: on its own layer
               (will-change), so it is painted once, when it is built in the
@@ -494,7 +506,12 @@ export function PillPanels<T extends string>({
               182ms for a grid of themes, on a phone with the CPU slowed four
               times. It takes no presses (inert, see `live`) and is not read out.
             */
-            style={{ ...(layered ? { opacity: drawn ? undefined : 0, willChange: "opacity" } : { visibility: drawn ? undefined : "hidden" }), zIndex: p.id === state.shown ? 1 : 0, position: "relative" }}
+            style={{
+              ...(layered ? { opacity: drawn ? undefined : 0, willChange: "opacity" } : { visibility: drawn ? undefined : "hidden" }),
+              zIndex: p.id === state.shown ? 1 : 0,
+              position: "relative",
+              ...(fit && !drawn ? { position: "absolute", top: 0, left: 0, right: 0, maxHeight: "100%", overflow: "hidden" } : null),
+            }}
           >
             {p.node}
           </div>

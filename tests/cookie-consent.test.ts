@@ -137,7 +137,8 @@ function main() {
   check("storelib.com's footer draws it with the Support links' class",
     /className=\{`\$\{linkClass\} cursor-pointer p-0`\} data-cookie-preferences/.test(read("components/marketing/footer.tsx")))
   check("the privacy policy lists every cookie from the same list, and can change the choice",
-    /<CookieTable \/>/.test(read("app/privacy/page.tsx")) && /STORED\.filter/.test(read("components/legal/cookie-table.tsx")) && /id="cookies"/.test(read("app/privacy/page.tsx")))
+    /* Changed on purpose (r40): the policy's text is components/legal/privacy-body, drawn by /privacy and by a OnePage's sheet. */
+    /<CookieTable \/>/.test(read("components/legal/privacy-body.tsx")) && /STORED\.filter/.test(read("components/legal/cookie-table.tsx")) && /id="cookies"/.test(read("components/legal/privacy-body.tsx")))
 
   console.log("\nEvery cookie the code sets is listed")
   const listed = STORED.flatMap((s) => s.name.split(", "))

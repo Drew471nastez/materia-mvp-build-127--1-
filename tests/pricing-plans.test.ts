@@ -76,8 +76,9 @@ const MENTION_SURFACES: Record<string, string[]> = {
   "components/marketing/faq-section.tsx": ["Growth", "Professional"],
   "components/marketing/faq-page-client.tsx": ["Growth and Professional", "zero platform fees", "unlock"],
   "lib/help/articles.ts": ["\"Growth\"", "\"Professional\"", "$99", "Growth and Professional"],
-  "app/terms/page.tsx": ["Growth Plan", "Professional Plan"],
-  "app/privacy/page.tsx": ["Growth plan", "Professional plan", "Growth, or Professional"],
+  /* Changed on purpose (r40): the legal text moved to components/legal, shared by the pages and a OnePage's sheet. */
+  "components/legal/terms-body.tsx": ["Growth Plan", "Professional Plan"],
+  "components/legal/privacy-body.tsx": ["Growth plan", "Professional plan", "Growth, or Professional"],
   "app/(marketing)/blog/[slug]/page.tsx": ["Growth Plan", "$19/mo", "$49/mo", "3% on Growth"],
 }
 

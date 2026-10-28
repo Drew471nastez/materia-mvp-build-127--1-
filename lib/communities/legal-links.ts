@@ -27,8 +27,9 @@
 
 export const LEGAL_URL_MAX = 500
 
-export const STORELIB_PRIVACY_URL = "https://storelib.com/legal/privacy"
-export const STORELIB_TERMS_URL = "https://storelib.com/legal/terms"
+/* The canonical addresses (app/privacy, app/terms). /legal/* only redirects there now. */
+export const STORELIB_PRIVACY_URL = "https://storelib.com/privacy"
+export const STORELIB_TERMS_URL = "https://storelib.com/terms"
 
 export const LEGAL_KINDS = ["privacy", "terms"] as const
 export type LegalKind = (typeof LEGAL_KINDS)[number]
