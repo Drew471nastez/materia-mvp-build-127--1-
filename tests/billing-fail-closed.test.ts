@@ -360,6 +360,7 @@ async function main() {
     check("  and a failure is no longer swallowed into a 200", !/catch \(error\) \{\s*console\.error\("\[Subscription\]/.test(block))
     check("  and the old 'not active means free' write is gone", !/isSubscriptionActive \? planId : "free"/.test(hook))
     check("every Settings plan read shares one request", ["components/app/settings-form-new.tsx", "components/onepage/onepage-editor.tsx", "components/onepage/tabs/settings-tab.tsx", "components/app/billing/billing-page-client.tsx"].every((f) => /fetchBillingSubscription\(/.test(code(f)) && !/fetch\("\/api\/billing\/subscription"\)/.test(code(f))))
+    check("the upgrade page's redirect to /sell is rethrown, not swallowed by its catch", /redirect\("\/sell"\)/.test(code("app/app/settings/billing/upgrade/page.tsx")) && /catch \(error\) \{\s*unstable_rethrow\(error\)/.test(code("app/app/settings/billing/upgrade/page.tsx")))
     check("the billing tab no longer refetches on mount what the overview just read", !/useEffect\(\(\) => \{\s*refreshBillingData\(\)/.test(code("components/app/billing/billing-page-client.tsx")))
   }
 

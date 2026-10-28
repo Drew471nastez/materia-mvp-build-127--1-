@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"
+import { redirect, unstable_rethrow } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
@@ -97,6 +97,8 @@ export default async function UpgradePage() {
     /* A plan set from /admin is the plan, whatever Stripe sells them (lib/billing/plan-override.ts). */
     currentPlanId = effectivePlanId(currentPlanId, await readPlanOverride(createAdminClient(), creator.id))
   } catch (error) {
+    /* redirect("/sell") throws Next's own error: it goes on to Next, not into this catch's fallback. */
+    unstable_rethrow(error)
     console.error("Upgrade page data loading error:", error)
   }
 
