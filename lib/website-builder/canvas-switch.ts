@@ -288,7 +288,8 @@ export function releaseHeldSections(perFrame = 3): void {
       return
     }
     /* Nearest to what is on screen first. */
-    const list = Array.from(held).map((h) => ({ h, d: placeOf(h).d }))
+    const bounds = new Map<HTMLElement, { top: number; height: number }>()
+    const list = Array.from(held).map((h) => ({ h, d: placeOf(h, bounds).d }))
     list.sort((x, y) => x.d - y.d)
     bring(list.slice(0, perFrame).map((x) => x.h))
     requestAnimationFrame(step)
@@ -297,10 +298,15 @@ export function releaseHeldSections(perFrame = 3): void {
 }
 
 /** Where a paused section is against its view: how far away, and whether above it. */
-function placeOf(h: Held): { d: number; above: boolean; height: number } {
+function placeOf(h: Held, bounds = new Map<HTMLElement, { top: number; height: number }>()): { d: number; above: boolean; height: number } {
   const r = h.el.getBoundingClientRect()
-  const vh = h.frame ? (h.frame.contentWindow?.innerHeight ?? 0) : h.scroller.getBoundingClientRect().height
-  const top = h.frame ? 0 : h.scroller.getBoundingClientRect().top
+  let view = bounds.get(h.scroller)
+  if (!view) {
+    const box = h.frame ? null : h.scroller.getBoundingClientRect()
+    view = { top: box?.top ?? 0, height: box?.height ?? h.frame?.contentWindow?.innerHeight ?? 0 }
+    bounds.set(h.scroller, view)
+  }
+  const { top, height: vh } = view
   return r.bottom <= top ? { d: top - r.bottom, above: true, height: r.height } : { d: Math.max(0, r.top - (top + vh)), above: false, height: r.height }
 }
 
@@ -311,7 +317,8 @@ function placeOf(h: Held): { d: number; above: boolean; height: number } {
  * the change twice.
  */
 function bring(list: Held[]) {
-  const was = list.map((h) => ({ h, ...placeOf(h) }))
+  const bounds = new Map<HTMLElement, { top: number; height: number }>()
+  const was = list.map((h) => ({ h, ...placeOf(h, bounds) }))
   const anchors = new Map<HTMLElement, string>()
   for (const c of was) {
     if (!anchors.has(c.h.scroller)) {
@@ -340,9 +347,10 @@ function followHeldSections(run: number) {
   const step = () => {
     if (run !== releaseRun || held.size === 0) return
     const near: Held[] = []
+    const bounds = new Map<HTMLElement, { top: number; height: number }>()
     for (const h of held) {
-      const vh = h.frame ? (h.frame.contentWindow?.innerHeight ?? 0) : h.scroller.getBoundingClientRect().height
-      if (placeOf(h).d <= vh / 2) near.push(h)
+      const place = placeOf(h, bounds)
+      if (place.d <= (bounds.get(h.scroller)?.height ?? 0) / 2) near.push(h)
     }
     if (near.length) bring(near)
     requestAnimationFrame(step)
