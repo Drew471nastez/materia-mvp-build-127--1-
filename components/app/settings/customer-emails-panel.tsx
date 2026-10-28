@@ -329,10 +329,7 @@ export function CustomerEmailsPanel({
                             markPreviewOpen(e.id)
                             setOpen(e)
                           }}
-                          onIntent={() => {
-                            void warmPreviews()
-                            prefetchStorePreview(e.id, data)
-                          }}
+                          onIntent={() => void prefetchStorePreview(e.id, data)}
                         />
                       ))}
                     </ul>
@@ -418,8 +415,8 @@ function FlowRows({ flows, days, bare, onToggle }: { flows: FlowActivity[]; days
   editor must be fast"). A preview is drawn by the very templates that send
   the email: the receipt, every order and shipping email, the notices. They
   are most of this panel's weight and the list needs none of them, so they
-  are read the first time a row is pressed, hovered or focused (warmPreviews,
-  from EmailRow's own intent) and kept; the editor opens at once with its
+  are read once the server's preview is in the editor's frame, or a key is
+  typed (warmPreviews, below) and kept; the editor opens at once with its
   fields, and a frame in the preview's own shape until they are in, which on
   a press is under one frame most of the time.
 */
@@ -678,7 +675,6 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
     return { ...(pickCopy(saved, null) ?? {}), langs }
   }, [checked, saved, otherLang])
   const creator = data?.creator ?? null
-  const templates = usePreviewModule(!!asked)
   const dirty = !sameDraft(draft, start)
   /*
     The words on screen are the saved ones: the preview the server drew for
@@ -688,14 +684,28 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const pristine = !dirty && sameDraft(shown, start)
   const [, keptArrived] = React.useState(0)
   const keptMail = pristine ? keptPreview(id, saved, where.channel, where.lang) : null
+  /* The server could not draw it: the templates draw it here instead. */
+  const [serverMissed, setServerMissed] = React.useState<string | null>(null)
   React.useEffect(() => {
     if (!asked || !id || !pristine || keptMail) return
     let live = true
-    void prefetchStorePreview(id, data, where.channel, where.lang).then((d) => live && d && keptArrived((n) => n + 1))
+    void prefetchStorePreview(id, data, where.channel, where.lang).then((d) => {
+      if (!live) return
+      if (d) keptArrived((n) => n + 1)
+      else setServerMissed(id)
+    })
     return () => {
       live = false
     }
   }, [asked, id, pristine, keptMail, data, where.channel, where.lang])
+  /*
+    THE TEMPLATES WAIT FOR THE PREVIEW (measured, scripts/check-customer-email-preview-time.mjs):
+    read and run as the sheet opened, their chunk took the main thread from the server's preview
+    arriving in the same moment, and the first open was slower than before. Now they load once
+    the preview is in its frame, or as soon as a key is typed, or when the server could not draw it.
+  */
+  const [drawnFor, setDrawnFor] = React.useState<string | null>(null)
+  const templates = usePreviewModule(!!asked && (!pristine || drawnFor === id || serverMissed === id))
   const liveMail = React.useMemo(
     () => (id && templates && !keptMail ? templates.previewCustomerEmail(id, shop, previewWords, { channel: where.channel, language: where.language, creator }) : null),
     [id, templates, keptMail, shop, previewWords, where.channel, where.language, creator],
@@ -882,7 +892,10 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
-      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} heightKey={id} onDrawn={() => measurePreviewOpen(id, mailFrom)} /> : <PreviewSkeleton />}
+      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} heightKey={id} onDrawn={() => {
+        measurePreviewOpen(id, mailFrom)
+        if (id) setDrawnFor(id)
+      }} /> : <PreviewSkeleton />}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )

@@ -58,7 +58,7 @@ console.log("\nResume plan")
   const resume = code(RESUME)
   check("it undoes the cancel in Stripe, nothing charged", /cancel_at_period_end: false/.test(resume) && !/proration|invoices\.create|checkout/.test(resume))
   check("only a subscription that is still running", /RUNNING\.has\(live\.status\)/.test(resume) && /status: 409/.test(resume))
-  check("it signs the user in and finds their own subscription", /auth\.getUser\(\)/.test(resume) && /\.eq\("creator_id", creator\.id\)/.test(resume))
+  check("it signs the user in and finds their own subscription", /moneyCaller\("billing", "manage"\)/.test(resume) && /\.eq\("creator_id", creator\.id\)/.test(resume) /* Changed on purpose (round 42 team): signed in through lib/team/money, which asks auth.getUser() */)
   check("the cancellation row is marked resumed, the reason kept", /resumed_at: new Date\(\)\.toISOString\(\)/.test(resume) && /\.is\("resumed_at", null\)/.test(resume))
 }
 

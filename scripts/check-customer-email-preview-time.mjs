@@ -89,6 +89,7 @@ async function timeOpen(p, id, how) {
       "click",
       () => {
         const t0 = performance.now()
+        window.__clickAt = Math.round(t0)
         const tick = () => {
           const f = document.querySelector(`[data-email-sheet="${id}"] [data-email-frame]`)
           const n = f?.contentDocument?.body?.innerText?.length ?? 0
@@ -108,6 +109,7 @@ async function timeOpen(p, id, how) {
   await p.click(sel)
   await p.waitForFunction(() => window.__done !== null, { timeout: 12000 }).catch(() => {})
   const ms = await p.evaluate(() => window.__done)
+  if (process.env.TRACE) console.log(how, id, ms, await p.evaluate(() => ({ click: window.__clickAt, own: document.documentElement.dataset.emailPreviewMs, reqs: window.__requests.slice(-2) })))
   await p.keyboard.press("Escape")
   await p.waitForFunction(() => !document.querySelector("[data-email-sheet]"), { timeout: 4000 }).catch(() => {})
   await sleep(400)
@@ -120,7 +122,8 @@ const median = (xs) => {
   return s.length ? s[Math.floor(s.length / 2)] : null
 }
 const results = { hover: [], straight: [], again: [] }
-for (const id of IDS) {
+const REPEAT = Number(process.env.REPEAT || 1)
+for (let round = 0; round < REPEAT; round++) for (const id of IDS) {
   const exists = await (async () => {
     const p = await open()
     const ok = !!(await p.$(`[data-customer-email="${id}"]`))

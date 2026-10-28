@@ -47,6 +47,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, offerState, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
 import { amountOf, bodyOf, draftOf, problemsOf, tierOf, type Draft, type Problems } from "./offer-draft"
@@ -74,6 +75,9 @@ const KIND_HELP: Record<OfferKind, { href: string; label: () => string }> = {
   bundle: { href: "/help/products/bundles", label: () => tt("How bundles work") },
   checkout: { href: "/help/products/upsells", label: () => tt("How upsells work") },
 }
+
+/** "a", "a and b", "a, b and c". */
+const listWords = (words: string[]) => (words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} ${tt("and")} ${words[words.length - 1]}`)
 
 /* The order the kinds are offered in: one product, several, one more. */
 const KIND_ORDER: OfferKind[] = ["quantity_break", "bundle", "checkout"]
@@ -370,8 +374,8 @@ export function OfferEditor({
     { value: "none", label: tt("None") },
   ]
   /* What More options holds, in one line, while it is folded. */
-  const placesLine = d.placements.length === 0 ? tt("Shown nowhere yet") : tt("Shown on {places}", { places: d.placements.map((p) => PLACEMENT_WORD[p]().toLowerCase()).join(", ") })
-  const datesLine = d.startsAt || d.endsAt ? (d.endsAt ? tt("ends {date}", { date: new Date(d.endsAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) }) : tt("starts {date}", { date: new Date(d.startsAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) })) : tt("no end date")
+  const placesLine = d.placements.length === 0 ? tt("Shown nowhere yet") : tt("Shown on {places}", { places: listWords(d.placements.map((p) => PLACEMENT_WORD[p]().toLowerCase())) })
+  const datesLine = d.startsAt || d.endsAt ? (d.endsAt ? tt("ends {date}", { date: new Date(d.endsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) }) : tt("starts {date}", { date: new Date(d.startsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) })) : tt("no end date")
   const moreLine = `${placesLine} · ${datesLine}${d.combinesWithCodes ? "" : ` · ${tt("no codes on top")}`}`
   const heading = offer ? offer.title : tt("New offer")
   const newSettingsUsed = !settingsReady && (d.condition === "collections" || d.placements.length !== PLACEMENTS_FOR[d.kind].length || !!d.startsAt || !!d.endsAt || !!d.maxPerOrder || !d.combinesWithCodes || !!d.minSubtotal || d.discountType === "free_shipping")
@@ -668,7 +672,7 @@ export function OfferEditor({
                     {moreLine}
                   </span>
                 </span>
-                <ChevronDown aria-hidden className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-transform duration-200 motion-reduce:transition-none", moreShown && "rotate-180")} />
+                <ChevronDown aria-hidden className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-[rotate] duration-200 motion-reduce:transition-none", moreShown && "rotate-180")} />
               </button>
               {moreShown ? (
                 <div id="offer-more" className="space-y-4 border-t border-[#eef0f2] pt-4">

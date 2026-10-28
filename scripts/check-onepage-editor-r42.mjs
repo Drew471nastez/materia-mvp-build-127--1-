@@ -86,16 +86,24 @@ for (const vp of [PHONE, DESK]) {
     /* To the far end, then press the pill the start fade cuts, on the part of it that shows (clear of the arrow). */
     await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft = row.scrollWidth })
     await sleep(400)
-    /* Then back a little, so the first pill wholly in view sits 10px from the edge, under the fade, its end still clear of the arrow. */
+    /* Then back a little, so the pill the edge cut starts 10px in, under the fade, its end clear of the arrow. */
     const sEnd = await rowState()
-    const next = sEnd.tabs.find((t) => t.left >= sEnd.left + 40)
-    await p.evaluate((by) => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft += by }, next.left - (sEnd.left + 10))
+    const prev = [...sEnd.tabs].reverse().find((t) => t.left < sEnd.left + 40)
+    await p.evaluate((by) => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft += by }, prev.left - (sEnd.left + 10))
     await sleep(300)
     const s2 = await rowState()
     const cut = s2.tabs.find((t) => t.left < s2.left + 40 && t.right > s2.left + 60)
     expect(!!cut, `${w}: a pill is cut by the start fade`, s2.tabs.map((t) => [t.id, Math.round(t.left), Math.round(t.right)]))
     if (cut) {
-      await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); window.__s = []; row.addEventListener("scroll", () => window.__s.push(Math.round(row.scrollLeft))) })
+      await p.evaluate(() => {
+        const row = document.querySelector('[data-pill-row="settings-pills"]')
+        window.__s = []
+        window.__calls = []
+        row.addEventListener("scroll", () => window.__s.push(Math.round(row.scrollLeft)))
+        /* What the row was asked to do: headless Chromium has no display to pace a smooth scroll by, so it may land in one or two steps; the request is what the code controls. */
+        const own = row.scrollTo.bind(row)
+        row.scrollTo = (o) => { window.__calls.push(o && o.behavior); return own(o) }
+      })
       const y = await p.evaluate((id) => { const r = document.querySelector(`[data-pill-row="settings-pills"] [data-tab="${id}"]`).getBoundingClientRect(); return r.top + r.height / 2 }, cut.id)
       await press(p, vp, cut.right - 10, y)
       await sleep(900)
@@ -105,7 +113,8 @@ for (const vp of [PHONE, DESK]) {
       const active = await p.evaluate(() => document.querySelector('[data-pill-row="settings-pills"] [aria-selected="true"]')?.dataset.tab)
       expect(active === cut.id, `${w}: the press chose "${cut.id}"`, active)
       expect(t.left >= s3.left + 40 - 0.5 && t.right <= s3.right + 0.5, `${w}: and it is scrolled wholly into view, clear of the fade and arrow`, { pill: [Math.round(t.left), Math.round(t.right)], row: [Math.round(s3.left), Math.round(s3.right)] })
-      expect(path.length >= 3 && new Set(path).size >= 3, `${w}: smoothly (scroll positions on the way)`, path.slice(0, 12))
+      const calls = await p.evaluate(() => window.__calls)
+      expect(calls.length === 1 && calls[0] === "smooth", `${w}: by one smooth scroll of the row (never the page)`, { calls, positions: path.slice(0, 12) })
     }
   } else {
     expect(s0.arrows.every((a) => a.opacity < 0.1), `${w}: the row fits, so no arrow shows`)

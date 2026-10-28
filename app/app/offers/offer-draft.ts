@@ -175,26 +175,26 @@ export function problemsOf(d: Draft, currency: string): Problems {
   const out: Problems = {}
   if (!d.title.trim()) out.title = tt("Give it a name buyers will see, like “Complete the set”.")
   if (d.kind === "quantity_break") {
-    if (d.scope === "product" && d.productIds.length !== 1) out.products = tt("Choose the product.")
-    if (d.scope === "collection" && d.triggerCollectionIds.length !== 1) out.products = tt("Choose the collection.")
+    if (d.scope === "product" && d.productIds.length !== 1) out.products = tt("Pick the product the tiers are for.")
+    if (d.scope === "collection" && d.triggerCollectionIds.length !== 1) out.products = tt("Pick the collection the tiers are for.")
     const tiers = tierProblems(d.tiers, currency)
     if (Object.keys(tiers.each).length) out.tier = tiers.each
     if (tiers.all) out.tiers = tiers.all
-    if (d.placements.length === 0) out.places = tt("Choose at least one place to show it.")
+    if (d.placements.length === 0) out.places = tt("Tick at least one place under Show it on.")
     const body = bodyOf(d, currency)
-    if (body.startsAt && body.endsAt && Date.parse(body.endsAt) <= Date.parse(body.startsAt)) out.dates = tt("The end has to be after the start.")
+    if (body.startsAt && body.endsAt && Date.parse(body.endsAt) <= Date.parse(body.startsAt)) out.dates = tt("Set the end after the start, or leave it empty.")
     return out
   }
-  if (d.kind === "bundle" && (d.productIds.length < 2 || d.productIds.length > MAX_BUNDLE)) out.products = tt("A bundle has 2 to {maxBundle} products.", { maxBundle: MAX_BUNDLE })
-  if (d.kind === "checkout" && d.productIds.length !== 1) out.products = tt("Choose the product to offer.")
+  if (d.kind === "bundle" && (d.productIds.length < 2 || d.productIds.length > MAX_BUNDLE)) out.products = tt("Tick 2 to {maxBundle} products for the bundle.", { maxBundle: MAX_BUNDLE })
+  if (d.kind === "checkout" && d.productIds.length !== 1) out.products = tt("Pick the product to offer.")
   if (d.kind === "checkout" && d.condition === "products" && d.triggerIds.length === 0) out.triggers = tt("Pick the products that show it, or choose Anything.")
   if (d.kind === "checkout" && d.condition === "collections" && d.triggerCollectionIds.length === 0) out.triggers = tt("Pick a collection, or choose Anything.")
   const body = bodyOf(d, currency)
-  if (d.discountType === "percent" && (!Number.isFinite(body.discountValue) || body.discountValue < 1 || body.discountValue > MAX_PERCENT)) out.amount = tt("A percent off is 1 to {maxPercent}.", { maxPercent: MAX_PERCENT })
-  if (d.discountType === "fixed" && (!Number.isFinite(body.discountValue) || body.discountValue < 1)) out.amount = tt("Enter the amount off.")
-  if (body.minSubtotalCents !== null && (!Number.isFinite(body.minSubtotalCents) || body.minSubtotalCents < 0)) out.minimum = tt("Enter the order minimum as an amount.")
-  if (d.placements.length === 0) out.places = tt("Choose at least one place to show it.")
-  if (body.startsAt && body.endsAt && Date.parse(body.endsAt) <= Date.parse(body.startsAt)) out.dates = tt("The end has to be after the start.")
-  if (body.maxPerOrder !== null && (!Number.isFinite(body.maxPerOrder) || body.maxPerOrder < 1 || body.maxPerOrder > MAX_PER_ORDER)) out.limit = tt("A limit per order is 1 to {max}.", { max: MAX_PER_ORDER })
+  if (d.discountType === "percent" && (!Number.isFinite(body.discountValue) || body.discountValue < 1 || body.discountValue > MAX_PERCENT)) out.amount = tt("Type a percent from 1 to {maxPercent}.", { maxPercent: MAX_PERCENT })
+  if (d.discountType === "fixed" && (!Number.isFinite(body.discountValue) || body.discountValue < 1)) out.amount = tt("Type the amount off, like 5.")
+  if (body.minSubtotalCents !== null && (!Number.isFinite(body.minSubtotalCents) || body.minSubtotalCents < 0)) out.minimum = tt("Type the order minimum as an amount, or leave it empty.")
+  if (d.placements.length === 0) out.places = tt("Tick at least one place under Show it on.")
+  if (body.startsAt && body.endsAt && Date.parse(body.endsAt) <= Date.parse(body.startsAt)) out.dates = tt("Set the end after the start, or leave it empty.")
+  if (body.maxPerOrder !== null && (!Number.isFinite(body.maxPerOrder) || body.maxPerOrder < 1 || body.maxPerOrder > MAX_PER_ORDER)) out.limit = tt("Type 1 to {max}, or leave it empty for no limit.", { max: MAX_PER_ORDER })
   return out
 }

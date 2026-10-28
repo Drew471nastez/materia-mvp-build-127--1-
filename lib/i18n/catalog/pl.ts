@@ -22,6 +22,8 @@ const words: Record<string, string> = {
  "Words for buyers who read this email in {language}. A part left empty goes out in the standard {language} words.": "Teksty dla kupujących, którzy czytają ten e-mail w języku {language}. Pusta część wychodzi ze standardowymi tekstami w języku {language}.",
  "Standard {language} words": "Standardowe teksty w języku {language}",
  "These words go to buyers in {language}, your website's language. Pick another language above to write its own.": "Te teksty trafiają do kupujących w języku {language}, języku Twojej strony. Wybierz inny język powyżej, aby napisać jego własne.",
+ "Storelib is not answering right now": "Storelib w tej chwili nie odpowiada",
+ "You are still signed in and nothing you saved is lost.": "Nadal jesteś zalogowany i nic z tego, co zapisano, nie zginęło.",
  "Storelib was updated while Settings was open.": "Storelib został zaktualizowany, gdy Ustawienia były otwarte.",
  "{name} could not be shown.": "Nie udało się wyświetlić: {name}.",
  "Reload to open {name}. Everything you saved is kept.": "Odśwież, aby otworzyć: {name}. Wszystko, co zapisałeś, zostaje.",

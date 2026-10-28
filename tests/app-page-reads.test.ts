@@ -223,7 +223,7 @@ section("Payouts: its questions asked together")
   check("and a failed tax or ledger read is nothing, not a failed page",
     (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
   check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",
-    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("user_id", user\.id\)/.test(src) && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
+    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("id", access\.creatorId\)/.test(src) && /teamPageStore\("payouts"\)/.test(src) /* Changed on purpose (round 42 team): the store from teamPageStore, the owner's or the one a member with Payouts works in */ && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
 }
 
 section("Customers, Coupons, Analytics, Orders")

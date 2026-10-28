@@ -18,8 +18,9 @@ const realFetch = window.fetch.bind(window)
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
   if (!url.includes("/api/store/emails")) return realFetch(input, init)
-  w.__requests.push(url)
+  const t0 = Math.round(performance.now())
   await new Promise((r) => setTimeout(r, w.__delay))
+  w.__requests.push(`${url.replace(/^.*\/api\/store\/emails/, "")} ${t0}->${Math.round(performance.now())}`)
   const u = new URL(url, location.origin)
   if (u.pathname.endsWith("/activity")) return reply({ days: 30, emails: {}, communities: {}, flows: [], reminderReplacedBy: null })
   if (u.pathname.endsWith("/preview")) {

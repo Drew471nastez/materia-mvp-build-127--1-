@@ -66,8 +66,8 @@ export async function loadSettingsData() {
     */
     businessGroup(user.id).catch(() => null),
   ])
-  const profile = dataOrThrow("settings profile", profileRead)
-  const creator = dataOrThrow("settings creator", creatorRead)
+  const profile = dataOrThrow("settings profile", profileRead) // i18n-ignore: a label for the log
+  const creator = dataOrThrow("settings creator", creatorRead) // i18n-ignore: a label for the log
 
   /*
     A TEAM MEMBER WITH NO STORE OF THEIR OWN still has Settings: the Team

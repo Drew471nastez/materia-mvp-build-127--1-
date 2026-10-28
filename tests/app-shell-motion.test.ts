@@ -300,7 +300,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts")? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts"| label=\{tt\("Loading payouts"\)\})? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady(, canManage)? \}\)\}\s*<\/Suspense>/.test(payoutsPage) /* Changed on purpose (round 42 team): canManage, whether Cash out and the bank are drawn */
       && (/function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage) || /function PayoutsWaiting\(\{ label \}: \{ label: string \}\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label=\{label\}>/.test(payoutsPage) /* its words from the page, in the request's language */)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))

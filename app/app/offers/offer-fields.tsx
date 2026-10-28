@@ -388,7 +388,7 @@ function KindDrawing({ kind, on }: { kind: KindValue; on: boolean }) {
   const ink = on ? "bg-[#1a1a2e]" : "bg-[#9ca3af]"
   if (kind === "quantity_break")
     return (
-      <span aria-hidden className="flex w-full flex-col gap-1">
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
         {[0, 1, 2].map((i) => (
           <span key={i} className={cn("flex h-[14px] items-center gap-1.5 rounded-[5px] border bg-white px-1.5", i === 1 ? (on ? "border-[#1a1a2e]" : "border-[#9ca3af]") : "border-[#e3e5e8]")}>
             <Block className={cn("h-[4px]", i === 0 ? "w-5" : i === 1 ? "w-8" : "w-7")} />
@@ -399,17 +399,17 @@ function KindDrawing({ kind, on }: { kind: KindValue; on: boolean }) {
     )
   if (kind === "bundle")
     return (
-      <span aria-hidden className="flex w-full flex-col gap-1.5">
-        <span className="flex items-center gap-1">
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1.5">
+        <span className="flex items-center justify-center gap-1">
           <Block className="h-[22px] w-[22px]" />
           <span className="text-[11px] font-semibold leading-none text-[#9ca3af]">+</span>
           <Block className="h-[22px] w-[22px]" />
         </span>
-        <span className={cn("block h-[10px] w-full rounded-[4px]", ink)} />
+        <span className={cn("block h-[9px] w-full rounded-[4px]", ink)} />
       </span>
     )
   return (
-    <span aria-hidden className="flex w-full flex-col gap-1">
+    <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
       <span className="flex h-[16px] items-center gap-1.5">
         <Block className="h-[14px] w-[14px]" />
         <Block className="h-[4px] w-10" />

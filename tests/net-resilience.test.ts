@@ -29,6 +29,8 @@ import { logLine, sanitizeForLog } from "@/lib/net/log"
 import { forgetSigningKeys, readCurrentUser } from "@/lib/auth/current-user"
 import { sectionFailure } from "@/lib/client-errors"
 import { mediaFetch } from "@/lib/storage/media-url"
+import { hrefForLog, syncTargetOf } from "@/lib/auth/session-sync"
+import { syncSessionHref } from "@/lib/auth/native-session"
 
 let passed = 0
 let failed = 0
@@ -257,6 +259,23 @@ async function run() {
   const sync = read("app/auth/sync-session/route.ts")
   check("sync-session takes a same origin POST", /export async function POST/.test(sync) && /from !== origin/.test(sync))
   check("  and a Supabase that did not answer goes back, not to /login", /if \(!classifyAuthError\(error\)\.signedOut\) \{[\s\S]{0,300}NextResponse\.redirect\(`\$\{origin\}\$\{next\}`, status\)/.test(sync))
+  console.log("\n8. Every native sign in posts its tokens, none puts them in an address")
+  const href = syncSessionHref({ access_token: "a.b.c", refresh_token: "r1" }, "/auth/continue?intent=sell")
+  const target = syncTargetOf(href)
+  check("a sync-session destination is read back as a post's fields", target?.access_token === "a.b.c" && target?.refresh_token === "r1" && target?.next === "/auth/continue?intent=sell")
+  check("  any other destination is navigated to as before", syncTargetOf("/app") === null && syncTargetOf("/auth/sync-session?next=/app") === null)
+  check("  and a log line of it names no token", !hrefForLog(href).includes("r1") && !hrefForLog(href).includes("a.b.c"))
+  for (const [f, re] of [
+    ["lib/native-oauth.ts", /goToAuthHref\(nextUrl\)/],
+    ["lib/auth/continue-client.ts", /goToAuthHref\(afterAuthUrl\(carry, session, native\), \{ replace: true \}\)/],
+    ["components/auth/viewer-sync.tsx", /goToAuthHref\(syncSessionHref\(/],
+    ["app/(auth)/login/page.tsx", /goToAuthHref\(sheet\.href\)/],
+    ["app/(auth)/signup/page.tsx", /goToAuthHref\(sheet\.href\)/],
+  ] as const) {
+    const src = read(f)
+    check(`${f} goes through goToAuthHref, never location.assign of a sync address`, re.test(src) && !/location\.(assign|replace)\((nextUrl|sheet\.href|syncSessionHref|afterAuthUrl)/.test(src))
+  }
+  check("the native log line names no token", /hrefForLog\(nextUrl\)/.test(read("lib/native-oauth.ts")) && !/destination: \$\{nextUrl\}/.test(read("lib/native-oauth.ts")))
   const health = read("app/api/health/route.ts")
   check("/api/health answers within its own deadline, with the build", /abortSignal\(AbortSignal\.timeout\(HEALTH_DB_MS\)\)/.test(health) && /build,/.test(health))
   const lazy = read("components/app/settings/lazy-panels.tsx")
