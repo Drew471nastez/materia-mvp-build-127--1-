@@ -33,7 +33,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-parts"
 import { REASON_LABEL } from "@/lib/physical/inventory-server-labels"
-import { REASONS_FOR, planAdjust, readUnits, receivePlan, stockState, transferActions, type AdjustMode, type MovementSource, type StockState } from "@/lib/physical/inventory-rules"
+import { REASONS_FOR, inInventoryView, planAdjust, readUnits, receivePlan, stockState, transferActions, type AdjustMode, type InventoryView, type MovementSource, type StockState } from "@/lib/physical/inventory-rules"
 import type { Location } from "@/lib/physical/types"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Empty, Field, Modal, Notice, NumberInput, Pill, Reveal, SelectInput, TextInput, Toggle, actionKey, api, dateTime } from "@/components/physical/ui"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -98,7 +98,7 @@ interface Transfer {
   inventory_transfer_items: { id: string; variant_id: string; quantity: number; received_quantity: number }[]
 }
 
-type View = "all" | "low" | "out" | "incoming"
+type View = InventoryView
 const VIEWS: { id: View; label: string }[] = [
   { id: "all", get label() { return tt("All") } },
   { id: "low", get label() { return tt("Low stock") } },
@@ -112,13 +112,8 @@ function levelAt(r: Row, loc: string): { onHand: number; committed: number; avai
   return l ?? { onHand: 0, committed: 0, available: 0, incoming: 0 }
 }
 
-/** Which view a row is in. Low is at or under its line and above zero; out is zero or less (oversold too). */
-function inView(r: Row, l: { available: number; incoming: number }, v: View): boolean {
-  if (v === "low") return r.trackInventory && l.available > 0 && l.available <= r.lowStockThreshold
-  if (v === "out") return r.trackInventory && l.available <= 0
-  if (v === "incoming") return l.incoming > 0
-  return true
-}
+/** Which view a row is in: Low is at or under its line, out of stock included, as the low stock email counts it; Out is zero or less (lib/physical/inventory-rules inInventoryView). */
+const inView = (r: Row, l: { available: number; incoming: number }, v: View): boolean => inInventoryView(r, l, v)
 
 const fullName = (r: { productTitle: string; variantName: string }) => (r.variantName && r.variantName !== "Default" ? `${r.productTitle}, ${r.variantName}` : r.productTitle)
 

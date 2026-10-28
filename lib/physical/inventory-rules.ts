@@ -146,6 +146,21 @@ export function lowForAlert(available: number, line: number, tracked: boolean): 
   return tracked && available <= line
 }
 
+export type InventoryView = "all" | "low" | "out" | "incoming"
+
+/**
+ * Which Inventory view a row is in (round 41). Low is at or under its line,
+ * out of stock included: the low stock email lists items at 0 and links to
+ * ?filter=low, which left them out. So Low and the email are one rule
+ * (lowForAlert). Out of stock stays its own view: zero or less, oversold too.
+ */
+export function inInventoryView(row: { trackInventory: boolean; lowStockThreshold: number }, level: { available: number; incoming: number }, view: InventoryView): boolean {
+  if (view === "low") return lowForAlert(level.available, row.lowStockThreshold, row.trackInventory)
+  if (view === "out") return row.trackInventory && level.available <= 0
+  if (view === "incoming") return level.incoming > 0
+  return true
+}
+
 /* ── Transfers ───────────────────────────────────────────────────────── */
 
 export type TransferStatus = "draft" | "in_transit" | "partially_received" | "received" | "cancelled"
