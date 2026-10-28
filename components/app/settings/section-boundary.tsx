@@ -37,7 +37,7 @@ export class SettingsSectionBoundary extends React.Component<Props, { error: unk
   state: { error: unknown } = { error: null }
 
   static getDerivedStateFromError(error: unknown) {
-    return { error: error ?? new Error("Unknown error") }
+    return { error: error ?? new Error(String(error)) }
   }
 
   componentDidCatch(error: unknown) {

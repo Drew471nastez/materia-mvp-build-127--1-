@@ -195,7 +195,7 @@ async function communityMoney() {
   const m = r.money
   const raw = 10000 + 2000 + 3000 + 2500 + 1000
   check(`revenue 500.00 lei: 100 lei + 20 € + 30 € kept of 40 € + $25 + a 10 € ticket, each at its day's rate (the old sum of cents was ${raw / 100} "euros")`, !!m && m.currency === "ron" && m.figures.revenue.value === 50000, m && { currency: m.currency, revenue: m.figures.revenue.value })
-  check("  the chart's days add up to it", !!m && m.lines.revenue.current.reduce((a, b) => a + b, 0) === 50000, m?.lines.revenue.current)
+  check("  the chart's days add up to it", !!m && m.lines.revenue.current.reduce((a: number, b: number | null) => a + (b ?? 0), 0) === 50000, m?.lines.revenue.current)
   check("by source in lei: memberships 350, programs 100, tickets 50", !!m && JSON.stringify(m.bySource) === JSON.stringify([{ key: "memberships", cents: 35000 }, { key: "programs", cents: 10000 }, { key: "tickets", cents: 5000 }]), m?.bySource)
   check("refunds: one order, 10 € = 50.00 lei given back", !!m && m.refunds.count === 1 && m.refunds.totalCents === 5000, m?.refunds)
   check("monthly revenue 45.00 lei from the 9 € member, one subscriber", !!m && m.figures.mrr.value === 4500 && m.figures.subscribers.value === 1, m && [m.figures.mrr.value, m.figures.subscribers.value])

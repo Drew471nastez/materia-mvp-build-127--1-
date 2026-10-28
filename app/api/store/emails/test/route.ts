@@ -47,9 +47,9 @@ export async function POST(request: Request) {
   const db = c.db
   const saved = await loadCustomerEmailCopy(db, c.creatorId)
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
-  const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy) : null
+  const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy as Record<string, unknown>) : null
   /* Typed for one of the website's other languages (`copyLang`): put in that language's place, the rest as saved. */
-  const words = typed?.ok ? withWords(saved[id], typed.copy, isCopyLanguage(body?.copyLang) ? body.copyLang : null) : saved[id]
+  const words = typed?.ok ? withWords(saved[id], typed.copy, isCopyLanguage(body?.copyLang) ? body!.copyLang : null) : saved[id]
   /* As the preview showed it: where it was bought and the language picked there (lib/emails/buyer-channel.ts). */
   const { name, mail } = await storePreview(db, c.creatorId, id, words, { channel: body?.channel === "storelib" ? "storelib" : "website", lang: typeof body?.lang === "string" ? body.lang : null })
   if (!mail) return physicalJson({ error: "That email was not found." }, 404)
