@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { requireTeamPermission } from "@/lib/team/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { preparePublicImage } from "@/lib/storage/public-image"
 import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
@@ -13,17 +13,14 @@ const MAX_EMAIL_IMAGE_BYTES = 5 * 1024 * 1024
 // POST - Upload an image for email campaigns
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
-    }
+    /* The store's picture, for its owner or a team member given Marketing (lib/team); the person uploading is the one rate limited. */
+    const gate = await requireTeamPermission("marketing")
+    if (gate instanceof NextResponse) return NextResponse.json({ error: gate.status === 401 ? "Unauthorized" : "You don't have access to this. Ask the store's owner." }, { status: gate.status, headers: UPLOAD_HEADERS })
+    const user = { id: gate.userId }
 
-    const { data: creator } = await createAdminClient().from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
+    const { data: creator } = await adminSupabase.from("creators").select("id, subscription_plan_id").eq("id", gate.creatorId).single()
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: UPLOAD_HEADERS })

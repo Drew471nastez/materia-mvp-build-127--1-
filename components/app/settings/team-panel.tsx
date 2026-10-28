@@ -4,33 +4,38 @@
  * ===========================================================================
  *  SETTINGS › TEAM
  * ===========================================================================
- * The owner's side: who is on the store's team, with what role, an invite by
- * email, and how many seats the plan has. A member's side: the stores they
- * are on, which one they are working in, and leaving one. Everything is
- * decided on the server (lib/team); this only shows it and asks.
+ * The owner's side: who is on the store's team, with what access, an invite
+ * by email with the access it gives (a preset or permissions ticked one by
+ * one, ./team-permissions), changing that later, and how many seats the plan
+ * has. A member given Team manages the same list, up to their own access. A
+ * member's side: the stores they are on, which one they are working in, and
+ * leaving one. Everything is decided on the server (lib/team); this only
+ * shows it and asks.
  *
  * HOW IT FEELS. A change shows at once and is put back if the server says
  * no (optimistic). What happened is said in a toast, never a banner that
  * pushes the card down. Cancel, Remove and Leave ask first. Each row is one
- * line on a phone: the person, their status under the name, and a "..."
- * that opens the row's actions as a sheet (ResponsiveActionMenu); on a
- * computer the role and Resend sit in the row as well.
+ * line on a phone: the person, their access and status under the name, and
+ * a "..." that opens the row's actions as a sheet (ResponsiveActionMenu); on
+ * a computer the access and Resend sit in the row as well.
  */
 import * as React from "react"
-import { MoreHorizontal, RotateCw, LogOut, UserMinus, X } from "lucide-react"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Empty, Modal, Notice, Pill, SelectInput, TextInput, api } from "@/components/physical/ui"
+import { MoreHorizontal, RotateCw, LogOut, UserMinus, X, SlidersHorizontal } from "lucide-react"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Empty, Modal, Notice, Pill, TextInput, api } from "@/components/physical/ui"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { MEMBER_ROLES, ROLE_LABEL, ROLE_SUMMARY, invitable, resendWait, teamEmail, type MemberRole } from "@/lib/team/roles"
+import { resendWait, teamEmail } from "@/lib/team/roles"
+import { accessSummary, defaultPreset, homeFor, normalizePermissions, presetPermissions, type TeamPermission } from "@/lib/team/permissions"
+import { PermissionPicker } from "./team-permissions"
 import { tt } from "@/lib/i18n/text"
 import { formatRelative } from "@/lib/i18n/format"
 
 interface Member {
   id: string
   email: string
-  role: MemberRole
+  permissions: TeamPermission[]
   status: "invited" | "active"
   invited_at: string
   expires_at: string | null
@@ -44,18 +49,20 @@ interface StoreRow {
   creatorId: string
   name: string
   avatarUrl: string | null
-  role: MemberRole
+  permissions: TeamPermission[]
 }
 interface TeamData {
   ready: boolean
-  team: { members: Member[]; limit: number } | null
+  /**
+   * The team this account manages: its own store's (byOwner), or the store it
+   * works in when it was given Team. `grant` is what it may give, `open` what
+   * is open to the team today, `self` its own row when it is a member.
+   */
+  team: { members: Member[]; limit: number; byOwner: boolean; grant: TeamPermission[]; open: TeamPermission[]; self: string | null } | null
   stores: StoreRow[]
-  acting: { creatorId: string; name: string; role: MemberRole } | null
+  acting: { creatorId: string; name: string; permissions: TeamPermission[] } | null
   me?: { name: string | null; avatarUrl: string | null; email: string | null }
 }
-
-/** The roles an owner can give today; with one, there is nothing to choose and no select is drawn. */
-const GIVABLE: MemberRole[] = MEMBER_ROLES.filter((r) => invitable(r))
 
 function ago(iso: string | null | undefined, now: number): string {
   const t = iso ? Date.parse(iso) : NaN
@@ -98,21 +105,29 @@ type Confirm =
 const DOTS =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 [-webkit-tap-highlight-color:transparent]"
 
+const sameAccess = (a: readonly TeamPermission[], b: readonly TeamPermission[]) => normalizePermissions(a).join() === normalizePermissions(b).join()
+
 export function TeamPanel() {
   const [data, setData] = React.useState<TeamData | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState("")
   const [touched, setTouched] = React.useState(false)
-  const [role, setRole] = React.useState<MemberRole>(GIVABLE[0] ?? "manager")
+  /* What the invite gives: the default preset, inside what this person may give once the server has said. */
+  const [access, setAccess] = React.useState<TeamPermission[]>(() => presetPermissions(defaultPreset()))
   const [sending, setSending] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [confirm, setConfirm] = React.useState<Confirm | null>(null)
+  /* Changing someone's access: who, and the ticks while the sheet is open. */
+  const [editing, setEditing] = React.useState<Member | null>(null)
+  const [editAccess, setEditAccess] = React.useState<TeamPermission[]>([])
 
   const load = React.useCallback(async () => {
     const r = await api<TeamData>("/api/team")
     if (r.ok) {
       setData(r.data)
       setError(null)
+      const grant = r.data.team?.grant
+      if (grant) setAccess((a) => a.filter((p) => grant.includes(p)))
     } else setError(r.error)
   }, [])
   React.useEffect(() => { void load() }, [load])
@@ -131,7 +146,7 @@ export function TeamPanel() {
     : !cleanEmail
       ? tt("Enter a full email address, like name@example.com.")
       : cleanEmail === ownEmail
-        ? tt("That's your own email. You're already the owner.")
+        ? tt("That's your own email. You're already on this store.")
         : members.some((m) => m.email === cleanEmail && m.status === "active")
           ? tt("They're already on your team.")
           : null
@@ -139,13 +154,13 @@ export function TeamPanel() {
   const invite = async (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (!cleanEmail || emailProblem || sending) return
+    if (!cleanEmail || emailProblem || sending || access.length === 0) return
     const existing = members.find((m) => m.email === cleanEmail)
-    const temp: Member = { id: `pending-${cleanEmail}`, email: cleanEmail, role, status: "invited", invited_at: new Date().toISOString(), expires_at: null, pending: true }
+    const temp: Member = { id: `pending-${cleanEmail}`, email: cleanEmail, permissions: access, status: "invited", invited_at: new Date().toISOString(), expires_at: null, pending: true }
     setSending(true)
     /* Shown at once: an invite to someone new joins the list, a repeat moves to "just now". */
     if (!existing) setMembers((list) => [...list, temp])
-    const r = await api<{ member: Member; emailed: boolean }>("/api/team", { method: "POST", body: { email: cleanEmail, role } })
+    const r = await api<{ member: Member; emailed: boolean }>("/api/team", { method: "POST", body: { email: cleanEmail, permissions: access } })
     setSending(false)
     if (r.ok === false) {
       if (!existing) setMembers((list) => list.filter((m) => m.id !== temp.id))
@@ -161,18 +176,27 @@ export function TeamPanel() {
     toast(r.data.emailed ? { title: tt("Invite sent"), description: tt("To {cleanEmail}. The link works for 7 days.", { cleanEmail }) } : { title: tt("Invite saved"), description: tt("The email didn't go out. Use Resend in a minute."), variant: "destructive" })
   }
 
-  const change = async (m: Member, next: MemberRole) => {
-    if (next === m.role) return
+  const openEdit = (m: Member) => {
+    setEditAccess(normalizePermissions(m.permissions))
+    setEditing(m)
+  }
+
+  const saveAccess = async () => {
+    const m = editing
+    if (!m) return
+    const next = normalizePermissions(editAccess)
+    setEditing(null)
+    if (sameAccess(next, m.permissions)) return
     setBusy(m.id)
-    setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, role: next } : x)))
-    const r = await api(`/api/team/${m.id}`, { method: "PATCH", body: { role: next } })
+    setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, permissions: next } : x)))
+    const r = await api(`/api/team/${m.id}`, { method: "PATCH", body: { permissions: next } })
     setBusy(null)
     if (r.ok === false) {
-      setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, role: m.role } : x)))
-      toast({ title: tt("Role not changed"), description: r.error, variant: "destructive" })
+      setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, permissions: m.permissions } : x)))
+      toast({ title: tt("Access not changed"), description: r.error, variant: "destructive" })
       return
     }
-    toast({ title: tt("{value} is now {role}", { value: m.name || m.email, role: ROLE_LABEL[next] }), description: m.status === "active" ? tt("It applies right away.") : undefined })
+    toast({ title: tt("Access changed for {value}", { value: m.name || m.email }), description: m.status === "active" ? tt("It applies right away.") : tt("It applies when they join.") })
   }
 
   const remove = async (m: Member) => {
@@ -190,7 +214,7 @@ export function TeamPanel() {
   const resend = async (m: Member) => {
     if (resendWait(m.invited_at) > 0) return
     setBusy(m.id)
-    const r = await api<{ member: Member; emailed: boolean }>("/api/team", { method: "POST", body: { email: m.email, role: m.role } })
+    const r = await api<{ member: Member; emailed: boolean }>("/api/team", { method: "POST", body: { email: m.email, permissions: m.permissions } })
     setBusy(null)
     if (r.ok === false) return toast({ title: tt("Not sent"), description: r.error, variant: "destructive" })
     setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, ...r.data.member } : x)))
@@ -204,8 +228,8 @@ export function TeamPanel() {
       setBusy(null)
       return toast({ title: tt("Couldn't switch"), description: r.error, variant: "destructive" })
     }
-    /* The whole dashboard is drawn for the store now: a full load, not a refresh of this panel. */
-    window.location.href = store ? "/app/orders" : "/app"
+    /* The whole dashboard is drawn for the store now: a full load, not a refresh of this panel, on the first page they may use. */
+    window.location.href = store ? homeFor(data?.stores.find((x) => x.creatorId === store)?.permissions ?? []) : "/app"
   }
 
   const leave = async (s: StoreRow) => {
@@ -231,6 +255,10 @@ export function TeamPanel() {
   const full = !!team && used >= team.limit
   const expired = (m: Member) => m.status === "invited" && !!m.expires_at && Date.parse(m.expires_at) < now
   const showError = touched && !!emailProblem
+  const grant = team?.grant ?? []
+  const open = team?.open ?? []
+  /* A member with Team edits only people whose access is within their own, never themselves (the server checks it again). */
+  const editable = (m: Member) => !!team && m.id !== team.self && (team.byOwner || m.permissions.every((p) => grant.includes(p)))
 
   return (
     <div className="space-y-4 sm:space-y-6" data-team-panel="">
@@ -240,7 +268,7 @@ export function TeamPanel() {
             <Face src={data.stores.find((s) => s.creatorId === data.acting?.creatorId)?.avatarUrl ?? null} name={data.acting.name} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{tt("Working in {name}", { name: data.acting.name })}</p>
-              <p className="truncate text-[13px] text-[#6b7280]">{tt("As {role}", { role: ROLE_LABEL[data.acting.role] })}</p>
+              <p className="truncate text-[13px] text-[#6b7280]">{accessSummary(data.acting.permissions)}</p>
             </div>
             <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3 text-[13px]")} disabled={busy !== null} onClick={() => work(null)}>
               {busy === "own" ? tt("Going back") : tt("Back to my account")}
@@ -252,52 +280,66 @@ export function TeamPanel() {
       {team && (
         <Card title={tt("Team")} help="team" description={tt("People who help run your store. {used} of {limit} seats used.", { used, limit: team.limit })}>
           <ul className="-mx-1" data-team-list="">
-            <li className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2">
-              <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || tt("You")} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? tt("{name} (you)", { name: data.me.name }) : tt("You")}</p>
-                <p className="truncate text-[13px] text-[#6b7280]">{tt("Everything, payouts and billing too")}</p>
-              </div>
-              <Pill tone="gray">{tt("Owner")}</Pill>
-            </li>
+            {team.byOwner ? (
+              <li className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2">
+                <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || tt("You")} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? tt("{name} (you)", { name: data.me.name }) : tt("You")}</p>
+                  <p className="truncate text-[13px] text-[#6b7280]">{tt("Everything, payouts and billing too")}</p>
+                </div>
+                <Pill tone="gray">{tt("Owner")}</Pill>
+              </li>
+            ) : null}
             {members.map((m) => {
               const wait = m.status === "invited" ? resendWait(m.invited_at, now) : 0
               const isExpired = expired(m)
+              const mine = m.id === team.self
+              const canEdit = editable(m)
               const status =
                 m.pending ? tt("Sending invite") :
                 m.status === "active" ? (m.name ? m.email : tt("Joined {when}", { when: ago(m.accepted_at, now) }).trim()) :
                 isExpired ? tt("Expired, sent {value}", { value: ago(m.invited_at, now) }) :
                 tt("Invited {value}", { value: ago(m.invited_at, now) })
-              const items: ActionMenuItem[] = [
-                ...(m.status === "invited"
-                  ? [{ label: wait > 0 ? tt("Resend in {wait}s", { wait }) : tt("Resend invite"), icon: <RotateCw className="h-4 w-4" />, onClick: () => void resend(m) }]
-                  : []),
-                ...GIVABLE.filter((r) => r !== m.role && GIVABLE.length > 1).map((r) => ({ label: tt("Make {role}", { role: ROLE_LABEL[r] }), onClick: () => void change(m, r) })),
-                m.status === "invited"
-                  ? { label: tt("Cancel invite"), icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "cancel", member: m }) }
-                  : { label: tt("Remove from team"), icon: <UserMinus className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "remove", member: m }) },
-              ]
+              const items: ActionMenuItem[] = canEdit
+                ? [
+                    { label: tt("Change access"), icon: <SlidersHorizontal className="h-4 w-4" />, onClick: () => openEdit(m) },
+                    ...(m.status === "invited"
+                      ? [{ label: wait > 0 ? tt("Resend in {wait}s", { wait }) : tt("Resend invite"), icon: <RotateCw className="h-4 w-4" />, onClick: () => void resend(m) }]
+                      : []),
+                    m.status === "invited"
+                      ? { label: tt("Cancel invite"), icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "cancel", member: m }) }
+                      : { label: tt("Remove from team"), icon: <UserMinus className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "remove", member: m }) },
+                  ]
+                : []
+              const name = m.name || m.email
               return (
                 <li key={m.id} className={cn("flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2 transition-opacity", m.pending && "opacity-60")} data-team-member={m.status}>
-                  <Face src={m.avatar_url ?? null} name={m.name || m.email} />
+                  <Face src={m.avatar_url ?? null} name={name} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{m.name || m.email}</p>
+                    <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{mine ? tt("{name} (you)", { name }) : name}</p>
                     <p className={cn("truncate text-[13px]", isExpired ? "text-[#b45309]" : "text-[#6b7280]")}>
-                      <span className="sm:hidden">{ROLE_LABEL[m.role]} · </span>
+                      <span className="sm:hidden">{accessSummary(m.permissions)} · </span>
                       {status}
                     </p>
                   </div>
                   {m.status === "invited" && !m.pending ? (
                     <Pill tone={isExpired ? "amber" : "blue"} className="hidden sm:inline-flex">{isExpired ? tt("Expired") : tt("Invited")}</Pill>
                   ) : null}
-                  {GIVABLE.length > 1 ? (
-                    <SelectInput value={m.role} onChange={(v) => change(m, v as MemberRole)} disabled={busy === m.id || m.pending} aria-label={tt("Role for {email}", { email: m.email })} className="hidden w-[120px] sm:block">
-                      {MEMBER_ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{ROLE_LABEL[r]}</option>)}
-                    </SelectInput>
+                  {canEdit && !m.pending ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(m)}
+                      disabled={busy === m.id}
+                      className="hidden max-w-[160px] truncate rounded-lg px-2 py-1.5 text-right text-[13px] text-[#4b5563] underline-offset-2 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:inline"
+                      aria-label={tt("Change access for {email}", { email: m.email })}
+                      data-team-access=""
+                    >
+                      {accessSummary(m.permissions)}
+                    </button>
                   ) : (
-                    <span className="hidden w-[72px] text-right text-[13px] text-[#4b5563] sm:inline">{ROLE_LABEL[m.role]}</span>
+                    <span className="hidden max-w-[160px] truncate text-right text-[13px] text-[#4b5563] sm:inline">{accessSummary(m.permissions)}</span>
                   )}
-                  {m.status === "invited" && !m.pending ? (
+                  {canEdit && m.status === "invited" && !m.pending ? (
                     <button type="button" className={cn(BTN_SECONDARY, "hidden h-9 min-w-[124px] px-3 text-[13px] tabular-nums sm:inline-flex")} disabled={busy === m.id || wait > 0} onClick={() => resend(m)} title={wait > 0 ? tt("You can resend in {wait} seconds", { wait }) : undefined}>
                       {busy === m.id ? tt("Sending") : wait > 0 ? tt("Resend in {wait}s", { wait }) : tt("Resend")}
                     </button>
@@ -306,9 +348,9 @@ export function TeamPanel() {
                     <span className="grid h-9 w-9 place-items-center" aria-hidden>
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d1d5db] border-t-[#6b7280]" />
                     </span>
-                  ) : (
+                  ) : items.length > 0 ? (
                     <ResponsiveActionMenu
-                      title={m.name || m.email}
+                      title={name}
                       items={items}
                       trigger={
                         <button type="button" className={DOTS} aria-label={tt("Actions for {email}", { email: m.email })} disabled={busy === m.id}>
@@ -316,6 +358,8 @@ export function TeamPanel() {
                         </button>
                       }
                     />
+                  ) : (
+                    <span className="h-9 w-9 shrink-0" aria-hidden />
                   )}
                 </li>
               )
@@ -343,12 +387,7 @@ export function TeamPanel() {
                 aria-describedby="team-invite-hint"
                 className={cn("sm:flex-1", showError && "border-[#fca5a5] focus:border-[#f87171]")}
               />
-              {GIVABLE.length > 1 ? (
-                <SelectInput value={role} onChange={(v) => setRole(v as MemberRole)} aria-label={tt("Role")} disabled={full} className="sm:w-[140px]">
-                  {MEMBER_ROLES.map((r) => <option key={r} value={r} disabled={!invitable(r)}>{ROLE_LABEL[r]}</option>)}
-                </SelectInput>
-              ) : null}
-              <button type="submit" className={cn(BTN_PRIMARY, "sm:min-w-[120px]")} disabled={full || sending || !cleanEmail || !!emailProblem}>
+              <button type="submit" className={cn(BTN_PRIMARY, "sm:min-w-[120px]")} disabled={full || sending || !cleanEmail || !!emailProblem || access.length === 0}>
                 {sending ? tt("Sending") : tt("Send invite")}
               </button>
             </div>
@@ -357,8 +396,15 @@ export function TeamPanel() {
                 ? tt("Every seat is taken. Remove someone, or upgrade your plan to invite more.")
                 : showError
                   ? emailProblem
-                  : tt("They join as {role}: {value}. They sign in with their own Storelib account.", { role: ROLE_LABEL[role], value: ROLE_SUMMARY[role].toLowerCase() })}
+                  : tt("They sign in with their own Storelib account. Refunds and deleting the store stay with the owner.")}
             </p>
+            {!full ? (
+              <div className="mt-4">
+                <p className="mb-2 text-[13px] font-medium text-[#1a1a2e]">{tt("What they can do")}</p>
+                <PermissionPicker value={access} onChange={setAccess} grant={grant} open={open} idPrefix="team-invite" />
+                {access.length === 0 ? <p className="mt-2 text-[13px] leading-5 text-[#b45309]">{tt("Tick at least one thing they can do.")}</p> : null}
+              </div>
+            ) : null}
           </form>
         </Card>
       )}
@@ -373,7 +419,7 @@ export function TeamPanel() {
                   <Face src={s.avatarUrl} name={s.name} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{s.name}</p>
-                    <p className="truncate text-[13px] text-[#6b7280]">{ROLE_LABEL[s.role]}</p>
+                    <p className="truncate text-[13px] text-[#6b7280]">{accessSummary(s.permissions)}</p>
                   </div>
                   {here ? (
                     <Pill tone="green">{tt("Working here")}</Pill>
@@ -401,6 +447,36 @@ export function TeamPanel() {
           <Empty title={tt("No team yet")}>{tt("When a store's owner invites you, it shows here and you can open it from your own account.")}</Empty>
         </Card>
       ) : null}
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        wide
+        title={editing ? tt("Access for {value}", { value: editing.name || editing.email }) : tt("Access")}
+        footer={
+          <>
+            <button type="button" className={BTN_SECONDARY} onClick={() => setEditing(null)}>
+              {tt("Cancel")}
+            </button>
+            <button type="button" className={BTN_PRIMARY} disabled={editAccess.length === 0 || (!!editing && sameAccess(editAccess, editing.permissions))} onClick={() => void saveAccess()}>
+              {tt("Save")}
+            </button>
+          </>
+        }
+      >
+        {editing ? (
+          <div data-team-edit="">
+            <PermissionPicker key={editing.id} value={editAccess} onChange={setEditAccess} grant={grant} open={open} idPrefix={`team-edit-${editing.id}`} />
+            <p className="mt-3 text-[13px] leading-5 text-[#6b7280]">
+              {editAccess.length === 0
+                ? tt("Tick at least one thing they can do, or remove them from the team.")
+                : editing.status === "active"
+                  ? tt("It applies on their next page.")
+                  : tt("It applies when they join.")}
+            </p>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         open={confirm !== null}

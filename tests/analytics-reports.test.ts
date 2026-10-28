@@ -421,7 +421,7 @@ console.log("\nThe OnePage, counted once: its old table before its events, never
     /\.eq\("creator_id", q\.creatorId\)\s*\.eq\("property_type", "onepage"\)\s*\.eq\("property_id", onePageId\)\s*\.eq\("event_type", "view"\)\s*\.order\("created_at", \{ ascending: true \}\)\s*\.limit\(1\)/.test(reads)
       && /end: since === null \? s\.end : Math\.min\(s\.end, since\)/.test(reads))
   /* Changed on purpose: the route's question is read in lib/analytics/report-answer.ts, so a test can ask it of a fake database (tests/analytics-e2e.test.ts). */
-  check("the OnePage is found from the signed-in creator, never the request", /\["owner_id", creatorUserId\]/.test(read("lib/analytics/property.ts")) && /creatorProperties\(admin, creator\.id, userId\)/.test(read("lib/analytics/report-answer.ts")) && /reportQuestion\(admin, user\.id, url,/.test(read("app/api/analytics/reports/route.ts")))
+  check("the OnePage is found from the signed-in creator, never the request", /\["owner_id", creatorUserId\]/.test(read("lib/analytics/property.ts")) && /creatorProperties\(admin, creator\.id, store \? store\.ownerUserId : userId\)/.test(read("lib/analytics/report-answer.ts")) && /reportQuestion\(admin, gate\.userId, url, getMainDomain\(\), \{ creatorId: gate\.creatorId, ownerUserId: gate\.ownerUserId \}\)/.test(read("app/api/analytics/reports/route.ts"))) /* Round 40: the store from lib/team, the OnePage by its owner's account. */
 }
 
 console.log("\nThe funnel: a step not recorded says so")
@@ -466,7 +466,7 @@ console.log("\nThe summaries on the Website and OnePage screens")
   check("it opens Analytics on the same 30 days, filtered to the place", summaryHref({ type: "website", id: W1 }) === `/app/analytics?range=last_30_days&property=website%3A${W1}` && summaryHref({ type: "onepage" }) === "/app/analytics?range=last_30_days&property=onepage")
   const route = code("app/api/analytics/summary/route.ts")
   check("the summary is the signed-in creator's, and a place that is not theirs is nothing",
-    /\.eq\("user_id", user\.id\)/.test(route) && route.indexOf("ownsProperty(properties, selector)") > 0 && route.indexOf("ownsProperty(properties, selector)") < route.indexOf("countVisits(admin"))
+    /* Round 40: the store from lib/team (its owner, or a member given Analytics). */ /requireTeamPermission\("analytics"\)/.test(route) && route.indexOf("ownsProperty(properties, selector)") > 0 && route.indexOf("ownsProperty(properties, selector)") < route.indexOf("countVisits(admin"))
   check("  counted as Analytics counts, kept a minute", /part: "figures" as const/.test(route) && /salesFor\(orders\.rows, selector, properties\.defaultWebsite\)/.test(route) && /const CACHE_MS = 60_000/.test(route) && /private, max-age=/.test(route))
   const line = read("components/app/analytics-summary-line.tsx")
   /*
@@ -502,7 +502,7 @@ console.log("\nAnalytics: the pieces that feed it")
   check("the events are read on the server, a page at a time, each page from where the last ended",
     /\.limit\(PAGE\)/.test(reads) && /const PAGE = 1000/.test(reads) && /created_at\.gt\."\$\{after\.t\}",id\.gt\.\$\{after\.id\}/.test(reads)
       && (reads.match(/\.range\(/g) ?? []).length === 1 && /\.from\("subscribers"\)[\s\S]{0,400}\.range\(from, from \+ PAGE - 1\)/.test(reads))
-  check("  for the signed-in creator only", /reportQuestion\(admin, user\.id, url,/.test(route) && /\.eq\("user_id", userId\)/.test(answer) && /\.eq\("creator_id", creator\.id\)/.test(answer))
+  check("  for the signed-in creator only", /reportQuestion\(admin, gate\.userId, url,/.test(route) && /\.eq\("user_id", userId\)/.test(answer) /* Round 40: the gate's user, the store from lib/team */ && /\.eq\("creator_id", creator\.id\)/.test(answer))
   check("  and a product filter only for their own product", /productTitles\[wanted\]/.test(answer))
   check("  and a place only if it is theirs, refused before anything is read",
     /if \(!ownsProperty\(properties, selector\)\) return \{ status: 404, error: "No such property" \}/.test(answer)
@@ -785,7 +785,7 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
     /* Changed on purpose: systems, carts and titles (part 253) and the digital orders' downloads are read beside the rest (round Z6). */
     /const \[v, d, l, o, s, labelsById, a, \[audNow, audBefore\], dl\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads\]\)/.test(route))
   check("an answer is kept a few seconds for the same person and the same whole question, never longer",
-    /const key = `\$\{user\.id\}\|\$\{asked\.question\}`/.test(route) && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
+    /const key = `\$\{gate\.userId\}\|\$\{gate\.creatorId\}\|\$\{asked\.question\}`/.test(route) /* Round 40: the store is part of the key */ && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
 
   /* The page and the sidebar's prefetch ask the very same question. */
   /* Changed on purpose (round AD1): only an end that is "now" is left out. A finished period ends at a midnight and keeps it, so two ranges from the same day are two questions (tests/analytics-ad1.test.ts). */

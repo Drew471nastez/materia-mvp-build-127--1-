@@ -8,6 +8,9 @@ import { readReportLayout } from "@/lib/analytics/report-layout"
 import type { CommunityPlace } from "./community-reports"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
+import { teamPageStore } from "@/lib/team/server"
+import { permits } from "@/lib/team/permissions"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -32,6 +35,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * be found from the signed in user is asked for at once: the creator, the
  * products, the communities and the added reports, each through its
  * creator's user id. Only the places need the creator's id.
+ *
+ * A TEAM MEMBER given Analytics (lib/team) sees the store they work in: the
+ * store is found first (teamPageStore), then the same reads by its id and
+ * its owner's account. Without the permission they are told, and nothing of
+ * the store is read.
  */
 export default async function AnalyticsPage() {
   const adminSupabase = createAdminClient()
@@ -42,6 +50,33 @@ export default async function AnalyticsPage() {
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
+
+  const access = await teamPageStore("analytics")
+  if (access.kind === "signed_out") return null
+  if (access.kind === "denied") return <TeamAreaClosed area="analytics" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "store" && access.acting) {
+    const creatorId = access.creatorId
+    const ownerUserId = access.ownerUserId
+    const [{ data: productRows }, communityRows, savedReports, properties] = await Promise.all([
+      adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creatorId),
+      /* Their communities only when Community is theirs too: each one's figures are read through its own route, which asks for it. */
+      permits(access.acting.permissions, "community")
+        ? adminSupabase
+            .from("communities")
+            .select("id, name, slug, status")
+            .eq("creator_id", creatorId)
+            .is("deleted_at", null)
+            .in("status", ["published", "archived"])
+            .order("created_at", { ascending: true })
+            .limit(12)
+            .then((r) => (r.error ? [] : ((r.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>)), () => [])
+        : Promise.resolve([] as Array<{ id: string; name: string | null; slug: string | null }>),
+      ownerUserId ? readReportLayout(adminSupabase, ownerUserId) : Promise.resolve(null),
+      creatorProperties(adminSupabase, creatorId, ownerUserId).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
+    ])
+    const communities: CommunityPlace[] = communityRows.map((c) => ({ id: String(c.id), name: (c.name || "").trim() || "Community", slug: c.slug ?? null }))
+    return <AnalyticsClient creatorId={creatorId} userId={access.viewer} products={(productRows ?? []) as Array<{ id: string; title: string; thumbnail_url: string | null; type: string | null }>} properties={properties} communities={communities} savedReports={savedReports} />
+  }
 
   /*
     The creator and their products side by side, both found from the user:

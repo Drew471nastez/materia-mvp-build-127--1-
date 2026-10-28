@@ -69,7 +69,18 @@ export interface AskedQuestion {
  * always the signed in user's, never the request's, and a place or a product
  * that is not theirs is refused or ignored before anything is read.
  */
-export async function reportQuestion(admin: Admin, userId: string, url: URL, mainDomain: string): Promise<AskedQuestion | { status: number; error: string }> {
+export async function reportQuestion(
+  admin: Admin,
+  userId: string,
+  url: URL,
+  mainDomain: string,
+  /**
+   * The store, when the route already knows it (lib/team/server
+   * requireTeamPermission): its id, and its owner's account for the
+   * OnePage. Without it the store is the signed in account's own.
+   */
+  store?: { creatorId: string; ownerUserId: string | null },
+): Promise<AskedQuestion | { status: number; error: string }> {
   const start = Date.parse(url.searchParams.get("start") || "")
   const end = Date.parse(url.searchParams.get("end") || "")
   const tz = url.searchParams.get("tz")
@@ -92,13 +103,15 @@ export async function reportQuestion(admin: Admin, userId: string, url: URL, mai
   question.set("property", propertyParam(selector) ?? "all")
   question.sort()
 
-  /* The creator and their products in one round trip, found from the session's user. */
-  const joined = await admin.from("creators").select("id, products(id, title, type)").eq("user_id", userId).maybeSingle()
+  /* The creator and their products in one round trip, found from the session's user, or from the store the route was given. */
+  const joined = store
+    ? await admin.from("creators").select("id, products(id, title, type)").eq("id", store.creatorId).maybeSingle()
+    : await admin.from("creators").select("id, products(id, title, type)").eq("user_id", userId).maybeSingle()
   let creator = joined.data as { id: string; products?: Array<{ id: string; title: string; type?: string | null }> } | null
   let products = creator?.products ?? []
   if (joined.error || (creator && !Array.isArray(creator.products))) {
     /* The two not joined on this install: two reads, as before. */
-    const { data } = await admin.from("creators").select("id").eq("user_id", userId).single()
+    const { data } = store ? await admin.from("creators").select("id").eq("id", store.creatorId).maybeSingle() : await admin.from("creators").select("id").eq("user_id", userId).single()
     creator = data as { id: string } | null
     if (creator) products = ((await admin.from("products").select("id, title, type").eq("creator_id", creator.id)).data ?? []) as typeof products
   }
@@ -107,7 +120,7 @@ export async function reportQuestion(admin: Admin, userId: string, url: URL, mai
   const productTypes = Object.fromEntries(products.map((p) => [p.id, p.type ?? null]))
 
   /* Only the creator's own places: a website id that is not theirs is answered with nothing at all. */
-  const properties = await creatorProperties(admin, creator.id, userId)
+  const properties = await creatorProperties(admin, creator.id, store ? store.ownerUserId : userId)
   if (!ownsProperty(properties, selector)) return { status: 404, error: "No such property" }
 
   const wanted = url.searchParams.get("product")

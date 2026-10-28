@@ -1,0 +1,215 @@
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+import { requireTeamPermission, type TeamGate } from "@/lib/team/server"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+/**
+ * ===========================================================================
+ *  /app/emails, READ AND CHANGED ON THE SERVER (round 40)
+ * ===========================================================================
+ * The Emails page read its subscribers, its contact form messages, its
+ * automations and a contact's history straight from the browser, under row
+ * level security, which answers only for the store's owner. A team member
+ * given Marketing (lib/team) works in somebody else's store, so the page
+ * asks here instead, for everyone: the owner on their own client as before,
+ * a member through the service role, and every query names the store's id,
+ * found by the server from the session (requireTeamPermission), never from
+ * the request.
+ *
+ *   GET  ?part=subscribers        { rows, buyers }
+ *   GET  ?part=messages           { available, rows }
+ *   GET  ?part=flows              FlowRow[] with each one's totals
+ *   GET  ?part=contact&email=     { runs, messages }: one contact's last twenty of each
+ *   GET  ?part=sender             who the composer draws as sending, for this store
+ *   POST { action: "unsubscribe", id }       a subscriber taken off the list
+ *   POST { action: "delete_campaign", id }   an email that has not been sent, deleted
+ */
+
+const NO_STORE = { "Cache-Control": "private, no-store" }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE })
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
+/** The owner's own client (row level security as before), or the service role for a member, filtered by the store below. */
+async function clientFor(gate: TeamGate): Promise<Db> {
+  return gate.isOwner ? await createClient() : gate.db
+}
+
+const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, created_at"
+
+async function subscribers(db: Db, creatorId: string) {
+  const { data, error } = await db
+    .from("subscribers")
+    .select("id, email, name, source, source_detail, consent_text, status, subscribed_at, unsubscribed_at")
+    .eq("creator_id", creatorId)
+    .order("subscribed_at", { ascending: false })
+  let rows = data as Array<{ email: string }> | null
+  if (error) {
+    /* Before the contact-source columns existed. */
+    const basic = await db.from("subscribers").select("id, email, name, source, status, subscribed_at, unsubscribed_at").eq("creator_id", creatorId).order("subscribed_at", { ascending: false })
+    if (basic.error) return json({ error: "Could not load your subscribers." }, 500)
+    rows = basic.data
+  }
+  const list = rows ?? []
+  let buyers = 0
+  const { data: products } = await db.from("products").select("id").eq("creator_id", creatorId)
+  if (products && products.length > 0) {
+    const { data: orders } = await db
+      .from("orders")
+      .select("buyer_email")
+      .in("product_id", (products as { id: string }[]).map((p) => p.id))
+      .eq("status", "completed")
+    const onList = new Set(list.map((s) => s.email.toLowerCase()))
+    buyers = new Set(((orders ?? []) as { buyer_email?: string | null }[]).map((o) => o.buyer_email?.toLowerCase()).filter((e): e is string => !!e && !onList.has(e))).size
+  }
+  return json({ rows: list, buyers })
+}
+
+async function messages(db: Db, creatorId: string) {
+  const read = (columns: string) => db.from("site_contact_messages").select(columns).eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(500)
+  let { data, error } = await read(`${MESSAGE_COLUMNS}, read_at`)
+  if (error && /read_at|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
+    ;({ data, error } = await read(MESSAGE_COLUMNS))
+    if (!error) return json({ available: true, rows: ((data ?? []) as Array<{ created_at: string }>).map((m) => ({ ...m, read_at: m.created_at })) })
+  }
+  if (error) {
+    /* Before the contact form's own part has run there is no table: nothing to show, said plainly. */
+    if (/42P01|PGRST205|does not exist/i.test(`${error.code} ${error.message}`)) return json({ available: false, rows: [] })
+    return json({ error: "Could not load your messages." }, 500)
+  }
+  return json({ available: true, rows: data ?? [] })
+}
+
+type Totals = { sent: number; opened: number; clicked: number; failed: number; in_progress: number }
+
+/** What each automation has sent, counted for this store's own automations only. */
+async function totalsFor(db: Db, gate: TeamGate, ids: string[]): Promise<Map<string, Totals>> {
+  const out = new Map<string, Totals>()
+  if (ids.length === 0) return out
+  if (gate.isOwner) {
+    /* The engine's own function, as the page asked it before (row level security keeps it to this owner's automations). */
+    const { data } = await db.rpc("email_flow_totals").then((r: { data: unknown }) => r, () => ({ data: null }))
+    for (const t of Array.isArray(data) ? (data as Array<Totals & { flow_id: string }>) : []) out.set(t.flow_id, t)
+    return out
+  }
+  /* A member: counted here, by the store's id, never across every store the function could see through the service role. */
+  const count = async (table: string, flowId: string, more: (q: Db) => Db) => {
+    const { count: n } = await more(db.from(table).select("id", { count: "exact", head: true }).eq("creator_id", gate.creatorId).eq("flow_id", flowId)).then((r: { count: number | null }) => r, () => ({ count: 0 }))
+    return n ?? 0
+  }
+  await Promise.all(
+    ids.slice(0, 50).map(async (id) => {
+      const [sent, opened, clicked, failed, active] = await Promise.all([
+        count("email_flow_sends", id, (q) => q.eq("status", "sent")),
+        count("email_flow_sends", id, (q) => q.not("opened_at", "is", null)),
+        count("email_flow_sends", id, (q) => q.not("clicked_at", "is", null)),
+        count("email_flow_jobs", id, (q) => q.eq("state", "failed")),
+        count("email_flow_runs", id, (q) => q.eq("status", "active")),
+      ])
+      out.set(id, { sent, opened, clicked, failed, in_progress: active })
+    }),
+  )
+  return out
+}
+
+async function flows(db: Db, gate: TeamGate) {
+  const { data, error } = await db
+    .from("email_flows")
+    .select("id, name, trigger_type, trigger_config, status, steps, updated_at")
+    .eq("creator_id", gate.creatorId)
+    .order("created_at", { ascending: false })
+  if (error) return json({ error: "Could not load your automations." }, 500)
+  const rows = (data ?? []) as Array<{ id: string }>
+  const totals = await totalsFor(db, gate, rows.map((f) => f.id))
+  return json(rows.map((f) => ({ ...f, totals: totals.get(f.id) ?? null })))
+}
+
+async function contact(db: Db, creatorId: string, email: string) {
+  const key = email.trim().toLowerCase()
+  if (!key || key.length > 254) return json({ runs: [], messages: [] })
+  const [runs, msgs] = await Promise.all([
+    db
+      .from("email_flow_runs")
+      .select("id, status, exit_reason, started_at, flow_id, email_flows(name)")
+      .eq("creator_id", creatorId)
+      .eq("email", key)
+      .order("started_at", { ascending: false })
+      .limit(20)
+      .then((r: { data: unknown; error: unknown }) => (r.error ? [] : (r.data ?? [])), () => []),
+    db
+      .from("site_contact_messages")
+      .select("id, subject, message, site, page, emailed_at, created_at")
+      .eq("creator_id", creatorId)
+      .eq("email", key)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then((r: { data: unknown; error: unknown }) => (r.error ? [] : (r.data ?? [])), () => []),
+  ])
+  return json({ runs, messages: msgs })
+}
+
+/** The store's sender: its owner's name and photo, its support address for replies, and the signed in person's own address for a test. */
+async function sender(gate: TeamGate) {
+  const db = gate.db
+  const [{ data: creator }, { data: profile }] = await Promise.all([
+    db.from("creators").select("id, support_email").eq("id", gate.creatorId).maybeSingle(),
+    gate.ownerUserId ? db.from("profiles").select("display_name, username, avatar_url, email").eq("id", gate.ownerUserId).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+  const p = (profile ?? {}) as { display_name?: string | null; username?: string | null; avatar_url?: string | null; email?: string | null }
+  const c = (creator ?? {}) as { id?: string; support_email?: string | null }
+  return json({
+    creatorId: c.id ?? gate.creatorId,
+    name: (p.display_name || p.username || "").trim() || null,
+    username: p.username ?? null,
+    avatarUrl: p.avatar_url ?? null,
+    email: gate.userEmail,
+    replyTo: (c.support_email || (gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null,
+  })
+}
+
+export async function GET(request: Request) {
+  const gate = await requireTeamPermission("marketing")
+  if (gate instanceof NextResponse) return gate
+  const url = new URL(request.url)
+  const part = url.searchParams.get("part")
+  const db = await clientFor(gate)
+  switch (part) {
+    case "subscribers":
+      return subscribers(db, gate.creatorId)
+    case "messages":
+      return messages(db, gate.creatorId)
+    case "flows":
+      return flows(db, gate)
+    case "contact":
+      return contact(db, gate.creatorId, url.searchParams.get("email") ?? "")
+    case "sender":
+      return sender(gate)
+    default:
+      return json({ error: "Not found" }, 404)
+  }
+}
+
+export async function POST(request: Request) {
+  const gate = await requireTeamPermission("marketing")
+  if (gate instanceof NextResponse) return gate
+  const body = (await request.json().catch(() => null)) as { action?: unknown; id?: unknown } | null
+  const id = typeof body?.id === "string" && UUID.test(body.id) ? body.id : null
+  if (!id) return json({ error: "Not found" }, 404)
+  const db = await clientFor(gate)
+  if (body?.action === "unsubscribe") {
+    const { data, error } = await db.from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", id).eq("creator_id", gate.creatorId).select("id")
+    if (error) return json({ error: "Not removed. Try again." }, 500)
+    return Array.isArray(data) && data.length === 0 && !gate.isOwner ? json({ error: "Not found" }, 404) : json({ ok: true })
+  }
+  if (body?.action === "delete_campaign") {
+    /* As the page deleted it before, now by the store's id as well as the email's. */
+    const { data, error } = await db.from("email_campaigns").delete().eq("id", id).eq("creator_id", gate.creatorId).select("id")
+    if (error) return json({ error: "The email was not deleted. Try again." }, 500)
+    return Array.isArray(data) && data.length === 0 && !gate.isOwner ? json({ error: "Not found" }, 404) : json({ ok: true })
+  }
+  return json({ error: "Not found" }, 404)
+}

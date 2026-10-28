@@ -935,6 +935,8 @@ const SUITES = [
   "tests/team-invite.test.ts",
   /* Round Y2: a team member opening /app lands in the team store (never /sell), Not now on /sell goes back to it, sign in follows /app for a member; an integration's bar carries Back (scripts/check-integrations-y2.mjs measures the bar and the card covers) */
   "tests/team-landing.test.ts",
+  /* Round 40: team permissions like Shopify staff: a list per member (part 320), presets, the invite and change of access, requireTeamPermission on every open area, the sidebar and the access card. */
+  "tests/team-permissions-r40.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",

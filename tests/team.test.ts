@@ -8,20 +8,14 @@ import { join } from "node:path"
 import {
   FREE_SEATS,
   INVITE_TTL_MS,
-  MEMBER_ROLES,
-  OPEN_TO_TEAM,
-  OWNER_ONLY,
   PRO_SEATS,
   areaOfPath,
-  can,
-  invitable,
   isMemberRole,
-  memberCan,
-  roleHome,
   seatLimit,
   teamEmail,
-  type TeamArea,
 } from "@/lib/team/roles"
+/* Round 40: who may do what is each member's own permissions (lib/team/permissions, tests/team-permissions-r40.test.ts), not a role's. */
+import { OFF_BY_DEFAULT, homeFor, legacyPermissions, permits, presetPermissions } from "@/lib/team/permissions"
 
 let passed = 0
 let failed = 0
@@ -32,19 +26,15 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
-const ALL: TeamArea[] = ["products", "orders", "customers", "emails", "analytics", "website", "content", "payouts", "billing", "team", "store"]
-
-console.log("\nWho may do what")
+console.log("\nWho may do what (round 40: permissions per member)")
 {
-  check("the owner has every area", ALL.every((a) => can("owner", a)))
-  check("no member role ever has payouts, billing, the team or the store", MEMBER_ROLES.every((r) => OWNER_ONLY.every((a) => !can(r, a))))
-  check("a manager runs products, orders, customers and emails", ["products", "orders", "customers", "emails"].every((a) => can("manager", a as TeamArea)) && !can("manager", "website"))
-  check("staff build: products, the website and content", ["products", "website", "content"].every((a) => can("staff", a as TeamArea)) && !can("staff", "orders"))
-  check("only orders is open to members today", [...OPEN_TO_TEAM].join() === "orders")
-  check("  so a member reaches only what is both their role's and open", memberCan("manager", "orders") && !memberCan("manager", "products") && !memberCan("staff", "orders") && !memberCan("staff", "website"))
-  check("a manager can be invited, staff waits until one of its areas opens", invitable("manager") && !invitable("staff"))
-  check("every member starts in Orders", roleHome("manager") === "/app/orders")
-  check("only manager and staff are roles to give", isMemberRole("manager") && isMemberRole("staff") && !isMemberRole("owner") && !isMemberRole("admin") && !isMemberRole(undefined))
+  /* The old roles still read as what they could use, for a row from before part 320. */
+  check("an old Manager row keeps Orders, and only Orders", legacyPermissions("manager").join() === "orders" && permits(legacyPermissions("manager"), "orders") && !permits(legacyPermissions("manager"), "products"))
+  check("an old Staff row has nothing", legacyPermissions("staff").length === 0)
+  check("payouts and billing and the team are in no preset", (["full", "content", "support"] as const).every((p) => OFF_BY_DEFAULT.every((k) => !presetPermissions(p).includes(k))))
+  check("the store's own area is nobody's but the owner's", !permits(["orders", "team", "payouts_billing"], "store"))
+  check("an Orders member starts in Orders", homeFor(["orders"]) === "/app/orders")
+  check("only manager and staff are values of the old role column", isMemberRole("manager") && isMemberRole("staff") && !isMemberRole("owner") && !isMemberRole("admin") && !isMemberRole(undefined))
 }
 
 console.log("\nSeats, invites and emails")
@@ -59,21 +49,23 @@ console.log("\nWhich area a dashboard address is")
 {
   check("orders and an order's pages are Orders", areaOfPath("/app/orders") === "orders" && areaOfPath("/app/orders/sales") === "orders" && areaOfPath("/app/orders/abc/") === "orders")
   check("the dashboard, settings and one's own account belong to nobody's store", areaOfPath("/app") === null && areaOfPath("/app/settings") === null && areaOfPath("/app/settings/account") === null)
-  check("payouts and billing are the owner's", areaOfPath("/app/payouts") === "payouts" && areaOfPath("/app/settings/billing") === "billing" && areaOfPath("/app/settings/payments") === "payouts")
+  check("payouts and billing are one permission", areaOfPath("/app/payouts") === "payouts_billing" && areaOfPath("/app/settings/billing") === "payouts_billing" && areaOfPath("/app/settings/payments") === "payouts_billing")
   check("an address nobody listed is the owner's, never open by default", areaOfPath("/app/something-new") === "store")
 }
 
 console.log("\nEvery way in asks the server")
 {
   const server = read("lib/team/server.ts")
-  check("the store a member works in is read again from the database on each request", /\.from\("store_team_members"\)\.select\("role"\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
-  check("  and a role that does not have the area is denied, never shown their own account", /if \(!memberCan\(acting\.role, area\)\) return \{ kind: "denied", acting \}/.test(server))
+  /* Round 40: the row is read with its permissions (readRows), still by store, account and active. */
+  check("the store a member works in is read again from the database on each request", /\.from\("store_team_members"\)\.select\(cols\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
+  check("  and permissions that do not have the area are denied, never shown their own account", /if \(!permits\(acting\.permissions, area\)\) return \{ kind: "denied", acting \}/.test(server))
   check("invites are stored as a hash, never the link itself", /token_hash: hashToken\(/.test(server) && !/token: token/.test(server))
   /* The decision is lib/team/invite-state.ts (one table for the page and the accept). The link proves the inbox, so another account of whoever holds it may accept (tests/team-join-x.test.ts). */
   check("an invite is accepted only with its link, as the page shows it", /!sameEmail\(user\.email, invite\.email\)/.test(read("lib/team/invite-state.ts")) && /const refused = refusalOf\(state\)/.test(server) && /!acceptable\(state\)/.test(server))
   check("  and only once: the row turns active only while it is still an invite", /\.eq\("status", "invited"\)\s*\n\s*\.select\("id"\)/.test(server))
-  check("a role that is not open yet cannot be given", (server.match(/if \(!invitable\(/g) ?? []).length === 2)
-  check("an owner's own team is managed from their own store only", /const store = await ownStore\(db, opts\.owner\.id\)/.test(server))
+  /* Round 40: what can be given is what is open to the team, and for a member with Team only their own access (teamScope, withinGrant). */
+  check("access beyond what the giver has cannot be given", (server.match(/if \(!withinGrant\(permissions, grant\)\)/g) ?? []).length === 2)
+  check("an owner's own team is managed from their own store, a member's from the store they work in", /const store = await ownStore\(db, userId\)/.test(server) && /if \(!permits\(acting\.permissions, "team"\)\)/.test(server))
 
   const auth = read("lib/physical/auth.ts")
   check("physical routes default to the owner's area", /physicalCaller\(area: TeamArea = "store"\)/.test(auth) && /shopCaller\(area: TeamArea = "store"\)/.test(auth))

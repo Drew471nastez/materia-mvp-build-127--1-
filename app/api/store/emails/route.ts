@@ -39,7 +39,7 @@ type Db = any
  *   PUT { id, copy }         one email's words; `copy: null` puts it back to the default
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const db = c.db
   const q = new URL(request.url).searchParams
@@ -100,7 +100,7 @@ async function ownCommunities(db: Db, creatorId: string): Promise<Array<{ id: st
 }
 
 export async function PUT(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

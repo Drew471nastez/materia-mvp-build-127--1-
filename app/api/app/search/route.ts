@@ -4,21 +4,21 @@ import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { emptyResult, isSearchable, normalizeQuery, searchCreator, type SearchGroupId } from "@/lib/search/app-search"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { actingStore } from "@/lib/team/server"
-import { memberCan, type TeamArea } from "@/lib/team/roles"
+import { permits, type TeamArea } from "@/lib/team/permissions"
 
 /**
- * Which part of a store each group belongs to (lib/team/roles), so a
- * teammate finds only what their role opens: a manager orders and
- * customers, staff the products, nobody another store's anything.
+ * Which part of a store each group belongs to (lib/team/permissions), so a
+ * teammate finds only what their permissions open, and nobody another
+ * store's anything.
  */
 const GROUP_AREA: Record<SearchGroupId, TeamArea> = {
   orders: "orders",
   customers: "customers",
   products: "products",
   collections: "products",
-  coupons: "products",
-  emails: "emails",
-  automations: "emails",
+  coupons: "marketing",
+  emails: "marketing",
+  automations: "marketing",
 }
 
 export const runtime = "nodejs"
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const acting = await actingStore(admin, user.id).catch(() => null)
   if (acting) {
-    const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => memberCan(acting.role, GROUP_AREA[g])))
+    const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => permits(acting.permissions, GROUP_AREA[g])))
     if (groups.size === 0) return NextResponse.json(emptyResult(), { headers: NO_STORE })
     try {
       return NextResponse.json(await searchCreator(admin, acting.creatorId, q, { groups }), { headers: NO_STORE })

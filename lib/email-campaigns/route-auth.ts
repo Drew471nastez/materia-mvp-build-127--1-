@@ -1,13 +1,17 @@
 /**
- * The signed-in creator a campaign route acts for, read on the server from
- * the session cookie. Every route checks ownership again with the creator id
- * this returns before it touches a campaign with the service role.
+ * The store a campaign route acts for, read on the server from the session
+ * cookie: the signed in owner's own, or (round 40) the store a team member
+ * works in when their permissions cover the route's area (lib/team,
+ * requireTeamPermission). Every route checks ownership again with the
+ * creator id this returns before it touches a campaign with the service role.
  */
 import "server-only"
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
+import type { TeamArea } from "@/lib/team/permissions"
 
 export interface CreatorContext {
   userId: string
@@ -19,15 +23,20 @@ export interface CreatorContext {
   admin: any
 }
 
-export async function requireCreator(): Promise<CreatorContext | NextResponse> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Sign in again to continue." }, { status: 401 })
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Set up your store before sending email." }, { status: 404 })
-  return { userId: user.id, userEmail: user.email ?? null, creatorId: creator.id, user: supabase, admin: createAdminClient() }
+/**
+ * `area`: the part of the store the route is (lib/team/permissions): email is
+ * Marketing; a community route says Community, a membership Products. A
+ * member without it is answered 403; signed out 401; no store 404.
+ */
+export async function requireCreator(area: TeamArea = "marketing"): Promise<CreatorContext | NextResponse> {
+  const gate = await requireTeamPermission(area)
+  if (gate instanceof NextResponse) {
+    if (gate.status === 401) return NextResponse.json({ error: "Sign in again to continue." }, { status: 401 })
+    const body = (await gate.clone().json().catch(() => ({}))) as { error?: string }
+    return gate.status === 403 && body.error === "Set up your store first." ? NextResponse.json({ error: "Set up your store before sending email." }, { status: 404 }) : gate
+  }
+  /* `user` is the signed in person's own client: for a member it reads their own account, never the store's, so nothing here reads the store with it. */
+  return { userId: gate.userId, userEmail: gate.userEmail, creatorId: gate.creatorId, user: await createClient(), admin: gate.db ?? createAdminClient() }
 }
 
 export function isResponse(x: unknown): x is NextResponse {

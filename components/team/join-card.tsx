@@ -2,7 +2,7 @@ import Link from "next/link"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { AcceptDecline, JOIN_BTN_PRIMARY, JOIN_BTN_QUIET, UseAnotherAccount } from "@/components/team/join-actions"
-import { OWNER_KEEPS, ROLE_CAN, ROLE_LABEL, type MemberRole } from "@/lib/team/roles"
+import { OWNER_KEEPS_EN, accessSummaryEn, permissionLinesEn, type TeamPermission } from "@/lib/team/permissions"
 import type { InviteState, InviteStore } from "@/lib/team/invite-state"
 
 /**
@@ -38,7 +38,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
       return (
         <StoreCard store={state.store} eyebrow={state.mine ? "You're on the team" : "Invite already used"} title={state.mine ? `You're in ${state.store.name}` : "This invite has been used"}>
           <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">
-            {state.mine ? `You work in it as ${ROLE_LABEL[state.role]}. Open it from your account menu any time.` : "Someone already joined with it. If that wasn't you, ask the store's owner for a new invite."}
+            {state.mine ? `You work in it with ${accessSummaryEn(state.permissions).toLowerCase()}. Open it from your account menu any time.` : "Someone already joined with it. If that wasn't you, ask the store's owner for a new invite."}
           </p>
           <div className="mt-5">
             <Link href={signedIn ? "/app" : "/login"} className={JOIN_BTN_PRIMARY}>{signedIn ? "Go to my dashboard" : "Log in"}</Link>
@@ -79,7 +79,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "signed_out":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
-          <RoleBox role={state.role} email={state.email} />
+          <RoleBox permissions={state.permissions} email={state.email} />
           <div className="mt-5 space-y-2">
             {/* Through the route that keeps the invite for after sign in, whichever way that is (app/api/team/join/sign-in). */}
             <a href={signInHref(token, state.hasAccount)} className={JOIN_BTN_PRIMARY} data-join="sign-in">
@@ -94,7 +94,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "wrong_account":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
-          <RoleBox role={state.role} email={state.email} />
+          <RoleBox permissions={state.permissions} email={state.email} />
           <p className="mt-4 text-center text-[13.5px] leading-5 text-[#6b7280]" data-join="other-email">
             {state.signedInAs ? (
               <>
@@ -114,7 +114,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "ready":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
-          <RoleBox role={state.role} email={state.email} />
+          <RoleBox permissions={state.permissions} email={state.email} />
           {note ? <Note kind={note} /> : null}
           <div className="mt-5">
             <AcceptDecline token={token} storeName={state.store.name} />
@@ -138,23 +138,26 @@ export function Note({ kind }: { kind: string }) {
   return <p role="alert" className="mt-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#991b1b]">{text}</p>
 }
 
-export function RoleBox({ role, email }: { role: MemberRole; email: string }) {
+export function RoleBox({ permissions, email }: { permissions: readonly TeamPermission[]; email: string }) {
+  const lines = permissionLinesEn(permissions)
   return (
-    <div className="rounded-xl border border-[#eef0f2] bg-[#f8f9fa] px-4 py-3.5" data-join-role={role}>
+    <div className="rounded-xl border border-[#eef0f2] bg-[#f8f9fa] px-4 py-3.5" data-join-role={accessSummaryEn(permissions)}>
       <p className="text-[13px] font-medium text-[#1a1a2e]">
-        As {ROLE_LABEL[role]}, you can
+        {lines.length ? "You'll be able to" : "The owner hasn't given this invite any access yet."}
       </p>
-      <ul className="mt-2 space-y-1.5">
-        {ROLE_CAN[role].map((line) => (
-          <li key={line} className="flex items-start gap-2 text-[13.5px] leading-5 text-[#374151]">
-            <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" className="mt-[2px] shrink-0 text-[#16a34a]">
-              <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {line}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 border-t border-[#eef0f2] pt-2.5 text-[12.5px] leading-[18px] text-[#6b7280]">{OWNER_KEEPS}</p>
+      {lines.length ? (
+        <ul className="mt-2 space-y-1.5">
+          {lines.map((line) => (
+            <li key={line} className="flex items-start gap-2 text-[13.5px] leading-5 text-[#374151]">
+              <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" className="mt-[2px] shrink-0 text-[#16a34a]">
+                <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-3 border-t border-[#eef0f2] pt-2.5 text-[12.5px] leading-[18px] text-[#6b7280]">{OWNER_KEEPS_EN}</p>
       <p className="mt-2 text-[12.5px] leading-[18px] text-[#6b7280]">
         For <span className="font-medium text-[#374151] [overflow-wrap:anywhere]">{email}</span>. You keep your own account and can leave any time.
       </p>

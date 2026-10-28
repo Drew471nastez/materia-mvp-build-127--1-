@@ -9,13 +9,14 @@
  * site_contact_messages is written by the server only (supabase/sql/run-now
  * 30 and 92): creators read their own under row level security and change
  * nothing directly. So the change is made here, with the service key, and
- * the scoping is the WHERE: the message id AND the signed in user's own
- * creator id, never one from the request. Another creator's message id
+ * the scoping is the WHERE: the message id AND the store the session works
+ * in (its owner, or a team member given Marketing: lib/team), never one from
+ * the request. Another creator's message id
  * matches no row and answers 404, the same as an id that does not exist.
  */
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,11 +30,8 @@ function json(body: unknown, status = 200) {
 }
 
 async function ownCreatorId(): Promise<string | null> {
-  const supabase = await createClient()
-  const { data: auth } = await supabase.auth.getUser()
-  if (!auth.user) return null
-  const { data } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+  const gate = await requireTeamPermission("marketing")
+  return gate instanceof NextResponse ? null : gate.creatorId
 }
 
 export async function PATCH(req: Request, { params }: Params) {

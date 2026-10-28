@@ -80,7 +80,8 @@ async function main() {
     check("the creator's memberships list has no New membership and posts nothing", !/New membership/.test(list) && !/fetch\(/.test(list) && !/method: "POST"/.test(list))
 
     const route = code("app/api/app/memberships/route.ts")
-    check("POST /api/app/memberships answers 410 after the creator check and makes nothing", /export async function POST\(\)/.test(route) && /requireCreator\(\)/.test(route) && /status: 410/.test(route) && !/createMembershipProduct|\.insert\(/.test(route))
+    /* Round 40: the creator check names its team area, Products (lib/team). */
+    check("POST /api/app/memberships answers 410 after the creator check and makes nothing", /export async function POST\(\)/.test(route) && /requireCreator\("products"\)/.test(route) && /status: 410/.test(route) && !/createMembershipProduct|\.insert\(/.test(route))
     check("paid communities still make their recurring tier through the engine directly", /createMembershipProduct\(db, t\.creatorId, title\)/.test(code("lib/communities/server/tiers.ts")))
 
     /* Anywhere in the app's screens: a POST to the bare create route would be a way back in. */

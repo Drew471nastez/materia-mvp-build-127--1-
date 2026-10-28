@@ -31,7 +31,7 @@ import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 import { BusinessSwitcher, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
-import { memberSees, type MemberRole } from "@/lib/team/roles"
+import { memberSees, type TeamPermission } from "@/lib/team/permissions"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA, groupForRoute } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
@@ -105,8 +105,8 @@ interface SidebarProps {
   businesses?: BusinessRow[]
   /** The platform switch for communities (lib/communities/flag.ts), read by the layout: the Community row shows only while it is on. */
   communitiesEnabled?: boolean
-  /** Working in someone else's store as a team member (lib/team): only the rows that role can open are drawn. */
-  teamRole?: MemberRole | null
+  /** Working in someone else's store as a team member (lib/team): only the rows their permissions open are drawn. */
+  teamPermissions?: TeamPermission[] | null
   /** The stores this account is on as a team member, for the account menu's switcher. */
   teamStores?: TeamStoreRow[]
 }
@@ -147,7 +147,7 @@ let settingsWarmedAt = 0
 
 const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamRole = null, teamStores = [] }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamPermissions = null, teamStores = [] }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
@@ -401,15 +401,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }
 
   /*
-    A TEAM MEMBER SEES THE STORE THEIR ROLE OPENS, AND NOTHING ELSE. The rows
-    a role does not have are not drawn (lib/team/roles memberSees); the pages
-    behind them say so too (components/app/team-bar), and the server refuses
-    their routes either way (lib/team/server creatorFor).
+    A TEAM MEMBER SEES WHAT THEIR PERMISSIONS OPEN, AND NOTHING ELSE. The rows
+    they were not given are not drawn (lib/team/permissions memberSees); the
+    pages behind them say so too (components/app/team-bar), and the server
+    refuses their routes either way (lib/team/server requireTeamPermission).
+    A row under one they were not given (Coupons under Products, for someone
+    with Marketing alone) moves up to a row of its own, so it can be reached.
   */
-  const navItems: NavItemData[] = teamRole
-    ? mainNavItems
-        .filter((item) => memberSees(teamRole, item.href))
-        .map((item) => (item.children ? { ...item, children: item.children.filter((c) => memberSees(teamRole, c.href)) } : item))
+  const navItems: NavItemData[] = teamPermissions
+    ? mainNavItems.flatMap((item): NavItemData[] => {
+        const children = item.children?.filter((c) => memberSees(teamPermissions, c.href))
+        if (memberSees(teamPermissions, item.href)) return [children ? { ...item, children } : item]
+        const { icon } = item
+        return (children ?? []).map(({ href, label }) => ({ href, label, icon }))
+      })
     : mainNavItems
 
   // Expandable groups (parent nav items with children).

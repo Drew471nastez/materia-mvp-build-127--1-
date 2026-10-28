@@ -108,14 +108,17 @@ export function cleanTrigger(v: unknown): TriggerType | null {
   return isTriggerType(v) ? v : null
 }
 
-/** The signed-in creator, or null. */
+/**
+ * The store an automation route acts for, or null: the signed in owner's own
+ * on their own client (row level security as before), or the store a team
+ * member given Marketing works in (lib/team), through the service role, and
+ * every route filters by this creator id.
+ */
 export async function signedInCreator(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; creatorId: string; userEmail: string | null } | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return null
-  return { supabase, creatorId: creator.id as string, userEmail: user.email ?? null }
+  const { requireTeamPermission } = await import("@/lib/team/server")
+  const { NextResponse } = await import("next/server")
+  const gate = await requireTeamPermission("marketing")
+  if (gate instanceof NextResponse) return null
+  const supabase = gate.isOwner ? await createClient() : (gate.db as Awaited<ReturnType<typeof createClient>>)
+  return { supabase, creatorId: gate.creatorId, userEmail: gate.userEmail }
 }

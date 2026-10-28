@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
 import { commerceContext, countCommerce } from "@/lib/analytics/commerce-server"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { parseProperty } from "@/lib/analytics/properties"
@@ -39,11 +38,9 @@ function instant(v: string | null): number | null {
  *   &kind=               the All / Digital / Physical switch
  */
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  /* The store's sales, for its owner or a team member given Analytics (lib/team). */
+  const gate = await requireTeamPermission("analytics")
+  if (gate instanceof NextResponse) return gate
 
   const url = new URL(request.url)
   const end = Math.min(Date.now() + DAY, Number(url.searchParams.get("to")) || Date.now())
@@ -61,12 +58,11 @@ export async function GET(request: Request) {
         ? { start: cs, end: ce }
         : { start: start - length, end: start }
 
-  const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-  const creatorId = (creator as { id: string }).id
+  const admin = gate.db
+  const creatorId = gate.creatorId
   const selector = parseProperty(url.searchParams.get("property"))
-  const context = await commerceContext(admin, user.id, creatorId, selector, url.searchParams.get("product"))
+  /* The owner's account for the OnePage, whoever is asking (lib/analytics/report-read creatorProperties). */
+  const context = await commerceContext(admin, gate.ownerUserId ?? gate.userId, creatorId, selector, url.searchParams.get("product"))
   if (!context) return NextResponse.json({ error: "No such property" }, { status: 404 })
 
   try {
@@ -83,7 +79,7 @@ export async function GET(request: Request) {
     })
     /* The period's payments are for the export, not for the page. */
     const { orders: _orders, ...rest } = answer
-    return NextResponse.json({ ...rest, viewer: user.id }, { headers: { "Cache-Control": "private, no-store" } })
+    return NextResponse.json({ ...rest, viewer: gate.viewer }, { headers: { "Cache-Control": "private, no-store" } })
   } catch (error) {
     console.error("[analytics/commerce]", (error as Error).message)
     return NextResponse.json({ error: "Reports are not available right now." }, { status: 500 })

@@ -35,7 +35,7 @@ const SHOW_KEYS: Record<string, keyof CommunityBlockToggles> = {
 export async function GET(request: NextRequest) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("creator_pages")
   if (isResponse(ctx)) return ctx
   const db = ctx.admin
   const communities = await creatorCommunityChoices(db, ctx.creatorId)

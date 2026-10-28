@@ -89,7 +89,8 @@ section("Who is signed in: asked once per request")
     const src = code(f)
     /* pageUser() (lib/auth/page-user.ts) is the request cache with the one
        decision a page makes: /login only when Supabase said nobody. */
-    check(`${f} asks through the request cache, not straight off the auth client`, /(currentUserForRequest|pageUser)\(\)/.test(src) && !/auth\.getUser\(\)/.test(src))
+    /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
+    check(`${f} asks through the request cache, not straight off the auth client`, /(currentUserForRequest|pageUser|teamPageStore)\(/.test(src) && !/auth\.getUser\(\)/.test(src))
   }
   check("pageUser is the request cache, and redirects only on a definite nobody",
     /const current = await currentUserForRequest\(\)/.test(code("lib/auth/page-user.ts")) && /if \(shouldSendToLogin\(current\)\) redirect\(loginPath\)/.test(code("lib/auth/page-user.ts")))
@@ -227,8 +228,9 @@ section("Customers, Coupons, Analytics, Orders")
   const customers = code("app/app/customers/page.tsx")
   const batch = batchAfter(customers, /const readOrders/)
   check("Customers reads its customers while the orders' product ids come back", /\.from\("customers"\)/.test(batch) && /readOrders\(\)/.test(batch))
-  check("its creator row is the layout's, on the caller's own client, as it was", /const creator = await creatorForRequest\(user\.id\)/.test(customers))
-  check("Coupons' creator row is the layout's too", /const creator = await creatorForRequest\(user\.id\)/.test(code("app/app/coupons/load-coupons.ts")))
+  /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
+  check("its creator row is the layout's (teamPageStore reads the same per request cache)", /teamPageStore\("customers"\)/.test(customers) && /const own = await creatorForRequest\(user\.id\)/.test(code("lib/team/server.ts")))
+  check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/app/coupons/load-coupons.ts")))
   for (const f of ["app/app/analytics/page.tsx"]) {
     check(`${f} keeps its service role reads by the creator found from the user`, /\.from\("creators"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)/.test(code(f)))
   }
