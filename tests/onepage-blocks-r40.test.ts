@@ -182,7 +182,8 @@ async function main() {
     const conn = read("lib/onepage/integrations/connect-server.ts")
     check("  a key comes back as its last four characters only", /secretHint\(openSecret\(sealed\)\)/.test(conn) && !/secret_ciphertext:\s*r\.secret_ciphertext/.test(conn) && !/apiKey:\s*key/.test(conn))
     check("  webhooks are sent through the public-only socket lookup", /lookup: publicLookup/.test(read("lib/onepage/integrations/deliver-server.ts")))
-    check("followers and the preview fill: owner only, and rate limited by address", /shopCaller\(\)/.test(read("app/api/onepage/followers/route.ts")) && /addressSubject\(request\)/.test(read("app/api/onepage/blocks-live/route.ts")))
+    /* Changed on purpose (round 40 team areas): shopCaller("onepage") is the owner as before, or a team member given OnePage for the store's page (tests/team-areas-r40.test.ts). */
+    check("followers and the preview fill: the page's owner (or OnePage on the team), and rate limited by address", /shopCaller\("onepage"\)/.test(read("app/api/onepage/followers/route.ts")) && /addressSubject\(request\)/.test(read("app/api/onepage/blocks-live/route.ts")))
   }
 
   section("The ad pixels ask first")

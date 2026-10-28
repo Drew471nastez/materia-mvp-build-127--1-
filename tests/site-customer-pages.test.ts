@@ -358,11 +358,14 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const api = code("app/api/email/messages/[id]/route.ts")
-    check("the creator comes from the session, never the request", /auth\.getUser\(\)/.test(api) && /\.eq\("user_id", auth\.user\.id\)/.test(api) && !/creator_id\s*[:=]\s*body/.test(api))
+    /* Changed on purpose (round 40 team permissions): the store comes from the session through requireTeamPermission("marketing") (auth.getUser(), then the store owned or worked in, read from the database), never the request. */
+    check("the creator comes from the session, never the request", /await requireTeamPermission\("marketing"\)/.test(api) && /gate instanceof NextResponse \? null : gate\.creatorId/.test(api) && !/creator_id\s*[:=]\s*body/.test(api))
     check("every change names the message AND the signed in creator", (api.match(/\.eq\("id", id\)\s*\.eq\("creator_id", creatorId\)/g) ?? []).length === 2 && (api.match(/\.eq\("id", id\)/g) ?? []).length === 2)
     check("another creator's id matches no row and answers 404, like one that does not exist", /data\.length !== 1\) return json\(\{ error: "Not found" \}, 404\)/.test(api))
     const data = read("app/app/emails/emails-data.ts")
-    check("the list is read through the creator's own session and names their creator id", /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", me\.creatorId\)/.test(data) && /createClient\(\)/.test(data))
+    /* Changed on purpose (round 40 team permissions): read on the server (app/api/email/area?part=messages) for the session's store, named by its creator id. */
+    const area = read("app/api/email/area/route.ts")
+    check("the list is read for the session's own store and names its creator id", /\/api\/email\/area\?part=messages/.test(data) && /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", creatorId\)/.test(area) && /await requireTeamPermission\("marketing"\)/.test(area))
     check("Messages is a tab of Emails, with the new ones counted", /\{ id: "messages", label: "Messages" \}/.test(read("app/app/emails/emails-home.tsx")) && /counts=\{\{ messages:/.test(read("app/app/emails/emails-home.tsx")))
     const sql = read("supabase/sql/run-now/92_site_password_and_inbox.sql")
     check("part 92 adds read_at where the messages table is, and is safe to run twice", /ADD COLUMN IF NOT EXISTS read_at timestamptz/.test(sql) && /to_regclass\('public\.site_contact_messages'\) IS NOT NULL/.test(sql))

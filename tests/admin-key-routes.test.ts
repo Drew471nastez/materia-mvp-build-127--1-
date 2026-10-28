@@ -80,6 +80,10 @@ const PROOFS: [string, RegExp][] = [
      account owns or is an active member of for that area, read from the
      database on every request; 401 or 403 otherwise. */
   ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
+  /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
+     then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
+     The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
+  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
 ]
 
 /**
