@@ -1,0 +1,239 @@
+"use client"
+
+/**
+ * The offer editor's fields (./offer-editor.tsx): an amount with the store's
+ * currency sign, the product picker, a quantity break's tiers, and the round
+ * mark of a single choice. The sizes are the coupon editor's, so the two
+ * pages type alike: 16px on a phone so iOS does not zoom, 44px to press.
+ */
+
+import * as React from "react"
+import { Search } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { secondaryDepth } from "@/components/ui/depth-button"
+import { MAX_TIERS, MAX_TIER_BADGE, MAX_TIER_LABEL, type TierDiscountType } from "@/lib/offers/pricing"
+import { tierOf, type TierDraft } from "./offer-draft"
+import { Tick } from "../coupons/coupon-parts"
+import { ProductThumb } from "../products/collections/collection-parts"
+import { tierWords, type OfferProduct } from "./offer-parts"
+
+export const FIELD =
+  "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+export const BAD = "border-[#f0b4ab] focus:border-[#e3897c]"
+export const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
+export const HINT = "text-[13px] leading-5 text-[#6b7280]"
+export const ERR = "mt-1.5 text-[13px] font-medium leading-5 text-[#b42318]"
+export const SECTION_TITLE = "text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]"
+
+export function MoneyField({ id, sign, value, onChange, bad, placeholder, className }: { id: string; sign: string; value: string; onChange: (v: string) => void; bad?: boolean; placeholder?: string; className?: string }) {
+  const wide = sign.length > 1
+  return (
+    <span className={cn("relative block", className ?? "w-[180px]")}>
+      <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
+        {sign}
+      </span>
+      <input id={id} inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").slice(0, 12))} aria-invalid={bad || undefined} className={cn(FIELD, wide ? "pl-12" : "pl-8", "tabular-nums", bad && BAD)} />
+    </span>
+  )
+}
+
+export function ProductPicker({ products, chosen, onPick, single = false, money, name, full = false }: { products: OfferProduct[]; chosen: string[]; onPick: (id: string) => void; single?: boolean; money: (minor: number) => string; name: string; full?: boolean }) {
+  const [q, setQ] = React.useState("")
+  const words = q.toLowerCase().trim()
+  /* What is chosen comes first, so a long list never hides it. */
+  const ordered = [...products.filter((p) => chosen.includes(p.id)), ...products.filter((p) => !chosen.includes(p.id))]
+  const shown = ordered.filter((p) => !words || p.title.toLowerCase().includes(words)).slice(0, 200)
+  if (products.length === 0) return <p className={HINT}>{tt("Add a product first, then pick it here.")}</p>
+  return (
+    <div className="space-y-2" data-product-picker={name}>
+      {products.length > 6 ? (
+        <label className="relative block">
+          <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+          <input type="search" enterKeyHint="search" data-no-autofocus="" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt("Search products")} aria-label={tt("Search products")} className={cn(FIELD, "pl-9 [&::-webkit-search-cancel-button]:hidden")} />
+        </label>
+      ) : null}
+      <ul role={single ? "radiogroup" : "group"} aria-label={tt("Products")} className="max-h-[336px] divide-y divide-[#eef0f2] overflow-y-auto overscroll-contain rounded-xl border border-[#e5e7eb]">
+        {shown.map((p) => {
+          const on = chosen.includes(p.id)
+          const blocked = !on && full
+          return (
+            <li key={p.id} className="[contain-intrinsic-size:auto_56px] [content-visibility:auto]">
+              <button
+                type="button"
+                role={single ? "radio" : "checkbox"}
+                aria-checked={on}
+                aria-disabled={blocked || undefined}
+                data-pick={p.id}
+                onClick={() => !blocked && onPick(p.id)}
+                className={cn("flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[52px] sm:hover:bg-[#fafafb]", blocked && "cursor-default opacity-50")}
+              >
+                {single ? <Radio on={on} /> : <Tick on={on} />}
+                <ProductThumb src={p.imageUrl} title={p.title} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] leading-5 text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
+                  <span className="block truncate text-[13px] leading-[18px] text-[#6b7280] sm:text-[12px]">
+                    {p.payWhatYouWant ? tt("Pay what you want, from {amount}", { amount: money(p.priceCents) }) : money(p.priceCents)}
+                    {!p.published ? tt(" · Draft") : ""}
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+        {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * A QUANTITY BREAK'S TIERS, one row each, in the order a buyer climbs them:
+ * how many they buy, how many come free, the discount on what they pay
+ * for, and the words the product page shows (blank: the tier's own, "Buy 2
+ * get 1 free"). Each tier is checked in place; the server checks them all
+ * again (lib/offers/pricing.ts readTiers).
+ */
+export function TierEditor({ tiers, onChange, problems, problem, sign, money, currency }: { tiers: TierDraft[]; onChange: (t: TierDraft[]) => void; problems: Record<number, string>; problem: string | null; sign: string; money: (minor: number) => string; currency: string }) {
+  const setTier = (i: number, patch: Partial<TierDraft>) => onChange(tiers.map((t, n) => (n === i ? { ...t, ...patch } : t)))
+  /* The next tier starts one unit past the last one's whole block (paid and free), so it is always bigger. */
+  const add = () => {
+    const last = tiers[tiers.length - 1]
+    const q = last ? (Math.max(1, Math.floor(Number(last.quantity)) || 1) + Math.max(0, Math.floor(Number(last.freeQuantity)) || 0)) + 1 : 2
+    onChange([...tiers, { quantity: String(Math.min(99, q)), freeQuantity: "0", discountType: "percent", value: last?.discountType === "percent" ? String(Math.min(90, (Number(last.value) || 10) + 5)) : "15", label: "", badge: "" }])
+  }
+  const SMALL = cn(FIELD, "tabular-nums")
+  return (
+    <section aria-labelledby="offer-tiers" className="space-y-2.5" {...(problem || Object.keys(problems).length ? { "data-problem": "" } : {})}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 id="offer-tiers" className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">
+          {tt("Tiers")}
+        </h3>
+        <span className={HINT}>{tt("{n} of {max}", { n: tiers.length, max: MAX_TIERS })}</span>
+      </div>
+      <ol className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]" data-tiers="">
+        {tiers.map((t, i) => {
+          const read = tierOf(t, currency)
+          const own = tierWords({ ...read, discountValue: Number.isFinite(read.discountValue) ? read.discountValue : 0 }, money)
+          return (
+            <li key={i} data-tier={i} className="space-y-2.5 px-3.5 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-medium text-[#4b5563]">{tt("Tier {n}", { n: i + 1 })}</span>
+                {tiers.length > 1 ? (
+                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-1.5 h-9 cursor-pointer rounded-lg px-2 text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
+                    {tt("Remove")}
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[72px_72px_minmax(0,1fr)_120px]">
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Buy")}</span>
+                  <input inputMode="numeric" value={t.quantity} onChange={(e) => setTier(i, { quantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!problems[i]} className={cn(SMALL, problems[i] && BAD)} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Free")}</span>
+                  <input inputMode="numeric" value={t.freeQuantity} onChange={(e) => setTier(i, { freeQuantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!problems[i]} className={cn(SMALL, problems[i] && BAD)} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Discount")}</span>
+                  <select value={t.discountType} onChange={(e) => setTier(i, { discountType: e.target.value as TierDiscountType, value: e.target.value === "percent" ? "10" : e.target.value === "amount" ? "" : "" })} className={cn(FIELD, "cursor-pointer appearance-auto pr-2")}>
+                    <option value="none">{tt("None")}</option>
+                    <option value="percent">{tt("Percent off")}</option>
+                    <option value="amount">{tt("Amount off")}</option>
+                  </select>
+                </label>
+                {t.discountType === "none" ? (
+                  <span aria-hidden className="hidden sm:block" />
+                ) : (
+                  <label className="relative block min-w-0">
+                    <span className={LABEL}>{t.discountType === "percent" ? tt("Percent") : tt("Amount")}</span>
+                    {t.discountType === "amount" ? <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[14px] text-[#6b7280] sm:h-10">{sign}</span> : null}
+                    <input inputMode={t.discountType === "percent" ? "numeric" : "decimal"} value={t.value} onChange={(e) => setTier(i, { value: t.discountType === "percent" ? e.target.value.replace(/[^0-9]/g, "").slice(0, 2) : e.target.value.replace(/[^0-9.,]/g, "").slice(0, 12) })} aria-invalid={!!problems[i]} className={cn(SMALL, t.discountType === "amount" && (sign.length > 1 ? "pl-12" : "pl-8"), t.discountType === "percent" && "pr-8", problems[i] && BAD)} />
+                    {t.discountType === "percent" ? <span aria-hidden className="pointer-events-none absolute bottom-0 right-3.5 flex h-11 items-center text-[14px] text-[#6b7280] sm:h-10">%</span> : null}
+                  </label>
+                )}
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Label")}</span>
+                  <input value={t.label} maxLength={MAX_TIER_LABEL} placeholder={own} onChange={(e) => setTier(i, { label: e.target.value })} className={FIELD} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>
+                    {tt("Badge")} <span className="font-normal text-[#9ca3af]">{tt("optional")}</span>
+                  </span>
+                  <input value={t.badge} maxLength={MAX_TIER_BADGE} placeholder={tt("Most popular")} onChange={(e) => setTier(i, { badge: e.target.value })} className={FIELD} />
+                </label>
+              </div>
+              {problems[i] ? <p className={cn(ERR, "mt-0")}>{problems[i]}</p> : null}
+            </li>
+          )
+        })}
+      </ol>
+      {tiers.length < MAX_TIERS ? (
+        <button type="button" data-tier-add="" onClick={add} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
+          {tt("Add tier")}
+        </button>
+      ) : null}
+      {problem ? <p className={ERR}>{problem}</p> : null}
+    </section>
+  )
+}
+
+export function Radio({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden className={cn("flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border transition-colors duration-100 sm:h-[18px] sm:w-[18px]", on ? "border-[#111113] bg-[#111113]" : "border-[#c7cad1] bg-white")}>
+      {on ? <span className="h-[7px] w-[7px] rounded-full bg-white" /> : null}
+    </span>
+  )
+}
+
+/**
+ * FOUR CHOICES ON A PHONE'S WIDTH. The discount's Percent, Amount, Free
+ * shipping and None did not fit one track at 390px: each was cut to "Perc…".
+ * Two rows of two there, one track from 640px, drawn as the app's segmented
+ * control is (app/app/products/new/editor-controls.tsx Segmented): the
+ * chosen one lifted onto white. A radio group, so the arrow keys move it.
+ */
+export function ChoiceGrid<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (next: T) => void; label: string }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      data-choice-grid=""
+      className={cn("grid gap-0.5 rounded-[10px] bg-[#eceef1] p-0.5 sm:flex", options.length > 3 ? "grid-cols-2" : "grid-flow-col")}
+      onKeyDown={(e) => {
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return
+        e.preventDefault()
+        const i = options.findIndex((o) => o.value === value)
+        const forward = e.key === "ArrowRight" || e.key === "ArrowDown"
+        const next = options[(i + (forward ? 1 : options.length - 1)) % options.length]
+        onChange(next.value)
+        ;(e.currentTarget.querySelector(`[data-value="${next.value}"]`) as HTMLElement | null)?.focus()
+      }}
+    >
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-value={o.value}
+            tabIndex={on ? 0 : -1}
+            onClick={() => {
+              if (!on) onChange(o.value)
+            }}
+            className={cn(
+              "h-10 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-[background-color,box-shadow,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:flex-auto sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12),0_0_0_0.5px_rgba(17,24,39,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

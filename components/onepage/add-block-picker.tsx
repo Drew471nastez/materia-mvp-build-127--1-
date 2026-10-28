@@ -31,6 +31,16 @@
  * Settings › Integrations (lib/integrations/marketing). Nothing here asks
  * for a key, so nothing here pretends to "connect".
  *
+ * ROUND 40, EVERY INTEGRATION IS A BLOCK: Mailchimp, Kit, beehiiv, Zapier,
+ * Make, Google Sheets and a webhook each add an email signup whose settings
+ * connect that tool (components/onepage/page-integrations SignupTools), and
+ * every signup is sent there as it happens (lib/onepage/integrations).
+ * Klaviyo, Omnisend and Tally wear their own marks (brand-icons
+ * IntegrationMark). Storelib's own things are blocks too: a shelf of
+ * products, courses, memberships or the community, read live; lead magnets
+ * (a download, a discount code, a waitlist); posts; followers; a referral
+ * code (components/onepage/storelib-blocks).
+ *
  * ROUND 11, THE FEEL: the open renders the sheet and nothing else (the open
  * state is a store here, not the Links tab's), the rows are built once and
  * never render again, a chip only hides sections, the chips are the app
@@ -42,12 +52,13 @@
 import * as React from "react"
 import { Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SocialIcon } from "@/components/onepage/brand-icons"
+import { IntegrationMark, SocialIcon } from "@/components/onepage/brand-icons"
 import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
 import {
   BlockTile,
   GlyphBooking,
   GlyphContact,
+  GlyphCourse,
   GlyphDivider,
   GlyphDocument,
   GlyphEmail,
@@ -61,6 +72,7 @@ import {
   GlyphSocial,
   GlyphStore,
   GlyphSync,
+  GlyphTestimonials,
   GlyphText,
   type Glyph,
 } from "@/components/onepage/block-icons"
@@ -69,6 +81,7 @@ import { canGoInGroup } from "@/lib/onepage/group"
 import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
+import { tintOf } from "@/components/onepage/block-tints"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
 
@@ -193,6 +206,8 @@ export interface PickerEntry {
   /** A brand mark (components/onepage/brand-icons), drawn in near black. */
   brand?: string
   brandIcon?: React.ComponentType<{ size?: number; color?: string; className?: string }>
+  /** A connected tool's own mark (components/onepage/brand-icons IntegrationMark), in its colour; `icon` stays as the fallback. */
+  mark?: string
   /** For a link: its first words and address. */
   preset?: { label: string; url: string; icon?: string }
   /** Anything else the new block starts with. */
@@ -213,19 +228,33 @@ const link = (id: string, label: string, brand: string, preset: () => { label: s
 })
 
 /* An embed block (lib/onepage/creator-blocks embedSource), started as one service: the field's hint is that service's link. */
-const embed = (id: string, label: string, brand: string | null, provider: string, description: () => string, keywords = "", icon?: Glyph): PickerEntry => ({
+const embed = (id: string, label: string, brand: string | null, provider: string, description: () => string, keywords = "", icon?: Glyph, mark?: string): PickerEntry => ({
   id,
   type: "embed",
   category: "integrations",
   label,
   get description() { return description() },
   ...(brand ? { brand } : { icon: icon ?? GlyphIntegration }),
+  ...(mark ? { mark } : {}),
   data: { provider },
   keywords,
 })
 
+/* Round 40: a tool a signup goes to, added as an email signup that offers to connect it (components/onepage/page-integrations SignupTools). */
+const tool = (id: string, label: string, mark: string, description: () => string, keywords = ""): PickerEntry => ({
+  id,
+  type: "email_capture",
+  category: "integrations",
+  label,
+  get description() { return description() },
+  icon: GlyphSync,
+  mark,
+  data: { integration_hint: mark },
+  keywords,
+})
+
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { booking: "Calendly / Cal.com", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", make: "Make", webhook: "Webhook", booking: "Calendly / Cal.com", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo" }
 const KEYWORDS = {
   heading: "title section",
   faq: "questions answers help",
@@ -269,6 +298,30 @@ const KEYWORDS = {
   int_tally: "form survey",
   int_substack: "newsletter subscribe writing",
   int_gcal: "booking appointment schedule meeting google",
+  int_omnisend: "newsletter email marketing list sync sms",
+  int_mailchimp: "newsletter email marketing audience list",
+  int_kit: "convertkit newsletter email creator",
+  int_beehiiv: "newsletter email publication",
+  int_zapier: "automation webhook zap apps",
+  int_make: "automation webhook integromat scenario",
+  int_sheets: "spreadsheet google sheet rows export",
+  int_webhook: "webhook api json developer",
+  int_posts_instagram: "feed carousel reels grid",
+  int_posts_tiktok: "feed carousel videos",
+  int_posts_youtube: "channel latest videos feed sync",
+  shelf: "shop products store catalog storelib",
+  shelf_digital: "downloads ebooks templates storelib",
+  shelf_physical: "merch shop ship storelib",
+  shelf_course: "online course classes storelib",
+  shelf_membership: "subscription monthly storelib",
+  shelf_community: "group members storelib",
+  session_one: "1:1 coaching call consult booking",
+  session_bundle: "package coaching sessions booking",
+  magnet_download: "lead magnet freebie ebook guide pdf",
+  magnet_discount: "lead magnet coupon offer email",
+  magnet_waitlist: "launch early access list",
+  referral: "affiliate promo code discount partner",
+  followers: "audience social proof count total",
   x: "twitter",
   amazon: "storefront shop affiliate",
   etsy: "shop store handmade",
@@ -303,12 +356,22 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "product", type: "product", category: "sell", get label() { return tt("Product") }, get description() { return tt("Sell one of your products") }, icon: GlyphProduct, keywords: KEYWORDS.product },
   extra("course", "sell"),
   { id: "coaching", type: "calendly", category: "sell", get label() { return tt("Coaching call") }, get description() { return tt("Let people book a call with you") }, icon: GlyphBooking, get data() { return { title: tt("Book a coaching call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.coaching },
+  /* Round 40: Storelib's own things, read live (components/onepage/storelib-blocks). */
+  { id: "shelf", type: "storelib_shelf", category: "sell", get label() { return tt("All products") }, get description() { return tt("A row of your products, always up to date") }, icon: GlyphStore, data: { source: "all" }, keywords: KEYWORDS.shelf },
+  { id: "shelf_digital", type: "storelib_shelf", category: "sell", get label() { return tt("Digital products") }, get description() { return tt("Your downloads, always up to date") }, icon: GlyphProduct, data: { source: "digital" }, keywords: KEYWORDS.shelf_digital },
+  { id: "shelf_physical", type: "storelib_shelf", category: "sell", get label() { return tt("Physical products") }, get description() { return tt("What you ship, always up to date") }, icon: GlyphStore, data: { source: "physical" }, keywords: KEYWORDS.shelf_physical },
+  { id: "shelf_course", type: "storelib_shelf", category: "sell", get label() { return tt("Courses") }, get description() { return tt("All your courses in a row") }, icon: GlyphCourse, data: { source: "course" }, keywords: KEYWORDS.shelf_course },
+  { id: "shelf_membership", type: "storelib_shelf", category: "sell", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphProduct, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
+  { id: "shelf_community", type: "storelib_shelf", category: "sell", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphGroup, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
+  { id: "session_one", type: "calendly", category: "sell", get label() { return tt("One-on-one session") }, get description() { return tt("People book a session with you") }, icon: GlyphBooking, get data() { return { title: tt("Book a 1:1 session"), button_text: tt("Book a session") } }, keywords: KEYWORDS.session_one },
+  { id: "session_bundle", type: "calendly", category: "sell", get label() { return tt("Session bundle") }, get description() { return tt("A pack of sessions, booked by link") }, icon: GlyphBooking, get data() { return { title: tt("Book a pack of sessions"), button_text: tt("See the packs") } }, keywords: KEYWORDS.session_bundle },
   { id: "store_link", type: "link_button", category: "sell", get label() { return tt("Shop link") }, get description() { return tt("Send people to a shop of yours") }, icon: GlyphStore, get preset() { return { label: tt("Shop now"), url: "" } }, keywords: KEYWORDS.store_link },
 
   /* Media */
   extra("video", "media"),
   extra("music", "media"),
   extra("embed", "media"),
+  { id: "posts", type: "social_posts", category: "media", get label() { return tt("Posts") }, get description() { return tt("A row of your latest posts") }, icon: GlyphSocial, keywords: KEYWORDS.int_posts_youtube },
   { id: "pdf_document", type: "pdf_document", category: "media", get label() { return tt("PDF") }, get description() { return tt("A PDF people can read on your page") }, icon: GlyphDocument, keywords: KEYWORDS.pdf_document },
   { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, keywords: KEYWORDS.food_menu },
   extra("map", "media"),
@@ -318,6 +381,12 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   extra("contact_form", "grow"),
   extra("testimonials", "grow"),
   extra("countdown", "grow"),
+  /* Round 40: more lead magnets, a referral code and the follower count (components/onepage/storelib-blocks). */
+  { id: "magnet_download", type: "lead_magnet", category: "grow", get label() { return tt("Free download") }, get description() { return tt("A free file for an email") }, icon: GlyphDocument, data: { kind: "download" }, keywords: KEYWORDS.magnet_download },
+  { id: "magnet_discount", type: "lead_magnet", category: "grow", get label() { return tt("Discount for email") }, get description() { return tt("A code they get for their email") }, icon: GlyphEmail, get data() { return { kind: "discount", title: tt("Get 10% off") } }, keywords: KEYWORDS.magnet_discount },
+  { id: "magnet_waitlist", type: "lead_magnet", category: "grow", get label() { return tt("Waitlist") }, get description() { return tt("Collect emails before you launch") }, icon: GlyphEmail, get data() { return { kind: "waitlist", title: tt("Join the waitlist") } }, keywords: KEYWORDS.magnet_waitlist },
+  { id: "referral", type: "promo_code", category: "grow", get label() { return tt("Referral code") }, get description() { return tt("A code for a brand you work with") }, icon: GlyphProduct, keywords: KEYWORDS.referral },
+  { id: "followers", type: "followers", category: "grow", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, keywords: KEYWORDS.followers },
 
   /*
     Integrations: each one real, a public embed or player with no key
@@ -342,9 +411,21 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   embed("int_gcal", BRAND.gcal, "google-calendar", "gcal", () => tt("People book a time without leaving"), KEYWORDS.int_gcal),
   embed("int_typeform", BRAND.typeform, "typeform", "typeform", () => tt("A form people fill in on your page"), KEYWORDS.int_typeform),
   embed("int_gforms", BRAND.gforms, "google-forms", "googleforms", () => tt("A form people fill in on your page"), KEYWORDS.int_gforms),
-  embed("int_tally", BRAND.tally, null, "tally", () => tt("A form people fill in on your page"), KEYWORDS.int_tally, GlyphContact),
+  embed("int_tally", BRAND.tally, null, "tally", () => tt("A form people fill in on your page"), KEYWORDS.int_tally, GlyphContact, "tally"),
   embed("int_substack", "Substack", "substack", "substack", () => tt("People join your newsletter"), KEYWORDS.int_substack),
-  { id: "int_email", type: "email_capture", category: "integrations", label: BRAND.email, get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, keywords: KEYWORDS.int_email },
+  { id: "int_email", type: "email_capture", category: "integrations", label: "Klaviyo", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "klaviyo", data: { integration_hint: "klaviyo" }, keywords: KEYWORDS.int_email },
+  { id: "int_omnisend", type: "email_capture", category: "integrations", label: "Omnisend", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "omnisend", data: { integration_hint: "omnisend" }, keywords: KEYWORDS.int_omnisend },
+  /* Round 40: each signup sent the moment it happens (lib/onepage/integrations). */
+  tool("int_mailchimp", "Mailchimp", "mailchimp", () => tt("Signups go to your audience"), KEYWORDS.int_mailchimp),
+  tool("int_kit", BRAND.kit, "kit", () => tt("Signups go to your Kit account"), KEYWORDS.int_kit),
+  tool("int_beehiiv", "beehiiv", "beehiiv", () => tt("Signups go to your publication"), KEYWORDS.int_beehiiv),
+  tool("int_zapier", "Zapier", "zapier", () => tt("Send each signup to any app"), KEYWORDS.int_zapier),
+  tool("int_make", BRAND.make, "make", () => tt("Send each signup to a scenario"), KEYWORDS.int_make),
+  tool("int_sheets", BRAND.sheets, "sheets", () => tt("Each signup as a new row"), KEYWORDS.int_sheets),
+  tool("int_webhook", BRAND.webhook, "webhook", () => tt("Each signup sent to your own address"), KEYWORDS.int_webhook),
+  { id: "int_posts_youtube", type: "social_posts", category: "integrations", get label() { return tt("YouTube channel") }, get description() { return tt("Your latest videos, synced") }, brand: "youtube", data: { network: "youtube" }, keywords: KEYWORDS.int_posts_youtube },
+  { id: "int_posts_instagram", type: "social_posts", category: "integrations", get label() { return tt("Instagram posts") }, get description() { return tt("Posts and reels in a row") }, brand: "instagram", data: { network: "instagram" }, keywords: KEYWORDS.int_posts_instagram },
+  { id: "int_posts_tiktok", type: "social_posts", category: "integrations", get label() { return tt("TikTok posts") }, get description() { return tt("Your TikToks in a row") }, brand: "tiktok", data: { network: "tiktok" }, keywords: KEYWORDS.int_posts_tiktok },
 
   /* Links to the places people already are */
   link("instagram", "Instagram", "instagram", () => ({ label: tt("Follow on Instagram"), url: "https://instagram.com/" }), () => tt("Link to your profile")),
@@ -439,10 +520,21 @@ export function rememberRecent(id: string): void {
 /** How long after the sheet closes its search, chip and scroll go back (it has finished sliding out by then). */
 const RESET_AFTER_CLOSE_MS = 420
 
+/*
+  ROUND 40: EACH KIND IN ITS OWN TINT (./block-tints). A block's own icon sits
+  on its category's wash in its ink; a brand keeps its colours on white.
+*/
 function EntryIcon({ entry }: { entry: PickerEntry }) {
+  if (entry.mark) {
+    return (
+      <BlockTile className="bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
+        <IntegrationMark id={entry.mark} size={19} />
+      </BlockTile>
+    )
+  }
   if (entry.brandIcon) {
     const B = entry.brandIcon
-    return <BlockTile><B size={18} color="#1a1a2e" /></BlockTile>
+    return <BlockTile tint={entry.category}><B size={18} color={tintOf(entry.category).ink} /></BlockTile>
   }
   if (entry.brand) {
     /* Round 11: in the brand's own colour, as the owner asked ("use their actual icons"); a black mark stays the tile's near black. */
@@ -452,7 +544,7 @@ function EntryIcon({ entry }: { entry: PickerEntry }) {
       </BlockTile>
     )
   }
-  return <BlockTile icon={entry.icon ?? GlyphLink} />
+  return <BlockTile icon={entry.icon ?? GlyphLink} tint={entry.category} />
 }
 
 /**
@@ -501,7 +593,10 @@ const PickerSection = React.memo(function PickerSection({ id, title, entries, li
   const atLimit = limited ? limited.split(",") : []
   return (
     <section data-picker-section={id} data-shown={hidden ? undefined : ""} aria-hidden={hidden || undefined} style={hidden ? SECTION_OFF : undefined} className="pb-2">
-      <h3 className="px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{title}</h3>
+      <h3 className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.04em]" style={{ color: tintOf(id).ink }} data-picker-heading={id}>
+        <span aria-hidden className="h-[7px] w-[7px] rounded-full" style={{ backgroundColor: tintOf(id).ink, opacity: 0.85 }} />
+        {title}
+      </h3>
       <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
         {entries.map((e) => {
           const full = atLimit.includes(e.type)
@@ -585,7 +680,8 @@ export function AddBlockPicker({
     setCategory(id)
     if (listRef.current) listRef.current.scrollTop = 0
   }
-  const chips = React.useMemo(() => [{ id: "all" as const, label: tt("All") }, ...categories.map((c) => ({ id: c.id, label: c.label }))], [categories])
+  /* Each category's chip carries its tint as a dot (./block-tints); All has none. */
+  const chips = React.useMemo(() => [{ id: "all" as const, label: tt("All") }, ...categories.map((c) => ({ id: c.id, label: c.label, dot: tintOf(c.id).ink }))], [categories])
 
   return (
     <div data-add-block-picker="" className="flex min-h-0 flex-1 flex-col bg-white">

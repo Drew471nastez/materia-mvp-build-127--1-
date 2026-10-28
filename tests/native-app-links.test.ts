@@ -84,7 +84,8 @@ check("SmartLink: no target=\"_blank\" branch to the browser, and an absolute st
   !/target === "_blank"/.test(smart) && /const link = href \? nativeLinkFor\(href\)/.test(smart) && /<Link href=\{link\.path\} \{\.\.\.linkSafeProps\}/.test(smart) && /openExternal\(link\.url\)/.test(smart) && !/toInternalHref/.test(smart))
 check("  and the browser only for the external kind", (smart.match(/openExternal\(/g) ?? []).length === 1 && /\} else \{\s*openExternal\(link\.url\)/.test(smart))
 /* Round 11: the editor's preview stops it first (nothing leaves the preview, lib/onepage/preview-notice); live, it is the same first step. */
-check("the OnePage's Made with Storelib mark navigates the app rather than opening a browser sheet", /const openExternalUrl = async \(url: string\) => \{\s*(?:if \(isOnePagePreview\(\)\) return showPreviewNotice\("link"\)\s*)?if \(navigateInApp\(url\)\) return/.test(code("components/onepage/public-onepage.tsx")))
+/* Changed on purpose (r40): the mark is in the OnePage's share sheet now (components/onepage/share-sheet), the same first steps. */
+check("the OnePage's Made with Storelib mark navigates the app rather than opening a browser sheet", /async function openExternalUrl\(url: string\) \{\s*(?:\/\*[^*]*\*\/\s*)?(?:if \(isOnePagePreview\(\)\) return showPreviewNotice\("link"\)\s*)?(?:\/\*[^*]*\*\/\s*)?if \(navigateInApp\(url\)\) return/.test(code("components/onepage/share-sheet.tsx")))
 const wish = code("components/wishlist/wishlist-content.tsx")
 check("the wishlist opens a product in this window in the app too", !/target: native \? "_blank"/.test(wish) && !/getProductShareUrl/.test(wish))
 const guard = code("components/platform/native-link-guard.tsx")

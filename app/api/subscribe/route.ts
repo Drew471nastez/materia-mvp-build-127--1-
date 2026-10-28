@@ -1,10 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { triggerEmailFlows } from "@/lib/email"
 import { randomUUID } from "node:crypto"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 import { recordSignupAttribution } from "@/lib/attribution/server"
+import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -186,9 +187,12 @@ export async function POST(request: NextRequest) {
         console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
       }
 
-      return NextResponse.json({ 
-        success: true, 
-        message: "Resubscribed successfully" 
+      /* A OnePage's subscribe button: its connected tools get the signup too (lib/onepage/integrations). */
+      if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer") })))
+
+      return NextResponse.json({
+        success: true,
+        message: "Resubscribed successfully"
       }, { status: 200 })
     }
 
@@ -251,8 +255,10 @@ export async function POST(request: NextRequest) {
       console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer") })))
+
+    return NextResponse.json({
+      success: true,
       message: "Subscribed successfully",
       subscriber: { id: newSubscriber.id, email: newSubscriber.email }
     }, { status: 201 })

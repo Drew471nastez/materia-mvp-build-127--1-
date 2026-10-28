@@ -80,10 +80,16 @@ export function MonthGrid({
   const start = parts(opensOn)
   const [view, setView] = React.useState({ y: start.y, m: start.m })
   const [focusDay, setFocusDay] = React.useState<Ymd>(opensOn)
+  /* Which way the last month change went, so the new month comes in from that side (round 40). */
+  const [dir, setDir] = React.useState<0 | 1 | -1>(0)
   const gridRef = React.useRef<HTMLDivElement>(null)
-  const go = (delta: number) => setView((v) => ({ y: v.y + Math.floor((v.m + delta) / 12), m: (((v.m + delta) % 12) + 12) % 12 }))
+  const go = (delta: number) => {
+    setDir(delta > 0 ? 1 : -1)
+    setView((v) => ({ y: v.y + Math.floor((v.m + delta) / 12), m: (((v.m + delta) % 12) + 12) % 12 }))
+  }
   const cells = monthCells(view.y, view.m)
-  const size = compact ? "h-11 w-11 text-[16px]" : "h-9 w-9 text-[13.5px]"
+  /* Round 40: "not that big". 40px days on a phone (still a whole fingertip), 34px on a computer. */
+  const size = compact ? "h-10 w-10 text-[15px]" : "h-[34px] w-[34px] text-[13px]"
 
   const onKey = (e: React.KeyboardEvent) => {
     const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key]
@@ -92,15 +98,18 @@ export function MonthGrid({
     const next = addDays(focusDay, step)
     const p = parts(next)
     setFocusDay(next)
-    if (p.y !== view.y || p.m !== view.m) setView({ y: p.y, m: p.m })
+    if (p.y !== view.y || p.m !== view.m) {
+      setDir(next > focusDay ? 1 : -1)
+      setView({ y: p.y, m: p.m })
+    }
     requestAnimationFrame(() => gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${next}"]`)?.focus())
   }
 
-  const nav = cn(secondaryDepth, "rounded-lg text-[#303036]", compact ? "h-11 w-11" : "h-8 w-8")
+  const nav = cn(secondaryDepth, "rounded-lg text-[#303036]", compact ? "h-10 w-10" : "h-8 w-8")
   return (
     <div data-month-grid="" className="w-full">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className={cn("font-semibold text-[#1a1a2e]", compact ? "text-[17px]" : "text-[14.5px]")} aria-live="polite">
+        <p className={cn("font-semibold text-[#1a1a2e]", compact ? "text-[16px]" : "text-[14.5px]")} aria-live="polite">
           {monthYear(view.y, view.m)}
         </p>
         <div className="flex gap-1.5">
@@ -117,7 +126,21 @@ export function MonthGrid({
           <div key={i}>{w}</div>
         ))}
       </div>
-      <div ref={gridRef} role="grid" aria-label={monthYear(view.y, view.m)} className="grid grid-cols-7 justify-items-center gap-y-0.5" onKeyDown={onKey}>
+      <div
+        ref={gridRef}
+        key={`${view.y}-${view.m}`}
+        role="grid"
+        aria-label={monthYear(view.y, view.m)}
+        data-month-dir={dir}
+        className={cn(
+          "grid grid-cols-7 justify-items-center gap-y-0.5",
+          /* The new month slides in a few pixels from the side it came from and fades up; nothing else moves (six rows always). */
+          dir !== 0 && "animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:animate-none",
+          dir === 1 && "slide-in-from-right-2",
+          dir === -1 && "slide-in-from-left-2",
+        )}
+        onKeyDown={onKey}
+      >
         {cells.map((d, i) => {
           /* An empty square keeps its place in the grid, so the 1st sits under its own weekday. */
           if (!d) return <span key={i} aria-hidden className={size} />
@@ -175,7 +198,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
 
   const box = cn(
     "w-[2.4ch] bg-transparent text-center font-medium tabular-nums text-[#1a1a2e] outline-none rounded-md focus:bg-[#efeff3]",
-    compact ? "h-9 text-[18px]" : "h-8 text-[15px]",
+    compact ? "h-9 text-[17px]" : "h-8 text-[15px]",
   )
   const stepKeys = (e: React.KeyboardEvent, which: "h" | "m") => {
     const d = { ArrowUp: 1, ArrowDown: -1 }[e.key]
@@ -191,7 +214,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
 
   return (
     <div className="flex items-center gap-2" data-time-input="">
-      <div className={cn("inline-flex items-center rounded-xl border border-[#e3e4e8] bg-white px-2 transition-[border-color,box-shadow] focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", compact ? "h-12" : "h-10")}>
+      <div className={cn("inline-flex items-center rounded-xl border border-[#e3e4e8] bg-white px-2 transition-[border-color,box-shadow] focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", compact ? "h-11" : "h-10")}>
         <input
           aria-label={tt("Hour")}
           data-time-hour=""
@@ -220,7 +243,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
           }}
           className={box}
         />
-        <span aria-hidden className={cn("font-medium text-[#6b7280]", compact ? "text-[18px]" : "text-[15px]")}>:</span>
+        <span aria-hidden className={cn("font-medium text-[#6b7280]", compact ? "text-[17px]" : "text-[15px]")}>:</span>
         <input
           ref={minuteRef}
           aria-label={tt("Minute")}
@@ -246,7 +269,7 @@ export function TimeInput({ hour, minute, onChange, compact }: { hour: number; m
           className={box}
         />
       </div>
-      <div role="radiogroup" aria-label={tt("Morning or afternoon")} className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-12" : "h-10")}>
+      <div role="radiogroup" aria-label={tt("Morning or afternoon")} className={cn("inline-flex rounded-xl bg-[#f1f2f4] p-1", compact ? "h-11" : "h-10")}>
         {(["AM", "PM"] as const).map((x) => {
           const on = (x === "PM") === pm
           return (
@@ -341,7 +364,7 @@ export function DateTimeField({
   )
 
   const panel = (compact: boolean) => (
-    <div data-datetime-panel="" className={cn("flex flex-col", compact ? "gap-5" : "gap-4")}>
+    <div data-datetime-panel="" className={cn("flex flex-col", compact ? "gap-4" : "gap-3.5")}>
       <MonthGrid key={open ? "open" : "shut"} selected={wall?.ymd ?? null} today={today} compact={compact} before={afterYmd} onPick={(d) => write(d, hour, minute)} />
       <div className="h-px bg-[#eef0f2]" aria-hidden />
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -351,13 +374,13 @@ export function DateTimeField({
       {!wall ? <p className="-mt-2 text-[12.5px] text-[#6b7280]">{tt("Pick a day to set it.")}</p> : null}
       <div className="flex items-center justify-between gap-2">
         {!required && wall ? (
-          <button type="button" onClick={() => { onChange(null); setOpen(false) }} data-datetime-clear="" className={cn(secondaryDepth, "rounded-xl px-4 text-[14px]", compact ? "h-12" : "h-10")}>
+          <button type="button" onClick={() => { onChange(null); setOpen(false) }} data-datetime-clear="" className={cn(secondaryDepth, "rounded-xl px-4 text-[14px]", compact ? "h-11" : "h-10")}>
             {tt("Clear")}
           </button>
         ) : (
           <span />
         )}
-        <button type="button" onClick={() => setOpen(false)} data-datetime-done="" className={cn(primaryDepth, "rounded-xl px-5 text-[14px]", compact ? "h-12" : "h-10")}>
+        <button type="button" onClick={() => setOpen(false)} data-datetime-done="" className={cn(primaryDepth, "rounded-xl px-5 text-[14px]", compact ? "h-11 min-w-[112px]" : "h-10")}>
           {tt("Done")}
         </button>
       </div>
@@ -368,9 +391,23 @@ export function DateTimeField({
     return (
       <>
         {trigger}
-        {/* The hour and minute are typed: the sheet sits on the keyboard, not under it. */}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} aboveKeyboard>
-          <div className="px-5 pb-4 pt-2">{panel(true)}</div>
+        {/*
+          The hour and minute are typed: the sheet sits on the keyboard, not under it. Round 40: a header of its own, the
+          field's name and the moment it is set to, so the sheet says what it is changing without a second look at the page.
+        */}
+        <BottomSheet
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          label={label}
+          aboveKeyboard
+          header={
+            <div className="flex items-baseline justify-between gap-3 px-5 pt-2.5">
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{label}</p>
+              <p className="truncate text-[13.5px] font-medium tabular-nums text-[#6b7280]" data-datetime-summary="">{text}</p>
+            </div>
+          }
+        >
+          <div className="px-5 pb-4 pt-3">{panel(true)}</div>
         </BottomSheet>
       </>
     )
@@ -382,7 +419,7 @@ export function DateTimeField({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="w-[308px] rounded-2xl border border-[#e3e4e8] bg-white p-4 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
+        className="w-[292px] rounded-2xl border border-[#e3e4e8] bg-white p-3.5 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
         onOpenAutoFocus={(e) => {
           /* Onto the chosen day (or today), not the first button. */
           e.preventDefault()

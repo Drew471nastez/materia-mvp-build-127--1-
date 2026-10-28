@@ -52,7 +52,8 @@ console.log("\nEvery screen that prints the person's own address goes through it
   }
 
   const composer = read("components/email/compose/composer.tsx")
-  check("  where a test goes, and where replies go, in the composer", /email: displayEmail\(user\.email\)/.test(composer) && /displayEmail\(user\.email\) \|\| ""/.test(composer) && !/email: user\.email \?\? null/.test(composer))
+  /* Changed on purpose (round 40 team permissions): the signed in person's own address now comes from the server (app/api/email/area?part=sender, gate.userEmail) as `sender.email`, and the composer still shows it through displayEmail. */
+  check("  where a test goes, and where replies go, in the composer", /email: displayEmail\(sender\.email\)/.test(composer) && /displayEmail\(sender\.email\) \|\| ""/.test(composer) && !/email: (user|sender)\.email \?\? null/.test(composer))
 
   const receipt = read("app/receipt/[token]/receipt-view.tsx")
   check("  \"Receipt goes to\" on a receipt", /displayEmail\(viewer\.email\)/.test(receipt) && !/viewer\.email \? viewer\.email :/.test(receipt))

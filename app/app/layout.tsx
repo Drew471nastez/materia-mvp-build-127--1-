@@ -287,8 +287,8 @@ export default async function AppLayout({
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
           communitiesEnabled={communitiesOn}
-          teamRole={teamStore && acting ? acting.role : null}
-          teamStores={memberOf.map((m) => ({ creatorId: m.creatorId, name: m.name, avatarUrl: m.avatarUrl, role: m.role, current: !!teamStore && acting?.creatorId === m.creatorId }))}
+          teamPermissions={teamStore && acting ? acting.permissions : null}
+          teamStores={memberOf.map((m) => ({ creatorId: m.creatorId, name: m.name, avatarUrl: m.avatarUrl, permissions: m.permissions, current: !!teamStore && acting?.creatorId === m.creatorId }))}
         />
         {/* md:pt accounts for the desktop header height (58 px) plus the
             safe-area-inset-top padding the header adds in Capacitor.
@@ -305,7 +305,7 @@ export default async function AppLayout({
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
           <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
             <LiveStoreCurrency currency={storeCurrency}>
-              {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator} ownHome={ownAccountHref({ ownAccess, actingIn: acting.creatorId })}>{children}</TeamBar> : children}
+              {teamStore && acting ? <TeamBar store={acting.name} permissions={acting.permissions} ownStore={!!ownCreator} ownHome={ownAccountHref({ ownAccess, actingIn: acting.creatorId })}>{children}</TeamBar> : children}
             </LiveStoreCurrency>
           </div>
         </main>

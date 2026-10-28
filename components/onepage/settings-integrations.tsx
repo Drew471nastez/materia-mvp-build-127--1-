@@ -22,14 +22,21 @@
  *                          purpose creator_page), which the page is served on
  *                          and its share links use. GET /api/domains.
  *
- * Only reads. Nothing here is a second copy of a setting.
+ * Those three only read. Nothing here is a second copy of a setting.
+ *
+ *   SENT AS THEY SIGN UP   round 40: Mailchimp, Kit, beehiiv, Zapier, Make,
+ *                          Google Sheets and a webhook belong to the page
+ *                          (its signups, as they happen), so they are
+ *                          connected here (./page-integrations,
+ *                          GET/POST /api/onepage/integrations, SQL part 315).
  */
 
 import * as React from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
 
 type Tracking = Partial<Record<string, string | null>>
 type MarketingRow = { provider: "klaviyo" | "omnisend"; connected: boolean; listName?: string | null }
@@ -149,6 +156,9 @@ export function OnePageIntegrations() {
         )}
       </section>
 
+      {/* Round 40: Mailchimp, Kit, beehiiv, Zapier, Make, Sheets and a webhook, connected here, each sent every signup as it happens (./page-integrations). */}
+      <PageIntegrationsSection />
+
       <a
         href="/app/integrations"
         className="flex min-h-11 w-full items-center justify-between rounded-xl border border-[#e5e7eb] px-4 py-3 text-[14px] text-[#1a1a2e] transition-colors [@media(hover:hover)]:hover:bg-[#f9fafb]"
@@ -173,8 +183,12 @@ export function OnePageDomainRow() {
     <a
       href="/app/settings?tab=domains"
       data-settings-domain={host ? "on" : "off"}
-      className="flex min-h-[60px] items-center gap-3 rounded-xl border border-[#e5e7eb] px-4 py-3 transition-colors [@media(hover:hover)]:hover:bg-[#f9fafb]"
+      className="flex min-h-[60px] items-center gap-3 rounded-xl border border-[#e5e7eb] py-3 pl-3 pr-4 transition-colors [@media(hover:hover)]:hover:bg-[#f9fafb]"
     >
+      {/* A small globe on a quiet tile, as the Help Center marks its topics (components/help/help-hero TopicIcon), so the row reads as a place to go. */}
+      <span aria-hidden data-settings-domain-icon="" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#e8eaed] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+        <Globe className="h-[17px] w-[17px]" strokeWidth={1.6} />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-medium text-[#1a1a2e]">{tt("Your own domain")}</span>
         <span className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">

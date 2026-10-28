@@ -275,13 +275,28 @@ export async function inventoryRows(db: Db, creatorId: string, lowStockDefault =
 
 /** The variants with their own low stock line when the database has it (part 214), without it when not. */
 async function variantsOf(db: Db, productIds: string[]): Promise<Record<string, any>[]> {
-  const read = (cols: string) => db.from("product_variants").select(cols).in("product_id", productIds).order("position").limit(5000)
-  const first = await read(`${VARIANT_COLUMNS}, low_stock_threshold`)
-  if (!first.error) return (first.data ?? []) as Record<string, any>[]
+  /*
+    In batches of 200 ids, as the levels are read in 500s: a thousand product
+    ids in one `in` filter is a 37KB address, longer than many proxies in
+    front of PostgREST take, and a refused read here drew an empty Inventory.
+  */
+  const readAll = async (cols: string): Promise<{ rows: Record<string, any>[]; error: { code?: string } | null }> => {
+    const rows: Record<string, any>[] = []
+    for (let i = 0; i < productIds.length; i += VARIANT_BATCH) {
+      const { data, error } = await db.from("product_variants").select(cols).in("product_id", productIds.slice(i, i + VARIANT_BATCH)).order("position").limit(5000)
+      if (error) return { rows: [], error }
+      rows.push(...((data ?? []) as Record<string, any>[]))
+    }
+    return { rows, error: null }
+  }
+  const first = await readAll(`${VARIANT_COLUMNS}, low_stock_threshold`)
+  if (!first.error) return first.rows
   if (!missingColumn(first.error)) return []
-  const again = await read(VARIANT_COLUMNS)
-  return (again.data ?? []) as Record<string, any>[]
+  return (await readAll(VARIANT_COLUMNS)).rows
 }
+
+/** Product ids per variants read (see variantsOf). */
+export const VARIANT_BATCH = 200
 
 /** Each variant's own low stock line, by id, where part 214 is there; an empty map where it is not. Never throws. */
 export async function variantLowStockLines(db: { from: (t: string) => any }, variantIds: string[]): Promise<Map<string, number>> { // eslint-disable-line @typescript-eslint/no-explicit-any

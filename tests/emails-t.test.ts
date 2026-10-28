@@ -60,7 +60,8 @@ console.log("\nSettings › Customer emails\n")
   check("each one previews through the template that sends it, with the store's name", drawn.every((d) => !!d.mail && d.mail.html.includes("Angus Farm") && d.mail.subject.length > 0), drawn.filter((d) => !d.mail || !d.mail.html.includes("Angus Farm")).map((d) => d.id))
   check("  an id that isn't one draws nothing", previewCustomerEmail("nope", { name: "X" }) === null)
   const route = read("app/api/store/emails/preview/route.ts")
-  check("the preview is the owner's", /shopCaller\(\)/.test(route))
+  /* Changed on purpose (round 40 team permissions): the owner's, or a team member's given Marketing, for the store they work in. */
+  check("the preview is the owner's (or Marketing's)", /shopCaller\("marketing"\)/.test(route))
   const panel = read("components/app/settings/customer-emails-panel.tsx")
   /* Changed on purpose: the frame is shared with the community emails (components/app/emails/email-parts.tsx). */
   const parts = read("components/app/emails/email-parts.tsx")

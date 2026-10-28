@@ -244,7 +244,8 @@ function main() {
     ["the plan checkout", "components/app/billing/checkout-modal.tsx"],
     ["the offline screen", "components/app/offline-guard.tsx"],
     ["Powered by Storelib on product and creator pages", "components/storefront/seller-footer.tsx"],
-    ["the Create your own page card on a OnePage", "components/onepage/public-onepage.tsx"],
+    /* Changed on purpose (r40): the OnePage share sheet moved to its own file, its last line is the way to make a page. */
+    ["the Make a page like this line in a OnePage's share sheet", "components/onepage/share-sheet.tsx"],
     ["the public wishlist", "components/wishlist/public-wishlist-shell.tsx"],
     ["the website editor's Ask AI buttons", "app/website-builder/editor/[installId]/page.tsx"],
     ["the code editor's Solve with AI", "app/website-builder/code/[installId]/page.tsx"],

@@ -7,6 +7,8 @@ import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepa
 import { isShareImageMode } from "@/lib/onepage/seo"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
+import { onePageActor } from "@/lib/team/onepage"
+import { stripResolved } from "@/lib/onepage/storelib-blocks"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -45,18 +47,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    /* Whose page (lib/team/onepage): the owner's own, with their own client as before; a team member with OnePage, the store owner's. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    const db = actor.db
+    const ownerId = actor.pageOwnerId
+
     // Get creator info
-    const { data: creator } = await supabase
+    const { data: creator } = await db
       .from("creators")
       .select("id, slug")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single()
 
     // Try to get existing onepage with proper error handling
-    let { data: onepage, error: fetchError } = await supabase
+    let { data: onepage, error: fetchError } = await db
       .from("onepages")
       .select("*")
-      .eq("owner_id", user.id)
+      .eq("owner_id", ownerId)
       .single()
 
     // Log actual errors (not "no rows found" which is expected for new users)
@@ -73,16 +81,17 @@ export async function GET() {
      * lib/onepage/ensure-onepage.ts and both callers use it.
      */
     if (!onepage) {
-      onepage = (await ensureOnePage(supabase, user.id, creator)) as typeof onepage
+      onepage = (await ensureOnePage(db, ownerId, creator)) as typeof onepage
       if (!onepage) {
         return NextResponse.json({ error: "Failed to create onepage" }, { status: 500 })
       }
     } else if (!onepage.seller_id && creator?.id) {
       // Update existing onepage with seller_id if missing
-      const { data: updated } = await supabase
+      const { data: updated } = await db
         .from("onepages")
         .update({ seller_id: creator.id, creator_id: creator.id })
         .eq("id", onepage.id)
+        .eq("owner_id", ownerId)
         .select()
         .single()
 
@@ -116,6 +125,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    /* Whose page (lib/team/onepage). For the owner db is this same session client and ownerId their own id, so nothing below changes for them. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    const db = actor.db
+    const ownerId = actor.pageOwnerId
+
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== "object") return refuse("The page could not be read")
     const {
@@ -140,11 +155,11 @@ export async function PUT(request: Request) {
     }
 
     // Get existing record with current settings
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from("onepages")
       .select("id, slug, settings, seller_id, creator_id")
       .eq("id", id)
-      .eq("owner_id", user.id)
+      .eq("owner_id", ownerId)
       .single()
 
     if (!existing) {
@@ -166,7 +181,7 @@ export async function PUT(request: Request) {
       if (!verdict.ok) return refuse(verdict.error)
       nextSlug = verdict.value
       if (nextSlug !== existing.slug) {
-        const taken = await onePageNameTaken(nextSlug, { onepageId: id, userId: user.id })
+        const taken = await onePageNameTaken(nextSlug, { onepageId: id, userId: ownerId })
         if (taken === "unknown") return refuse("That page address could not be checked just now. Try again in a moment.")
         if (taken === "taken") return refuse(TAKEN)
       }
@@ -195,14 +210,15 @@ export async function PUT(request: Request) {
     */
     let photoNow: string | null | undefined
     if (avatar_url !== undefined) {
-      const { data: profile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+      const { data: profile } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
       photoNow = typeof profile?.avatar_url === "string" && profile.avatar_url.trim() !== "" ? profile.avatar_url.trim() : null
       updates.avatar_url = photoNow
     }
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (social_links !== undefined) updates.social_links = social_links
-    if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
+    /* What the live page reads for a shelf or a posts row is never kept in the draft (lib/onepage/storelib-blocks stripResolved). */
+    if (draft_blocks !== undefined) updates.draft_blocks = stripResolved(draft_blocks)
     if (nextSlug !== undefined) updates.slug = nextSlug
     if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
     if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
@@ -227,7 +243,7 @@ export async function PUT(request: Request) {
         (newSettings.verified_badge_enabled === true && existingSettings.verified_badge_enabled !== true) ||
         (newSettings.show_branding === false && existingSettings.show_branding !== false)
       if (turnsOnPaid) {
-        const plan = await paidPlan(user.id)
+        const plan = await paidPlan(ownerId)
         if (plan === "unknown") return refuse("Your plan could not be checked just now. Try again in a moment.")
         if (plan === "free") return refuse("The verified badge and hiding the Storelib badge are part of Pro")
       }
@@ -246,10 +262,10 @@ export async function PUT(request: Request) {
 
     // Ensure seller_id is set if missing
     if (!existing.seller_id) {
-      const { data: creator } = await supabase
+      const { data: creator } = await db
         .from("creators")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .single()
 
       if (creator) {
@@ -258,7 +274,7 @@ export async function PUT(request: Request) {
       }
     }
 
-    const write = (row: typeof updates) => supabase.from("onepages").update(row).eq("id", id).eq("owner_id", user.id).select().single()
+    const write = (row: typeof updates) => db.from("onepages").update(row).eq("id", id).eq("owner_id", ownerId).select().single()
     let { data: updated, error } = await write(updates)
 
     /*
@@ -283,7 +299,7 @@ export async function PUT(request: Request) {
     /* The copy taken at the last publish takes the same photo, so the live
        page changes with the profile rather than at the next publish. */
     if (photoNow !== undefined) {
-      await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: photoNow } })
+      await followProfileIdentity(db as unknown as FollowClient, ownerId, { photo: { after: photoNow } })
     }
 
     return NextResponse.json({ onepage: updated })

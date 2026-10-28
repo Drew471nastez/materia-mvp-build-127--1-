@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
  * it in a sandboxed frame.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const q = new URL(request.url).searchParams
   const id = q.get("id") ?? ""

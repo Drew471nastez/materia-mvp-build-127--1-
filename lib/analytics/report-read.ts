@@ -30,6 +30,7 @@ import { byCreator, ownRows, scopedOrders } from "./creator-orders"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
 import { isBotAgent, parseUserAgent } from "./user-agent"
+import { socialLinkId, socialLinkLabel } from "@/lib/onepage/link-keys"
 import type { SalesMode } from "./sections"
 import { counts, propertyParam, type CreatorProperties, type PropertySelector, type WebsiteProperty } from "./properties"
 import {
@@ -347,6 +348,17 @@ export async function onePageLinkLabels(admin: Admin, onePageId: string | null):
     for (const b of blocks ?? []) {
       const label = b?.id ? blockLabel(b) : null
       if (b?.id && label && !labels[b.id]) labels[b.id] = label
+      /* A row of social icons: each icon is counted under `<row>__<platform>` (lib/onepage/link-keys) and listed by the platform's name. */
+      if (b?.id && b.type === "social_row") {
+        if (!labels[b.id]) labels[b.id] = "Social icons"
+        const platforms = (b.data as { platforms?: Array<{ platform?: string }> } | undefined)?.platforms
+        for (const p of Array.isArray(platforms) ? platforms : []) {
+          if (!p?.platform) continue
+          const id = socialLinkId(b.id, p.platform)
+          const name = socialLinkLabel(id)
+          if (name && !labels[id]) labels[id] = name
+        }
+      }
       const children = (b?.data as { children?: Block[] } | undefined)?.children
       if (Array.isArray(children)) walk(children)
     }

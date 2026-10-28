@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server"
 import { FlowChooser } from "./chooser"
 import { pageUser } from "@/lib/auth/page-user"
 import { getServerTt } from "@/lib/i18n/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -18,9 +21,14 @@ export default async function NewFlowPage() {
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) redirect("/app")
-  const { data: flows } = await supabase.from("email_flows").select("id, trigger_type, trigger_config").eq("creator_id", creator.id).order("created_at", { ascending: true })
+  /* The store, for its owner or a team member given Marketing (lib/team). */
+  const access = await teamPageStore("marketing")
+  if (access.kind === "signed_out") return null
+  if (access.kind === "denied") return <TeamAreaClosed area="marketing" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "none") redirect("/app")
+  const creator = { id: access.creatorId }
+  const db = access.isOwner ? supabase : (createAdminClient() as unknown as typeof supabase)
+  const { data: flows } = await db.from("email_flows").select("id, trigger_type, trigger_config").eq("creator_id", creator.id).order("created_at", { ascending: true })
   const existing: Record<string, string> = {}
   for (const f of (flows ?? []) as Array<{ id: string; trigger_type: string; trigger_config: { template?: string } | null }>) {
     /* A flow made before templates had a name for it was the welcome email

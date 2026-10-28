@@ -28,6 +28,7 @@
  *   ready          the one with Accept and Decline
  */
 import { seatLimit, type MemberRole } from "./roles"
+import { permissionsOfRow, type TeamPermission } from "./permissions"
 
 export interface InviteStore {
   id: string
@@ -40,6 +41,8 @@ export interface InviteRow {
   creator_id: string
   email: string
   role: MemberRole
+  /** What the invite gives (SQL part 320). A row from before it reads as its role (permissionsOfRow). */
+  permissions?: TeamPermission[]
   status: "invited" | "active"
   user_id: string | null
   expires_at: string | null
@@ -49,13 +52,13 @@ export type InviteState =
   | { kind: "invalid" }
   | { kind: "gone" }
   | { kind: "store_gone" }
-  | { kind: "accepted"; store: InviteStore; role: MemberRole; mine: boolean }
+  | { kind: "accepted"; store: InviteStore; role: MemberRole; permissions: TeamPermission[]; mine: boolean }
   | { kind: "expired"; store: InviteStore; email: string }
   | { kind: "own_store"; store: InviteStore }
-  | { kind: "seats_full"; store: InviteStore; role: MemberRole; limit: number }
-  | { kind: "signed_out"; store: InviteStore; role: MemberRole; email: string; hasAccount: boolean }
-  | { kind: "wrong_account"; store: InviteStore; role: MemberRole; email: string; signedInAs: string | null; inviteId: string }
-  | { kind: "ready"; store: InviteStore; role: MemberRole; email: string; inviteId: string }
+  | { kind: "seats_full"; store: InviteStore; role: MemberRole; permissions: TeamPermission[]; limit: number }
+  | { kind: "signed_out"; store: InviteStore; role: MemberRole; permissions: TeamPermission[]; email: string; hasAccount: boolean }
+  | { kind: "wrong_account"; store: InviteStore; role: MemberRole; permissions: TeamPermission[]; email: string; signedInAs: string | null; inviteId: string }
+  | { kind: "ready"; store: InviteStore; role: MemberRole; permissions: TeamPermission[]; email: string; inviteId: string }
 
 /** The same inbox, written either way: case and spaces never make two people. */
 export function sameEmail(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -96,17 +99,18 @@ export function inviteStateOf(input: {
   if (!invite) return { kind: "gone" }
   if (!store) return { kind: "store_gone" }
   const shown: InviteStore = { id: store.id, name: store.name, avatarUrl: store.avatarUrl }
-  if (invite.status === "active") return { kind: "accepted", store: shown, role: invite.role, mine: !!user && invite.user_id === user.id }
+  const permissions = permissionsOfRow(invite)
+  if (invite.status === "active") return { kind: "accepted", store: shown, role: invite.role, permissions, mine: !!user && invite.user_id === user.id }
   if (invite.expires_at && Date.parse(invite.expires_at) < input.now) return { kind: "expired", store: shown, email: invite.email }
-  if (!user) return { kind: "signed_out", store: shown, role: invite.role, email: invite.email, hasAccount: input.hasAccount }
+  if (!user) return { kind: "signed_out", store: shown, role: invite.role, permissions, email: invite.email, hasAccount: input.hasAccount }
   if (store.ownerUserId && store.ownerUserId === user.id) return { kind: "own_store", store: shown }
-  if (input.alreadyMember) return { kind: "accepted", store: shown, role: invite.role, mine: true }
+  if (input.alreadyMember) return { kind: "accepted", store: shown, role: invite.role, permissions, mine: true }
   const limit = seatLimit(store.pro)
-  if (input.teamSize > limit) return { kind: "seats_full", store: shown, role: invite.role, limit }
+  if (input.teamSize > limit) return { kind: "seats_full", store: shown, role: invite.role, permissions, limit }
   if (!sameEmail(user.email, invite.email)) {
-    return { kind: "wrong_account", store: shown, role: invite.role, email: invite.email, signedInAs: user.email, inviteId: invite.id }
+    return { kind: "wrong_account", store: shown, role: invite.role, permissions, email: invite.email, signedInAs: user.email, inviteId: invite.id }
   }
-  return { kind: "ready", store: shown, role: invite.role, email: invite.email, inviteId: invite.id }
+  return { kind: "ready", store: shown, role: invite.role, permissions, email: invite.email, inviteId: invite.id }
 }
 
 /** The answer a refused accept gives, from the same states. */

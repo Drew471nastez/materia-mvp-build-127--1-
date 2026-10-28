@@ -74,7 +74,20 @@ export function useMediaUpload() {
   return { state, busy, upload, cancel, fail, clear }
 }
 
-export function UploadProgress({ state, onCancel, className, tone = "light" }: { state: UploadState; onCancel?: () => void; className?: string; tone?: "light" | "dark" }) {
+export function UploadProgress({
+  state,
+  onCancel,
+  className,
+  tone = "light",
+  finishing = false,
+}: {
+  state: UploadState
+  onCancel?: () => void
+  className?: string
+  tone?: "light" | "dark"
+  /** The bytes are up and the address is being written: a full bar that reads Saving, with no Stop. */
+  finishing?: boolean
+}) {
   if (state.phase === "idle") return null
   if (state.phase === "error") {
     return (
@@ -83,9 +96,11 @@ export function UploadProgress({ state, onCancel, className, tone = "light" }: {
       </p>
     )
   }
-  const percent = state.phase === "uploading" ? state.percent : 0
+  const percent = finishing ? 100 : state.phase === "uploading" ? state.percent : 0
   const label =
-    state.phase === "preparing"
+    finishing
+      ? tt("Saving")
+      : state.phase === "preparing"
       ? tt("Getting it ready")
       : state.total > 2 * 1024 * 1024
         ? tt("{percent}% · {done} of {total}", { percent, done: formatBytes(state.loaded), total: formatBytes(state.total) })
@@ -95,8 +110,13 @@ export function UploadProgress({ state, onCancel, className, tone = "light" }: {
       <div className="min-w-0 flex-1">
         <div className={cn("h-1.5 w-full overflow-hidden rounded-full", tone === "dark" ? "bg-white/20" : "bg-[#eceef1]")}>
           <div
-            className={cn("h-full w-full origin-left rounded-full transition-[scale] duration-200 ease-out", tone === "dark" ? "bg-white" : "bg-[#1a1a2e]")}
-            style={{ scale: `${Math.max(0.02, percent / 100)} 1` }}
+            className={cn(
+              "h-full w-full origin-left rounded-full transition-[scale] duration-200 ease-out motion-reduce:transition-none",
+              tone === "dark" ? "bg-white" : "bg-[#1a1a2e]",
+              /* Before the first byte, and while the address is written: a sliver that breathes, so the line never looks stuck. */
+              (state.phase === "preparing" || finishing) && "animate-pulse",
+            )}
+            style={{ scale: `${state.phase === "preparing" && !finishing ? 0.06 : Math.max(0.02, percent / 100)} 1` }}
           />
         </div>
         <p className={cn("mt-1.5 text-[12.5px] tabular-nums", tone === "dark" ? "text-white/80" : "text-[#6b7280]")}>{label}</p>

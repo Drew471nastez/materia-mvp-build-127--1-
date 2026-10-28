@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
-import { creatorForRequest } from "@/lib/auth/request-scope"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -29,19 +30,18 @@ export default async function CustomersPage() {
   const locale = LOCALE_TAG[language] ?? "en-US"
   const admin = createAdminClient()
 
-  /* The /app layout's own answers, through the per-request cache
-     (lib/auth/request-scope.ts): the user, and the creator row on the
-     caller's own client, as this page read it before. */
+  /* The /app layout's own answer for the user, through the per-request cache (lib/auth/request-scope.ts). */
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const creator = await creatorForRequest(user.id)
-
-  if (!creator) {
-    redirect("/onboarding")
-  }
+  /* The store's customers, for its owner or a team member given Customers (lib/team); anyone else is told, and nothing of the store is read. */
+  const access = await teamPageStore("customers")
+  if (access.kind === "signed_out") return null
+  if (access.kind === "denied") return <TeamAreaClosed area="customers" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "none") redirect("/onboarding")
+  const creator = { id: access.creatorId }
 
   /*
     FOUR TRIPS, WHERE THERE WERE FIVE. The customers and the orders both

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { countReportAnswer, reportQuestion, type Answer } from "@/lib/analytics/report-answer"
 
@@ -111,25 +110,23 @@ async function answered(all: Promise<Answer>, label: string) {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  /* The store's figures, for its owner or a team member given Analytics (lib/team). */
+  const gate = await requireTeamPermission("analytics")
+  if (gate instanceof NextResponse) return gate
 
   const url = new URL(request.url)
   const stream = url.searchParams.get("stream") === "1"
-  const admin = createAdminClient()
-  /* The question, for this user's creator only (lib/analytics/report-answer). */
-  const asked = await reportQuestion(admin, user.id, url, getMainDomain())
+  const admin = gate.db
+  /* The question, for this store only (lib/analytics/report-answer). */
+  const asked = await reportQuestion(admin, gate.userId, url, getMainDomain(), { creatorId: gate.creatorId, ownerUserId: gate.ownerUserId })
   if ("error" in asked) return NextResponse.json({ error: asked.error }, { status: asked.status })
 
-  /* Who asks, and the whole question. */
-  const key = `${user.id}|${asked.question}`
+  /* Who asks, in which store, and the whole question: a member's own store and the one they work in are two answers. */
+  const key = `${gate.userId}|${gate.creatorId}|${asked.question}`
   const known = remembered(key)
   if (known) return stream ? streamed(Promise.resolve(null), Promise.resolve(known)) : NextResponse.json(known, { headers: HEADERS })
 
   let figures: Promise<Answer | null> = Promise.resolve(null)
-  const all = once(key, () => countReportAnswer(admin, asked.q, asked.productTitles, asked.productTypes, user.id, stream ? (f) => (figures = f) : undefined))
+  const all = once(key, () => countReportAnswer(admin, asked.q, asked.productTitles, asked.productTypes, gate.viewer, stream ? (f) => (figures = f) : undefined))
   return stream ? streamed(figures, all) : answered(all, "[analytics/reports]")
 }

@@ -27,7 +27,7 @@ export const maxDuration = 60
 export async function POST(request: Request, { params }: { params: Promise<{ productId: string }> }) {
   const { productId } = await params
   if (!UUID.test(productId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("products")
   if (isResponse(ctx)) return ctx
   const product = await ownedMembership(ctx.admin, ctx.creatorId, productId)
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 })

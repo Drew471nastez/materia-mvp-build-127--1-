@@ -44,6 +44,7 @@ import { groupOrders, isSale, startOfDay, type OrderRow } from "../orders/order-
 import { REFERRER_BRAND_KEYS, isInternalReferrer, referrerBrand } from "./sources"
 import { osKey } from "./user-agent"
 import { isOnePageHost } from "@/lib/onepage/address"
+import { socialLinkLabel } from "@/lib/onepage/link-keys"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 import {
   ALL,
@@ -1023,6 +1024,9 @@ function deviceLabel(d: string): string {
 /** What a OnePage block is called on the page, else where the link goes. */
 function linkLabel(link: string, labels: Record<string, string>): string {
   if (labels[link]) return labels[link]
+  /* An icon in a row of social icons (lib/onepage/link-keys): the platform's name, for a row whose icons are the profile's. */
+  const icon = socialLinkLabel(link)
+  if (icon) return icon
   const host = hostOf(link)
   if (host) {
     try {

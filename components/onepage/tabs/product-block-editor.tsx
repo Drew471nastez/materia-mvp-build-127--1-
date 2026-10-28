@@ -11,9 +11,10 @@
  * lib/onepage/product-block's, the same ones the live page draws by.
  */
 import * as React from "react"
-import { CreditCard, ExternalLink, LayoutTemplate, PanelBottom, Package, Trash2, Zap } from "lucide-react"
+import { ArrowUpRight, CreditCard, ExternalLink, LayoutTemplate, PanelBottom, Package, Trash2, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 import { tt } from "@/lib/i18n/text"
@@ -43,7 +44,9 @@ async function readCreatorProducts(): Promise<CreatorProduct[] | null> {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+  /* A team member editing a store's OnePage lists that store's products (lib/onepage/team-context); the owner, their own, as before. */
+  const teamStore = teamStoreForProducts()
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).single()
   if (!creator) return []
   /* With the older archive flag where the database has it; the status alone says the same elsewhere (lib/products/visibility). */
   for (const cols of ["id, title, price_cents, thumbnail_url, description, slug, type, status, archived", "id, title, price_cents, thumbnail_url, description, slug, type, status"]) {
@@ -144,23 +147,27 @@ export function ProductStateNote({ state, productId, onRemove }: { state: Editor
  */
 export function ProductEditLinks({ productId }: { productId: string }) {
   /*
-    A small "Edit" in front of two short labels, so both read in full at 390 wide ("Edit product page" was cut to
-    "Edit product ..."). Each says in full what it opens on hover and to a screen reader.
+    ROUND 40: "Editing a product external link / product page link: smoother." The pair sat in a grey tray behind a
+    small "Edit", and each lit up with a shadow that arrived in one step. Now they are two equal keys of the editor's
+    own kind, each saying in full what it opens, with the arrow easing up and right a little under a mouse (translate,
+    on the compositor) to say it leaves for a new tab. Same places as before.
   */
-  const btn =
-    "group inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[13px] font-medium text-[#1a1a2e] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-white hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)]"
+  const btn = cn(
+    "group flex h-11 min-w-0 items-center gap-2 rounded-xl border border-[#e3e4e8] bg-white px-3 text-[13.5px] font-medium text-[#1a1a2e] outline-none [-webkit-tap-highlight-color:transparent]",
+    "transition-[border-color,background-color] duration-150 hover:border-[#c9cbd1] active:bg-[#f6f6f7] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+  )
+  const arrow = "ml-auto h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-[translate,color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-[1.5px] group-hover:-translate-y-[1.5px] group-hover:text-[#1a1a2e] motion-reduce:transition-none"
   return (
-    <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1 rounded-xl bg-[#f4f4f6] p-1" data-product-edit-links="">
-      <span className="pl-2 pr-1 text-[12px] font-medium text-[#6b7280]">{tt("Edit")}</span>
+    <div className="grid grid-cols-2 gap-2" data-product-edit-links="">
       <a href={`/app/products/${encodeURIComponent(productId)}`} target="_blank" rel="noopener noreferrer" className={btn} data-edit-product="" title={tt("Edit the product: name, price and files")} aria-label={tt("Edit product")}>
-        <Package className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
-        <span className="whitespace-nowrap">{tt("Product")}</span>
-        <ExternalLink className="h-3 w-3 shrink-0 text-[#9ca3af] transition-colors group-hover:text-[#6b7280]" />
+        <Package className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
+        <span className="truncate">{tt("Edit product")}</span>
+        <ArrowUpRight aria-hidden className={arrow} strokeWidth={2} />
       </a>
       <a href="/creator-page?pageType=product" target="_blank" rel="noopener noreferrer" className={btn} data-edit-product-page="" title={tt("Edit how product pages look")} aria-label={tt("Edit product page")}>
-        <LayoutTemplate className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
-        <span className="whitespace-nowrap">{tt("Product page")}</span>
-        <ExternalLink className="h-3 w-3 shrink-0 text-[#9ca3af] transition-colors group-hover:text-[#6b7280]" />
+        <LayoutTemplate className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
+        <span className="truncate">{tt("Product page")}</span>
+        <ArrowUpRight aria-hidden className={arrow} strokeWidth={2} />
       </a>
     </div>
   )

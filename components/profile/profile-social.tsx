@@ -4,13 +4,14 @@
  * ===========================================================================
  *  THE COUNTS AND THE BUTTONS UNDER A PERSON'S NAME
  * ===========================================================================
- * One quiet line, "12 followers · 30 following", then Follow / Following
- * for somebody else. Your own profile has no Follow; it has the owner's
- * pills instead (the page).
+ * Where they are from, then one quiet line, "12 followers · 30 following".
  *
- * ONLY FOLLOW. The owner: "remove the Message button on profiles and creator
- * pages for now: only Follow". So there is no second button and no address
- * for one; a conversation still starts inside a community the two share.
+ * NO BUTTON (r40). The owner: "there should be no follow button". Follow was
+ * the last button here (Message went first: "only Follow"), so the block is
+ * words only now, and draws nothing at all when it has nothing to say, so no
+ * empty row is left under the name. Follow is still a button inside a
+ * community (components/community/member), from the same
+ * components/profile/follow-button.
  *
  * THE COUNTS ARE A LINE, NOT A DOOR. They opened a dialog listing every
  * follower, which the owner asked to remove: a count is a fact about the
@@ -21,15 +22,12 @@
  * NOT ON A CREATOR PAGE. The owner (round 38): followers and following
  * only on personal profiles and member profiles inside communities. A
  * creator page (app/(marketing)/u/[username]) draws this block with
- * `showCounts` false: where they are from and Follow, no numbers.
+ * `showCounts` false: where they are from, no numbers.
  *
- * Follow is Storelib's button (components/profile/follow-button.tsx): on
- * a creator's page (tone "storefront") painted in the page's scheme
- * (`scheme`), on a plain profile Storelib's own near black and white.
+ * On a creator's page (tone "storefront") the words take the page's own ink.
  */
-import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { FollowButton, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
+import type { FollowTone } from "./follow-button"
 
 function compact(n: number): string {
   if (n < 1000) return String(n)
@@ -39,44 +37,24 @@ function compact(n: number): string {
 }
 
 export function ProfileSocial({
-  userId,
-  name,
-  followers: initialFollowers = 0,
+  followers = 0,
   following = 0,
-  viewerFollowing,
-  signedIn,
-  isSelf,
   showCounts = true,
   tone = "platform",
-  scheme,
   location,
   className,
 }: {
-  userId: string
-  name: string
   /** Both counts are for a person's profile; a creator page passes neither and sets showCounts false. */
   followers?: number
   following?: number
-  viewerFollowing: boolean
-  signedIn: boolean
-  isSelf: boolean
-  /** False on a creator page: followers and following belong to profiles only (round 38). The button stays. */
+  /** False on a creator page: followers and following belong to profiles only (round 38). */
   showCounts?: boolean
   tone?: FollowTone
-  /** A creator page's scheme button colours (lib/store-builder/storefront-chrome.ts `action`). */
-  scheme?: ActionScheme | null
   /** Where they are from, already one line ("Lisbon, Portugal": lib/profile/location.ts locationLine); nothing when they never said. */
   location?: string | null
   className?: string
 }) {
-  const [followers, setFollowers] = useState(initialFollowers)
-  const follow = useFollow({
-    targetUserId: userId,
-    initialFollowing: viewerFollowing,
-    signedIn,
-    onFollowers: setFollowers,
-    onChange: (on) => setFollowers((n) => Math.max(0, n + (on ? 1 : -1))),
-  })
+  if (!location && !showCounts) return null
   const storefront = tone === "storefront"
   const count = (kind: "followers" | "following", n: number, word: string) => (
     <span data-profile-count={kind} className="whitespace-nowrap">
@@ -102,16 +80,6 @@ export function ProfileSocial({
             ·
           </span>{" "}
           {count("following", following, "following")}
-        </p>
-      ) : null}
-      {!isSelf ? (
-        <div className={cn("flex w-full max-w-[360px] items-center justify-center gap-2", showCounts ? "mt-3" : "mt-4")} data-profile-actions="">
-          <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} scheme={scheme} name={name} className="min-w-[156px]" />
-        </div>
-      ) : null}
-      {follow.error ? (
-        <p role="alert" className="mt-2 text-[12px] text-[#b42318]">
-          {follow.error}
         </p>
       ) : null}
     </div>

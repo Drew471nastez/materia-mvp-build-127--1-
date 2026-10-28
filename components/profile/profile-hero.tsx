@@ -122,8 +122,6 @@ const GUTTERS = { paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER
 
 export function ProfileHero({
   person,
-  viewerFollowing = false,
-  signedIn,
   isSelf,
   avatar,
   className,
@@ -133,6 +131,7 @@ export function ProfileHero({
   person: ProfileHeroPerson
   /** False for somebody who sells: their followers and following belong to their community profile, not to the face of a store (the owner, AA3). */
   showCounts?: boolean
+  /* Read by nothing since Follow left profiles (r40); still passed by the pages that draw this. */
   viewerFollowing?: boolean
   signedIn: boolean
   isSelf: boolean
@@ -221,17 +220,8 @@ export function ProfileHero({
           </p>
         ) : null}
 
-        <ProfileSocial
-          className="mt-3 w-full"
-          userId={person.userId}
-          name={person.name}
-          followers={person.followers}
-          following={person.following}
-          viewerFollowing={viewerFollowing}
-          signedIn={signedIn}
-          isSelf={isSelf}
-          showCounts={showCounts}
-        />
+        {/* The counts only: no Follow on a profile (r40, components/profile/profile-social). */}
+        <ProfileSocial className="mt-3 w-full" followers={person.followers} following={person.following} showCounts={showCounts} />
       </header>
     </div>
   )

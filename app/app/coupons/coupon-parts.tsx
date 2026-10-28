@@ -43,7 +43,7 @@ const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px]
  * text when there is nothing to save, busy (not disabled) while it saves,
  * with the word kept in the layout so the button never changes width.
  */
-export function CouponSaveButton({ saving, disabled, onSave }: { saving: boolean; disabled: boolean; onSave: () => void }) {
+export function CouponSaveButton({ saving, disabled, onSave, label }: { saving: boolean; disabled: boolean; onSave: () => void; /** The word on it: Save, or Create for something new. */ label?: string }) {
   return (
     <button
       type="button"
@@ -64,7 +64,7 @@ export function CouponSaveButton({ saving, disabled, onSave }: { saving: boolean
         saving && "cursor-default hover:bg-[#111113] active:bg-[#111113]",
       )}
     >
-      <span className={cn(saving && "opacity-0")}>{tt("Save")}</span>
+      <span className={cn(saving && "opacity-0")}>{label ?? tt("Save")}</span>
       {saving ? (
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
           <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />

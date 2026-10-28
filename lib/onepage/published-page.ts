@@ -21,6 +21,7 @@ import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
 import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
+import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
@@ -93,9 +94,12 @@ export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
  * each. Keyed by the blocks themselves, so blocks that differ are read for
  * themselves and nothing is held past the request.
  */
-const liveBlocksOnce = cache(async (creatorId: string, blocksJson: string) =>
-  withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[]),
-)
+const liveBlocksOnce = cache(async (creatorId: string, blocksJson: string) => {
+  const db = createAdminClient()
+  const products = await withLiveProducts(db as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[])
+  /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
+  return withStorelibBlocks(db, creatorId, products)
+})
 export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
   if (blocks === null || blocks === undefined) return withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, blocks)
   return liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>

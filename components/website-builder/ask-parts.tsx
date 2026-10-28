@@ -100,7 +100,7 @@ export function SuggestionChips({
       data-ask-suggestions=""
       className={cn(
         "flex min-w-0 gap-1.5",
-        phone ? "scrollbar-hide -mx-4 overflow-x-auto px-4 [touch-action:pan-x]" : "flex-wrap",
+        phone ? "scrollbar-hide -mx-4 overflow-x-auto px-4 [touch-action:pan-x_pan-y]" : "flex-wrap",
         className,
       )}
     >

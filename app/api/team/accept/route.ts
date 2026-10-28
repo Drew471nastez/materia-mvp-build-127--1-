@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { token?: unknown } | null
   const out = await acceptInvite(createAdminClient(), body?.token, user)
   if (out.ok === false) return NextResponse.json({ error: out.error }, { status: out.status })
-  const res = NextResponse.json({ ok: true, role: out.role })
+  const res = NextResponse.json({ ok: true, role: out.role, permissions: out.permissions, home: out.home })
   res.cookies.set(TEAM_STORE_COOKIE, out.creatorId, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: 60 * 60 * 24 * 90 })
   return res
 }

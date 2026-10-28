@@ -105,7 +105,8 @@ async function shareCommunity(r: CommunityListRow): Promise<"shared" | "copied" 
   }
 }
 
-export function CommunityList(props: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView }) {
+/** `canCreate`: false for a store's team member (lib/communities/server/team.ts), who runs the store's communities but makes none. */
+export function CommunityList(props: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
   return (
     <ToastHost>
       <List {...props} />
@@ -113,7 +114,7 @@ export function CommunityList(props: { rows: CommunityListRow[]; available: bool
   )
 }
 
-function List({ rows, available, limit }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView }) {
+function List({ rows, available, limit, canCreate = true }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
   const router = useRouter()
   const toast = useToast()
   const [upgrade, setUpgrade] = React.useState(false)
@@ -168,7 +169,7 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Community")}</h1>
-        {available && rows.length > 0 ? (
+        {available && rows.length > 0 && canCreate ? (
           <Link href="/app/community/new" onClick={askNew} className={NEW_LOOK} data-new-community="" data-at-limit={room ? undefined : ""}>
             <Plus aria-hidden className="h-4 w-4" />
             {tt("New community")}
@@ -179,6 +180,8 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         {!available ? (
           <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")}>{tt("Communities are not set up on Storelib yet. They appear here once they are.")}</div>
+        ) : rows.length === 0 && !canCreate ? (
+          <div className={cn(card, "mt-3 px-6 py-10 text-center text-[14px] text-[#6b7280]")} data-empty="">{tt("This store has no communities yet. The owner makes them.")}</div>
         ) : rows.length === 0 ? (
           <div className={cn(card, "mt-3 px-6 py-12 text-center")} data-empty="">
             <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Start a community")}</p>
@@ -197,7 +200,7 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
             ))}
           </ul>
         )}
-        {available && limit.max !== null && rows.length > 0 ? (
+        {available && limit.max !== null && rows.length > 0 && canCreate ? (
           <p className="mt-4 px-1 text-[12.5px] text-[#9ca3af]" data-limit-note="">
             {Math.min(limit.owned, limit.max)} {tt("of {max} communities on the Free plan.", { max: limit.max })}{" "}
             {rows.some((r) => r.deleting && r.role === "owner") ? <>{tt("Communities being deleted do not count.")} </> : null}

@@ -8,12 +8,12 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type Reac
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
-import { ProMark, Segmented, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
+import { ProMark, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
 import { SeoPanel } from "@/components/onepage/seo-panel"
 import { OnePageDomainRow, OnePageIntegrations } from "@/components/onepage/settings-integrations"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
-import { BADGE_TYPES, buttonStyleOf, checkPageSlug, type ButtonStyle } from "@/lib/onepage/settings-rules"
+import { BADGE_TYPES, checkPageSlug } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { getFeeDescription } from "@/lib/billing/fee-calculator"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
@@ -57,8 +57,9 @@ export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = SETTINGS_SECTI
   The sections are kept, and switch the way Storelib's own settings do: the
   one left goes in the frame the next one lands (lib/ui/pill-switch), each
   scrolled where it was left, and what was typed in one is still there on
-  the way back (PillPanels). They sit in one grid
-  cell, so the box under the row is as tall as the tallest and never jumps.
+  the way back (PillPanels). They sit in one grid cell, and the box under the
+  row is as tall as the section shown (PillPanels `fit`): it was as tall as
+  the tallest, which left Billing on Pro a card over an empty, scrolling field.
 */
 function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<SectionId, ReactNode>; initial: SectionId; jump?: { id: SectionId; n: number } | null; onChange?: (id: SectionId) => void }) {
   const [active, setActive] = useState<SectionId>(initial)
@@ -105,7 +106,8 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
         />
       </div>
 
-      <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
+      {/* fit: the box is the shown section's height, so a short one (Billing on Pro) has no empty field and no scroll under it. */}
+      <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} fit />
     </div>
   )
 }
@@ -117,12 +119,6 @@ const BADGE_LABELS: Record<(typeof BADGE_TYPES)[number], string> = {
   get official_page() { return tt("Official Page") },
   get verified_artist() { return tt("Verified Artist") },
 }
-
-const STYLE_OPTIONS: readonly { id: ButtonStyle; label: string }[] = [
-  { id: "glass", get label() { return tt("Glass") } },
-  { id: "white", get label() { return tt("White") } },
-  { id: "black", get label() { return tt("Black") } },
-]
 
 const VERIFIED_PATH =
   "M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
@@ -453,9 +449,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
 
   const renderToggleSection = (kind: "subscribe" | "share") => {
     const enabledKey = kind === "subscribe" ? "subscribe_enabled" : "share_enabled"
-    const styleKey = kind === "subscribe" ? "subscribe_style" : "share_style"
     const enabled = settings[enabledKey] !== false
-    const style = buttonStyleOf(settings[styleKey], kind === "subscribe" ? "glass" : "white")
     return (
       <div className="space-y-6" data-settings-toggle={kind}>
         {title(kind === "subscribe" ? tt("Subscribe") : tt("Share"))}
@@ -465,17 +459,8 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           checked={enabled}
           onChange={(on) => updateSettings({ [enabledKey]: on } as never)}
         />
-        {enabled ? (
-          <div className="space-y-2">
-            <p className="text-[13px] font-medium text-[#374151]">{tt("Button style")}</p>
-            <Segmented
-              label={tt("Button style")}
-              value={style}
-              options={STYLE_OPTIONS.map((o) => ({ ...o }))}
-              onChange={(id) => updateSettings({ [styleKey]: id } as never)}
-            />
-          </div>
-        ) : null}
+        {/* Round 40: its look (glass, white or black) is the page's design, so it is set in Design › Layout, the same field as before (components/onepage/themes/layout-section). */}
+        {enabled ? <p className="text-[12.5px] text-[#6b7280]" data-settings-style-moved="">{tt("Its style is in Design, under Layout.")}</p> : null}
         {kind === "subscribe" && enabled ? (
           <p className="text-[12.5px] text-[#6b7280]">{tt("Turning it off keeps the subscribers you have.")}</p>
         ) : null}

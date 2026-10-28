@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   CircleUserRound,
   Layers,
+  LayoutGrid,
   PaintBucket,
   PanelBottom,
   Pencil,
@@ -31,10 +32,14 @@ import {
   X,
 } from "lucide-react"
 import { announceAvatar } from "@/lib/account/avatar-store"
+import { photoIsOwners, useOnePageTeam } from "@/lib/onepage/team-context"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia } from "@/lib/onepage/media-rules"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { openableImage, uploadErrorText, uploadMessage } from "@/lib/onepage/media-upload"
 import { CropUpload } from "@/components/onepage/crop-upload"
+import { PosterVideo } from "@/components/onepage/poster-video"
+import { videoPoster } from "@/lib/onepage/poster-video"
+import { FilesLibraryChooser, LibraryButton, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
 import { UploadProgress, useMediaUpload } from "@/components/onepage/upload-progress"
 import { DialogHeader } from "@/components/ui/dialog"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -73,8 +78,16 @@ import {
 } from "@/components/onepage/editor-kit"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+/* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
+import { withR40Themes } from "@/components/onepage/themes/r40-themes"
+import { ThemeCardBlocks } from "@/components/onepage/themes/theme-card-blocks"
+import { LayoutSection } from "@/components/onepage/themes/layout-section"
+import { FontPairs } from "@/components/onepage/themes/font-pairs"
+import { GradientDirection } from "@/components/onepage/themes/gradient-direction"
+import { WallpaperLibrary } from "@/components/onepage/themes/wallpaper-library"
+import { blockLayoutOf, blockSpacingOf, headerAlignOf, linearGradientValue } from "@/lib/onepage/theme-layout"
 
-type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
+type DesignSection = "header" | "theme" | "layout" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
 // Body text fonts
 const FONTS = [
@@ -170,22 +183,6 @@ const SOCIAL_STYLES = [
   { id: "minimal", get label() { return tt("Glass") } },
 ]
 
-const BACKGROUND_IMAGES = [
-  // Nature image (kept)
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", get label() { return tt("Nature") } },
-  // Space image (kept)
-  { id: "space-stars", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", get label() { return tt("Space") } },
-  // New Supabase images
-  { id: "blocks-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/download.png", get label() { return tt("Gradient Blocks") } },
-  { id: "abstract-pink", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/c78fa2c87ca69f52361687fa7b27b909.jpg", get label() { return tt("Abstract Pink") } },
-  { id: "black-solid", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/black_background.jpg", get label() { return tt("Black") } },
-  { id: "dark-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/b607af5996db7b6b9af70e1a777aa808.jpg", get label() { return tt("Dark Texture") } },
-  { id: "gradient-warm", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg", get label() { return tt("Warm Gradient") } },
-  { id: "fusion-gradient", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg", get label() { return tt("Fusion") } },
-  { id: "blue-texture", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg", get label() { return tt("Blue Texture") } },
-  { id: "abstract-dark", url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg", get label() { return tt("Abstract Dark") } },
-]
-
 /*
   THE THEMES. Each one a different kind of page, not the same page in
   another colour. Light: Default, Air, Studio, Paper (warm paper, a serif
@@ -206,7 +203,7 @@ const BACKGROUND_IMAGES = [
   (scripts/check-onepage-themes.mjs). Only settings the editor already has,
   so each can be changed piece by piece.
 */
-export const THEME_TEMPLATES = [
+const BASE_THEME_TEMPLATES = [
   {
     id: "default",
     name: "Default",
@@ -1169,6 +1166,9 @@ export const THEME_TEMPLATES = [
   },
 ]
 
+/* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
+export const THEME_TEMPLATES = withR40Themes(BASE_THEME_TEMPLATES)
+
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
 
@@ -1190,6 +1190,8 @@ function previewSize(id: string, color: string, level: string): string | undefin
 
 const SECTION_LABEL: Record<DesignSection, string> = {
   get theme() { return tt("Theme") },
+  /* Round 40: how the blocks sit, their spacing, the header's alignment, Share and Subscribe (components/onepage/themes/layout-section). */
+  get layout() { return tt("Layout") },
   get header() { return tt("Header") },
   get wallpaper() { return tt("Wallpaper") },
   get text() { return tt("Text") },
@@ -1483,6 +1485,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     theme.background_type === "image" ? (theme.background_image_url ? tt("Image") : tt("Image, none chosen yet")) :
     theme.background_type === "video" ? tt("Video") :
     tt("Fill, {value}{value2}", { value: (normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase(), value2: patternName ? `, ${patternName}` : "" })
+  const layoutName = { list: tt("List"), grid: tt("Grid"), cards: tt("Cards"), compact: tt("Compact") }[blockLayoutOf(t)]
+  const layoutSummary = blockLayoutOf(t) === "compact" ? layoutName : tt("{layout}, {spacing} spacing", { layout: layoutName, spacing: blockSpacingOf(t) === "compact" ? tt("tight") : blockSpacingOf(t) === "comfortable" ? tt("roomy") : tt("normal") })
   const swatch = (bg: string) => <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ background: bg }} />
 
   /* Which panel is drawn: the one open, or the one on its way out. */
@@ -1535,6 +1539,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
           <PanelHeader title={tt("Design")} />
           <nav aria-label={tt("Design")} className="flex flex-col" onPointerDown={onRowDown} onPointerCancel={onRowCancel}>
             <NavRow dataKey="theme" icon={Layers} title={tt("Theme")} subtitle={templateName || tt("Your own")} onClick={() => setSection("theme")} />
+            <NavRow dataKey="layout" icon={LayoutGrid} title={tt("Layout")} subtitle={layoutSummary} onClick={() => setSection("layout")} />
             <NavRow dataKey="header" icon={CircleUserRound} title={tt("Header")} subtitle={tt("{value} layout, {value2}", { value: (t.header_layout || "classic") === "hero" ? tt("Hero") : tt("Classic"), value2: t.title_style === "logo" ? tt("logo title") : tt("text title") })} onClick={() => setSection("header")} />
             <NavRow
               dataKey="wallpaper"
@@ -1592,6 +1597,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
               <div data-panel-body={id}>
                 {id === "header" && <HeaderSection />}
                 {id === "theme" && <ThemeSection />}
+                {id === "layout" && <LayoutSection />}
                 {id === "wallpaper" && <WallpaperSection />}
                 {id === "text" && <TextSection />}
                 {id === "buttons" && <ButtonsSection />}
@@ -1612,6 +1618,8 @@ function reducedMotion() {
 
 function HeaderSection() {
   const { onepage, updateProfile, updateTheme } = useOnePage()
+  /* A team member edits the store's page; the photo is the owner's account photo, theirs to change (lib/onepage/team-context). */
+  const team = useOnePageTeam()
   /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
   const sheetPhone = usePhone()
   const [showEditModal, setShowEditModal] = useState(false)
@@ -1625,7 +1633,7 @@ function HeaderSection() {
   // Video selection states
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
-  const [tempVideo, setTempVideo] = useState<{ url: string; file: File } | null>(null)
+  const [tempVideo, setTempVideo] = useState<{ url: string; file: File | null; existing?: string } | null>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -1638,6 +1646,11 @@ function HeaderSection() {
   // Pattern/Hero conflict dialog state
   const [showPatternHeroConflict, setShowPatternHeroConflict] = useState(false)
 
+  /* "Your files" for the photo, the video or the logo: the chooser lives outside the sheets, which unmount what they hold when they close. */
+  const [library, setLibrary] = useState<null | "avatar" | "video" | "logo">(null)
+  /* Kept while the chooser slides away, so its list does not switch under it. */
+  const libraryKind = useRef<"image" | "video">("image")
+  if (library) libraryKind.current = library === "video" ? "video" : "image"
 
   if (!onepage) return null
 
@@ -1645,6 +1658,8 @@ function HeaderSection() {
   const headerLayout = (theme as any).header_layout || "classic"
   const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
+  /* The crop (and its first frame) is kept in settings (lib/onepage/context updateProfile); read there, not off the page row. */
+  const avatarVideoCrop = (onepage.settings as any)?.avatar_video_crop ?? (onepage as any).avatar_video_crop ?? null
 
   /* A picture chosen for a cropper: checked, made drawable (a HEIC becomes a JPEG), or the reason in plain words. */
   const pickImage = async (file: File | undefined, then: (img: { url: string; blob: Blob }) => void) => {
@@ -1675,13 +1690,60 @@ function HeaderSection() {
 
   const closeVideoCrop = () => {
     setShowVideoCropModal(false)
-    if (tempVideo) URL.revokeObjectURL(tempVideo.url)
+    if (tempVideo && !tempVideo.existing) URL.revokeObjectURL(tempVideo.url)
     setTempVideo(null)
   }
 
-  const handleRemoveVideo = async () => {
-    updateProfile({ avatar_video_url: null })
+  /*
+    REMOVE IS ONE STEP AND IT STICKS. It was two edits (the photo, then the
+    video), so Undo brought half of it back, and the photo came straight
+    back anyway: the page draws the account's photo (lib/account/identity),
+    which only the page's own copy was cleared from. Now the account's photo
+    is removed the way Settings removes it, and the page's photo, video and
+    crop go in one edit, while the sheet closes at once.
+  */
+  const handleRemoveMedia = () => {
+    const hadPhoto = !!onepage.avatar_url
     setShowEditModal(false)
+    /* A team member removes the page's video only: the photo is the owner's account photo. */
+    if (team) {
+      updateProfile({ avatar_video_url: null, avatar_video_crop: null })
+      return
+    }
+    updateProfile({ avatar_url: null, avatar_video_url: null, avatar_video_crop: null })
+    if (hadPhoto) {
+      announceAvatar(null)
+      void fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: null }),
+      }).catch(() => null)
+    }
+  }
+
+  /* A picture from Files goes through the same cropper as one from the device; a video from Files is cropped where it is stored, not uploaded again. */
+  const pickFromLibrary = async (url: string) => {
+    const kind = library
+    setPickError(null)
+    if (kind === "video") {
+      setTempVideo({ url, file: null, existing: url })
+      setShowVideoCropModal(true)
+      return
+    }
+    try {
+      const img = await openableImage(await fileFromLibrary(url))
+      if (kind === "logo") {
+        setTempLogo(img)
+        setShowLogoCropModal(true)
+      } else {
+        setTempImage(img)
+        setShowCropModal(true)
+      }
+    } catch (err) {
+      setPickError(uploadMessage(err))
+      if (kind === "logo") setShowLogoUploadModal(true)
+      else setShowUploadModal(true)
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1706,6 +1768,7 @@ function HeaderSection() {
     creator page and the app all show the same face (lib/account/avatar-save).
   */
   const saveProfilePhoto = async (url: string) => {
+    if (team) throw new Error(photoIsOwners(team.store))
     const saved = await fetch("/api/account/avatar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1716,17 +1779,9 @@ function HeaderSection() {
     updateProfile({ avatar_url: url, avatar_video_url: null })
   }
 
-  const handleRemoveImage = () => {
-    updateProfile({ avatar_url: null })
-    setShowEditModal(false)
-  }
-
   const handleLayoutChange = (layout: string) => {
     if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video")) return
-    // Block switching to Hero if pattern is active
-    if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
-      return // Silently block - pattern takes precedence
-    }
+    /* A pattern no longer stops Hero: the picture fades into the page through a mask, so the pattern shows under it (lib/onepage/poster-video HERO_FADE_MASK). */
     if (layout === "hero") {
       updateTheme({ header_layout: layout, laser_glow_enabled: false } as any)
       return
@@ -1765,37 +1820,30 @@ function HeaderSection() {
             onClick={() => setShowEditModal(true)}
             aria-label={tt("Change profile image")}
             data-avatar-edit
-            className="relative aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
+            className="relative isolate aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
           >
-            {/* A circle, as the page draws it and as the theme cards do. */}
-            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+            {/*
+              A circle, as the page draws it and as the theme cards do. Its
+              own stacking context (isolate) under the pencil: the video in it
+              carried z-index 1, which painted it over the pencil, so the
+              round button sat half hidden behind the picture.
+            */}
+            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full isolate z-0 bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
           {avatarVideoUrl ? (
-                <>
-                  {onepage.avatar_url ? (
-                    <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
-                  ) : (
-                    <div className="absolute inset-0 bg-gray-200 animate-pulse" />
-                  )}
-                  <video
-                    src={avatarVideoUrl}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
-                    style={croppedMediaStyle((onepage as any).avatar_video_crop) as React.CSSProperties | undefined}
-                    onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                  />
-                </>
+                /* The same element the page draws, from the video's own first frame (components/onepage/poster-video). */
+                <PosterVideo
+                  src={avatarVideoUrl}
+                  poster={videoPoster(avatarVideoCrop)}
+                  alt={onepage.title}
+                  mediaStyle={croppedMediaStyle(avatarVideoCrop) as React.CSSProperties | undefined}
+                />
               ) : onepage.avatar_url ? (
                 <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.trim() ? onepage.title.charAt(0) : <AvatarMark name="" size={72} />}</div>
               )}
             </span>
-            <span aria-hidden className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+            <span aria-hidden data-avatar-pencil="" className="absolute bottom-0 right-0 z-[2] grid h-8 w-8 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
               <Pencil className="h-4 w-4" strokeWidth={1.75} />
             </span>
           </button>
@@ -1813,18 +1861,22 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Profile Image")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
+            {team ? (
+              <p className="px-1 text-[13px] leading-snug text-[#6b7280]" data-team-photo-note="">{photoIsOwners(team.store)}</p>
+            ) : (
             <button onClick={() => { setPickError(null); setShowEditModal(false); setShowUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select image or GIF")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
+            )}
             <button onClick={() => { setPickError(null); setShowEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center"><Video className="h-6 w-6 text-yellow-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select video")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            {(onepage.avatar_url || avatarVideoUrl) && (
-              <button onClick={() => { handleRemoveImage(); handleRemoveVideo(); }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
+            {(team ? avatarVideoUrl : onepage.avatar_url || avatarVideoUrl) && (
+              <button onClick={handleRemoveMedia} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
                 <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
@@ -1852,6 +1904,7 @@ function HeaderSection() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
+            <LibraryRow kind="video" onClick={() => { setPickError(null); setShowVideoModal(false); setLibrary("video") }} />
             {pickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={videoFileInputRef} type="file" accept={ONEPAGE_VIDEO_ACCEPT} onChange={handleVideoFileSelect} className="hidden" />
           </div>
@@ -1875,7 +1928,8 @@ function HeaderSection() {
               <CropUpload
                 kind="video"
                 src={tempVideo.url}
-                file={tempVideo.file}
+                file={tempVideo.file ?? new Blob()}
+                existingUrl={tempVideo.existing}
                 aspect={1}
                 shape="circle"
                 prefix="avatar-video"
@@ -1901,12 +1955,26 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload media")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+            {/* Said "or drag-and-drop" with nothing listening for a drop; it does now. */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                void pickImage(e.dataTransfer.files?.[0], (img) => {
+                  setTempImage(img)
+                  setShowUploadModal(false)
+                  setShowCropModal(true)
+                })
+              }}
+              className="border-2 border-dashed border-gray-300 rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <Upload className="h-7 w-7 text-gray-300 mb-2.5" />
               <p className="font-medium text-gray-600">{tt("Select file to upload,")}</p>
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
-              <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
+              <p className="text-sm text-gray-400 mt-1.5">{tt("Please upload an image")}</p>
             </div>
+            <LibraryRow className="mt-3" onClick={() => { setPickError(null); setShowUploadModal(false); setLibrary("avatar") }} />
             {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleFileSelect} className="hidden" />
           </div>
@@ -1958,12 +2026,25 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload Logo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+            <div
+              onClick={() => logoFileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                void pickImage(e.dataTransfer.files?.[0], (img) => {
+                  setTempLogo(img)
+                  setShowLogoUploadModal(false)
+                  setShowLogoCropModal(true)
+                })
+              }}
+              className="border-2 border-dashed border-gray-300 rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <Upload className="h-7 w-7 text-gray-300 mb-2.5" />
               <p className="font-medium text-gray-600">{tt("Select logo to upload,")}</p>
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
-              <p className="text-sm text-gray-400 mt-2">{tt("PNG with transparent background recommended")}</p>
+              <p className="text-sm text-gray-400 mt-1.5">{tt("PNG with transparent background recommended")}</p>
             </div>
+            <LibraryRow className="mt-3" onClick={() => { setPickError(null); setShowLogoUploadModal(false); setLibrary("logo") }} />
             {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={logoFileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleLogoFileSelect} className="hidden" />
           </div>
@@ -2003,15 +2084,27 @@ function HeaderSection() {
           </div>
         </SheetDialog>
 
+      {/* "Your files" for the photo, the video or the logo, outside the sheets it is asked for from (components/onepage/library-pick). */}
+      <FilesLibraryChooser
+        kind={libraryKind.current}
+        open={library !== null}
+        onClose={() => setLibrary(null)}
+        onPick={(url) => void pickFromLibrary(url)}
+      />
+
       <PanelSection>
         <SectionTitle title={tt("Profile image layout")} />
         {(() => {
-          /* Hero puts the picture behind the top of the page, so it cannot sit on a gradient, a photo, a video or a pattern. */
+          /*
+            Hero puts the picture behind the top of the page, so it cannot sit
+            on a gradient, a photo or a video wallpaper. A pattern is fine
+            since round 40: the picture fades out through a mask, and the
+            pattern carries on under it.
+          */
           const heroBlockedBy =
             theme.background_type === "image" ? tt("an image wallpaper") :
             theme.background_type === "gradient" ? tt("a gradient wallpaper") :
-            theme.background_type === "video" ? tt("a video wallpaper") :
-            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? tt("a pattern") : null
+            theme.background_type === "video" ? tt("a video wallpaper") : null
           return (
             <>
               <div className="grid grid-cols-2 gap-3">
@@ -2033,14 +2126,18 @@ function HeaderSection() {
                   {tt("Hero is off while the page uses {heroBlockedBy}.", { heroBlockedBy })}{" "}
                   <button
                     type="button"
-                    onClick={() => (heroBlockedBy === "a pattern" ? updateTheme({ background_pattern: "none" } as any) : updateTheme({ background_type: "solid" }))}
+                    onClick={() => updateTheme({ background_type: "solid" })}
                     className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
                   >
-                    {heroBlockedBy === "a pattern" ? tt("Remove the pattern") : tt("Use a flat colour")}
+                    {tt("Use a flat colour")}
                   </button>
                 </p>
               ) : effectiveLayout === "hero" ? (
-                <p className="mt-3 text-[13.5px] text-[#6b7280]">{tt("Your picture fills the top of the page and fades into it.")}</p>
+                <p className="mt-3 text-[13.5px] text-[#6b7280]">
+                  {onepage.avatar_url || avatarVideoUrl
+                    ? tt("Your picture fills the top of the page and fades into it.")
+                    : tt("Add a profile image above and it fills the top of the page.")}
+                </p>
               ) : null}
             </>
           )
@@ -2252,16 +2349,8 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
   const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
   const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
   const text = c.text_color || "#111111"
-  const radius = Math.min((c.button_border_radius ?? 8) * 0.5, 9)
-  const border = c.button_border_width || 0
-  const shadowInk = c.button_shadow_color || "#000000"
-  const shadow = c.button_shadow === "hard" ? `2px 2px 0 ${shadowInk}` : c.button_shadow === "strong" ? "0 3px 8px rgba(0,0,0,0.22)" : c.button_shadow === "subtle" ? "0 1px 3px rgba(0,0,0,0.12)" : "none"
-  const button: React.CSSProperties =
-    c.button_style === "outline"
-      ? { background: "transparent", border: `${Math.max(1.5, Math.min(border, 2))}px solid ${c.button_border_color || c.button_color}`, borderRadius: radius, boxShadow: shadow }
-      : c.button_style === "glass"
-        ? { background: "rgba(255,255,255,0.15)", border: `1px solid ${border ? c.button_border_color : "rgba(255,255,255,0.22)"}`, borderRadius: radius, backdropFilter: "blur(6px)", boxShadow: shadow }
-        : { background: c.button_color, border: border ? `${Math.min(border, 2)}px solid ${c.button_border_color}` : undefined, borderRadius: radius, boxShadow: shadow }
+  /* Round 40: a theme can set its header flush left (lib/onepage/theme-layout headerAlignOf). */
+  const left = !hero && headerAlignOf(c) === "left"
   return (
     <button
       type="button"
@@ -2286,7 +2375,7 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         {/* The pattern at the card's scale: the card is a page about 0.42 of a phone's width, so its tile is too. */}
         {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} style={{ backgroundSize: cardPatternSize(pattern, c.pattern_color || "#ffffff90", c.pattern_opacity || "medium") }} /> : null}
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
-        <span className={cn("absolute inset-0 flex flex-col items-center px-[13%]", hero ? "pt-[30%]" : "pt-[15%]")}>
+        <span className={cn("absolute inset-0 flex flex-col px-[13%]", left ? "items-start" : "items-center", hero ? "pt-[30%]" : "pt-[15%]")}>
           {/*
             THE AVATAR IS A CIRCLE. It was 22% of the card wide with an
             aspect ratio (and then a spacer) for its height, in a column the
@@ -2310,13 +2399,8 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
             {template.name}
           </span>
           <span className="mt-[5%] block h-[3px] w-[40%] rounded-full" style={{ background: c.secondary_text_color || text, opacity: 0.55 }} />
-          <span className="mt-[11%] flex w-full flex-col gap-[7px]">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="grid h-[17px] w-full place-items-center" style={button}>
-                <span className="block h-[3px] w-[36%] rounded-full" style={{ background: c.button_text_color || text, opacity: 0.8 }} />
-              </span>
-            ))}
-          </span>
+          {/* The theme's blocks in its own layout: a list, Compact rows, Grid tiles or Cards (components/onepage/themes/theme-card-blocks). */}
+          <ThemeCardBlocks c={c} />
         </span>
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
@@ -2657,76 +2741,6 @@ function ThemeSection() {
   )
 }
 
-/**
- * THE GRADIENT DIRECTION DIAL, DECLARED ONCE AT MODULE SCOPE.
- *
- * It used to be a component declared inside WallpaperSection's render. A
- * component declared in a render is a new function on every render, and
- * React treats a new function as a new component type, so it throws the old
- * dial away and mounts a fresh one. Every onChange updates the theme, the
- * section renders again, and the dial that was being dragged was replaced by
- * one whose `isDragging` was false: a drag moved the angle by one step and
- * then stopped following the pointer. Out here it is the same component on
- * every render and keeps its drag state for as long as the drag lasts.
- */
-function DirectionDial({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  /*
-    Pointer events with the pointer captured, and touch-action: none, so a
-    finger turning the dial never scrolls the panel instead (the old window
-    touchmove listener was passive, and the page moved under the thumb).
-    The needle turns by a rotate transform, so it is marked
-    data-keep-transform: app/globals.css removes transforms inside a .group
-    on a touch screen, and a dial without its rotation says nothing.
-  */
-  const dialRef = useRef<HTMLDivElement>(null)
-  const angleAt = (clientX: number, clientY: number) => {
-    const rect = dialRef.current!.getBoundingClientRect()
-    const a = Math.atan2(clientY - (rect.top + rect.height / 2), clientX - (rect.left + rect.width / 2))
-    let deg = Math.round(((a * 180) / Math.PI + 90) / 15) * 15
-    if (deg < 0) deg += 360
-    return deg % 360
-  }
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div
-        ref={dialRef}
-        role="slider"
-        tabIndex={0}
-        aria-label={tt("Gradient direction")}
-        aria-valuemin={0}
-        aria-valuemax={345}
-        aria-valuenow={value}
-        aria-valuetext={tt("{value} degrees", { value })}
-        data-sheet-no-drag=""
-        onPointerDown={(e) => {
-          e.preventDefault()
-          e.currentTarget.setPointerCapture?.(e.pointerId)
-          onChange(angleAt(e.clientX, e.clientY))
-        }}
-        onPointerMove={(e) => {
-          if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
-            const next = angleAt(e.clientX, e.clientY)
-            if (next !== value) onChange(next)
-          }
-        }}
-        onKeyDown={(e) => {
-          const d = { ArrowRight: 15, ArrowUp: 15, ArrowLeft: -15, ArrowDown: -15 }[e.key]
-          if (d === undefined) return
-          e.preventDefault()
-          onChange((value + d + 360) % 360)
-        }}
-        className="relative h-[76px] w-[76px] cursor-grab touch-none select-none rounded-full border border-[#e3e4e8] bg-white shadow-[inset_0_1px_3px_rgba(16,24,40,0.08)] outline-none active:cursor-grabbing focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-      >
-        <div data-keep-transform="" className="pointer-events-none absolute inset-[7px] flex items-start justify-center" style={{ transform: `rotate(${value}deg)` }}>
-          <span className="h-[26px] w-[3px] rounded-full bg-[#1a1a2e]" />
-        </div>
-        <span className="pointer-events-none absolute left-1/2 top-1/2 -ml-[5px] -mt-[5px] h-2.5 w-2.5 rounded-full border border-[#d9dbe0] bg-white" />
-      </div>
-      <span className="text-[13px] font-medium tabular-nums text-[#6b7280]">{value}°</span>
-    </div>
-  )
-}
-
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
@@ -2751,6 +2765,8 @@ function WallpaperSection() {
   useEffect(() => () => {
     if (localImageRef.current) URL.revokeObjectURL(localImageRef.current)
   }, [])
+  /* "Your files" for the wallpaper picture. */
+  const [wallpaperLibrary, setWallpaperLibrary] = useState(false)
 
   if (!onepage) return null
   const { theme } = onepage
@@ -2804,8 +2820,7 @@ function WallpaperSection() {
   }
 
   const handleGradientChange = (direction: number, color1: string, color2: string) => {
-    const newGradient = `linear-gradient(${direction}deg, ${color1} 0%, ${color2} 100%)`
-    updateTheme({ background_gradient: newGradient })
+    updateTheme({ background_gradient: linearGradientValue(direction, color1, color2) })
   }
 
   /* The chosen picture shows at once from the device and goes up behind its progress; the uploaded one replaces it once it has loaded. */
@@ -3052,12 +3067,13 @@ function WallpaperSection() {
         <>
           <PanelSection>
             <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: `linear-gradient(${gradientInfo.direction}deg, ${gradientInfo.color1} 0%, ${gradientInfo.color2} 100%)` }} />
-            <div className="mt-5 flex items-center gap-5">
-              <DirectionDial value={gradientInfo.direction} onChange={(dir) => handleGradientChange(dir, gradientInfo.color1, gradientInfo.color2)} />
-              <div className="min-w-0 flex-1 space-y-3">
-                <ColorRow label={tt("Start")} value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
-                <ColorRow label={tt("End")} value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
-              </div>
+            <div className="mt-5 space-y-3">
+              <ColorRow label={tt("Start")} value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
+              <ColorRow label={tt("End")} value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
+            </div>
+            {/* Round 40: eight painted directions and an angle, where the dial was (components/onepage/themes/gradient-direction). */}
+            <div className="mt-5">
+              <GradientDirection value={gradientInfo.direction} from={gradientInfo.color1} to={gradientInfo.color2} onChange={(dir) => handleGradientChange(dir, gradientInfo.color1, gradientInfo.color2)} />
             </div>
           </PanelSection>
           <PanelSection>
@@ -3116,6 +3132,7 @@ function WallpaperSection() {
                       <Upload className="h-4 w-4" />
                       {tt("Replace")}
                     </button>
+                    <LibraryButton onClick={() => setWallpaperLibrary(true)} className={cn(secondaryDepth, "h-10 rounded-full border-0 px-4 text-[13.5px]")} />
                     <button type="button" data-wallpaper-delete="" aria-label={tt("Remove image")} onClick={removeWallpaperImage} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
                   </div>
                 )}
@@ -3127,8 +3144,15 @@ function WallpaperSection() {
                 <span className="text-[13px] text-[#6b7280]">{tt("JPG, PNG, GIF or HEIC. Tall pictures fit a phone best")}</span>
               </button>
             )}
+            {!coverImage ? <LibraryRow className="mt-3" onClick={() => setWallpaperLibrary(true)} /> : null}
             {imageUp.state.phase === "error" ? <UploadProgress state={imageUp.state} className="mt-3" /> : null}
             <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleImageUpload} className="hidden" />
+            <FilesLibraryChooser
+              open={wallpaperLibrary}
+              onClose={() => setWallpaperLibrary(false)}
+              selectedUrl={theme.background_image_url || null}
+              onPick={(url) => updateTheme({ background_type: "image", background_image_url: url })}
+            />
           </PanelSection>
           {theme.background_image_url ? (
             <PanelSection>
@@ -3141,23 +3165,8 @@ function WallpaperSection() {
           ) : null}
           <PanelSection>
             <SectionTitle title={tt("From the library")} />
-            <div className="grid grid-cols-3 gap-2.5">
-              {BACKGROUND_IMAGES.map((bg) => (
-                <button
-                  key={bg.id}
-                  type="button"
-                  aria-label={bg.label}
-                  aria-pressed={theme.background_image_url === bg.url}
-                  onClick={() => handleImageSelect(bg.url)}
-                  className="relative aspect-square cursor-pointer rounded-xl outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-                >
-                  <span className="block h-full w-full overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
-                    <img src={bg.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                  </span>
-                  <SwatchMark on={theme.background_image_url === bg.url} className="rounded-[15.5px]" />
-                </button>
-              ))}
-            </div>
+            {/* Round 40: sized copies, faded in once decoded, and the rest of Storelib's library (components/onepage/themes/wallpaper-library). */}
+            <WallpaperLibrary value={theme.background_image_url} onPick={handleImageSelect} />
           </PanelSection>
         </>
       )}
@@ -3512,6 +3521,11 @@ function TextSection() {
 
   return (
     <div>
+      {/* Round 40: a title and page face made for each other, in one press (components/onepage/themes/font-pairs). */}
+      <PanelSection>
+        <SectionTitle title={tt("Font pairs")} />
+        <FontPairs theme={theme} onPick={(pair) => updateTheme(pair as never)} />
+      </PanelSection>
       <PanelSection>
         {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
         <SectionTitle title={tt("Fonts")} />
@@ -3624,6 +3638,10 @@ function ButtonsSection() {
   const align = buttonAlign(theme)
   const iconSide = buttonIconSide(theme)
   const hover = buttonHover(theme)
+  /* What Fill turns to with no colour of its own: the page draws exactly this (buttonHoverVars). */
+  const autoFill = buttonHoverVars({ ...theme, button_hover_fill: null, button_hover_text: null }) as Record<string, string>
+  const autoText = buttonHoverVars({ ...theme, button_hover_text: null }) as Record<string, string>
+  const hoverFallback = { fill: autoFill["--op-fill"], text: autoText["--op-fill-text"] }
   const pageBg = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8"
 
   /*
@@ -3662,6 +3680,7 @@ function ButtonsSection() {
     { id: "zoom", label: tt("Bigger") },
     { id: "glow", label: tt("Glow") },
     { id: "fill", label: tt("Fill") },
+    { id: "pop", label: tt("Fill and lift") },
     { id: "underline", label: tt("Underline") },
     /* Fade is still drawn for the pages that chose it, and offered only to them. */
     ...(hover === "fade" ? [{ id: "fade", label: tt("Fade") }] : []),
@@ -3801,6 +3820,29 @@ function ButtonsSection() {
             </ChoiceCard>
           ))}
         </div>
+        {/* Round 40: the colours Fill and Fill and lift turn to, the theme's until changed (lib/onepage/button-style buttonHoverVars). */}
+        {hover === "fill" || hover === "pop" ? (
+          <div className="mt-5 space-y-4" data-hover-colours="">
+            <ColorRow
+              label={tt("Hover fill")}
+              value={theme.button_hover_fill || null}
+              emptyLabel={tt("Automatic")}
+              fallback={hoverFallback.fill}
+              onChange={(color) => updateTheme({ button_hover_fill: color })}
+              onClear={() => updateTheme({ button_hover_fill: null, button_hover_text: null })}
+              suggestions={["#111113", "#ffffff", theme.text_color, theme.button_color, "#d42d17", "#12695e", "#f0a24a"]}
+            />
+            <ColorRow
+              label={tt("Hover text")}
+              value={theme.button_hover_text || null}
+              emptyLabel={tt("Automatic")}
+              fallback={hoverFallback.text}
+              onChange={(color) => updateTheme({ button_hover_text: color })}
+              onClear={() => updateTheme({ button_hover_text: null })}
+              suggestions={["#ffffff", "#111113", theme.button_color, theme.button_text_color]}
+            />
+          </div>
+        ) : null}
         <p className="mt-3 text-[13px] text-[#6b7280]">{tt("To make one link stand out, use the sparkle button on that link in Links.")}</p>
       </PanelSection>
     </div>

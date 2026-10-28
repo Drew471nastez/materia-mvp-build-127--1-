@@ -1,6 +1,8 @@
 // OnePage Types
 // Location: lib/onepage/types.ts
 
+import type { FollowersBlockData, LeadMagnetBlockData, PromoCodeBlockData, SocialPostsBlockData, StorelibShelfBlockData } from "./storelib-blocks"
+
 export type OnePageBlockType =
   | "link_button"
   | "product"
@@ -24,6 +26,11 @@ export type OnePageBlockType =
   | "testimonials"
   | "contact_form"
   | "embed"
+  | "storelib_shelf"
+  | "lead_magnet"
+  | "social_posts"
+  | "followers"
+  | "promo_code"
 
 export interface OnePageTheme {
   template_id: string
@@ -45,11 +52,17 @@ export interface OnePageTheme {
   button_shadow?: "none" | "subtle" | "strong" | "hard"
   button_shadow_color?: string | null
   /* "default" (or nothing) is Lift. */
-  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "underline" | null
+  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "pop" | "underline" | null
+  /* Round 40: the colours Fill and Pop turn a button to. Missing is the old Fill (lib/onepage/button-style). */
+  button_hover_fill?: string | null
+  button_hover_text?: string | null
   /* Missing means what every button had before: regular, centred, icon on the left. */
   button_size?: "compact" | "regular" | "large"
   button_text_align?: "center" | "left"
   button_icon_position?: "left" | "right"
+  /* Round 40 (lib/onepage/theme-layout): how the blocks are laid out, and the classic header's alignment. Missing is a list, centred. */
+  block_layout?: "list" | "grid" | "cards" | "compact" | null
+  header_align?: "center" | "left" | null
   font_family: string
   // Title customization
   title_font?: string | null
@@ -268,6 +281,9 @@ export interface ImageItem {
   alt_text?: string
   title?: string
   link_url?: string | null
+  /** The picture's own size, saved with it from round 40 so the page reserves its box before it loads. */
+  width?: number
+  height?: number
 }
 
 export type ImageCarouselViewType = "1" | "1.3" | "1.5" | "2"
@@ -333,6 +349,8 @@ export interface EmailCaptureBlockData {
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
   after_signup_label?: string | null
+  /** The tool the block was added as in the Add block sheet (Mailchimp, Kit, Zapier...): its settings offer to connect that one first. */
+  integration_hint?: string | null
 }
 
 // PDF document layout types
@@ -498,6 +516,9 @@ export interface EmbedBlockData {
   provider?: string | null
 }
 
+/* The blocks drawn by components/onepage/storelib-blocks (lib/onepage/storelib-blocks.ts holds their rules). */
+export type { FollowersBlockData, LeadMagnetBlockData, PromoCodeBlockData, SocialPostsBlockData, StorelibShelfBlockData } from "./storelib-blocks"
+
 export type OnePageBlockData =
   | LinkButtonBlockData
   | ProductBlockData
@@ -521,6 +542,11 @@ export type OnePageBlockData =
   | TestimonialsBlockData
   | ContactFormBlockData
   | EmbedBlockData
+  | StorelibShelfBlockData
+  | LeadMagnetBlockData
+  | SocialPostsBlockData
+  | FollowersBlockData
+  | PromoCodeBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -925,6 +951,16 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
         ...baseBlock,
         data: { url: "", title: "", provider: null } as EmbedBlockData,
       }
+    case "storelib_shelf":
+      return { ...baseBlock, data: { source: "all", title: "", layout: "carousel", limit: 6 } as StorelibShelfBlockData }
+    case "lead_magnet":
+      return { ...baseBlock, data: { kind: "download", title: "Free guide", description: "", button_text: "", ask_name: false } as LeadMagnetBlockData }
+    case "social_posts":
+      return { ...baseBlock, data: { network: "youtube", title: "", channel_url: "", post_urls: [], limit: 6 } as SocialPostsBlockData }
+    case "followers":
+      return { ...baseBlock, data: { networks: [], label: "", style: "line" } as FollowersBlockData }
+    case "promo_code":
+      return { ...baseBlock, data: { title: "", code: "", description: "", url: "" } as PromoCodeBlockData }
     default:
       return baseBlock as OnePageBlock
   }

@@ -25,13 +25,15 @@
  * in the last 90 days that the offer saved on or that a theme added through
  * it (lib/offers/offers-server soldThrough).
  *
- * An offer opens in the editor (./offer-editor.tsx), a dialog on a computer
- * and the app's shared bottom sheet on a phone, over this list. Questions
- * (discard the changes, delete it) are asked once the editor has gone, as
- * the collections page asks them.
+ * An offer opens on a page of its own (./offer-editor.tsx, at
+ * /app/offers/<id>, and /app/offers/new?kind= for a new one), as an order
+ * or a coupon does: on a phone it rises over this list and drops back to
+ * it, from 768px it lands as every page does. Coming back, the list says
+ * what was done, tints the row and reads its rows again (./list-return).
  */
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -42,8 +44,12 @@ import { offerState, type Offer, type OfferKind, type OfferState } from "@/lib/o
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, StatusBadge } from "../orders/order-parts"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { Pill, usePill } from "../coupons/coupon-parts"
-import { OfferEditor } from "./offer-editor"
-import type { bodyOf } from "./offer-draft"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { rowsWithReturn, tintReturnedRow } from "@/components/app/list-return"
+import { holdLanding, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { whenIdle } from "../products/list-return"
+import { sendOffer as send } from "./offer-api"
+import { newOfferHref, offerHref, offersReturn } from "./list-return"
 import { KIND_WORD, OfferThumbs, STATE_TONE, STATE_WORD, contentsText, datesText, discountText, placesText, type OfferCollection, type OfferProduct } from "./offer-parts"
 
 /* The products page's own measures, as Collections takes them, so the three pages are one place. */
@@ -54,8 +60,6 @@ const PAGE_BAR = "lg:min-h-[73px] lg:pb-[9px] lg:pt-[15px]"
 const PRESS = "relative max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
 /** New offer: the products page's violet New product, the one violet button here. */
 const NEW_LOOK = cn(accentDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
-/** How long the computer's dialog takes to fade out (components/ui/dialog.tsx), before a question takes its place. */
-export const DIALOG_LEAVE_MS = 200
 
 type View = "all" | "active" | "scheduled" | "off"
 const VIEWS: { value: View; label: () => string }[] = [
@@ -66,17 +70,9 @@ const VIEWS: { value: View; label: () => string }[] = [
 ]
 const viewOf = (s: OfferState): Exclude<View, "all"> => (s === "active" ? "active" : s === "scheduled" ? "scheduled" : "off")
 
-type Answer = { ok: true; offer?: Offer } | { ok: false; error: string }
-async function send(method: string, body: unknown): Promise<Answer> {
-  try {
-    const res = await fetch("/api/store/offers", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
-    return { ok: true, offer: data?.offer as Offer | undefined }
-  } catch {
-    return { ok: false, error: tt("No connection. Try again in a moment.") }
-  }
-}
+
+/** The view the list was left on, taken up again only on a way back from an offer (./list-return isReturning). */
+let leftAt: View | null = null
 
 export function OffersClient({
   initialOffers,
@@ -103,7 +99,8 @@ export function OffersClient({
   sold: Record<string, number>
   physical: boolean
 }) {
-  const [list, setList] = React.useState(initialOffers)
+  /* A save or a delete on an offer's page, laid over the rows the router kept (./list-return). */
+  const [list, setList] = React.useState(() => rowsWithReturn(initialOffers, offersReturn.peek()))
   /* The server's list again (a refresh: a change of the store's currency converts fixed amounts): it is the truth from here, as Coupons does. */
   const [seen, setSeen] = React.useState(initialOffers)
   if (seen !== initialOffers) {
@@ -113,8 +110,28 @@ export function OffersClient({
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
   const [ask, confirmSheet] = useConfirm()
-  const [view, setView] = React.useState<View>("all")
+  const router = useRouter()
+  const sectionRef = React.useRef<HTMLElement>(null)
+  /* Back from an offer is the list as it was, on the view it was on, with no landing (as Coupons). */
+  const [returning] = React.useState(() => offersReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  const [view, setView] = React.useState<View>(() => (returning && leftAt ? leftAt : "all"))
+  React.useEffect(() => {
+    leftAt = view
+  }, [view])
   const [query, setQuery] = React.useState("")
+
+  /* BACK FROM AN OFFER: say what happened, tint its row, and read the rows again. */
+  React.useEffect(() => {
+    const back = offersReturn.take()
+    if (!back) return
+    if (back.message) say(back.message)
+    if (back.saved || back.deleted) router.refresh()
+    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+  }, [])
 
   /* One clock for the render, so an offer does not change view between two rows. */
   const [now] = React.useState(() => new Date())
@@ -127,42 +144,27 @@ export function OffersClient({
   const words = query.trim().toLowerCase()
   const shown = rows.filter((r) => (view === "all" || viewOf(r.state) === view) && (!words || r.offer.title.toLowerCase().includes(words) || r.offer.productIds.some((id) => byId.get(id)?.title.toLowerCase().includes(words))))
 
-  /* The editor: which offer (null for a new one), and whether it is up. It stays mounted while a question is asked, so it comes back as it was. */
-  const [editing, setEditing] = React.useState<{ key: number; offer: Offer | null; kind: OfferKind } | null>(null)
-  const [open, setOpen] = React.useState(false)
-  const afterClose = React.useRef<(() => void) | null>(null)
-  const start = (offer: Offer | null, kind: OfferKind = "bundle") => {
-    afterClose.current = null
-    setEditing({ key: Date.now(), offer, kind: offer?.kind ?? kind })
-    setOpen(true)
+  /* An offer's page, fetched whole when its row is hovered or touched, so the press finds it here. */
+  const warmed = React.useRef(new Set<string>())
+  const warm = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
   }
-  const close = (then?: () => void) => {
-    afterClose.current = then ?? (() => setEditing(null))
-    setOpen(false)
-  }
-  const closed = React.useCallback(() => {
-    const then = afterClose.current
-    afterClose.current = null
-    then?.()
-  }, [])
-  const requestClose = (dirty: boolean) => {
-    if (!dirty) return close()
-    close(async () => {
-      const yes = await ask({ title: tt("Discard changes?"), body: tt("Your edits to this offer will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") })
-      if (yes) setEditing(null)
-      else setOpen(true)
-    })
-  }
-
-  const save = async (id: string | null, body: ReturnType<typeof bodyOf>): Promise<string | null> => {
-    const r = await send(id ? "PUT" : "POST", id ? { ...body, id } : body)
-    if (r.ok === false) return (r as { error: string }).error
-    const saved = (r as { offer?: Offer }).offer
-    if (saved) setList((l) => (id ? l.map((x) => (x.id === id ? saved : x)) : [...l, saved]))
-    close()
-    say(id ? tt("{value} saved", { value: body.title.trim() }) : tt("{value} created", { value: body.title.trim() }))
-    return null
-  }
+  /* Once the list has drawn and the browser is idle, New offer and the first rows: on a phone there is no hover to start them. */
+  const firstShown = React.useRef<string[]>([])
+  firstShown.current = shown.slice(0, 3).map((r) => r.offer.id)
+  React.useEffect(
+    () =>
+      whenIdle(() => {
+        warm(newOfferHref())
+        for (const id of firstShown.current) warm(offerHref(id))
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit
+    [],
+  )
+  /* OPENING AN OFFER: its own page, rising over the list on a phone (./list-return). */
+  const start = (offer: Offer | null, kind?: OfferKind) => offersReturn.open(router, offer ? offerHref(offer.id) : newOfferHref(kind))
 
   const setActive = async (o: Offer, active: boolean) => {
     setList((l) => l.map((x) => (x.id === o.id ? { ...x, active } : x)))
@@ -190,18 +192,13 @@ export function OffersClient({
     }
   }
 
-  const remove = (o: Offer) => {
-    const go = async () => {
-      const yes = await ask({ title: tt("Delete {title}?", { title: o.title }), body: tt("It stops showing and applying at once. Orders already placed keep their discount. To stop it for now instead, turn it off."), confirm: tt("Delete"), cancel: tt("Keep it") })
-      if (!yes) return editing ? setOpen(true) : undefined
-      setEditing(null)
-      const r = await send("DELETE", { id: o.id, title: o.title })
-      if (r.ok === false) return say((r as { error: string }).error, "error")
-      setList((l) => l.filter((x) => x.id !== o.id))
-      say(tt("{title} deleted", { title: o.title }))
-    }
-    if (open) close(go)
-    else void go()
+  const remove = async (o: Offer) => {
+    const yes = await ask({ title: tt("Delete {title}?", { title: o.title }), body: tt("It stops showing and applying at once. Orders already placed keep their discount. To stop it for now instead, turn it off."), confirm: tt("Delete"), cancel: tt("Keep it") })
+    if (!yes) return
+    const r = await send("DELETE", { id: o.id, title: o.title })
+    if (r.ok === false) return say((r as { error: string }).error, "error")
+    setList((l) => l.filter((x) => x.id !== o.id))
+    say(tt("{title} deleted", { title: o.title }))
   }
 
   const actionsFor = (o: Offer, i: number) => [
@@ -212,7 +209,7 @@ export function OffersClient({
       ...(i > 0 ? [{ label: tt("Move up"), onClick: () => void move(o, -1) }] : []),
       ...(i >= 0 && i < list.length - 1 ? [{ label: tt("Move down"), onClick: () => void move(o, 1) }] : []),
     ].map((item, k) => (k === 0 ? { ...item, separatorBefore: true } : item)),
-    { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => remove(o) },
+    { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => void remove(o) },
   ]
   const missingIn = (o: Offer) => o.productIds.some((id) => !byId.has(id)) || (o.kind === "quantity_break" && o.productIds.length === 0 && !collections.some((c) => c.id === o.triggerCollectionIds?.[0]))
 
@@ -236,7 +233,7 @@ export function OffersClient({
           </p>
         ) : null}
 
-        <section aria-label={tt("Upsells and bundles")} data-offers-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
+        <section ref={sectionRef} aria-label={tt("Upsells and bundles")} data-offers-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
           {list.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
               <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{tt("No offers yet")}</p>
@@ -294,7 +291,7 @@ export function OffersClient({
                       const i = list.indexOf(o)
                       return (
                         <li key={o.id} data-row={o.id} className="relative flex min-h-[72px] items-center gap-3 py-2.5 pl-3 pr-1.5 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[64px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]">
-                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} onPointerDown={() => warm(offerHref(o.id))} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                           <OfferThumbs offer={o} byId={byId} />
                           <span className="pointer-events-none min-w-0 flex-1">
                             <span className="flex items-center gap-2">
@@ -335,6 +332,7 @@ export function OffersClient({
                           <tr
                             key={o.id}
                             data-row={o.id}
+                            onMouseEnter={() => warm(offerHref(o.id))}
                             onClick={(e) => {
                               const target = e.target as HTMLElement
                               if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
@@ -381,26 +379,6 @@ export function OffersClient({
         </section>
       </div>
 
-      {editing ? (
-        <OfferEditor
-          key={editing.key}
-          open={open}
-          offer={editing.offer}
-          kind={editing.kind}
-          products={products}
-          collections={collections}
-          others={list}
-          currency={currency}
-          physical={physical}
-          settingsReady={settingsReady}
-          breaksReady={breaksReady}
-          onRequestClose={requestClose}
-          onSave={save}
-          onDelete={remove}
-          onClosed={closed}
-          leaveMs={DIALOG_LEAVE_MS}
-        />
-      ) : null}
       {confirmSheet}
     </div>
   )

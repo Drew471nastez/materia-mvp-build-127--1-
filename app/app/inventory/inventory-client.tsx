@@ -144,17 +144,13 @@ function Thumb({ src, size = 40 }: { src: string | null; size?: number }) {
   )
 }
 
-export function InventoryClient() {
+export function InventoryClient({ initialView = "all" }: { initialView?: View } = {}) {
   const [rows, setRows] = React.useState<Row[] | null>(null)
   const [locations, setLocations] = React.useState<Location[]>([])
   const [lowStockDefault, setLowStockDefault] = React.useState(5)
   const [error, setError] = React.useState<string | null>(null)
-  /* The low stock email links to ?filter=low. */
-  const [view, setView] = React.useState<View>(() => {
-    if (typeof window === "undefined") return "all"
-    const f = new URLSearchParams(window.location.search).get("filter")
-    return f === "low" || f === "out" || f === "incoming" ? f : "all"
-  })
+  /* The low stock email links to ?filter=low, read by the server page (./page.tsx), so the first frame is the same on both sides. */
+  const [view, setView] = React.useState<View>(initialView)
   const [query, setQuery] = React.useState("")
   const [loc, setLoc] = React.useState("")
   const [adjusting, setAdjusting] = React.useState<Row | null>(null)
@@ -485,6 +481,8 @@ export function AdjustModal({ row, locations, defaultLocation, lowStockDefault, 
       const r = await api("/api/physical/inventory", { body: { variantId: row.variantId, locationId, field: "on_hand", mode, quantity: amount.trim(), reason, note, key: key.current } })
       if (!r.ok) {
         setBusy(false)
+        /* The settings above were saved: the list shows them now, and Save again sends only what is left. */
+        if (settingsChanged) onDone()
         return setError(r.error)
       }
     }
@@ -492,6 +490,8 @@ export function AdjustModal({ row, locations, defaultLocation, lowStockDefault, 
       const r = await api("/api/physical/inventory", { body: { variantId: row.variantId, locationId, field: "incoming", mode: "set", quantity: onOrder.trim(), reason: "received", note, key: `${key.current}:incoming` } })
       if (!r.ok) {
         setBusy(false)
+        /* What was saved before it is on the list; the same key makes Save again a no-op for it. */
+        if (settingsChanged || stockChanged) onDone()
         return setError(r.error)
       }
     }

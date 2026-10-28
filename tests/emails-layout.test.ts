@@ -117,7 +117,8 @@ console.log("\nThe team invite")
   const h = invite.html
   check("the subject names who invited them and the store", invite.subject === "Andrew invited you to AndrewRullz on Storelib", invite.subject)
   check("Storelib on top: the mark and the name", /storelib-logo-email-v2\.png/.test(h) && />Storelib<\/td>/.test(h))
-  check("the store by its picture and name, with the role and what it does", h.includes(`src="${IMG}"`) && />AndrewRullz<\/p>/.test(h) && /Manager · Orders: fulfil, ship, handle returns and send receipts/.test(h))
+  /* Round 40: an invite carries permissions, not a role; one from before part 320 (role "manager") reads as the Orders it could use. */
+  check("the store by its picture and name, with the access and what it does", h.includes(`src="${IMG}"`) && />AndrewRullz<\/p>/.test(h) && />Orders<\/p>/.test(h) && /be able to see, fulfil and ship orders, handle returns\./.test(h))
   check("the address is plain text, split so Gmail does not link it", !/andreibalanradu112@gmail\.com/.test(h.replace(/<title>[\s\S]*?<\/title>/, "")) && /andreibalanradu112<span[^>]*>@<\/span>gmail<span[^>]*>\.<\/span>com/.test(h))
   check("one Accept invite button, near black, with an Outlook roundrect", (h.match(/<td class="e-btn[" ]/g) ?? []).length === 1 && /bgcolor="#1a1a2e"[^>]*>\s*<a class="e-btn-a[^"]*" href="https:\/\/storelib\.com\/api\/team\/join\?token=abc"[^>]*>Accept invite<\/a>/.test(h) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/api\/team\/join\?token=abc"/.test(h))
   check("the text part has the link and the address in full", invite.text.includes("https://storelib.com/api/team/join?token=abc") && invite.text.includes("Sign in with andreibalanradu112@gmail.com to accept."))

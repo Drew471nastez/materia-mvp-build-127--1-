@@ -18,8 +18,8 @@
  *                 conditional-header.tsx leaves /@ and /member alone).
  *   THE HEADER    the creator header itself (ShopHeaderRenderer): their
  *                 cover edge to edge, the photo across its edge, the name,
- *                 @handle and bio, then where they are from, followers /
- *                 following and Follow (ProfileSocial). On your own page,
+ *                 @handle and bio, then where they are from and followers /
+ *                 following (ProfileSocial; no Follow since r40). On your own page,
  *                 Edit profile on the cover where a creator's sits.
  *   THE TABS      the creator page's underline tabs (StorefrontTabs):
  *                 Activity (their public activity, and first the posts of
@@ -137,7 +137,8 @@ export function personHeaderSettings(coverUrl: string | null): ShopHeaderSetting
   }
 }
 
-export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }: { profile: MemberProfileData; viewerId: string | null; viewerFollowing: boolean; extras: ProfilePageExtras }) {
+/* `viewerFollowing` is read by nothing since Follow left profiles (r40); the route still passes it. */
+export function MemberProfilePage({ profile, viewerId, extras }: { profile: MemberProfileData; viewerId: string | null; viewerFollowing: boolean; extras: ProfilePageExtras }) {
   const isSelf = !!viewerId && viewerId === profile.userId
   const first = profile.name.split(/\s+/)[0] || profile.name
   const { activity, communities } = extras
@@ -231,18 +232,8 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         productCount={0}
         ownerActions={isSelf ? <PersonOwnerActions /> : null}
         followRow={
-          <ProfileSocial
-            tone="storefront"
-            scheme={chrome.action}
-            userId={profile.userId}
-            name={profile.name}
-            followers={profile.followers}
-            following={profile.following}
-            viewerFollowing={viewerFollowing}
-            signedIn={!!viewerId}
-            isSelf={isSelf}
-            location={extras.location ?? null}
-          />
+          /* Where they are from and the counts; no Follow (r40, components/profile/profile-social). */
+          <ProfileSocial tone="storefront" followers={profile.followers} following={profile.following} location={extras.location ?? null} />
         }
         surface={storefrontHeaderSurface(chrome)}
       />

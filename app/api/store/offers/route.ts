@@ -24,13 +24,13 @@ export const dynamic = "force-dynamic"
  * and collection an offer names must be theirs (lib/offers/offers-server).
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   return physicalJson(await offersArea(c.db, c.creatorId))
 }
 
 async function write(request: Request, method: "POST" | "PUT" | "DELETE" | "PATCH") {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

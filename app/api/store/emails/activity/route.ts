@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
  *   GET ?communities=<id>,<id>   ->   EmailActivity
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const asked = (new URL(request.url).searchParams.get("communities") ?? "").split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id))
   /* Only the store's own communities are counted, whatever was asked. */

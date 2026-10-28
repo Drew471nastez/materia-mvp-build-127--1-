@@ -134,6 +134,9 @@ export function CapacitorBounceGuard() {
     let scrollHeight = 0
     let clientHeight = 0
     let canScrollDoc = false
+    /** Where the finger landed, and whether the walk from there has been asked again this gesture. */
+    let gestureTarget: Element | null = null
+    let rewalked = false
 
     /** Re-read the two numbers the boundary test is made of. */
     function refreshExtent(): void {
@@ -148,6 +151,20 @@ export function CapacitorBounceGuard() {
       clientHeight = scroller.clientHeight
     }
 
+    /** The nearest ancestor of `from` that scrolls vertically and has room to go `dir` (-1 up, 1 down). Asked only at a boundary, never per move. */
+    function nextScroller(from: HTMLElement, dir: -1 | 1): HTMLElement | null {
+      let el = from.parentElement
+      while (el && el !== document.documentElement && el !== document.body) {
+        const oy = window.getComputedStyle(el).overflowY
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) {
+          const room = dir < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1
+          if (room) return el
+        }
+        el = el.parentElement
+      }
+      return null
+    }
+
     /** The expensive part, and it runs once per gesture instead of once per frame. */
     function resolve(target: Element | null): void {
       if (window.innerWidth > window.innerHeight) {
@@ -157,7 +174,18 @@ export function CapacitorBounceGuard() {
       if (
         target?.closest("[data-mobile-bottom-sheet]") ||
         target?.closest("[data-mobile-top-sheet]") ||
-        target?.closest("[data-wb-no-bounce-guard]")
+        target?.closest("[data-wb-no-bounce-guard]") ||
+        /*
+          THE WHOLE BUILDER, NOT ONLY ITS ROOT (round 1026). The editor and
+          the code page opt out with data-wb-no-bounce-guard on their root,
+          and everything they open in a portal on <body> (a block picker, a
+          menu, a dialog, a popover's list) is outside that root. Those were
+          walked like a page: nothing scrollable found yet, a document that
+          does not scroll (the builder locks it), and every move of the
+          gesture cancelled. The surface is the builder's while the class
+          that locks it is on <html>, and it polices its own touch.
+        */
+        document.documentElement.classList.contains("wb-fullscreen")
       ) {
         mode = "ignore"
         return
@@ -209,6 +237,8 @@ export function CapacitorBounceGuard() {
     function onTouchStart(e: TouchEvent) {
       lastTouchY = e.touches[0]?.clientY ?? 0
       lastTouchX = e.touches[0]?.clientX ?? 0
+      gestureTarget = e.target instanceof Element ? e.target : null
+      rewalked = false
       scroller = null
       scrollHeight = 0
       clientHeight = 0
@@ -251,6 +281,18 @@ export function CapacitorBounceGuard() {
            still true before refusing to move: a page that has grown since
            is a page somebody is entitled to scroll. */
         refreshExtent()
+        /*
+          AND THAT NOTHING UNDER THE FINGER HAS COME TO SCROLL SINCE (round
+          1026). The walk at touchdown skips a box whose content did not
+          overflow yet: a list still loading, a panel still opening. Asked
+          again once, at the one moment the gesture would be cancelled for
+          it, rather than on every move.
+        */
+        if (!canScrollDoc && !rewalked) {
+          rewalked = true
+          resolve(gestureTarget)
+          if (mode !== "document") return
+        }
         if (!canScrollDoc) {
           // Page fits on screen — prevent rubber-band in both directions
           if (deltaY !== 0) e.preventDefault()
@@ -267,8 +309,27 @@ export function CapacitorBounceGuard() {
         refreshExtent()
         atBottom = scrollTop + clientHeight >= scrollHeight - 1
       }
-      if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) e.preventDefault()
+      if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
+        /*
+          A BOX AT ITS END HANDS THE SCROLL ON (round 1026). Only the
+          nearest scroller was known, so a list at its top inside a panel
+          that could still scroll cancelled the move and neither moved: a
+          short block list inside a long settings panel stopped the panel
+          dead. One walk up, only at the boundary, for an ancestor that can
+          still go the finger's way; the gesture follows that one.
+        */
+        if (mode === "element" && scroller) {
+          const next = nextScroller(scroller, deltaY > 0 ? -1 : 1)
+          if (next) {
+            scroller = next
+            refreshExtent()
+            return
+          }
+        }
+        e.preventDefault()
+      }
     }
+
 
     document.addEventListener("touchstart", onTouchStart, { passive: true })
     // passive: false required so e.preventDefault() is allowed

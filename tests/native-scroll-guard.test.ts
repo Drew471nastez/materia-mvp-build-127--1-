@@ -41,8 +41,9 @@ function main() {
     /function refreshExtent\(\): void \{/.test(guard))
   check("the boundary that cancels a gesture is confirmed before it does",
     /if \(atBottom\) \{\s*\n\s*refreshExtent\(\)\s*\n\s*atBottom = scrollTop \+ clientHeight >= scrollHeight - 1\s*\n\s*\}/.test(guard))
+  /* Changed on purpose: round 1026 asks the walk again once (rewalked) between the re-read and the refusal, for a box under the finger that has come to scroll since touchdown (tests/editor-touch-scroll.test.ts). */
   check("and a page that did not fit is re-checked before every move is refused",
-    /if \(mode === "document" && !canScrollDoc\) \{[\s\S]{0,320}?refreshExtent\(\)\s*\n\s*if \(!canScrollDoc\) \{/.test(guard))
+    /if \(mode === "document" && !canScrollDoc\) \{[\s\S]{0,320}?refreshExtent\(\)[\s\S]{0,900}?if \(!canScrollDoc && !rewalked\) \{[\s\S]{0,200}?resolve\(gestureTarget\)[\s\S]{0,120}?if \(!canScrollDoc\) \{/.test(guard))
 
   /*
     The point of the change is that the CHEAP path is unchanged: a layout

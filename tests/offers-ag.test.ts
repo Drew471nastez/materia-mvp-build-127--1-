@@ -447,7 +447,7 @@ async function main() {
     const editor = read("app/app/offers/offer-editor.tsx")
     check("the editor: a line under the kind picker, the warnings, Try it in a cart", /data-kind-hint/.test(editor) && /data-offer-warnings/.test(editor) && /data-try-cart/.test(editor) && /\/api\/store\/offers\/try/.test(editor))
     const tryRoute = read("app/api/store/offers/try/route.ts")
-    check("  the try route: the caller's own store (team roles too), products read under it, nothing saved", /const c = await shopCaller\(\)/.test(tryRoute) && /\.eq\("creator_id", c\.creatorId\)/.test(tryRoute) && !/saveOffer|\.insert\(|\.update\(/.test(tryRoute))
+    check("  the try route: the caller's own store (team roles too), products read under it, nothing saved", /const c = await shopCaller\("marketing"\)/.test(tryRoute) /* Round 40: a team member reaches offers with Marketing. */ && /\.eq\("creator_id", c\.creatorId\)/.test(tryRoute) && !/saveOffer|\.insert\(|\.update\(/.test(tryRoute))
     check("  the kind explanations name what each does, no sales words", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(editor.match(/const KIND_HINT[\s\S]*?\n\}/)?.[0] ?? "x"))
   }
 

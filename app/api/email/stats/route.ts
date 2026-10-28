@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { requireTeamPermission } from "@/lib/team/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { monthlyLimit } from "@/lib/email-campaigns/limits"
 import { usedThisMonth } from "@/lib/email-campaigns/queue"
@@ -16,23 +16,11 @@ export const revalidate = 0
 // GET - Fetch sent campaigns and stats
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    /* The store's emails, for its owner or a team member given Marketing (lib/team). */
+    const gate = await requireTeamPermission("marketing")
+    if (gate instanceof NextResponse) return gate.status === 401 ? NextResponse.json({ error: "Unauthorized" }, { status: 401 }) : gate
     const adminSupabase = createAdminClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
+    const creator = { id: gate.creatorId }
 
     const searchParams = request.nextUrl.searchParams
     const timeRange = searchParams.get("timeRange") || "30d"

@@ -26,6 +26,7 @@ import { grantMembership, ownedProductIds, reconcileAccess } from "./membership"
 import { admin, missing, reasonOf, type Db } from "./db"
 import { communityIdForOldSlug } from "./slug-history"
 import { staffPermissions } from "./creator-roles"
+import { TEAM_COMMUNITY_ROLE, teamAuditDb, teamCommunityIdentity } from "./team"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -261,12 +262,14 @@ export interface CreatorCommunityGate {
 const SUSPENDED_REFUSES: readonly CommunityAction[] = ["invite", "post", "announce", "manage_events", "chat", "upload"]
 
 export async function requireCreatorCommunity(communityId: string, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("community")
   /* requireCreator's own words are about email; a community route answers in its own codes. */
   if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : answer(403, "not_creator")
   const db = ctx.admin ?? admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")
+  /* Round 40: someone on the store's team with Community, working in the store (./team.ts). */
+  if (ctx.isOwner === false) return teamCommunityGate(ctx, db, community, action)
   const viewer = await viewerContext(db, community, ctx.userId)
   const ownsIt = community.creator_id === ctx.creatorId || community.owner_user_id === ctx.userId
   const role: Role | null = ownsIt ? "owner" : viewer.role
@@ -279,4 +282,21 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
   */
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
+}
+
+/**
+ * THE SAME GATE FOR A STORE'S TEAM MEMBER (./team.ts): only a community of
+ * the store they work in, as an admin with what the owner lets admins do
+ * there, acting as the store (the community owner's account), with every
+ * audit line naming them. Never the owner's role, whatever the store is.
+ */
+export async function teamCommunityGate(ctx: CreatorContext, db: Parameters<typeof loadCommunity>[0], community: CommunityRow, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
+  const identity = teamCommunityIdentity(community, { creatorId: ctx.creatorId, ownerUserId: ctx.ownerUserId ?? null })
+  if (!identity) return answer(404, "not_found")
+  const role = TEAM_COMMUNITY_ROLE
+  const perms = await staffPermissions(db, community.id, role)
+  if (!can(role, action, perms)) return answer(403, "forbidden")
+  if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
+  const viewer: Viewer = { ...NOBODY, userId: identity, role, active: true, status: "active", perms }
+  return { ok: true, ctx: { ...ctx, userId: identity, admin: teamAuditDb(db, ctx.userId) }, community, viewer, role }
 }

@@ -5,9 +5,8 @@
  * under one key in the shared cache (components/email/emails-cache.ts), so a
  * tab read once is there the next time it is opened.
  */
-import { createClient } from "@/lib/supabase/client"
 import type { RecipientCounts } from "@/lib/email-campaigns/state"
-import type { CampaignRow, EmailsTab, FlowRow, FlowTotals, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
+import type { CampaignRow, EmailsTab, FlowRow, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
 import { api } from "@/components/physical/ui"
 import { CUSTOMER_EMAILS_PATH, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 import { tt } from "@/lib/i18n/text"
@@ -26,30 +25,6 @@ export function tabKey(tab: EmailsTab, period: string): string {
 export const reportKey = (id: string) => `emails:report:${id}`
 export { campaignKey } from "@/components/email/emails-cache"
 
-let who: Promise<{ creatorId: string } | null> | null = null
-
-/** The signed-in creator, read once for the life of the page. */
-export function currentCreator(): Promise<{ creatorId: string } | null> {
-  if (!who) {
-    who = (async () => {
-      try {
-        const supabase = createClient()
-        const { data: auth } = await supabase.auth.getUser()
-        if (!auth.user) return null
-        const { data } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
-        return data ? { creatorId: data.id as string } : null
-      } catch {
-        return undefined
-      }
-    })().then((found) => {
-      /* A dropped connection: asked again next time, not remembered as nobody. */
-      if (found === undefined) who = null
-      return found ?? null
-    })
-  }
-  return who
-}
-
 async function json<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" })
   const data = await res.json().catch(() => ({}))
@@ -63,39 +38,15 @@ export interface SubscribersData {
   buyers: number
 }
 
-export async function loadSubscribers(): Promise<SubscribersData> {
-  const me = await currentCreator()
-  if (!me) throw new Error(tt("Sign in again to see your subscribers."))
-  const supabase = createClient()
-  /* The store's products are asked for alongside the list, not after it: one round trip fewer on every read, a pull to refresh's included. */
-  /* `.then` starts it now: a Supabase query is not sent until something waits on it. */
-  const productsRead = supabase.from("products").select("id").eq("creator_id", me.creatorId).then((r: { data: { id: string }[] | null }) => r)
-  const { data, error } = await supabase
-    .from("subscribers")
-    .select("id, email, name, source, source_detail, consent_text, status, subscribed_at, unsubscribed_at")
-    .eq("creator_id", me.creatorId)
-    .order("subscribed_at", { ascending: false })
-  let rows = data as SubscriberRow[] | null
-  if (error) {
-    /* Before the contact-source columns existed. */
-    const basic = await supabase.from("subscribers").select("id, email, name, source, status, subscribed_at, unsubscribed_at").eq("creator_id", me.creatorId).order("subscribed_at", { ascending: false })
-    if (basic.error) throw new Error(tt("Could not load your subscribers."))
-    rows = basic.data as SubscriberRow[]
-  }
-  const list = rows ?? []
-
-  let buyers = 0
-  const { data: products } = await productsRead
-  if (products && products.length > 0) {
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("buyer_email")
-      .in("product_id", products.map((p: { id: string }) => p.id))
-      .eq("status", "completed")
-    const onList = new Set(list.map((s) => s.email.toLowerCase()))
-    buyers = new Set((orders ?? []).map((o: { buyer_email?: string | null }) => o.buyer_email?.toLowerCase()).filter((e: string | undefined): e is string => !!e && !onList.has(e))).size
-  }
-  return { rows: list, buyers }
+/*
+  The subscribers, the contact form messages and the automations are read
+  on the server (app/api/email/area), by the store the session works in:
+  the owner's own, or the one a team member given Marketing works in
+  (lib/team). They were read here, under row level security, which answers
+  only for the owner.
+*/
+export function loadSubscribers(): Promise<SubscribersData> {
+  return json<SubscribersData>("/api/email/area?part=subscribers")
 }
 
 export interface MessagesData {
@@ -104,51 +55,17 @@ export interface MessagesData {
   available: boolean
 }
 
-const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, created_at"
-
 /**
- * What people wrote through the contact forms on the creator's websites
- * (lib/site-contact), newest first. Read through the creator's own session:
- * row level security keeps it to their messages, and the creator id is named
- * as well. `read_at` comes with part 92; before it, every message reads as
- * read rather than the tab failing.
+ * What people wrote through the contact forms on the store's websites
+ * (lib/site-contact), newest first. `read_at` comes with part 92; before it,
+ * every message reads as read rather than the tab failing.
  */
-export async function loadMessages(): Promise<MessagesData> {
-  const me = await currentCreator()
-  if (!me) throw new Error(tt("Sign in again to see your messages."))
-  const supabase = createClient()
-  const read = (columns: string) =>
-    supabase.from("site_contact_messages").select(columns).eq("creator_id", me.creatorId).order("created_at", { ascending: false }).limit(500)
-  let { data, error } = await read(`${MESSAGE_COLUMNS}, read_at`)
-  if (error && /read_at|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
-    ;({ data, error } = await read(MESSAGE_COLUMNS))
-    if (!error) return { available: true, rows: ((data ?? []) as unknown as MessageRow[]).map((m) => ({ ...m, read_at: m.created_at })) }
-  }
-  if (error) {
-    /* Before the contact form's own part has run there is no table: nothing to show, said plainly. */
-    if (/42P01|PGRST205|does not exist/i.test(`${error.code} ${error.message}`)) return { available: false, rows: [] }
-    throw new Error(tt("Could not load your messages."))
-  }
-  return { available: true, rows: (data ?? []) as unknown as MessageRow[] }
+export function loadMessages(): Promise<MessagesData> {
+  return json<MessagesData>("/api/email/area?part=messages")
 }
 
-export async function loadFlows(): Promise<FlowRow[]> {
-  const me = await currentCreator()
-  if (!me) throw new Error(tt("Sign in again to see your automations."))
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("email_flows")
-    .select("id, name, trigger_type, trigger_config, status, steps, updated_at")
-    .eq("creator_id", me.creatorId)
-    .order("created_at", { ascending: false })
-  if (error) throw new Error(tt("Could not load your automations."))
-  /* What each has sent, from the engine's own records. Before its SQL has run there are none, and the columns read a dash. */
-  const { data: totals } = await supabase.rpc("email_flow_totals").then(
-    (r: { data: unknown }) => r,
-    () => ({ data: null }),
-  )
-  const byFlow = new Map<string, FlowTotals>((Array.isArray(totals) ? totals : []).map((t: FlowTotals & { flow_id: string }) => [t.flow_id, t]))
-  return (data ?? []).map((f: FlowRow) => ({ ...f, totals: byFlow.get(f.id) ?? null }))
+export function loadFlows(): Promise<FlowRow[]> {
+  return json<FlowRow[]>("/api/email/area?part=flows")
 }
 
 export async function loadCampaigns(status: "draft" | "scheduled"): Promise<CampaignRow[]> {

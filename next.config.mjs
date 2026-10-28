@@ -287,10 +287,18 @@ const nextConfig = {
         ],
       },
       {
-        // Link-in-bio pages
+        /**
+         * Link-in-bio pages. NOT PUBLICLY CACHEABLE (round 40). A shared
+         * lifetime of five minutes, served stale for ten more, meant a link
+         * scheduled to start at 6:00 could reach a visitor at 6:15, and one
+         * set to end stayed up as long; it also held back every edit and
+         * every view count for as long. storelib.me/<handle>, the address
+         * handed out, never had a shared lifetime (it is rendered from
+         * /<handle>/links), so /l/ now answers the same way.
+         */
         source: '/l/:slug*',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+          { key: 'Cache-Control', value: 'private, no-cache, must-revalidate' },
         ],
       },
       {

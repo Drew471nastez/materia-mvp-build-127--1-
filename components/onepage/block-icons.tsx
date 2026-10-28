@@ -13,6 +13,7 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { tintTileStyle } from "@/components/onepage/block-tints"
 
 export type GlyphProps = { className?: string; style?: React.CSSProperties }
 export type Glyph = React.ComponentType<GlyphProps>
@@ -271,11 +272,11 @@ export const GlyphChat = glyph("chat", (
  * THE TILE A BLOCK'S ICON SITS ON, the same in the list and in the sheet: a
  * soft grey square, the icon in near black at the centre.
  */
-export function BlockTile({ icon: Icon, size = "md", className, children }: { icon?: Glyph | null; size?: "sm" | "md" | "lg"; className?: string; children?: React.ReactNode }) {
+export function BlockTile({ icon: Icon, size = "md", className, children, tint }: { icon?: Glyph | null; size?: "sm" | "md" | "lg"; className?: string; children?: React.ReactNode; /** Round 40: a category's wash and ink (./block-tints) instead of the grey. */ tint?: string | null }) {
   const box = size === "sm" ? "h-8 w-8 rounded-[9px]" : size === "lg" ? "h-11 w-11 rounded-[12px]" : "h-10 w-10 rounded-[11px]"
   const mark = size === "sm" ? "h-[17px] w-[17px]" : size === "lg" ? "h-[21px] w-[21px]" : "h-5 w-5"
   return (
-    <span data-block-tile="" className={cn("grid shrink-0 place-items-center bg-[#f2f2f4] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,17,19,0.04)]", box, className)}>
+    <span data-block-tile="" data-tint={tint ?? undefined} className={cn("grid shrink-0 place-items-center bg-[#f2f2f4] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,17,19,0.04)]", box, className)} style={tint ? tintTileStyle(tint) : undefined}>
       {children ?? (Icon ? <Icon className={mark} /> : null)}
     </span>
   )

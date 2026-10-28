@@ -56,6 +56,8 @@ const SUITES = [
   "tests/editor-live-updates.test.ts",
   /* Round 1023: the sidebar's drag (a trackpad scroll under a held row, Escape, a drag that always ends clean, each move said aloud) and every select setting's one rule, buttons for one to three options, the dropdown past that; scripts/check-sidebar-dnd.mjs and scripts/check-segmented.mjs measure them. */
   "tests/sidebar-dnd.test.ts",
+  /* Round 1026: a swipe in the editor scrolls what is under the finger (from an icon, after a drag, a theme's hold in the canvas, the native guard, leftovers let go); scripts/check-editor-touch.mjs measures it. */
+  "tests/editor-touch-scroll.test.ts",
   "tests/segmented-select.test.ts",
   /* Round canvas-1023: the canvas that stopped scrolling (a held page with nothing open, a preloader's wait that never ended, a page that left the frame), the toolbar over a selected block, Add section between an imported theme's sections; scripts/check-canvas-freeze.mjs and check-canvas-toolbar.mjs measure them. */
   "tests/editor-canvas-freeze.test.ts",
@@ -372,6 +374,8 @@ const SUITES = [
   "tests/email-inbox-image.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-share-image.test.ts",
+  /* Round 40: the OnePage editor's link stats are Analytics' own figures, each social icon its own click, noindex for a page that shows nothing. */
+  "tests/onepage-analytics-seo-r40.test.ts",
   "tests/onepage-host.test.ts",
   "tests/memory-r12.test.ts",
   "tests/onepage-old-links.test.ts",
@@ -608,6 +612,8 @@ const SUITES = [
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",
+  /* Offers, coupons and size charts as sub pages (not dialogs or sheets), a code's collections and "physical only" in every checkout, the size chart table's keys and paste, Inventory's batched reads. */
+  "tests/offers-subpages.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
@@ -684,6 +690,8 @@ const SUITES = [
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
   "tests/onepage-theme-apply.test.ts",
+  /* Round 40: five more themes, block layouts, hover colours, the themed product sheet and checkout window, the wallpaper library and the gradient direction. */
+  "tests/onepage-themes-r40.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -693,6 +701,8 @@ const SUITES = [
   "tests/onepage-motion-r11.test.ts",
   /* Round 11: + Add, the Add block sheet's open, Storelib's pills for its chips, brand marks, the embeds and their frame hosts, the social sheet's close and keyboard, Choose icon (scripts/check-onepage-addblock-r11.mjs measures them). */
   "tests/onepage-addblock-r11.test.ts",
+  /* Round 40: the Header pencil, Hero with a video or a pattern, the video from its first frame, uploads and Your files, compact image rows, carousels, a return without a flash. */
+  "tests/onepage-media-r40.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
@@ -941,6 +951,10 @@ const SUITES = [
   "tests/team-invite.test.ts",
   /* Round Y2: a team member opening /app lands in the team store (never /sell), Not now on /sell goes back to it, sign in follows /app for a member; an integration's bar carries Back (scripts/check-integrations-y2.mjs measures the bar and the card covers) */
   "tests/team-landing.test.ts",
+  /* Round 40: team permissions like Shopify staff: a list per member (part 320), presets, the invite and change of access, requireTeamPermission on every open area, the sidebar and the access card. */
+  "tests/team-permissions-r40.test.ts",
+  /* Round 40, second pass: OnePage and Community open to the team (lib/team/onepage, lib/communities/server/team.ts), uploads in the store's folder, SQL part 319; website, creator page, products and settings still closed. */
+  "tests/team-areas-r40.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
@@ -950,6 +964,8 @@ const SUITES = [
   "tests/editor-sections-r34.test.ts",
   /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
   "tests/onepage-products-r10.test.ts",
+  /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
+  "tests/onepage-editor-r40.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
@@ -969,6 +985,8 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
   "tests/onepage-creator-blocks.test.ts",
+  /* Round 40: OnePage integrations (Mailchimp, Kit, beehiiv, webhooks), consent-aware pixels, embeds without a jump, and the shelf, lead magnet, posts, followers and code blocks. */
+  "tests/onepage-blocks-r40.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
@@ -1050,6 +1068,8 @@ const STRICT_SUITES = [
   "tests/e2e-onepage-instant.test.ts",
   /* Round 11: the OnePage as storelib.me serves it: the way back from the checkout and the product page (never an open redirect), one-hop links, Instant checkout with every call routed as the host routes it, no Open in app card in the editor (tests/_journey) */
   "tests/e2e-onepage-live.test.ts",
+  /* Round 40: /terms and /privacy laid out as the Help Center, one text in components/legal, /legal/* redirecting; a OnePage's Privacy and Terms in a sheet; Share and Subscribe as one theme aware dialog; Your own domain's icon, Settings' box the shown section's height, the preview's products asked again; no Follow on creator pages and profiles. */
+  "tests/legal-and-onepage-settings-r40.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

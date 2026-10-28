@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: Params) {
     steps,
     updated_at: new Date().toISOString(),
   }
-  const { data: saved, error } = await me.supabase.from("email_flows").update(patch).eq("id", id).select("id, name, trigger_type, trigger_config, status, steps, updated_at").single()
+  const { data: saved, error } = await me.supabase.from("email_flows").update(patch).eq("id", id).eq("creator_id", me.creatorId).select("id, name, trigger_type, trigger_config, status, steps, updated_at").single()
   if (error || !saved) {
     console.error("[automations] could not save a flow:", error?.code, error?.message)
     return NextResponse.json({ error: "Could not save. Try again." }, { status: 500 })
@@ -63,9 +63,9 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
   const { data: flow } = await me.supabase.from("email_flows").select("id").eq("id", id).eq("creator_id", me.creatorId).maybeSingle()
   if (!flow) return NextResponse.json({ ok: true })
-  await me.supabase.from("email_flows").update({ status: "paused" }).eq("id", id)
+  await me.supabase.from("email_flows").update({ status: "paused" }).eq("id", id).eq("creator_id", me.creatorId)
   await stopFlowRuns(id, "The flow was deleted.")
-  const { error } = await me.supabase.from("email_flows").delete().eq("id", id)
+  const { error } = await me.supabase.from("email_flows").delete().eq("id", id).eq("creator_id", me.creatorId)
   if (error) {
     console.error("[automations] could not delete a flow:", error.code, error.message)
     return NextResponse.json({ error: "Could not delete. Try again." }, { status: 500 })

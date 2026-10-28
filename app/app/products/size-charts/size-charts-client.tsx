@@ -8,22 +8,27 @@
  * list (../collections/collections-client.tsx): the same bar, column and
  * white card, a 64px row on a phone and a light table from 768px. A row
  * says what the chart measures, how many sizes it has and how many products
- * use it; the whole row opens it in the editor (components/physical/
- * size-chart-editor.tsx), where it can be deleted too.
+ * use it; the whole row opens it on a page of its own (./size-chart-page.tsx,
+ * at /app/products/size-charts/<id>), as an order opens, where it can be
+ * deleted too. Coming back, the list says what was done and tints the row
+ * (./list-return).
  *
  * A product gets its chart in the product editor, under Size chart; the
  * help article "Set up size charts" walks through both.
  */
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { accentDepth } from "@/components/ui/depth-button"
 import { GUTTER, LIST_BAR, PaneBar } from "../../orders/order-parts"
 import { Pill, usePill } from "../../coupons/coupon-parts"
 import { pressMark } from "@/lib/press-mark"
-import { SizeChartEditor, type SavedSizeChart, type SizeChartTargets } from "@/components/physical/size-chart-editor"
-import { api } from "@/components/physical/ui"
-import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
+import type { SavedSizeChart, SizeChartTargets } from "@/components/physical/size-chart-editor"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { tintReturnedRow } from "@/components/app/list-return"
+import { holdLanding, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { newSizeChartHref, sizeChartHref, sizeChartsReturn } from "./list-return"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -50,21 +55,37 @@ function alsoOn(c: SavedSizeChart, targets?: SizeChartTargets): string {
 const sizesWord = (n: number) => tt("{n, plural, one {# size} other {# sizes}}", { n })
 const productsWord = (n: number) => tt("{n, plural, =0 {No products} one {# product} other {# products}}", { n })
 
-export function SizeChartsClient({ creatorId, ready, rules = false, targets, initialCharts }: { creatorId: string; ready: boolean; rules?: boolean; targets?: SizeChartTargets; initialCharts: SavedSizeChart[] }) {
-  const [list, setList] = React.useState(initialCharts)
-  const [notice, say] = usePill()
-  const [editing, setEditing] = React.useState<{ key: number; chart: SavedSizeChart | null } | null>(null)
-  const start = (chart: SavedSizeChart | null) => setEditing({ key: Date.now(), chart })
-  const upload = React.useCallback(async (file: File) => (await uploadDescriptionImage(file, { creatorId })).url, [creatorId])
-
-  const remove = async (c: SavedSizeChart): Promise<string | null> => {
-    const res = await api<{ charts: SavedSizeChart[] }>(`/api/size-charts/${c.id}`, { method: "DELETE" })
-    if (!res.ok) return res.error
-    setList(res.data.charts ?? [])
-    setEditing(null)
-    say(tt("{name} deleted", { name: c.name }))
-    return null
+export function SizeChartsClient({ ready, targets, initialCharts }: { creatorId: string; ready: boolean; rules?: boolean; targets?: SizeChartTargets; initialCharts: SavedSizeChart[] }) {
+  const router = useRouter()
+  /* The charts as a chart's page saved them, laid over the ones the router kept (./list-return). */
+  const [list, setList] = React.useState(() => sizeChartsReturn.peek()?.charts ?? initialCharts)
+  const [seen, setSeen] = React.useState(initialCharts)
+  if (seen !== initialCharts) {
+    setSeen(initialCharts)
+    setList(initialCharts)
   }
+  const [notice, say] = usePill()
+  const sectionRef = React.useRef<HTMLElement>(null)
+  const [returning] = React.useState(() => sizeChartsReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  React.useEffect(() => {
+    const back = sizeChartsReturn.take()
+    if (!back) return
+    if (back.message) say(back.message)
+    if (back.charts || back.deleted) router.refresh()
+    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+  }, [])
+  const warmed = React.useRef(new Set<string>())
+  const warm = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
+  }
+  /* A chart opens on its own page, rising over the list on a phone. */
+  const start = (chart: SavedSizeChart | null) => sizeChartsReturn.open(router, chart ? sizeChartHref(chart.id) : newSizeChartHref())
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
@@ -72,14 +93,14 @@ export function SizeChartsClient({ creatorId, ready, rules = false, targets, ini
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Size charts")}</h1>
         {ready && list.length > 0 ? (
-          <button type="button" data-new-size-chart="" className={NEW_LOOK} onClick={() => start(null)}>
+          <button type="button" data-new-size-chart="" className={NEW_LOOK} onPointerEnter={() => warm(newSizeChartHref())} onClick={() => start(null)}>
             {tt("New size chart")}
           </button>
         ) : null}
       </PaneBar>
 
       <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
-        <section aria-label={tt("Size charts")} data-size-charts-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
+        <section ref={sectionRef} aria-label={tt("Size charts")} data-size-charts-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
           {!ready ? (
             <div data-not-ready="" className="flex flex-col items-center px-6 py-16 text-center md:py-14">
               <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Size charts are almost here")}</p>
@@ -100,7 +121,7 @@ export function SizeChartsClient({ creatorId, ready, rules = false, targets, ini
               <ul aria-label={tt("Size charts")} data-list="" className="md:hidden">
                 {list.map((c) => (
                   <li key={c.id} data-row={c.id} className="relative flex h-16 items-center gap-3 px-4 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-4 [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]">
-                    <button type="button" data-row-open="" aria-label={c.name} onClick={() => start(c)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                    <button type="button" data-row-open="" aria-label={c.name} onClick={() => start(c)} onPointerDown={() => warm(sizeChartHref(c.id))} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                     <span className="pointer-events-none min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{c.name}</span>
                       <span className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
@@ -133,6 +154,7 @@ export function SizeChartsClient({ creatorId, ready, rules = false, targets, ini
                     <tr
                       key={c.id}
                       data-row={c.id}
+                      onMouseEnter={() => warm(sizeChartHref(c.id))}
                       onClick={(e) => {
                         if ((e.target as HTMLElement).closest("button")) return
                         start(c)
@@ -169,23 +191,6 @@ export function SizeChartsClient({ creatorId, ready, rules = false, targets, ini
         </p>
       </div>
 
-      {editing ? (
-        <SizeChartEditor
-          key={editing.key}
-          open
-          chart={editing.chart}
-          uploadImage={upload}
-          targets={targets}
-          rules={rules}
-          onClose={() => setEditing(null)}
-          onDelete={remove}
-          onSaved={({ charts }) => {
-            setList(charts)
-            setEditing(null)
-            say(editing.chart ? tt("Size chart saved") : tt("Size chart created"))
-          }}
-        />
-      ) : null}
     </div>
   )
 }

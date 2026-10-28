@@ -105,13 +105,18 @@ export interface CheckoutWindowProps {
   busy?: boolean
   /** The window drawn dark (app/theme-dark.css, as a community set dark). */
   dark?: boolean
+  /**
+   * Round 40: drawn in the OnePage's own colours instead (the .op-sheet rules in app/globals.css, the variables
+   * from lib/onepage/sheet-theme). Takes the place of `dark`, which would paint over it.
+   */
+  themed?: boolean
   /** For tests and probes: data-<name>="" on the window's layer. */
   dataName?: string
   labelId: string
   children: React.ReactNode
 }
 
-export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All plans", onClose, busy = false, dark = false, dataName = "community-checkout", labelId, children }: CheckoutWindowProps) {
+export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All plans", onClose, busy = false, dark = false, themed = false, dataName = "community-checkout", labelId, children }: CheckoutWindowProps) {
   useBodyLock(true)
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
@@ -123,7 +128,7 @@ export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All
 
   if (!mounted) return null
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6" {...{ [`data-${dataName}`]: "" }} data-community-theme={dark ? "dark" : undefined} data-leaving={leaving ? "" : undefined}>
+    <div className={cn("fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6", themed && "op-sheet")} {...{ [`data-${dataName}`]: "" }} data-community-theme={dark && !themed ? "dark" : undefined} data-leaving={leaving ? "" : undefined}>
       <div aria-hidden className={cn("absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-150 transition-opacity sm:block motion-reduce:animate-none", leaving && "opacity-0 duration-[140ms]")} onClick={closeIfIdle} />
       <div
         role="dialog"

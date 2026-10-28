@@ -569,15 +569,23 @@ async function main() {
     check("the pipeline never writes the OnePage's own tables", db.rows("onepage_views").length === 0 && db.rows("onepage_clicks").length === 0 && db.writes.every((w) => w === "insert analytics_events"), db.writes)
 
     const route = read("app/api/onepage/track/route.ts")
-    check("the OnePage editor's click count is written as before, then the analytics copy",
+    /* Changed on purpose (round 40, tests/onepage-analytics-seo-r40.test.ts): the analytics copy goes first, and
+       onepage_clicks is written only when its answer says a person pressed it (lib/onepage/visit-gate), so the
+       older table no longer counts robots, prefetches, the owner or a flood that Analytics refuses. Its own
+       rule, one per visitor, block and UTC day, is unchanged. */
+    check("the OnePage editor's click count keeps its rule, and is written after the analytics copy says a person pressed it",
       /\.from\("onepage_clicks"\)\s*\.select\("id"\)\s*\.eq\("onepage_id", onepage_id\)\s*\.eq\("block_id", block_id\)\s*\.eq\("visitor_id", visitorId\)\s*\.gte\("created_at", todayStr\)/.test(route) &&
-        route.indexOf('await supabase.from("onepage_clicks").insert(') < route.indexOf("await recordLinkClick(request, body)"))
+        route.indexOf("await recordLinkClick(request, body)") < route.indexOf('await supabase.from("onepage_clicks").insert(') &&
+        /legacyClickAllowed\(outcome\)/.test(route))
     check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, seller_id, creator_id, owner_id"\)\.eq\("id", body\.onepage_id\)/.test(route))
     const onePageRoute = read("app/(marketing)/l/[slug]/page.tsx")
     check("the OnePage editor's view count is written as before (one per address per UTC day)",
       /\.from\("onepage_views"\)\s*\.select\("id"\)\s*\.eq\("onepage_id", onepage\.id\)\s*\.eq\("ip_hash", ipHash\)\s*\.gte\("created_at", todayStr\)/.test(onePageRoute))
     check("  and the page carries the analytics tracker, with its links left to the blocks", /<TrackView creatorId=\{resolvedCreatorId\} links=\{false\} \/>/.test(onePageRoute))
-    check("  the OnePage stats route still reads only its own tables", !/analytics_events/.test(read("app/api/onepage/stats/route.ts")))
+    /* Changed on purpose (round 40): the editor's link stats are Analytics' own figures now, read through
+       lib/onepage/link-stats-server from analytics_events with the older tables folded in before the first event. */
+    check("  the OnePage stats route reads what Analytics reads",
+      /readBlockStats|readPageClicks/.test(read("app/api/onepage/stats/route.ts")) && /countVisits\(admin, q\)/.test(read("lib/onepage/link-stats-server.ts")) && /\.from\("analytics_events"\)/.test(read("lib/onepage/link-stats-server.ts")))
     const sql = read("supabase/sql/run-now/61_analytics_one_pipeline.sql")
     /* Changed on purpose: the reports are one set now (analytics_report). A OnePage view is counted once, as the
        OnePage property, from the events; its old table is read only for the time before the OnePage's first event.

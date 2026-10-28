@@ -80,6 +80,10 @@ const PROOFS: [string, RegExp][] = [
      account owns or is an active member of for that area, read from the
      database on every request; 401 or 403 otherwise. */
   ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
+  /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
+     then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
+     The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
+  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
 ]
 
 /**
@@ -163,6 +167,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "website-builder/subscribe/route.ts": "the same, from a built site",
   "newsletter/route.ts": "a visitor asking Storelib itself for news from the storelib.com footer; rate limited, and it tells the caller nothing about the list",
   "onepage/email-capture/route.ts": "a visitor leaving their email on a public page",
+  "onepage/lead-magnet/route.ts": "a visitor leaving their email on a public page for a download, a discount code or a waitlist; the block is read from the published page, never the request, and it is rate limited",
+  "onepage/blocks-live/route.ts": "the editor preview of a shelf, posts row or follower count: answers only what any visitor of that creator's pages already sees (published products, public communities, public posts), at most eight blocks, rate limited per address",
   "store/ga-seen/route.ts": "a store's own Google Analytics tag saying Google took a hit with the store's measurement ID; kept only when the ID is the one that store saved, one database question a minute a store, nothing about the visitor",
   "analytics/own/route.ts": "the owner's hand-off on the site's own host, before any session can reach it; the service role only writes the token down as used in rate_limit_hits (lib/analytics/own-marker consumeOwnHandoff), and only for a token this server signed",
   "track-view/route.ts":"records a page view for a visitor with no session; the creator, product and property are checked against the database in lib/analytics/collect",

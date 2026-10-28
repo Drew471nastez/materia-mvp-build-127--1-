@@ -494,11 +494,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     inside communities, not on creator pages. So neither count is queried;
     Follow itself stays.
   */
-  const viewerFollowsPromise = viewerPromise.then(({ data }) =>
-    data.user && data.user.id !== profile.id
-      ? supabase.from("follows").select("id").eq("follower_id", data.user.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
-      : false,
-  )
+  /* Whether the viewer follows this creator is no longer read: a creator page has no Follow (r40). */
   const placePromise = readProfileLocation(createAdminClient(), profile.id)
   const offPagePromise = offChannel(createAdminClient(), creator.id, "creator_page")
   const [
@@ -619,13 +615,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   ])
   const pageHost = await pageHostPromise
   /*
-    THE VIEWER'S PLACE IN THE FOLLOW GRAPH: whether the viewer follows this
-    creator. Started after the batch because it needs the viewer, which the
-    batch has just settled. No Message: the owner asked for only Follow on
-    creator pages for now, so nothing looks for a shared community.
+    The request's headers and where the creator is from. No Follow and no
+    Message on a creator page (r40), so nothing reads the follow graph here.
   */
-  const [viewerFollowsCreator, requestHeaders, place] = await Promise.all([
-    viewerFollowsPromise,
+  const [requestHeaders, place] = await Promise.all([
     headers(),
     /* Where they are from, under their name (round 12, run-now part 98); none before it runs (lib/profile/location). */
     placePromise,
@@ -762,24 +755,12 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * stays. The owner sees no Follow on their own page, so with no place to
    * show either there is nothing to draw.
    */
-  const buildFollowRow = (scheme?: ActionScheme | null) => {
+  /* NO FOLLOW ON A CREATOR PAGE (r40). The owner: "there should be no follow button". The row is where they are from, or nothing, so no empty gap is left under the name. `scheme` is still taken so both header branches call it the same way. */
+  const buildFollowRow = (_scheme?: ActionScheme | null) => {
     if (embedded) return null
     const location = locationLine(place)
-    if (viewerIsOwner && !location) return null
-    return (
-      <ProfileSocial
-        tone="storefront"
-        userId={profile.id}
-        name={profile.display_name || username}
-        viewerFollowing={viewerFollowsCreator}
-        signedIn={!!viewer}
-        isSelf={viewerIsOwner}
-        showCounts={false}
-        location={location}
-        /* Follow in the creator's own button colours, the scheme they picked in the page editor. */
-        scheme={scheme ?? null}
-      />
-    )
+    if (!location) return null
+    return <ProfileSocial tone="storefront" showCounts={false} location={location} />
   }
 
   const buildOwnerActions = (

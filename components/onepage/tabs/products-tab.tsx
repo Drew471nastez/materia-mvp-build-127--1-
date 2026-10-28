@@ -26,16 +26,18 @@ import {
   Music,
   Image,
   ChevronRight,
+  ChevronDown,
   Search,
   Check,
   GraduationCap,
 } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { tt } from "@/lib/i18n/text"
 import { ProductStateBadge, useCreatorProducts } from "./product-block-editor"
 import { editorProductState, pickableProducts } from "@/lib/onepage/product-block"
-import { PRODUCTS_PREVIEW, productIdsOnPage, productsTabView } from "@/lib/onepage/products-tab"
+import { PRODUCTS_SHOWN, productIdsOnPage, productsTabList } from "@/lib/onepage/products-tab"
+import { Reveal } from "@/components/onepage/reveal"
 
 interface Product {
   id: string
@@ -106,8 +108,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  /* The first few products that are not on the page, until "Show all" (lib/onepage/products-tab). */
+  /* Four products, the ones on the page first, until "Show all" (lib/onepage/products-tab productsTabList). */
   const [showAll, setShowAll] = useState(false)
+  const moreRef = useRef<HTMLButtonElement>(null)
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
@@ -278,7 +281,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
 
 
   /* On the page first, then a few others; a search looks through all of them (lib/onepage/products-tab). */
-  const view = productsTabView(products, addedProductIds, searchQuery, showAll)
+  const view = productsTabList(products, addedProductIds, searchQuery)
 
   const renderRow = (product: Product) => {
     const badge = getProductBadge(product.type)
@@ -369,7 +372,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         </Button>
       </div>
 
-      {products.length > PRODUCTS_PREVIEW ? (
+      {products.length > PRODUCTS_SHOWN ? (
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
           <span className="sr-only">{tt("Search products")}</span>
@@ -406,35 +409,38 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           */
           <div data-products-list="">
             {view.searching ? (
-              view.matches.length === 0 ? (
+              view.first.length === 0 ? (
                 <p className="px-4 py-8 text-center text-[13.5px] text-[#6b7280]">{tt("No products match your search.")}</p>
               ) : (
-                <ul className="divide-y divide-[#f1f2f4]">{view.matches.map(renderRow)}</ul>
+                <ul className="divide-y divide-[#f1f2f4]">{view.first.map(renderRow)}</ul>
               )
             ) : (
               <>
-                {view.onPage.length > 0 ? (
-                  <div data-products-group="on-page">
-                    <p className="px-3.5 pb-1 pt-3 text-[12px] font-medium text-[#6b7280]">{tt("On your page")}</p>
-                    <ul className="divide-y divide-[#f1f2f4]">{view.onPage.map(renderRow)}</ul>
-                  </div>
-                ) : null}
-                {view.others.length > 0 ? (
-                  <div data-products-group="others" className={cn(view.onPage.length > 0 && "border-t border-[#f1f2f4]")}>
-                    {view.onPage.length > 0 ? <p className="px-3.5 pb-1 pt-3 text-[12px] font-medium text-[#6b7280]">{tt("Add to your page")}</p> : null}
-                    <ul className="divide-y divide-[#f1f2f4]">{view.others.map(renderRow)}</ul>
-                  </div>
-                ) : null}
-                {view.hidden > 0 || showAll ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAll((v) => !v)}
-                    className="flex h-11 w-full items-center justify-center gap-1 border-t border-[#f1f2f4] text-[13.5px] font-medium text-[#1a1a2e] transition-colors [@media(hover:hover)]:hover:bg-[#fafafb]"
-                    data-products-more={showAll ? "less" : "all"}
-                    aria-expanded={showAll}
-                  >
-                    {showAll ? tt("Show fewer") : tt("Show all {count}", { count: products.length - view.onPage.length })}
-                  </button>
+                {/*
+                  ROUND 40: FOUR, THEN SHOW ALL (lib/onepage/products-tab
+                  productsTabList). The products on the page come first and
+                  say Added; the rest open under them to their own height
+                  (components/onepage/reveal), and close back the same way.
+                */}
+                <ul className="divide-y divide-[#f1f2f4]" data-products-first="">{view.first.map(renderRow)}</ul>
+                {view.rest.length > 0 ? (
+                  <>
+                    <Reveal open={showAll} id="products-tab-rest" returnFocus={moreRef}>
+                      <ul className="divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]" data-products-rest="">{view.rest.map(renderRow)}</ul>
+                    </Reveal>
+                    <button
+                      ref={moreRef}
+                      type="button"
+                      onClick={() => setShowAll((v) => !v)}
+                      className="flex h-11 w-full items-center justify-center gap-1.5 border-t border-[#f1f2f4] text-[13.5px] font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#fafafb] focus-visible:bg-[#f6f6f7]"
+                      data-products-more={showAll ? "less" : "all"}
+                      aria-expanded={showAll}
+                      aria-controls="products-tab-rest"
+                    >
+                      {showAll ? tt("Show fewer") : tt("Show all {count}", { count: products.length })}
+                      <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#6b7280] transition-[rotate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", showAll && "rotate-180")} strokeWidth={2} />
+                    </button>
+                  </>
                 ) : null}
               </>
             )}

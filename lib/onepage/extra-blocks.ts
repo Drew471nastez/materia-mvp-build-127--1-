@@ -15,10 +15,12 @@ import type {
   VideoBlockData,
 } from "./types"
 import { hasRealUrl } from "./editor-state"
+import { dayLabel, viewerZone, wallAt } from "./schedule"
 import { CREATOR_BLOCK_TYPES, creatorBlockHasContent } from "./creator-blocks"
+import { STORELIB_BLOCK_TYPES, isStorelibBlock, storelibBlockHasContent } from "./storelib-blocks"
 
-/* The course, music, testimonials and contact blocks (./creator-blocks) are among them: the same lists keep them out of a group and off an empty page. */
-export const EXTRA_BLOCK_TYPES = ["heading", "faq", "countdown", "map", "video", ...CREATOR_BLOCK_TYPES] as const
+/* The course, music, testimonials and contact blocks (./creator-blocks) are among them: the same lists keep them out of a group and off an empty page. So are the shelf, lead magnet, posts, followers and code blocks (./storelib-blocks). */
+export const EXTRA_BLOCK_TYPES = ["heading", "faq", "countdown", "map", "video", ...CREATOR_BLOCK_TYPES, ...STORELIB_BLOCK_TYPES] as const
 export type ExtraBlockType = (typeof EXTRA_BLOCK_TYPES)[number]
 
 export function isExtraBlock(block: { type: string }): boolean {
@@ -41,12 +43,13 @@ export function isScheduledNow(block: { schedule?: OnePageBlockSchedule | null }
 }
 
 /** What the editor's row says about a block's schedule, or null when it has none. */
-export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now()): { text: string; live: boolean } | null {
+export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now(), timeZone: string = viewerZone()): { text: string; live: boolean } | null {
   const s = block.schedule
   if (!s || (!s.start_at && !s.end_at)) return null
   const start = s.start_at ? Date.parse(s.start_at) : NaN
   const end = s.end_at ? Date.parse(s.end_at) : NaN
-  const day = (t: number) => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  /* The day in the zone the picker wrote it in (./schedule), not the device's: a creator whose Settings say New York reads the day they chose. */
+  const day = (t: number) => dayLabel(wallAt(t, timeZone).ymd, wallAt(now, timeZone).ymd)
   if (!Number.isNaN(end) && now >= end) return { text: `Ended ${day(end)}`, live: false }
   if (!Number.isNaN(start) && now < start) return { text: `Starts ${day(start)}`, live: false }
   if (!Number.isNaN(end)) return { text: `Until ${day(end)}`, live: true }
@@ -82,7 +85,7 @@ export function extraBlockHasContent(block: Pick<OnePageBlock, "type" | "data">)
     case "video":
       return videoSource((block.data as VideoBlockData)?.url) !== null
     default:
-      return creatorBlockHasContent(block)
+      return isStorelibBlock(block) ? storelibBlockHasContent(block) : creatorBlockHasContent(block)
   }
 }
 

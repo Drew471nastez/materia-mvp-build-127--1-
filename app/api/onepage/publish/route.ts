@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { announce, onePageAddresses } from "@/lib/seo/announce"
+import { onePageActor } from "@/lib/team/onepage"
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,12 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    /* Whose page (lib/team/onepage): the owner's, through their own client as before, or for a team member with OnePage the store owner's. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    const db = actor.db
+    const ownerId = actor.pageOwnerId
 
     const body = await request.json()
     const {
@@ -28,11 +35,11 @@ export async function POST(request: Request) {
     } = body
 
     // Verify ownership
-    const { data: onepage, error: fetchError } = await supabase
+    const { data: onepage, error: fetchError } = await db
       .from("onepages")
       .select("id, owner_id")
       .eq("id", id)
-      .eq("owner_id", user.id)
+      .eq("owner_id", ownerId)
       .single()
 
     if (fetchError || !onepage) {
@@ -49,7 +56,7 @@ export async function POST(request: Request) {
       card are built from, so the live page could show a face nobody had used
       for months. Read here, not taken from the request.
     */
-    const { data: ownProfile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+    const { data: ownProfile } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
     const photoNow = typeof ownProfile?.avatar_url === "string" && ownProfile.avatar_url.trim() !== "" ? ownProfile.avatar_url.trim() : null
 
     // If direct data was provided, use it (prevents race conditions)
@@ -82,11 +89,11 @@ export async function POST(request: Request) {
       } as any
     } else {
       // Legacy: fetch from database
-      const { data: fullOnepage, error: fullFetchError } = await supabase
+      const { data: fullOnepage, error: fullFetchError } = await db
         .from("onepages")
         .select("*")
         .eq("id", id)
-        .eq("owner_id", user.id)
+        .eq("owner_id", ownerId)
         .single()
 
       if (fullFetchError || !fullOnepage) {
@@ -111,11 +118,11 @@ export async function POST(request: Request) {
     }
 
     // Publish by updating published fields
-    const { data: published, error: publishError } = await supabase
+    const { data: published, error: publishError } = await db
       .from("onepages")
       .update(publishData)
       .eq("id", id)
-      .eq("owner_id", user.id)
+      .eq("owner_id", ownerId)
       .select()
       .single()
 
@@ -126,7 +133,7 @@ export async function POST(request: Request) {
 
     /* After the answer: the page's address, to the search engines that take
        IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
-    const owner = user.id
+    const owner = ownerId
     after(() => announce(() => onePageAddresses(owner)))
 
     return NextResponse.json({

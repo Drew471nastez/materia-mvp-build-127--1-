@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
+import { permits } from "@/lib/team/permissions"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
@@ -9,6 +11,8 @@ import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
+import { signupFileFor } from "@/lib/onepage/signup-file"
+import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 
 export const runtime = "nodejs"
 
@@ -55,7 +59,6 @@ export async function POST(request: Request) {
       lead_magnet_id,
       enable_digital_product,
       digital_product_file_url,
-      digital_product_title,
     } = body
     /* A OnePage form: where the visit came from is what the page sent, as a host and the utm words. */
     let referrerHost: string | null = null
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
     // Verify onepage exists and is published
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status, seller_id, owner_id, creator_id")
+      .select("id, status, seller_id, owner_id, creator_id, published_blocks, draft_blocks")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
@@ -111,8 +114,18 @@ export async function POST(request: Request) {
 
     console.log("[leads] OnePage found:", onepage.id)
 
-    const fileUrl = digital_product_file_url || null
-    const hasDigitalProduct = enable_digital_product && fileUrl
+    /*
+      THE FILE IS THE PAGE'S, NOT THE REQUEST'S (round 40). Whether this
+      signup gets a file, and which, is read from the block on the published
+      page (lib/onepage/signup-file), so a request cannot make this route
+      hand back an address of its own choosing, and a block whose file was
+      switched off or removed since the page was loaded gives nothing. The
+      request's own fields are only read for a page saved before blocks had
+      ids to find them by.
+    */
+    const pageFile = signupFileFor((onepage as { published_blocks?: unknown }).published_blocks ?? (onepage as { draft_blocks?: unknown }).draft_blocks, block_id)
+    const fileUrl = pageFile.found ? pageFile.url : (enable_digital_product && typeof digital_product_file_url === "string" && /^https:\/\//i.test(digital_product_file_url) ? digital_product_file_url : null)
+    const hasDigitalProduct = !!fileUrl
 
     // Check for existing subscription
     const { data: existingLead } = await adminSupabase
@@ -255,6 +268,15 @@ export async function POST(request: Request) {
       }
     }
 
+    /*
+      THE CREATOR'S OWN TOOLS GET IT TOO: Mailchimp, Kit, beehiiv, a Zapier,
+      Make or Sheets hook (lib/onepage/integrations), after the answer, so the
+      visitor never waits for them. Klaviyo and Omnisend take it from the
+      subscriber list on their own sync (lib/integrations/marketing).
+    */
+    const toolsOwner = onepage.seller_id || onepage.creator_id || null
+    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer") })))
+
     // No email sending - download happens directly on the page
     console.log("[leads] ========== REQUEST COMPLETE ==========")
 
@@ -280,10 +302,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: onepage } = await supabase
+    /*
+      Whose leads (lib/team/onepage). The emails people left are the store's
+      customers: a team member sees them only with Customers as well as
+      OnePage. The owner, as before.
+    */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    if (actor.acting && !permits(actor.acting.permissions, "customers")) {
+      return NextResponse.json({ error: "Signups are with Customers. Ask the store's owner for it." }, { status: 403, headers: { "Cache-Control": "no-store" } })
+    }
+    const db = actor.db
+
+    const { data: onepage } = await db
       .from("onepages")
       .select("id")
-      .eq("owner_id", user.id)
+      .eq("owner_id", actor.pageOwnerId)
       .single()
 
     if (!onepage) {
@@ -294,7 +328,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50")
     const offset = parseInt(searchParams.get("offset") || "0")
 
-    const { data: leads, error, count } = await supabase
+    const { data: leads, error, count } = await db
       .from("onepage_leads")
       .select("*", { count: "exact" })
       .eq("onepage_id", onepage.id)

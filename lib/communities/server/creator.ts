@@ -105,6 +105,10 @@ import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { overviewActivity } from "./overview-activity"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
+import { teamStaffContext } from "./team-page"
+import { TEAM_COMMUNITY_ROLE } from "./team"
+import { teamStoreForRequest } from "@/lib/team/server"
+import { permits } from "@/lib/team/permissions"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
 import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "../page-look"
@@ -172,8 +176,12 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
+  /* Round 40: working in a store as a member of its team (lib/team). The owner pays no read here: no cookie, no query. */
+  const team = await teamStoreForRequest(user.id).catch(() => null)
+  if (team) return permits(team.acting.permissions, "community") ? teamStaffContext(admin(), key, user.id, team.acting, team.store) : null
   return staffContext(admin(), key, user.id, creatorForRequest(user.id))
 })
+
 
 /** The creator row as lib/auth/request-scope.ts reads it: the columns the gate needs. */
 type PageCreator = { id: string; display_name?: string | null; username?: string | null; slug?: string | null; stripe_account_id?: string | null; stripe_onboarding_status?: string | null; charges_enabled?: boolean | null }
@@ -322,11 +330,13 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
  * choices for their role (./creator-roles.ts) included. With them, the Free
  * plan's limit (lib/communities/plan-limit.ts) for New community.
  */
-export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
+export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string, opts: { team?: boolean } = {}): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
   const LIST_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, status, access, visibility, member_count, post_count, created_at, archived_at, creator_id, owner_user_id, onboarding"
+  /* Round 40: a store's team member (./team.ts) sees the store's communities, as an admin of each, and none they help run elsewhere. */
+  const ownRole: Role = opts.team ? TEAM_COMMUNITY_ROLE : "owner"
   const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
-    db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
+    opts.team ? Promise.resolve({ data: [] }) : db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
     creatorSitePlan(creatorId),
   ])
   const limit: CommunityLimitView = { max: communityLimitFor(plan), owned: 0 }
@@ -336,7 +346,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   }
   type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null; onboarding?: unknown }
   const rows = new Map<string, Lite & { role: Role }>()
-  for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
+  for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: ownRole })
   const staffRoles = new Map(((staff.data as { community_id: string; role: Role }[] | null) ?? []).map((m) => [m.community_id, m.role]))
   const extra = [...staffRoles.keys()].filter((id) => !rows.has(id))
   if (extra.length) {
@@ -346,7 +356,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   const list = [...rows.values()]
   /* Round 26: a community whose deletion is scheduled says so on its card and takes no place on the plan (lib/communities/plan-limit.ts). */
   const [perms, pending] = await Promise.all([staffPermissionsFor(db, list.filter((c) => c.role !== "owner").map((c) => c.id)), pendingDeletions(db, list.filter((c) => c.status === "archived" || c.archived_at).map((c) => c.id))])
-  limit.owned = list.filter((c) => c.role === "owner" && takesCommunitySlot({ deleting: pending.has(c.id) })).length
+  limit.owned = list.filter((c) => (c.role === "owner" || (opts.team && c.role === ownRole)) && takesCommunitySlot({ deleting: pending.has(c.id) })).length
   const may = (c: Lite & { role: Role }, action: CommunityAction) => can(c.role, action, perms.get(c.id) ?? null)
   const paidIds = list.filter((c) => c.access === "paid").map((c) => c.id)
   const prices = new Map<string, string>()
@@ -434,7 +444,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
     logoUrl: ownPicture(a.input.logoUrl),
     coverUrl: ownPicture(a.input.coverUrl),
   })
-  if (!made.ok) {
+  if ("error" in made) {
     if (made.error === "not_set_up") return no(503, "Communities are not set up on Storelib yet.")
     if (made.error === "invalid_name") return no(400, "Give your community a name up to 80 characters.", "name")
     if (made.error === "slug_taken") return no(409, "That address is taken.", "slug")
@@ -454,7 +464,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
   }
   if (a.input.type === "paid" && a.input.price) {
     const tier = await createPaidTier(db, { creatorId: a.creatorId, community, name: "Members", interval: a.input.price.interval, cents: a.input.price.cents, actorId: a.userId })
-    if (!tier.ok) {
+    if ("error" in tier) {
       await db.from("communities").delete().eq("id", community.id)
       return no(tier.status, tier.error, "price")
     }
@@ -468,7 +478,7 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
   if (general && a.input.spaceName && a.input.spaceName !== general.name) await db.from("community_spaces").update({ name: a.input.spaceName }).eq("id", general.id)
   if (general && a.input.welcome) {
     const posted = await createCreatorPost(db, { community, role: "owner", actorId: a.userId, spaceId: general.id, title: a.input.welcome.title, body: a.input.welcome.body, pin: true })
-    if (!posted.ok) console.error(`[communities] create ${community.slug}: the welcome post was not written: ${posted.error}`)
+    if ("error" in posted) console.error(`[communities] create ${community.slug}: the welcome post was not written: ${posted.error}`)
   }
   return { ok: true, community }
 }
@@ -755,29 +765,29 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   if (b.category !== undefined) patch.category = communityCategoryId(b.category)
   if (b.rules !== undefined) {
     const r = checkRules(b.rules)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.rules = r.value
   }
   if (b.faq !== undefined) {
     const r = checkFaq(b.faq)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.faq = r.value
   }
   if (b.benefits !== undefined) {
     const r = checkBenefits(b.benefits)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.benefits = r.value
   }
   if (b.links !== undefined) {
     const r = checkLinks(b.links)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     patch.links = r.value
   }
   /* Checked with the rest, before anything is written; saved on its own below (./gallery.ts). */
   let gallery: GalleryItem[] | null = null
   if (b.gallery !== undefined) {
     const r = await checkGalleryForCommunity(db, c.id, b.gallery)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     gallery = r.value
     /* A cover video's still is the cover picture, so every place that draws a still keeps drawing one (./gallery.ts). */
     const cover = coverAfterGallery(c.cover_url ?? null, patch.cover_url !== undefined, gallery)
@@ -836,7 +846,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   /* Round 26: the short description and the member links (./page-fields.ts, run-now part 220). */
   {
     const r = pageFieldsPatch(b)
-    if (!r.ok) return no(400, r.error, r.field)
+    if ("error" in r) return no(400, r.error, r.field)
     Object.assign(patch, r.patch)
   }
   if (b.seoTitle !== undefined) {
@@ -869,7 +879,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
             if (type !== "free" && type !== "paid" && type !== "private") return { ok: false as const, error: "Pick who can join.", field: "type" }
             return { ok: true as const, value: accessChoiceOf(accessForType(type)) }
           })()
-    if (!asked.ok) return no(400, asked.error, asked.field)
+    if ("error" in asked) return no(400, asked.error, asked.field)
     if (asked.value.pricing === "paid") {
       const { count: paid } = await db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid").is("archived_at", null)
       if (!paid) return no(409, "Add a paid tier with a price first.", "pricing")
@@ -883,7 +893,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   /* The gallery first: before part 85 has run it answers "run the update", and nothing else is half saved. */
   if (gallery) {
     const g = await saveGallery(db, c.id, gallery)
-    if (!g.ok) return no(g.status, g.error, "gallery")
+    if ("error" in g) return no(g.status, g.error, "gallery")
     changed.push("gallery")
   }
   if (Object.keys(patch).length === 0 && !gallery) return { ok: true, community: c }

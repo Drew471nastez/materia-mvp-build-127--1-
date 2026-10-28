@@ -8,6 +8,8 @@ import { communityRoom } from "@/lib/communities/server/creator-policies"
 import { peopleOf } from "@/lib/communities/server/moderation"
 import { CreateCommunity } from "@/components/community/creator/create-flow"
 import { getServerTt } from "@/lib/i18n/server"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 
 export const dynamic = "force-dynamic"
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,6 +27,10 @@ export default async function NewCommunityPage() {
   if (!(await communitiesEnabled())) notFound()
   const user = await pageUser()
   if (!user) return null
+  /* A new community is the owner's to make (lib/communities/server/team.ts): a team member goes back to the store's list. */
+  const access = await teamPageStore("community")
+  if (access.kind === "denied") return <TeamAreaClosed area="community" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "store" && !access.isOwner) redirect("/app/community")
   const creator = await creatorForRequest(user.id)
   if (!creator) redirect("/app")
   const [room, people] = await Promise.all([communityRoom(admin(), creator.id), peopleOf(admin(), [user.id]).catch(() => null)])

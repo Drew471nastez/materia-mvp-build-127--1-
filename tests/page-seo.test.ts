@@ -116,8 +116,10 @@ console.log("\nA OnePage says where it lives and who it is about")
   check("its robots tag is the sitemap's rule, and noindex means nofollow too",
     /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
       /robots: extra\.indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(seoLib))
+  /* Changed on purpose (round 40, tests/onepage-analytics-seo-r40.test.ts): sameAs is the icons the page draws,
+     its rows of social icons first and the profile's links otherwise (lib/onepage/page-presence). */
   check("its structured data is printed only when it may be listed, and escaped",
-    /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
+    /owner\.canonical &&\s*onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(onePageSocialLinks\(\{ blocks: transformedOnepage\.blocks, socialLinks: transformedOnepage\.social_links \}\)\)/.test(page))
   /*
     MOVED, ON PURPOSE: the route builds the page's shape in
     lib/onepage/public-shape.ts now, the one place the editor's preview

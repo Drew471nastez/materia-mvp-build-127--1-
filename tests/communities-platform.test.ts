@@ -463,7 +463,8 @@ async function main() {
     check("the section is a client module that imports no server code", /^"use client"/.test(comp) && /^"use client"/.test(form) && !/server-only|next\/headers|lib\/communities\/server|lib\/supabase/.test(imports(comp) + imports(form)))
     check("on a visitor's page, no data means nothing is drawn", /if \(!data\) return null/.test(comp))
     const route = code("app/api/store-builder/communities/route.ts")
-    check("the builder's read answers 404 while off, first thing, then asks who the creator is", /const off = await requireCommunitiesOn\(\)\s*\n\s*if \(off\) return off\s*\n\s*const ctx = await requireCreator\(\)/.test(route))
+    /* Changed on purpose (round 40 team permissions): requireCreator names the area the route belongs to (the creator page builder's), so a team member without it is refused; the owner is answered as before. Still 404 while off, first thing. */
+    check("the builder's read answers 404 while off, first thing, then asks who the creator is", /const off = await requireCommunitiesOn\(\)\s*\n\s*if \(off\) return off\s*\n\s*const ctx = await requireCreator\("[a-z_]+"\)/.test(route))
     check("and reads only the signed in creator's communities", /creatorCommunityChoices\(db, ctx\.creatorId\)/.test(route) && /loadCommunityBlock\(db, ctx\.creatorId, id/.test(route))
 
     check("ids on a page are the community sections' own, once", communityIdsIn([{ type: "community", settings: { communityId: C1 } }, { type: "community", settings: { communityId: C1.toUpperCase() } }, { type: "reviews", settings: { communityId: C2 } }, { type: "community", settings: { communityId: "nope" } }]).join() === C1)

@@ -50,7 +50,6 @@ import { cn } from "@/lib/utils"
 import type { OnePageBlock, OnePageTheme, ProductBlockData } from "@/lib/onepage/types"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { buttonFill, buttonHover, buttonHoverVars, buttonShadow as themeShadowKind, cardButtonTheme, cardRadius, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
-import { luminance } from "@/lib/onepage/color"
 import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
@@ -61,6 +60,7 @@ import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/li
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
 import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
+import { sheetPalette } from "@/lib/onepage/sheet-theme"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */
 export interface LegacyQuickCheckout {
@@ -514,16 +514,6 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     }
   }
 
-  /* The page's ground decides the checkout window's look: the community's dark window on a dark page. */
-  const bg = theme.background_color && isHex6(theme.background_color) ? theme.background_color : "#ffffff"
-  const darkPage = (() => {
-    try {
-      return luminance(bg) < 0.18
-    } catch {
-      return false
-    }
-  })()
-
   return (
     <>
       {body}
@@ -551,7 +541,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           sellerName={seller.name}
           sellerAvatar={seller.avatarUrl}
           variantId={checkout.variantId}
-          dark={darkPage}
+          /* Round 40: the window wears the page's colours; its card field is dark exactly when that window is (lib/onepage/sheet-theme). */
+          dark={sheetPalette(theme).dark}
+          themed
           origin={pageOrigin}
           onClose={() => setCheckout(null)}
           onBack={checkout.fromSheet ? () => setCheckout(null) : null}

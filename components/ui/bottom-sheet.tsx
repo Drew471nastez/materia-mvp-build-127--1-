@@ -174,6 +174,7 @@
  *   slide first, the parent a frame later.
  */
 
+import { FROZEN_ATTRIBUTE } from "@/lib/website-builder/touch-heal"
 import { SCRIM } from "@/components/ui/scrim"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -1068,6 +1069,8 @@ export function BottomSheet({
         const bounce = Math.max(0, -scroller.scrollTop)
         if (!frozenRef.current) frozenRef.current = { el: scroller, overflowY: scroller.style.overflowY }
         scroller.style.overflowY = "hidden"
+        /* Marked, so a freeze whose thaw is missed (the sheet gone mid-gesture) is let go by the editor's touch heal (lib/website-builder/touch-heal.ts). */
+        scroller.setAttribute(FROZEN_ATTRIBUTE, "")
         offsetRef.current += bounce
         sheet.style.willChange = "transform"
         startYRef.current = y - offsetRef.current
@@ -1141,6 +1144,7 @@ export function BottomSheet({
       if (!frozen) return
       frozenRef.current = null
       frozen.el.style.overflowY = frozen.overflowY
+      frozen.el.removeAttribute(FROZEN_ATTRIBUTE)
     }
 
     /* `null` is a gesture cut short (a second finger): no speed, no flick. */
@@ -1165,6 +1169,11 @@ export function BottomSheet({
        * still; a gesture the system took (touchcancel) has no speed at all.
        */
       const v = !e || e.type === "touchcancel" ? 0 : releaseVelocity(samplesRef.current, eventTime(e))
+      settle(v)
+    }
+
+    /** Where a released drag goes, at the speed `v` it was let go at: the touch's end and a mouse's both come here. */
+    function settle(v: number) {
       const rest = restRef.current
       const h = heightRef.current || 1
       const current = offsetRef.current
@@ -1184,6 +1193,68 @@ export function BottomSheet({
       }
     }
 
+    /*
+      A MOUSE OR A PEN DRAGS IT TOO (round 40). Pointer events, for every
+      pointer that is not a finger (a finger is the touch path above, which
+      can hand a scroll that reaches the top of a list to the sheet: a
+      pointer's scroll, once the browser has it, is never given back). From
+      the handle and the header only, so a mouse still selects text and
+      drags a slider inside. The same arithmetic: the panel's transform
+      written on the event, the scrim with it, the speed over the last
+      samples, the rubber band upward, and `settle` deciding where it goes.
+      The pointer is captured, so a release outside the panel ends it.
+    */
+    let pointerId: number | null = null
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || e.button !== 0 || closingRef.current) return
+      const target = e.target as HTMLElement | null
+      if (!target?.closest?.("[data-sheet-handle]") || target.closest("button, a, input, textarea, select, [data-sheet-no-drag]")) return
+      if (animsRef.current.length) {
+        const y = readY(sheet)
+        stopMotion()
+        offsetRef.current = y
+        sheet.style.transform = translate(y)
+      }
+      if (!heightRef.current) sizeUp(sheet)
+      /* No text selection while the handle is held. */
+      e.preventDefault()
+      pointerId = e.pointerId
+      try { sheet.setPointerCapture(e.pointerId) } catch { /* an old engine: the window still hears the release */ }
+      draggingRef.current = true
+      sheet.style.willChange = "transform"
+      startYRef.current = e.clientY - offsetRef.current
+      downYRef.current = e.clientY
+      lastYRef.current = e.clientY
+      samplesRef.current = [{ t: eventTime(e), y: e.clientY }]
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      let next = e.clientY - startYRef.current
+      if (next < 0) next = -rubberBand(-next, PULL_CAP)
+      const samples = samplesRef.current
+      samples.push({ t: eventTime(e), y: e.clientY })
+      if (samples.length > MAX_SAMPLES) samples.shift()
+      lastYRef.current = e.clientY
+      offsetRef.current = next
+      paint()
+    }
+    const onPointerEnd = (e: PointerEvent) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      pointerId = null
+      try { sheet.releasePointerCapture(e.pointerId) } catch { /* already let go */ }
+      draggingRef.current = false
+      /* A click on the handle that never moved it is not a drag: nothing to settle. */
+      if (Math.abs(lastYRef.current - downYRef.current) < 2 && Math.abs(offsetRef.current - restRef.current) < 0.5) {
+        sheet.style.willChange = restingWillChange()
+        return
+      }
+      settle(e.type === "pointercancel" ? 0 : releaseVelocity(samplesRef.current, eventTime(e)))
+    }
+    sheet.addEventListener("pointerdown", onPointerDown)
+    sheet.addEventListener("pointermove", onPointerMove)
+    sheet.addEventListener("pointerup", onPointerEnd)
+    sheet.addEventListener("pointercancel", onPointerEnd)
+
     /* Touchdown never cancels anything, so it does not make the browser wait for script. */
     sheet.addEventListener("touchstart", onStart, { passive: true })
     sheet.addEventListener("touchmove", onMove, { passive: false })
@@ -1193,6 +1264,10 @@ export function BottomSheet({
     window.addEventListener("touchcancel", onLift)
     return () => {
       thaw()
+      sheet.removeEventListener("pointerdown", onPointerDown)
+      sheet.removeEventListener("pointermove", onPointerMove)
+      sheet.removeEventListener("pointerup", onPointerEnd)
+      sheet.removeEventListener("pointercancel", onPointerEnd)
       sheet.removeEventListener("touchstart", onStart)
       sheet.removeEventListener("touchmove", onMove)
       window.removeEventListener("touchend", onLift)

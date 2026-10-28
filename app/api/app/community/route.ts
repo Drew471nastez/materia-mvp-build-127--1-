@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic"
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("community")
   if (isResponse(ctx)) return ctx
   /* Round 33: GET ?address=<slug> -> { slug, available, reason }, the wizard's check beside its address field. */
   const asked = new URL(request.url).searchParams.get("address")
@@ -31,15 +31,17 @@ export async function GET(request: Request) {
     if (limited) return limited
     return NextResponse.json(await addressFree(ctx.admin, asked.slice(0, 80)), { headers: noStore })
   }
-  const list = await loadCreatorCommunities(ctx.admin, ctx.creatorId, ctx.userId)
+  const list = await loadCreatorCommunities(ctx.admin, ctx.creatorId, ctx.userId, { team: ctx.isOwner === false })
   return NextResponse.json(list, { headers: noStore })
 }
 
 export async function POST(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("community")
   if (isResponse(ctx)) return ctx
+  /* A new community is the owner's to make: it takes a place on their plan, and its owner is an account (lib/communities/server/team.ts). */
+  if (ctx.isOwner === false) return NextResponse.json({ error: "Only the store's owner can make a new community." }, { status: 403, headers: noStore })
   const limited = await rateLimit({
     bucket: "community-create",
     subjects: [`user:${ctx.userId}`],

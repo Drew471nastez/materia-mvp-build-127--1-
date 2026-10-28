@@ -317,7 +317,9 @@ async function main() {
     check("a campaign never goes to somebody who only wrote", /if \(status === "wrote"\) continue/.test(read("lib/email-campaigns/queue.ts")))
     check("the newsletter box upgrades somebody who wrote, like a customer", /existing\?\.status === "customer" \|\| existing\?\.status === "wrote"/.test(read("app/api/website-builder/subscribe/route.ts")))
     const detail = read("app/app/emails/contact-detail.tsx")
-    check("a contact's page shows what they wrote, read under their creator's own session", /from\("site_contact_messages"\)/.test(detail) && /createClient\(\)/.test(detail) && /data-contact-messages/.test(detail))
+    /* Changed on purpose (round 40 team permissions): read on the server (app/api/email/area?part=contact) for the store the session works in, found by requireTeamPermission("marketing") and filtered by its creator id, so a team member given Marketing sees it too and nobody else does. */
+    const area = read("app/api/email/area/route.ts")
+    check("a contact's page shows what they wrote, read for the session's own store", /\/api\/email\/area\?part=contact&email=/.test(detail) && /data-contact-messages/.test(detail) && /await requireTeamPermission\("marketing"\)/.test(area) && /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", creatorId\)/.test(area))
     check("and the list has words and a filter for them", /if \(s\.status === "wrote"\) return "Wrote to you"/.test(detail) && /value: "wrote", label: "Wrote to you"/.test(read("app/app/emails/emails-home.tsx")))
   }
 

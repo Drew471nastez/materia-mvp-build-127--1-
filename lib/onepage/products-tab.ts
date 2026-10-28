@@ -62,3 +62,36 @@ export function productsTabView<P extends { id: string; title: string }>(
   const others = showAll ? rest : rest.slice(0, limit)
   return { searching: false, matches: [], onPage, others, hidden: rest.length - others.length }
 }
+
+/*
+ * ===========================================================================
+ *  ROUND 40: FOUR, THEN SHOW ALL
+ * ===========================================================================
+ * The owner: "In the Products tab, show only four by default, then a Show
+ * all button to show the rest." One list, the products already on the page
+ * first, then the others, and only the first PRODUCTS_SHOWN of it until
+ * Show all. The rest are drawn under the first four in a box whose height
+ * opens and closes (components/onepage/products-tab-list.tsx), so nothing
+ * jumps. A search still looks through every product.
+ */
+export const PRODUCTS_SHOWN = 4
+
+export type ProductsTabList<P> = {
+  searching: boolean
+  /** Searching: every match. Not searching: the first PRODUCTS_SHOWN, on the page first. */
+  first: P[]
+  /** Behind Show all (empty while searching). */
+  rest: P[]
+}
+
+export function productsTabList<P extends { id: string; title: string }>(
+  products: readonly P[],
+  onPageIds: ReadonlySet<string>,
+  query: string,
+  limit: number = PRODUCTS_SHOWN,
+): ProductsTabList<P> {
+  const q = query.trim().toLowerCase()
+  if (q) return { searching: true, first: products.filter((p) => p.title.toLowerCase().includes(q)), rest: [] }
+  const ordered = [...products.filter((p) => onPageIds.has(p.id)), ...products.filter((p) => !onPageIds.has(p.id))]
+  return { searching: false, first: ordered.slice(0, limit), rest: ordered.slice(limit) }
+}

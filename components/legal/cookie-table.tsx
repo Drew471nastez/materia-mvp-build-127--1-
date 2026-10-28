@@ -17,12 +17,12 @@ export function CookieTable() {
         const items = STORED.filter((s) => s.category === category)
         return (
           <div key={category}>
-            <p className="font-semibold text-gray-900">{CATEGORY_TEXT[category].title}</p>
+            <p className="font-semibold text-[var(--legal-ink,#1a1a2e)]">{CATEGORY_TEXT[category].title}</p>
             <p className="mt-1">{CATEGORY_TEXT[category].body}</p>
             {items.length > 0 && (
-              <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+              <div className="mt-2 overflow-x-auto rounded-xl border border-[var(--legal-rule,#e5e7eb)]">
                 <table className="w-full text-left text-[13px]">
-                  <thead className="bg-gray-50 text-gray-600">
+                  <thead className="bg-[var(--legal-panel,#f8f9fa)] text-[var(--legal-muted,#6b7280)]">
                     <tr>
                       <th className="px-3 py-2 font-medium">Name</th>
                       <th className="px-3 py-2 font-medium">What it does</th>
@@ -31,10 +31,10 @@ export function CookieTable() {
                   </thead>
                   <tbody>
                     {items.map((it) => (
-                      <tr key={it.name} className="border-t border-gray-100 align-top">
-                        <td className="px-3 py-2 font-mono text-[12px] text-gray-900">{it.name}</td>
+                      <tr key={it.name} className="border-t border-[var(--legal-rule,#eef0f2)] align-top">
+                        <td className="px-3 py-2 font-mono text-[12px] text-[var(--legal-ink,#1a1a2e)]">{it.name}</td>
                         <td className="px-3 py-2">{it.purpose}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-gray-500">{it.lasts}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-[var(--legal-muted,#6b7280)]">{it.lasts}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -47,7 +47,7 @@ export function CookieTable() {
       <button
         type="button"
         onClick={() => openCookiePreferences()}
-        className="inline-flex h-9 items-center rounded-lg bg-gray-900 px-4 text-[13px] font-medium text-white hover:bg-gray-800"
+        className="inline-flex h-10 items-center rounded-xl bg-[var(--legal-ink,#1a1a2e)] px-4 text-[14px] font-medium text-[var(--legal-on-ink,#ffffff)] transition-opacity hover:opacity-90"
       >
         Change your cookie choices
       </button>

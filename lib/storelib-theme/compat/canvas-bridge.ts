@@ -1468,6 +1468,55 @@ export const CANVAS_BRIDGE = `
     }, 0);
   }, { passive: true, capture: true });
   /*
+    AND THE FIRST SWIPE, AS THE FIRST WHEEL (round 1026). A phone has no
+    wheel, and the hold was looked at for one only: a page held with nothing
+    open waited out lockSoon's 700ms, or the next change to <html>, and a
+    swipe inside that wait moved nothing ("the canvas does not scroll when I
+    swipe"). Now the hold is looked at in the touchstart's own task, before
+    the browser decides whether it can pan, exactly as for a wheel.
+
+    And a theme that cancels the moves themselves: a body-scroll-lock left
+    listening after the drawer that asked for it is gone (its section drawn
+    again or hidden by the builder), cancelling every touchmove on the page.
+    No style says so, so lockedNow cannot see it. A move that something else
+    cancelled, up or down more than sideways, over a page with room, with
+    nothing open on screen and no scroller of its own under the finger to
+    take it, is scrolled here by the finger's own distance. Decided once per
+    gesture (openOnScreen reads the page at five points).
+  */
+  var touchAtY = null, touchAtX = 0, touchHand = null;
+  addEventListener("touchstart", function (e) {
+    if (!e.touches || e.touches.length !== 1) { touchAtY = null; return; }
+    touchAtY = e.touches[0].clientY; touchAtX = e.touches[0].clientX; touchHand = null;
+    var t0 = performance.now();
+    if (!unlocked && (lockSeen === null || lockDirty || t0 - lockSeen > 1000)) {
+      lockDirty = false; lockSeen = t0;
+      if (lockedNow()) { clearTimeout(lockTimer); checkLock(); }
+    }
+  }, { passive: true, capture: true });
+  addEventListener("touchmove", function (e) {
+    if (touchAtY === null || !e.touches || e.touches.length !== 1) return;
+    var y = e.touches[0].clientY, x = e.touches[0].clientX;
+    var dy = touchAtY - y, dx = touchAtX - x;
+    touchAtY = y; touchAtX = x;
+    /* After every other listener has had the move: only then is it known whether one of them cancelled it. */
+    setTimeout(function () {
+      if (!e.defaultPrevented || touchHand === false || Math.abs(dy) < 1 || Math.abs(dy) < Math.abs(dx)) return;
+      if (touchHand === null) {
+        var se0 = document.scrollingElement || document.documentElement;
+        var room0 = Math.max(se0.scrollHeight, document.body ? document.body.scrollHeight : 0) - innerHeight;
+        touchHand = room0 > 2 && !takesWheel(e.target, dy) && !openOnScreen();
+        if (!touchHand) return;
+      }
+      var se = document.scrollingElement || document.documentElement;
+      var room = Math.max(se.scrollHeight, document.body ? document.body.scrollHeight : 0) - innerHeight;
+      scrollTo({ top: Math.max(0, Math.min(room, scrollY + dy)), left: scrollX, behavior: "instant" });
+    }, 0);
+  }, { passive: true, capture: true });
+  var touchGone = function () { touchAtY = null; touchHand = null; };
+  addEventListener("touchend", touchGone, { passive: true, capture: true });
+  addEventListener("touchcancel", touchGone, { passive: true, capture: true });
+  /*
     ALREADY HELD WHEN THE PAGE OPENS, looked at from the first paint: as the
     bridge starts, at the page's load, and again as its scripts settle. And
     a preloader still up a moment after the load is hidden (stalledLoaders).

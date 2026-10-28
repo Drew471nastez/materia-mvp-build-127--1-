@@ -120,9 +120,13 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
       phone={phone}
       label={title}
       onOpenAutoFocus={(e) => e.preventDefault()}
-      className="flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden rounded-[20px] border-[#ececf1] bg-white p-0 sm:max-w-[560px] [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/90 [&>[data-slot=dialog-close]]:p-1.5"
+      /*
+        Round 40: `op-sheet` draws it in the page's own colours (lib/onepage/sheet-theme, app/globals.css). The
+        variables are written by the OnePage itself; anywhere else the fallbacks are the colours it always had.
+      */
+      className="op-sheet flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden rounded-[20px] border-[#ececf1] bg-white p-0 sm:max-w-[560px] [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/90 [&>[data-slot=dialog-close]]:p-1.5"
       /* Kept built once the block is seen (keepMounted): opening is a transform, never a render of the whole product on the tap. */
-      sheet={{ waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)" }}
+      sheet={{ waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", className: "op-sheet" }}
     >
       <div className="flex min-h-0 flex-col" data-product-sheet={productId}>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

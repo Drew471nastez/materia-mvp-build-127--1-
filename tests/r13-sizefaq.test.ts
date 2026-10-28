@@ -367,7 +367,8 @@ async function main() {
     const inherited = await productSizeChartId(fakeDb(tables()) as never, CREATOR, POLO)
     check("the product editor is told the polo shows Shirts, set for its collection", inherited.chartId === null && inherited.inherited?.name === "Shirts" && inherited.inherited.source === "collection")
     check("  the tee's own choice is just that", (await productSizeChartId(fakeDb(tables()) as never, CREATOR, TEE)).inherited === null)
-    const editor = code("components/physical/size-chart-editor.tsx")
+    /* The fields moved to size-chart-form.tsx, shared by the dialog and the chart's own page. */
+    const editor = code("components/physical/size-chart-form.tsx")
     check("the chart editor has Also show it on, with chips for collections and categories", /tt\("Also show it on"\)/.test(editor) && /data-chart-collection=/.test(editor) && /data-chart-category=/.test(editor) && /aria-pressed=\{on\}/.test(editor))
     check("  no hover that fires on touch", (editor.slice(editor.indexOf("function AlsoShowOn")).match(/\S*hover:bg\S*/g) ?? []).every((m) => m.includes("[@media(hover:hover)]:hover:")))
     check("the product card says where an inherited chart comes from", /data-size-chart-inherited=/.test(code("components/physical/size-chart-card.tsx")))

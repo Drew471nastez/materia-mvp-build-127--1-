@@ -35,7 +35,6 @@ import * as React from "react"
 import { ArrowLeft, ChevronDown, MoreHorizontal } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { WaitingArea } from "@/components/ui/activity-spinner"
-import { createClient } from "@/lib/supabase/client"
 import { sourceView } from "@/lib/contacts/contact-source"
 import { cn } from "@/lib/utils"
 import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonSecondary, card, iconButton } from "../orders/order-parts"
@@ -62,6 +61,24 @@ const runsAsked = new Map<string, Promise<RunLite[]>>()
 
 const keyOf = (email: string) => email.toLowerCase()
 
+/*
+  One contact's history, read on the server by the store the session works
+  in (app/api/email/area?part=contact): the owner's, or the one a team member
+  given Marketing works in. It was read here under row level security, which
+  answers only for the owner. Both lists in one request, asked once.
+*/
+const contactAsked = new Map<string, Promise<{ runs: RunLite[]; messages: MessageLite[] } | null>>()
+function readContact(key: string): Promise<{ runs: RunLite[]; messages: MessageLite[] } | null> {
+  const asked = contactAsked.get(key)
+  if (asked) return asked
+  const request = fetch(`/api/email/area?part=contact&email=${encodeURIComponent(key)}`, { cache: "no-store" })
+    .then((r) => (r.ok ? (r.json() as Promise<{ runs: RunLite[]; messages: MessageLite[] }>) : null))
+    .catch(() => null)
+    .finally(() => contactAsked.delete(key))
+  contactAsked.set(key, request)
+  return request
+}
+
 function keptRuns(email: string): RunLite[] | null {
   const hit = runsKept.get(keyOf(email))
   return hit && Date.now() - hit.at < FRESH_MS ? hit.runs : null
@@ -76,15 +93,10 @@ function readRuns(email: string): Promise<RunLite[]> {
   if (asked) return asked
   const request = (async () => {
     try {
-      const { data, error } = await createClient()
-        .from("email_flow_runs")
-        .select("id, status, exit_reason, started_at, flow_id, email_flows(name)")
-        .eq("email", key)
-        .order("started_at", { ascending: false })
-        .limit(20)
-      const runs = error ? [] : ((data ?? []) as unknown as RunLite[])
+      const got = await readContact(key)
+      const runs = got ? got.runs : []
       /* A failed read is shown as none, and not kept: the next open asks again. */
-      if (!error) runsKept.set(key, { at: Date.now(), runs })
+      if (got) runsKept.set(key, { at: Date.now(), runs })
       return runs
     } catch {
       return []
@@ -103,9 +115,8 @@ function readRuns(email: string): Promise<RunLite[]> {
  * Each message sent through a contact form on one of the creator's websites
  * is emailed to them and kept (lib/site-contact), and this is where it is
  * kept: on the page of the person who wrote it, newest first, with a way to
- * reply. Read through the creator's own session; row level security keeps
- * it to their messages. Before the contact form SQL has run there are none,
- * and the card is simply not there.
+ * reply. Read on the server by the store's id (readContact). Before the
+ * contact form SQL has run there are none, and the card is simply not there.
  */
 interface MessageLite {
   id: string
@@ -134,14 +145,9 @@ function readMessages(email: string): Promise<MessageLite[]> {
   if (asked) return asked
   const request = (async () => {
     try {
-      const { data, error } = await createClient()
-        .from("site_contact_messages")
-        .select("id, subject, message, site, page, emailed_at, created_at")
-        .eq("email", key)
-        .order("created_at", { ascending: false })
-        .limit(20)
-      const list = error ? [] : ((data ?? []) as MessageLite[])
-      if (!error) messagesKept.set(key, { at: Date.now(), list })
+      const got = await readContact(key)
+      const list = got ? got.messages : []
+      if (got) messagesKept.set(key, { at: Date.now(), list })
       return list
     } catch {
       return []

@@ -140,6 +140,8 @@ export function waitsWithSpinner(href: string | null): boolean {
   if (/^\/app\/products\/[^/]+(\/|$)/.test(path)) return false
   /* The coupon editor, new or saved: the same frame as the product editor's (app/app/coupons/coupon-editor.tsx). */
   if (/^\/app\/coupons\/[^/]+(\/|$)/.test(path)) return false
+  /* An offer's page, new or saved: the coupon editor's frame (app/app/offers/offer-editor.tsx). */
+  if (/^\/app\/offers\/[^/]+(\/|$)/.test(path)) return false
   if (path === "/app/settings/billing/upgrade") return false
   /* A section of the community already open: its header and tabs stay, the tab lights on the press, and the section swaps in place. */
   if (typeof window !== "undefined" && sameStageFrame(window.location.pathname, path)) return false

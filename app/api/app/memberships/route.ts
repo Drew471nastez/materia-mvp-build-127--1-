@@ -16,7 +16,7 @@ export const runtime = "nodejs"
  * settings and posts (./[productId]/**), their billing and their members.
  */
 export async function POST() {
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("products")
   if (isResponse(ctx)) return ctx
   return NextResponse.json({ error: "New memberships are made as paid communities now.", code: "memberships_are_communities" }, { status: 410, headers: noStore })
 }

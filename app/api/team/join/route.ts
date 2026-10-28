@@ -19,7 +19,7 @@ import { INVITE_COOKIE } from "@/lib/team/invite-links"
  *      accept  for the signed in account (lib/team/server.ts acceptInvite):
  *              the invited email, or another account of whoever holds the
  *              link, which the page names first; then straight into the
- *              store where the role starts (roleHome)
+ *              store, on the first page their permissions open (homeFor)
  *      decline the invite is removed and the owner told
  *
  * Every refusal goes back to the invite page, which reads the invite again
@@ -62,7 +62,10 @@ export async function POST(req: Request) {
   if (limited) return back(req, token, "slow")
   const out = await acceptInvite(createAdminClient(), token, user)
   if (out.ok === false) return back(req, token, out.status >= 500 ? "failed" : undefined)
-  const res = NextResponse.redirect(new URL(`${out.home}?joined=1`, req.url), 303)
+  /* The first page they may use, which can carry its own query (Settings › Team): joined=1 is added to it, never a second "?". */
+  const landing = new URL(out.home, req.url)
+  landing.searchParams.set("joined", "1")
+  const res = NextResponse.redirect(landing, 303)
   res.cookies.set(TEAM_STORE_COOKIE, out.creatorId, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: 60 * 60 * 24 * 90 })
   res.cookies.set(INVITE_COOKIE, "", { path: "/", maxAge: 0 })
   return res
