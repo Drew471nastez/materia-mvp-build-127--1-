@@ -84,7 +84,7 @@ export const whop: Competitor = {
     },
   ],
   pricingNotes: [
-    { text: "Payout fees are not in the calculator: they depend on the method and Whop's pages disagree on the amounts.", sources: ["whop-pricing", "whop-fees"], status: "conflicting" },
+    { text: "Payout fees are not in the calculator: they depend on the method.", sources: ["whop-pricing", "whop-fees"], status: "conflicting", note: "Whop's pricing page, documentation and blog give different amounts for the same payout methods." },
     { text: "Disputes cost $15 each.", sources: ["whop-pricing"], status: "verified" },
     { text: "US bank debits (ACH) cost 1.5%, at most $5.", sources: ["whop-pricing", "whop-fees"], status: "verified" },
   ],

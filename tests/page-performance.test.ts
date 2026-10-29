@@ -417,7 +417,7 @@ check(
     const proxy = code("proxy.ts")
     const layout = read("app/layout.tsx")
     const serverGate =
-      /NATIVE_BLOCKED\s*=\s*\["\/pricing", "\/features", "\/faq", "\/blog"\]/.test(proxy) &&
+      /NATIVE_BLOCKED\s*=\s*\["\/pricing", "\/features", "\/faq", "\/blog", "\/alternatives"\]/.test(proxy) &&
       /url\.pathname = "\/native-start"/.test(proxy) &&
       // Scoped to the array literal itself. An unanchored search here matches
       // the `url.pathname = "/native-start"` two lines below and passes for the
@@ -425,7 +425,7 @@ check(
       !(proxy.match(/NATIVE_BLOCKED\s*=\s*\[[^\]]*\]/)?.[0] ?? "").includes("native-start")
     const clientGate =
       /location\.replace\('\/native-start'\)/.test(layout) &&
-      /pricing\|features\|faq\|blog/.test(layout)
+      /pricing\|features\|faq\|blog\|alternatives/.test(layout)
     return serverGate && clientGate
   })(),
   "        proxy.ts + app/layout.tsx boot script",
