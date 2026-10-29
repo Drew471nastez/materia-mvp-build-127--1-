@@ -110,7 +110,7 @@ console.log("\n2. THE HEADER AND THE BAND ARE ONE SURFACE")
 
 console.log("\n3. NO VEIL UNDER A FINGER")
 {
-  check("every hover: is a mouse's hover (hover:hover AND pointer:fine), group- and peer- with it", /@custom-variant hover \{\s*@media \(hover: hover\) and \(pointer: fine\) \{\s*&:hover \{\s*@slot;/.test(cssCode))
+  check("every hover: is a mouse's hover (hover:hover AND pointer:fine), group- and peer- with it", /@custom-variant hover \{\s*@media \(hover: hover\) and \(pointer: fine\) \{\s*&:hover \{\s*@slot;/.test(readCode("app/hover-variant.css")) && /^@import "\.\/hover-variant\.css";$/m.test(cssCode))
   check("no grey tap square in a browser either", /html \{\s*-webkit-tap-highlight-color: transparent;\s*\}/.test(cssCode))
   check("a link or button with a picture in it, and any card, keeps full strength and no filter while pressed on a touch screen", /@media \(hover: none\), \(pointer: coarse\) \{\s*:is\(a, button, \[role="button"\], \[tabindex="0"\]\):has\(img, picture, video, canvas\):active,/.test(cssCode) && /\[data-product-card\], \[data-community-card\]/.test(cssCode) && /opacity: 1 !important;\s*filter: none !important;/.test(cssCode))
   check("a tapped card no longer draws its parent's text colour as a frame", !/\.group:hover \{\s*box-shadow: none !important;\s*border-color: inherit !important;/.test(cssCode))

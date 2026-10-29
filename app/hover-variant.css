@@ -1,0 +1,26 @@
+/*
+  EVERY `hover:` IS A MOUSE'S HOVER. `pointer-fine:` in globals.css asked each
+  class to opt in, and the ones that did not (a card's lift, a row's tint, a
+  cover's veil) went on lighting up under a thumb on every Android phone and
+  WebView that answers `hover: hover`, and stayed lit after the finger left:
+  the grey veil over a card that a scroll or a tap left behind. So the
+  variant itself asks both questions, once, for every `hover:`,
+  `group-hover:` and `peer-hover:` in the product. A real mouse sees exactly
+  what it saw; a finger sees no hover state at all, which is what a touch
+  screen has.
+
+  WHY IT IS ITS OWN FILE. Tailwind copies a block variant's body, with the
+  source text of the file it was written in, every time a class uses it
+  (`structuredClone` in `variants.fromAst`). Written inside globals.css that
+  was a copy of its 400 KB for every hover class it built, and the build's
+  CSS worker held 610 MB for them, for the whole build. From this
+  file the copy is these few lines, the worker holds 90 MB, and the CSS it
+  writes is byte for byte the same (tests/vercel-costs.test.ts).
+*/
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}

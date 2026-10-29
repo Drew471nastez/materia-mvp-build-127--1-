@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./hover-variant.css";
 
 
 
@@ -21,23 +22,7 @@
  */
 @custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
 
-/*
-  AND EVERY `hover:` IS THAT HOVER. The rule above asked each class to opt in,
-  and the ones that did not (a card's lift, a row's tint, a cover's veil)
-  went on lighting up under a thumb on every Android phone and WebView that
-  answers `hover: hover`, and stayed lit after the finger left: the grey
-  veil over a card that a scroll or a tap left behind. So the variant itself
-  asks both questions, once, for every `hover:`, `group-hover:` and
-  `peer-hover:` in the product. A real mouse sees exactly what it saw; a
-  finger sees no hover state at all, which is what a touch screen has.
-*/
-@custom-variant hover {
-  @media (hover: hover) and (pointer: fine) {
-    &:hover {
-      @slot;
-    }
-  }
-}
+/* And every `hover:` is that hover: the variant is ./hover-variant.css, imported at the top, which says why it lives on its own. */
 
 :root {
   /* ── Theme defaults ────────────────────────────────────────────────────

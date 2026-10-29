@@ -150,6 +150,13 @@ const nextConfig = {
      * built chunk and line, not the source file. `next dev` is untouched.
      */
     turbopackSourceMaps: false,
+    /**
+     * AND NONE READ IN. With the maps above off nothing uses the source maps
+     * that packages ship beside their code, so Turbopack does not read and
+     * parse them either. Measured on the full cold build: 80 MB less at the
+     * peak and 20 s off the compile. Nothing it writes changes.
+     */
+    turbopackInputSourceMaps: false,
     serverActions: {
       bodySizeLimit: '10mb',
     },
@@ -184,7 +191,11 @@ const nextConfig = {
   // allowed to finish, and a production install without dev packages would
   // have had no compiler — so the gate would have reported "could not check"
   // for every run and quietly stopped gating anything. It is a dependency now.
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript', '@sparticuz/chromium', 'puppeteer-core'],
+  //
+  // `sass` compiles a theme's SCSS in one route (lib/storelib-theme/compat/scss.ts).
+  // Bundled, it was one 5.9 MB module the build parsed and minified for that
+  // route; Node loads it from node_modules as it is, and the trace ships it.
+  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript', 'sass', '@sparticuz/chromium', 'puppeteer-core'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)
