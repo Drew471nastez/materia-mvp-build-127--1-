@@ -1,0 +1,30 @@
+{
+  "inspectionResult": {
+    "inspectionResultLink": "https://search.google.com/search-console/inspect?resource_id=sc-domain:storelib.com&id=Gx2vQm8aL0bW1nZr4tYk7A&utm_medium=link&utm_source=api",
+    "indexStatusResult": {
+      "sitemap": ["https://storelib.com/sitemap/products-0.xml"],
+      "referringUrls": ["https://storelib.com/maya", "https://storelib.com/explore/templates"],
+      "verdict": "PASS",
+      "coverageState": "Submitted and indexed",
+      "robotsTxtState": "ALLOWED",
+      "indexingState": "INDEXING_ALLOWED",
+      "lastCrawlTime": "2026-10-27T14:03:11Z",
+      "pageFetchState": "SUCCESSFUL",
+      "googleCanonical": "https://storelib.com/maya/notion-planner",
+      "userCanonical": "https://storelib.com/maya/notion-planner",
+      "crawledAs": "MOBILE"
+    },
+    "mobileUsabilityResult": {
+      "verdict": "PASS"
+    },
+    "richResultsResult": {
+      "verdict": "PASS",
+      "detectedItems": [
+        {
+          "richResultType": "Product snippets",
+          "items": [{ "name": "Notion planner" }]
+        }
+      ]
+    }
+  }
+}

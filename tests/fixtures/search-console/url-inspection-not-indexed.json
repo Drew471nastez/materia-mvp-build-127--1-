@@ -1,0 +1,17 @@
+{
+  "inspectionResult": {
+    "inspectionResultLink": "https://search.google.com/search-console/inspect?resource_id=sc-domain:storelib.me&id=p3cQ0sXv9yHw2dL5mN8rTa&utm_medium=link&utm_source=api",
+    "indexStatusResult": {
+      "sitemap": ["https://storelib.me/sitemap/onepages-0.xml"],
+      "verdict": "NEUTRAL",
+      "coverageState": "Crawled - currently not indexed",
+      "robotsTxtState": "ALLOWED",
+      "indexingState": "INDEXING_ALLOWED",
+      "lastCrawlTime": "2026-10-20T08:41:52Z",
+      "pageFetchState": "SUCCESSFUL",
+      "googleCanonical": "https://storelib.me/maya",
+      "userCanonical": "https://storelib.me/maya/",
+      "crawledAs": "MOBILE"
+    }
+  }
+}
