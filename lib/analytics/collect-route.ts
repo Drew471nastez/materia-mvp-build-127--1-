@@ -7,6 +7,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { collect, type CollectKind, type CollectOutcome } from "./collect"
 import { MARKER_TTL_MS, OWN_MARKER_COOKIE, marksOwner } from "./own-marker"
 import { isOwnVisit } from "./own-visit"
+import { forwardPageView } from "./destinations/forward-server"
 
 /**
  * The three tracking routes' shared door onto lib/analytics/collect: the
@@ -58,7 +59,6 @@ export async function collectFrom(req: NextRequest, kind: CollectKind, body: unk
     const visitor = { headers: req.headers, cookie: (name: string) => req.cookies.get(name)?.value }
     const forward = async () => {
       try {
-        const { forwardPageView } = await import("./destinations/forward-server")
         await forwardPageView(db, row, visitor)
       } catch {
         /* the view is recorded; the tools miss one */

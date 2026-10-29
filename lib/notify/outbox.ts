@@ -25,6 +25,8 @@ import { randomUUID } from "node:crypto"
 import { notifyLog, reasonText } from "./log"
 import { storeOf, type AdminDb, type NotifyStore } from "./store"
 import { DOMAIN_EVENTS, type DomainEvent } from "./types"
+/* Imported, not loaded with import(): an import() here gave every route that can emit an event its own copy of the forwarding code's chunks, and `next build` outgrew Vercel's 8 GB. */
+import { forwardOutboxSoon } from "@/lib/analytics/destinations/forward-server"
 
 /** The events a store's analytics tools hear (lib/analytics/destinations/forward-server FORWARDED). */
 const FORWARDED_EVENTS = new Set(["order.created", "order.refunded", "membership.started"])
@@ -65,7 +67,6 @@ export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore;
     if (result.status === "inserted") notifyLog("info", "event recorded", { event: event.name, eventId: result.id, correlationId: event.correlationId })
     /* A purchase, a refund or a sign up, once, on to the store's own analytics tools (lib/analytics/destinations, after the response). */
     if (result.status === "inserted" && event.creatorId && FORWARDED_EVENTS.has(event.name) && typeof (db as { from?: unknown }).from === "function") {
-      const { forwardOutboxSoon } = await import("@/lib/analytics/destinations/forward-server")
       forwardOutboxSoon(db, { name: event.name, key: event.key, creatorId: event.creatorId, payload: (event.payload ?? {}) as Record<string, unknown> })
     }
     if (opts.soon !== false) {

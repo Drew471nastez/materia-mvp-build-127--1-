@@ -24,6 +24,7 @@ import type net from "node:net"
 import { randomUUID } from "node:crypto"
 import { openSecret } from "@/lib/physical/secrets"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
+import { forwardLead } from "@/lib/analytics/destinations/forward-server"
 import {
   PAGE_INTEGRATION_NAME,
   deliveryKey,
@@ -246,7 +247,6 @@ export async function deliverSignup(db: Db, creatorId: string | null | undefined
   await nudge(db, creatorId)
   /* The signup as a lead, on to the store's analytics tools (lib/analytics/destinations): generate_lead, Meta's Lead by the page pixel's own id. */
   try {
-    const { forwardLead } = await import("@/lib/analytics/destinations/forward-server")
     await forwardLead(db, creatorId, { email: signup.email, form: signup.form, eventId: signup.eventId ?? null, key: deliveryKey(signup), url: signup.pageUrl ?? null, at: signup.at })
   } catch {
     /* the signup is on Storelib already */

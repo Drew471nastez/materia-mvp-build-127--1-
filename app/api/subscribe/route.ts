@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
 import { recordSignupAttribution } from "@/lib/attribution/server"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
+import { forwardLead } from "@/lib/analytics/destinations/forward-server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -265,7 +266,6 @@ export async function POST(request: NextRequest) {
     else {
       const pageUrl = request.headers.get("referer")
       after(async () => {
-        const { forwardLead } = await import("@/lib/analytics/destinations/forward-server")
         await forwardLead(adminSupabase, resolvedCreatorId, { email: normalizedEmail, form: "newsletter", key: `newsletter|${normalizedEmail}`, url: pageUrl })
       })
     }
