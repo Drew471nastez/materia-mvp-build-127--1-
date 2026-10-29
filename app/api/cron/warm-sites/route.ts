@@ -36,9 +36,9 @@ async function runJob(request: Request) {
 
 /* Every run recorded and timed with the other jobs (admin System view, lib/observability/report.ts). */
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request))
+  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request), { maxDurationS: maxDuration })
 }
 
 export async function POST(request: Request) {
-  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request))
+  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request), { maxDurationS: maxDuration })
 }

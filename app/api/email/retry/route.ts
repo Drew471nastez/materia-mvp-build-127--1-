@@ -148,6 +148,7 @@ export async function POST(request: Request) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId }),
+          signal: AbortSignal.timeout(10_000),
         }).catch(() => {})
       }, 1000)
     }

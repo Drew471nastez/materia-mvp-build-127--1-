@@ -98,5 +98,5 @@ async function runJob(request: Request) {
 
 /* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/notifications", request, () => runJob(request))
+  return recordCronRun("/api/cron/notifications", request, () => runJob(request), { maxDurationS: maxDuration })
 }

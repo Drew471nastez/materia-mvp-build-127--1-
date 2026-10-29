@@ -51,6 +51,7 @@ import {
   type AgentTurn,
   type TokenUsage,
 } from "./types"
+import { merged } from "@/lib/net/deadline"
 
 /**
  * The model gets this many round trips when no budget says otherwise.
@@ -89,6 +90,8 @@ export const MAX_TOKENS = 400_000
  * a creator their work.
  */
 const BUDGET_WARNING_FRACTION = 0.75
+/** Time left when the run is told to finish up, as it is near its token budget. */
+const TIME_WARNING_MS = 45_000
 
 export const SYSTEM_PROMPT = `You edit a small React website that is a real Vite project. The files ARE the site — there is no other representation of it.
 
@@ -292,6 +295,17 @@ export interface LoopInput {
    */
   ask?: (question: AgentQuestion) => Promise<AnswerOutcome>
   signal?: AbortSignal
+  /**
+   * When no new turn may start (ms since the epoch), and the turn in flight
+   * is given up on at `hardDeadlineAt`. The route lives 300 seconds and the
+   * files are saved only after the loop, so a loop held only by turns and
+   * tokens was killed by the platform with nothing saved, and its run row
+   * stayed "running", which refused every edit to that site for the fifteen
+   * minutes site_active_run waits. Out of time is out of room, like the
+   * token budget: what builds is kept and the rest is said.
+   */
+  deadlineAt?: number
+  hardDeadlineAt?: number
   maxTurns?: number
   /** Tokens, input plus output, for the whole run. A ceiling, not a target. */
   maxTokens?: number
@@ -349,6 +363,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
   /** Why the run stopped early, when it did. Not in itself a failure. */
   let ranOut: string | null = null
   let warnedAboutBudget = false
+  const OUT_OF_TIME = "The edit ran out of time and was stopped."
 
   try {
     for (let attempt = 1; attempt <= maxTurns; attempt++) {
@@ -374,8 +389,14 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         ranOut = `The edit reached its budget of ${Math.round(maxTokens / 1000)}k tokens and was stopped.`
         break
       }
+      /* OUT OF TIME, checked at the same safe place: between turns. */
+      if (input.deadlineAt !== undefined && Date.now() >= input.deadlineAt) {
+        ranOut = OUT_OF_TIME
+        break
+      }
 
-      if (!warnedAboutBudget && spent >= maxTokens * BUDGET_WARNING_FRACTION) {
+      const nearDeadline = input.deadlineAt !== undefined && input.deadlineAt - Date.now() < TIME_WARNING_MS
+      if (!warnedAboutBudget && (spent >= maxTokens * BUDGET_WARNING_FRACTION || nearDeadline)) {
         warnedAboutBudget = true
         turns.push({
           role: "user",
@@ -413,22 +434,39 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         }
       }
 
-      const turn = await provider.complete({
-        model,
-        system: buildSystemPrompt(context ?? null),
-        /**
-         * A COPY. The loop keeps appending to `turns`, and handing over the
-         * live array means the provider's view of the conversation changes
-         * under it — fine for one that serialises synchronously, wrong for
-         * one that retries, logs, or defers. The array is a few dozen small
-         * objects and the strings are shared, so the copy costs nothing.
-         */
-        turns: [...turns],
-        tools: toolsFor(workspace.hasDocument),
-        maxOutputTokens: 32_000,
-        cacheKey: input.cacheKey,
-        signal,
-      })
+      /*
+        The turn in flight ends at the hard deadline: a model call cut off has
+        written no file (tools run after it answers), so stopping here is as
+        safe as stopping between turns.
+      */
+      const hardLeft = input.hardDeadlineAt !== undefined ? input.hardDeadlineAt - Date.now() : null
+      const turnTimer = hardLeft !== null ? AbortSignal.timeout(Math.max(1_000, hardLeft)) : null
+      const turnSignal = turnTimer ? merged(signal, turnTimer) : signal
+      let turn: Awaited<ReturnType<typeof provider.complete>>
+      try {
+        turn = await provider.complete({
+          model,
+          system: buildSystemPrompt(context ?? null),
+          /**
+           * A COPY. The loop keeps appending to `turns`, and handing over the
+           * live array means the provider's view of the conversation changes
+           * under it — fine for one that serialises synchronously, wrong for
+           * one that retries, logs, or defers. The array is a few dozen small
+           * objects and the strings are shared, so the copy costs nothing.
+           */
+          turns: [...turns],
+          tools: toolsFor(workspace.hasDocument),
+          maxOutputTokens: 32_000,
+          cacheKey: input.cacheKey,
+          signal: turnSignal,
+        })
+      } catch (thrown) {
+        if (turnTimer?.aborted && !signal?.aborted) {
+          ranOut = OUT_OF_TIME
+          break
+        }
+        throw thrown
+      }
 
       // Accumulated FIRST. A turn that then throws still cost money, and the
       // record has to say so.

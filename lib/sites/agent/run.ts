@@ -69,6 +69,8 @@ export interface RunInput {
   /** esbuild for `run_build`. Injected — the route owns initialisation. */
   esbuild: unknown
   signal?: AbortSignal
+  /** When the route was asked (ms since the epoch): the platform's 300 seconds count from there, not from here. */
+  requestStartedAt?: number
 }
 
 /** Null when another edit is allowed, otherwise why not — in the user's words. */
@@ -85,6 +87,9 @@ const RUN_BUDGET_MS = 300_000
  * during this saves nothing, so it is reserved rather than borrowed against.
  */
 const BUILD_RESERVE_MS = 120_000
+
+/** A model call still in flight this long before the end is given up on (its turn has written nothing yet). */
+const TURN_HARD_STOP_MS = 60_000
 
 export async function monthlyQuotaError(creatorId: string, plan: SitePlan, providerId = ""): Promise<string | null> {
   /* On their own AI there is no monthly allowance to run out of: the plan's AI edits are Storelib's. */
@@ -111,7 +116,7 @@ export async function monthlyQuotaError(creatorId: string, plan: SitePlan, provi
 }
 
 export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
-  const { siteId, creatorId, plan, prompt, provider, esbuild, signal } = input
+  const { siteId, creatorId, plan, prompt, provider, esbuild, signal, requestStartedAt } = input
 
   /**
    * THE PROMPT IS SAVED BEFORE ANYTHING IS ATTEMPTED.
@@ -347,6 +352,15 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       signal: cancelled.signal,
     }),
     signal: cancelled.signal,
+    /*
+      THE LOOP ENDS IN TIME TO SAVE. No new turn once only BUILD_RESERVE_MS
+      is left of the platform's 300 seconds, counted from the request, and a
+      model call still going TURN_HARD_STOP_MS before the end is given up on.
+      Before, only turns and tokens stopped it, and a long run was killed
+      with nothing saved and its row left "running".
+    */
+    deadlineAt: (requestStartedAt ?? startedAt) + RUN_BUDGET_MS - BUILD_RESERVE_MS,
+    hardDeadlineAt: (requestStartedAt ?? startedAt) + RUN_BUDGET_MS - TURN_HARD_STOP_MS,
   })
   let step = await loop.next()
   while (!step.done) {

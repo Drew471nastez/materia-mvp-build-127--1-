@@ -39,6 +39,8 @@ const SUITES = [
   "tests/net-resilience.test.ts",
   /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
   "tests/auth-reliability.test.ts",
+  /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
+  "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",

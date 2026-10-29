@@ -348,7 +348,8 @@ section("3. The run's code is kept together, or put back")
   const writer = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
   check(
     "Code a section has a time limit of its own, stops before it, and finishes when the tab closes",
-    /export const maxDuration = 300/.test(writer) && /const deadline = AbortSignal\.timeout\(\(maxDuration - 15\) \* 1000\)/.test(writer) && /signal: deadline,/.test(writer) && !/signal: request\.signal/.test(writer),
+    /* Changed on purpose (rel-jobs): the deadline counts from the request's start and leaves room for the save (loopDeadlineMs), instead of fifteen seconds from after the reads and uploads. */
+    /export const maxDuration = 300/.test(writer) && /const loopMs = loopDeadlineMs\(\{ requestStartedAt, maxDurationS: maxDuration \}\)\s*const deadline = AbortSignal\.timeout\(loopMs\)/.test(writer) && /signal: deadline,/.test(writer) && !/signal: request\.signal/.test(writer),
   )
 }
 

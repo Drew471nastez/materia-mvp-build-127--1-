@@ -88,7 +88,7 @@ export function safePath(url: string): string {
 }
 
 /** One signal from the caller's and ours: whichever ends first ends the request. */
-function merged(caller: AbortSignal | null | undefined, ours: AbortSignal): AbortSignal {
+export function merged(caller: AbortSignal | null | undefined, ours: AbortSignal): AbortSignal {
   if (!caller) return ours
   const any = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any
   if (any) return any([caller, ours])

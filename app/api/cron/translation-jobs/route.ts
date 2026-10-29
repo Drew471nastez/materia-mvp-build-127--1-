@@ -49,7 +49,7 @@ async function run(request: Request) {
 }
 
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/translation-jobs", request, () => run(request))
+  return recordCronRun("/api/cron/translation-jobs", request, () => run(request), { maxDurationS: maxDuration })
 }
 
 export const POST = run

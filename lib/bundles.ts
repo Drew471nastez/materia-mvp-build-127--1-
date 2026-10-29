@@ -21,6 +21,9 @@ import { STORAGE_BUCKET } from "@/lib/storage"
 import { asAttachment } from "@/lib/storage/download"
 import type { createAdminClient } from "@/lib/supabase/admin"
 
+/** How long one file of a bundle may take to download from storage. */
+const BUNDLE_FILE_MS = 60_000
+
 /** Minimum number of files that triggers automatic ZIP bundling. */
 export const BUNDLE_THRESHOLD = 6
 
@@ -110,6 +113,13 @@ export async function ensureProductBundle(
   creatorId: string,
   variantId?: string | null,
   variantName?: string | null,
+  /*
+    When the caller can wait no longer (ms since the epoch). A buyer's
+    download that finds no ZIP built yet builds it in their request; past
+    this the ZIP is abandoned unsaved and they get the files one by one, as
+    when there is no bundle, instead of a download that spins for minutes.
+  */
+  { deadlineAt }: { deadlineAt?: number } = {},
 ): Promise<BundleResult | null> {
   // ── 1. Load digital assets ──────────────────────────────────────────────
   let assets: Array<{
@@ -196,6 +206,10 @@ export async function ensureProductBundle(
 
   let addedCount = 0
   for (const asset of assets) {
+    if (deadlineAt !== undefined && Date.now() >= deadlineAt) {
+      console.warn(`[bundles] Out of time after ${addedCount} of ${assets.length} files; the files go one by one this time`)
+      return null
+    }
     const bucket = asset.storage_bucket || STORAGE_BUCKET
     const { data: signed } = await admin.storage
       .from(bucket)
@@ -206,13 +220,27 @@ export async function ensureProductBundle(
       continue
     }
 
-    const res = await fetch(signed.signedUrl)
+    /*
+      One file that storage never finishes sending ends this ZIP, unsaved, instead of holding the request to the
+      platform's limit. Never skipped: a ZIP saved without it would be served as complete to every later buyer.
+    */
+    const fileMs = deadlineAt !== undefined ? Math.max(1_000, Math.min(BUNDLE_FILE_MS, deadlineAt - Date.now())) : BUNDLE_FILE_MS
+    const res = await fetch(signed.signedUrl, { signal: AbortSignal.timeout(fileMs) }).catch((e: unknown) => {
+      console.warn(`[bundles] Could not fetch asset ${asset.id}: ${e instanceof Error ? e.name : "network error"}`)
+      return null
+    })
+    if (!res) return null
     if (!res.ok) {
       console.warn(`[bundles] Could not fetch asset ${asset.id}: HTTP ${res.status}`)
       continue
     }
 
-    zip.file(zipEntryName(asset.file_name, names), new Uint8Array(await res.arrayBuffer()), { binary: true })
+    const bytes = await res.arrayBuffer().catch(() => null)
+    if (!bytes) {
+      console.warn(`[bundles] Could not read asset ${asset.id} in time`)
+      return null
+    }
+    zip.file(zipEntryName(asset.file_name, names), new Uint8Array(bytes), { binary: true })
     addedCount++
   }
 

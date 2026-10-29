@@ -11,6 +11,8 @@
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { mediaUrlsIn } from "@/lib/storage/media-url"
 import { GMAIL_CLIP_BYTES, finalizeEmailHtml } from "@/lib/mail-document"
+import { deadlineFetch } from "@/lib/net/deadline"
+import { breakerFor, unwellStatus } from "@/lib/net/breaker"
 
 export { finalizeEmailHtml }
 
@@ -31,6 +33,33 @@ function sendableHtml(html: string, subject: string): string {
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY || ""
 const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || "storelib.com"
 const MAILGUN_BASE_URL = process.env.MAILGUN_BASE_URL || "https://api.eu.mailgun.net"
+
+/*
+  EVERY CALL TO MAILGUN ENDS. sendMailgunEmail, the path under every
+  sendEmail in the app (a website's sign in code, a contact form, a seller's
+  test email), called fetch with no deadline at all and then slept 2, 5 and
+  10 seconds on a 429: a Mailgun that accepted the connection and never
+  answered held the request until Vercel's 300 second ceiling. Now one
+  attempt is MAILGUN_TIMING.attemptMs, the whole send with its 429 retries is
+  MAILGUN_TIMING.sendBudgetMs, a suppression lookup is MAILGUN_TIMING.lookupMs, and a
+  Mailgun that has failed MAILGUN_BREAKER's worth in a row is not asked at
+  all for a short while (lib/net/breaker.ts): the send answers "not sent" at
+  once, and the notification outbox tries again later.
+*/
+export const MAILGUN_TIMING = {
+  /** One request to Mailgun. */
+  attemptMs: 15_000,
+  /** A whole send, its 429 retries included. */
+  sendBudgetMs: 25_000,
+  /** A bounce or complaint lookup. */
+  lookupMs: 5_000,
+  /** The waits after a 429, before each up to a quarter either way. The suite makes them short. */
+  rateLimitDelays: [2000, 5000, 10000],
+}
+export const MAILGUN_BREAKER = "mailgun"
+const mailgunBreaker = () => breakerFor(MAILGUN_BREAKER)
+/** Said when the breaker is open: nothing was sent, and nothing reached Mailgun. */
+export const MAILGUN_UNAVAILABLE = "The email provider is not answering just now. Nothing was sent; try again shortly."
 
 /**
  * EVERY FROM HEADER HAS A NAME. An address on its own ("noreply@storelib.com",
@@ -208,10 +237,12 @@ function fromForSend(requested: string | undefined, _transactional?: boolean): s
 async function clearBounce(email: string): Promise<void> {
   if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return
   try {
-    await fetch(`${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` },
-    })
+    if (mailgunBreaker().state === "open") return
+    await deadlineFetch(
+      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`,
+      { method: "DELETE", headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` } },
+      { ms: MAILGUN_TIMING.lookupMs, retry: false },
+    )
   } catch {
     /* A missing bounce is a 404. Either way the send goes ahead. */
   }
@@ -222,14 +253,17 @@ async function clearBounce(email: string): Promise<void> {
  */
 async function isEmailSuppressed(email: string): Promise<boolean> {
   if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return false
+  /* Not answering: the lookup is skipped, as a failed lookup always was. */
+  if (mailgunBreaker().state === "open") return false
 
   const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
 
   try {
     // Check bounces
-    const bounceRes = await fetch(
+    const bounceRes = await deadlineFetch(
       `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`,
-      { headers: { Authorization: `Basic ${authString}` } }
+      { headers: { Authorization: `Basic ${authString}` } },
+      { ms: MAILGUN_TIMING.lookupMs, retry: false },
     )
     if (bounceRes.ok) {
       console.warn("[mailgun] Email is on bounce suppression list:", maskEmail(email))
@@ -237,9 +271,10 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
     }
 
     // Check complaints
-    const complaintRes = await fetch(
+    const complaintRes = await deadlineFetch(
       `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/complaints/${encodeURIComponent(email)}`,
-      { headers: { Authorization: `Basic ${authString}` } }
+      { headers: { Authorization: `Basic ${authString}` } },
+      { ms: MAILGUN_TIMING.lookupMs, retry: false },
     )
     if (complaintRes.ok) {
       console.warn("[mailgun] Email is on complaint suppression list:", maskEmail(email))
@@ -273,6 +308,12 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
       success: false,
       error: "Invalid email format",
     }
+  }
+
+  /* Mailgun not answering: said at once, without a lookup or a send that would wait out the same deadline. */
+  if (mailgunBreaker().state === "open") {
+    console.warn("[mailgun] Not sent, the provider is not answering:", { to: maskEmail(options.to) })
+    return { success: false, error: MAILGUN_UNAVAILABLE }
   }
 
   // A code the person just asked for leaves at once. A bounce or complaint
@@ -352,19 +393,36 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     domain: MAILGUN_DOMAIN,
   })
 
-  // Retry with backoff for 429 rate limit responses
+  // Retry with backoff for 429 rate limit responses: capped, jittered, and
+  // never past MAILGUN_TIMING.sendBudgetMs for the whole send.
   const RATE_LIMIT_RETRIES = 3
-  const RATE_LIMIT_DELAYS = [2000, 5000, 10000] // 2s, 5s, 10s
+  const RATE_LIMIT_DELAYS = MAILGUN_TIMING.rateLimitDelays // 2s, 5s, 10s, each with up to a quarter either way
+  const began = Date.now()
+  const breaker = mailgunBreaker()
+  /* The trial after a cool down is one send; any other send meanwhile is told at once. */
+  if (!breaker.allow()) return { success: false, error: MAILGUN_UNAVAILABLE }
+  let reported = false
+  const report = (unwell: boolean) => {
+    if (reported) return
+    reported = true
+    if (unwell) breaker.failure()
+    else breaker.success()
+  }
 
   for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${authString}`,
+      const left = MAILGUN_TIMING.sendBudgetMs - (Date.now() - began)
+      const response = await deadlineFetch(
+        url,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${authString}`,
+          },
+          body: formData,
         },
-        body: formData,
-      })
+        { ms: Math.min(MAILGUN_TIMING.attemptMs, Math.max(250, left)), retry: false },
+      )
 
       const responseText = await response.text()
       let responseData: any = {}
@@ -376,14 +434,15 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
       }
 
       // Handle 429 rate limit with retry
-      if (response.status === 429 && attempt < RATE_LIMIT_RETRIES) {
-        const delay = RATE_LIMIT_DELAYS[attempt]
+      const delay = Math.round(RATE_LIMIT_DELAYS[Math.min(attempt, RATE_LIMIT_DELAYS.length - 1)] * (0.75 + Math.random() * 0.5))
+      if (response.status === 429 && attempt < RATE_LIMIT_RETRIES && Date.now() - began + delay + Math.min(MAILGUN_TIMING.attemptMs, 1_000) < MAILGUN_TIMING.sendBudgetMs) {
         console.warn(`[mailgun] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${RATE_LIMIT_RETRIES})`)
         await new Promise((r) => setTimeout(r, delay))
         continue
       }
 
       if (!response.ok) {
+        report(unwellStatus(response.status))
         /* The status only: the provider's body can repeat the address. */
         console.error("[mailgun] API error:", {
           status: response.status,
@@ -396,6 +455,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
         }
       }
 
+      report(false)
       console.log("[mailgun] Email sent successfully:", {
         messageId: responseData.id,
         to: maskEmail(options.to),
@@ -407,6 +467,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
         messageId: responseData.id,
       }
     } catch (error: any) {
+      report(true)
       console.error("[mailgun] Request failed:", {
         error: error?.name || "network error",
         to: maskEmail(options.to),
@@ -419,6 +480,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
+  report(true)
   return {
     success: false,
     error: "Mailgun rate limit exceeded after retries",
@@ -461,7 +523,7 @@ function connectFailed(error: unknown): boolean {
 
 export async function sendMailgunOnce(
   options: MailgunSendOptions & { messageId?: string },
-  { timeoutMs = 15_000 }: { timeoutMs?: number } = {},
+  { timeoutMs = MAILGUN_TIMING.attemptMs }: { timeoutMs?: number } = {},
 ): Promise<MailgunOnceResult> {
   if (!isMailgunConfigured()) return { success: false, notConfigured: true, error: "Mailgun is not configured" }
   if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
@@ -481,6 +543,9 @@ export async function sendMailgunOnce(
   /* Files the message carries, the same way sendMailgunEmail does: a ticket receipt's calendar file. */
   for (const file of options.attachments ?? []) form.append("attachment", new Blob([file.content as BlobPart], { type: file.contentType }), file.filename)
 
+  /* Not answering: nothing is sent and nothing reached Mailgun, so the caller's queue may try again without doubling up. */
+  const breaker = mailgunBreaker()
+  if (!breaker.allow()) return { success: false, connectFailed: true, error: MAILGUN_UNAVAILABLE }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -498,10 +563,14 @@ export async function sendMailgunOnce(
       data = {}
     }
     if (!response.ok) {
+      if (unwellStatus(response.status)) breaker.failure()
+      else breaker.success()
       return { success: false, status: response.status, error: (data.message || response.statusText || "").slice(0, 200) }
     }
+    breaker.success()
     return { success: true, status: response.status, messageId: data.id || options.messageId }
   } catch (error) {
+    breaker.failure()
     const aborted = error instanceof Error && error.name === "AbortError"
     return { success: false, timedOut: aborted, connectFailed: !aborted && connectFailed(error), error: aborted ? "Timed out" : "Network error" }
   } finally {
@@ -546,12 +615,7 @@ export async function verifyMailgunConfig(): Promise<boolean> {
   const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
 
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `Basic ${authString}`,
-      },
-    })
+    const response = await deadlineFetch(url, { method: "GET", headers: { Authorization: `Basic ${authString}` } }, { ms: MAILGUN_TIMING.lookupMs, retry: false })
 
     if (response.ok) {
       console.log("[mailgun] Configuration verified successfully")
