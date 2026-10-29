@@ -1,3 +1,4 @@
+import type Stripe from "stripe"
 import { moneyCaller } from "@/lib/team/money"
 import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse } from "next/server"
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
     const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
 
     // Always create a Stripe Checkout Session directly — let Stripe handle plan selection
-    const sessionParams = {
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
       mode: "subscription",
       payment_method_types: ["card"],
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
           plan_id: planId,
         },
       },
-    } satisfies Parameters<typeof stripe.checkout.sessions.create>[0]
+    }
     /* A double tap, or a retry of a request whose answer was lost, opens the same Checkout rather than a second one (10 minutes). */
     const checkoutSession = await stripe.checkout.sessions.create(sessionParams, {
       idempotencyKey: stripeIdempotencyKey("plan-checkout", [creator.id, planId], sessionParams, { windowMs: 10 * 60_000 }),

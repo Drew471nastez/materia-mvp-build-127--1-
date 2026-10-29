@@ -180,7 +180,7 @@ check("no row changes: no INSERT, UPDATE or DELETE of data", !/\b(INSERT INTO|UP
 const readme = read("supabase/sql/run-now/README.md")
 check("the README has its row, with the lock warning and the lock free file", /\| `334_database_load_and_isolation\.sql` \|[^\n]*RUN_REL_DB_INDEXES_CONCURRENTLY\.sql[^\n]*\| 48 \| 27,0\d\d \|/.test(readme))
 const after = read("supabase/sql/run-now/99_check_after.sql")
-check("the check after has its column, naming every index", / as p334_database_load_and_isolation;\s*$/.test(after) && made.every((m) => after.includes(`'${m.name}'`)))
+check("the check after has its column, naming every index", /* Changed on purpose (round 43 merge): later parts (338, 341) have columns after it. */ / as p334_database_load_and_isolation[,;]/.test(after) && made.every((m) => after.includes(`'${m.name}'`)))
 for (const f of ["supabase/sql/run-four/3_of_4_latest.sql", "supabase/sql/all-in-two/1_of_2_everything.sql", "supabase/sql/all-in-three/2_of_3_latest.sql"]) {
   check(`${f} carries the part`, read(f).includes(lines[1]) && read(f).includes(lines[lines.length - 3]))
 }
