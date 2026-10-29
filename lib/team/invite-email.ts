@@ -44,7 +44,8 @@ export function teamInviteEmail(v: TeamInviteEmailInput): { subject: string; htm
     subject,
     preview: `${opener} The link works for ${days} days.`,
     heading: `Join ${store}`,
-    media: { title: store, subtitle: access, imageUrl: v.storeImageUrl ?? null, round: true, accentTile: true },
+    /* The store's picture by the shared mark (lib/emails/brand-mark.ts, round 43): its own shape, never cut round. */
+    media: { title: store, subtitle: access, imageUrl: v.storeImageUrl ?? null, mark: true, accentTile: true },
     paragraphs: [
       opener,
       ...(can ? [can] : []),

@@ -501,6 +501,8 @@ const SUITES = [
   "tests/section-signups.test.ts",
   /* The Email app's newsletter end to end: the subscribe route against an in-memory database, an imported theme's form naming its box, and the canvas sending nothing. */
   "tests/newsletter-signup.test.ts",
+  /* Round 43: an integration's page settles in without a bump; every newsletter look has its controls and says where its sign ups go. */
+  "tests/newsletter-r43.test.ts",
   "tests/developer-hub.test.ts",
   "tests/ai-section-placement.test.ts",
   "tests/email-automation.test.ts",

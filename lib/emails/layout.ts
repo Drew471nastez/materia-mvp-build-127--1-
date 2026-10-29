@@ -276,7 +276,7 @@ export interface EmailKit {
   /** Label and value rows. */
   facts(rows: EmailFact[], opts?: { below?: number; labelWidth?: string }): string
   /** One thing the email is about: a picture, a name and a line under it, in a light box. */
-  media(m: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean }): string
+  media(m: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean; /** The picture is the store's logo: drawn by the shared mark (./brand-mark.ts), at its own shape, never cropped; the name beside it only when it is square. */ mark?: boolean }): string
   /** Order lines: picture, title, detail and amount. */
   items(lines: EmailItem[], opts?: { below?: number; ruleTop?: boolean; pictures?: boolean }): string
   /** Money rows under the items, the strong one set off by a line. */
@@ -375,6 +375,16 @@ export function emailKit(sender: EmailSender): EmailKit {
         ? `<img class="e-thumb" src="${esc(src)}" alt="${esc(m.title)}" width="${px}" height="${px}" style="display:block;width:${px}px;height:${px}px;object-fit:cover;border:0;border-radius:${radius}px;background-color:${K.line};">`
         : tile(m.title, px, radius, m.accentTile ? t : null, true)
       const sub = m.subtitle ? `<p class="e-muted" style="${P(14, 20, K.muted, "margin:2px 0 0 0;")}">${esc(m.subtitle)}</p>` : ""
+      if (m.mark && src) {
+        /* A store's logo (round 43): the shared mark, never a 48px crop; the subtitle under it. */
+        const logo = brandMarkHtml({ name: m.title, src, shape: "auto", font: EMAIL_FONT, ink: K.ink, size: 16, lineHeight: 22, start: START(), nameClass: "e-ink" })
+        return row(
+          `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;">
+<tr><td valign="middle" style="padding:14px 16px;">${logo}${sub ? sub.replace("margin:2px 0 0 0;", "margin:8px 0 0 0;") : ""}</td></tr>
+</table>`,
+          20,
+        )
+      }
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;">
 <tr><td width="${px}" valign="middle" style="width:${px}px;padding:14px 0 14px 16px;">${pic}</td>
@@ -778,7 +788,7 @@ export interface PlatformEmailInput {
   label?: string | null
   labelColor?: string
   /** Optional: something the email is about (a store, a product), drawn as a small card under the heading. */
-  media?: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean } | null
+  media?: { title: string; subtitle?: string | null; imageUrl?: string | null; round?: boolean; accentTile?: boolean; /** The picture is the store's logo: drawn by the shared mark (./brand-mark.ts), at its own shape, never cropped; the name beside it only when it is square. */ mark?: boolean } | null
   /**
    * The words. A string is a plain paragraph; { html, text } is a paragraph
    * with trusted markup (an identity() address, a bold name) and its plain

@@ -183,8 +183,7 @@ export interface OutboxEvent {
 
 export const FORWARDED = new Set(["order.created", "order.refunded", "membership.started"])
 
-/** One outbox event, onto the queue. Never throws. */
-/** `transport`: the tests' fake; the real one otherwise. */
+/** One outbox event, onto the queue. Never throws. `transport`: a test's fake; the real one otherwise. */
 export async function forwardOutboxEvent(db: Db, e: OutboxEvent, person?: PersonInput | null, transport?: Transport): Promise<number> {
   try {
     if (!FORWARDED.has(e.name) || !e.creatorId) return 0

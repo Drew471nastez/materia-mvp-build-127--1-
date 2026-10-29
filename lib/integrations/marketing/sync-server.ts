@@ -88,8 +88,8 @@ export interface MarketingDeps {
 
 export const SYNC_EVERY_MS = 15 * 60_000
 export const SUBSCRIBERS_PER_RUN = 1000
-/* Kit takes one address a request (and a second for its tag) at 120 a minute; Brevo one customer a request. */
-const PER_RUN: Partial<Record<MarketingProvider, number>> = { kit: 50, brevo: 300 }
+/* Kit takes one address a request (and a second for its tag) at 120 a minute; Brevo one customer a request. Kept to about twenty seconds of paced calls a job, so a run ends well inside a function's time; the next batch is queued straight after. */
+const PER_RUN: Partial<Record<MarketingProvider, number>> = { kit: 20, brevo: 150 }
 const perRun = (p: MarketingProvider) => PER_RUN[p] ?? SUBSCRIBERS_PER_RUN
 export const ORDERS_PER_RUN = 40
 export const BACKFILL_DAYS = 90

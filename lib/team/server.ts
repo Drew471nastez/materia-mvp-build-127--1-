@@ -27,6 +27,7 @@ import {
 import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
 import { teamHomeHref } from "./landing"
 import { teamStampDb } from "./audit"
+import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 
 /**
  * ===========================================================================
@@ -276,7 +277,7 @@ async function inviteContext(db: Db, creatorId: string, inviterId: string): Prom
   ])
   const avatar = (creator as { data: { avatar_url?: string | null } | null })?.data?.avatar_url ?? null
   const name = (profile as { data: { display_name?: string | null } | null })?.data?.display_name ?? null
-  return { storeImageUrl: emailImageSrc(avatar, 48), inviterName: typeof name === "string" && name.trim() ? name.trim().slice(0, 60) : null }
+  return { storeImageUrl: emailImageSrc(avatar, LOGO_FILE_PX), inviterName: typeof name === "string" && name.trim() ? name.trim().slice(0, 60) : null }
 }
 
 /** The page an invite link opens (app/team/join). The old /api/team/join address sends people here too. */
