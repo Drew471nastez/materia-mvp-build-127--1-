@@ -11712,7 +11712,11 @@ const words: Record<string, string> = {
  "Your subscribers who said yes, and the orders of the last 90 days, in batches. A MailerLite automation that starts when someone joins the group may run for them.": "Tus suscriptores que dijeron sí y los pedidos de los últimos 90 días, por lotes. Una automatización de MailerLite que empieza cuando alguien entra en el grupo puede ejecutarse para ellos.",
  "Your {name} API key": "Tu clave de API de {name}",
  "order_placed, order_fulfilled, order_cancelled and order_refunded events": "Eventos order_placed, order_fulfilled, order_cancelled y order_refunded",
- "{domain} may already have an SPF record. Add include:mailgun.org to that one rather than making a second.": "Puede que {domain} ya tenga un registro SPF. Añade include:mailgun.org a ese en lugar de crear otro."
+ "{domain} may already have an SPF record. Add include:mailgun.org to that one rather than making a second.": "Puede que {domain} ya tenga un registro SPF. Añade include:mailgun.org a ese en lugar de crear otro.",
+ "Popup": "Ventana emergente",
+ "Sign-up form": "Formulario de suscripción",
+ "Open Subscribers": "Abrir suscriptores",
+ "Sign-ups go to Emails › Subscribers, listed as {where}. They join at once, with no confirmation email.": "Las suscripciones van a Correos › Suscriptores, como {where}. Se unen al momento, sin correo de confirmación."
 }
 
 export default words

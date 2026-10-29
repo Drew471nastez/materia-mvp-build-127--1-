@@ -160,7 +160,7 @@ check("a link on Cards is drawn as the featured card", /if \(data\.layout_type =
 check("the classic header and socials carry their marks for left alignment", /data-op-header=""/.test(live) && /data-op-socials=\{isHeroLayout \? undefined : ""\}/.test(live))
 check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(safeTheme\)/g) ?? []).length === 1)
 check("the preview is the live page's own component", /PublicOnePage/.test(read("components/onepage/preview-document.tsx")))
-check("the product sheet and the checkout window are themed", /className="op-sheet /.test(read("components/onepage/product-sheet.tsx")) && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))
+check("the product sheet and the checkout window are themed", /className=\{cn\(\s*"op-sheet /.test(read("components/onepage/product-sheet.tsx")) /* round 43: two columns on a computer, so the classes are joined */ && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))
 check("the Design tab has a Layout panel and the themes", /<NavRow dataKey="layout"/.test(design) && /<LayoutSection \/>/.test(design) && /withR40Themes\(BASE_THEME_TEMPLATES\)/.test(design))
 check("the theme cards draw each theme's layout", /<ThemeCardBlocks c=\{c\} \/>/.test(design))
 const layoutSrc = read("components/onepage/themes/layout-section.tsx")

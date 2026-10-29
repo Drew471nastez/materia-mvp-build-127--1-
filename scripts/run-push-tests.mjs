@@ -1017,6 +1017,8 @@ const SUITES = [
   "tests/emails-community-in-place.test.ts",
   /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round, the name beside a square icon; settled at send from the picture's size. */
   "tests/email-logo-shape.test.ts",
+  /* Round ana-1029: Storelib analytics sent on to GA4 (Measurement Protocol), Meta (Conversions API), PostHog and a signed webhook through a queued, idempotent, retrying sender with consent and hashing, the status view and Send test, GET /api/v1/analytics with read only keys, SQL part 338; scripts/check-send-analytics.mjs measures the dialog. */
+  "tests/analytics-destinations.test.ts",
 ]
 
 /**

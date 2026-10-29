@@ -1,0 +1,1 @@
+{"compilerOptions":{"outDir":"/tmp/storelib-mine-7N7lLt","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","skipLibCheck":true,"strict":false,"baseUrl":".","paths":{"@/*":["./*"]}},"files":["tests/e2e-onepage-instant.test.ts","tests/e2e-onepage-live.test.ts","tests/e2e-onepage-signup.test.ts"]}

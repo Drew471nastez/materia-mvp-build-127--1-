@@ -5159,8 +5159,8 @@ function BlockEditor({
                       data-email-layout-option={option.id}
                       onClick={() => {
                         if (on) return
-                        hapticTap("soft")
                         /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
+                        hapticTap("soft")
                         updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
                       }}
                       className="relative isolate flex flex-col gap-1.5 rounded-xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 [@media(hover:hover)]:hover:border-[#c9cbd1]"

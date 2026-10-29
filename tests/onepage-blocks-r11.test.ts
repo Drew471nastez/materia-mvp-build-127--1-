@@ -66,7 +66,8 @@ async function main() {
   section("The email signup's layouts: five, and each one does something")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("five layouts, Classic and Featured kept under their saved names", EMAIL_SIGNUP_LAYOUT_IDS.join() === "default,pro,cover,bold,minimal")
+    /* Changed on purpose, round 43: three more after the five (Connect, Personal note, Bar). */
+    check("five layouts, Classic and Featured kept under their saved names", EMAIL_SIGNUP_LAYOUT_IDS.slice(0, 5).join() === "default,pro,cover,bold,minimal")
     check("a saved layout reads as itself; nothing or junk is Classic", emailSignupLayout("pro") === "pro" && emailSignupLayout("bold") === "bold" && emailSignupLayout(undefined) === "default" && emailSignupLayout("fancy") === "default")
     check("the picture: the creator's own, then the free gift's cover, then none", emailSignupImage({ product_image: " a.png ", digital_product_thumbnail: "b.png" }) === "a.png" && emailSignupImage({ product_image: "", digital_product_thumbnail: "b.png" }) === "b.png" && emailSignupImage({}) === null)
     check("Cover and Solid stack the form; the others only for long button words", emailSignupStacked("cover", "Go") && emailSignupStacked("bold", "Go") && !emailSignupStacked("default", "Subscribe") && emailSignupStacked("minimal", "Get my free guide now"))
@@ -94,7 +95,7 @@ async function main() {
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("the live page draws every layout through the one view, no image needed", /<EmailSignupView/.test(email) && /layout=\{layout\}/.test(email) && !/isPro && showThumbnail/.test(email) && /const layout = emailSignupLayout\(data\.layout_type\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
-    check("the editor's picker: three across, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-3 gap-2/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType \}\)/.test(tab))
+    check("the editor's picker: three across, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-3 gap-2/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType[ ,}]/.test(tab)) /* round 43: Connect's words ride along */
     check("its old big 4:3 cards are gone", !/aspect-\[4\/3\][\s\S]{0,400}Classic centered form/.test(tab))
     check("a finger gets a light tap on a change, and no hover fires on touch", /hapticTap\("soft"\)\s*updateData\(\{ layout_type/.test(tab) && /\[@media\(hover:hover\)\]:hover:border-\[#c9cbd1\]/.test(tab))
   }
