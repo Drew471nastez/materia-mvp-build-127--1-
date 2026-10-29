@@ -306,8 +306,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
    * ONE ROW PER CATEGORY. NO SUBCATEGORY ROWS. /explore/[category] does not
    * read `?sub=`, so seventy subcategory rows would be fourteen documents.
    */
-  for (const category of exploreOpen ? CATEGORIES : []) {
-    if (category.id === "all") continue
+  for (const category of CATEGORIES) {
+    if (category.id === "all" || !exploreOpen) continue
     routes.push({ url: `${BASE}/explore/${category.id}` })
   }
 
