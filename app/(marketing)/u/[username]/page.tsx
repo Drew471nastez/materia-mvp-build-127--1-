@@ -187,7 +187,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   const profile = await loadProfileByUsername(username)
 
   if (!profile) {
-    return { title: "Creator Not Found" }
+    /* The page below answers 404 or the renamed handle's address; this title is never one to index. */
+    return { title: "Creator Not Found", robots: { index: false, follow: false } }
   }
   const handle: string = profile.username || username
 

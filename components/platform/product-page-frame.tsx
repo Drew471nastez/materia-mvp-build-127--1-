@@ -17,7 +17,8 @@ import { productPageQuote } from "@/lib/money/marketplace-server"
  * checkout in the store's own currency.
  */
 
-export async function ProductPageFrame({ slug, children }: { slug: string; children: React.ReactNode }) {
+/* `owner`: the creator the address names, so the frame reads the same product the page draws (lib/commerce/product-page-data loadProductBySlug). */
+export async function ProductPageFrame({ slug, owner, children }: { slug: string; owner?: string | null; children: React.ReactNode }) {
 
   // Quick query to get just the theme preset for skeleton loading
   let themePreset: ThemePreset = "default"
@@ -34,7 +35,7 @@ export async function ProductPageFrame({ slug, children }: { slug: string; child
       so whichever of the three runs first pays and the other two are free.
       lib/commerce/product-page-data.ts.
     */
-    const { product } = await loadProductBySlug(slug)
+    const { product } = await loadProductBySlug(slug, owner)
 
     if (product?.creator_id) {
       const [config, sells] = await Promise.all([loadStoreConfig(product.creator_id, "product"), cachedStoreCurrency(product.creator_id)])

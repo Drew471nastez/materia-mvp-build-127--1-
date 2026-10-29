@@ -112,7 +112,8 @@ section("A page's pictures are listed with it, so Google Images can find them")
   check("the helper is the same rule", JSON.stringify(sitemapImages(["https://a.com/1.png", "https://a.com/1.png", "https://a.com/doc.pdf"])) === JSON.stringify(["https://a.com/1.png"]))
   const maps = code("lib/seo/sitemaps.ts")
   check("a product lists its thumbnail and gallery",
-    /\.select\("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) && /images: (imagesOnly\()?\[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]\)?/.test(maps))
+    /* Changed on purpose (round 44): the id is read too, as the keyset cursor. */
+    /\.select\("id, slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) &&/images: (imagesOnly\()?\[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]\)?/.test(maps))
   check("a creator page lists its avatar and cover", /images: \[seller\?\.avatar_url, c\.cover_url\]/.test(maps) && /\.select\("id, username, avatar_url"\)/.test(maps))
   check("and a website's own sitemap uses the same escaping", /import \{ SITE_DISALLOW, xmlEscape \} from "@\/lib\/seo\/indexing"/.test(code("lib/website-builder/site-seo.ts")) && !/function xmlEscape/.test(code("lib/website-builder/site-seo.ts")))
 }
@@ -175,7 +176,8 @@ section("Every host answers its own robots.txt and sitemap")
   check("storelib.com's sitemap is an index of chunks", /sitemapIndexXml\(await sitemapIndex\(\)\)/.test(code("app/sitemap.xml/route.ts")) && /parseSitemapName\(name\)/.test(code("app/sitemap/[name]/route.ts")))
   check("the sitemap routes are reserved from handles", isReservedWord("sitemap") && isReservedWord("sitemap.xml"))
   const maps = code("lib/seo/sitemaps.ts")
-  check("products are read a chunk at a time, not the first 5,000", !/\.limit\(5000\)/.test(maps) && /chunk \* SITEMAP_CHUNK/.test(maps))
+  /* Changed on purpose (round 44): a chunk is a slice of the id space, read by id (tests/seo-sitemap-engine-r44.test.ts reads 60,000 products through six of them). */
+  check("products are read a chunk at a time, not the first 5,000", !/\.limit\(5000\)/.test(maps) && /sliceOf\(chunk, of, \(\) => countOf\(admin, "products", published, "products"\)\)/.test(maps) && /readKeyset<ProductRow>/.test(maps))
   check("every listed page carries its row's own date", /lastModified: lastmodOf\(row\.updated_at\)/.test(maps) && !/lastModified: new Date\(\)/.test(maps))
   check("a published site is listed at its subdomain only when it has no connected domain", /domains\.has\(i\.creator_id\)/.test(maps))
 }
@@ -200,7 +202,7 @@ section("Pages a visitor can reach but no index should hold carry noindex")
   const themeProduct = code("components/website-builder/theme/render-product.tsx")
   check("a site's product page is canonical on the site, the platform's copy at storelib.com/<handle>/<slug>",
     /let canonical: string \| undefined = site\?\.url/.test(themeProduct) && /productUrl\(origin, slug\)/.test(code("app/(site)/w/[username]/products/[slug]/page.tsx"))
-      && /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
+      && /* Round 44: on the creator page's own domain when it has one. */ /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug(, pageHost)?\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
 }
 
 section("IndexNow: off without a key, never in the way of a save, one notice per change")

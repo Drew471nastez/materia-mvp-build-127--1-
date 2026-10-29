@@ -28,6 +28,8 @@ export interface EventFacts {
     access: AccessRuleJson | null
     updatedAt: string | null
   }
+  /** Round 44: the community's creator is banned (lib/seo/bans.ts). Never in search. */
+  ownerBanned?: boolean
 }
 
 export function publicEvent(f: EventFacts): boolean {
@@ -39,7 +41,7 @@ export function publicEvent(f: EventFacts): boolean {
 
 /** Whether search engines may index it (round 26): a public event in a community that is still published, never an archived one's. */
 export function indexableEvent(f: EventFacts): boolean {
-  return publicEvent(f) && f.community.status === "published"
+  return publicEvent(f) && f.community.status === "published" && !f.ownerBanned
 }
 
 export function eventPath(slug: string, eventId: string): string {

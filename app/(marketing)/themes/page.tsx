@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { pageMetadata } from "@/lib/seo/page-metadata"
 import { publishedListings } from "@/lib/themes/marketplace-server"
 import { builtinListings } from "@/lib/themes/marketplace-shared"
 import { ThemesMarketplace } from "./themes-marketplace"
@@ -12,11 +13,12 @@ import { ThemesMarketplace } from "./themes-marketplace"
  */
 export const revalidate = 300
 
-export const metadata: Metadata = {
+/* The whole set (lib/seo/page-metadata), so its share card is not the home page's. */
+export const metadata: Metadata = pageMetadata({
+  path: "/themes",
   title: "Themes for your Storelib website",
   description: "Themes for Storelib websites: free, paid and Pro. Preview each one live and add it to your library.",
-  alternates: { canonical: "/themes" },
-}
+})
 
 export default async function ThemesPage() {
   const listings = await publishedListings().catch(() => builtinListings())

@@ -136,6 +136,9 @@ const stubs: Record<string, string> = {
   "@/lib/api/rate-limit": stub("rate", `export const LIMITS = new Proxy({}, { get: () => [] })\nexport const rateLimit = async () => null\n`),
   "@/lib/website-builder/published-site": stub("published", `export const revalidatePublishedSite = async () => { globalThis.__policyStubs.revalidated = true }\n`),
   "@/lib/website-builder/custom-schemas": stub("custom", `export const customSchemaLookup = async () => undefined\n`),
+  /* Changed on purpose (round 44): the route announces a page published or deleted on the live site (IndexNow); off here, as without a key. */
+  "@/lib/seo/announce": stub("announce", `export const announce = async () => {}\nexport const websiteAddresses = async () => []\n`),
+  "@/lib/seo/indexnow": stub("indexnow", `export const indexNowKey = () => null\n`),
   /* Changed on purpose (round 42 team): the route asks lib/team/website whose store and install; the owner's path, on the stubbed database. */
   "@/lib/team/website": stub(
     "website",

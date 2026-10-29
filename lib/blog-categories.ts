@@ -12,7 +12,7 @@ export const STORELIB_CATEGORIES = [
 export type StorelibCategory = typeof STORELIB_CATEGORIES[number]
 
 export const CATEGORY_SUBTITLES: Record<string, string> = {
-  "Getting Started": "Everything you need to launch your first digital product store — from choosing what to sell to getting your first sale.",
+  "Getting Started": "Everything you need to launch your first digital product store, from choosing what to sell to getting your first sale.",
   "Creator Tips": "Practical advice to help you create, market, and sell digital products more effectively.",
   "Growth": "Strategies to grow your audience, reach new customers, and scale your creator business.",
   "Strategy": "Business frameworks and pricing tactics for building a sustainable creator income.",

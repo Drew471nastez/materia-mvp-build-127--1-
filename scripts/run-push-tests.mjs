@@ -201,6 +201,8 @@ const SUITES = [
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
   "tests/creator-domain-seo.test.ts",
+  /* Round 44: creator surfaces in search: storelib.com/<handle>/<slug> is that creator's product (a wrong handle goes to the right one, two creators may share a slug), a creator page domain lists only its own pages, /products/<slug> names the one canonical, a member profile and a banned creator's community follow the spam and ban rules, drafts and private pages in no index. */
+  "tests/seo-creator-r44.test.ts",
   /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
   "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
@@ -456,6 +458,8 @@ const SUITES = [
   /* Website settings › Performance, round W: the quick check when Google's test cannot run, the switches, a new period without a flash */
   "tests/performance-tab-w.test.ts",
   "tests/sitemaps.test.ts",
+  /* Round 44: the sitemap engine at millions of pages (slices read by id, never by offset; 1,000 and 50,000 row limits; RFC 3986 addresses; real lastmod; a 503 for a failed read; robots coverage; IndexNow on every publish, change and delete; SQL part 343). */
+  "tests/seo-sitemap-engine-r44.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",
   "tests/storefront-data.test.ts",
@@ -984,6 +988,8 @@ const SUITES = [
   "tests/live-speed-imported.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */
+  "tests/seo-marketing-r44.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
   "tests/carrier-select.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
@@ -1037,6 +1043,8 @@ const SUITES = [
   "tests/email-logo-shape.test.ts",
   /* Round ana-1029: Storelib analytics sent on to GA4 (Measurement Protocol), Meta (Conversions API), PostHog and a signed webhook through a queued, idempotent, retrying sender with consent and hashing, the status view and Send test, GET /api/v1/analytics with read only keys, SQL part 338; scripts/check-send-analytics.mjs measures the dialog. */
   "tests/analytics-destinations.test.ts",
+  /* Round 44: /admin/seo, every address in Storelib's sitemaps with Google's URL Inspection answer (service account JWT signed with node:crypto, per property, a quota counted in the database, rotated never checked and stalest first) and a score from the live page with every check; admin only, Check now rate limited, SQL part 342; scripts/check-admin-seo.mjs renders it. */
+  "tests/admin-seo-console-r44.test.ts",
 ]
 
 /**
@@ -1145,6 +1153,8 @@ const STRICT_SUITES = [
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
+  /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */
+  "tests/seo-sites-r44.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

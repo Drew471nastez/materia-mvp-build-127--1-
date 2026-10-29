@@ -18,6 +18,7 @@ import { loadCommunity } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import type { CommunityRow, PostMedia } from "@/lib/communities/types"
 import { parsePostParam, postShortIdRange } from "@/lib/communities/post-url"
+import { creatorIsBanned } from "@/lib/seo/bans"
 import type { PostFacts } from "./post-seo"
 
 export const postFacts = cache(async (slug: string, postIdParam: string): Promise<(PostFacts & { communityRow: CommunityRow }) | null> => {
@@ -53,13 +54,15 @@ export const postFacts = cache(async (slug: string, postIdParam: string): Promis
       edited_at: string | null
       comment_count: number | null
     }
-    const [space, author] = await Promise.all([
+    const [space, author, ownerBanned] = await Promise.all([
       post.space_id
         ? db.from("community_spaces").select("name, view_access, archived_at").eq("id", post.space_id).eq("community_id", community.id).maybeSingle().then((r: { data: unknown }) => r.data as PostFacts["space"])
         : Promise.resolve(null),
       post.author_id
         ? db.from("profiles").select("display_name, username, avatar_url").eq("id", post.author_id).maybeSingle().then((r: { data: unknown }) => r.data as { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null)
         : Promise.resolve(null),
+      /* Round 44: its creator banned keeps the post out of search (./post-seo.ts indexablePost). */
+      community.creator_id ? creatorIsBanned(community.creator_id) : Promise.resolve(false),
     ])
     /* A post in a space that is gone is out of sight for everybody (lib/communities/server/feed.ts visiblePostRow): never public. */
     const spaceGone = !!post.space_id && !space
@@ -81,6 +84,7 @@ export const postFacts = cache(async (slug: string, postIdParam: string): Promis
       author: author
         ? { name: (author.display_name || author.username || "A member").trim(), username: author.username || null, avatarUrl: author.avatar_url || null }
         : null,
+      ownerBanned,
     }
   } catch {
     return null

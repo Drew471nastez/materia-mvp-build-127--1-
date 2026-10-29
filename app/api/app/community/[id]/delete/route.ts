@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announceAddresses, communityAddresses } from "@/lib/seo/announce-pages"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -51,5 +52,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const done = await deleteCommunity(gate.ctx.admin, { community: gate.community, actorId: gate.ctx.userId, confirm: body.confirm, mode: body.mode })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
+  /* Deleted or waiting to be, its page is gone from the sitemap; tell the engines after the answer. */
+  const slug = gate.community.slug
+  after(() => announceAddresses(communityAddresses(slug)))
   return NextResponse.json({ ok: true, deleted: done.deleted, scheduled: done.scheduled }, { headers: noStore })
 }

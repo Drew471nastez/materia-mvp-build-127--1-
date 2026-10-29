@@ -40,7 +40,7 @@ import "server-only"
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { listCreatorDomains, primaryHostOf } from "@/lib/custom-domains/store"
+import { isMissingColumn, listCreatorDomains, primaryHostOf } from "@/lib/custom-domains/store"
 import { getLinksShareUrl, getProductShareUrl, getStoreShareUrl } from "@/lib/url-helpers"
 import { isBanned } from "./bans"
 import { CUSTOM_DOMAIN_DISALLOW, creatorIndexable, lastmodOf, newestOf, productIndexable, robotsTxt, type SitemapEntry } from "./indexing"
@@ -55,6 +55,9 @@ const MAX_PRODUCTS = 49_000
 export interface CreatorDomainProduct {
   slug: string | null
   status?: string | null
+  type?: string | null
+  /** Set for a product that sells a community tier (part 81); absent before it. */
+  community_id?: string | null
   updated_at: string | null
   thumbnail_url?: string | null
   gallery_urls?: string[] | null
@@ -93,6 +96,14 @@ export function creatorDomainEntries(input: {
   }
   for (const p of published) {
     if (!productIndexable(p, input.handle)) continue
+    /*
+      Round 44: not a page of this domain. A product that ships is sold on the
+      store's website and its address here redirects there (or is a 404 with
+      no website); one that sells a community tier redirects to the community
+      (app/(marketing)/p/[slug]/page.tsx). storelib.com's product files leave
+      both out for the same reason.
+    */
+    if (p.type === "physical" || p.community_id) continue
     entries.push({
       url: getProductShareUrl(input.handle, p.slug as string, input.host),
       lastModified: lastmodOf(p.updated_at),
@@ -142,12 +153,15 @@ export async function creatorDomainSitemap(username: string, requestedHost: stri
   if (!owner) return null
   if ((await liveHostOf(admin, owner.creatorId)) !== host) return null
   const id = owner.creatorId
+  /* Whether products know community tiers yet (part 81), asked once: a select naming a missing column fails whole. */
+  const probe = await admin.from("products").select("community_id").eq("creator_id", id).limit(1)
+  const columns = `slug, status, type, updated_at, thumbnail_url, gallery_urls${probe.error && isMissingColumn(probe.error) ? "" : ", community_id"}`
   const [products, onePages] = await Promise.all([
     readRange<CreatorDomainProduct>(
       (a, b) =>
         admin
           .from("products")
-          .select("slug, status, updated_at, thumbnail_url, gallery_urls")
+          .select(columns)
           .eq("creator_id", id)
           .eq("status", "published")
           .order("id", { ascending: true })

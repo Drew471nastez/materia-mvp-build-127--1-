@@ -68,6 +68,21 @@ export function llmsTxt(): string {
     line("data-model"),
     line("shopify-parity"),
     "",
+    /*
+      Round 44: storelib.com/llms.txt is read as the map of the whole domain,
+      and it named none of Storelib's own pages. These are the public pages an
+      agent answering a question about Storelib itself needs, at the addresses
+      the sitemap lists them under (the Help Center at its own host).
+    */
+    "## Storelib",
+    "",
+    `- [Pricing](${SITE_ORIGIN}/pricing): the Free and Pro plans and the fee on each sale.`,
+    `- [Help Center](https://help.storelib.com): step by step guides for selling on Storelib: products, shipping, orders and payouts, websites, email and billing.`,
+    `- [FAQ](${SITE_ORIGIN}/faq): short answers about getting started, selling, payments and pricing.`,
+    `- [Blog](${SITE_ORIGIN}/blog): guides for creators who sell digital products. Feed: ${SITE_ORIGIN}/blog/rss.xml.`,
+    `- [Terms of service](${SITE_ORIGIN}/terms): the agreement for using Storelib.`,
+    `- [Privacy policy](${SITE_ORIGIN}/privacy): what Storelib collects and why.`,
+    "",
     "## Optional",
     "",
     line("changelog"),

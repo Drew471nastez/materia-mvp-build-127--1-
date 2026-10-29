@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
+import { announceAddresses, blogPostAddresses } from "@/lib/seo/announce-pages"
 import { adminFailure } from "@/lib/admin/gate"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -53,6 +54,11 @@ export async function POST(req: NextRequest) {
   revalidatePath("/blog")
   if (data?.slug) revalidatePath(`/blog/${data.slug}`)
   revalidatePath("/blog/explore/categories", "layout")
+  /* Published at once: tell the engines after the answer (lib/seo/announce-pages.ts). */
+  if (data?.is_published) {
+    const slug = data.slug as string | null
+    after(() => announceAddresses(blogPostAddresses(slug)))
+  }
 
   return NextResponse.json(data)
 }

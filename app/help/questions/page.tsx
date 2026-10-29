@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   title: { absolute: "Order problems, answered for stores and buyers | Storelib Help Center" },
   description: DESCRIPTION,
   alternates: { canonical: publicHelpUrl("/questions") },
-  openGraph: { title: "Order problems, answered", description: DESCRIPTION, url: "/help/questions", siteName: "Storelib Help Center", type: "website" },
+  openGraph: { title: "Order problems, answered", description: DESCRIPTION, url: publicHelpUrl("/questions"), siteName: "Storelib Help Center", type: "website" },
+  twitter: { card: "summary", title: "Order problems, answered", description: DESCRIPTION },
 }
 
 /* The physical questions follow the switch in /admin, like the rest of the physical guide. */

@@ -103,52 +103,91 @@ interface ListedProduct {
   updated_at: string | null
 }
 
-/** At most this many products in one site's sitemap. */
-const MAX_LISTED_PRODUCTS = 5000
+/**
+ * At most this many products in one site's sitemap. The sitemap splits into
+ * files of 45,000 addresses (sitemapChunks), so this is a ceiling on the
+ * work one listing does, not on what a file can hold.
+ */
+export const MAX_LISTED_PRODUCTS = 50_000
 /** Rows per request: PostgREST answers at most `max_rows`, 1,000 on Supabase. */
 const PRODUCT_PAGE = 1000
+/**
+ * Pictures kept per product. Each page of rows is held on its own, and
+ * Next's data cache refuses an entry over 2MB (it is then read again on
+ * every request); a thousand products with every gallery picture passed it.
+ */
+const LISTED_IMAGES = 10
+
+/**
+ * One page of a creator's published products, held on its own. A page of a
+ * thousand rows stays under the cache's limit where the whole list of a big
+ * shop did not, so a shop with tens of thousands of products is read from
+ * the database once per ten minutes, not on every sitemap request. Ordered
+ * by id, which an edit does not move, so a page holds the same rows until a
+ * product is added or removed, and that clears every page at once (the
+ * shop tag).
+ */
+function productPage(creatorId: string, from: number): Promise<ListedProduct[]> {
+  return unstable_cache(
+    async () => {
+      const admin = createAdminClient()
+      const { data, error } = await admin
+        .from("products")
+        .select("id, slug, title, thumbnail_url, gallery_urls, updated_at")
+        .eq("creator_id", creatorId)
+        .eq("status", "published")
+        .not("slug", "is", null)
+        .order("id", { ascending: true })
+        .range(from, from + PRODUCT_PAGE - 1)
+      if (error) throw new Error(error.message)
+      return ((data ?? []) as ListedProduct[]).map((p) => ({ ...p, gallery_urls: (p.gallery_urls ?? []).slice(0, LISTED_IMAGES) }))
+    },
+    ["site-seo-products", creatorId, String(from)],
+    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+  )()
+}
 
 /**
  * Every published product of one creator, for the sitemap. Not the shop's 24.
  *
  * A THOUSAND AT A TIME. This asked for `.limit(5000)` in one request, and a
  * request is answered with at most `max_rows` rows, so a shop with more than a
- * thousand products had the rest left out of its sitemap in silence. A read
- * that fails is thrown out of the cache rather than kept in it, so a blip is
- * not remembered as "no products" for ten minutes; the site's files still
- * answer, with its pages, because robots.txt must never fail.
+ * thousand products had the rest left out of its sitemap in silence. Then it
+ * stopped at 5,000, and held the whole list in one cache entry that a big
+ * shop's list was too large for. A page that fails is thrown out of the
+ * cache rather than kept in it, so a blip is not remembered as "no products"
+ * for ten minutes; the pages read before it are still listed, and the site's
+ * files still answer, because robots.txt must never fail.
  */
 async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
+  const rows: ListedProduct[] = []
   try {
-    return await unstable_cache(
-      async () => {
-        const admin = createAdminClient()
-        const rows: ListedProduct[] = []
-        for (let from = 0; from < MAX_LISTED_PRODUCTS; from += PRODUCT_PAGE) {
-          const { data, error } = await admin
-            .from("products")
-            .select("id, slug, title, thumbnail_url, gallery_urls, updated_at")
-            .eq("creator_id", creatorId)
-            .eq("status", "published")
-            .not("slug", "is", null)
-            .order("updated_at", { ascending: false })
-            .order("id", { ascending: true })
-            .range(from, from + PRODUCT_PAGE - 1)
-          if (error) throw new Error(error.message)
-          rows.push(...((data ?? []) as ListedProduct[]))
-          if (!data || data.length < PRODUCT_PAGE) break
-        }
-        /* Settings › Sales channels: a product taken off the Online store is not in its sitemap either (lib/store/channels). */
-        const off = await offChannel(admin, creatorId, "storefront")
-        return rows.filter((p) => typeof p.slug === "string" && p.slug !== "" && !off.has(p.id ?? ""))
-      },
-      ["site-seo-products", creatorId],
-      { tags: [creatorShopTag(creatorId)], revalidate: 600 },
-    )()
+    for (let from = 0; from < MAX_LISTED_PRODUCTS; from += PRODUCT_PAGE) {
+      const page = await productPage(creatorId, from)
+      rows.push(...page)
+      if (page.length < PRODUCT_PAGE) break
+    }
   } catch (e) {
     console.error("[site-seo] products query failed:", (e as Error).message)
-    return []
   }
+  /* Settings › Sales channels: a product taken off the Online store is not in its sitemap either (lib/store/channels). */
+  const offIds = await unstable_cache(
+    async () => {
+      const admin = createAdminClient()
+      const off = await offChannel(admin, creatorId, "storefront")
+      return [...off]
+    },
+    ["site-seo-off-channel", creatorId],
+    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+  )().catch(() => [] as string[])
+  const off = new Set(offIds)
+  /* Once each, should a product added mid read have moved a row onto the next page. */
+  const seen = new Set<string>()
+  return rows.filter((p) => {
+    const keep = typeof p.slug === "string" && p.slug !== "" && !off.has(p.id ?? "") && !seen.has(p.slug)
+    if (keep) seen.add(p.slug)
+    return keep
+  })
 }
 
 export type SiteSeo =
@@ -163,15 +202,36 @@ export type SiteSeo =
     }
   | { kind: "none" }
 
+/** At most this many collections in one site's sitemap, a thousand per request like the products. It stopped at 200. */
+const MAX_LISTED_COLLECTIONS = 10_000
+
 /** The handles of the shop's published collections, with when each last changed, or none when they cannot be read. */
 async function listedCollections(creatorId: string): Promise<{ handle: string; lastmod?: string }[]> {
   try {
-    const read = (cols: string) =>
-      createAdminClient().from("product_collections").select(cols).eq("creator_id", creatorId).eq("published", true).order("created_at", { ascending: true }).limit(200)
-    let { data, error } = await read("slug, updated_at")
-    /* A database without the column: the handles alone, as before. */
-    if (error) ({ data, error } = await read("slug"))
-    return ((data ?? []) as unknown as { slug: string | null; updated_at?: string | null }[])
+    const read = (cols: string, from: number) =>
+      createAdminClient()
+        .from("product_collections")
+        .select(cols)
+        .eq("creator_id", creatorId)
+        .eq("published", true)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PRODUCT_PAGE - 1)
+    let cols = "slug, updated_at"
+    const rows: { slug: string | null; updated_at?: string | null }[] = []
+    for (let from = 0; from < MAX_LISTED_COLLECTIONS; from += PRODUCT_PAGE) {
+      let { data, error } = await read(cols, from)
+      /* A database without the column: the handles alone, as before. */
+      if (error && from === 0) {
+        cols = "slug"
+        ;({ data, error } = await read(cols, from))
+      }
+      if (error) break
+      const page = (data ?? []) as unknown as { slug: string | null; updated_at?: string | null }[]
+      rows.push(...page)
+      if (page.length < PRODUCT_PAGE) break
+    }
+    return rows
       .filter((r) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(r.slug ?? ""))
       .map((r) => ({ handle: r.slug as string, ...(r.updated_at ? { lastmod: new Date(r.updated_at).toISOString() } : {}) }))
   } catch {

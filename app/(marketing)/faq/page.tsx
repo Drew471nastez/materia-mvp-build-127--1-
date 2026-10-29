@@ -1,20 +1,13 @@
 import { Metadata } from "next"
 import { FaqPageClient } from "@/components/marketing/faq-page-client"
+import { pageMetadata } from "@/lib/seo/page-metadata"
 
-export const metadata: Metadata = {
+/* The whole set (lib/seo/page-metadata): its Open Graph had no image, and a page's openGraph replaces the layout's. */
+export const metadata: Metadata = pageMetadata({
+  path: "/faq",
   title: "FAQ",
   description: "Frequently asked questions about Storelib. Learn about getting started, selling, payments, pricing, customization, and more.",
-  openGraph: {
-    title: "FAQ | Storelib",
-    description: "Frequently asked questions about Storelib. Learn about getting started, selling, payments, pricing, customization, and more.",
-    type: "website",
-    url: "/faq",
-    siteName: "Storelib",
-  },
-  alternates: {
-    canonical: "/faq",
-  },
-}
+})
 
 export default function FaqPage() {
   return <FaqPageClient />

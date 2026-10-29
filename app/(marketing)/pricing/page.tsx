@@ -1,4 +1,13 @@
+import type { Metadata } from "next"
+import { pageMetadata } from "@/lib/seo/page-metadata"
 import { PricingPageClient } from "./pricing-client"
+
+/* Its own title, canonical and card: with none, /pricing was the home page's title and og:url. */
+export const metadata: Metadata = pageMetadata({
+  path: "/pricing",
+  title: "Pricing",
+  description: "Two plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Pro is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding.",
+})
 
 /*
   THE SAME PAGE FOR EVERY VISITOR, SO IT IS BUILT ONCE AND SERVED FROM THE

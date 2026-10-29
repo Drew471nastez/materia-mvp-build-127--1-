@@ -187,9 +187,10 @@ async function main() {
   const chunkRead = maps.slice(maps.indexOf("async function creatorChunk"), maps.indexOf("async function publishedOnePages"))
   check("the creator chunk counts every product type", /\.from\("products"\)/.test(chunkRead) && !/neq\("type", "physical"\)/.test(chunkRead))
   check("and reads confirmed spam and the OnePage's row rule", /confirmedSpamUserIds\(admin\)/.test(chunkRead) && /onePageRowListable\(p, now\)/.test(maps))
+  /* Changed on purpose (round 44): a file is a slice of the id space, named N-of-M (chunkEntries; tests/seo-sitemap-engine-r44.test.ts reads the index). */
   check("storelib.com's index names pages, products, creators, websites and communities, by chunk",
-    /\/sitemap\/pages\.xml/.test(maps) && /\/sitemap\/products-\$\{i\}\.xml/.test(maps) && /\/sitemap\/creators-\$\{i\}\.xml/.test(maps) && /\/sitemap\/websites-\$\{i\}\.xml/.test(maps) && /\/sitemap\/communities-\$\{i\}\.xml/.test(maps))
-  check("storelib.me's index names its OnePage files", /\$\{origin\}\/sitemap\/onepages-\$\{i\}\.xml/.test(maps))
+    /\/sitemap\/pages\.xml/.test(maps) && /\$\{origin\}\/sitemap\/\$\{chunkFileName\(kind, i, of\)\}/.test(maps) && ["products", "creators", "websites"].every((k) => maps.includes(`chunkEntries(BASE, "${k}", ${k})`)) && /chunkEntries\(BASE, "communities", communities\)/.test(maps))
+  check("storelib.me's index names its OnePage files", /return chunkEntries\(origin, "onepages", creators\)/.test(maps))
   check("a chunk is under Google's 50,000", SITEMAP_CHUNK <= 50_000)
   const tenThousand = Array.from({ length: SITEMAP_CHUNK }, (_, i) => ({ url: `https://storelib.com/creator-${i}`, lastModified: "2026-10-01T00:00:00Z", images: Array.from({ length: 10 }, (_, j) => `https://x.supabase.co/storage/v1/object/public/p/${i}-${j}.webp`) }))
   const bytes = Buffer.byteLength(urlsetXml(tenThousand))

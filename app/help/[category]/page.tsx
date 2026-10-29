@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: { absolute: `${title} | Storelib Help Center` },
     description: category.description,
     alternates: { canonical: publicHelpUrl(`/${category.slug}`) },
-    openGraph: { title, description: category.description, url: `/help/${category.slug}`, siteName: "Storelib Help Center", type: "website" },
+    openGraph: { title, description: category.description, url: publicHelpUrl(`/${category.slug}`), siteName: "Storelib Help Center", type: "website" },
     twitter: { card: "summary", title, description: category.description },
   }
 }

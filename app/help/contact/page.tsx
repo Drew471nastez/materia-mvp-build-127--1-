@@ -5,10 +5,15 @@ import { HELP_WIDTH, HelpHero } from "@/components/help/help-hero"
 import { ContactForm } from "@/components/help/contact-form"
 import { SUPPORT_INBOX } from "@/lib/help/contact"
 
+const CONTACT_DESCRIPTION = "Write to the Storelib team about an order, a payout, your store or your account. A person reads every message and replies by email."
+
 export const metadata: Metadata = {
   title: { absolute: "Contact support | Storelib Help Center" },
-  description: "Write to the Storelib team about an order, a payout, your store or your account. A person reads every message and replies by email.",
+  description: CONTACT_DESCRIPTION,
   alternates: { canonical: publicHelpUrl("/contact") },
+  /* Its own card: with none, the page inherited the home page's og:url and title. */
+  openGraph: { title: "Contact support", description: CONTACT_DESCRIPTION, url: publicHelpUrl("/contact"), siteName: "Storelib Help Center", type: "website" },
+  twitter: { card: "summary", title: "Contact support", description: CONTACT_DESCRIPTION },
 }
 
 /**

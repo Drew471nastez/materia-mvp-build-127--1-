@@ -106,7 +106,7 @@ async function main() {
     check("browser crashes are counted with the rest", read("app/api/client-errors/route.ts").includes('reportError({ source: "client"'))
     check("a failed account deletion step is reported", read("lib/account/delete-account.ts").includes('source: "account"'))
     check("a failed notification is reported", read("lib/notify/log.ts").includes('reportError({ source: "notify"'))
-    const crons = ["notifications", "notify", "process-scheduled-emails", "purge-chat-attachments", "release-holds", "rollup-daily", "storage-cleanup", "strip-image-metadata", "memberships", "physical", "community", "fx-rates", "translations", "translation-jobs", "warm-sites"]
+    const crons = ["notifications", "notify", "process-scheduled-emails", "purge-chat-attachments", "release-holds", "rollup-daily", "storage-cleanup", "strip-image-metadata", "memberships", "physical", "community", "fx-rates", "translations", "translation-jobs", "warm-sites", "seo-index"]
     for (const c of crons) check(`the ${c} job records every run`, read(`app/api/cron/${c}/route.ts`).includes(`recordCronRun("/api/cron/${c}", request, () =>`))
     const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string }> }
     check("  and that is every scheduled job", vercel.crons.every((c) => crons.includes(c.path.replace("/api/cron/", ""))), vercel.crons.map((c) => c.path).join(", "))

@@ -28,13 +28,39 @@ import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-dis
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { exploreIndexing } from "@/lib/seo/explore-indexing"
 import { LeaveCopy } from "@/components/navigation/leave-copy"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
 const INTERESTS_WAIT_MS = 1_500
 
-// SEO-optimized metadata
-export const metadata: Metadata = {
+/*
+  THE PRODUCTS, OR THE COMMUNITIES, EACH CANONICAL AT ITS OWN ADDRESS
+  (lib/seo/explore-indexing). The sitemap lists /explore?type=communities, and
+  this page used to tell search engines that address was /explore. A search
+  is a results page: noindex, its links followed.
+*/
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }): Promise<Metadata> {
+  const params = await searchParams.catch(() => ({}) as { q?: string; type?: string })
+  const q = typeof params?.q === "string" ? params.q : null
+  const type = typeof params?.type === "string" ? params.type : null
+  /* Asked only when the address asks for communities, so every other Explore view reads nothing more. */
+  const seo = exploreIndexing({ q, type, communitiesOn: type === "communities" ? await communitiesEnabled() : false })
+  if (!seo.communities && seo.index) return EXPLORE_METADATA
+  const title = seo.communities ? "Storelib | Discover communities" : "Storelib | Discover"
+  const description = seo.communities ? "Communities run by independent creators on Storelib. Browse them by topic and join the ones you like." : EXPLORE_METADATA.description
+  return {
+    ...EXPLORE_METADATA,
+    title: { absolute: title },
+    ...(description ? { description } : {}),
+    openGraph: { ...EXPLORE_METADATA.openGraph, title, url: seo.canonical, ...(description ? { description } : {}) },
+    twitter: { ...EXPLORE_METADATA.twitter, title, ...(description ? { description } : {}) },
+    alternates: { canonical: seo.canonical },
+    robots: seo.index ? EXPLORE_METADATA.robots : { index: false, follow: true },
+  }
+}
+
+const EXPLORE_METADATA: Metadata = {
   title: { absolute: "Storelib | Discover" },
   description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
   keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
@@ -42,7 +68,7 @@ export const metadata: Metadata = {
     title: "Storelib | Discover",
     description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
     type: "website",
-    url: "/explore",
+    url: "https://storelib.com/explore",
     siteName: "Storelib",
     images: [
       {

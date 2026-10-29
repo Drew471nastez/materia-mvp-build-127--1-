@@ -5,6 +5,7 @@ import { useState, useEffect, type FormEvent } from "react"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { publicHelpUrl } from "@/lib/help/paths"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -67,7 +68,8 @@ const PRODUCT = [
 ]
 
 const SUPPORT = [
-  { label: "Help", href: "/help" },
+  /* The Help Center's own address: storelib.com/help is a 308 to it, a hop on every page's footer link. */
+  { label: "Help", href: publicHelpUrl() },
   /* There is no affiliate page yet; asking by email is the real way in. */
   { label: "Affiliate Program", href: "mailto:team@storelib.com?subject=Affiliate%20Program" },
   { label: "Terms of Service", href: "/terms" },

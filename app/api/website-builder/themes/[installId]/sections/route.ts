@@ -8,8 +8,11 @@ import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages
 import { collectionSections, collectionsPageSections, notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import { accountPageSections } from "@/lib/website-builder/account-pages"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { announce, websiteAddresses } from "@/lib/seo/announce"
+import { indexNowKey } from "@/lib/seo/indexnow"
+import { addressesAt, pagePath } from "@/lib/website-builder/site-changes"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -330,6 +333,9 @@ export async function PUT(req: Request, { params }: Params) {
     await revalidatePublishedSite(creatorId)
     /* Its words, translated in a few minutes when Translate changes automatically is on (lib/markets/translate-queue.ts). */
     translationsChanged(creatorId)
+    /* The page, to the search engines that take IndexNow, when it is a page of the live website (lib/website-builder/site-changes.ts). */
+    const announced = creatorId
+    if (indexNowKey()) after(() => announce(async () => addressesAt(await websiteAddresses(announced), [pagePath(page_key)])))
   }
 
   return NextResponse.json({ page: result })
@@ -385,6 +391,13 @@ export async function DELETE(req: Request, { params }: Params) {
     if (!found) return NextResponse.json({ error: "That is not a page on this site." }, { status: 400 })
   }
 
+  /*
+    Where the page is live, read before it goes: after the delete it is a
+    404 and in no list, and search engines are told to look at it again
+    (lib/website-builder/site-changes.ts). Only when IndexNow is on.
+  */
+  const liveBefore = creatorId && indexNowKey() ? addressesAt(await websiteAddresses(creatorId).catch(() => [] as string[]), [pagePath(pageKey)]) : []
+
   const { error: deleteErr } = await supabase
     .from("store_theme_pages")
     .delete()
@@ -397,6 +410,7 @@ export async function DELETE(req: Request, { params }: Params) {
   }
 
   if (creatorId) await revalidatePublishedSite(creatorId)
+  if (liveBefore.length > 0) after(() => announce(async () => liveBefore))
 
   return NextResponse.json({ ok: true })
 }

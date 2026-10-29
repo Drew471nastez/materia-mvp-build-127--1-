@@ -301,7 +301,7 @@ function wiring() {
 
   console.log("\nSitemaps")
   const maps = code("lib/seo/sitemaps.ts")
-  check("storelib.com's creator files no longer list a OnePage", !/getLinksShareUrl/.test(maps) && /return \(await creatorChunk\(chunk\)\)\.creators/.test(maps))
+  check("storelib.com's creator files no longer list a OnePage", !/getLinksShareUrl/.test(maps) && /* Changed on purpose (round 44): the slice count and the client travel with the chunk. */ /return \(await creatorChunk\(chunk, of, admin\)\)\.creators/.test(maps))
   /* Changed on purpose (round 41): the chunk's rule is creatorChunkEntries, whose address defaults to onePageUrl (tests/indexing-r41.test.ts drives it). */
   check("storelib.me's files list them at storelib.me/{handle}", /onePageAddress: \(handle: string\) => string = onePageUrl/.test(maps) && /onePages\.push\(\{ url: onePageAddress\(handle\)/.test(maps))
 

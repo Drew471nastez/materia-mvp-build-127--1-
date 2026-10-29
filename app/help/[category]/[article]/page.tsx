@@ -55,7 +55,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: article.title,
       description: article.summary,
-      url: path,
+      /* At help.storelib.com, like the canonical: the bare path resolved to storelib.com/help/..., a redirect. */
+      url: publicHelpUrl(path.replace(/^\/help/, "")),
       siteName: "Storelib Help Center",
       type: "article",
       ...(article.updated ? { modifiedTime: article.updated } : {}),

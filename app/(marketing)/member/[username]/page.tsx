@@ -7,7 +7,8 @@ import { loadMemberProfile } from "@/lib/profile/member-profile-data"
 import { memberProfilePublicPath } from "@/lib/profile/member-url"
 import { personJsonLd, profileMetadata } from "@/lib/profile/profile-seo"
 import { jsonLdScript } from "@/lib/seo/json-ld"
-import { scoreSignup } from "@/lib/security/spam-signals"
+import { deservesIndexing } from "@/lib/security/spam-signals"
+import { spamStateOf } from "@/lib/seo/bans"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -23,6 +24,15 @@ export const dynamic = "force-dynamic"
 
 /* Where they are from, read once per request for the metadata and the page both. */
 const placeOf = cache((userId: string) => readProfileLocation(createAdminClient(), userId))
+
+/*
+  IN SEARCH OR NOT, read once per request for the metadata and the page.
+  Round 44: an operator's spam verdict (profiles.spam_state, lib/seo/bans.ts)
+  wins both ways, as on the creator page and the OnePage; only the handle
+  score was read here, so an account an operator confirmed as spam kept an
+  indexed profile with structured data.
+*/
+const inSearch = cache(async (userId: string, username: string) => deservesIndexing({ handle: username, spamState: await spamStateOf(userId) }))
 
 type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ from?: string; back?: string }> }
 
@@ -48,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     avatarUrl: profile.avatarUrl,
     coverUrl: profile.coverUrl,
     followers: profile.followers,
-    indexable: !scoreSignup({ handle: profile.username }).blocked,
+    indexable: await inSearch(profile.userId, profile.username),
   })
 }
 
@@ -140,7 +150,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
   const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(head.get("referer"), head.get("host")), ownPaths)
 
   /* Who the page is about, for search, when it is in search at all (as generateMetadata decides); then the creator page's template without the products. */
-  const indexable = !scoreSignup({ handle: profile.username }).blocked
+  const indexable = await inSearch(profile.userId, profile.username)
   return (
     <>
       {indexable ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(personJsonLd(profile)) }} /> : null}
