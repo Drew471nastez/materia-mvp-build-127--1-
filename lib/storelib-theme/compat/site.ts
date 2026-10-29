@@ -1879,7 +1879,8 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
     subscribe-client signupMode). It answered "It did not send" here, so the
     theme's newsletter looked broken in the editor.
   */
-  const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : site.designMode === true ? { ok: true, status: 200 } : { ok: false, status: 503 }
+  /* The canvas never sends, even handed something to send with (round 43: scripts/check-newsletter-embed.mjs found it would). */
+  const result = site.designMode === true ? { ok: true, status: 200 } : req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : { ok: false, status: 503 }
   const code = result.ok ? null : result.status === 400 ? (subscribe || !/@/.test(email) ? "email" : "check") : result.status === 429 ? "limit" : "failed"
   if (req.ajax) return json(result.ok ? { ok: true, form_type: type } : { ok: false, form_type: type, code, message: FORM_ERRORS[code ?? "failed"] }, result.ok ? 200 : result.status >= 400 ? result.status : 500)
   /*

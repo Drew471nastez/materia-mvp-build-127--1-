@@ -1119,6 +1119,8 @@ const STRICT_SUITES = [
   "tests/legal-and-onepage-settings-r40.test.ts",
   /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
   "tests/onepage-public-r41.test.ts",
+  /* Round 43: the OnePage product sheet chosen as the product page chooses (swatches, image swatches, sizes, a variant's picture, the sale badge, the price on the button, personalization on the cart line), the email signup's Connect, Personal note and Bar, product tiles paired in a group, the layout pickers in the page's colours. scripts/check-onepage-r43.mjs measures them. */
+  "tests/onepage-r43-blocks.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */

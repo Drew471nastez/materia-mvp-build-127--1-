@@ -4861,7 +4861,7 @@ function BlockEditor({
           { id: "minimal", label: tt("Simple") },
           /* Round 43: three more (components/onepage/email-signup). */
           { id: "connect", label: tt("Connect") },
-          { id: "letter", label: tt("Letter") },
+          { id: "letter", label: tt("Personal note") },
           { id: "bar", label: tt("Bar") },
         ]
         const currentEmailLayout = emailSignupLayout(data.layout_type)

@@ -41,7 +41,6 @@ const SETTINGS = [
   { type: "text", id: "name_placeholder", label: "Name box says", default: "First name", visible_if: "{{ section.settings.show_name }}" },
   { type: "text", id: "consent", label: "Consent line", default: "You can unsubscribe at any time." },
   { type: "text", id: "thanks", label: "Thank you", default: "Thanks for subscribing." },
-  { type: "paragraph", id: "list_note", content: "Sign-ups go to Emails, Subscribers in Storelib, listed as Subscribe bar, Popup or Newsletter section. They are subscribed at once with the consent line above; there is no confirmation email." },
   { type: "header", id: "hdr_layout", label: "Layout", content: "Layout" },
   { type: "select", id: "align", label: "Text sits", default: "left", options: [{ label: "Beside the form", value: "left" }, { label: "Centred above the form", value: "center" }] },
   { type: "select", id: "form_layout", label: "Box and button", default: "inline", options: [{ label: "On one row", value: "inline" }, { label: "Button under the box", value: "stacked" }] },
@@ -71,7 +70,7 @@ const CSS = `.slnl{font:inherit;color:var(--slnl-text,inherit);box-sizing:border
 .slnl__words{flex:1 1 220px;min-width:0}.slnl__h{margin:0;font-weight:600;font-size:1.05em;line-height:1.3}.slnl--inline .slnl__h,.slnl--popup .slnl__h{font-size:1.4em}.slnl__t{margin:4px 0 0;opacity:.75;font-size:.92em}
 .slnl form{flex:1 1 300px;display:flex;flex-wrap:wrap;gap:8px;margin:0;min-width:0}
 .slnl__i{flex:1 1 180px;min-width:0;height:44px;padding:0 12px;font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 35%,transparent);border-radius:var(--inputs-radius,var(--style-border-radius-inputs,4px))}
-.slnl__i--name{flex-basis:100%}
+.slnl__i::placeholder{color:currentColor;opacity:.6}.slnl__i--name{flex-basis:100%}
 .slnl__b{flex:none;min-height:44px;padding:0 20px;font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:var(--buttons-radius,var(--style-border-radius-buttons-primary,4px));background:var(--slnl-btn,var(--color-primary-button-background,rgb(var(--color-button,var(--color-foreground,18,18,18)))));color:var(--slnl-btn-text,var(--color-primary-button-text,rgb(var(--color-button-text,var(--color-background,255,255,255)))))}
 .slnl__c{flex-basis:100%;margin:0;font-size:.8em;opacity:.65}.slnl__ok{margin:0;font-weight:600}.slnl__bad{flex-basis:100%;margin:0;font-size:.85em;color:#b42318}
 .slnl__x{position:absolute;top:6px;right:8px;z-index:2;width:36px;height:36px;border:0;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;opacity:.6}

@@ -83,9 +83,9 @@ const LOGO: Partial<Record<RowId, string>> = { ga4: "/integrations/google-analyt
 const ROWS: RowId[] = ["ga4", "meta", "google_ads", "posthog", "webhook", "api"]
 
 function rowName(id: RowId): string {
-  if (id === "ga4") return "Google Analytics 4"
+  if (id === "ga4") return "Google Analytics 4" // i18n-ignore
   if (id === "meta") return "Meta"
-  if (id === "google_ads") return "Google Ads"
+  if (id === "google_ads") return "Google Ads" // i18n-ignore
   if (id === "posthog") return "PostHog"
   if (id === "webhook") return tt("Webhook")
   return tt("Analytics API")
@@ -162,7 +162,7 @@ type Field = { key: string; label: string; placeholder: string; secret?: boolean
 function fieldsOf(p: Provider): Field[] {
   if (p === "ga4")
     return [
-      { key: "measurementId", label: tt("Measurement ID"), placeholder: "G-XXXXXXXXXX" },
+      { key: "measurementId", label: tt("Measurement ID"), placeholder: "G-XXXXXXXXXX" }, // i18n-ignore
       { key: "apiSecret", label: tt("API secret"), placeholder: tt("Admin › Data streams › Measurement Protocol API secrets"), secret: true },
     ]
   if (p === "meta")
@@ -335,7 +335,7 @@ function DestinationBody({ view, canEdit, onAnswer }: { view: DestinationView; c
                 <span className="w-24 shrink-0 text-[#1a1a2e]">{eventName(d.event)}</span>
                 <span className={cn("w-16 shrink-0", d.status === "sent" ? "text-[#067647]" : d.status === "failed" ? "text-[#b42318]" : "text-[#6b7280]")}>{statusWord(d.status)}</span>
                 <span className="min-w-0 flex-1 truncate text-[#6b7280]" title={d.error ?? undefined}>
-                  {d.error ?? (d.code ? `HTTP ${d.code}` : "")}
+                  {d.error ?? (d.code ? `HTTP ${d.code}` : "") /* i18n-ignore */}
                 </span>
                 <span className="shrink-0 tabular-nums text-[#9ca3af]">{formatRelative(d.at)}</span>
               </li>
@@ -389,7 +389,7 @@ function ApiBody({ canEdit }: { canEdit: boolean }) {
     })
   }, [canEdit])
   const origin = typeof window === "undefined" ? "https://storelib.com" : window.location.origin
-  const example = `curl -H "Authorization: Bearer sla_…" "${origin}/api/v1/analytics?from=2026-10-01&to=2026-10-28"`
+  const example = `curl -H "Authorization: Bearer sla_…" "${origin}/api/v1/analytics?from=2026-10-01&to=2026-10-28"` // i18n-ignore
 
   const make = async () => {
     setBusy(true)
@@ -536,7 +536,8 @@ export function SendAnalyticsButton({ className }: { className?: string }) {
   const body = open ? <AnalyticsDestinationsPanel /> : null
   return (
     <span className="relative inline-flex shrink-0 items-center">
-      <button type="button" aria-haspopup="dialog" aria-label={tt("Send to")} onClick={() => setOpen(true)} data-analytics-send="" className={cn(PICKER, className)}>
+      {/* In Analytics' control row it takes the row's pill look (app/globals.css, [data-analytics-controls]) like Export, and like Export it is a 36px circle on a phone. */}
+      <button type="button" aria-haspopup="dialog" aria-label={tt("Send to")} onClick={() => setOpen(true)} data-analytics-send="" className={cn(PICKER, "max-sm:!w-9 max-sm:!justify-center max-sm:!p-0", className)}>
         <Send className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
         <span className="hidden sm:inline">{tt("Send to")}</span>
       </button>

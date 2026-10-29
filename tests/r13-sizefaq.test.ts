@@ -337,7 +337,8 @@ async function main() {
     check("the sheet's read carries the questions and the size chart", /faqs: productFaqs\(p\.faqs\)/.test(api) && /sizeChartForProduct\(admin, id, creatorId/.test(api) && /\n\s+sizeChart,\n/.test(api))
     check("  still the one call storelib.me answers (no new call)", /onepage\\\/product/.test(code("lib/onepage/host-route.ts")))
     const sheet = code("components/onepage/product-sheet.tsx")
-    check("  and the sheet draws both under the description", /<SizeChartPanel chart=\{p\.sizeChart\}/.test(sheet) && /<ProductQuestions faqs=\{p\.faqs\}/.test(sheet))
+    /* Changed on purpose, round 43: a product with a size option opens its chart from beside that option (SizeChartBody); without one it stays under the description. */
+    check("  and the sheet draws both under the description", /<SizeChartPanel chart=\{p\.sizeChart\}/.test(sheet) && /<SizeChartBody chart=\{sizeChart\}/.test(sheet) && /<ProductQuestions faqs=\{p\.faqs\}/.test(sheet))
     const tees: SizeChart = { name: "Tees", unit: "cm", columns: cols(["Size", "Chest"]), rows: [["S", "86-91"]], notes: "Flat.", imageUrl: null }
     const panel = renderToStaticMarkup(createElement(SizeChartPanel, { chart: tees }))
     check("the panel: a Size guide row, the chart's name, a cm / in switch and the table", panel.includes("Size guide") && panel.includes("Tees") && /role="radiogroup"/.test(panel) && panel.includes("86-91") && panel.includes("Flat."))

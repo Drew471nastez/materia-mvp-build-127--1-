@@ -69,12 +69,6 @@
       "placeholder": "Shown after successful signup"
     },
     {
-      "id": "list_note",
-      "type": "paragraph",
-      "label": "",
-      "content": "Sign-ups go to Emails, Subscribers, listed as Newsletter section with the consent line they agreed to. They are subscribed at once; there is no confirmation email."
-    },
-    {
       "id": "layout",
       "label": "Layout",
       "type": "select",

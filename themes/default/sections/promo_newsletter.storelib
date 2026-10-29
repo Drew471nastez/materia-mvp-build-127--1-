@@ -198,11 +198,6 @@
       "label": "Your mailing list"
     },
     {
-      "type": "paragraph",
-      "id": "list_note",
-      "content": "Sign-ups go to Emails, Subscribers, listed as Newsletter section with the consent line they agreed to. They are subscribed at once; there is no confirmation email."
-    },
-    {
       "type": "url",
       "id": "action",
       "label": "Send to another mailing list",

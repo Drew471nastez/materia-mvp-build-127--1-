@@ -34,6 +34,8 @@ import { tmpdir } from "node:os"
 import puppeteer from "puppeteer-core"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
 
+/* The stylesheet from this tree's sources (./probe-css.mjs): a built one from before this round has none of its new classes. */
+process.env.PROBE_CSS ??= "source"
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const fail = (m) => {

@@ -24,7 +24,7 @@
  *   connect   Connect   one pill: the box, and inside it a grey button with
  *                       the creator's picture ("Connect with" and the photo,
  *                       the owner's screenshot), the words above it
- *   letter    Letter    a note from the creator: their picture and name, the
+ *   letter    Personal note   a note from the creator: their picture and name, the
  *                       words, a box drawn as a line with the button at its end
  *   bar       Bar       one slim row (picture, words, button); the button
  *                       slides the form open under it

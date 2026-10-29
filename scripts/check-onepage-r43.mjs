@@ -80,7 +80,7 @@ for (const theme of ["default", "midnight"]) {
         capsule: cap ? getComputedStyle(cap).backgroundColor : null,
         dot: (() => { const d = (window.__R || document).querySelector("[data-product-sheet-dots] span"); return d ? Math.round(d.getBoundingClientRect().height) : 0 })(),
         arrows: !!(window.__R || document).querySelector("[data-product-sheet-next]"),
-        columns: !!(window.__R || document).querySelector("[data-product-sheet-columns]"),
+        columns: !!document.querySelector('[data-product-sheet="p-tee"][data-product-sheet-columns]'),
         width: Math.round(document.querySelector('[data-product-sheet="p-tee"]')?.getBoundingClientRect().width || 0),
         label: (window.__R || document).querySelector("[data-product-sheet-label]")?.textContent,
         was: (window.__R || document).querySelector("[data-product-sheet-was]")?.textContent,

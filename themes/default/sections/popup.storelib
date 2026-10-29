@@ -106,7 +106,7 @@
     },
     { "type": "text", "id": "placeholder", "label": "Email box says", "default": "you@example.com" },
     { "type": "text", "id": "button_text", "label": "Button", "default": "Send me the code" },
-    { "type": "text", "id": "success", "label": "Thank you", "default": "Thanks, you're on the list.", "info": "Shown in place of the email box once somebody signs up. Sign-ups go to Emails, Subscribers, listed as Popup." },
+    { "type": "text", "id": "success", "label": "Thank you", "default": "Thanks, you're on the list.", "info": "Shown in place of the email box once somebody signs up." },
     { "type": "url", "id": "button_url", "label": "Button goes to", "default": "/products", "info": "Used when Below the text is A button." },
     { "type": "text", "id": "note", "label": "Small print", "default": "" },
     { "type": "text", "id": "close_label", "label": "Close button read aloud", "default": "Close" },

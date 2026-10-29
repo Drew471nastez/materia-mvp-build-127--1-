@@ -1,1 +1,0 @@
-{"compilerOptions":{"outDir":"/tmp/claude-0/-home-user-materia-mvp-build-127--1-/c5d69026-d60a-5199-9463-b668c347cc22/scratchpad/out-Vc02H4","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","skipLibCheck":true,"strict":true,"baseUrl":".","paths":{"@/*":["./*"]}},"files":["tests/onepage-integrations-r41.test.ts"]}
