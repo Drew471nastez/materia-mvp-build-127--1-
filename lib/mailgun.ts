@@ -13,8 +13,6 @@ import { mediaUrlsIn } from "@/lib/storage/media-url"
 import { GMAIL_CLIP_BYTES, finalizeEmailHtml } from "@/lib/mail-document"
 import { deadlineFetch } from "@/lib/net/deadline"
 import { breakerFor, unwellStatus } from "@/lib/net/breaker"
-/* Imported, not loaded with import(): an import() gave each of the ~670 routes that can send mail its own async chunk for it, and `next build` outgrew Vercel's 8 GB. */
-import { settleLogoShapes } from "@/lib/emails/logo-shape-server"
 
 export { finalizeEmailHtml }
 
@@ -39,7 +37,8 @@ function sendableHtml(html: string, subject: string): string {
 async function withLogoShapes(html: string): Promise<string> {
   if (!html || !html.includes('data-logo-shape="auto"')) return html
   try {
-    return await settleLogoShapes(html)
+    /* Loaded when a mail has a logo to shape, not imported: instrumentation.ts reaches this file, and its Edge build cannot load public-fetch's node:dns. */
+    return await (await import("@/lib/emails/logo-shape-server")).settleLogoShapes(html)
   } catch {
     return html
   }
