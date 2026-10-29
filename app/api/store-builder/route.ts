@@ -10,6 +10,7 @@ import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-bui
 import type { PageType } from "@/lib/store-builder/types"
 import { pagePhotoForProfile } from "@/lib/account/avatar"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
 
 // GET - Fetch store builder config for a page type or specific product
 export async function GET(request: Request) {
@@ -556,6 +557,8 @@ export async function PUT(request: Request) {
         console.error("[v0] Error updating profile display_name on publish:", nameError)
       }
     }
+    /* The name and the photo just synced are the OnePage's too: its held copy is read afresh (lib/onepage/public-cache). */
+    await onePageChangedFor(page.profileId)
 
     // Sync store niche tags → creators.niche_tags on publish
     if (currentConfig.draft_config?.globalSettings?.storeNicheTags !== undefined) {
@@ -646,6 +649,8 @@ export async function PUT(request: Request) {
       console.error("[v0] Error updating profile display_name on publish:", nameError)
     }
   }
+  /* The name and the photo just synced are the OnePage's too: its held copy is read afresh (lib/onepage/public-cache). */
+  await onePageChangedFor(page.profileId)
 
   // Sync store niche tags → creators.niche_tags on publish
   if (currentConfig.draft_config?.globalSettings?.storeNicheTags !== undefined) {

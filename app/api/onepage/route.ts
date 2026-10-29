@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
 import { isShareImageMode } from "@/lib/onepage/seo"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { onePageActor } from "@/lib/team/onepage"
 import { stripResolved } from "@/lib/onepage/storelib-blocks"
@@ -300,6 +301,19 @@ export async function PUT(request: Request) {
        page changes with the profile rather than at the next publish. */
     if (photoNow !== undefined) {
       await followProfileIdentity(db as unknown as FollowClient, ownerId, { photo: { after: photoNow } })
+    }
+
+    /*
+      WHAT THE LIVE PAGE READS FROM THE ROW ITSELF, not from the copy taken at
+      the last publish: its settings (search and share text, the badge), its
+      address, its share picture and the photo. A save that changed one of
+      them clears the held copy (lib/onepage/public-cache) under the old
+      address and the new one; a save of the draft alone leaves the live page
+      as it is, so an editor saving every second and a half costs visitors
+      nothing.
+    */
+    if (updates.settings !== undefined || updates.slug !== undefined || updates.share_image_mode !== undefined || photoNow !== undefined) {
+      await onePageChangedFor(ownerId, [existing.slug])
     }
 
     return NextResponse.json({ onepage: updated })

@@ -86,8 +86,9 @@ check("only route handlers and odd addresses load a document", landsAsDocument("
 check("and a stall loads it as a document after all", /window\.location\.pathname === "\/native-start"\) window\.location\.replace\(target\)/.test(code("lib/native-start-landing.ts")))
 check("a later visit to the gate in the same document is not a start", /let startUsed = false/.test(code("app/native-start/page.tsx")))
 check("the gate's spinner only shows when a start is slow", /ns-show 160ms ease-out 700ms both/.test(read("app/native-start/page.tsx")))
+/* Changed on purpose (round rel-auth): after the gate, a request with no session cookie is answered anonymous, and only /app, /dashboard and /sell verify (the rest only renew, readSessionPresence). */
 check("the proxy asks Supabase nothing for the gate, and still sets the app's frame policy on it",
-  /request\.nextUrl\.pathname === "\/native-start" \? \{ user: null, state: "indeterminate", reason: "start gate" \} : await readVerifiedSession\(supabase, supabaseUrl\)/.test(code("proxy.ts")) && /"Content-Security-Policy"/.test(code("proxy.ts")))
+  /request\.nextUrl\.pathname === "\/native-start" \? \{ user: null, state: "indeterminate", reason: "start gate" \} : (!signedIn \? \{ user: null, state: "anonymous" \} : decidesHere \? )?await readVerifiedSession\(supabase, supabaseUrl\)/.test(code("proxy.ts")) && /"Content-Security-Policy"/.test(code("proxy.ts")))
 
 console.log("\n3 and 4. A product in the app: one header, one back")
 const wrapper = code("components/store-builder/discover-sticky-wrapper.tsx")

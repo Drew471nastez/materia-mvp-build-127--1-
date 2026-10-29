@@ -7733,7 +7733,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Only the files this push names. The whole theme is read when that read fails, not on every poll. */
     const sourcePaths = events.map((ev) => ev.path).filter((p) => /\.storelib$/.test(p) || p.endsWith("settings_schema.json") || p.endsWith("settings_data.json"))
     /* A pile of files from while the tab was away is one read of the theme, not one request per file. */
-    const folded = catchUp && sourcePaths.length > 8
+    const folded = sourcePaths.length > 8
     const [shopify, sourcePatch] = await Promise.all([
       readThemeTexts(installId, shopifyPaths),
       folded ? Promise.resolve(null) : readThemeTexts(installId, sourcePaths),

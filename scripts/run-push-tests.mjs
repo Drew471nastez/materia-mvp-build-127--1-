@@ -37,6 +37,8 @@ const SUITES = [
   "tests/net-request.test.ts",
   /* Round net-1028: every Supabase request has a deadline, a read that hit a blip is asked again (never a write), a failed read is not "no row", auth that did not answer falls back to the token's signature, request ids and clean log lines; scripts/check-settings-switch.mjs SWITCH_ONLY=hang measures a Settings section whose code never comes. */
   "tests/net-resilience.test.ts",
+  /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
+  "tests/auth-reliability.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
@@ -918,6 +920,8 @@ const SUITES = [
   /* Round 25 */
   "tests/i18n25.test.ts",
   "tests/publishing-cache.test.ts",
+  /* Reliability (public delivery): a published OnePage held for every visitor and cleared by each of its writers, no view row written by the render, private pages never given a shared cache, beacons limited in memory first, every public write or search limited; scripts/check-public-roundtrips.mjs measures each public surface on a build. */
+  "tests/public-delivery.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
   /* An earlier publish live again (SQL part 188) */

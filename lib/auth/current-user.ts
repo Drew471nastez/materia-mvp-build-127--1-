@@ -311,3 +311,59 @@ export async function readVerifiedSession(
 
   return { user: null, state: "indeterminate", reason }
 }
+
+/**
+ * ===========================================================================
+ *  THE PROXY'S READ WHERE NOTHING IS DECIDED FROM IT
+ * ===========================================================================
+ * proxy.ts reads the session on every request for two reasons: to renew an
+ * expired access token and write the new cookies (only the proxy can, a page
+ * cannot), and to send a signed out visitor of /app, /dashboard or /sell to
+ * sign in. Everywhere else (a storefront, the marketing site, every /api
+ * call, a prefetch of /explore) the answer was never used for anything but
+ * the renewal, and on a project that signs with the shared secret
+ * readVerifiedSession is a getUser() round trip to Supabase Auth: one per
+ * page, prefetch and API call, in front of a handler that asks Supabase Auth
+ * itself anyway.
+ *
+ * getSession() renews the token when it has run out and otherwise reads the
+ * cookie, with no request. Same three answers, same classification, same one
+ * retry and ceiling as readVerifiedSession.
+ *
+ * NOT A VERIFICATION. The session it reports is the cookie's, unchecked.
+ * NOTHING MAY BE ALLOWED FROM IT: the proxy uses it only off the guarded
+ * paths, where it decides nothing. Every route and page still verifies the
+ * person itself (lib/auth/route-user, lib/auth/request-scope), and row level
+ * security still checks the token's signature on every query.
+ */
+export async function readSessionPresence(
+  supabase: SupabaseClient,
+  { timeoutMs = 3_000, retries = 1 }: { timeoutMs?: number; retries?: number } = {},
+): Promise<CurrentUser> {
+  let reason = "unknown"
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<{ timedOut: true }>((resolve) => {
+      timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs)
+    })
+    const result = await Promise.race([
+      supabase.auth.getSession().then((r) => ({ ...r, timedOut: false as const })),
+      timeout,
+    ])
+      .catch((error: unknown) => ({ data: { session: null }, error, timedOut: false as const }))
+      .finally(() => timer && clearTimeout(timer))
+
+    if (result.timedOut) {
+      reason = "timed out"
+    } else {
+      const { data, error } = result as { data: { session: { access_token?: string } | null }; error: unknown }
+      if (data?.session?.access_token) return { user: null, state: "authenticated" }
+      if (!error) return { user: null, state: "anonymous" }
+      const verdict = classify(error)
+      if (verdict.signedOut) return { user: null, state: "anonymous" }
+      reason = verdict.reason
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 250))
+  }
+  return { user: null, state: "indeterminate", reason }
+}

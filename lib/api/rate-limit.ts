@@ -63,6 +63,87 @@ export interface RateLimitOptions {
   windows: readonly RateWindow[]
   /** What to tell them. Never "rate limited", which means nothing to anyone. */
   message?: string
+  /**
+   * COUNTED HERE FIRST, AND IN POSTGRES ONLY NEAR THE LIMIT. For the beacons
+   * every public page sends (a page view, a link click) and the public reads
+   * a page makes for every visitor (search, a cart priced again), whose worst
+   * abuse is a figure in Analytics that is too high or a read repeated. See
+   * memoryFirstVerdict.
+   */
+  memoryFirst?: boolean
+}
+
+/*
+  ===========================================================================
+   A SPIKE ON ONE PAGE MUST NOT BE A SPIKE ON THIS TABLE
+  ===========================================================================
+  Every limit is counted in rate_limit_hits, and so is every beacon: a page
+  view asked it two counts and wrote one row before its own event was
+  written, three round trips on the table that also guards publishing,
+  saving a website and payments. A OnePage that went round on a busy evening
+  was therefore a write storm on the same table, and on the same index, the
+  dashboard's saves were counted in.
+
+  So a beacon is counted in the function's own memory first, per window, the
+  way lib/perf/limit.ts already counts Storelib's own speed beacons:
+
+    under a quarter of a window's limit here    allowed, and Postgres is not
+                                                asked at all: a person reading
+                                                a page sends a handful a minute
+    over the whole limit here                   refused, and Postgres is not
+                                                asked either: one flood on one
+                                                function costs it nothing
+    anywhere between                            Postgres decides, exactly as
+                                                for every other bucket
+
+  The trade, said plainly: functions do not share memory, so an address that
+  spreads under a quarter of the limit across several functions is not
+  counted across them. For a page view that is a few extra rows in Analytics
+  at worst, and collect's own one-per-visit rules still apply to each; for a
+  search, a few more searches. It is never used for a limit that guards mail,
+  money or a guess (tests/public-delivery.test.ts holds that list).
+*/
+export const MEMORY_FIRST_SHARE = 0.25
+const MEMORY_KEEP = 20_000
+const memoryCounts = new Map<string, { n: number; until: number }>()
+
+/** "allow" or "refuse" without asking Postgres, or "ask" when the count here is near the limit. Counts this request when it is allowed. */
+export function memoryFirstVerdict(
+  bucket: string,
+  subjects: readonly string[],
+  windows: readonly RateWindow[],
+  now = Date.now(),
+  store: Map<string, { n: number; until: number }> = memoryCounts,
+): "allow" | "refuse" | "ask" {
+  if (store.size > MEMORY_KEEP) {
+    for (const [k, v] of store) if (v.until <= now) store.delete(k)
+    if (store.size > MEMORY_KEEP) store.clear()
+  }
+  let verdict: "allow" | "refuse" | "ask" = "allow"
+  const seen: { n: number; until: number }[] = []
+  for (const subject of subjects) {
+    for (const window of windows) {
+      const key = `${bucket}|${window.seconds}|${subject}`
+      let entry = store.get(key)
+      if (!entry || entry.until <= now) {
+        entry = { n: 0, until: now + window.seconds * 1000 }
+        store.set(key, entry)
+      }
+      seen.push(entry)
+      if (entry.n >= window.limit) verdict = "refuse"
+      else if (verdict !== "refuse" && entry.n >= Math.floor(window.limit * MEMORY_FIRST_SHARE)) verdict = "ask"
+    }
+  }
+  /* A refused request is not counted, as in Postgres: retrying never extends the block. */
+  if (verdict !== "refuse") for (const entry of seen) entry.n += 1
+  return verdict
+}
+
+function refusal(options: RateLimitOptions, window: RateWindow): NextResponse {
+  return NextResponse.json(
+    { error: options.message ?? "Too many requests just now. Try again shortly." },
+    { status: 429, headers: { "Retry-After": String(window.seconds) } },
+  )
 }
 
 /** One in this many calls also clears out what nothing will read again. */
@@ -123,6 +204,12 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
 
   const longest = Math.max(...options.windows.map((w) => w.seconds))
 
+  if (options.memoryFirst) {
+    const verdict = memoryFirstVerdict(options.bucket, subjects, options.windows)
+    if (verdict === "allow") return null
+    if (verdict === "refuse") return refusal(options, options.windows[0])
+  }
+
   try {
     const admin = createAdminClient()
 
@@ -164,10 +251,7 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
           extend the block every time somebody retried, so a person who hit
           the limit once could never get back under it.
         */
-        return NextResponse.json(
-          { error: options.message ?? "Too many requests just now. Try again shortly." },
-          { status: 429, headers: { "Retry-After": String(window.seconds) } },
-        )
+        return refusal(options, window)
       }
     }
 
@@ -293,4 +377,15 @@ export const LIMITS = {
    * address, where losing the excess is the lesser harm.
    */
   track: [{ limit: 120, seconds: 60 }, { limit: 2000, seconds: 3600 }],
+  /**
+   * Storelib's own search over published products (/api/v2/search), per
+   * address. A person types a few searches a minute; a script walking the
+   * catalogue asks hundreds. Each one is a full text query.
+   */
+  publicSearch: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
+  /**
+   * A website visitor's saved cart priced again (/api/cart/prices), per
+   * address: once per cart page or drawer open after a currency change.
+   */
+  cartPrices: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
 } as const satisfies Record<string, readonly RateWindow[]>

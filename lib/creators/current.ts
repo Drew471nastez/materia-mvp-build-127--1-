@@ -40,17 +40,31 @@ import "server-only"
  * before, and the "sign up first" paths are correct for them.
  */
 
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
+/*
+  THE REQUEST'S ONE ANSWER (lib/auth/request-scope). This asked Supabase Auth
+  itself on every call, so /app/sites asked it three times per render (the
+  layout, listSites, the page) and /app/integrations twice, and a call that
+  timed out read as "no creator", which sent the page to noStorePage and from
+  there to /sell. In a page this is the layout's own cached answer; null for
+  "could not tell" is drawn as nothing while the layout's gate recovers.
+
+  A ROUTE THAT CHANGES SOMETHING asks lib/auth/route-user routeUser() first
+  (fresh, a 503 when Auth did not answer) and hands the verified id to
+  creatorIdOf below, so it never acts on a token whose signature alone was
+  checked.
+*/
 export async function currentCreatorId(): Promise<string | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await currentUserForRequest()
   if (!user) return null
+  return creatorIdOf(user.id)
+}
 
+/** The creator row of a user id that the caller has already verified (routeUser, currentUserForRequest). */
+export async function creatorIdOf(userId: string): Promise<string | null> {
   const admin = createAdminClient()
-  const { data } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data } = await admin.from("creators").select("id").eq("user_id", userId).maybeSingle()
   return (data as { id: string } | null)?.id ?? null
 }

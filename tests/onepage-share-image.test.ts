@@ -155,7 +155,8 @@ const stubs: Record<string, string> = {
     "server",
     `export const createClient = async () => ({ ...globalThis.__shareStubs.server, from: (t) => globalThis.__shareStubs.server.from(t), auth: { getUser: async () => ({ data: { user: globalThis.__shareStubs.user }, error: null }) } })\n`,
   ),
-  "@/lib/custom-domains/store": stub("domains", `export const primaryHostFor = async () => null\n`),
+  /* Changed on purpose (rel-public): the OnePage's held owner is tagged by the creator's domains (lib/onepage/published-page). */
+  "@/lib/custom-domains/store": stub("domains", `export const primaryHostFor = async () => null\nexport const creatorDomainsTag = (id) => "custom-domains:" + id\n`),
   "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\n`),
   "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\n`),
   "@/components/onepage/public-onepage": stub("public", `export const PublicOnePage = () => null\n`),

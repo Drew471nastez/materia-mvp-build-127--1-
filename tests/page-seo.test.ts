@@ -137,7 +137,8 @@ console.log("\nA OnePage says where it lives and who it is about")
   check("and a block outside its schedule is left out before the page is sent",
     /blocks: drawnBlocks\(blocks, /.test(shape) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
   check("the handle and the counts are asked once per request, for the metadata and the page",
-    /export const onePageOwner = cache\(async/.test(loader) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
+    /* Changed on purpose (rel-public): still once per request (React's cache), around a copy held for every visitor (lib/onepage/public-cache). */
+    /export const onePageOwner = cache\(\(/.test(loader) && /heldRead\(\(\) => readOnePageOwner\(/.test(loader) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }
 
 console.log("\nThe creator page is one address, described in the creator's own words")

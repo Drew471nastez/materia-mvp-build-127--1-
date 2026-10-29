@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { loadCreatorForUser, loadProfileByUsername, loadShopThemePreset } from "@/lib/commerce/creator-page-data"
+import { heldShopLayout } from "@/lib/commerce/creator-page-data"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
@@ -28,9 +28,9 @@ interface ShopLayoutProps {
  *
  * The lookup was never the mistake — a light skeleton on a dark scheme is a
  * white flash on every navigation, so the theme really is needed here.
- * Paying for it twice, in series, ahead of everything else was. The loaders
- * are deduped per request and shared between requests; see
- * lib/commerce/creator-page-data.
+ * Paying for it twice, in series, ahead of everything else was. The two
+ * facts it needs are held for every visitor; see lib/commerce/creator-page-data
+ * heldShopLayout.
  */
 export default async function ShopLayout({ children, params }: ShopLayoutProps) {
   const { username } = await params
@@ -39,13 +39,15 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
   /* The currency the creator's store sells in: every price on the page is in it (components/platform/price-currency). */
   let currency: string | null = null
   try {
-    const [preset, sells] = await Promise.all([
-      loadShopThemePreset(username),
-      /* The same request scoped reads the preset makes, so this costs one cached read. */
-      loadProfileByUsername(username).then((p) => (p?.id ? loadCreatorForUser(p.id) : null)).then((c) => (c?.id ? cachedStoreCurrency(c.id) : null)),
-    ])
-    themePreset = preset as ThemePreset
-    currency = sells
+    /*
+      HELD FOR EVERY VISITOR (lib/commerce/creator-page-data heldShopLayout):
+      the store and the theme by the name, a minute at most. This layout is
+      also the OnePage's (/<name>/links, which storelib.me/<name> is drawn
+      from), and it was the only per visit database read left on it.
+    */
+    const facts = await heldShopLayout(username)
+    themePreset = facts.themePreset as ThemePreset
+    currency = facts.creatorId ? await cachedStoreCurrency(facts.creatorId) : null
   } catch (error) {
     /* A creator page with a default-coloured skeleton is fine. A creator page
        that does not render because its skeleton could not be tinted is not. */

@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { announce, onePageAddresses } from "@/lib/seo/announce"
 import { onePageActor } from "@/lib/team/onepage"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
 
 export async function POST(request: Request) {
   try {
@@ -130,6 +131,16 @@ export async function POST(request: Request) {
       console.error("Publish error:", publishError)
       return NextResponse.json({ error: "Failed to publish" }, { status: 500 })
     }
+
+    /*
+      THE LIVE PAGE IS READ AFRESH, AND ONLY NOW. Every visitor's copy of the
+      page is held (lib/onepage/public-cache); the publish above wrote the
+      new copy in one update, so a publish that failed returned before this
+      line and the page keeps showing the copy that was live. Expired at once
+      under every name it answers to, so the creator who opens their page
+      next sees what they just published.
+    */
+    await onePageChangedFor(ownerId, [(published as { slug?: string | null } | null)?.slug])
 
     /* After the answer: the page's address, to the search engines that take
        IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */

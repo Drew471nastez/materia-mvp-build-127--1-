@@ -2,7 +2,7 @@ import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
-import { readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
+import { readSessionPresence, readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
 import { deadlineFetch } from "@/lib/net/deadline"
 import { REQUEST_ID_HEADER, requestIdOf } from "@/lib/net/request-id"
 import { logLine } from "@/lib/net/log"
@@ -31,7 +31,7 @@ import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, 
 import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
-import { skipsSessionRefresh } from "@/lib/auth/no-session-paths"
+import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
@@ -2433,7 +2433,26 @@ async function routeRequest(request: NextRequest) {
     and why each is safe). Everything above, the published site guards and
     the custom domain lookup among it, has already run.
   */
-  if (skipsSessionRefresh(pathname, request.cookies.getAll().map((c) => c.name))) return supabaseResponse
+  const cookieNames = request.cookies.getAll().map((c) => c.name)
+  if (skipsSessionRefresh(pathname, cookieNames)) return supabaseResponse
+  /*
+    NO SESSION COOKIE, NO SESSION TO READ. A visitor who is not signed in
+    (most of a storefront's and the marketing site's traffic) has nothing to
+    verify or renew: the Supabase client would answer "no session" without
+    asking anybody, but only after readVerifiedSession had fetched the signing
+    keys on a cold instance (up to 2s in front of the first byte). Answered
+    anonymous here instead, which is exactly what Supabase would have said, so
+    /app and /sell still send this visitor to sign in below.
+  */
+  const signedIn = carriesSignIn(cookieNames)
+  /*
+    VERIFIED ONLY WHERE THE ANSWER DECIDES SOMETHING. /app, /dashboard and /sell send a signed out visitor to sign
+    in from it, so there it is verified (readVerifiedSession). Everywhere else (a storefront, the marketing site,
+    every /api call, which verifies the caller itself) it only renews an expired token, which getSession does
+    without asking Supabase Auth (lib/auth/current-user readSessionPresence). On a project on the shared secret
+    that was a getUser() round trip per page, prefetch and API call, decided on by nobody.
+  */
+  const decidesHere = request.nextUrl.pathname === "/sell" || request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/dashboard")
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -2513,7 +2532,7 @@ async function routeRequest(request: NextRequest) {
     to getUser() exactly as before.
   */
   const current: Awaited<ReturnType<typeof readVerifiedSession>> =
-    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readVerifiedSession(supabase, supabaseUrl)
+    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : !signedIn ? { user: null, state: "anonymous" } : decidesHere ? await readVerifiedSession(supabase, supabaseUrl) : await readSessionPresence(supabase)
 
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     /* One JSON line (lib/net/log.ts): the path, why, and the request's id; never a cookie or a query. */

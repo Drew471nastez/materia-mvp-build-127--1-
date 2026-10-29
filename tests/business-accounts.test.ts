@@ -440,7 +440,8 @@ function main() {
     existsSync(join(root, "supabase/sql/run-now/26_business_accounts.sql")) && read("supabase/sql/run-now/README.md").includes("`26_business_accounts.sql`") && /as p26_business_accounts\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   console.log("\nThe app")
-  check("the layout reads the businesses beside everything else", /listBusinesses\(user\.id\)\.catch\(\(\) => \[\]\)/.test(read("app/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/app/layout.tsx")))
+  /* Changed on purpose (round rel-auth): the menu's businesses have their own ceiling (SHELL_EXTRA_MS); past it, or on an error, this business alone as before. */
+  check("the layout reads the businesses beside everything else", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/app/layout.tsx")))
   check("both account menus list them", /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="dropdown"/.test(read("components/app/sidebar.tsx")) && /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="sheet"/.test(read("components/app/mobile-account-menu.tsx")))
   check("New business makes it right there and goes straight into the creator onboarding, no page in between",
     /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /* Changed on purpose: it now hands the screen its next step. */ /await createBusiness\(\{ onOpening:/.test(read("components/app/business-switcher.tsx")) &&
@@ -521,7 +522,7 @@ function main() {
       && /on delete cascade/.test(read("supabase/migrations/20261001_business_accounts.sql")))
   check("  the menu is right again with no reload asked for: the first business's session loads /app, which reads the list on the server",
     /applyBusinessSession\(data\.firstBusiness\.session, "\/app"\)/.test(read("components/app/settings-form-new.tsx")) && /window\.location\.replace\(next\)/.test(read("lib/businesses/switch-client.ts"))
-      && /listBusinesses\(user\.id\)\.catch\(\(\) => \[\]\)/.test(read("app/app/layout.tsx")))
+      && /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/app/layout.tsx")))
   const settingsForm = read("components/app/settings-form-new.tsx")
   check("  deleting the login's first account is still one plain Delete account, with no section of its own",
     !/data-settings-card="businesses"/.test(read("components/app/settings/account-panels.tsx")) && /Removes your store, products, customers and sales history for good\./.test(read("components/app/settings/account-panels.tsx"))

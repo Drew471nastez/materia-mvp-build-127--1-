@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 import { creatorShopTag, revalidatePublishedPages } from "@/lib/website-builder/published-site"
 import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 import { isUuid, physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
@@ -32,6 +33,8 @@ export async function PUT(request: Request) {
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
   /* The website's product lists are held for a minute under the shop's tag: taken off (or put back on) a channel shows on the next visit, not a minute later. */
   revalidateTag(creatorShopTag(c.creatorId), "max")
+  /* Off the creator page channel is off the OnePage too: its held blocks are read afresh (lib/onepage/public-cache). */
+  onePageProductsChanged(c.creatorId)
   /* And the pages drawn from it, so the change is on the website at the next visit (revalidatePublishedPages). */
   await revalidatePublishedPages(c.creatorId)
   /* Explore's catalogue is held for everybody the same way (lib/explore/catalogue-cache.ts). */

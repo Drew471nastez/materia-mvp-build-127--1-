@@ -48,7 +48,8 @@ export async function collectFrom(req: NextRequest, kind: CollectKind, body: unk
       mainDomain: getMainDomain(),
       isOwnVisit,
       marksOwner,
-      limited: async (subject) => (await rateLimit({ bucket: "track", subjects: [subject], windows: LIMITS.track })) !== null,
+      /* Counted in memory first (lib/api/rate-limit memoryFirst): a visitor's beacon never touches rate_limit_hits. */
+      limited: async (subject) => (await rateLimit({ bucket: "track", subjects: [subject], windows: LIMITS.track, memoryFirst: true })) !== null,
     },
   )
   /* A recorded page view, on to the store's own analytics tools when it has any and the visitor's consent allows (lib/analytics/destinations), after the response. */

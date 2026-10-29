@@ -18,13 +18,19 @@
 export interface IdentityCacheDeps {
   expireTag: (tag: string) => void
   expireSite: (creatorId: string) => Promise<void>
+  /** The published OnePage's held owner and row (lib/onepage/public-cache), which show the same name and photo. */
+  expireOnePage?: (userId: string) => Promise<void>
 }
 
 const creatorTagOf = (id: string) => `creator:${id}`
 
 async function nextDeps(): Promise<IdentityCacheDeps> {
-  const [{ revalidateTag }, { revalidatePublishedSite }] = await Promise.all([import("next/cache"), import("@/lib/website-builder/published-site")])
-  return { expireTag: (tag) => revalidateTag(tag, { expire: 0 }), expireSite: revalidatePublishedSite }
+  const [{ revalidateTag }, { revalidatePublishedSite }, { onePageChangedFor }] = await Promise.all([
+    import("next/cache"),
+    import("@/lib/website-builder/published-site"),
+    import("@/lib/onepage/public-cache"),
+  ])
+  return { expireTag: (tag) => revalidateTag(tag, { expire: 0 }), expireSite: revalidatePublishedSite, expireOnePage: (userId) => onePageChangedFor(userId) }
 }
 
 /** Never throws: the profile is saved already, and every cache catches up on its own. */
@@ -32,6 +38,7 @@ export async function identityChanged(ids: { userId: string; creatorId: string |
   try {
     const d = deps ?? (await nextDeps())
     d.expireTag(creatorTagOf(ids.userId))
+    if (d.expireOnePage) await d.expireOnePage(ids.userId)
     if (ids.creatorId) {
       d.expireTag(creatorTagOf(ids.creatorId))
       await d.expireSite(ids.creatorId)

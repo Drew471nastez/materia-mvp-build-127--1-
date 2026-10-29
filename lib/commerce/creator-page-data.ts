@@ -23,12 +23,14 @@
  * twice, in series, ahead of everything else was.
  */
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
 import { publicProfileByName } from "@/lib/profile/profile-by-name"
 import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 
 /**
@@ -75,20 +77,60 @@ export const loadShopConfig = cache(async (creatorId: string) => {
 })
 
 /**
- * Everything the layout needs, which is a subset of what the page needs.
- * Returns the theme name and nothing else, so a caller cannot accidentally
- * grow a dependency on rows it did not ask for.
+ * ===========================================================================
+ *  THE LAYOUT'S TWO FACTS, HELD FOR EVERY VISITOR
+ * ===========================================================================
+ * The layout around storelib.com/<name> (app/(marketing)/u/[username]/
+ * layout.tsx) needs the store whose currency the prices are in and the
+ * theme that tints the loading skeleton. It wraps the creator page, but also
+ * the OnePage at /<name>/links, which is the page storelib.me/<name> is
+ * drawn from, and every product at /<name>/<product>. Read per request,
+ * that was two round trips (the profile by name, then its creator) on every
+ * OnePage visit, for a skeleton colour, and the OnePage itself reads nothing
+ * per visit any more (lib/onepage/public-cache).
+ *
+ * So the two facts are held for a minute, keyed by the name. The reason
+ * loadProfileByUsername above is never held does not apply: what this hands
+ * back is a colour and the store's id, which only picks the currency the
+ * prices are drawn in (its value read through cachedStoreCurrency, which a
+ * currency change clears). Nothing on the page is chosen by it. The creator
+ * page itself still reads its profile per request, so a renamed account
+ * never shows somebody else's page.
+ *
+ * Only a name that leads to a creator is held: a name that leads nowhere, or
+ * a read that failed, is thrown out of the held function (unstable_cache
+ * keeps nothing then) and answered with the plain skeleton.
  */
-export async function loadShopThemePreset(username: string): Promise<string> {
-  const profile = await loadProfileByUsername(username)
-  if (!profile?.id) return "default"
-  const creator = await loadCreatorForUser(profile.id)
-  if (!creator?.id) return "default"
-  const config = await loadShopConfig(creator.id)
-  const global = (config as { published_config?: { globalSettings?: { themePreset?: string } } } | null)
-    ?.published_config?.globalSettings
-  return global?.themePreset || "default"
+export interface ShopLayoutFacts {
+  creatorId: string | null
+  themePreset: string
 }
+
+class NoCreator extends Error {}
+
+export const SHOP_LAYOUT_HOLD_SECONDS = 60
+
+export const heldShopLayout = cache(async (username: string): Promise<ShopLayoutFacts> => {
+  const name = username.trim().toLowerCase()
+  try {
+    return await unstable_cache(
+      async (): Promise<ShopLayoutFacts> => {
+        const db = createPublicReadClient()
+        const profile = await publicProfileByName<{ id?: string }>(db as never, name)
+        if (!profile?.id) throw new NoCreator()
+        const creator = await readPublicRow<{ id?: string }>(db as never, "creators", (q) => q.eq("user_id", profile.id))
+        if (!creator?.id) throw new NoCreator()
+        const config = await cachedStoreConfig(creator.id, "shop").catch(() => null)
+        const preset = (config as { published_config?: { globalSettings?: { themePreset?: string } } } | null)?.published_config?.globalSettings?.themePreset
+        return { creatorId: creator.id, themePreset: preset || "default" }
+      },
+      ["shop-layout-facts", "v1", name],
+      { revalidate: SHOP_LAYOUT_HOLD_SECONDS, tags: [`shop-layout:${name}`] },
+    )()
+  } catch {
+    return { creatorId: null, themePreset: "default" }
+  }
+})
 
 /** Re-exported so a caller needs one import, not two. */
 export { cachedCreator, cachedCreatorProfile }
