@@ -3,11 +3,7 @@
 Every database change the app is waiting on, written 2026-09-24 to 2026-09-27,
 in four files for the Supabase SQL editor.
 
-<<<<<<< HEAD
 That is every part in `supabase/sql/run-now/` (01 to 341, then the storage
-=======
-That is every part in `supabase/sql/run-now/` (01 to 341, then the storage
->>>>>>> origin/main
 policies and the check). The whole `run-now/` list was written in that week, so
 "the last week" and "everything still to run" are the same set of SQL. These
 four files are therefore the same SQL as `supabase/sql/run-four/`, under the
