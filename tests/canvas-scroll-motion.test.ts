@@ -105,9 +105,10 @@ function cookies() {
   const posted: { area?: string; items?: Record<string, string> }[] = []
   const doc: Record<string, unknown> = {}
   Object.defineProperty(doc, "cookie", { get() { throw new Error("SecurityError") }, set() { throw new Error("SecurityError") }, configurable: true })
-  const ctx: Record<string, unknown> = { document: doc, history: { pushState() {}, replaceState() {} }, setTimeout: (f: () => void) => { f(); return 0 }, parent: { postMessage: (m: { type?: string; area?: string; items?: Record<string, string> }) => { if (m.type === "storage") posted.push(m) } }, __slSeed: { cookie: { closed: "1" } } }
+  const ctx: Record<string, unknown> = { document: doc, history: { pushState() {}, replaceState() {} }, setTimeout: (f: () => void) => { f(); return 0 }, parent: { postMessage: (m: { type?: string; area?: string; items?: Record<string, string> }) => { if (m.type === "storage") posted.push(m) } }, __slSeed: { cookie: { closed: "1" } }, /* the head's scripts listen for the visitor's first press (the canvas gives focus back); a no-op here */ addEventListener() {} }
   ctx.window = ctx
-  for (const body of [...CANVAS_HEAD.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).slice(0, 1)) vm.runInNewContext(body, ctx)
+  /* Changed on purpose: the cookie jar's script is found by what it holds (__slSeed), not by being first; the head now starts with others. */
+  for (const body of [...CANVAS_HEAD.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).filter((b) => b.includes("__slSeed")).slice(0, 1)) vm.runInNewContext(body, ctx)
   const d = ctx.document as { cookie: string }
   check("a cookie the last page set is there on the next (the visit's jar, window.__slSeed)", d.cookie === "closed=1", d.cookie)
   d.cookie = "popup_seen=true; path=/; max-age=86400"
