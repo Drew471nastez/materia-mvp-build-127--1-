@@ -20,6 +20,10 @@ import { communityJsonLd, communityMetadata } from "@/components/community/publi
 import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
 import { communityDeleting, communitySummary } from "@/lib/communities/server/community-summary"
 import { memberPage } from "@/components/community/member/data"
+import { creatorIsBanned } from "@/lib/seo/bans"
+
+/** Whether the community's creator is banned (lib/seo/bans.ts, held a minute); a community with no creator is not. */
+const ownerBanned = (creatorId: string | null | undefined): Promise<boolean> => (creatorId ? creatorIsBanned(creatorId) : Promise.resolve(false))
 
 /**
  * ===========================================================================
@@ -49,8 +53,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   /* The short description (round 26, part 220) is the line under the title when there is no SEO description. */
   /* Waiting to be deleted: never previewed, whatever the status (round 26). */
   /* Round AH: the three reads at once. */
+  /* Round 44: a banned creator's community is out of search, as its sitemap row already is (lib/seo/sitemaps.ts communitiesSitemap). Started beside the three reads. */
+  const banned = ownerBanned(community.creator_id)
   const [deleting, summary, origin] = await Promise.all([communityDeleting(community.id), communitySummary(community.id), communityDomainOrigin(community.id)])
-  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), summary, origin })
+  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), ...((await banned) ? { indexable: false } : {}), summary, origin })
 }
 
 export default async function CommunityPage({
@@ -129,8 +135,9 @@ export default async function CommunityPage({
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
-  const [extras, askWhy, origin] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
-  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), origin)
+  const [extras, askWhy, origin, deleting, banned] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id), communityDeleting(load.community.id), ownerBanned(load.community.creator_id)])
+  /* Round 44: by the metadata's own rule, so a page that says noindex (waiting to be deleted, or its creator banned) claims nothing in structured data either. */
+  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community) && !deleting && !banned, origin)
   return (
     <>
       {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}
