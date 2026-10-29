@@ -96,6 +96,18 @@ async function roundTrips() {
   check("no draft block is held beside the published copy", !held.includes(DRAFT_MARKER))
   check("nothing private of the owner is held", !held.includes(PRIVATE_MARKER))
 
+  section("The layout around /<name>/links (storelib.me/<name>) reads nothing per visit either")
+  const { heldShopLayout } = await import("@/lib/commerce/creator-page-data")
+  const layoutFirst = await visit(() => heldShopLayout(SITE.username))
+  const layoutSecond = await visit(() => heldShopLayout(SITE.username))
+  check("its store and theme are read once, then held", layoutFirst.value?.creatorId === SITE.creatorId && layoutFirst.trips.length > 0 && layoutSecond.trips.length === 0, [layoutFirst.trips.length, layoutSecond.trips.length, layoutFirst.value])
+  const strangerName1 = await visit(() => heldShopLayout("nobody-by-this-name"))
+  const strangerName2 = await visit(() => heldShopLayout("nobody-by-this-name"))
+  check("  a name that is nobody's is not held, and gets the plain skeleton", strangerName1.value?.creatorId === null && strangerName1.value.themePreset === "default" && strangerName2.trips.length > 0)
+  const layout = readCode("app/(marketing)/u/[username]/layout.tsx")
+  check("  the layout asks only the held facts, and the currency through its own tagged cache", /await heldShopLayout\(username\)/.test(layout) && /cachedStoreCurrency\(facts\.creatorId\)/.test(layout) && !/loadProfileByUsername|loadCreatorForUser/.test(layout))
+  check("  the creator page itself still reads its profile per request (a renamed account never shows somebody else's page)", /const profile = await loadProfileByUsername\(username\)/.test(readCode("app/(marketing)/u/[username]/page.tsx")))
+
   section("Every answer a name gives is held, and none outlives what the name leads to")
   const nobody1 = await visit(() => resolveOnePage("nobody-has-this-name"))
   const nobody2 = await visit(() => resolveOnePage("nobody-has-this-name"))

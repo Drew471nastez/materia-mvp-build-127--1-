@@ -68,7 +68,13 @@ const tables = {
   communities: [{ id: COMMUNITY, slug: "loop-club", name: "Loop Club", description: "Producers sharing loops.", status: "published", visibility: "public", creator_id: C, owner_id: USER, created_at: at, updated_at: at, member_count: 3, price_cents: 0 }],
   store_builder_configs: [], follows: [], reviews: [], custom_domains: [], seo_overrides: [], username_history: [], store_theme_installs: [], product_variants: [], product_slug_history: [],
   onepage_slug_history: [], onepage_views: [], analytics_events: [], rate_limit_hits: [],
+  /* Communities and Explore switched on, as they are on storelib.com. */
+  platform_flags: [{ key: "communities", enabled: true }],
+  platform_settings: [{ key: "explore_marketplace", value: true }],
 }
+/* The public views (run-now part 63) are the same rows without their private columns. */
+tables.profiles_public = tables.profiles.map(({ email: _email, ...row }) => row)
+tables.creators_public = tables.creators.map(({ stripe_account_id: _stripe, ...row }) => row)
 
 /* ── The stub, told apart: the browser sends an Origin, the server does not ── */
 const person = { id: USER, aud: "authenticated", role: "authenticated", email: "hi@satori.studio", email_confirmed_at: at, app_metadata: { provider: "email" }, user_metadata: { full_name: "Satori Studio" }, created_at: at, updated_at: at }
@@ -110,7 +116,7 @@ async function visit(path, init = {}) {
   const from = hits.length
   const t0 = Date.now()
   const res = await fetch(`${BASE}${path}`, { redirect: "manual", ...init, headers: { ...BROWSER, ...(init.headers || {}) } })
-  await res.arrayBuffer()
+  const html = await res.text()
   const ms = Date.now() - t0
   await sleep(400)
   const caused = hits.slice(from)
@@ -119,7 +125,9 @@ async function visit(path, init = {}) {
     cache: res.headers.get("cache-control") || "",
     ms,
     db: caused.length,
-    writes: caused.filter((h) => h.method !== "GET" && h.method !== "HEAD").length,
+    /* A POST to /rpc/ is a function call that reads (PostgREST asks POST of every function); only a table write counts. */
+    writes: caused.filter((h) => h.method !== "GET" && h.method !== "HEAD" && !h.what.includes("/rpc/")).length,
+    body: html,
     what: caused.map((h) => h.what),
   }
 }
@@ -164,15 +172,23 @@ for (const [label, path, body] of BEACONS) {
 const session = stub.sessionCookie(USER)
 const signedIn = []
 for (const [label, path] of SURFACES) {
+  const stranger = await visit(path)
   const r = await visit(path, { headers: { cookie: `${session.name}=${session.value}` } })
-  signedIn.push({ label, path, status: r.status, cache: r.cache, shared: /\bpublic\b|s-maxage/.test(r.cache) })
+  /* A shared header on a signed in answer is a fault only when the answer is drawn for them (it differs from a stranger's). */
+  const drawnForThem = r.body.replace(/nonce="[^"]*"|\b[0-9a-f]{20,}\b/g, "") !== stranger.body.replace(/nonce="[^"]*"|\b[0-9a-f]{20,}\b/g, "")
+  signedIn.push({ label, path, status: r.status, cache: r.cache, shared: /\bpublic\b|s-maxage/.test(r.cache), drawnForThem })
 }
 
 const pad = (s, n) => String(s).padEnd(n)
 console.log(`\n${pad("surface", 40)}${pad("status", 8)}${pad("db 1st", 8)}${pad("db 4th", 8)}${pad("writes", 8)}cache (4th)`)
 for (const r of rows) console.log(`${pad(r.label, 40)}${pad(r.status, 8)}${pad(r.first, 8)}${pad(r.warm, 8)}${pad(r.writesWarm, 8)}${r.cache}`)
 console.log(`\n${pad("signed in", 40)}${pad("status", 8)}cache`)
-for (const r of signedIn) console.log(`${pad(r.label, 40)}${pad(r.status, 8)}${r.cache}${r.shared ? "   <- SHARED CACHE HEADER ON A SIGNED IN ANSWER" : ""}`)
+for (const r of signedIn) console.log(`${pad(r.label, 40)}${pad(r.status, 8)}${r.cache}${r.shared ? (r.drawnForThem ? "   <- SHARED CACHE HEADER ON AN ANSWER DRAWN FOR THEM" : "   (shared, and the same page a stranger gets)") : ""}`)
 if (process.env.VERBOSE) for (const r of rows) console.log(`\n${r.label} (4th visit):\n  ${r.warmWhat.join("\n  ") || "(nothing)"}`)
-if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ measuredAt: new Date().toISOString(), rows, signedIn }, null, 2))
+if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ measuredAt: new Date().toISOString(), rows: rows.map(({ warmWhat, ...r }) => ({ ...r, warmWhat })), signedIn }, null, 2))
+const faults = signedIn.filter((r) => r.shared && r.drawnForThem)
+if (faults.length) {
+  console.log(`\n${faults.length} signed in answer(s) drawn for the person carry a shared cache header`)
+  process.exit(1)
+}
 process.exit(0)
