@@ -26,7 +26,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { readCurrentUser, readVerifiedSession, forgetSigningKeys, shouldSendToLogin } from "@/lib/auth/current-user"
+import { readCurrentUser, readVerifiedSession, readSessionPresence, forgetSigningKeys, shouldSendToLogin } from "@/lib/auth/current-user"
 import { routeUserFrom } from "@/lib/auth/route-user"
 import { carriesSignIn } from "@/lib/auth/no-session-paths"
 
@@ -47,11 +47,12 @@ console.warn = () => {}
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 type Mode = "ok" | "hang" | "503" | "502" | "slow" | "revoked" | "jwt-expired"
+type RefreshMode = "ok" | "hang" | "503" | "used"
 const person = { id: "11111111-1111-4111-8111-111111111111", aud: "authenticated", role: "authenticated", email: "a@b.c", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" }
 
 /** A stand in Supabase Auth: /auth/v1/user answers by `mode`, every request counted. */
 async function standIn() {
-  const state = { mode: "ok" as Mode, hits: [] as string[] }
+  const state = { mode: "ok" as Mode, refresh: "ok" as RefreshMode, hits: [] as string[] }
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const path = (req.url ?? "").split("?")[0]
     state.hits.push(path)
@@ -60,6 +61,12 @@ async function standIn() {
       res.end(JSON.stringify(body))
     }
     if (path === "/auth/v1/.well-known/jwks.json") return send(200, { keys: [] })
+    if (path === "/auth/v1/token") {
+      if (state.refresh === "hang") return
+      if (state.refresh === "503") return send(503, { message: "upstream unavailable" })
+      if (state.refresh === "used") return send(400, { code: "refresh_token_already_used", message: "Invalid Refresh Token: Already Used" })
+      return send(200, { access_token: "new", refresh_token: "rt2", token_type: "bearer", expires_in: 3600, expires_at: now() + 3600, user: person })
+    }
     if (path !== "/auth/v1/user") return send(404, {})
     switch (state.mode) {
       case "ok":
@@ -85,11 +92,12 @@ async function standIn() {
 
 const b64url = (s: string) => Buffer.from(s).toString("base64url")
 const now = () => Math.floor(Date.now() / 1000)
+const took = (t: number) => Date.now() - t
 
 /** A cookie session the way @supabase/ssr writes it, on the shared secret (no public key: getClaims asks Auth). */
-function sessionCookie(url: string) {
-  const token = `${b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${b64url(JSON.stringify({ sub: person.id, aud: "authenticated", role: "authenticated", exp: now() + 3600, iat: now() }))}.${b64url("sig")}`
-  const session = { access_token: token, refresh_token: "rt", token_type: "bearer", expires_in: 3600, expires_at: now() + 3600, user: person }
+function sessionCookie(url: string, expiresIn = 3600) {
+  const token = `${b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${b64url(JSON.stringify({ sub: person.id, aud: "authenticated", role: "authenticated", exp: now() + expiresIn, iat: now() }))}.${b64url("sig")}`
+  const session = { access_token: token, refresh_token: "rt", token_type: "bearer", expires_in: expiresIn, expires_at: now() + expiresIn, user: person }
   const ref = new URL(url).hostname.split(".")[0]
   return { name: `sb-${ref}-auth-token`, value: "base64-" + Buffer.from(JSON.stringify(session)).toString("base64url") }
 }
@@ -166,7 +174,7 @@ async function run() {
     auth.state.hits = []
     forgetSigningKeys()
     const proxy = read("proxy.ts")
-    check("no session cookie: no Supabase client, no signing keys, answered anonymous", /const signedIn = carriesSignIn\(cookieNames\)/.test(proxy) && /!signedIn \? \{ user: null, state: "anonymous" \} : await readVerifiedSession\(supabase, supabaseUrl\)/.test(proxy))
+    check("no session cookie: no Supabase client, no signing keys, answered anonymous", /const signedIn = carriesSignIn\(cookieNames\)/.test(proxy) && /!signedIn \? \{ user: null, state: "anonymous" \} : decidesHere \?/.test(proxy))
     check("  decided before the client is made", proxy.indexOf("const signedIn = carriesSignIn(cookieNames)") < proxy.indexOf("createServerClient(supabaseUrl"))
     check("  and /app without one still goes to /login", /if \(guarded && shouldSendToLogin\(current\)\)/.test(proxy))
     check("carriesSignIn: the session cookie whole or chunked, the PKCE verifier too; nothing else", carriesSignIn(["sb-abc-auth-token"]) && carriesSignIn(["sb-abc-auth-token.0"]) && carriesSignIn(["sb-abc-auth-token-code-verifier"]) && !carriesSignIn(["visitor_id", "sl_lang"]))
@@ -174,6 +182,29 @@ async function run() {
     const written: string[] = []
     const before = await readVerifiedSession(client(auth.url, [], written), auth.url)
     check("  (before: an anonymous visitor's read fetched the signing keys first)", before.state === "anonymous" && auth.state.hits.includes("/auth/v1/.well-known/jwks.json"), auth.state.hits)
+  }
+
+  console.log("\n3b. Off /app, /dashboard and /sell the proxy only renews")
+  {
+    const proxy = read("proxy.ts")
+    check("verified only where the answer decides a redirect", /const decidesHere = request\.nextUrl\.pathname === "\/sell" \|\| request\.nextUrl\.pathname\.startsWith\("\/app"\) \|\| request\.nextUrl\.pathname\.startsWith\("\/dashboard"\)/.test(proxy) && /decidesHere \? await readVerifiedSession\(supabase, supabaseUrl\) : await readSessionPresence\(supabase\)/.test(proxy))
+    check("  and the redirects to sign in are still only on those paths", /if \(request\.nextUrl\.pathname === "\/sell" && shouldSendToLogin\(current\)\)/.test(proxy) && /const guarded =\s*request\.nextUrl\.pathname\.startsWith\("\/app"\) \|\| request\.nextUrl\.pathname\.startsWith\("\/dashboard"\)/.test(proxy))
+    auth.state.hits = []
+    const fresh = await readSessionPresence(client(auth.url, [cookie], []))
+    check("a token still in date: present, and Supabase Auth not asked at all", fresh.state === "authenticated" && auth.state.hits.length === 0, auth.state.hits)
+    const expired = sessionCookie(auth.url, -60)
+    for (const [mode, want] of [["ok", "authenticated"], ["503", "indeterminate"], ["hang", "indeterminate"], ["used", "anonymous"]] as const) {
+      auth.state.refresh = mode
+      auth.state.hits = []
+      const written: string[] = []
+      const t = Date.now()
+      const r = await readSessionPresence(client(auth.url, [expired], written), { timeoutMs: 600, retries: 1 })
+      const refreshes = auth.state.hits.filter((h) => h === "/auth/v1/token").length
+      check(`expired, renewal ${mode}: ${want}${mode === "ok" ? ", and the new cookies written" : ""}`, r.state === want && (mode !== "ok" || written.some((w) => w.endsWith("=set"))), { got: r.state, reason: r.reason, written })
+      /* supabase-js retries a renewal that got a 5xx by itself, inside the ceiling; what matters is that the wait ends and nothing is cleared. */
+      if (want === "indeterminate") check(`  renewal ${mode}: no cookie cleared, bounded (${took(t)}ms, ${refreshes} renewal requests)`, !written.some((w) => w.endsWith("=cleared")) && refreshes <= 6 && Date.now() - t < 2_000, { refreshes, written })
+    }
+    auth.state.refresh = "ok"
   }
 
   console.log("\n4. One auth answer per /app render, and no false redirect")
