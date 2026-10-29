@@ -57,7 +57,8 @@ export function useSyncStatus(installId: string): { status: SyncStatus; refresh:
       if (!r.ok) return null
       const d = (await r.json()) as Partial<SyncStatus>
       const next: SyncStatus = { pending: d.pending ?? null, github: d.github ?? null, linked: !!d.linked }
-      setStatus(next)
+      /* The same report read again (each agent write asks) draws nothing again: the editor re-rendered whole for every one. */
+      setStatus((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
       return next
     } catch {
       return null

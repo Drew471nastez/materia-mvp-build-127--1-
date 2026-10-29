@@ -218,6 +218,16 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"
     return json({ sections: compat.pages[key] ?? [], has_draft: false })
   }
+  /*
+    ?path=<file>: one file's text, as the real route answers it (readThemeTexts asks this for the few files a push names).
+    Before, every such ask was answered with the whole list and no `content`, so a probe's push always fell back to a full read.
+  */
+  const onePath = /\/themes\/probe-install\/files/.test(url) && (!init?.method || init.method === "GET") ? new URL(url, location.href).searchParams.get("path") : null
+  if (onePath) {
+    const written = (window as unknown as { PROBE_FILES?: Record<string, string> }).PROBE_FILES
+    const text = compat ? (compat.files[onePath] ?? compat.sources[onePath] ?? (written && !Array.isArray(written) ? written[onePath] : undefined)) : (written && !Array.isArray(written) ? written[onePath] : undefined)
+    if (typeof text === "string") return json({ path: onePath, content: text })
+  }
   if (/\/themes\/probe-install\/files/.test(url) && compat) {
     /*
       PROBE_FILES_FAIL: the theme's own files answer 500 this many more times;
