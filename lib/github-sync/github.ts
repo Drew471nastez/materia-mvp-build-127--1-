@@ -36,6 +36,7 @@
 import "server-only"
 import { createSign } from "node:crypto"
 import { gitBlobSha } from "./layout"
+import { breakerFor } from "@/lib/net/breaker"
 
 const API = "https://api.github.com"
 
@@ -160,6 +161,15 @@ export function setGitHubTransport(t: Transport | null) {
 /** Attempts per call. A 5xx, a secondary limit or a dropped connection is tried again; a 4xx is not. */
 const ATTEMPTS = 4
 
+/*
+ * GITHUB DOWN IS FOUND OUT ONCE (lib/net/breaker.ts). A call whose attempts
+ * all ended in a timeout, a dropped connection or a 5xx counts against
+ * GitHub; five such calls in a row and calls fail at once for thirty
+ * seconds instead of each spending up to four attempts of 25 seconds. A
+ * rate limit or a refusal is GitHub answering and never counts.
+ */
+export const GITHUB_BREAKER = "github"
+
 async function call<T>(
   path: string,
   token: string,
@@ -167,6 +177,26 @@ async function call<T>(
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${API}${path}`
   const step = init.step ?? "other"
+  const breaker = breakerFor(GITHUB_BREAKER)
+  if (!breaker.allow()) throw new GitHubError(0, "GitHub is not answering right now", step)
+  try {
+    const value = await callOnce<T>(url, path, token, init, step)
+    breaker.success()
+    return value
+  } catch (e) {
+    if (e instanceof GitHubError && (e.status === 0 || e.status >= 500)) breaker.failure()
+    else breaker.success()
+    throw e
+  }
+}
+
+async function callOnce<T>(
+  url: string,
+  path: string,
+  token: string,
+  init: { method?: string; body?: unknown; scheme?: "Bearer" | "token"; step?: string },
+  step: string,
+): Promise<T> {
   let last: GitHubError | null = null
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     let res: Response
@@ -257,11 +287,13 @@ export async function installationAccount(cfg: GitHubConfig, installationId: num
  * its own proves nothing, anyone can type one.
  */
 export async function userCanReachInstallation(cfg: GitHubConfig, code: string, installationId: number): Promise<boolean> {
+  /* The same per attempt deadline as every other GitHub call: this one held the connect page for as long as GitHub did. */
   const res = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "Storelib" },
     body: JSON.stringify({ client_id: cfg.clientId, client_secret: cfg.clientSecret, code }),
     cache: "no-store",
+    signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
   })
   const d = (await res.json().catch(() => ({}))) as { access_token?: string }
   if (!d.access_token) return false

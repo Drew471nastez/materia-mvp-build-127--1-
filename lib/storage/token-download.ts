@@ -35,6 +35,9 @@ import {
 } from "./download"
 import { gateDownload } from "./scan-gate"
 
+/** How long a buyer's download waits for a ZIP that was not built yet before handing over the files one by one. */
+const BUYER_BUNDLE_WAIT_MS = 20_000
+
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" } as const
 
 /** Far above a person opening their email twice, far below a script. */
@@ -121,7 +124,8 @@ export async function serveTokenDownload(
   const userAgent = request.headers.get("user-agent")
 
   if (options.bundles && files.length >= BUNDLE_THRESHOLD && product.creator_id) {
-    const bundle = await ensureProductBundle(admin, product.id, product.title || "Download", product.creator_id)
+    /* Built in this request only when it was not built at upload: bounded, and the files one by one past it (lib/bundles.ts). */
+    const bundle = await ensureProductBundle(admin, product.id, product.title || "Download", product.creator_id, null, null, { deadlineAt: Date.now() + BUYER_BUNDLE_WAIT_MS })
     if (bundle) {
       const zipUrl = await getBundleSignedUrl(admin, bundle.zipPath, SIGNED_DOWNLOAD_SECONDS, bundle.zipFileName)
       if (zipUrl) {

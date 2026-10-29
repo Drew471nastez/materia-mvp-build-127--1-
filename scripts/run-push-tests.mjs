@@ -37,6 +37,8 @@ const SUITES = [
   "tests/net-request.test.ts",
   /* Round net-1028: every Supabase request has a deadline, a read that hit a blip is asked again (never a write), a failed read is not "no row", auth that did not answer falls back to the token's signature, request ids and clean log lines; scripts/check-settings-switch.mjs SWITCH_ONLY=hang measures a Settings section whose code never comes. */
   "tests/net-resilience.test.ts",
+  /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
+  "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",

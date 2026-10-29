@@ -16,7 +16,17 @@
  *
  * `fetch` is the global one, so a test replaces it with a stub of the
  * provider's API and nothing real is ever called.
+ *
+ * A PROVIDER THAT IS DOWN FAILS FAST (lib/net/breaker.ts). Five calls in a
+ * row to the same provider that time out, cannot connect or get a 5xx open
+ * its breaker for thirty seconds: calls in that time are a `retry`
+ * ProviderError at once, without the network, so a fulfilment job, a label
+ * or a checkout quote does not wait out PROVIDER_TIMEOUT_MS again and again.
+ * A 429 does not count: it is one seller's allowance, and one seller's busy
+ * account must never stop every other seller's orders. Nor does a 4xx: that
+ * is the provider answering.
  */
+import { breakerFor } from "@/lib/net/breaker"
 
 export class ProviderError extends Error {
   readonly status: number
@@ -48,6 +58,8 @@ export async function call<T = unknown>(
   url: string,
   init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown },
 ): Promise<T> {
+  const breaker = breakerFor(`provider:${name}`)
+  if (!breaker.allow()) throw new ProviderError(`${name} is not answering right now. Storelib tries again shortly.`, 0, true)
   let res: Response
   try {
     res = await fetch(url, {
@@ -58,8 +70,11 @@ export async function call<T = unknown>(
       cache: "no-store",
     })
   } catch {
+    breaker.failure()
     throw new ProviderError(`${name} could not be reached.`, 0, true)
   }
+  if (res.status >= 500) breaker.failure()
+  else breaker.success()
   const text = await res.text().catch(() => "")
   let body: unknown = null
   if (text) {

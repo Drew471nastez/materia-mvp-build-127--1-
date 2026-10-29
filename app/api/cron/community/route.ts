@@ -76,5 +76,5 @@ async function runJob(request: Request) {
 }
 
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/community", request, () => runJob(request))
+  return recordCronRun("/api/cron/community", request, () => runJob(request), { maxDurationS: maxDuration })
 }

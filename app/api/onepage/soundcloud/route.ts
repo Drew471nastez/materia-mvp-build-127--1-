@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { deadlineFetch } from "@/lib/net/deadline"
+
+/* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
+const EMBED_FETCH_MS = 8_000
+const embedFetch = (url: string, init: RequestInit = {}) => deadlineFetch(url, init, { ms: EMBED_FETCH_MS })
 
 // Extract SoundCloud entity info from URL
 function extractSoundCloudInfo(url: string): { type: 'track' | 'playlist' | 'artist', username: string, trackSlug?: string } | null {
@@ -58,7 +63,7 @@ async function fetchSoundCloudMetadata(url: string): Promise<{
 
   try {
     // Use SoundCloud oEmbed API
-    const oembedResponse = await fetch(
+    const oembedResponse = await embedFetch(
       `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`,
       { headers: { 'Accept': 'application/json' } }
     )
@@ -101,7 +106,7 @@ async function fetchSoundCloudMetadata(url: string): Promise<{
   // Fallback: Try to scrape the page for og:image if no thumbnail
   if (!thumbnailUrl) {
     try {
-      const pageResponse = await fetch(url, {
+      const pageResponse = await embedFetch(url, {
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }

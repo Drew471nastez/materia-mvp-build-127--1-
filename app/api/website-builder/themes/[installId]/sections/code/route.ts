@@ -35,6 +35,8 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { loopDeadlineMs } from "@/lib/website-builder/agent/limits"
+import { themeAgentLimit } from "@/lib/sites/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -81,6 +83,8 @@ const BodySchema = z.object({
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
+  /* The platform's 300 seconds count from here, so the writing's deadline does too. */
+  const requestStartedAt = Date.now()
   const { installId } = await context.params
 
   const supabase = await createClient()
@@ -114,6 +118,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     message: "That is a lot of sections asked for in a short time. Wait a moment and try again.",
   })
   if (limited) return limited
+  /* And no more Storelib AI runs at once than lib/sites/rate-limit.ts THEME_AGENT_AT_ONCE, counted with the page assistant's. */
+  const busy = await themeAgentLimit((creator as { id: string }).id)
+  if (busy) return NextResponse.json({ error: busy }, { status: 429 })
 
   const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
   if (!parsed.success) return NextResponse.json({ error: unreadablePart(parsed.error.issues), issues: parsed.error.issues }, { status: 400 })
@@ -188,10 +195,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * THE WRITING DOES NOT STOP WHEN THE TAB DOES. A section the creator asked
    * for is finished and saved even if they closed the window meanwhile: it
    * is in Add section under their own sections when they come back. What
-   * stops it is the deadline, fifteen seconds before the platform would,
-   * so it can still say why.
+   * stops it is the deadline, before the platform would, so it can still
+   * save and say why: counted from the request's start, with room for the
+   * save and the transcript after it (lib/website-builder/agent/limits.ts
+   * loopDeadlineMs). It was fifteen seconds from here, after the reads and
+   * the pictures' upload had already spent part of the 300.
    */
-  const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
+  const loopMs = loopDeadlineMs({ requestStartedAt, maxDurationS: maxDuration })
+  const deadline = AbortSignal.timeout(loopMs)
+  const deadlineAt = Date.now() + loopMs
   /* AI Memory, this website's notes and the everywhere ones, read through the creator's own client (lib/ai-memory/store.ts). */
   const memory = await memoriesForSite(supabase as unknown as MemoryDb, (creator as { id: string }).id, installId)
   /* Round AH: an imported theme draws a Storelib section without its script (lib/storelib-theme/compat/theme.ts renderNative). */
@@ -208,7 +220,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       /* Medium, always, with no switch (lib/website-builder/ask-engines.ts): planned, written, drawn, checked and refined once still. */
       effort: EFFORT,
       cacheKey: `theme:${installId}`,
-      deadlineAt: Date.now() + (maxDuration - 15) * 1000,
+      deadlineAt,
       onEvent,
       accountMemory: memory.ready ? memory.account.map((m) => m.content) : [],
       memoryText: memory.ready ? describeMemory(memory) : undefined,
