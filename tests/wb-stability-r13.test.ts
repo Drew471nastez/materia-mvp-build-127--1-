@@ -58,7 +58,8 @@ console.log("\nTheme code that changed (a push)\n")
 
 console.log("\nA change to every section, and a page worn by edits\n")
 {
-  check("a change that swaps most of the page draws it again behind the one on screen", /const massive = plan\.swaps\.length >= MASSIVE_SWAP_MIN && plan\.swaps\.length \* 2 >= next\.order\.length\s*if \(massive && !isLive\(\)\) \{\s*loadBehind\(html, docKey, list\)\s*return\s*\}/.test(canvas))
+  /* Changed on purpose (push lag): the page just parsed is handed to loadBehind, not parsed again. */
+  check("a change that swaps most of the page draws it again behind the one on screen", /const massive = plan\.swaps\.length >= MASSIVE_SWAP_MIN && plan\.swaps\.length \* 2 >= next\.order\.length\s*if \(massive && !isLive\(\)\) \{\s*loadBehind\(html, docKey, list, next\)\s*return\s*\}/.test(canvas))
   check("  under a finger it is changed in place, and drawn fresh after the finger lifts", /if \(isLive\(\) \|\| slotsRef\.current\[1\]\) \{ freshTimer\.current = window\.setTimeout\(fresh, FRESH_SETTLE_MS\); return \}/.test(canvas))
   check("sections swapped into a page are counted, and a worn page is drawn fresh once edits stop", /now\.swapped = \(now\.swapped \?\? 0\) \+ plan\.swaps\.length\s*if \(massive \|\| now\.swapped >= WORN_SWAPS\)/.test(canvas) && /if \(opts\?\.fresh && now\.key === docKey\) \{ loadBehind\(html, docKey, list\); return \}/.test(canvas))
   check("  the wait is let go with the canvas", /useEffect\(\(\) => \(\) => window\.clearTimeout\(freshTimer\.current\), \[\]\)/.test(canvas))

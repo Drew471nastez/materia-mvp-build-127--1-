@@ -631,7 +631,8 @@ section("Caches keyed on file content cannot grow without end")
    */
   check("the engine has one bounded cache and the application uses it", /export function createLru<T>\(limit: number\)/.test(compile) && /while \(map\.size > limit\)/.test(compile))
   check("the section compile cache is bounded", /createLru<Compiled>\(COMPILE_CACHE_LIMIT\)/.test(runtime) && !/new Map<string, Compiled>/.test(runtime))
-  check("the schema cache is bounded", /createLru<StorelibSchemaResult>\(COMPILE_CACHE_LIMIT\)/.test(schemas) && !/new Map<string, StorelibSchemaResult>/.test(schemas))
+  /* Changed on purpose (push lag): still bounded, with room for a store theme's every section (at 200 a larger theme read every schema again on every change). */
+  check("the schema cache is bounded", /createLru<StorelibSchemaResult>\(Math\.max\(COMPILE_CACHE_LIMIT, 1000\)\)/.test(schemas) && !/new Map<string, StorelibSchemaResult>/.test(schemas))
 }
 
 // ===========================================================================
