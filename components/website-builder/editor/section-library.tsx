@@ -95,7 +95,7 @@ import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builde
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { hasBuiltInArt, StorelibTile } from "@/components/app/settings/integration-mark"
-import { lazyImages, markupLooksEmpty, previewCardHeight, previewCentered, previewKey, sampleBlocks, splitStyles, withoutSticky } from "@/lib/website-builder/preview-markup"
+import { freezeViewport, freezeViewportInStyles, lazyImages, markupLooksEmpty, previewCardHeight, previewCentered, previewKey, rememberedHeightsFrom, sampleBlocks, splitStyles, withoutSticky } from "@/lib/website-builder/preview-markup"
 import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
@@ -121,6 +121,18 @@ export const PREVIEW_RENDER_WIDTH_MOBILE = 390
 /** Box height over box width: a glimpse of the section, not all of it. */
 export const PREVIEW_RATIO = 0.56
 export const PREVIEW_RATIO_MOBILE = 1.22
+/**
+ * The window a preview is drawn in (round 45): as wide as it is drawn and
+ * this tall, whatever the editor's own window is. A section's viewport
+ * lengths are read against it (freezeViewport), and Storelib's own through
+ * `--sl-vh`. The same windows as an imported theme's cards
+ * (compat-section-preview.tsx WINDOW_HEIGHT_DESKTOP / _PHONE).
+ */
+export const PREVIEW_WINDOW_HEIGHT = 800
+export const PREVIEW_WINDOW_HEIGHT_MOBILE = 844
+export const previewWindowHeight = (renderWidth: number) => (renderWidth <= PREVIEW_RENDER_WIDTH_MOBILE ? PREVIEW_WINDOW_HEIGHT_MOBILE : PREVIEW_WINDOW_HEIGHT)
+/** What a preview's window says to Storelib's own sections, on the card and on the ruler that measures it alike. */
+const windowVars = (renderWidth: number) => ({ "--sl-vh": `${previewWindowHeight(renderWidth) / 100}px` }) as CSSProperties
 
 const PREVIEW_THEME: ThemeSettingsValues = {
   primary_color: "#6366f1",
@@ -228,18 +240,34 @@ let heightsVersion = 0
   card is measured again, as an imported theme's are (compat-section-
   preview.tsx, rememberedHeights).
 */
-const HEIGHTS_STORE = "wb-preview-h:r44"
+/*
+  ROUND 45: CHECKED AS THEY ARE READ, AND NEVER ALLOWED TO MOVE THE LIST.
+  Only a preview's key (type, preset, one of the two widths a preview is
+  drawn at, the tag) with a height a section can be is taken
+  (rememberedHeightsFrom); the store before this round's (whose sections
+  were measured against the editor's window, freezeViewport) is let go. A
+  height that is only remembered is marked so (REMEMBERED) until its
+  section is drawn and measured in this visit, and a card sized by one is
+  never made taller in front of somebody either (useSteadyHeight).
+*/
+const HEIGHTS_STORE = "wb-preview-h:r45"
+const OLD_HEIGHTS_STORES = ["wb-preview-h:r44"]
+const PREVIEW_HEIGHT_KEY = /^[\w-]+:\d{1,3}:\d{3}:[a-z0-9]*$/
+const REMEMBERED = new Set<string>()
 let heightsRead = false
 let heightsWrite = 0
 function readRememberedHeights() {
   if (heightsRead || typeof window === "undefined") return
   heightsRead = true
   try {
+    for (const old of OLD_HEIGHTS_STORES) window.localStorage.removeItem(old)
     const raw = window.localStorage.getItem(HEIGHTS_STORE)
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null
-    if (!parsed || typeof parsed !== "object") return
-    for (const [key, h] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof h === "number" && h > 0 && h < 20_000 && !HEIGHTS.has(key)) HEIGHTS.set(key, h)
+    const widths = new Set([`${PREVIEW_RENDER_WIDTH}`, `${PREVIEW_RENDER_WIDTH_MOBILE}`])
+    const valid = rememberedHeightsFrom(raw ? (JSON.parse(raw) as unknown) : null, PREVIEW_HEIGHT_KEY, (key) => widths.has(key.split(":")[2]))
+    for (const [key, h] of Object.entries(valid)) {
+      if (HEIGHTS.has(key)) continue
+      HEIGHTS.set(key, h)
+      REMEMBERED.add(key)
     }
   } catch {
     /* no storage: measured as they come */
@@ -391,8 +419,10 @@ function drawWith(job: Job, sample: boolean, pictures: boolean): string {
     )
   })
   const split = splitStyles(html)
-  addStyles(split.css.map(withoutSticky))
-  return lazyImages(withoutSticky(split.html))
+  /* Its viewport lengths, of the page it is drawn on (freezeViewport), not of the editor's window. */
+  const winH = previewWindowHeight(job.width)
+  addStyles(split.css.map(withoutSticky).map((css) => freezeViewport(css, job.width, winH)))
+  return lazyImages(freezeViewportInStyles(withoutSticky(split.html), job.width, winH))
 }
 
 /**
@@ -450,7 +480,7 @@ function measureMany(items: { html: string; width: number }[]): { height: number
   ruler.style.width = `${Math.max(0, ...items.map((i) => i.width))}px`
   const boxes = items.map((item) => {
     const box = document.createElement("div")
-    box.style.cssText = `width:${item.width}px;contain:layout paint`
+    box.style.cssText = `width:${item.width}px;contain:layout paint;--sl-vh:${previewWindowHeight(item.width) / 100}px`
     box.innerHTML = item.html
     return box
   })
@@ -640,6 +670,7 @@ function pump() {
           if (empty || !next.html) EMPTY.add(next.key)
           else EMPTY.delete(next.key)
           HEIGHTS.set(next.key, height)
+          REMEMBERED.delete(next.key)
           MARKUP.set(next.key, next.html)
           pending.delete(next.key)
         })
@@ -900,18 +931,23 @@ function releaseHeld(all: boolean) {
  * whose section is not measured yet keeps what it has, so a creator's
  * section drawn again does not grow its card to the crop and back.
  */
-function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted: number, width: number, known: boolean): number {
-  const [kept, setKept] = useState(() => ({ height: wanted, width }))
+function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted: number, width: number, known: boolean, fromMemory = false): number {
+  const [kept, setKept] = useState(() => ({ height: wanted, width, mem: fromMemory }))
   useLayoutEffect(() => {
     /* A new width is a new layout: everything is its new size at once. */
     if (kept.width !== width) {
-      setKept({ height: wanted, width })
+      setKept({ height: wanted, width, mem: fromMemory })
       return
     }
-    if (kept.height === wanted || !known) return
-    const take = () => setKept({ height: wanted, width })
+    if (kept.height === wanted) {
+      if (kept.mem && !fromMemory) setKept({ height: wanted, width, mem: false })
+      return
+    }
+    if (!known) return
+    const take = () => setKept({ height: wanted, width, mem: fromMemory })
     const box = boxRef.current
-    if (wanted > kept.height || !box || !inSight(box)) {
+    /* Round 45: a card sized by a height only remembered is not made taller in front of somebody either: its section is cut at its foot until nobody can see it change. */
+    if ((wanted > kept.height && !kept.mem) || !box || !inSight(box)) {
       take()
       return
     }
@@ -920,7 +956,7 @@ function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted:
     return () => {
       heldCards.delete(held)
     }
-  }, [boxRef, wanted, width, known, kept])
+  }, [boxRef, wanted, width, known, kept, fromMemory])
   return kept.width === width ? kept.height : wanted
 }
 
@@ -992,7 +1028,8 @@ const PreviewBox = memo(function PreviewBox({
     return observeNear(el, markupKey)
   }, [waitingForIt, markupKey])
   const drawn = useDrawnHeight(markupKey)
-  const height = useSteadyHeight(boxRef, previewCardHeight(drawn, width, renderWidth, ratio), width, drawn !== undefined)
+  const fromMemory = drawn !== undefined && REMEMBERED.has(markupKey)
+  const height = useSteadyHeight(boxRef, previewCardHeight(drawn, width, renderWidth, ratio), width, drawn !== undefined, fromMemory)
   const scale = width > 0 ? width / renderWidth : 0.3
   const centered = previewCentered(drawn, width, renderWidth, height)
   const inner: CSSProperties = {
@@ -1001,6 +1038,11 @@ const PreviewBox = memo(function PreviewBox({
     minHeight: height ? Math.ceil(height / scale) : undefined,
     ...(centered ? IN_THE_MIDDLE : null),
     transform: `scale(${scale})`,
+    /* The page the section is drawn on: what it paints past its own width or its foot is cut here, and its window is the card's (windowVars). */
+    contain: "layout paint style",
+    overflow: "clip",
+    isolation: "isolate",
+    ...windowVars(renderWidth),
     pointerEvents: "none",
     userSelect: "none",
   }
@@ -1022,6 +1064,17 @@ const PreviewBox = memo(function PreviewBox({
         /* The box is its section's height before anything is drawn in it, so the list never moves. */
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
+        /*
+          A HARD BOX (round 45). Its own size whatever it holds (strict: size,
+          layout, paint, style), the box every absolute and fixed element in
+          its section is placed against (the scale on .wb-pv is one too), cut
+          at its edges, and a stacking context of its own, so a z-index of a
+          million in a section is a million inside this card and nowhere
+          else. Nothing drawn in a card can paint outside it.
+        */
+        contain: "strict",
+        overflow: "clip",
+        isolation: "isolate",
         contentVisibility: eager ? "visible" : "auto",
         containIntrinsicSize: `${width || 200}px ${height || 200}px`,
       }}

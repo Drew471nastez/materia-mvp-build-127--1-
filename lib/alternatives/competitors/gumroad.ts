@@ -1,0 +1,139 @@
+import type { Competitor } from "../types"
+import { CHECKED_ON } from "../checked"
+import { STORELIB, proBreakEvenDollars } from "../storelib"
+import { monthOfFees } from "../examples"
+import { SL } from "../storelib-features"
+
+const on = CHECKED_ON
+
+export const gumroad: Competitor = {
+  slug: "gumroad",
+  name: "Gumroad",
+  homepage: "https://gumroad.com",
+  categories: ["digital-products"],
+  summary: "A checkout and a profile for selling files, memberships and software keys, with a marketplace called Discover.",
+  pricingShort: "No monthly fee. 10% + 50¢ a sale, 30% on Discover sales",
+  seo: {
+    title: "Gumroad alternative: Storelib compared on fees and features",
+    description: `Gumroad takes 10% + 50¢ of a direct sale and 30% of a Discover sale. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro. Fees, features and how to move your products.`,
+    h1: "Storelib as a Gumroad alternative",
+  },
+  intro: [
+    "Gumroad is where a lot of independent creators sold their first ebook, preset pack or template. You make a product, share its link, and Gumroad runs the checkout and sends the file. It has no monthly fee: it takes a cut of each sale instead.",
+    "It suits writers, designers, developers and musicians who sell from their own audience, and software makers who need license keys. Gumroad also lists products in Discover, its marketplace, where a sale found through Discover costs more than a direct one.",
+    "Gumroad is the merchant of record for sales on it, so it collects and pays sales tax for you. That is a real convenience, and it is part of what the 10% pays for.",
+  ],
+  whyStorelib: [
+    { text: `A lower cut of each sale: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, against Gumroad's 10% + 50¢. Above about $${proBreakEvenDollars().toLocaleString("en-US")} a month in sales, Pro's lower rate covers its ${STORELIB.proPrice} price.`, code: "lib/payments/fees/defaults.ts" },
+    { text: "The same fee wherever the sale happens. Storelib's fee does not change for a sale that came through Explore, where Gumroad's Discover sales pay 30%.", code: "lib/payments/fees/engine.ts" },
+    { text: `More than a product page: a creator page, a OnePage for your bio link, and a website builder with ${STORELIB.freeSites} sites on Free and ${STORELIB.proSites} on Pro.`, code: "lib/sites/plan.ts" },
+    { text: "Email campaigns, automations, discount codes, bundles and upsells are built in, so a launch does not need three other tools.", code: "app/app/emails" },
+  ],
+  whenToStay: [
+    { text: "You want the platform to be the merchant of record and handle sales tax for you. Gumroad does that; on Storelib you set your own tax rates.", sources: ["gumroad-mor", "gumroad-tax"], status: "verified" },
+    { text: "You sell software and rely on Gumroad's license keys and its verification API.", sources: ["gumroad-license"], status: "verified" },
+    { text: "Most of your sales come from Gumroad Discover. Storelib's Explore is a different audience and you would be starting over there.", sources: ["gumroad-pricing"], status: "verified" },
+  ],
+  strengths: [
+    { text: "No monthly fee on any plan.", sources: ["gumroad-pricing"], status: "verified" },
+    { text: "Merchant of record: Gumroad collects and remits sales tax on your sales.", sources: ["gumroad-mor", "gumroad-tax"], status: "verified" },
+    { text: "License keys for software, with an API to check them.", sources: ["gumroad-license"], status: "verified" },
+    { text: "An affiliate program you can open to other people.", sources: ["gumroad-affiliates"], status: "verified" },
+    { text: "Your own domain on a profile or a single product.", sources: ["gumroad-domain"], status: "verified" },
+  ],
+  limits: [
+    { text: "10% + 50¢ of every direct sale, a high share for products priced above a few dollars.", sources: ["gumroad-pricing", "gumroad-fees"], status: "verified" },
+    { text: "30% of a sale that came through Discover.", sources: ["gumroad-pricing"], status: "verified" },
+    { text: "Card and PayPal processing is charged on top of the 10%.", sources: ["gumroad-fees"], status: "verified", note: "The help center says processing is separate but the rate was not stated in the pages we checked." },
+    { text: "Payouts start at a $10 balance and follow Gumroad's schedule, which you cannot change.", sources: ["gumroad-payouts"], status: "conflicting", note: "Gumroad's help pages disagree on whether payouts are weekly or every other Friday." },
+  ],
+  storelibStrengths: [
+    { text: `${STORELIB.freeFee} a sale on Free, ${STORELIB.proFee} on Pro, and a lower rate with no fixed part under ${STORELIB.smallOrderBelow}.`, code: "lib/payments/fees/config.ts" },
+    { text: "A website builder, a creator page and a OnePage, all selling the same products.", code: "lib/sites/plan.ts" },
+    { text: "Courses with lessons and progress, and memberships with recurring plans.", code: "app/app/courses" },
+    { text: "Email campaigns and automations to your buyers and subscribers.", code: "app/app/emails" },
+  ],
+  storelibLimits: [
+    { text: "Storelib is not the merchant of record. You set the tax rates your store charges in Settings, Taxes.", code: "lib/tax/rules.ts" },
+    { text: "No license keys and no affiliate program for sellers.", code: "lib/products" },
+    { text: "Payouts go through Stripe to banks in the US, UK, EEA, Canada and Switzerland only.", code: "lib/payments/stripe/payout-regions.ts" },
+    { text: "Stripe's card processing fee applies on top of Storelib's fee.", code: "lib/billing/plans.ts" },
+  ],
+  features: [
+    { id: "monthly", label: "Monthly fee", storelib: SL.monthlyFee, competitor: { value: "yes", text: "None", sources: ["gumroad-pricing"], status: "verified" } },
+    { id: "per-sale", label: "Platform fee per sale", storelib: SL.perSaleFee, competitor: { value: "yes", text: "10% + 50¢ direct, 30% via Discover", sources: ["gumroad-pricing"], status: "verified" } },
+    { id: "digital", label: "Digital products", storelib: SL.digitalProducts, competitor: { value: "yes", sources: ["gumroad-features"], status: "verified" } },
+    { id: "memberships", label: "Memberships", storelib: SL.memberships, competitor: { value: "yes", text: "Recurring and fixed length", sources: ["gumroad-features"], status: "verified" } },
+    { id: "courses", label: "Courses", storelib: SL.courses, competitor: { value: "yes", text: "As a product with content", sources: ["gumroad-features"], status: "verified" } },
+    { id: "marketplace", label: "Marketplace", storelib: SL.marketplace, competitor: { value: "yes", text: "Discover, at a 30% fee", sources: ["gumroad-pricing"], status: "verified" } },
+    { id: "website", label: "Website builder", storelib: SL.website, competitor: { value: "unknown", text: "A profile page", sources: [], status: "unverified", note: "We could not confirm a multi page site builder." } },
+    { id: "domain", label: "Your own domain", storelib: SL.customDomain, competitor: { value: "yes", sources: ["gumroad-domain"], status: "verified" } },
+    { id: "email", label: "Email to buyers", storelib: SL.email, competitor: { value: "unknown", sources: [], status: "unverified", note: "Not confirmed from the pages we checked." } },
+    { id: "offers", label: "Bundles and upsells", storelib: SL.offers, competitor: { value: "partial", text: "Bundles", sources: ["gumroad-features"], status: "verified" } },
+    { id: "license", label: "License keys", storelib: SL.licenseKeys, competitor: { value: "yes", sources: ["gumroad-license"], status: "verified" } },
+    { id: "affiliates", label: "Affiliates", storelib: SL.affiliates, competitor: { value: "yes", sources: ["gumroad-affiliates"], status: "verified" } },
+    { id: "tax", label: "Sales tax", storelib: SL.tax, competitor: { value: "yes", text: "Gumroad is the merchant of record", sources: ["gumroad-mor", "gumroad-tax"], status: "verified" } },
+  ],
+  plans: [
+    {
+      id: "direct",
+      name: "Direct sale",
+      monthlyCents: 0,
+      fee: { percent: 10, fixedCents: 50 },
+      processing: null,
+      processingKnown: false,
+      processingLabel: "Charged on top, rate not published in the pages we checked",
+      sellsDigital: true,
+      claim: { text: "10% + 50¢ per direct sale, no monthly fee", sources: ["gumroad-pricing", "gumroad-fees"], status: "verified" },
+    },
+    {
+      id: "discover",
+      name: "Discover sale",
+      monthlyCents: 0,
+      fee: { percent: 30, fixedCents: 0 },
+      processing: null,
+      processingKnown: false,
+      processingLabel: "Not stated in the pages we checked",
+      sellsDigital: true,
+      claim: { text: "30% of a sale made through Discover", sources: ["gumroad-pricing"], status: "verified" },
+    },
+  ],
+  pricingNotes: [
+    { text: "Gumroad is the merchant of record, so the sales tax a buyer pays is collected and remitted by Gumroad.", sources: ["gumroad-mor", "gumroad-tax"], status: "verified" },
+    { text: "Payouts need a balance of at least $10.", sources: ["gumroad-payouts"], status: "verified" },
+    { text: "Fees are not returned when you refund a sale.", sources: [], status: "unverified", note: "Reported by third parties quoting Gumroad's help center. We could not read it on the official page." },
+  ],
+  calculatorDefaults: { priceDollars: 25, sales: 40 },
+  examples: [
+    { who: "Creators", title: "A preset pack at $25", text: monthOfFees({ priceDollars: 25, sales: 40, name: "Gumroad", rate: { percent: 10, fixedCents: 50 } }) },
+    { who: "Educators", title: "A course that used to be a PDF", text: "A guide that grew into lessons fits Storelib's course builder, with progress for each student, and the same product can sit on your website and your creator page." },
+    { who: "Sellers", title: "A template shop with a mailing list", text: "If you send a newsletter with every release, Storelib's email campaigns and automations reach your buyers and subscribers from the same dashboard as your orders." },
+  ],
+  switching: [
+    { title: "Export what you have", text: "In Gumroad, download your product files and export your customers and sales as CSV from your dashboard, so you have your own copy before you change anything." },
+    { title: "Create a free Storelib account", text: "Sign up, set up payments with Stripe (about five minutes inside Storelib), and choose your page address." },
+    { title: "Recreate each product", text: "Add the title, description, price and files. Pay what you want with a minimum works the same way on Storelib." },
+    { title: "Point your links at Storelib", text: "Replace the Gumroad links in your bio, emails and videos with your Storelib product links or your OnePage." },
+    { title: "Tell your existing buyers", text: "Send one last email from Gumroad with your new links. Keep your Gumroad account open until past buyers have downloaded what they bought." },
+  ],
+  faqs: [
+    { q: "Is Storelib cheaper than Gumroad?", a: `For most sales, yes. Gumroad takes 10% + 50¢ of a direct sale. Storelib takes ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, which costs ${STORELIB.proPrice} a month. Card processing applies on both. Gumroad's fee also covers sales tax as merchant of record, which Storelib does not do, so weigh that if you sell to many countries.` },
+    { q: "Does Storelib charge more for marketplace sales like Gumroad Discover?", a: "No. Storelib's fee is worked out from the price and your plan only. A sale from Explore pays the same as a sale from your own link." },
+    { q: "Can I move my Gumroad products to Storelib?", a: "Yes. Export your files and customer list from Gumroad, then add each product on Storelib with its price and files. The switching guide on this page goes through it step by step." },
+    { q: "Does Storelib handle sales tax like Gumroad?", a: "No. Gumroad is the merchant of record for its sales. On Storelib you are the seller: you set the tax rates your store charges in Settings, Taxes, and digital products are not taxed unless you turn that on." },
+    { q: "Does Storelib have license keys?", a: "Not today. If you sell software that checks a license key, Gumroad's keys and verification API are a reason to stay." },
+  ],
+  visuals: ["dashboard", "creator", "course"],
+  sources: [
+    { id: "gumroad-pricing", title: "Gumroad pricing", url: "https://gumroad.com/pricing", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-fees", title: "Gumroad's fees (Help Center)", url: "https://gumroad.com/help/article/66-gumroads-fees", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-mor", title: "Gumroad is becoming a Merchant of Record", url: "https://gumroad.gumroad.com/p/gumroad-is-becoming-a-merchant-of-record-more-updates", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-tax", title: "Sales tax on Gumroad (Help Center)", url: "https://gumroad.com/help/article/121-sales-tax-on-gumroad", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-payouts", title: "Getting paid by Gumroad (Help Center)", url: "https://help.gumroad.com/article/13-getting-paid", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-license", title: "License keys (Help Center)", url: "https://help.gumroad.com/article/76-license-keys", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-affiliates", title: "Affiliates on Gumroad (Help Center)", url: "https://help.gumroad.com/article/333-affiliates-on-gumroad", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-domain", title: "Setting up a custom domain (Help Center)", url: "https://help.gumroad.com/article/153-setting-up-a-custom-domain", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-features", title: "Gumroad features", url: "https://gumroad.com/features", publisher: "Gumroad", checkedOn: on },
+  ],
+  updated: on,
+}

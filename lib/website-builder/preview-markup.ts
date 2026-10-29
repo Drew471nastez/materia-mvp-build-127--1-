@@ -52,6 +52,77 @@ export function withoutSticky(text: string): string {
   return text.replace(/position\s*:\s*(?:-webkit-)?sticky/gi, "position:relative;inset:auto!important")
 }
 
+/*
+  ===========================================================================
+   A WINDOW THE SIZE OF THE CARD'S PAGE (round 45)
+  ===========================================================================
+  A preview is drawn in the editor's own document, so a section's `100vw`
+  was the editor's window, not the 800px page it is drawn as: a full bleed
+  hero (`width: 100vw; margin-left: calc(50% - 50vw)`) came out 1280 wide
+  and 240px to the left of its card, cut and out of line, and `100vh` was
+  as tall as whatever window the editor had. In a card the window is the
+  page the section is drawn on: as wide as it is drawn, and a window tall.
+  Every viewport length in a preview's own styles and its inline ones is
+  written as pixels of that window; Storelib's sections read `--sl-vh`,
+  which the card sets (section-library.tsx).
+*/
+const VIEWPORT_LENGTH = /(^|[\s:,(+*/])(-?(?:\d+\.?\d*|\.\d+))([sld]?)(vw|vh|vi|vb|vmin|vmax)\b/g
+export function freezeViewport(css: string, width: number, height: number): string {
+  if (!css || !/\d(?:[sld]?)(?:vw|vh|vi|vb|vmin|vmax)\b/.test(css)) return css
+  const vw = width / 100
+  const vh = height / 100
+  return css.replace(VIEWPORT_LENGTH, (_, pre: string, n: string, _size: string, unit: string) => {
+    const per = unit === "vw" || unit === "vi" ? vw : unit === "vh" || unit === "vb" ? vh : unit === "vmin" ? Math.min(vw, vh) : Math.max(vw, vh)
+    return `${pre}${Math.round(Number(n) * per * 100) / 100}px`
+  })
+}
+/** The same, for the style="" of every element in drawn markup (and nothing else: a "100vw" in words or a `sizes` is left alone). */
+export function freezeViewportInStyles(html: string, width: number, height: number): string {
+  if (!/v(?:w|h|i|b|min|max)\b/.test(html)) return html
+  return html.replace(/(\sstyle=")([^"]*)(")/gi, (_, a: string, body: string, b: string) => `${a}${freezeViewport(body, width, height)}${b}`)
+}
+
+/*
+  ===========================================================================
+   A REMEMBERED HEIGHT IS CHECKED BEFORE A CARD IS SIZED BY IT (round 45)
+  ===========================================================================
+  Heights are remembered in the browser so a card is its own height from
+  its first frame on the next visit. What comes back from storage is
+  anybody's: an older format, a key of something else, a height of 0 or of
+  a million. Only a key of the shape a preview's is, with a height a
+  section can be, is taken; the rest is dropped. And a card sized by a
+  remembered height never moves the cards around it when its section turns
+  out another height while somebody is looking (section-library.tsx,
+  useSteadyHeight; compat-section-preview.tsx): it keeps its height, the
+  section cut at its foot or on white, until nobody can see it change.
+*/
+export const REMEMBERED_HEIGHT_MIN = 8
+export const REMEMBERED_HEIGHT_MAX = 20_000
+const REMEMBERED_MOST = 600
+export const rememberedHeightOk = (h: unknown): h is number => typeof h === "number" && Number.isFinite(h) && h >= REMEMBERED_HEIGHT_MIN && h <= REMEMBERED_HEIGHT_MAX
+export function rememberedHeightsFrom(parsed: unknown, keyShape: RegExp, widthOk?: (key: string) => boolean): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return out
+  let n = 0
+  for (const [key, h] of Object.entries(parsed as Record<string, unknown>)) {
+    if (n >= REMEMBERED_MOST) break
+    if (key.length > 200 || !keyShape.test(key) || !rememberedHeightOk(h) || (widthOk && !widthOk(key))) continue
+    out[key] = Math.ceil(h)
+    n++
+  }
+  return out
+}
+
+/** A short tag of some text: a change anywhere in what is tagged is a new tag. */
+export function textTag(parts: readonly string[]): string {
+  let h = 0
+  for (const s of parts) {
+    for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0
+    h = (Math.imul(h, 31) + 124) | 0
+  }
+  return (h >>> 0).toString(36)
+}
+
 /**
  * Where a drawn preview is kept. The width is part of it because a section
  * drawn at 390 is a different document from one drawn at 800, and the
