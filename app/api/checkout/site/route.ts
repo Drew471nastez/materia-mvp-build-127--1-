@@ -41,6 +41,7 @@ import { convertOrder, lineTaxShares, offersInMarket } from "@/lib/markets/check
 import { differsFromShown, shownTotalOf, TOTAL_CHANGED } from "@/lib/checkout/shown-total"
 import { formatMinor } from "@/lib/markets/money"
 import { cartVisitorOf, visitorHash } from "@/lib/cart-uploads/sign"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 /** The SHA-256 of this browser's `sl_cart_uid` on this host, or null when it never uploaded a picture here. */
 function cartVisitorHashOf(request: Request): string | null {
@@ -500,13 +501,13 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   try {
     let pi: Stripe.PaymentIntent
     try {
-      pi = await stripe.paymentIntents.create(params)
+      pi = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("site-intent", [(creator as { id: string }).id], params) })
     } catch (e) {
       const said = String((e as Error)?.message || "").toLowerCase()
       if (!((params.statement_descriptor_suffix && said.includes("statement_descriptor")) || (params.on_behalf_of && said.includes("on_behalf_of")))) throw e
       delete params.statement_descriptor_suffix
       delete params.on_behalf_of
-      pi = await stripe.paymentIntents.create(params)
+      pi = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("site-intent", [(creator as { id: string }).id], params) })
     }
     const started = pi.id
     const first = priced.lines[0]

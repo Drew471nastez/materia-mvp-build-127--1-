@@ -78,6 +78,8 @@ export interface BillingOverview {
   paymentMethod: unknown
   /** A plan set from /admin over what they pay for, or null. */
   override?: string | null
+  /** Stripe could not be asked just now: the plan shown is the last one known (Stripe's last answer, or the stored plan). */
+  stale?: boolean
 }
 
 /** Null when there is nobody signed in, or no creator to bill. */
@@ -226,5 +228,5 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
     currentPlan = (plans as { id?: string }[]).find((p) => p?.id === override.planId) ?? FALLBACK_PLANS.find((p) => p.id === override.planId) ?? currentPlan
   }
 
-  return { plans, subscription, currentPlan, invoices, paymentMethod, override: override?.planId ?? null }
+  return { plans, subscription, currentPlan, invoices, paymentMethod, override: override?.planId ?? null, stale: view.stale }
 }

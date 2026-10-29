@@ -6,6 +6,7 @@ import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
 import { intentIdOf, intentOf } from "@/lib/memberships/billing"
 import { retrieveSubscription, syncSubscription } from "@/lib/memberships/sync"
 import { grantsAccess, isMembershipSubscription } from "@/lib/memberships/state"
+import { isStripeNotFound } from "@/lib/billing/subscription-state"
 
 export const runtime = "nodejs"
 
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
   let sub: Stripe.Subscription
   try {
     sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["latest_invoice.confirmation_secret", "pending_setup_intent"] })
-  } catch {
+  } catch (error) {
+    /* Only Stripe saying it is not there is "not found". A timeout or an outage is not: the payment may well have gone through, and the buyer is told to try again, never that their membership does not exist. */
+    if (!isStripeNotFound(error)) return NextResponse.json({ error: "We couldn't reach our payment partner just now. If you paid, your membership is safe. Try again in a moment." }, { status: 503 })
     return NextResponse.json({ error: "That membership could not be found." }, { status: 404 })
   }
   if (!isMembershipSubscription(sub)) return NextResponse.json({ error: "That membership could not be found." }, { status: 404 })

@@ -890,6 +890,8 @@ const SUITES = [
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
   "tests/billing-fail-closed.test.ts",
+  /* Reliability: Stripe bounded (a 20s timeout, two retries with capped jittered backoff, a circuit breaker), the staleness window (Stripe's last answer, then the stored plan, never Free on an error) with a soft line on the billing page, one Stripe object per press (idempotency keys from exact params, no second plan checkout for a creator already paying), a late failed payment that cannot mark a paid plan past due; all against the real SDK and a fake Stripe. */
+  "tests/billing-resilience.test.ts",
   "tests/physical-w7.test.ts",
   "tests/fulfil23.test.ts",
   "tests/tracking24.test.ts",

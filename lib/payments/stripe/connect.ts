@@ -28,6 +28,7 @@ import type { PayoutDestination } from "../hub-types"
 
 export type { StripeAccountSessionPurpose } from "./session-components"
 import type { StripeAccountSessionPurpose } from "./session-components"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 const CREATOR_STRIPE_COLUMNS =
   "id, user_id, username, display_name, bio, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, details_submitted, stripe_requirements, stripe_requirements_updated_at, stripe_connected_at"
@@ -289,7 +290,7 @@ export async function ensureStripeAccount(
     let account: Stripe.Account
     if (replacing) {
       try {
-        account = await createConnectedAccount(shared, country, { storelibOnly: true })
+        account = await createConnectedAccount(shared, country, { storelibOnly: true, keyParts: [creator.id, replacing] })
       } catch (error) {
         console.error("[stripe connect] kept the existing account", stripeErrorMessage(error).replace(/\s+/g, " ").slice(0, 180))
         return replacing
@@ -299,7 +300,7 @@ export async function ensureStripeAccount(
       })
       await noteAccountReset(creator.id, replacing, "incomplete_replaced")
     } else {
-      account = await createConnectedAccount(shared, country)
+      account = await createConnectedAccount(shared, country, { keyParts: [creator.id, "new"] })
     }
     accountId = account.id
 
@@ -375,7 +376,7 @@ async function platformCountry(): Promise<string> {
 async function createConnectedAccount(
   shared: Stripe.AccountCreateParams,
   country: string,
-  options: { storelibOnly?: boolean } = {},
+  options: { storelibOnly?: boolean; keyParts?: string[] } = {},
 ): Promise<Stripe.Account> {
   const platform = await platformCountry().catch(() => "")
   const route = payoutRoute(platform, country)
@@ -395,7 +396,8 @@ async function createConnectedAccount(
   let countryBlocked: unknown
   for (const params of attempts) {
     try {
-      return await stripe.accounts.create(params)
+      /* Two presses of Start (two tabs, a double tap) open one account, not two with the second left orphaned on Stripe: the same params inside ten minutes are the same account. */
+      return await stripe.accounts.create(params, options.keyParts ? { idempotencyKey: stripeIdempotencyKey("connect-account", options.keyParts, params, { windowMs: 10 * 60_000 }) } : undefined)
     } catch (error) {
       last = error
       const msg = stripeErrorMessage(error)
