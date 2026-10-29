@@ -22,6 +22,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { createPickStore, shownSection } from "@/lib/website-builder/pick-store"
 import { holdHoverWhileWheeling, WHEEL_HOLD_ATTRIBUTE, WHEEL_HOLD_REST_MS, WHEEL_LIST_HOLD_ATTRIBUTE, WHEEL_SHIELD_ATTRIBUTE } from "@/lib/website-builder/wheel-hold"
 
 let passed = 0
@@ -217,11 +218,11 @@ function sources() {
   check("the thumb is moved by a transform, never by top", /style\.transform/.test(paint) && !/style\.top\s*=/.test(paint), paint.slice(0, 200))
   check("the thumb is its own layer", /willChange: "transform, opacity"/.test(bar))
   const css = read("app/globals.css")
-  check("a wheeled list is covered by its pane, under an attribute of its own", /\.wb-list-shield \{[^}]*position: sticky;[^}]*bottom: 0;[^}]*height: 0;[^}]*pointer-events: none;/.test(css) && /\.wb-slim-scroll\[data-wb-list-wheeling\] > \.wb-list-shield::after \{\s*pointer-events: auto;/.test(css))
+  check("every panel list wheeled is covered by its own ::after, under an attribute of its own", /\.wb-slim-scroll\[data-wb-list-wheeling\]:not\(\.flex\):not\(\.grid\)::after \{[^}]*position: sticky;[^}]*bottom: 0;[^}]*height: 100vh;[^}]*margin-top: -100vh;[^}]*pointer-events: auto;/.test(css))
   check("  no hold switches pointer-events on content itself (that restyled the whole page, or the whole list, each hold)", !/\[data-wb(-list)?-wheeling\][^{,]*> \*/.test(css))
-  check("  the sections list, a section's settings and the settings column each end with a pane", (read("app/website-builder/editor/[installId]/page.tsx").match(/<div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" \/>/g) ?? []).length === 3)
+  check("  no pane in the markup of a list: one rule covers them all", !/className="wb-list-shield"/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   const rail = read("components/website-builder/editor/slim-scroll-rail.tsx")
-  check("the sidebar's lists hold hover under the wheel, the section library's own list left alone", /holdHoverWhileWheeling\(`\$\{SELECTOR\}:not\(\[data-library-scroll\]\)`, \{ attribute: WHEEL_LIST_HOLD_ATTRIBUTE \}\)/.test(rail) && /letGo\(\)/.test(rail))
+  check("the sidebar's lists hold hover under the wheel, the section library's own list left alone", /holdHoverWhileWheeling\(`\$\{SELECTOR\}:not\(\[data-library-scroll\]\):not\(\[contenteditable\]\):not\(textarea\)`, \{ attribute: WHEEL_LIST_HOLD_ATTRIBUTE \}\)/.test(rail) && /letGo\(\)/.test(rail))
   check("the sidebar's thumb is moved by the list's own scroll where the browser can", /scroll-timeline/.test(rail) && /data-scroll-driven/.test(rail) && /@keyframes wb-slim-thumb/.test(css) && /animation-timeline: --wb-slim-scroll;/.test(css))
   check("the pane takes the pointer only while it holds", /\.wb-wheel-shield \{[^}]*position: sticky;[^}]*height: 100cqh;[^}]*margin-top: -100cqh;[^}]*pointer-events: none;/.test(css) && /#wb-preview-root\[data-wb-wheeling\] > \.wb-wheel-shield \{\s*pointer-events: auto;/.test(css))
   check("the page's own content is never switched (that restyled the whole page twice a gesture)", !/#wb-preview-root\[data-wb-wheeling\] > \*/.test(css))
@@ -236,10 +237,36 @@ function sources() {
   check("a select reads its width from its observer, not in its layout effect", /entries\[entries\.length - 1\]\.contentRect\.width/.test(effect) && !/^\s*decide\(\)\s*$/m.test(effect) && /flushSync\(\(\) => setShape\(next\)\)/.test(effect))
   const probe = read("scripts/check-editor-perf.mjs")
   check("the probe measures the sidebar, a section switch and a push stream under a moving canvas", /async function smoothScenario/.test(probe) && /PART\.includes\("smooth"\)/.test(probe) && /window\.PROBE_RAIL=true/.test(probe))
+  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  check("a pick is not the editor's state: it is set in the pick store, and the tree opens in the panel's own transition", /pickStore\.set\(\{ id: sectionId, from: selectedPanelNow\.current \}\)\s*\n\s*startTransition\(\(\) => \{\s*\n\s*setSelectedPanel\(\{ type: "section", sectionId \}\)\s*\n\s*setSelectedBlockId\(blockId\)\s*\n\s*setTreeOpen\(/.test(page) && !/useState<\{ id: string; from: Panel \} \| null>/.test(page))
+  check("  the list, the canvas and the toolbar read it where they draw it", (page.match(/<ShownSection store=\{pickStore\} panel=\{selectedPanel\} selected=\{selectedSectionId\}>\{\(shownSectionId\) =>/g) ?? []).length === 3)
+  const tip = read("components/ui/tooltip.tsx")
+  check("a tooltip inside a provider uses it, with its own delay still 0 unless it asks", /const shared = React\.useContext\(SharedProvider\)/.test(tip) && /if \(shared\) return <TooltipPrimitive\.Root data-slot="tooltip" delayDuration=\{delayDuration \?\? 0\} \{\.\.\.props\} \/>/.test(tip))
+  check("  and the editor is one provider for all of its tooltips", /return \(\s*\n\s*\/\* One tooltip provider for every tooltip of the editor[^\n]*\n\s*<TooltipProvider>\s*\n\s*<div/.test(page))
+  check("the toolbar's buttons draw again only when their label, state or handler changes", /const ToolbarButton = memo\(function ToolbarButton/.test(page) && /\(a, b\) => a\.label === b\.label && a\.disabled === b\.disabled && a\.onClick === b\.onClick\)/.test(page))
   check("this suite runs with the others", read("scripts/run-push-tests.mjs").includes('"tests/editor-smooth-r44.test.ts"'))
 }
 
+function picks() {
+  console.log("\nA pick is said through its own store")
+  const store = createPickStore<{ type: string }>()
+  const pages = { type: "pages" }
+  let told = 0
+  const off = store.subscribe(() => { told++ })
+  store.set({ id: "hero", from: pages })
+  check("a pick tells who reads it", told === 1 && store.get()?.id === "hero")
+  check("  shown at once while its panel is on the way", shownSection(store.get(), pages, null) === "hero")
+  check("  and the panel is the truth once any panel change lands", shownSection(store.get(), { type: "section" }, "faq") === "faq")
+  const same = store.get()
+  store.set(same)
+  check("  the same pick again tells nobody", told === 1)
+  off()
+  store.set(null)
+  check("  a reader that left is not told", told === 1)
+}
+
 async function main() {
+  picks()
   await hold()
   sources()
   console.log(`\n${passed} passed, ${failed} failed`)

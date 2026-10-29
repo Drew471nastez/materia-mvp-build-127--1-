@@ -69,7 +69,7 @@ import { describeChange, pageEventPlan, pickConnection, sectionTypeOf, type Acti
 import { createClient } from "@/lib/supabase/client"
 import { setWebsiteUploadOwner } from "@/lib/website-builder/team-upload-owner"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField, SectionSchema, BlockInstance, BlockSchema, SectionPreset } from "@/lib/website-builder/types"
@@ -84,6 +84,7 @@ import { changedThemeKeys, drawnByVariablesAlone } from "@/lib/website-builder/t
 import { schemeColoursOnly, schemeVarWriter, type SchemeRoot } from "@/lib/website-builder/scheme-var-patch"
 import { deferLive, echoBlockSetting, echoSectionSetting, echoThemeSetting, isLive, reconcileEchoes, reconcileThemeEcho, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
+import { createPickStore, ShownSection } from "@/lib/website-builder/pick-store"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
@@ -7179,16 +7180,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     over: once any panel change lands (this one, or another that overtook
     it), the panel itself is the truth again.
   */
-  const [picked, setPicked] = useState<{ id: string; from: Panel } | null>(null)
+  /*
+    THE PICK IS NOT THE EDITOR'S STATE (round 44). Said at once it was a
+    render of the whole editor, and the tree opening for it a third one after
+    the panel's: three editor renders a pick. It is a small store now, read
+    where it is drawn (lib/website-builder/pick-store.ts ShownSection), and
+    the tree opens in the panel's own transition: one editor render a pick.
+  */
+  const [pickStore] = useState(() => createPickStore<Panel>())
   const selectedPanelNow = useRef(selectedPanel)
   selectedPanelNow.current = selectedPanel
   const pickSection = useCallback((sectionId: string, blockId: string | null) => {
-    setPicked({ id: sectionId, from: selectedPanelNow.current })
+    pickStore.set({ id: sectionId, from: selectedPanelNow.current })
     startTransition(() => {
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId)
+      setTreeOpen((prev) => (prev.has(sectionId) ? prev : new Set(prev).add(sectionId)))
     })
-  }, [])
+  }, [pickStore])
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => {
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
@@ -7534,8 +7543,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
-  /* What is drawn as selected: the pick while its panel is on the way (pickSection), the panel's section otherwise. */
-  const shownSectionId: string | null = picked && picked.from === selectedPanel ? picked.id : selectedSectionId
+  /* What is drawn as selected: the pick while its panel is on the way (pickSection), the panel's section otherwise. Read where it is drawn, through ShownSection. */
   /* The section being edited is open in the tree when you go back to it, its blocks showing, as Shopify's tree follows a selection. */
   useEffect(() => {
     if (!selectedSectionId) return
@@ -8569,6 +8577,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div ref={keepListScroll} onScroll={noteListScroll} data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
               {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. Add block's picker: block-picker.tsx. */}
               <BlockPickerProvider theme={settingsDraft} sources={storelibSources} compatInstallId={compatInstall ? installId : null}>
+              <ShownSection store={pickStore} panel={selectedPanel} selected={selectedSectionId}>{(shownSectionId) => (
               <SectionsList
                 sections={panelHeld ? panelSections.current : sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
@@ -8634,9 +8643,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 dnd={{ onReorder: reorderSection }}
                 pinned={pinnedSection}
               />
+              )}</ShownSection>
               </BlockPickerProvider>
-              {/* Takes the pointer over the rows while the wheel moves them (wheel-hold.ts). Last, and no room. */}
-              <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
             </div>
           )}
         </div>
@@ -8928,8 +8936,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </button>
               </div>
             ) : null}
-            {/* Takes the pointer over the settings while the wheel moves them (wheel-hold.ts). Last, and no room. */}
-            <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
           </div>
 
           {/* ── The section's actions, pinned under its settings ──
@@ -10693,6 +10699,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
 
   return (
+    /* One tooltip provider for every tooltip of the editor (components/ui/tooltip.tsx): not one each. */
+    <TooltipProvider>
     <div
       /**
        * This surface polices its own touch. `CapacitorBounceGuard` listens on
@@ -11450,8 +11458,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </div>
                 </EditorFieldProvider>
                 </LinkTargetsProvider>
-                {/* Takes the pointer over the settings while the wheel moves them (wheel-hold.ts). Last, and no room. */}
-                <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -12131,7 +12137,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * how a section is rendered, with selection, hovering and the
                * device mode on it.
                */}
-              {canvasCompat ? (
+              <ShownSection store={pickStore} panel={selectedPanel} selected={selectedSectionId}>{(shownSectionId) => canvasCompat ? (
                 /* An imported Shopify theme: drawn by the same function its website is (components/website-builder/compat/compat-canvas.tsx). */
                 <CompatCanvas
                   installId={installId}
@@ -12212,7 +12218,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 languagePreview={canvasSwitch}
                 storeCurrency={previewMarket.base}
               />
-              )}
+              )}</ShownSection>
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
               <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} label={aiWorkingLabel} />
               </div>
@@ -12236,7 +12242,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
-          {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && (() => {
+          {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && <ShownSection store={pickStore} panel={selectedPanel} selected={selectedSectionId}>{(shownSectionId) => {
             const current = sections.find((x) => x.id === shownSectionId)
             if (!current) return null
             /* Moved inside its own group; the header and the footer themselves are not moved, copied or deleted from here. */
@@ -12308,7 +12314,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 removeNote={pinnedSection(current) ? tt(PINNED_NOTE) : undefined}
               />
             )
-          })()}
+          }}</ShownSection>}
 
           {/* ── Ask Storelib on a computer ──
               A frosted pill at the bottom centre of the canvas, over it and
@@ -12441,6 +12447,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   )
 }
 
@@ -12544,18 +12551,25 @@ const CanvasInsertStrip = memo(function CanvasInsertStrip({ at, onAdd }: { at: n
  * scrolls out of reach, and hidden entirely when the section has scrolled
  * past.
  */
-/** A button on the section toolbar, with its tooltip. */
-function ToolbarItem({
-  label,
-  onClick,
-  disabled,
-  children,
-}: {
+type ToolbarItemProps = {
   label: string
   onClick: () => void
   disabled?: boolean
   children: React.ReactNode
-}) {
+}
+/** A button on the section toolbar, with its tooltip. */
+function ToolbarItem(props: ToolbarItemProps) {
+  return <ToolbarButton {...props} />
+}
+/*
+  DRAWN AGAIN ONLY WHEN IT CHANGES (round 44). The toolbar renders three or
+  four times a pick (where it stands, in the tree, faded in), and each time
+  drew every button's tooltip again: about 80 tooltips of a four section
+  walk (scripts/check-editor-perf.mjs PART=smooth HOOKS=1). Its handlers are
+  stable (useStableHandlers) and every button's icon follows its label, so a
+  button with the same label, state and handler is the same button.
+*/
+const ToolbarButton = memo(function ToolbarButton({ label, onClick, disabled, children }: ToolbarItemProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -12579,7 +12593,7 @@ function ToolbarItem({
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   )
-}
+}, (a, b) => a.label === b.label && a.disabled === b.disabled && a.onClick === b.onClick)
 
 /** How long the section toolbar takes to arrive, and to leave. */
 const TOOLBAR_FADE_MS = 200

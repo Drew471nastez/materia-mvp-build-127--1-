@@ -140,7 +140,7 @@
  * It was the browser drawing a frame every frame, and three things asked for
  * it (TRACE=scroll, each taken away alone and together):
  *
- *   the canvas's thumb moved by `top`, then the sidebar's by transform, each
+ *   the canvas's thumb moved by `top`, then the sidebar's by a translate, each
  *     scrolled frame: a repaint, and every repaint layerizes the whole
  *     editor (about 1s of a three second wheel at 4x). Both now ride the
  *     scroll itself, a scroll-driven animation, where the browser can

@@ -171,8 +171,8 @@ export function SlimScrollRail() {
       if (current) show(current)
     }
 
-    /* A list being wheeled takes no pointer until it rests (wheel-hold.ts). Not the section library's: that one is its own. */
-    const letGo = holdHoverWhileWheeling(`${SELECTOR}:not([data-library-scroll])`, { attribute: WHEEL_LIST_HOLD_ATTRIBUTE })
+    /* Every panel's list being wheeled takes no pointer until it rests (wheel-hold.ts, its pane is the list's ::after in globals.css). Not the section library's, which is its own, and not a field you type in. */
+    const letGo = holdHoverWhileWheeling(`${SELECTOR}:not([data-library-scroll]):not([contenteditable]):not(textarea)`, { attribute: WHEEL_LIST_HOLD_ATTRIBUTE })
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("pointerover", onOver, { passive: true })
     document.addEventListener("pointerout", onLeaveWindow, { passive: true })

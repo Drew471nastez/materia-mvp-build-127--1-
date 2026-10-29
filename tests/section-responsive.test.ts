@@ -2373,7 +2373,8 @@ check(
     /if \(!frame\) frame = requestAnimationFrame\(measure\)/.test(editor) &&
     /<SectionToolbar/.test(editor) &&
     /* What the canvas draws trails the switch by one fade (toggleInspector). Not in full screen, which is the site alone (scripts/check-full-screen.mjs). */
-    /canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
+    /* Changed on purpose (round 44): the toolbar reads the pick where it is drawn (lib/website-builder/pick-store.ts ShownSection), not from the editor's state */
+    /canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && <ShownSection store=\{pickStore\} panel=\{selectedPanel\} selected=\{selectedSectionId\}>\{\(shownSectionId\) => \{/.test(editor),
 )
 
 check(

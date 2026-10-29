@@ -8179,29 +8179,22 @@ html[data-canvas-swap]::view-transition-new(root) {
 }
 /*
   A panel's list being wheeled: a clear pane over its rows takes the pointer
-  until it rests (the same file). Its own attribute, and a pane rather than
-  the rows themselves: switching pointer-events on the rows restyled them
-  all twice a gesture (200ms tasks at a quarter speed), the pane is one
-  element. Zero high and stuck to the bottom of the list, it takes no room;
-  what it lays over the list is its ::after, clipped by the list.
+  until it rests (the same file). The pane is the list's own ::after, there
+  only while it holds: every panel's list has one without a line of markup,
+  and switching it restyles the list's own box, not its rows (pointer-events
+  on the rows restyled them all twice a gesture, 200ms tasks at a quarter
+  speed). As tall as the screen, stuck to the list's bottom and pulled up by
+  its own height, it takes no room; a flex or grid list would give it a gap
+  or a track, so those are left as they are.
 */
-.wb-list-shield {
+.wb-slim-scroll[data-wb-list-wheeling]:not(.flex):not(.grid)::after {
+  content: "";
+  display: block;
   position: sticky;
   bottom: 0;
-  height: 0;
-  z-index: 40;
-  pointer-events: none;
-}
-.wb-list-shield::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
   height: 100vh;
-  pointer-events: none;
-}
-.wb-slim-scroll[data-wb-list-wheeling] > .wb-list-shield::after {
+  margin-top: -100vh;
+  z-index: 40;
   pointer-events: auto;
 }
 /* The canvas's thumb, moved by the canvas's own scroll where the browser can (components/website-builder/canvas-scrollbar.tsx): the compositor's work, nothing on the main thread per frame. Its two ends are written when the page changes size. */

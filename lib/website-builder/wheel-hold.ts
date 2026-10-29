@@ -21,8 +21,8 @@
  *     (`.wb-wheel-shield`, globals.css). Switching pointer-events on the
  *     page itself restyled every element of it, a 100 to 300ms task at a
  *     quarter speed, twice a gesture; the pane is one element.
- *   The sidebar's lists, the same way: a clear pane over the rows
- *     (`.wb-list-shield`), under an attribute of their own.
+ *   Every panel list (`.wb-slim-scroll`), the same way: its own ::after
+ *     is the pane while it holds, under an attribute of its own.
  *
  * It lets go when the gesture rests, when the mouse really moves, and on a
  * press. A press that came while it held was aimed at whatever is under the
