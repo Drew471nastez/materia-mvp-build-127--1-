@@ -631,6 +631,8 @@ const SUITES = [
   "tests/offers-subpages.test.ts",
   /* Round 41: community MRR and payments received agree everywhere, collections as pages, Edit profile, a code's minimum after offers, Low includes 0. */
   "tests/community-revenue-collections-r41.test.ts",
+  /* Round 43: a community's MRR is one figure on the list, its Overview, its stats and both Analytics, whatever exchange rates are kept. */
+  "tests/community-money-r43.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
@@ -901,6 +903,8 @@ const SUITES = [
   "tests/emails23.test.ts",
   "tests/integrations23.test.ts",
   "tests/marketing24.test.ts",
+  /* Connected email platforms: Brevo, MailerLite and Kit on the marketing sync (key checked, subscribers pushed, unsubscribes both ways and by webhook, order events as events, groups and tags, a 429 retried without sending twice), and the store's own sending domain with Mailgun, all against fake HTTP. */
+  "tests/connected-platforms.test.ts",
   "tests/partners24.test.ts",
   /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
   "tests/fulfilment-ae3.test.ts",
@@ -1011,6 +1015,8 @@ const SUITES = [
   "tests/view-online.test.ts",
   /* Round cn-1028: community emails and automations edited from Emails itself, Customer emails' family pills without the slide, the editor's preview drawn once per version and shown at once. */
   "tests/emails-community-in-place.test.ts",
+  /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round, the name beside a square icon; settled at send from the picture's size. */
+  "tests/email-logo-shape.test.ts",
 ]
 
 /**
@@ -1115,6 +1121,8 @@ const STRICT_SUITES = [
   "tests/onepage-public-r41.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
+  /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
+  "tests/onepage-editor-r43.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

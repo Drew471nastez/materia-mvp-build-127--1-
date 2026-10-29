@@ -415,7 +415,8 @@ export function StorelibSection({
       email,
       name,
       /* The password page's box is a "tell me when you open", and its consent line says so. */
-      placement: section.type === "main_password" ? "password" : /newsletter/.test(section.type) ? "newsletter" : "section",
+      /* A popup's box is the popup's (round 43): Emails › Subscribers names it Popup. */
+      placement: section.type === "main_password" ? "password" : section.type === "popup" ? "popup" : /newsletter/.test(section.type) ? "newsletter" : "section",
       company: form.querySelector<HTMLInputElement>('input[name="company"]')?.value ?? "",
     })
     if (result.ok === false) settle(form, "error", result.error)

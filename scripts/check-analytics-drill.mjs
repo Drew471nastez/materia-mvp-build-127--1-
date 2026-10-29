@@ -13,8 +13,8 @@
  *             the share of the width each band's cards cover (a band in a
  *             row gap covers nothing and is skipped). An empty right half
  *             is a band at ~50%
- *   drill     "View report" on a card and on the chart: the panel's box
- *             mid-slide and at rest, its rows against the card's, and gone
+ *   drill     the expand button on a card and on the chart: the window's box
+ *             as it rises and at rest (centred, round 43), its rows against the card's, and gone
  *             after Escape (or the sheet's own close on a phone)
  *   switch    the kind switched with a 700ms server: how long until the
  *             figures change, that the old ones stay on screen meanwhile,
@@ -200,8 +200,9 @@ try {
     if (shot) {
       if (phone) expect(shot.bottom >= 840 && shot.h > 600, "on a phone: the tall sheet from the bottom", shot)
       else {
-        expect(shot.panel && shot.right === width && shot.w >= 560 && shot.w <= 600 && shot.h === 900, "on a computer: a panel at the right edge, the full height", shot)
-        expect(mid && mid.left > shot.left + 20, "it slides in (caught to the right of its rest 120ms in)", { mid: mid && mid.left, rest: shot.left })
+        /* Changed on purpose (round 43): a centred window, not a panel at the right edge. */
+        expect(shot.panel && Math.abs(shot.left - (width - shot.right)) <= 1 && shot.w >= 640 && shot.w <= 720 && shot.top > 40 && shot.h <= 900 * 0.86 + 1, "on a computer: a window in the middle, at most 720px wide and 86% tall", shot)
+        expect(mid && mid.top >= shot.top, "it rises in (caught at or below its rest 120ms in)", { mid: mid && mid.top, rest: shot.top })
       }
       expect(shot.figure && shot.chart, "the figure and its chart over time", shot)
       expect(shot.rows >= cardRows && shot.rows > 0, "every row, at least as many as the card", { card: cardRows, panel: shot.rows })

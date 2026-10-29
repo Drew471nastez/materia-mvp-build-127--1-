@@ -97,6 +97,7 @@ export async function POST(request: Request) {
   const result = await sendMailgunOnce({
     to: asked,
     from: sender.from,
+    ...(sender.sendingDomain ? { sendingDomain: sender.sendingDomain } : {}),
     replyTo: sender.replyTo,
     subject: `Test: ${subject}`,
     html: buildEmail({

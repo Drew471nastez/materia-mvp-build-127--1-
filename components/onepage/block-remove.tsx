@@ -16,10 +16,10 @@
  *                in the page's ink, red only on a hover or a press.
  *   THE QUESTION opens under the row to its own height (./reveal), the
  *                row stays where it was, and focus goes to the first choice.
- *   THE CHOICES  two cards side by side, each a name and one short line:
+ *   THE CHOICES  (round 43: one compact line) the question, then Cancel,
  *                Archive (it can come back, from the Archive at the top of
- *                the list) and Delete (for good, in red). Cancel under them,
- *                and Escape does the same.
+ *                the list) and Delete (for good, in red), each a 32px key.
+ *                Escape cancels too.
  *
  * Round 41: a block inside a group has the same foot. Its first choice is
  * Move out (back on the page, under the group) instead of Archive, through
@@ -37,6 +37,12 @@ const moveKey = cn(
   "grid h-8 w-9 place-items-center rounded-[9px] text-[#4b5563] transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]",
   "hover:bg-white hover:text-[#1a1a2e] hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)] active:bg-white",
   "disabled:cursor-not-allowed disabled:text-[#c4c8ce] disabled:shadow-none disabled:hover:bg-transparent",
+  focusRing,
+)
+
+/** A key in the remove question: 32px, the move pair's height, tight. */
+const confirmKey = cn(
+  "inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 text-[13px] font-medium transition-[background-color,color] duration-150 [-webkit-tap-highlight-color:transparent]",
   focusRing,
 )
 
@@ -98,19 +104,19 @@ export function BlockFootActions({
           aria-controls={panelId}
           data-block-remove=""
           className={cn(
-            "inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium transition-[background-color,color] duration-150 [-webkit-tap-highlight-color:transparent]",
+            "inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 text-[13px] font-medium transition-[background-color,color] duration-150 [-webkit-tap-highlight-color:transparent]",
             asking ? "bg-[#fef3f2] text-[#b42318]" : "text-[#4b5563] hover:bg-[#fef3f2] hover:text-[#b42318] active:bg-[#fef3f2] active:text-[#b42318]",
             focusRing,
           )}
         >
-          <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+          <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
           {tt("Remove")}
         </button>
       </div>
 
       <Reveal open={asking} id={panelId} returnFocus={removeRef}>
         <div
-          className="pt-3"
+          className="pt-2"
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.stopPropagation()
@@ -118,84 +124,79 @@ export function BlockFootActions({
             }
           }}
         >
-          <div role="group" aria-label={question} className="rounded-2xl border border-[#ececf1] bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-delete-question="">
-            <p className="px-0.5 pb-2.5 text-[13.5px] font-medium text-[#1a1a2e]">{question}</p>
-            <div className={cn("grid gap-2", first ? "grid-cols-2" : "grid-cols-1")}>
+          {/*
+            Round 43, the owner: "the Remove, Archive and Delete buttons are too
+            fat". They were two 64px cards with a line under each name and a
+            full width Cancel under them. Now the question and its answers are
+            one compact line, the way a confirm reads in the rest of /app: the
+            question, then three 32px keys. The line each card carried is the
+            key's title, so a pointer still tells what Archive means.
+          */}
+          <div
+            role="group"
+            aria-label={question}
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-white px-3 py-2 shadow-[0_0_0_1px_#ececf1,0_1px_2px_rgba(16,24,40,0.04)]"
+            data-delete-question=""
+          >
+            <p className="mr-auto min-w-0 text-[13px] font-medium leading-[1.35] text-[#1a1a2e]">{question}</p>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={cancel}
+                data-block-remove-cancel=""
+                className={cn(confirmKey, "text-[#6b7280] hover:bg-[#f4f4f6] hover:text-[#1a1a2e]")}
+              >
+                {tt("Cancel")}
+              </button>
               {archive ? (
                 <button
                   ref={firstChoiceRef}
                   type="button"
                   data-block-archive=""
+                  title={tt("Off the page, back any time")}
                   onClick={() => {
                     hapticTap("light")
                     setAsking(false)
                     onArchive?.()
                   }}
-                  className={cn(
-                    "flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-xl bg-[#f6f6f7] px-3 py-2.5 text-left transition-[background-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]",
-                    "hover:bg-[#efeff2] active:bg-[#e9e9ed]",
-                    focusRing,
-                  )}
+                  className={cn(confirmKey, "bg-[#f4f4f6] text-[#1a1a2e] hover:bg-[#ececf0] active:bg-[#e6e6ea]")}
                 >
-                  <span className="flex items-center gap-1.5 text-[14px] font-semibold text-[#1a1a2e]">
-                    <Archive aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-                    {tt("Archive")}
-                  </span>
-                  <span className="text-[12.5px] leading-[1.35] text-[#6b7280]">{tt("Off the page, back any time")}</span>
+                  <Archive aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  {tt("Archive")}
                 </button>
               ) : keep ? (
                 <button
                   ref={firstChoiceRef}
                   type="button"
                   data-block-keep=""
+                  title={keep.line}
                   onClick={() => {
                     hapticTap("light")
                     setAsking(false)
                     keep.onPick()
                   }}
-                  className={cn(
-                    "flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-xl bg-[#f6f6f7] px-3 py-2.5 text-left transition-[background-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]",
-                    "hover:bg-[#efeff2] active:bg-[#e9e9ed]",
-                    focusRing,
-                  )}
+                  className={cn(confirmKey, "bg-[#f4f4f6] text-[#1a1a2e] hover:bg-[#ececf0] active:bg-[#e6e6ea]")}
                 >
-                  <span className="flex items-center gap-1.5 text-[14px] font-semibold text-[#1a1a2e]">
-                    <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-                    {keep.label}
-                  </span>
-                  <span className="text-[12.5px] leading-[1.35] text-[#6b7280]">{keep.line}</span>
+                  <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  {keep.label}
                 </button>
               ) : null}
               <button
                 ref={first ? undefined : firstChoiceRef}
                 type="button"
                 data-block-delete=""
+                title={tt("Gone for good")}
                 onClick={() => {
                   hapticTap("medium")
                   setAsking(false)
                   onRemove()
                 }}
-                className={cn(
-                  "flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-xl bg-[#fef3f2] px-3 py-2.5 text-left transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent]",
-                  "hover:bg-[#fde8e6] active:bg-[#fcdcd9]",
-                  focusRing,
-                )}
+                className={cn(confirmKey, "bg-[#fef3f2] text-[#b42318] hover:bg-[#fde8e6] active:bg-[#fcdcd9]")}
               >
-                <span className="flex items-center gap-1.5 text-[14px] font-semibold text-[#b42318]">
-                  <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-                  {tt("Delete")}
-                </span>
-                <span className="text-[12.5px] leading-[1.35] text-[#9f3a2f]">{tt("Gone for good")}</span>
+                <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
+                {tt("Delete")}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={cancel}
-              data-block-remove-cancel=""
-              className={cn("mt-2 h-9 w-full rounded-xl text-[13.5px] font-medium text-[#6b7280] transition-colors duration-150 hover:bg-[#f6f6f7] hover:text-[#1a1a2e]", focusRing)}
-            >
-              {tt("Cancel")}
-            </button>
           </div>
         </div>
       </Reveal>

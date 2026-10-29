@@ -46,6 +46,7 @@ import { FONT, esc } from "./rich"
 import { emailImageSrc, initialOf, senderPicture, type SenderPicture } from "./sender"
 import { decodeHtmlEntities } from "@/lib/html-entities"
 import { resolveVariables, variableKey, type ResolveOptions, type VariableValues } from "@/lib/email-variables"
+import { LOGO_FILE_PX, logoImg } from "@/lib/emails/brand-mark"
 
 export interface EmailFrame {
   subject: string
@@ -95,7 +96,8 @@ function avatar(name: string, picture: SenderPicture | null): string {
   if (picture?.kind === "logo") return ""
   const src = picture ? emailImageSrc(picture.url, 28) : null
   if (src) {
-    return `<img src="${esc(src)}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border-radius:14px;border:0;object-fit:cover;">`
+    /* At its own shape, never cut round (round 43, lib/emails/brand-mark.ts): a logo set as the profile photo stays whole. */
+    return `<img src="${esc(src)}" alt="" height="28" style="display:block;width:auto;height:auto;max-width:56px;max-height:28px;border:0;">`
   }
   const letter = esc(initialOf(name))
   return `<div style="width:28px;height:28px;border-radius:14px;background-color:#e5e7eb;color:#374151;font-family:${FONT};font-size:13px;font-weight:600;line-height:28px;text-align:center;">${letter}</div>`
@@ -103,10 +105,11 @@ function avatar(name: string, picture: SenderPicture | null): string {
 
 function header(brand: Brand, picture: SenderPicture | null): string {
   /* The logo only when it is the email's one picture: a creator with a photo is shown by the photo, in the footer. */
-  const logo = picture?.kind === "logo" ? emailImageSrc(picture.url, 200) : null
+  const logo = picture?.kind === "logo" ? emailImageSrc(picture.url, LOGO_FILE_PX) : null
   const store = httpsUrl(brand.storeUrl)
   const inner = logo
-    ? `<img class="sl-logo" src="${esc(logo)}" alt="${esc(brand.name)}" height="40" style="display:block;height:40px;width:auto;max-width:200px;border:0;outline:none;text-decoration:none;">`
+    ? /* The same picture as every other email's (lib/emails/brand-mark.ts): its own shape inside 200 by 40, never cropped. */
+      logoImg(logo, brand.name, "sl-logo")
     : `<span class="sl-brand" style="font-family:${FONT};font-size:17px;line-height:24px;font-weight:700;color:#111827;text-decoration:none;">${esc(brand.name)}</span>`
   const linked = store ? `<a href="${esc(store)}" target="_blank" style="text-decoration:none;color:#111827;">${inner}</a>` : inner
   return `<tr><td align="center" style="padding:0 0 20px;">${linked}</td></tr>`

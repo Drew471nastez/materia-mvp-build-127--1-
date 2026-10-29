@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import type { Sent } from "@/lib/emails/activity-server"
+import { shapeOfSize } from "@/lib/emails/brand-mark"
 
 /** The phone sheet's one height, kept whichever pane is showing, so a switch never moves its top edge. */
 export const PHONE_SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
@@ -141,6 +142,25 @@ function innerOf(html: string): string {
 /* The height each email's frame last measured, so it opens at that height the next time and the column does not jump when it is measured. */
 const heightsKept = new Map<string, number>()
 
+/** One logo in the preview's document, its shape read from the picture as it loaded. */
+function settleFrameLogo(img: HTMLImageElement) {
+  const table = img.closest("table[data-logo-shape]")
+  if (!table || table.getAttribute("data-logo-shape") !== "auto") return
+  const shape = shapeOfSize({ width: img.naturalWidth, height: img.naturalHeight })
+  if (!shape) return
+  const row = img.closest("tr")
+  const note = row ? [...row.childNodes].find((n) => n.nodeType === 8 && (n as Comment).data.startsWith("e-logo-name")) as Comment | undefined : undefined
+  if (shape === "square" && note) {
+    note.replaceWith(...(() => {
+      const t = img.ownerDocument.createElement("template")
+      t.innerHTML = `<table><tr>${note.data.replace(/^e-logo-name/, "").replace(/e-logo-name$/, "")}</tr></table>`
+      return [...(t.content.querySelector("tr")?.childNodes ?? [])]
+    })())
+    img.alt = ""
+  } else note?.remove()
+  table.setAttribute("data-logo-shape", shape)
+}
+
 export function PreviewFrame({ title, html, paused = false, heightKey, onDrawn }: { title: string; html: string; paused?: boolean; /** Which email this is: its last measured height is where the frame opens. */ heightKey?: string; /** Told once the email is in the frame's document, for the time from a click to a preview. */ onDrawn?: () => void }) {
   const ref = React.useRef<HTMLIFrameElement>(null)
   const drawn = React.useRef<string | null>(null)
@@ -176,6 +196,15 @@ export function PreviewFrame({ title, html, paused = false, heightKey, onDrawn }
       if (html) drawnRef.current?.()
       doc.querySelectorAll("img").forEach((img) => {
         if (!img.complete) img.addEventListener("load", measure, { once: true })
+      })
+      /* A logo the template could not know the shape of, settled as the sent email's is (lib/emails/brand-mark.ts): the name beside a square one. */
+      doc.querySelectorAll<HTMLImageElement>('table[data-logo-shape="auto"] img').forEach((img) => {
+        const settle = () => {
+          settleFrameLogo(img)
+          measure()
+        }
+        if (img.complete && img.naturalWidth) settle()
+        else img.addEventListener("load", settle, { once: true })
       })
     },
     [html, measure],

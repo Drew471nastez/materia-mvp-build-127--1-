@@ -95,6 +95,8 @@ const PROOFS: [string, RegExp][] = [
      store this account owns or acts in with Website (403 otherwise); websiteInstallCaller adds the install checked to be that store's.
      The route answers with the refusal whenever error is not null, and acts only on what it got back. */
   ["the store behind the session, for the website builder", /const (\w+) = await website(Install)?Caller(<[^\n]*>)?\([^\n]*\n\s*if \(\1\.error !== null/],
+  /* Round ana-1029: GET /api/v1/analytics, a read only key that names one store (lib/analytics/destinations/api-tokens-server, its hash in analytics_api_tokens); every read is .eq("creator_id", who.creatorId). */
+  ["a store's read only analytics key", /const who = await storeOfApiToken\(db, token\)\n\s*if \(!who\)/],
 ]
 
 /**

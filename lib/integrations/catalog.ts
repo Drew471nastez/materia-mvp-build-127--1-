@@ -56,7 +56,9 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews" | "courier_tracking"
+  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync"
+  /** appId marketing_sync: which email platform the sync card connects (lib/integrations/marketing/platforms.ts). */
+  marketingProvider?: "brevo" | "mailerlite" | "kit"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -372,7 +374,6 @@ const LISTED: { id: string; name: string; category: IntegrationCategory; physica
   { id: "autods", logo: "/integrations/autods.png", name: "AutoDS", category: "dropshipping", physical: true, summary: "Product imports, price and stock monitoring, automatic orders.", about: "AutoDS imports products, keeps their price and stock in step with the supplier and orders them automatically.", docsUrl: "https://www.autods.com/" },
   { id: "syncee", logo: "/integrations/syncee.png", name: "Syncee", category: "dropshipping", physical: true, summary: "Wholesale and dropshipping suppliers from one marketplace.", about: "Syncee connects you with wholesale and dropshipping suppliers and keeps their catalogue in sync.", docsUrl: "https://syncee.com/" },
   { id: "mailchimp", logo: "/integrations/mailchimp.svg", name: "Mailchimp", category: "email", physical: false, summary: "Your subscribers and buyers in your Mailchimp audience.", about: "Mailchimp would receive your Storelib subscribers and buyers in one of your audiences, with their consent.", docsUrl: "https://mailchimp.com/developer/" },
-  { id: "brevo", logo: "/integrations/brevo.svg", name: "Brevo", category: "email", physical: false, summary: "Email and SMS campaigns to your Storelib contacts.", about: "Brevo would receive your Storelib contacts for email and SMS campaigns.", docsUrl: "https://developers.brevo.com/" },
   { id: "zapier", logo: "/integrations/zapier.svg", name: "Zapier", category: "automation", physical: false, summary: "Send new orders and subscribers to thousands of apps.", about: "Zapier would start your Zaps from Storelib events: a new order, a new subscriber, a refund.", docsUrl: "https://zapier.com/" },
   { id: "make", logo: "/integrations/make.svg", name: "Make", category: "automation", physical: false, summary: "Visual automations started by your store's events.", about: "Make would start your scenarios from Storelib events, like a new order or a new subscriber.", docsUrl: "https://www.make.com/" },
 ]
@@ -435,6 +436,50 @@ const STORELIB_APPS: Integration[] = [
 ]
 
 /**
+ * EMAIL PLATFORMS, CONNECTED WITH A KEY (lib/integrations/marketing/
+ * platforms.ts): the same sync as Klaviyo and Omnisend, also in Emails ›
+ * Platforms. Consented subscribers onto the chosen list, unsubscribes both
+ * ways, order events in each one's own terms.
+ */
+function marketingApp(id: "brevo" | "mailerlite" | "kit", name: string, logo: string | null, summary: string, events: string, docsUrl: string): Integration {
+  const subscribersOnly = id !== "brevo"
+  return {
+    id,
+    name,
+    category: "email",
+    logo,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "marketing_sync",
+    marketingProvider: id,
+    summary,
+    about: [
+      `Your subscribers who said yes go to ${name} within a minute of signing up anywhere on Storelib: your website, your OnePage, the checkout's news box, a community. Anyone who unsubscribes on Storelib is unsubscribed in ${name} too, and an unsubscribe in ${name} comes back to Storelib.`,
+      events,
+      subscribersOnly ? `Buyers who did not ask for news are never sent to ${name}: everyone in it can be mailed.` : `Buyers who did not ask for news are contacts on no list, so they get no campaign.`,
+    ],
+    glance: [
+      { label: "Works with", value: "Every store" },
+      { label: "You add", value: "An API key" },
+      { label: "Price", value: `Free on Storelib; ${name}'s own pricing applies` },
+    ],
+    data: [
+      `Sent to ${name}: each subscriber's email and name, and for orders the order number, total, currency and items.`,
+      `Your ${name} key is checked with ${name}, stored encrypted on Storelib's server and never sent back to your browser: only its last four characters show.`,
+      `${name} tells Storelib about unsubscribes through a webhook Storelib adds to your account, removed again when you disconnect.`,
+    ],
+    docsUrl,
+  }
+}
+
+const MARKETING_APPS: Integration[] = [
+  marketingApp("brevo", "Brevo", "/integrations/brevo.svg", "Your subscribers and orders in Brevo, unsubscribes both ways.", "Each order is a Brevo event: order_placed, order_fulfilled, order_cancelled and order_refunded, with its total and items, for your automations and segments.", "https://developers.brevo.com/"),
+  marketingApp("mailerlite", "MailerLite", null, "Your subscribers in a MailerLite group, buyers and refunds as groups.", "A subscriber who buys joins the Storelib buyers group, and one refunded joins Storelib refunded, so your automations can start from them.", "https://developers.mailerlite.com/"),
+  marketingApp("kit", "Kit", null, "Your subscribers in Kit with your tag, buyers and refunds as tags.", "A subscriber who buys gets the Storelib buyer tag, and one refunded the Storelib refunded tag, so your sequences can start from them.", "https://developers.kit.com/"),
+]
+
+/**
  * COURIER TRACKING (lib/physical/tracking): built into Storelib for every
  * store that ships, with Storelib's own tracking account. AfterShip is also
  * listed under its own name, because that is what stores search for: its page
@@ -492,14 +537,55 @@ const TRACKING_APPS: Integration[] = [
   },
 ]
 
+/**
+ * SEND ANALYTICS (lib/analytics/destinations): Storelib's own page views,
+ * purchases, refunds, signups and memberships sent on from the server to
+ * Google Analytics 4, Meta's Conversions API, PostHog or a signed webhook,
+ * and read by other tools through the read only Analytics API. The same
+ * list as Analytics › Send to.
+ */
+const ANALYTICS_APPS: Integration[] = [
+  {
+    id: "send-analytics",
+    name: "Send analytics",
+    category: "analytics",
+    logo: null,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "analytics_destinations",
+    summary: "Your Storelib analytics in Google Analytics, Meta, PostHog or your own system.",
+    about: [
+      "Storelib sends what it already counts from its own server: page views, purchases with their items, refunds, signups and memberships. Google Analytics 4 gets them through the Measurement Protocol, Meta through the Conversions API, PostHog as events, and your own system as signed JSON.",
+      "A purchase is sent with the same id your store's browser pixel uses, so Google and Meta count it once. A tool that is busy or down is asked again for a day. Google Ads conversions come from Google Analytics 4: link the two and import purchase and generate_lead.",
+      "The Analytics API gives a spreadsheet or a script your daily visitors, views, orders and revenue, and your top products and pages, with a read only key you can revoke.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Sends to", value: "Google Analytics 4, Meta, PostHog, a webhook" },
+      { label: "You add", value: "The tool's own ID and key" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "A visitor's ids and browser details go only when their cookie choice allows it: analytics for Google Analytics and PostHog, marketing for Meta.",
+      "Emails and phone numbers go to Google and Meta only as SHA-256 hashes, and only with marketing consent. PostHog never gets them.",
+      "Test sales and free claims are never sent. Keys are encrypted on Storelib's servers and never shown again.",
+    ],
+  },
+]
+
 /** The top of a page, short (round I4: "don't have that much text"). Only where the first paragraph runs long. */
 const LEAD: Record<string, string> = {
   shippypro: "Labels and rates from the carriers on your own ShippyPro account. Coming soon: it has not been run against a real ShippyPro account yet.",
   "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
+  "send-analytics": "Page views, purchases, refunds and signups from Storelib's server to Google Analytics 4, Meta, PostHog or your own system.",
   "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
   aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",
   klaviyo: "Your subscribers, buyers and every order go to Klaviyo. Unsubscribes come back.",
   omnisend: "Your subscribers, buyers and every order go to Omnisend. Unsubscribes come back.",
+  brevo: "Your subscribers and every order go to Brevo. Unsubscribes come back.",
+  mailerlite: "Your subscribers go to MailerLite, buyers and refunds as groups. Unsubscribes come back.",
+  kit: "Your subscribers go to Kit, buyers and refunds as tags. Unsubscribes come back.",
   printful: "Products you sell as print on demand go to Printful when they're paid. Tracking comes back to the order.",
   printify: "Products you sell as print on demand go to Printify when they're paid. Tracking comes back to the order.",
   gelato: "Products you sell as print on demand go to Gelato when they're paid, printed close to your buyer. Tracking comes back.",
@@ -520,7 +606,7 @@ const LEAD: Record<string, string> = {
 */
 const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...ANALYTICS_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

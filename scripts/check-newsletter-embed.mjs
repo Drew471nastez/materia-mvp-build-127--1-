@@ -21,6 +21,9 @@
  * shows the thank you, and the request carries this creator, the address and
  * the box it came from (bar / newsletter).
  *
+ * Round 43 adds the band and the popup, with every layout setting changed,
+ * at 390 and 1280, on the website and in the builder's canvas.
+ *
  *   node scripts/check-newsletter-embed.mjs        SHOTS=/dir for screenshots
  */
 import { execFileSync, spawn } from "node:child_process"
@@ -86,7 +89,13 @@ const files = withStorelibReviewsSection({
   "layout/theme.storelib": wrapCompatTemplate('<html><head><meta name="viewport" content="width=device-width,initial-scale=1">{{ content_for_header }}<style>body{margin:0;font-family:Georgia,serif;color:rgb(40,30,20);--color-button:160,40,30;--color-button-text:255,250,240;--color-background:250,246,238}</style></head><body><main>{{ content_for_layout }}</main></body></html>'),
   "sections/hero.storelib": wrapCompatTemplate('<h1 style="padding:40px 20px">Linen &amp; Co</h1>') + '\\n\\n<schema>\\n{"type":"hero","name":"hero","settings":[]}\\n</schema>\\n',
 })
-const site: SiteData = { creatorId: CREATOR, theme: new CompatTheme(files, {}, { assetUrl: (n) => "/a/" + n }), pages: { home: [{ id: "hero", type: "hero" }, { id: "nl", type: "storelib-newsletter", settings: { look: "bar", heading: "Join our list", consent: "You can unsubscribe at any time." } }] } as never, products: [], collections: [], menus: {}, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "\${{amount}}" } as never, host: "127.0.0.1" }
+const theme = new CompatTheme(files, {}, { assetUrl: (n) => "/a/" + n })
+/* The box's settings and whether this is the builder's canvas come with each request (x-nl-settings, x-nl-canvas), so one server draws every look. */
+const siteFor = (req: any): SiteData => {
+  let extra: Record<string, unknown> = {}
+  try { extra = JSON.parse(String(req.headers["x-nl-settings"] ?? "{}")) } catch {}
+  return { creatorId: CREATOR, theme, pages: { home: [{ id: "hero", type: "hero" }, { id: "nl", type: "storelib-newsletter", settings: { look: "bar", heading: "Join our list", consent: "You can unsubscribe at any time.", ...extra } }] } as never, products: [], collections: [], menus: {}, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "\${{amount}}" } as never, host: "127.0.0.1", ...(req.headers["x-nl-canvas"] ? { designMode: true } : {}) }
+}
 const section = { id: "nl2", type: "promo_newsletter", name: "Newsletter Signup", settings: {}, blocks: [] }
 const rendered = renderStorelibSection(section as never, {} as never, { template: "index" })
 const posts: unknown[] = []
@@ -104,6 +113,7 @@ createServer(async (req, res) => {
   let body: Record<string, unknown> | null = null
   if (req.method === "POST") { const raw = await read(req); const ct = String(req.headers["content-type"] ?? ""); if (ct.includes("multipart")) { const fd = await new Response(raw, { headers: { "content-type": ct } }).formData(); body = {}; fd.forEach((v, k) => { (body as any)[k] = String(v) }) } else body = Object.fromEntries(new URLSearchParams(raw)) }
   const ajax = String(req.headers["x-requested-with"] ?? "") === "XMLHttpRequest"
+  const site = siteFor(req)
   const r = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cart: [], ajax, submit: async (kind, payload) => { posts.push({ route: kind, body: payload }); return { ok: true, status: 200 } } })
   res.statusCode = r.status
   for (const [k, v] of Object.entries(r.headers ?? {})) res.setHeader(k, v as string)
@@ -161,6 +171,69 @@ try {
     await page.goto(`${base}/`, { waitUntil: "networkidle0" })
     expect(await page.evaluate(() => document.querySelector(".slnl--bar")?.hidden === true), "  and the next visit does not show the bar to somebody already on the list")
     await page.close()
+  }
+
+  /*
+    ROUND 43: THE OTHER LOOKS AND THEIR SETTINGS. The band in the page and the
+    popup, as the presets add them and with every layout setting changed, at
+    390 and 1280, on the website and in the builder's canvas: the button is
+    drawn with its label and 44px tall, inline puts it beside the box from
+    520px and stacked under it, the alignment, padding, colours and name box
+    apply, and on the website a sign up carries the name and the box.
+  */
+  const LOOKS = [
+    { id: "inline", settings: { look: "inline", align: "center" }, want: { row: true, align: "center" } },
+    { id: "inline-styled", settings: { look: "inline", align: "left", form_layout: "stacked", width: "narrow", padding_top: 96, padding_bottom: 24, background: "#1d2b3a", text_color: "#ffffff", button_color: "#f5c542", button_text_color: "#1d2b3a", show_name: true, name_placeholder: "Your name", image: "/a/pic.png" }, want: { row: false, align: "left", pt: 96, bg: "rgb(29, 43, 58)", btnBg: "rgb(245, 197, 66)", name: "Your name", image: true } },
+    { id: "popup", settings: { look: "popup", align: "center", form_layout: "stacked", width: "narrow", delay: 0 }, want: { row: false, align: "center", popup: true } },
+  ]
+  for (const width of [390, 1280]) {
+    for (const canvas of [false, true]) {
+      for (const L of LOOKS) {
+        const tag = `${L.id} ${canvas ? "canvas" : "live"} ${width}`
+        console.log(`\nImported theme, Storelib Newsletter ${tag}`)
+        const page = await (await browser.createBrowserContext()).newPage()
+        await page.evaluateOnNewDocument(() => { globalThis.__name = (f) => f })
+        page.on("pageerror", (e) => expect(false, "no script error on the page", String(e)))
+        await page.setExtraHTTPHeaders({ "x-nl-settings": JSON.stringify(L.settings), ...(canvas ? { "x-nl-canvas": "1" } : {}) })
+        await page.setViewport({ width, height: 800 })
+        await page.goto(`${base}/`, { waitUntil: "networkidle0" })
+        await new Promise((r) => setTimeout(r, 300))
+        const m = await page.evaluate(() => {
+          const box = document.querySelector(".slnl")
+          const r = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right) } }
+          const card = box?.querySelector(".slnl__card")
+          const btn = box?.querySelector(".slnl__b")
+          const email = box?.querySelector('.slnl__i[type="email"]')
+          const name = box?.querySelector(".slnl__i--name")
+          const words = box?.querySelector(".slnl__words")
+          const fill = box?.classList.contains("slnl--popup") ? card : box
+          return { hidden: box?.hidden, box: r(box), card: r(card), btn: r(btn), btnText: btn?.textContent?.trim(), btnBg: btn ? getComputedStyle(btn).backgroundColor : null, email: r(email), name: name ? { ...r(name), placeholder: name.getAttribute("placeholder") } : null, align: words ? getComputedStyle(words).textAlign : null, pt: box ? parseFloat(getComputedStyle(box).paddingTop) : null, bg: fill ? getComputedStyle(fill).backgroundColor : null, image: !!box?.querySelector(".slnl__bg"), sideways: document.documentElement.scrollWidth - innerWidth, vw: innerWidth }
+        })
+        expect(!m.hidden && !!m.email && (m.btn?.h ?? 0) >= 44 && m.btnText === "Sign up" && m.btn.r <= m.vw, `the box and its button "${m.btnText}" (${m.btn?.h}px) are drawn, inside the screen`, m)
+        expect(m.sideways <= 0, `nothing scrolls sideways (${m.sideways}px)`, m)
+        const row = !!m.email && !!m.btn && Math.abs(m.email.y - m.btn.y) <= 2
+        expect(row === (L.want.row && width >= 520), `the button ${row ? "beside" : "under"} the box`, { email: m.email, btn: m.btn })
+        expect(m.align === (L.want.align === "center" ? "center" : "start") || (L.want.align === "left" && m.align === "left"), `the words sit ${L.want.align} (${m.align})`, m)
+        if (L.want.pt) expect(Math.round(m.pt) === L.want.pt, `${L.want.pt}px above (${m.pt})`, m)
+        if (L.want.bg) expect(m.bg === L.want.bg && m.btnBg === L.want.btnBg, `its own background ${m.bg} and button ${m.btnBg}`, m)
+        if (L.want.image) expect(m.image, "the background picture is drawn", m)
+        expect(L.want.name ? m.name?.placeholder === L.want.name && m.name.w > 100 : !m.name, L.want.name ? `the name box "${m.name?.placeholder}"` : "no name box unless asked", m.name)
+        if (L.want.popup && m.card) expect(m.card.w <= Math.min(440, width - 32) + 1, `the popup's card is ${m.card.w}px wide`, m.card)
+        if (SHOTS) await page.screenshot({ path: join(SHOTS, `imported-${L.id}-${canvas ? "canvas" : "live"}-${width}.png`) })
+        const address = `${L.id}-${canvas ? "c" : "l"}${width}@example.com`
+        if (m.name) await page.type(".slnl__i--name", "Ana")
+        await page.type('.slnl__i[type="email"]', address)
+        await page.click(".slnl__b")
+        await page.waitForSelector(".slnl__ok", { timeout: 8000 }).catch(() => null)
+        const thanks = await page.evaluate(() => document.querySelector(".slnl__ok")?.textContent ?? null)
+        expect(thanks === "Thanks for subscribing.", "pressing Sign up shows the thank you", thanks)
+        const sentNow = (await (await fetch(`${base}/posts`)).json()).find((p) => p.body?.email === address)
+        if (canvas) expect(!sentNow, "  and the canvas sends nothing", sentNow)
+        else expect(sentNow?.route === "subscribe" && sentNow.body.creator_id === CREATOR && sentNow.body.placement === (L.want.popup ? "popup" : "newsletter") && (!m.name || sentNow.body.name === "Ana"), `  sent for this creator from the ${L.want.popup ? "popup" : "newsletter"}${m.name ? ", with the name" : ""}`, sentNow)
+        if (SHOTS) await page.screenshot({ path: join(SHOTS, `imported-${L.id}-${canvas ? "canvas" : "live"}-${width}-sent.png`) })
+        await page.close()
+      }
+    }
   }
 
   console.log("\nStorelib theme, Newsletter Signup (promo_newsletter) in StorelibSection")

@@ -8,12 +8,14 @@
  * metric tab) can be opened to see a more in-depth view: the full list, the
  * chart over time, comparison to previous period, breakdown".
  *
- * WHERE IT OPENS. On a computer a panel slides in from the right edge over
- * the page, which stays where it was under a light scrim, so the card that
- * was opened is still there to the left of it; Escape, the scrim or the X
- * closes it, and it slides back out (app/globals.css .analytics-detail). On a
- * phone it is the shared bottom sheet (components/ui/bottom-sheet), tall,
- * that follows the thumb and flicks closed like every other sheet in /app.
+ * WHERE IT OPENS (round 43, the owner: "a centered modal, not a side panel
+ * from the right"). On a computer a window in the middle of the screen, up
+ * to 720px wide and 86% of the window tall, over the page under a light
+ * scrim that fades in; it rises 8px and grows from 97% as it fades in, and
+ * closes the same way back, quicker (app/globals.css .analytics-detail).
+ * Escape, the scrim or the X closes it. On a phone it is the shared bottom
+ * sheet (components/ui/bottom-sheet), tall, that follows the thumb and
+ * flicks closed like every other sheet in /app.
  * Radix's dialog gives the panel its focus trap and its title for a screen
  * reader; nothing here is a page of its own, so the filters and the scroll
  * of the page are untouched when it closes.
@@ -37,7 +39,8 @@
  * rule.
  */
 import * as React from "react"
-import { Search, X } from "lucide-react"
+import { Maximize2, Search, X } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -100,33 +103,43 @@ export interface DetailView {
 export const OpenDetailContext = React.createContext<((id: string, tab?: string) => void) | null>(null)
 
 /**
- * THE WAY IN, ON EVERY CARD: "View report", quiet, at the right of the card's
- * title row, the words and not an icon, so it says what it does. A card
- * outside a page that can open reports (another screen drawing these cards)
- * has none.
+ * THE WAY IN, ON EVERY CARD (round 43, the owner: "a clean icon button, not
+ * the View report text"): a quiet 32px square with the expand mark at the
+ * right of the card's title row, its name said to a screen reader and in a
+ * tooltip on a computer ("View report"). A card outside a page that can open
+ * reports (another screen drawing these cards) has none.
  */
-export function ViewReport({ id, tab, className }: { id: string; tab?: string; className?: string }) {
+export function ViewReport({ id, tab, className, label }: { id: string; tab?: string; className?: string; /** The report's own name, for the tooltip and a screen reader: "View Traffic sources". */ label?: string }) {
   const open = React.useContext(OpenDetailContext)
   if (!open) return null
+  const name = label ? tt("View {report}", { report: label }) : tt("View report")
   return (
-    <button
-      type="button"
-      data-view-report={id}
-      onClick={() => open(id, tab)}
-      className={cn(
-        "-my-1 -mr-1.5 inline-flex h-8 shrink-0 cursor-pointer items-center rounded-lg px-2 text-[12.5px] font-medium text-[#6b7280] outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)] active:bg-[#e9eaed]",
-        className,
-      )}
-    >
-      {tt("View report")}
-    </button>
+    <Tooltip delayDuration={350}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-view-report={id}
+          aria-label={name}
+          onClick={() => open(id, tab)}
+          className={cn(
+            "-my-1 -mr-1.5 grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-[background-color,color,transform] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)] active:scale-95 active:bg-[#e9eaed] motion-reduce:transition-none",
+            /* A finger gets the full 44px around the 32px square. */
+            "relative before:absolute before:-inset-1.5 before:content-[''] sm:before:hidden",
+            className,
+          )}
+        >
+          <Maximize2 className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="hidden sm:block">{name}</TooltipContent>
+    </Tooltip>
   )
 }
 
 /* ─── The panel ─────────────────────────────────────────────────────── */
 
 /**
- * The frame: a right side panel on a computer, the shared sheet on a phone.
+ * The frame: a centred window on a computer, the shared sheet on a phone.
  * `sub` is the period and what it is compared with, under the title.
  */
 export function DetailPanel({ open, onClose, title, sub, children, panelKey }: { open: boolean; onClose: () => void; title: string; sub?: string | null; children: React.ReactNode; panelKey?: string }) {
@@ -166,12 +179,13 @@ export function DetailPanel({ open, onClose, title, sub, children, panelKey }: {
         aria-describedby={undefined}
         data-report-detail=""
         data-detail-panel=""
-        overlayClassName="bg-[#111827]/[0.18]"
+        disableOverlayDefaultAnimations={false}
+        overlayClassName="bg-[#111827]/[0.28]"
         onOpenAutoFocus={(e) => {
           e.preventDefault()
           ;(e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
         }}
-        className="analytics-detail left-auto right-0 top-0 flex h-[100dvh] w-[min(600px,calc(100vw-48px))] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none rounded-l-2xl border-0 border-l border-[#e5e7eb] bg-white p-0 shadow-[-24px_0_64px_-24px_rgba(17,24,39,0.28)] outline-none sm:max-w-none"
+        className="analytics-detail flex max-h-[min(86dvh,880px)] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb]/70 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.35),0_4px_12px_rgba(17,24,39,0.06)] outline-none sm:max-w-none"
       >
         <div className="flex shrink-0 items-start gap-3 border-b border-[#eef0f2] px-6 pb-4 pt-5" data-detail-head="">
           <div className="min-w-0 flex-1">

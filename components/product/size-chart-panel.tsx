@@ -22,6 +22,24 @@ import { hasMeasurements, rowsIn, type SizeChart, type SizeUnit } from "@/lib/si
 const UNIT_KEY = "storelib_size_unit"
 
 export function SizeChartPanel({ chart, label = "Size guide", className, defaultOpen = false }: { chart: SizeChart; label?: string; className?: string; defaultOpen?: boolean }) {
+  return (
+    <details className={cn("group/size rounded-xl border border-[#ececf1] bg-white", className)} open={defaultOpen || undefined} data-size-chart-panel="">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[14.5px] font-medium text-[#111113] [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
+        <Ruler aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="truncate text-[13px] font-normal text-[#6b7280]">{chart.name}</span>
+        <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 group-open/size:rotate-180" />
+      </summary>
+      <SizeChartBody chart={chart} className="px-4 pb-4" />
+    </details>
+  )
+}
+
+/**
+ * Round 43: the chart itself (units, picture, table, note) without its folding row, for a place that opens it its own
+ * way: the OnePage's product sheet slides it open under the size option (components/onepage/product-sheet).
+ */
+export function SizeChartBody({ chart, className }: { chart: SizeChart; className?: string }) {
   const convertible = hasMeasurements(chart)
   const [unit, setUnit] = React.useState<SizeUnit>(chart.unit)
   React.useEffect(() => {
@@ -44,14 +62,7 @@ export function SizeChartPanel({ chart, label = "Size guide", className, default
   const shown = convertible ? unit : chart.unit
   const rows = rowsIn(chart, shown)
   return (
-    <details className={cn("group/size rounded-xl border border-[#ececf1] bg-white", className)} open={defaultOpen || undefined} data-size-chart-panel="">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[14.5px] font-medium text-[#111113] [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
-        <Ruler aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        <span className="truncate text-[13px] font-normal text-[#6b7280]">{chart.name}</span>
-        <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 group-open/size:rotate-180" />
-      </summary>
-      <div className="px-4 pb-4">
+      <div className={className} data-size-chart-body="">
         {convertible ? (
           <div role="radiogroup" aria-label="Units" className="mb-3 inline-flex rounded-full bg-[#f1f2f4] p-[3px]" data-size-chart-units="">
             {(["cm", "in"] as const).map((u) => (
@@ -105,7 +116,6 @@ export function SizeChartPanel({ chart, label = "Size guide", className, default
         </div>
         {chart.notes ? <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.55] text-[#6b7280]">{chart.notes}</p> : null}
       </div>
-    </details>
   )
 }
 

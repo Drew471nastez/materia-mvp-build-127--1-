@@ -29,8 +29,7 @@ import "server-only"
  * there were at its start (active now, plus cancelled in it, minus started
  * in it). With nothing at the start there is no rate, never a made up one.
  */
-import { mrrAt } from "../membership-money"
-import { communitySellingProducts, membershipsOf } from "./membership-money"
+import { communitySellingProducts, membershipsOf, mrrOfRows } from "./membership-money"
 import { MEMBER_SOURCES } from "../types"
 import type { EventMoneyStats, JoinStats, MoneyAndGrowth, RevenueStats } from "@/components/community/creator/view-types"
 
@@ -55,9 +54,16 @@ async function sellingProducts(db: Db, communityId: string): Promise<{ recurring
 }
 
 /* Round 41: MRR by the one rule (../membership-money.ts): a free trial was counted as paying here, and nowhere else. */
-async function mrrOf(db: Db, productIds: string[]): Promise<{ cents: number; currency: string; active: number }> {
-  const m = mrrAt((await membershipsOf(db, productIds, { open: true })) ?? [], Date.now())
+async function mrrOf(db: Db, productIds: string[], creatorId: string | null): Promise<{ cents: number; currency: string; active: number }> {
+  /* Round 43: in the currency the community's Analytics reports in, converted the same way (./membership-money mrrOfRows). */
+  const m = await mrrOfRows(db, (await membershipsOf(db, productIds, { open: true })) ?? [], Date.now(), creatorId)
   return { cents: m.cents, currency: m.currency, active: m.paying }
+}
+
+/** Which store a community belongs to, for its currency. */
+async function storeOf(db: Db, communityId: string): Promise<string | null> {
+  const { data, error } = await db.from("communities").select("creator_id").eq("id", communityId).maybeSingle()
+  return error ? null : ((data as { creator_id?: string | null } | null)?.creator_id ?? null)
 }
 
 /** Refunded orders of the products that sell it, in the period: the fallback while M's refundsFor is not there. */
@@ -99,7 +105,7 @@ async function revenueStats(db: Db, communityId: string, since: string): Promise
   const recurring = products.recurring
   const subs = () => db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring)
   const [mrr, started, cancelled, why, refunds] = await Promise.all([
-    recurring.length ? mrrOf(db, recurring) : Promise.resolve({ cents: 0, currency: "usd", active: 0 }),
+    recurring.length ? storeOf(db, communityId).then((store) => mrrOf(db, recurring, store)) : Promise.resolve({ cents: 0, currency: "usd", active: 0 }),
     recurring.length ? headCount(subs().gte("created_at", since).neq("status", "incomplete")) : Promise.resolve(0),
     recurring.length ? headCount(subs().gte("canceled_at", since)) : Promise.resolve(0),
     cancellationsWithReasons(db, communityId, { since, limit: 5 }).catch(() => null),

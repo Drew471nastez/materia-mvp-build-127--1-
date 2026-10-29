@@ -45,6 +45,7 @@ import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/l
 import { contrast, hexColor, textOn } from "@/lib/email-campaigns/brand"
 import { emailLanguage, et } from "./words"
 import { isRtl } from "@/lib/markets/locales"
+import { brandMarkHtml } from "./brand-mark"
 
 /*
   RIGHT TO LEFT. An email in Arabic, Hebrew, Persian or Urdu is laid out from
@@ -117,8 +118,15 @@ export type EmailSender =
       name: string
       /** An https picture. Left out draws a tile with the name's first letter. */
       pictureUrl?: string | null
-      /** "logo" is drawn as uploaded, alone; "mark" as uploaded beside the name; "avatar" round beside the name. Default "logo". */
+      /**
+       * What the picture is (lib/emails/brand-mark.ts, round 43): "logo" and "mark" are the store's logo,
+       * drawn at its own shape inside 200 by 40, alone when it is wide and beside the name when it is
+       * square; "avatar" is a profile photo, an icon, drawn the same way with the name beside it. Never
+       * round, never cropped. Default "logo".
+       */
       picture?: "logo" | "mark" | "avatar"
+      /** The picture's shape when the sender knows it. Left out, a logo's is read at send (lib/emails/logo-shape-server.ts). */
+      pictureShape?: "wide" | "square" | null
       /** The store's accent (#rrggbb). Used on the button when it reads on white. */
       accent?: string | null
       /** Where the logo and the name link to. */
@@ -636,16 +644,9 @@ function header(sender: EmailSender, theme: EmailTheme, aside: EmailDocumentInpu
     const name = sender.name.trim() || "Store"
     const pic = https(sender.pictureUrl)
     const url = https(sender.url)
-    const mark =
-      pic && (sender.picture ?? "logo") === "logo"
-        ? `<img class="e-store-logo" src="${esc(pic)}" alt="${esc(name)}" height="36" style="display:block;height:36px;width:auto;max-width:180px;border:0;outline:none;">`
-        : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;">${
-            pic && sender.picture === "mark"
-              ? `<img class="e-store-logo" src="${esc(pic)}" alt="" height="36" style="display:block;height:36px;width:auto;max-width:120px;border:0;outline:none;border-radius:8px;">`
-              : pic
-                ? `<img class="e-avatar" src="${esc(pic)}" alt="" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:18px;object-fit:cover;border:0;background-color:${K.line};">`
-                : tile(name, 36, 10, theme)
-          }</td><td class="e-mark" style="vertical-align:middle;padding-${START()}:10px;font-family:${EMAIL_FONT};font-size:16px;line-height:22px;font-weight:700;color:${K.ink};">${esc(name)}</td></tr></table>`
+    /* One mark for every email (lib/emails/brand-mark.ts): the logo at its own shape, the name beside a square one. */
+    const shape = sender.pictureShape ?? (sender.picture === "avatar" ? "square" : "auto")
+    const mark = brandMarkHtml({ name, src: pic, shape, font: EMAIL_FONT, ink: K.ink, size: 16, lineHeight: 22, start: START(), initial: pic ? null : tile(name, 36, 10, theme) })
     left = url ? `<a href="${esc(url)}" target="_blank" style="text-decoration:none;color:${K.ink};">${mark}</a>` : mark
   }
   const right = aside

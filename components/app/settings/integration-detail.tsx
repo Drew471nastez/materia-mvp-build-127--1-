@@ -35,6 +35,7 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput
 import { copyText } from "@/lib/platform/copy-text"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark, hasBuiltInArt, tileColor } from "@/components/app/settings/integration-mark"
+import { AnalyticsDestinationsPanel } from "@/components/app/analytics/send-analytics"
 import { CATEGORY_NAMES, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
@@ -246,7 +247,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
   const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
   const providerState = item.providerId ? (states?.find((s) => s.provider === item.providerId) ?? null) : null
-  const marketingState = item.kind === "tracker" ? (marketing?.find((m) => m.provider === item.trackerId) ?? null) : null
+  const marketingState = item.kind === "tracker" ? (marketing?.find((m) => m.provider === item.trackerId) ?? null) : item.appId === "marketing_sync" ? (marketing?.find((m) => m.provider === item.marketingProvider) ?? null) : null
   const tracked = item.kind === "tracker" && item.trackerId ? (tracking?.[item.trackerId] ?? null) : null
   const plan = notifyOnly ? null : removalPlan(item, { installed, marketingConnected: !!marketingState?.connected, trackerSaved: !!tracked })
   const verb = notifyOnly || installed ? null : installVerb(item)
@@ -366,8 +367,14 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     </div>
   ) : item.kind === "app" && item.appId === "storelib_reviews" ? (
     <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
+  ) : item.kind === "app" && item.appId === "marketing_sync" && item.marketingProvider ? (
+    /* Brevo, MailerLite and Kit: the same sync card as Emails › Platforms. */
+    <MarketingSyncPanel provider={item.marketingProvider} onChanged={onMarketing} />
   ) : item.kind === "app" && item.appId === "courier_tracking" ? (
     <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
+  ) : item.kind === "app" && item.appId === "analytics_destinations" ? (
+    /* The same list as Analytics › Send to (components/app/analytics/send-analytics). */
+    <AnalyticsDestinationsPanel onConnectedChange={(on) => onApp("analytics_destinations", on)} />
   ) : item.kind === "tracker" && item.trackerId === "ga4" ? (
     /* Google Analytics: pasted, checked with a live hit, then "Receiving data" with the last event's time. */
     <GaConnect value={tracking?.ga4 ?? null} ready={trackingReady} onSaved={onTracking} />
@@ -387,24 +394,24 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
         </div>
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div key={panelKey}>{panel}</div>
-          {steps.length > 0 ? (
-            /*
-              THE WAY TO THE STEPS (round 42): a row of its own under the panel,
-              the whole width a target (44px on a phone), saying how many there
-              are, so it reads as a place to go rather than a footnote.
-            */
-            <button
-              type="button"
-              onClick={() => setHowTo(true)}
-              className="group -mx-2 mt-3 flex h-11 w-[calc(100%+16px)] items-center gap-3 rounded-xl px-2 text-left outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-10 [-webkit-tap-highlight-color:transparent]"
-              data-integration-steps-open=""
-            >
-              <span className="min-w-0 flex-1 text-[13.5px] font-medium text-[#1a1a2e]">{tt("How to set it up")}</span>
-              <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{tt("{n, plural, one {# step} other {# steps}}", { n: shownSteps.length })}</span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
-            </button>
-          ) : null}
         </div>
+        {steps.length > 0 ? (
+          /*
+            THE WAY TO THE STEPS (round 42, round 43): the card's own last row,
+            under a hairline, the whole width a target (48px on a phone, 44px
+            on a computer), saying how many steps there are.
+          */
+          <button
+            type="button"
+            onClick={() => setHowTo(true)}
+            className="group flex h-12 w-full items-center gap-3 border-t border-[#f1f2f4] px-4 text-left outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:bg-[#f8f9fa] sm:h-11 sm:px-6 [-webkit-tap-highlight-color:transparent]"
+            data-integration-steps-open=""
+          >
+            <span className="min-w-0 flex-1 text-[13.5px] font-medium text-[#1a1a2e]">{tt("How to set it up")}</span>
+            <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{tt("{n, plural, one {# step} other {# steps}}", { n: shownSteps.length })}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+          </button>
+        ) : null}
       </section>
       {item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") && !notifyOnly ? (
         /* The key that sends subscribers and orders, apart from the onsite ID above (lib/integrations/marketing). */
@@ -434,7 +441,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     ...(lastError ? [{ label: tt("Last problem"), value: lastError, tone: "red" as const }] : []),
   ]
   const statusSection =
-    (installed || lastError) && diag.length > 0 && item.kind !== "app" ? (
+    (installed || lastError) && diag.length > 0 && (item.kind !== "app" || item.appId === "marketing_sync") ? (
       <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-status" data-integration-status="">
         <div className="flex items-center justify-between gap-3">
           <h3 id="integration-status" className={H3}>{tt("Status")}</h3>
@@ -712,9 +719,9 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                   </p>
                 ) : null}
                 {!Body ? (
-                  <button type="button" onClick={() => setDetails(true)} className="mt-2 inline-flex h-8 items-center gap-1 rounded-lg px-0.5 text-[13px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline" data-integration-details-open="">
+                  <button type="button" onClick={() => setDetails(true)} className="-ml-1 mt-1.5 inline-flex h-8 items-center gap-0.5 rounded-lg pl-1 pr-1.5 text-[13px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-integration-details-open="">
                     {tt("Details")}
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 ) : null}
               </div>
@@ -937,21 +944,25 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
   if (!ready) return <Notice tone="amber">{tt("Analytics and pixels need their database update (SQL part 112). Until it runs, nothing here is kept.")}</Notice>
   return (
     <div className="space-y-3" data-tracker-install={item.trackerId}>
-      <Field label={t.label} htmlFor={`tracker-${item.trackerId}`} hint={tt("Where to find it: {where}", { where: t.where })}>
-        <TextInput id={`tracker-${item.trackerId}`} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t.example} autoComplete="off" spellCheck={false} inputMode="text" />
+      {/* Round 43: the field and what saves it on one row from 640px, with where to find it under both; on a phone the field, where to find it, then the button the width of the card. */}
+      <Field label={t.label} htmlFor={`tracker-${item.trackerId}`}>
+        <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]" data-tracker-row="">
+          <TextInput id={`tracker-${item.trackerId}`} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t.example} autoComplete="off" spellCheck={false} inputMode="text" aria-describedby={`tracker-${item.trackerId}-where`} />
+          <div className="order-last mt-2 flex gap-2 sm:order-none sm:mt-0">
+            {value ? (
+              <button type="button" className={cn(BTN_DANGER, "h-11 flex-1 sm:h-10 sm:flex-none")} disabled={busy} onClick={() => void save(null)}>
+                {tt("Remove")}
+              </button>
+            ) : null}
+            <button type="button" className={cn(BTN_PRIMARY, "h-11 flex-1 sm:h-10 sm:flex-none")} disabled={busy || !typed.trim() || typed.trim() === value} onClick={() => void save(typed)}>
+              {busy ? tt("Saving") : value ? tt("Save") : tt("Install")}
+            </button>
+          </div>
+          <p id={`tracker-${item.trackerId}-where`} className="text-[12.5px] leading-[18px] text-[#6b7280] sm:col-span-2">{tt("Where to find it: {where}", { where: t.where })}</p>
+        </div>
       </Field>
       {error ? <Notice>{error}</Notice> : null}
       {saved && !error ? <p className="text-[13px] text-[#067647]" data-tracker-saved="">{value ? tt("Saved. {name} loads on your website from its next page view.", { name: t.name }) : tt("Removed from your website.")}</p> : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        {value ? (
-          <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save(null)}>
-            {tt("Remove")}
-          </button>
-        ) : null}
-        <button type="button" className={BTN_PRIMARY} disabled={busy || !typed.trim() || typed.trim() === value} onClick={() => void save(typed)}>
-          {busy ? tt("Saving") : value ? tt("Save") : tt("Install")}
-        </button>
-      </div>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { type NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -173,6 +174,8 @@ export async function POST(request: NextRequest) {
 
       await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
       await recordSignupAttribution(adminSupabase, { creatorId: resolvedCreatorId, email: normalizedEmail, source: origin, sent: body.origin })
+      /* Connected email platforms (Klaviyo, Brevo, MailerLite, Kit...) get it within the minute. */
+      await syncPlatformsSoon(adminSupabase, resolvedCreatorId)
 
       /* Joining again is joining: the welcome goes, as it did the first time. */
       try {
@@ -235,6 +238,8 @@ export async function POST(request: NextRequest) {
     await recordContactSource(adminSupabase, resolvedCreatorId, normalizedEmail, origin)
     /* The property and the visit's touches, onto the same contact (lib/attribution). */
     await recordSignupAttribution(adminSupabase, { creatorId: resolvedCreatorId, email: normalizedEmail, source: origin, sent: body.origin })
+    /* Connected email platforms (Klaviyo, Brevo, MailerLite, Kit...) get it within the minute. */
+    await syncPlatformsSoon(adminSupabase, resolvedCreatorId)
 
     /**
      * THE CREATOR'S WELCOME EMAIL. This route wrote the subscriber and
@@ -256,6 +261,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer") })))
+    /* Any other newsletter signup: a lead for the store's analytics tools (lib/analytics/destinations); a OnePage's goes through deliverSignup above. */
+    else {
+      const pageUrl = request.headers.get("referer")
+      after(async () => {
+        const { forwardLead } = await import("@/lib/analytics/destinations/forward-server")
+        await forwardLead(adminSupabase, resolvedCreatorId, { email: normalizedEmail, form: "newsletter", key: `newsletter|${normalizedEmail}`, url: pageUrl })
+      })
+    }
 
     return NextResponse.json({
       success: true,

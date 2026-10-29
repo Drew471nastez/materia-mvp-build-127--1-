@@ -36,6 +36,10 @@ export const MARKETING_TIMEOUT_MS = 12_000
  *             each endpoint's "Rate limits")
  *   Omnisend  400 a minute per brand across every endpoint
  *             (api-docs.omnisend.com/reference/rate-limit-timeouts-errors)
+ *   Brevo     the contacts and events endpoints, ten a second on the
+ *             smallest plan (developers.brevo.com/docs/api-limits)
+ *   MailerLite  120 a minute per account (developers.mailerlite.com, Rate limits)
+ *   Kit       120 a minute per API key (developers.kit.com, v4 Rate limits)
  */
 export const LIMITS = {
   "klaviyo:events": 3150,
@@ -44,6 +48,9 @@ export const LIMITS = {
   "klaviyo:import": 135,
   "klaviyo:accounts": 13,
   omnisend: 360,
+  brevo: 540,
+  mailerlite: 108,
+  kit: 108,
 } as const
 export type LimitName = keyof typeof LIMITS
 
@@ -81,7 +88,8 @@ export function marketingMessage(body: unknown): string | null {
   if (!body || typeof body !== "object") return typeof body === "string" && body.trim() && body.trim().length < 300 ? body.trim() : null
   const b = body as Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
   const first = Array.isArray(b.errors) ? b.errors[0] : null
-  const candidates = [first?.detail, first?.message, first?.title, b.detail, b.title, b.message, b.error]
+  /* Kit answers { errors: ["..."] }; Brevo { code, message }; MailerLite { message, errors: { email: [...] } }. */
+  const candidates = [typeof first === "string" ? first : null, first?.detail, first?.message, first?.title, b.detail, b.title, b.message, b.error]
   for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim().slice(0, 200)
   return null
 }
@@ -89,7 +97,7 @@ export function marketingMessage(body: unknown): string | null {
 export async function marketingCall<T = unknown>(
   name: string,
   url: string,
-  init: { method?: "GET" | "POST" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown; limit: { key: string; name: LimitName } },
+  init: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; headers: Record<string, string>; body?: unknown; limit: { key: string; name: LimitName } },
 ): Promise<T> {
   await pacer.wait(`${init.limit.name}:${init.limit.key}`, LIMITS[init.limit.name])
   let res: Response

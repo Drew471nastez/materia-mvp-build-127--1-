@@ -26,7 +26,10 @@ import { notifyLog, reasonText } from "./log"
 import { storeOf, type AdminDb, type NotifyStore } from "./store"
 import { DOMAIN_EVENTS, type DomainEvent } from "./types"
 
-export type EmitInput = Omit<DomainEvent, "occurredAt" | "id"> & { occurredAt?: string }
+/** The events a store's analytics tools hear (lib/analytics/destinations/forward-server FORWARDED). */
+const FORWARDED_EVENTS = new Set(["order.created", "order.refunded", "membership.started"])
+
+export type EmitInput =Omit<DomainEvent, "occurredAt" | "id"> & { occurredAt?: string }
 
 /** `fresh` is true only for the call that recorded the event: the same key again answers ok without it. */
 export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore; soon?: boolean } = {}): Promise<{ ok: boolean; eventId?: string; fresh?: boolean }> {
@@ -49,6 +52,11 @@ export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore;
     })
     if (result.status === "unavailable") return { ok: false }
     if (result.status === "inserted") notifyLog("info", "event recorded", { event: event.name, eventId: result.id, correlationId: event.correlationId })
+    /* A purchase, a refund or a sign up, once, on to the store's own analytics tools (lib/analytics/destinations, after the response). */
+    if (result.status === "inserted" && event.creatorId && FORWARDED_EVENTS.has(event.name) && typeof (db as { from?: unknown }).from === "function") {
+      const { forwardOutboxSoon } = await import("@/lib/analytics/destinations/forward-server")
+      forwardOutboxSoon(db, { name: event.name, key: event.key, creatorId: event.creatorId, payload: (event.payload ?? {}) as Record<string, unknown> })
+    }
     if (opts.soon !== false) {
       const { processSoon } = await import("./worker")
       processSoon()

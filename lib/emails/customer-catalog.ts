@@ -48,6 +48,7 @@ import { signedBy, type BuyerChannel } from "./buyer-channel"
 import { tt } from "@/lib/i18n/text"
 import { renderEmail } from "@/lib/notify/templates"
 import type { NotificationType } from "@/lib/notify/types"
+import { LOGO_FILE_PX } from "./brand-mark"
 
 export * from "./customer-list"
 
@@ -141,7 +142,7 @@ export function previewCustomerEmail(
   if (id === "digital_refund") {
     const picture = signer === "creator" ? senderPicture({ photoUrl: ctx.creator?.photoUrl, logoUrl: ctx.creator?.logoUrl })?.url : shop.logoUrl
     return buyerRefundMail(
-      { storeName: signerName, productTitle: tt("The bread baking course"), amountCents: 4900, currency, orderId: SAMPLE_ORDER_ID, reason: "requested_by_customer", orderDate: SAMPLE_AT, refundDate: SAMPLE_REFUND_AT, contactEmail: shop.supportEmail || "hello@example.com", sellerPictureUrl: emailImageSrc(picture, 36) },
+      { storeName: signerName, productTitle: tt("The bread baking course"), amountCents: 4900, currency, orderId: SAMPLE_ORDER_ID, reason: "requested_by_customer", orderDate: SAMPLE_AT, refundDate: SAMPLE_REFUND_AT, contactEmail: shop.supportEmail || "hello@example.com", sellerPictureUrl: emailImageSrc(picture, LOGO_FILE_PX) },
       language,
       words,
     )

@@ -8,14 +8,14 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
- * Klaviyo and Omnisend, connected (lib/integrations/marketing/sync-server.ts),
+ * Klaviyo, Omnisend, Brevo, MailerLite and Kit, connected (lib/integrations/marketing/sync-server.ts),
  * for Settings › Integrations. The owner's own store only. Keys go in sealed
  * and come back as their last four characters; every store can connect
  * them, whatever it sells.
  */
 export async function GET() {
   /* Round 41: read too by the OnePage editor's Integrations panel (a team member with OnePage). Only whether each is connected and its list; keys never come back, and connecting one stays the owner's (POST). */
-  const c = await shopCaller(["store", "onepage"])
+  const c = await shopCaller(["store", "onepage", "marketing"])
   if (c instanceof NextResponse) return c
   return physicalJson({ marketing: await loadMarketing(c.db, c.creatorId) })
 }

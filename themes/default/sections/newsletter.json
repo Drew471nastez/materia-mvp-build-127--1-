@@ -25,7 +25,7 @@
       "label": "Incentive / offer text",
       "type": "text",
       "default": "Get 10% off your first order when you subscribe.",
-      "placeholder": "e.g. Get 10% off\u2026"
+      "placeholder": "e.g. Get 10% off…"
     },
     {
       "id": "placeholder",
@@ -39,6 +39,13 @@
       "label": "Show first name field",
       "type": "toggle",
       "default": false
+    },
+    {
+      "id": "name_placeholder",
+      "label": "Name box says",
+      "type": "text",
+      "default": "First name",
+      "visible_if": "{{ section.settings.show_name_field }}"
     },
     {
       "id": "button_text",
@@ -62,6 +69,12 @@
       "placeholder": "Shown after successful signup"
     },
     {
+      "id": "list_note",
+      "type": "paragraph",
+      "label": "",
+      "content": "Sign-ups go to Emails, Subscribers, listed as Newsletter section with the consent line they agreed to. They are subscribed at once; there is no confirmation email."
+    },
+    {
       "id": "layout",
       "label": "Layout",
       "type": "select",
@@ -74,6 +87,58 @@
         {
           "label": "Split (image + form)",
           "value": "split"
+        }
+      ]
+    },
+    {
+      "id": "form_layout",
+      "label": "Box and button",
+      "type": "select",
+      "default": "inline",
+      "options": [
+        {
+          "label": "On one row",
+          "value": "inline"
+        },
+        {
+          "label": "Button under the box",
+          "value": "stacked"
+        }
+      ]
+    },
+    {
+      "id": "align",
+      "label": "Text sits",
+      "type": "select",
+      "default": "center",
+      "options": [
+        {
+          "label": "Centre",
+          "value": "center"
+        },
+        {
+          "label": "Left",
+          "value": "left"
+        }
+      ]
+    },
+    {
+      "id": "max_width",
+      "label": "Content width",
+      "type": "select",
+      "default": "medium",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
         }
       ]
     },
@@ -91,7 +156,8 @@
       "min": 0,
       "max": 90,
       "step": 5,
-      "unit": "%"
+      "unit": "%",
+      "visible_if": "{{ section.settings.bg_image }}"
     },
     {
       "id": "hdr_padding",
@@ -159,6 +225,17 @@
       "max": 120,
       "step": 4,
       "unit": "px"
+    },
+    {
+      "id": "min_height",
+      "label": "Minimum height",
+      "type": "range",
+      "default": 0,
+      "min": 0,
+      "max": 800,
+      "step": 20,
+      "unit": "px",
+      "info": "0 fits the content. Taller, the content sits in the middle."
     }
   ],
   "presets": [

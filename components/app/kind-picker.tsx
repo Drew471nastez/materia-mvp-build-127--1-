@@ -4,8 +4,10 @@
  * ===========================================================================
  *  WHAT ANALYTICS SHOWS: ALL, DIGITAL, PHYSICAL OR COMMUNITIES, AS ONE FILTER
  * ===========================================================================
- * Round 42, the owner: not a row of segments but one filter chip, like the
- * Emails subscribers' Status and Source. "All types" until something is
+ * Round 42, the owner: not a row of segments but one filter, like the
+ * Emails subscribers' Status and Source; round 43 drew it as the round white
+ * pill the period and the place are again (app/globals.css
+ * [data-analytics-controls]). "All types" until something is
  * chosen, then the choice's own name ("Digital"), the way All pages and All
  * products read beside it. The date picker's parts, like the property and
  * product pickers (components/app/property-picker, product-picker): the

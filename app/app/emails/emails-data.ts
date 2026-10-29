@@ -10,8 +10,10 @@ import type { CampaignRow, EmailsTab, FlowRow, MessageRow, OverviewStats, Subscr
 import { api } from "@/components/physical/ui"
 import { CUSTOMER_EMAILS_PATH, prefetchCustomerActivity, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 import { tt } from "@/lib/i18n/text"
+import { MARKETING_PATH, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
+import { SENDING_DOMAIN_PATH, type PlatformsData, type SendingDomainData } from "@/components/email/connected-platforms"
 
-export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts"]
+export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts", "platforms"]
 
 export function isTab(v: unknown): v is EmailsTab {
   return typeof v === "string" && (TABS as string[]).includes(v)
@@ -115,7 +117,20 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
       return loadCampaigns("draft")
     case "customer":
       return loadCustomerEmails()
+    case "platforms":
+      return loadPlatforms()
   }
+}
+
+/**
+ * Emails › Platforms: the connected email platforms (the same read
+ * Settings › Integrations makes, so a connect in one is what the other
+ * shows) and the store's own sending domain.
+ */
+export async function loadPlatforms(): Promise<PlatformsData> {
+  const [m, d] = await Promise.all([api<{ marketing: MarketingState[] }>(MARKETING_PATH), api<SendingDomainData>(SENDING_DOMAIN_PATH)])
+  if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
+  return { marketing: m.data.marketing, sending: d.ok ? d.data : { domain: null, ready: true, available: false } }
 }
 
 /**

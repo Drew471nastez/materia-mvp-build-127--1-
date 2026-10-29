@@ -16,6 +16,7 @@ import { personName } from "@/lib/profile/display-name"
 import { productCheckoutUrl, productPageUrl, sellsInstantly, shipsProduct } from "@/lib/onepage/product-block"
 import { productFaqs } from "@/lib/products/product-faqs"
 import { sizeChartForProduct } from "@/lib/size-charts/storefront"
+import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
   const creatorId = String(p.creator_id ?? "")
 
   const supabase = await createClient()
-  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart] = await Promise.all([
+  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
     /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
     admin
@@ -72,19 +73,37 @@ export async function GET(request: Request) {
     salesStanding(admin, id),
     /* Its size chart (round 13): its own, else its collection's or category's (lib/size-charts/storefront.ts). Only a thing that ships has one. */
     p.type === "physical" ? sizeChartForProduct(admin, id, creatorId, { category: typeof p.category === "string" ? p.category : null }) : Promise.resolve(null),
+    /*
+      Round 43: what the product page itself knows about a product that ships, so the sheet can be as complete as it
+      is: its options (Size, Colour, with the seller's own swatches), each variant's option values, picture, compare
+      at price and whether it can be bought, and the personalization it asks for (lib/products/product-section-data).
+      The same read the product page makes; a failure leaves the sheet as it was.
+    */
+    p.type === "physical" ? productSectionData(admin, p as unknown as ProductSectionRow).catch(() => null) : Promise.resolve(null),
   ])
   const user = userRead.data.user
   const creator = creatorRead.data as { id: string; user_id: string; slug: string | null } | null
   const { data: profile } = creator ? await admin.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).maybeSingle() : { data: null }
   const prof = profile as { display_name?: string | null; avatar_url?: string | null; username?: string | null } | null
 
-  const variants = ((variantsRead.data ?? []) as Row[]).filter((v) => v.active !== false).map((v) => ({
-    id: String(v.id),
-    name: String(v.name ?? ""),
-    description: typeof v.description === "string" ? v.description : null,
-    priceCents: v.pay_what_you_want ? Number(v.pwyw_min_price_cents) || 0 : Number(v.price_cents) || 0,
-    pwyw: v.pay_what_you_want === true,
-  }))
+  const sectionVariants = new Map((section?.variants ?? []).map((v) => [v.id, v]))
+  const variants = ((variantsRead.data ?? []) as Row[]).filter((v) => v.active !== false).map((v) => {
+    const s = sectionVariants.get(String(v.id))
+    return {
+      id: String(v.id),
+      name: String(v.name ?? ""),
+      description: typeof v.description === "string" ? v.description : null,
+      priceCents: v.pay_what_you_want ? Number(v.pwyw_min_price_cents) || 0 : Number(v.price_cents) || 0,
+      pwyw: v.pay_what_you_want === true,
+      /* Round 43, a product that ships: its option values, picture, sale price and stock, as its product page has them. */
+      ...(s ? { options: s.options, imageUrl: s.image_url, compareAtCents: s.compare_at_cents, available: s.available, left: s.left, maxQuantity: s.max_quantity } : {}),
+    }
+  })
+  /* In the variants' own order on the product page (by position), so the swatches read as the seller arranged them. */
+  if (section?.variants?.length) {
+    const at = new Map(section.variants.map((v, i) => [v.id, i]))
+    variants.sort((a, b) => (at.get(a.id) ?? 999) - (at.get(b.id) ?? 999))
+  }
 
   /* Owned per option, the rule every checkout uses (lib/checkout/owned): the whole product, or these options. */
   let owned = false
@@ -145,6 +164,9 @@ export async function GET(request: Request) {
         /* Round 13: the product editor's questions, plain text in their order, and its size chart, so the sheet shows what the product page shows. */
         faqs: productFaqs(p.faqs),
         sizeChart,
+        /* Round 43: Size, Colour and the rest (with the seller's swatches), and what the buyer is asked to write or upload. */
+        options: section?.options ?? [],
+        personalization: section?.personalization ?? [],
       },
       seller: {
         name: storeName || personName({ name: prof?.display_name, username: prof?.username, slug: creator?.slug }),

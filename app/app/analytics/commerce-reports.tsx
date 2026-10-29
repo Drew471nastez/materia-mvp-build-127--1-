@@ -99,7 +99,7 @@ function Card({ title, help, children, className, card, tabs, detail }: { title:
           <div className="min-w-0 flex-1">
             <HelpLabel as="h3" label={title} description={help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
           </div>
-          {detail ? <ViewReport id={detail} /> : null}
+          {detail ? <ViewReport id={detail} label={title} /> : null}
         </div>
         {tabs ? <div className="orders-strip -mx-1 overflow-x-auto px-1">{tabs}</div> : null}
       </header>
@@ -434,7 +434,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             <div className="min-w-0 flex-1">
               <HelpLabel as="h3" label={f.title} description={f.help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
             </div>
-            <ViewReport id={f.key} />
+            <ViewReport id={f.key} label={f.title} />
           </div>
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
             <span className="flex h-8 items-center whitespace-nowrap text-[26px] font-bold leading-8 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>

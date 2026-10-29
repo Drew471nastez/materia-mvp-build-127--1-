@@ -42,6 +42,13 @@ import "server-only"
  * (and the unsubscribed, so they are suppressed there too) and the last 90
  * days of orders go in batches, as past data (Klaviyo's historical import
  * and backfill, so no welcome email and no flow fires for them).
+ *
+ * BREVO, MAILERLITE AND KIT (./platforms.ts) run the same job through one
+ * adapter each: the list (Brevo list, MailerLite group, Kit tag), the
+ * unsubscribes read back on each sync, and a webhook registered with the
+ * platform on connect so an unsubscribe there reaches Storelib within
+ * seconds (app/api/webhooks/marketing, a secret token per store in the
+ * address). Order events are Brevo events, MailerLite groups and Kit tags.
  */
 
 import { createHash } from "node:crypto"
@@ -51,18 +58,24 @@ import { contactPush, consentedAt, pullApplies, pulledStatus, type ContactPush, 
 import { KLAVIYO_SCOPES, klaviyoConnect, klaviyoImportProfiles, klaviyoLists, klaviyoPull, klaviyoSubscribe, klaviyoTrack, klaviyoUnsubscribe, looksLikeKlaviyoKey, type KlaviyoList, type PulledAddress } from "./klaviyo"
 import { OMNISEND_SCOPES, omnisendConnect, omnisendPull, omnisendTrack, omnisendUpsertContacts, type OmnisendPerson } from "./omnisend"
 import { fromDigitalOrder, fromPhysicalOrder, klaviyoEventsFor, omnisendEventsFor, type MarketingEvent, type MarketingOrder } from "./orders"
+import { EMPTY_PULL, PLATFORMS, PLATFORM_IDS, PLATFORM_NAME, isPlatform, mailerliteSignatureOk, type PlatformId, type PullState } from "./platforms"
+import { randomBytes, timingSafeEqual } from "node:crypto"
+import { APP_ORIGIN } from "@/lib/email-variables"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-export type MarketingProvider = "klaviyo" | "omnisend"
-export const MARKETING_PROVIDERS: MarketingProvider[] = ["klaviyo", "omnisend"]
-export const PROVIDER_NAME: Record<MarketingProvider, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend" }
-export const SCOPES: Record<MarketingProvider, string[]> = { klaviyo: KLAVIYO_SCOPES, omnisend: OMNISEND_SCOPES }
+export type MarketingProvider = "klaviyo" | "omnisend" | PlatformId
+export const MARKETING_PROVIDERS: MarketingProvider[] = ["klaviyo", "omnisend", ...PLATFORM_IDS]
+export const PROVIDER_NAME: Record<MarketingProvider, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend", ...PLATFORM_NAME }
+export const SCOPES: Record<MarketingProvider, string[]> = { klaviyo: KLAVIYO_SCOPES, omnisend: OMNISEND_SCOPES, brevo: PLATFORMS.brevo.permissions, mailerlite: PLATFORMS.mailerlite.permissions, kit: PLATFORMS.kit.permissions }
 
 export function isMarketingProvider(p: unknown): p is MarketingProvider {
-  return p === "klaviyo" || p === "omnisend"
+  return p === "klaviyo" || p === "omnisend" || isPlatform(p)
 }
+
+/** Providers that choose a list when connecting. */
+const hasLists = (p: MarketingProvider) => p === "klaviyo" || isPlatform(p)
 
 /** What the sync reaches outside itself (./deps-server.ts), so a test can hand in its own. */
 export interface MarketingDeps {
@@ -75,6 +88,9 @@ export interface MarketingDeps {
 
 export const SYNC_EVERY_MS = 15 * 60_000
 export const SUBSCRIBERS_PER_RUN = 1000
+/* Kit takes one address a request (and a second for its tag) at 120 a minute; Brevo one customer a request. */
+const PER_RUN: Partial<Record<MarketingProvider, number>> = { kit: 50, brevo: 300 }
+const perRun = (p: MarketingProvider) => PER_RUN[p] ?? SUBSCRIBERS_PER_RUN
 export const ORDERS_PER_RUN = 40
 export const BACKFILL_DAYS = 90
 const EPOCH = "2012-01-01T00:00:00.000Z"
@@ -152,6 +168,12 @@ export interface MarketingView {
   scopes: string[]
   /** Part 166 has not run: nothing can be kept yet. */
   ready: boolean
+  /** Unsubscribes there reach Storelib at once (a webhook was registered), not only on the next sync. */
+  instantUnsubscribes: boolean
+  /** Buyers who did not ask are sent as contacts on no list (Klaviyo, Omnisend, Brevo); MailerLite and Kit take subscribers only. */
+  takesCustomers: boolean
+  /** "new" is a list Storelib makes on connect (a MailerLite group, a Kit tag). */
+  canMakeList: boolean
 }
 
 async function countState(db: Db, creatorId: string, provider: MarketingProvider, state: string): Promise<number> {
@@ -187,15 +209,18 @@ export async function loadMarketing(db: Db, creatorId: string): Promise<Marketin
       counts,
       scopes: SCOPES[provider],
       ready,
+      instantUnsubscribes: Array.isArray(c.webhook?.ids) && c.webhook.ids.length > 0,
+      takesCustomers: isPlatform(provider) ? PLATFORMS[provider].takesCustomers : true,
+      canMakeList: isPlatform(provider) ? PLATFORMS[provider].canMakeList : false,
     })
   }
   return out
 }
 
-function refusal(name: string, e: unknown): string {
+function refusal(name: string, e: unknown, provider: MarketingProvider): string {
   if (e instanceof ProviderError) {
     if (e.status === 401) return `${name} did not accept that key.`
-    if (e.status === 403) return `${name} accepted the key, but it is missing a permission. Make a key with: ${name === "Klaviyo" ? KLAVIYO_SCOPES.join(", ") : OMNISEND_SCOPES.join(", ")}.`
+    if (e.status === 403) return `${name} accepted the key, but it is missing a permission. Make a key with: ${SCOPES[provider].join(", ")}.`
     return e.message
   }
   return `${name} could not be reached. Try again in a moment.`
@@ -223,50 +248,76 @@ export async function saveMarketing(
   const had = await rowOf(db, creatorId, provider)
   const typed = typeof body.apiKey === "string" ? body.apiKey.trim() : ""
 
+  const listsWith = (key: string) => (provider === "klaviyo" ? klaviyoLists(key, creatorId) : isPlatform(provider) ? PLATFORMS[provider].lists(key, creatorId) : Promise.resolve([] as KlaviyoList[]))
   /* A new list for a store already connected. */
-  if (!typed && had && typeof body.listId === "string" && provider === "klaviyo") {
+  if (!typed && had && typeof body.listId === "string" && hasLists(provider)) {
     const key = openSecret(had.secret_ciphertext)
-    if (!key) return { ok: false, error: "Connect Klaviyo again: its key could not be read." }
+    if (!key) return { ok: false, error: `Connect ${name} again: its key could not be read.` }
     let lists: KlaviyoList[]
     try {
-      lists = await klaviyoLists(key, creatorId)
+      lists = await listsWith(key)
     } catch (e) {
-      return { ok: false, error: refusal(name, e) }
+      return { ok: false, error: refusal(name, e, provider) }
     }
     const list = lists.find((l) => l.id === body.listId)
-    if (!list) return { ok: false, error: "That list is not in your Klaviyo account any more." }
+    if (!list) return { ok: false, error: `That list is not in your ${name} account any more.` }
     await saveConfig(db, had, { list_id: list.id, list_name: list.name })
     return { ok: true, lists }
   }
-  if (!typed && had && body.step === "lists" && provider === "klaviyo") {
+  if (!typed && had && body.step === "lists" && hasLists(provider)) {
     const key = openSecret(had.secret_ciphertext)
-    if (!key) return { ok: false, error: "Connect Klaviyo again: its key could not be read." }
+    if (!key) return { ok: false, error: `Connect ${name} again: its key could not be read.` }
     try {
-      return { ok: true, lists: await klaviyoLists(key, creatorId) }
+      return { ok: true, lists: await listsWith(key) }
     } catch (e) {
-      return { ok: false, error: refusal(name, e) }
+      return { ok: false, error: refusal(name, e, provider) }
     }
   }
 
   if (!typed) return { ok: false, error: `Add your ${name} API key.` }
-  if (typed.length < 10 || typed.length > 300 || /\s/.test(typed)) return { ok: false, error: "That key doesn't look right." }
+  if (typed.length < 10 || typed.length > 2000 || /\s/.test(typed)) return { ok: false, error: "That key doesn't look right." }
   if (provider === "klaviyo" && !looksLikeKlaviyoKey(typed)) return { ok: false, error: "Use a Klaviyo private API key: it starts with pk_. The six character public key is the one for sign up forms." }
+  const shape = isPlatform(provider) ? PLATFORMS[provider].keyProblem(typed) : null
+  if (shape) return { ok: false, error: shape }
 
   let account: string | null = null
   let accountId: string | null = null
   let lists: KlaviyoList[] = []
   try {
     if (provider === "klaviyo") ({ account, accountId, lists } = await klaviyoConnect(typed, creatorId))
+    else if (isPlatform(provider)) ({ account, accountId, lists } = await PLATFORMS[provider].connect(typed, creatorId))
     else ({ account, accountId } = await omnisendConnect(typed, creatorId))
   } catch (e) {
-    return { ok: false, error: refusal(name, e) }
+    return { ok: false, error: refusal(name, e, provider) }
   }
   if (body.step === "check") return { ok: true, account, lists }
 
   let list: KlaviyoList | null = null
-  if (provider === "klaviyo") {
+  if (hasLists(provider)) {
     list = lists.find((l) => l.id === body.listId) ?? null
-    if (!list) return { ok: false, error: lists.length ? "Choose the list your subscribers go to." : "Make a list in Klaviyo first (Audience › Lists & segments), then connect." }
+    /* MailerLite and Kit: Storelib makes one, named for it, when none of theirs is chosen. */
+    if (!list && body.listId === "new" && isPlatform(provider) && PLATFORMS[provider].canMakeList) {
+      try {
+        list = await PLATFORMS[provider].makeList(typed, creatorId, "Storelib subscribers")
+      } catch (e) {
+        return { ok: false, error: refusal(name, e, provider) }
+      }
+    }
+    if (!list) return { ok: false, error: lists.length ? "Choose the list your subscribers go to." : provider === "klaviyo" ? "Make a list in Klaviyo first (Audience › Lists & segments), then connect." : `Make a list in ${name} first, then connect.` }
+  }
+  /* The groups or tags order events use, and the webhook that brings unsubscribes back at once. Neither stops the connection: without them, order events wait and unsubscribes come on the next sync. */
+  let setup: Record<string, unknown> = {}
+  let webhook: Record<string, unknown> | null = null
+  if (isPlatform(provider)) {
+    const adapter = PLATFORMS[provider]
+    try {
+      setup = { ...(await adapter.prepare(typed, creatorId)) }
+    } catch (e) {
+      if (e instanceof ProviderError && (e.status === 401 || e.status === 403)) return { ok: false, error: refusal(name, e, provider) }
+      setup = {}
+    }
+    if (had?.config?.webhook?.ids?.length) await dropWebhooks(provider, typed, creatorId, had.config.webhook.ids)
+    webhook = await addWebhook(provider, typed, creatorId)
   }
   const at = new Date(now).toISOString()
   const backfill = body.backfill === true
@@ -282,7 +333,8 @@ export async function saveMarketing(
     digital_cursor: { at: backfill ? new Date(now - BACKFILL_DAYS * 86_400_000).toISOString() : at, id: "" },
     physical_cursor: { at: backfill ? new Date(now - BACKFILL_DAYS * 86_400_000).toISOString() : at, id: "" },
     /* Unsubscribes already there are read first, so nobody who left is put back on a list. */
-    pull: { since: null, list_since: null, after: null, initial_done: false },
+    pull: isPlatform(provider) ? { ...EMPTY_PULL } : { since: null, list_since: null, after: null, initial_done: false },
+    ...(isPlatform(provider) ? { setup, webhook } : {}),
   }
   /* A different account than before: the record of what was sent is for that one, so it starts again. */
   if (had && (had.config?.account_id ?? null) !== accountId) await db.from("marketing_sync_items").delete().eq("creator_id", creatorId).eq("provider", provider)
@@ -296,6 +348,12 @@ export async function saveMarketing(
 }
 
 export async function disconnectMarketing(db: Db, creatorId: string, provider: MarketingProvider): Promise<void> {
+  /* The webhook Storelib registered goes too, while the key can still say so. */
+  if (isPlatform(provider)) {
+    const had = await rowOf(db, creatorId, provider)
+    const key = had ? openSecret(had.secret_ciphertext) : null
+    if (key && had?.config?.webhook?.ids?.length) await dropWebhooks(provider, key, creatorId, had.config.webhook.ids)
+  }
   await db.from("commerce_integrations").delete().eq("creator_id", creatorId).eq("provider", provider)
   /* Jobs not run yet stop here; one already running finds no key and does nothing. */
   await db
@@ -440,6 +498,14 @@ async function sendEvents(db: Db, row: Row, key: string, order: MarketingOrder, 
     klaviyoEventsFor(order, event, { backfill: opts.backfill, now: nowIso, checkoutUrl: opts.checkoutUrl }).forEach((e, i) =>
       out.push({ itemKey: `e:${event}:${ref}:${i}`, state: i === 0 ? "sent" : "line", send: () => klaviyoTrack(key, row.creator_id, e) }),
     )
+  } else if (isPlatform(provider)) {
+    const adapter = PLATFORMS[provider]
+    /* MailerLite and Kit: a group or a tag only for someone already subscribed there, never a new subscriber made by an order. */
+    if (!adapter.eventsForEveryone) {
+      const said = await itemsIn(db, row.creator_id, provider, [contactKey(order.email)])
+      if (said.get(contactKey(order.email)) !== "subscribed" && !(await subscribeFirst(db, row, key, order.email, opts.now))) return 0
+    }
+    adapter.events(key, row.creator_id, order, event, (row.config?.setup ?? {}) as Record<string, string>, nowIso).forEach((e, i) => out.push({ itemKey: `e:${event}:${ref}:${i}`, state: i === 0 ? "sent" : "line", send: e.run }))
   } else {
     omnisendEventsFor(order, event, { creatorId: row.creator_id, now: nowIso }).forEach((e, i) => out.push({ itemKey: `e:${event}:${ref}:${i}`, state: i === 0 ? "sent" : "line", send: () => omnisendTrack(key, row.creator_id, e) }))
   }
@@ -453,6 +519,21 @@ async function sendEvents(db: Db, row: Row, key: string, order: MarketingOrder, 
     sent++
   }
   return sent
+}
+
+/**
+ * A buyer who ticked the news box at checkout is a subscriber on Storelib
+ * the moment the order is: the order's event may run before the sync has
+ * sent them. Sent here first, so the buyer's group or tag is not lost.
+ */
+async function subscribeFirst(db: Db, row: Row, key: string, email: string, now: number): Promise<boolean> {
+  if (!isPlatform(row.provider)) return false
+  const listId = String(row.config?.list_id ?? "")
+  const { data } = await db.from("subscribers").select("id, email, name, status, is_active, subscribed_at, consent_timestamp").eq("creator_id", row.creator_id).eq("email", email.trim().toLowerCase()).maybeSingle()
+  if (!listId || !data || contactPush(data as SubscriberRow) !== "subscribed") return false
+  await PLATFORMS[row.provider].subscribe(key, row.creator_id, listId, [{ email: email.trim().toLowerCase(), ...splitName((data as SubscriberRow).name), consentedAt: null }], false)
+  await writeItems(db, row.creator_id, row.provider, [{ key: contactKey(email), state: "subscribed" }], now)
+  return true
 }
 
 async function physicalOrder(db: Db, creatorId: string, checkoutId: string, deps: MarketingDeps): Promise<{ order: MarketingOrder; co: Record<string, any> } | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -541,6 +622,12 @@ async function runSync(db: Db, row: Row, key: string, deps: MarketingDeps): Prom
 }
 
 async function pullUnsubscribes(db: Db, row: Row, key: string, now: number): Promise<{ more: boolean }> {
+  if (isPlatform(row.provider)) {
+    const got = await PLATFORMS[row.provider].pull(key, row.creator_id, { ...EMPTY_PULL, ...((row.config?.pull ?? {}) as Partial<PullState>) }, now)
+    if (got.people.length) await applyPulled(db, row, got.people, now)
+    await saveConfig(db, row, { pull: got.state })
+    return { more: got.more }
+  }
   const p = { since: null as string | null, list_since: null as string | null, after: null as string | null, initial_done: false, ...(row.config?.pull ?? {}) }
   let people: PulledAddress[] = []
   let more = false
@@ -645,7 +732,7 @@ async function sendGroup(list: Planned[], send: (g: Planned[]) => Promise<void>)
 
 async function pushSubscribers(db: Db, row: Row, key: string, now: number): Promise<{ more: boolean }> {
   const cursor: Cursor = row.config?.subs_cursor ?? { at: new Date(now).toISOString(), id: "" }
-  const rows = (await pageAfter(db, "subscribers", "id, email, name, status, is_active, subscribed_at, consent_timestamp, unsubscribed_at, updated_at", "updated_at", cursor, SUBSCRIBERS_PER_RUN, (q) => q.eq("creator_id", row.creator_id))) as SubscriberRow[]
+  const rows = (await pageAfter(db, "subscribers", "id, email, name, status, is_active, subscribed_at, consent_timestamp, unsubscribed_at, updated_at", "updated_at", cursor, perRun(row.provider), (q) => q.eq("creator_id", row.creator_id))) as SubscriberRow[]
   if (!rows.length) return { more: false }
   const planned: Planned[] = []
   for (const r of rows) {
@@ -669,6 +756,26 @@ async function pushSubscribers(db: Db, row: Row, key: string, now: number): Prom
     results.push(await sendGroup(fresh, (g) => klaviyoSubscribe(key, row.creator_id, listId, g.map((p) => ({ email: p.email, consentedAt: null })), false)))
     results.push(await sendGroup(leave, (g) => klaviyoUnsubscribe(key, row.creator_id, g.map((p) => p.email))))
     results.push(await sendGroup(customers, (g) => klaviyoImportProfiles(key, row.creator_id, g.map((p) => ({ email: p.email, ...splitName(p.row.name) })))))
+  } else if (isPlatform(row.provider)) {
+    const adapter = PLATFORMS[row.provider]
+    const listId = String(row.config?.list_id ?? "")
+    if (!listId) throw new ProviderError(`Choose the ${adapter.name} list your subscribers go to.`, 400, false)
+    const person = (p: Planned, withConsent: boolean) => ({ email: p.email, ...splitName(p.row.name), consentedAt: withConsent ? consentedAt(p.row, now) : null })
+    const past = subscribe.filter((p) => row.config?.backfill === true && Date.parse(p.row.subscribed_at ?? "") < connectedAt)
+    const fresh = subscribe.filter((p) => !past.includes(p))
+    /* In steps, each written down as it goes: a retry after a 429 halfway sends only the rest. */
+    const inSteps = async (list: Planned[], size: number, send: (g: Planned[]) => Promise<void>) => {
+      for (let i = 0; i < list.length; i += Math.max(1, size)) {
+        const r = await sendGroup(list.slice(i, i + Math.max(1, size)), send)
+        if (r.sent.length) await writeItems(db, row.creator_id, row.provider, r.sent.map((p) => ({ key: contactKey(p.email), state: p.plan })), now)
+        results.push({ sent: [], refused: r.refused })
+      }
+    }
+    await inSteps(past, adapter.step.subscribe, (g) => adapter.subscribe(key, row.creator_id, listId, g.map((p) => person(p, true)), true))
+    await inSteps(fresh, adapter.step.subscribe, (g) => adapter.subscribe(key, row.creator_id, listId, g.map((p) => person(p, false)), false))
+    await inSteps(leave, adapter.step.unsubscribe, (g) => adapter.unsubscribe(key, row.creator_id, listId, g.map((p) => p.email)))
+    /* A buyer who did not ask: Brevo keeps them as a contact on no list; MailerLite and Kit are never sent one. */
+    if (adapter.takesCustomers) await inSteps(customers, adapter.step.customers, (g) => adapter.customers(key, row.creator_id, g.map((p) => person(p, false))))
   } else {
     const person = (p: Planned): OmnisendPerson => ({
       email: p.email,
@@ -684,7 +791,7 @@ async function pushSubscribers(db: Db, row: Row, key: string, now: number): Prom
   const last = rows[rows.length - 1]
   await saveConfig(db, row, { subs_cursor: { at: last.updated_at, id: last.id } })
   if (refused) await noteError(db, row, `Some addresses were refused: ${refused}`)
-  return { more: rows.length >= SUBSCRIBERS_PER_RUN }
+  return { more: rows.length >= perRun(row.provider) }
 }
 
 function splitName(name: string | null | undefined): { firstName: string | null; lastName: string | null } {
@@ -747,4 +854,88 @@ async function sendPast(db: Db, row: Row, key: string, order: MarketingOrder, no
   if (order.fulfillmentStatus === "fulfilled" || order.fulfillmentStatus === "delivered") await sendEvents(db, row, key, order, "fulfilled", { backfill: true, now })
   if (order.cancelledAt) await sendEvents(db, row, key, order, "cancelled", { backfill: true, now })
   if (order.refundedCents > 0) await sendEvents(db, row, key, order, "refunded", { backfill: true, now })
+}
+
+/* ── unsubscribes there, as they happen: the platform's webhook ───────── */
+
+/** The address a platform posts to. The token is the store's alone; only its hash is kept. */
+export function marketingWebhookUrl(provider: PlatformId, creatorId: string, token: string, origin: string = APP_ORIGIN): string {
+  return `${origin}/api/webhooks/marketing/${provider}?store=${encodeURIComponent(creatorId)}&token=${encodeURIComponent(token)}`
+}
+
+/**
+ * Registers the webhook on connect. Best effort: a platform that refuses it
+ * (a key without the permission, Storelib running somewhere the platform
+ * cannot reach) still syncs, and its unsubscribes come on the next run.
+ */
+async function addWebhook(provider: PlatformId, key: string, creatorId: string): Promise<Record<string, unknown> | null> {
+  if (!/^https:\/\//.test(APP_ORIGIN) || /localhost|127\.0\.0\.1/.test(APP_ORIGIN)) return null
+  const token = randomBytes(24).toString("base64url")
+  try {
+    const hook = await PLATFORMS[provider].registerWebhook(key, creatorId, marketingWebhookUrl(provider, creatorId, token))
+    if (!hook.ids.length) return null
+    return { ids: hook.ids, token_hash: emailHash(token), secret_ciphertext: hook.secret ? sealSecret(hook.secret) : null }
+  } catch {
+    return null
+  }
+}
+
+async function dropWebhooks(provider: PlatformId, key: string, creatorId: string, ids: unknown[]): Promise<void> {
+  for (const id of ids) {
+    try {
+      await PLATFORMS[provider].removeWebhook(key, creatorId, String(id))
+    } catch {
+      /* Gone already, or the key no longer reaches it: the token is forgotten either way, so it would be refused. */
+    }
+  }
+}
+
+const sameHash = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
+
+/**
+ * One delivery to /api/webhooks/marketing/<provider>. The store and token
+ * in the address must match a connected integration; MailerLite's signature
+ * must match its secret too. The addresses it names are unsubscribed on
+ * Storelib by the same rule as a sync's read (./consent.ts pullApplies),
+ * and written down so they are not sent back.
+ */
+export async function receiveMarketingWebhook(
+  db: Db,
+  input: { provider: string; creatorId: string; token: string; raw: string; signature: string | null; kind?: string | null },
+  now: number = Date.now(),
+): Promise<{ status: number; applied: number }> {
+  if (!isPlatform(input.provider) || !UUID.test(input.creatorId) || !input.token) return { status: 404, applied: 0 }
+  const row = await rowOf(db, input.creatorId, input.provider)
+  const want = typeof row?.config?.webhook?.token_hash === "string" ? row.config.webhook.token_hash : ""
+  if (!row || row.status !== "connected" || !want || !sameHash(want, emailHash(input.token))) return { status: 404, applied: 0 }
+  const secret = row.config?.webhook?.secret_ciphertext ? openSecret(row.config.webhook.secret_ciphertext) : null
+  if (secret && !mailerliteSignatureOk(secret, input.raw, input.signature)) return { status: 401, applied: 0 }
+  let body: unknown = null
+  try {
+    body = JSON.parse(input.raw)
+  } catch {
+    return { status: 400, applied: 0 }
+  }
+  const people = PLATFORMS[input.provider].parseWebhook(body, input.kind ?? null).slice(0, 500)
+  if (!people.length) return { status: 200, applied: 0 }
+  const before = await itemsIn(db, row.creator_id, row.provider, people.map((p) => pulledKey(p.email)))
+  await applyPulled(db, row, people, now)
+  const after = await itemsIn(db, row.creator_id, row.provider, people.map((p) => pulledKey(p.email)))
+  return { status: 200, applied: Math.max(0, after.size - before.size) }
+}
+
+/**
+ * A new subscriber anywhere on Storelib (a website form, a OnePage, the
+ * checkout's news box, a community join, one added in Emails): every
+ * connected platform syncs within the minute rather than at the next
+ * quarter hour. Never throws and never waits on a platform: the sync is a
+ * queued job, keyed by the minute, retried with backoff.
+ */
+export async function marketingSubscriberChanged(db: Db, creatorId: string | null | undefined): Promise<void> {
+  if (!creatorId) return
+  try {
+    await queueMarketingSignup(db, creatorId)
+  } catch {
+    /* The cron's quarter hour sync carries it instead. */
+  }
 }

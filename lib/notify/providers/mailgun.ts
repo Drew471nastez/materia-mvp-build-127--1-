@@ -92,6 +92,7 @@ export class MailgunEmailProvider implements EmailProvider {
       metadata: email.variables,
       messageId: email.messageId,
       attachments: email.attachments,
+      ...(email.sendingDomain ? { sendingDomain: email.sendingDomain } : {}),
     })
     return resultOf(answer)
   }

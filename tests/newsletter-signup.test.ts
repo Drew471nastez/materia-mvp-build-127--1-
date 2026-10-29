@@ -62,7 +62,7 @@ const stub = (name: string, source: string) => {
 }
 const stubs = {
   "@/lib/supabase/admin": stub("admin", `export const createAdminClient = () => globalThis.__nlStubs.admin\n`),
-  "@/lib/email": stub("email", `export const triggerEmailFlows = async (_db, p) => { globalThis.__nlStubs.flows.push(p) }\n`),
+  "@/lib/email": stub("email", `export const triggerEmailFlows = async (_db, p) => { globalThis.__nlStubs.flows.push(p) }\nexport const resolveCreatorIdentity = async () => ({})\nexport const resolveSellerEmail = async () => null\nexport const sendEmail = async () => ({ ok: true })\n`) /* the route now also reaches the email platforms' sync (lib/contacts/checkout-contact), which imports these */,
   "@/lib/api/rate-limit": stub("rate", `export const rateLimit = async () => null\nexport const addressSubject = () => "ip"\nexport const emailSubject = (e) => String(e)\nexport const LIMITS = { subscribe: [] }\n`),
 }
 register(pathToFileURL(join(process.cwd(), "scripts/push-test-stubs.mjs")).href, { parentURL: import.meta.url, data: { stubs } })
@@ -196,13 +196,14 @@ async function embedChecks(route: { POST: (r: Request) => Promise<Response> }) {
   check("  kept by an import and a GitHub push like Storelib Reviews' sections", isStorelibNativeSection(NEWSLETTER_SECTION_TYPE))
   const site = (look: string, extra: Partial<SiteData> = {}): SiteData => ({ ...siteOf(extra), theme: new CompatTheme(bare, {}, { assetUrl: (n) => `/a/${n}` }), pages: { home: [{ id: "hero", type: "hero" }, { id: "nl", type: NEWSLETTER_SECTION_TYPE, settings: { look, heading: "Join us", consent: "Unsubscribe any time." } }] } as never })
   const live = String((await call(site("bar"), "GET", "/")).body)
-  const bar = /<div class="slnl slnl--bar"[\s\S]*?<\/script>\s*<\/div>/.exec(live)?.[0] ?? ""
+  /* Changed on purpose (round 43): the box carries its alignment, layout and width as classes after its look. */
+  const bar = /<div class="slnl slnl--bar[ "][\s\S]*?<\/script>\s*<\/div>/.exec(live)?.[0] ?? ""
   check("on the website: a slim bar with its heading, an email box, the button and the consent line", !!bar && /Join us/.test(bar) && /type="email" name="contact\[email\]"/.test(bar) && /class="slnl__b"/.test(bar) && /Unsubscribe any time\./.test(bar), live.slice(0, 400))
   check("  a Storelib sign up, posted to the website's /contact, naming the bar", /data-storelib-form="subscribe"/.test(bar) && /action="\/contact#storelib-newsletter-nl"/.test(bar) && fieldsOf(bar).storelib_placement === "bar" && (bar.match(/name="storelib_placement"/g) ?? []).length === 1, fieldsOf(bar))
-  check("  in the theme's colours and font: its button colour, inherited type", /var\(--color-button/.test(live) && /\.slnl\{font:inherit;color:inherit/.test(live))
+  check("  in the theme's colours and font: its button colour, inherited type", /var\(--color-button/.test(live) && /\.slnl\{font:inherit;color:var\(--slnl-text,inherit\)/.test(live)) /* changed on purpose (round 43): the section's own text colour when one is chosen */
   check("  with its script, which closes it and opens a popup after its delay", /<script>\(function\(\)\{var s=document\.currentScript/.test(bar))
   const canvas = String((await call(site("popup", { designMode: true }), "GET", "/")).body)
-  check("in the builder's canvas: drawn open in the page, no script", /class="slnl slnl--popup slnl--canvas"/.test(canvas) && /data-canvas="1"/.test(canvas) && !/var s=document\.currentScript/.test(canvas))
+  check("in the builder's canvas: drawn open in the page, no script", /class="slnl slnl--popup [^"]*slnl--canvas"/.test(canvas) /* changed on purpose (round 43): layout classes between */ && /data-canvas="1"/.test(canvas) && !/var s=document\.currentScript/.test(canvas))
 
   const d = db()
   S.admin = d
@@ -217,7 +218,17 @@ async function embedChecks(route: { POST: (r: Request) => Promise<Response> }) {
   const popupHtml = String((await call(site("popup"), "GET", "/")).body)
   await call(site("popup"), "POST", "/contact", { body: { ...fieldsOf(popupHtml), "contact[email]": "jo@example.com" }, ajax: true, submit })
   const jo = d.tables.subscribers.find((x: any) => x.email === "jo@example.com")
-  check("  from the popup: a sign-up form, its consent line the popup's", fieldsOf(popupHtml).storelib_placement === "popup" && jo?.source_detail?.form === "section" && /popup/.test(String(jo?.consent_text)), jo)
+  /* Changed on purpose (round 43): a website's popup is its own door in Emails, "Popup", no longer the generic sign-up form. */
+  check("  from the popup: recorded as the website's popup, its consent line the popup's", fieldsOf(popupHtml).storelib_placement === "popup" && jo?.source_detail?.form === "site_popup" && /popup/.test(String(jo?.consent_text)) && sourceView(jo?.source_detail, jo?.source).detail === "Popup", jo)
+  /* Round 43, the owner: "aren't controllable, missing buttons and layout and text". */
+  const ids = (schemas[NEWSLETTER_SECTION_TYPE]?.fields ?? []).map((f: any) => f.id)
+  check("  every setting has a control: words, name box, thank you, alignment, layout, width, padding, colours, picture", ["heading", "text", "placeholder", "button", "show_name", "name_placeholder", "consent", "thanks", "align", "form_layout", "width", "padding_top", "padding_bottom", "background", "text_color", "button_color", "button_text_color", "image", "overlay", "delay"].every((id) => ids.includes(id)), ids)
+  const styled = (settings: Record<string, unknown>): SiteData => ({ ...site("inline"), pages: { home: [{ id: "nl", type: NEWSLETTER_SECTION_TYPE, settings: { look: "inline", ...settings } }] } as never })
+  const band = String((await call(styled({ align: "center", form_layout: "stacked", width: "narrow", padding_top: 96, background: "#112233", button_color: "#ff0000", show_name: true, name_placeholder: "Your name" }), "GET", "/")).body)
+  check("  and each applies: the classes, the padding and colours, and the name box", /class="slnl slnl--inline slnl--center slnl--stacked slnl--narrow"/.test(band) && /--slnl-pt: 96px/.test(band) && /--slnl-bg: #112233/.test(band) && /--slnl-btn: #ff0000/.test(band) && /<input class="slnl__i slnl__i--name" type="text" name="contact\[first_name\]"[^>]*placeholder="Your name"/.test(band), band.slice(band.indexOf('<div class="slnl'), band.indexOf('<div class="slnl') + 700))
+  await call(styled({ show_name: true }), "POST", "/contact", { body: { ...fieldsOf(band), "contact[first_name]": "Kim", "contact[email]": "kim@example.com" }, ajax: true, submit })
+  const kim = d.tables.subscribers.find((x: any) => x.email === "kim@example.com")
+  check("  a sign up with the name box keeps the name, as the newsletter section", kim?.name === "Kim" && kim?.source_detail?.form === "newsletter", kim)
   const thanks = String((await call(site("bar"), "GET", "/?customer_posted=true")).body)
   check("  and the bar then says thank you in place of the box", /<p class="slnl__ok" role="status">Thanks for subscribing\.<\/p>/.test(thanks) && !/class="slnl__i"/.test(thanks))
 }

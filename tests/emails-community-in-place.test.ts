@@ -56,19 +56,24 @@ console.log("\n2. Community automations are in Emails › Automations, and open 
   check("a switch on what can still send; none on a one-off that has gone", automationSwitch({ status: "active", trigger: "join" }) === true && automationSwitch({ status: "paused", trigger: "level" }) === false && automationSwitch({ status: "done", trigger: "broadcast" }) === null && automationSwitch({ status: "sending", trigger: "broadcast" }) === null)
 }
 
-console.log("\n3. All / Digital / Physical / Communities do not slide\n")
+console.log("\n3. All / Digital / Physical / Communities do not slide; they fade in place, as Settings' pills\n")
 {
   const options = [
     { value: "all", label: "All" },
     { value: "digital", label: "Digital products" },
     { value: "communities", label: "Communities" },
   ]
-  const still = renderToStaticMarkup(React.createElement(SegmentedPills, { variant: "chips", value: "digital", slide: false, onChange: () => {}, options, label: "Email families" }))
+  const still = renderToStaticMarkup(React.createElement(SegmentedPills, { variant: "chips", value: "digital", motion: "fade", onChange: () => {}, options, label: "Email families" })) // Changed on purpose (round 43): motion="fade" replaces slide={false}
   check("no moving pill is drawn", !/translate:/.test(still) && !/transition-\[translate,width\]/.test(still), still.slice(0, 300))
-  check("the chosen chip draws its own dark pill, nothing animates its colour", /aria-selected="true"[^>]*class="[^"]*bg-\[#1a1a2e\]/.test(still) && !/transition-colors/.test(still))
+  /* Changed on purpose (round 43, the owner: "smooth exactly like the Settings tab's pills"): each chip eases its own fill, Settings' 150ms on its curve, and nothing travels. */
+  check("the chosen chip draws its own dark pill, and eases its fill in place as Settings' pills do", /aria-selected="true"[^>]*class="[^"]*bg-\[#1a1a2e\]/.test(still) && /transition-\[color,background-color,box-shadow\]/.test(still) && /transition-duration:150ms;transition-timing-function:cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(still) && /aria-selected="false"[^>]*class="[^"]*bg-\[#1a1a2e\]\/0/.test(still), still.slice(0, 600))
   const sliding = renderToStaticMarkup(React.createElement(SegmentedPills, { variant: "chips", value: "digital", onChange: () => {}, options, label: "Views" }))
   check("Analytics and the Emails tabs keep their slide", /transition-colors/.test(sliding))
-  check("Customer emails asks for no slide", /<SegmentedPills variant="chips" value=\{shown\} slide=\{false\}/.test(read("components/app/settings/customer-emails-panel.tsx")))
+  const panel = read("components/app/settings/customer-emails-panel.tsx")
+  check("Customer emails asks for Settings' fade, not the slide", /<SegmentedPills variant="chips" value=\{shown\} motion="fade"/.test(panel)) // Changed on purpose (round 43)
+  check("the list comes in as a Settings section does: 160ms from 0.25, never remounted", /const VIEW_FADE_MS = 160/.test(panel) && /el\.animate\(\[\{ opacity: 0\.25 \}, \{ opacity: 1 \}\], \{ duration: VIEW_FADE_MS, easing: PILL_FADE_EASE \}\)/.test(panel) && /<div ref=\{viewPanel\} id="customer-emails-view"/.test(panel) && !/key=\{shown\}/.test(panel))
+  const settings = read("components/app/settings-form-new.tsx")
+  check("the same numbers as Settings' own pills", /const TAB_FADE_MS = 150/.test(settings) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings) && /PILL_FADE_MS = 150/.test(read("components/app/segmented-pills.tsx")) && /settings-panel-in 160ms cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(read("app/globals.css")))
 }
 
 console.log("\n4. The preview is there when the editor opens\n")

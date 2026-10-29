@@ -1,3 +1,4 @@
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { exitContactRuns } from "@/lib/automations/supabase-store"
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
         return fromPage ? failed() : NextResponse.json({ error: "Failed to resubscribe" }, { status: 500 })
       }
 
+      await syncPlatformsSoon(adminSupabase, subscriber.creator_id)
       if (fromPage) return pageResponse({ kind: "on", ...shown })
       return NextResponse.json({ success: true, message: "Resubscribed successfully" })
     }
@@ -121,6 +123,8 @@ export async function POST(request: NextRequest) {
       return fromPage ? failed() : NextResponse.json({ error: "Failed to unsubscribe" }, { status: 500 })
     }
     await endAutomations(adminSupabase, subscriber)
+    /* Unsubscribed on the store's connected email platforms too, within the minute. */
+    await syncPlatformsSoon(adminSupabase, subscriber.creator_id)
 
     if (fromPage) {
       /*

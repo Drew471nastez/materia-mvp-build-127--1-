@@ -19,10 +19,20 @@
  *   bold      Solid     the whole card filled, in the page's text colour
  *   minimal   Simple    no card, words on the left, the form under them
  *
+ * Round 43, three more:
+ *
+ *   connect   Connect   one pill: the box, and inside it a grey button with
+ *                       the creator's picture ("Connect with" and the photo,
+ *                       the owner's screenshot), the words above it
+ *   letter    Letter    a note from the creator: their picture and name, the
+ *                       words, a box drawn as a line with the button at its end
+ *   bar       Bar       one slim row (picture, words, button); the button
+ *                       slides the form open under it
+ *
  * "pro" keeps its stored name, so a page saved with it before is unchanged.
  */
 
-export const EMAIL_SIGNUP_LAYOUT_IDS = ["default", "pro", "cover", "bold", "minimal"] as const
+export const EMAIL_SIGNUP_LAYOUT_IDS = ["default", "pro", "cover", "bold", "minimal", "connect", "letter", "bar"] as const
 export type EmailSignupLayout = (typeof EMAIL_SIGNUP_LAYOUT_IDS)[number]
 
 /** What a saved block's layout_type means: anything unknown or missing is Classic. */
@@ -45,6 +55,8 @@ export function emailSignupImage(data: { product_image?: string | null; digital_
  */
 export function emailSignupStacked(layout: EmailSignupLayout, buttonText: string): boolean {
   if (layout === "cover" || layout === "bold") return true
+  /* The pill and the line keep the box and the button in one row, whatever the words. */
+  if (layout === "connect" || layout === "letter") return false
   return buttonText.length > 12
 }
 
@@ -74,4 +86,19 @@ export function boldColors(textColor: string | null | undefined): { fill: string
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   const light = 0.2126 * r + 0.7152 * g + 0.0722 * b
   return { fill, on: light > 0.4 ? "#111113" : "#ffffff" }
+}
+
+/** The layouts whose form draws the creator's picture: Connect's button, Letter's head and Bar's row. */
+export function emailSignupShowsAvatar(layout: EmailSignupLayout): boolean {
+  return layout === "connect" || layout === "letter" || layout === "bar"
+}
+
+/**
+ * Picking Connect on a block whose button still has the standard words gives it "Connect with" (the words beside
+ * the creator's picture in the owner's screenshot), written as the block's own custom text so the editor shows what
+ * the page shows. Words the creator chose are kept.
+ */
+export function connectButtonPatch(data: { button_preset?: string | null; custom_button_text?: string | null }, words: string): { button_preset: "custom"; custom_button_text: string } | null {
+  const standard = (!data.button_preset || data.button_preset === "subscribe") && !(data.custom_button_text ?? "").trim()
+  return standard ? { button_preset: "custom", custom_button_text: words } : null
 }

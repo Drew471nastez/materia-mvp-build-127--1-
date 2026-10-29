@@ -145,6 +145,21 @@ export function sheetShowsPageLink(data: Pick<ProductBlockData, "sheet_action" |
   return productSheetAction(data) === "checkout" && data?.sheet_page_link !== false
 }
 
+/** Round 43: the sheet's checkout button carries the price, when the creator asked for it (unset: the words alone). */
+export function sheetButtonPrice(data: Pick<ProductBlockData, "sheet_button_price"> | null | undefined): boolean {
+  return data?.sheet_button_price === true
+}
+
+/**
+ * The checkout button's words: "Buy now", or with the price asked for "Buy now · €49". A free product, a price not
+ * known yet and the words for what is missing ("Choose a size", "Sold out") never carry one.
+ */
+export function sheetButtonLabel(words: string, price: string | null | undefined, withPrice: boolean): string {
+  const p = (price ?? "").trim()
+  if (!withPrice || !p || p === "Free") return words
+  return `${words} · ${p}`
+}
+
 export interface SheetBuyState {
   /** The product's facts have arrived. */
   loaded: boolean

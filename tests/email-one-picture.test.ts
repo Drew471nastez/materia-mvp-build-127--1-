@@ -69,7 +69,7 @@ console.log("\nThe layout draws one picture")
   const both = buildEmail({ subject: "s", bodyHtml: "<p>Hi</p>", brand, avatarUrl: PHOTO, kind: "marketing", unsubscribeUrl: "#" })
   const imgs = pictures(both)
   check("a creator with a photo and a logo gets one picture, not two", imgs.length === 1, imgs)
-  check("and it is the photo, round, beside the name", /src="https:\/\/cdn\.example\.com\/luca-loud\.jpg"/.test(imgs[0] ?? "") && /border-radius:14px/.test(imgs[0] ?? "") && !/class="sl-logo"/.test(both))
+  check("and it is the photo, at its own shape, beside the name", /src="https:\/\/cdn\.example\.com\/luca-loud\.jpg"/.test(imgs[0] ?? "") && !/border-radius/.test(imgs[0] ?? "") && /max-height:28px/.test(imgs[0] ?? "") && !/class="sl-logo"/.test(both)) // Changed on purpose (round 43): no picture is cut round in any email; a logo is drawn at its own shape (lib/emails/brand-mark.ts)
   check("the header then says the name in type", /class="sl-brand"[^>]*>Luca Dragoste</.test(both))
 
   const logoOnly = buildEmail({ subject: "s", bodyHtml: "<p>Hi</p>", brand, avatarUrl: null, kind: "marketing", unsubscribeUrl: "#" })
@@ -100,7 +100,7 @@ console.log("\nEvery email reads the one rule")
 {
   const template = read("lib/email-campaigns/template.ts")
   check("the layout asks senderPicture and draws the logo only when it is the one picture",
-    /const picture = senderPicture\(\{ photoUrl: f\.avatarUrl, logoUrl: brand\.logoUrl \}\)/.test(template) && /picture\?\.kind === "logo" \? emailImageSrc\(picture\.url, 200\)/.test(template))
+    /const picture = senderPicture\(\{ photoUrl: f\.avatarUrl, logoUrl: brand\.logoUrl \}\)/.test(template) && /picture\?\.kind === "logo" \? emailImageSrc\(picture\.url, LOGO_FILE_PX\)/.test(template)) // Changed on purpose (round 43): the logo's width is the shared mark's (lib/emails/brand-mark.ts LOGO_FILE_PX, 200)
   const store = read("lib/automations/supabase-store.ts")
   check("the automation reader no longer puts the photo in the logo's place", /logoUrl: site\.logo,/.test(store) && !/site\.logo \?\?/.test(store) && /const avatarUrl = senderPhoto\(profile\?\.avatar_url\)/.test(store))
   check("the campaign reader reads the photo through the same rule", /avatarUrl: senderPhoto\(profile\?\.avatar_url\)/.test(read("lib/email-campaigns/brand-server.ts")))
@@ -113,7 +113,7 @@ console.log("\nEvery email reads the one rule")
   check("the receipt's picture is the rule's", /senderPicture\(\{ photoUrl: photo, logoUrl: brand\?\.logoUrl \}\)/.test(email) && /sellerPicture: pictureOf\(brand\?\.avatarUrl \?\? v\.seller\.avatarUrl\)/.test(email))
   /* The refund email is drawn by lib/emails/notices.ts in the shared layout, which escapes every address it draws. */
   /* Changed on purpose: a website order's refund is signed by the shop (its logo), one on Storelib by the creator's picture the caller hands; either is sized the same way (lib/emails/buyer-channel.ts). */
-  check("the refund email sizes the picture it is handed and passes it to the layout", /const sellerAvatarSrc = emailImageSrc\(signer\?\.pictureUrl \?\? sellerAvatarUrl, 36\)/.test(email) && /sellerPictureUrl: sellerAvatarSrc/.test(email))
+  check("the refund email sizes the picture it is handed and passes it to the layout", /const sellerAvatarSrc = emailImageSrc\(signer\?\.pictureUrl \?\? sellerAvatarUrl, LOGO_FILE_PX\)/.test(email) && /sellerPictureUrl: sellerAvatarSrc/.test(email)) // Changed on purpose (round 43): sized as a logo up to 200px wide, not a 36px avatar
   const refundRoute = read("app/api/stripe/refund/route.ts")
   check("a creator's refund no longer falls back to the copy in creators.avatar_url", !/creator\.avatar_url/.test(refundRoute) && /senderPicture\(/.test(refundRoute))
   check("and the other two refund paths pass the same picture", /senderPicture\(/.test(read("lib/stripe/refund-sync.ts")) && /senderPicture\(/.test(read("app/api/admin/orders/refund/route.ts")))
@@ -151,9 +151,9 @@ console.log("\nThe receipt")
   check("with a hairline border and a small radius", /border:1px solid #e5e7eb/.test(thumb) && /border-radius:10px/.test(thumb))
   check("a product with no thumbnail gets a tile with its first letter, not a broken picture", /class="e-tile"[^>]*>N<\/td>/.test(html) && imgs.filter((i) => i.includes("e-thumb")).length === 1)
   check("each product's name is there, escaped", html.includes(">Autumn preset pack<") && html.includes("Night &lt;sky&gt; guide") && !html.includes("<sky>"))
-  const avatar = imgs.find((i) => i.includes("e-avatar")) ?? ""
+  const avatar = imgs.find((i) => i.includes("e-store-logo")) ?? ""
   /* Beside the name, so its alt is empty: a reader hears the name once. */
-  check("the creator's photo, 36 by 36, round, sized, beside the name", /width="36"/.test(avatar) && /height="36"/.test(avatar) && /alt=""/.test(avatar) && /border-radius:18px/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar) && />Luca Dragoste<\/td>/.test(html), avatar)
+  check("the creator's photo, at its own shape up to 40px tall, never round, sized, beside the name", /height="40"/.test(avatar) && /max-height:40px/.test(avatar) && /alt=""/.test(avatar) && !/border-radius/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar) && />Luca Dragoste<\/td>/.test(html), avatar) // Changed on purpose (round 43): no picture is cut round in any email; a logo is drawn at its own shape (lib/emails/brand-mark.ts)
   check("and it is the only picture of the creator: no logo beside it", !html.includes(LOGO) && imgs.length === 2)
   check("the Download button is a filled cell with the link, and Outlook gets a roundrect",
     /<td class="e-btn[^"]*"[^>]*bgcolor="#1a1a2e"/.test(html) && /<a class="e-btn-a[^"]*" href="https:\/\/storelib\.com\/receipt\/tok_123"[^>]*>Download your files<\/a>/.test(html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/receipt\/tok_123"/.test(html))

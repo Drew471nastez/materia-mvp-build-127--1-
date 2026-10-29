@@ -72,7 +72,7 @@ import "server-only"
  */
 import { bucketStarts, bucketIndex, type Grain, type Span } from "@/lib/analytics/buckets"
 import { monthlyOf, payingAt, paymentNet } from "../membership-money"
-import { communitySellingProducts } from "./membership-money"
+import { communityMoneyCurrency, communitySellingProducts, membershipLevels } from "./membership-money"
 import { lineMoney } from "@/lib/analytics/reports"
 import { loadGaStatus, loadTracking } from "@/lib/store/tracking-server"
 import { MEMBER_SOURCES } from "../types"
@@ -103,10 +103,6 @@ import { VIEW_DAYS_KEPT } from "./views"
 import { joinStats, loadEventMoney } from "./stats"
 import { cancellationsWithReasons } from "./membership-lifecycle"
 import { missing, reasonOf, type Db } from "./db"
-import { codeOf, dayOf, ratesForDate, type DayRates } from "@/lib/money/report-currency"
-import { convertMinor } from "@/lib/markets/money"
-import { dayRatesBetween } from "@/lib/markets/fx-server"
-import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 const DAY = 86_400_000
 const PAGE = 1000
@@ -628,70 +624,9 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
   return w
 }
 
-/**
- * ONE CURRENCY FOR A COMMUNITY'S MONEY. A community sells in the store's
- * currency, and a market or a currency the store changed from leaves rows in
- * another one: their cents were added together as one number and labelled
- * with whichever row came first, so 20 euro and 100 lei read as 120 euro.
- * Now every amount is the store's currency (the one it chose; while it never
- * chose, the one currency its rows share, so a store that always sold in one
- * reads exactly as before), each row at the ECB rate of its own day as
- * /app Analytics converts orders (lib/money/report-currency). A row no rate
- * could convert is left out of the money, never guessed, and counted.
- */
-type Converter = {
-  currency: string
-  /** Copies of `rows` with `keys` in `currency`, each at the rate of `dateOf(row)`; the ones no rate converts are left out. */
-  rows<T extends { currency?: string | null }>(rows: T[], dateOf: (r: T) => string | null | undefined, keys: readonly (keyof T & string)[]): { rows: T[]; left: number }
-}
-
-export function moneyConverter(target: string, days: DayRates[]): Converter {
-  const to = codeOf(target) ?? "USD"
-  return {
-    currency: to.toLowerCase(),
-    rows(rows, dateOf, keys) {
-      const out: typeof rows = []
-      let left = 0
-      for (const row of rows) {
-        const from = codeOf(row.currency)
-        if (!from || from === to) {
-          out.push(row)
-          continue
-        }
-        const day = dayOf(dateOf(row) ?? "")
-        const fx = day ? ratesForDate(days, day) : null
-        const at = fx ? Date.parse(`${fx.asOf}T12:00:00Z`) : NaN
-        const copy = { ...row, currency: to.toLowerCase() } as Record<string, unknown>
-        let ok = !!fx
-        for (const key of keys) {
-          const v = (row as Record<string, unknown>)[key]
-          if (!ok || typeof v !== "number" || v === 0) continue
-          const c = convertMinor(Math.abs(v), from, to, fx, { now: at })
-          if (c === null) ok = false
-          else copy[key] = v < 0 ? -c : c
-        }
-        if (ok) out.push(copy as (typeof rows)[number])
-        else left += 1
-      }
-      return { rows: out, left }
-    },
-  }
-}
-
-/** The currency a community's money is reported in, and the day rates its rows need (read only when some row is in another currency). */
-async function communityMoneyCurrency(db: Db, creatorId: string | null | undefined, rows: Array<{ currency?: string | null; at?: string | null }>): Promise<Converter> {
-  const store = await readStoreCurrency(db, creatorId)
-  const codes = new Set(rows.map((r) => codeOf(r.currency)).filter((c): c is string => !!c))
-  const target = store.chosen ? store.currency : codes.size === 1 ? [...codes][0] : store.currency
-  const other = rows.filter((r) => {
-    const c = codeOf(r.currency)
-    return !!c && c !== codeOf(target)
-  })
-  if (!other.length) return moneyConverter(target, [])
-  const dates = other.map((r) => dayOf(r.at ?? "")).filter((d): d is string => !!d).sort()
-  const days = dates.length ? await dayRatesBetween(dates[0], dates[dates.length - 1], db) : []
-  return moneyConverter(target, days)
-}
+/* One currency for a community's money (the store's), and a membership's monthly value converted the one way every
+   screen converts it: ./membership-money.ts, shared with the community list, its Overview and its money stats (round 43). */
+export { moneyConverter } from "./membership-money"
 
 async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: number[] }, prev: { span: Span; starts: number[] } | null, creatorId?: string | null, now: number = Date.now()): Promise<MoneyReport | null> {
   const products = await sellingProducts(db, communityId)
@@ -782,11 +717,10 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
     unconverted += r.left
     return r.rows
   }
-  const msConverted = fx.rows(members ?? [], () => levelDay, ["amount_cents"])
-  /* A membership no rate converts still counts its member as paying; only its money is left out. */
-  const convertedIds = new Set(msConverted.rows.map((m) => m.id))
-  unconverted += msConverted.left
-  const ms = [...msConverted.rows, ...(members ?? []).filter((m) => !convertedIds.has(m.id)).map((m) => ({ ...m, amount_cents: 0 }))]
+  /* The memberships' monthly values, by the very rule the community list and its Overview read MRR with (round 43, ./membership-money membershipLevels). */
+  const levels = await membershipLevels(db, fx, members ?? [], levelDay)
+  unconverted += levels.left
+  const ms = levels.rows
   const ordersIn = conv(orders ?? [], (o) => o.created_at, ["amount_cents", "refund_amount_cents"])
   const programsIn = conv(programs ?? [], (o) => o.created_at, ["amount_cents"])
   const ticketsIn = conv(tickets ?? [], (o) => o.paid_at, ["amount_cents"])

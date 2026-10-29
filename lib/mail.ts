@@ -48,6 +48,8 @@ export interface SendEmailOptions {
   transactional?: boolean
   /** Transactional, for an address anybody may have typed: the bounce list is not cleared (lib/mailgun.ts). */
   keepBounce?: boolean
+  /** The seller's verified sending domain (lib/mailgun.ts MailgunSendOptions.sendingDomain). */
+  sendingDomain?: string
 }
 
 // Email send result
@@ -102,6 +104,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     attachments: options.attachments,
     transactional: options.transactional,
     keepBounce: options.keepBounce,
+    sendingDomain: options.sendingDomain,
   })
 
   if (result.success) {

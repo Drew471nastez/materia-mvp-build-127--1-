@@ -2,8 +2,10 @@
 
 /**
  * ===========================================================================
- *  KLAVIYO AND OMNISEND: THE SYNC CARD
+ *  KLAVIYO, OMNISEND, BREVO, MAILERLITE AND KIT: THE SYNC CARD
  * ===========================================================================
+ * The same card on an integration's own page in Settings › Integrations
+ * and in Emails › Platforms (components/email/connected-platforms.tsx).
  * On the integration's own page in Settings › Integrations, under the
  * onsite script's ID. Not connected: the key, Check key (Klaviyo then shows
  * its lists to choose from), Send what you already have, Connect. Connected:
@@ -18,7 +20,8 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, Tex
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
-export type MarketingProviderId = "klaviyo" | "omnisend"
+export type MarketingProviderId = "klaviyo" | "omnisend" | "brevo" | "mailerlite" | "kit"
+export const MARKETING_PROVIDER_IDS: MarketingProviderId[] = ["klaviyo", "omnisend", "brevo", "mailerlite", "kit"]
 
 export interface MarketingState {
   provider: MarketingProviderId
@@ -34,14 +37,35 @@ export interface MarketingState {
   counts: { subscribed: number; unsubscribed: number; customers: number; events: number; pulled: number }
   scopes: string[]
   ready: boolean
+  /** Unsubscribes there reach Storelib at once (a webhook), not only on the next sync. */
+  instantUnsubscribes?: boolean
+  /** Buyers who did not ask go as contacts on no list; false for MailerLite and Kit, which take subscribers only. */
+  takesCustomers?: boolean
+  /** "new" makes a list named for Storelib on connect. */
+  canMakeList?: boolean
 }
 
 export const MARKETING_PATH = "/api/store/integrations/marketing"
 
-const NAME: Record<MarketingProviderId, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend" }
+export const MARKETING_NAME: Record<MarketingProviderId, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend", brevo: "Brevo", mailerlite: "MailerLite", kit: "Kit" }
+const NAME = MARKETING_NAME
+/** Klaviyo, Brevo, MailerLite and Kit choose where subscribers go; Omnisend has one list. */
+const hasLists = (p: MarketingProviderId) => p !== "omnisend"
+/** Klaviyo and Omnisend have an onsite script on the same page; the others are the sync alone. */
+const hasOnsite = (p: MarketingProviderId) => p === "klaviyo" || p === "omnisend"
 const WHERE: Record<MarketingProviderId, string> = {
   get klaviyo() { return tt("Klaviyo › Settings › Account › API keys › Create Private API Key. Give it the permissions listed below.") },
   get omnisend() { return tt("Omnisend › Store settings › API keys › Create API key, with the permissions listed below.") },
+  get brevo() { return tt("Brevo › SMTP & API › API keys › Generate a new API key. It starts with xkeysib-.") },
+  get mailerlite() { return tt("MailerLite › Integrations › API › Generate new token.") },
+  get kit() { return tt("Kit › Settings › Developer › Add a new key (a v4 API key).") },
+}
+const LIST_WORD: Record<MarketingProviderId, () => string> = {
+  klaviyo: () => tt("List for subscribers"),
+  omnisend: () => tt("List for subscribers"),
+  brevo: () => tt("List for subscribers"),
+  mailerlite: () => tt("Group for subscribers"),
+  kit: () => tt("Tag for subscribers"),
 }
 const FLOWS: Record<MarketingProviderId, { out: string[]; in: string[] }> = {
   klaviyo: {
@@ -52,6 +76,25 @@ const FLOWS: Record<MarketingProviderId, { out: string[]; in: string[] }> = {
     get out() { return [tt("Subscribers who said yes, as email subscribers"), tt("Buyers who did not ask, as contacts only"), tt("placed order, paid for order, order fulfilled, order canceled, order refunded"), tt("Unsubscribes on Storelib")] },
     get in() { return [tt("Unsubscribes")] },
   },
+  brevo: {
+    get out() { return [tt("Subscribers who said yes, onto your list"), tt("Buyers who did not ask, as contacts on no list"), tt("order_placed, order_fulfilled, order_cancelled and order_refunded events"), tt("Unsubscribes on Storelib")] },
+    get in() { return [tt("Unsubscribes, hard bounces and spam complaints")] },
+  },
+  mailerlite: {
+    get out() { return [tt("Subscribers who said yes, into your group"), tt("Buyers who are subscribers join Storelib buyers, refunds join Storelib refunded"), tt("Unsubscribes on Storelib")] },
+    get in() { return [tt("Unsubscribes, bounces and spam complaints")] },
+  },
+  kit: {
+    get out() { return [tt("Subscribers who said yes, with your tag"), tt("Buyers who are subscribers get the Storelib buyer tag, refunds Storelib refunded"), tt("Unsubscribes on Storelib")] },
+    get in() { return [tt("Unsubscribes, bounces and complaints")] },
+  },
+}
+const BACKFILL_NOTE: Record<MarketingProviderId, () => string> = {
+  klaviyo: () => tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. Past orders are sent as history, so no automation emails them again."),
+  omnisend: () => tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. Past orders are sent as history, so no automation emails them again."),
+  brevo: () => tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. A Brevo automation that starts when someone joins the list may run for them."),
+  mailerlite: () => tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. A MailerLite automation that starts when someone joins the group may run for them."),
+  kit: () => tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. A Kit automation that starts on the tag may run for them."),
 }
 
 function number(n: number): string {
@@ -60,6 +103,8 @@ function number(n: number): string {
 
 export function MarketingSyncPanel({ provider, onChanged }: { provider: MarketingProviderId; onChanged?: (all: MarketingState[]) => void }) {
   const name = NAME[provider]
+  /* MailerLite and Kit: Storelib can make the group or tag itself. Known before the first read too. */
+  const makesList = provider === "mailerlite" || provider === "kit"
   const [all, setAll] = React.useState<MarketingState[] | null>(() => peekGet<{ marketing: MarketingState[] }>(MARKETING_PATH)?.marketing ?? null)
   const state = all?.find((s) => s.provider === provider) ?? null
   const [key, setKey] = React.useState("")
@@ -103,11 +148,11 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
     const r = await send({ step: "check", apiKey: key.trim() }, "check")
     if (!r) return
     setAccount(r.account ?? null)
-    if (provider === "klaviyo") {
+    if (hasLists(provider)) {
       const got = r.lists ?? []
       setLists(got)
-      setListId((cur) => (got.some((l) => l.id === cur) ? cur : (got[0]?.id ?? "")))
-      if (!got.length) setError(tt("Make a list in Klaviyo first (Audience › Lists & segments), then check again."))
+      setListId((cur) => (got.some((l) => l.id === cur) ? cur : (got[0]?.id ?? (makesList ? "new" : ""))))
+      if (!got.length && !makesList) setError(provider === "klaviyo" ? tt("Make a list in Klaviyo first (Audience › Lists & segments), then check again.") : tt("Make a list in {name} first, then check again.", { name }))
     }
   }
   const connect = async () => {
@@ -133,11 +178,11 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   const disconnect = async () => {
     const r = await send({ disconnect: true }, "disconnect")
     setConfirmOff(false)
-    if (r) setDone(tt("Disconnected. Nothing more is sent to {name}. Your onsite ID above stays until you remove it.", { name }))
+    if (r) setDone(hasOnsite(provider) ? tt("Disconnected. Nothing more is sent to {name}. Your onsite ID above stays until you remove it.", { name }) : tt("Disconnected. Nothing more is sent to {name}.", { name }))
   }
 
   if (all && state && !state.ready) {
-    return <Notice tone="amber">{tt("Sending to {name} needs its database update (SQL part 166). Until it runs, only the onsite script above works.", { name })}</Notice>
+    return <Notice tone="amber">{hasOnsite(provider) ? tt("Sending to {name} needs its database update (SQL part 166). Until it runs, only the onsite script above works.", { name }) : tt("Connecting {name} needs its database update (SQL parts 166 and 341).", { name })}</Notice>
   }
 
   const flows = FLOWS[provider]
@@ -163,6 +208,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
           {flows.in.map((f) => (
             <li key={f}>{f}</li>
           ))}
+          {state?.connected && state.instantUnsubscribes ? <li className="text-[#6b7280]">{tt("As they happen, through a webhook Storelib added")}</li> : null}
         </ul>
       </div>
     </div>
@@ -172,7 +218,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
     const c = state.counts
     const stats: [string, number][] = [
       [tt("Subscribed"), c.subscribed],
-      [tt("Customers"), c.customers],
+      ...(state.takesCustomers === false ? [] : ([[tt("Customers"), c.customers]] as [string, number][])),
       [tt("Order events"), c.events],
       [tt("Unsubscribed"), c.unsubscribed],
       [tt("Left in {name}", { name }), c.pulled],
@@ -199,11 +245,11 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
           ))}
         </dl>
         {flowList}
-        {provider === "klaviyo" ? (
+        {hasLists(provider) ? (
           <div className="border-t border-[#f1f2f4] pt-4">
             {lists ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <Field label={tt("List for subscribers")} htmlFor="marketing-list" className="min-w-0 flex-1">
+                <Field label={LIST_WORD[provider]()} htmlFor="marketing-list" className="min-w-0 flex-1">
                   <SelectInput id="marketing-list" value={listId} onChange={setListId}>
                     {lists.map((l) => (
                       <option key={l.id} value={l.id}>
@@ -251,12 +297,12 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
     )
   }
 
-  const checked = provider === "klaviyo" ? lists !== null && lists.length > 0 : account !== null
+  const checked = hasLists(provider) ? lists !== null && (lists.length > 0 || makesList) : account !== null
   return (
     <div className="space-y-4" data-marketing-sync={provider}>
       {flowList}
       <div className="space-y-3 border-t border-[#f1f2f4] pt-4">
-        <Field label={provider === "klaviyo" ? tt("Private API key") : tt("API key")} htmlFor={`marketing-key-${provider}`} hint={tt("Where to find it: {where}", { where: WHERE[provider] })}>
+        <Field label={provider === "klaviyo" ? tt("Private API key") : provider === "mailerlite" ? tt("API token") : tt("API key")} htmlFor={`marketing-key-${provider}`} hint={tt("Where to find it: {where}", { where: WHERE[provider] })}>
           <TextInput
             id={`marketing-key-${provider}`}
             value={key}
@@ -265,33 +311,36 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
               setLists(null)
               setAccount(null)
             }}
-            placeholder={provider === "klaviyo" ? "pk_..." : tt("Your Omnisend API key")}
+            placeholder={provider === "klaviyo" ? "pk_..." : provider === "brevo" ? "xkeysib-..." : provider === "omnisend" ? tt("Your Omnisend API key") : tt("Your {name} API key", { name })}
             autoComplete="off"
             spellCheck={false}
             type="password"
           />
         </Field>
-        <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-marketing-scopes="">
-          {tt("Permissions:")} {state?.scopes.join(", ") ?? (provider === "klaviyo" ? "accounts:read, lists:read, lists:write, profiles:read, profiles:write, subscriptions:write, events:write" : tt("brands.read, contacts.read, contacts.write, events.write"))}
-        </p>
+        {hasOnsite(provider) ? (
+          <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-marketing-scopes="">
+            {tt("Permissions:")} {state?.scopes.join(", ") ?? (provider === "klaviyo" ? "accounts:read, lists:read, lists:write, profiles:read, profiles:write, subscriptions:write, events:write" : tt("brands.read, contacts.read, contacts.write, events.write"))}
+          </p>
+        ) : null}
         {checked ? (
           <div className="space-y-3 rounded-xl bg-[#f8f9fa] p-3 sm:p-4" data-marketing-checked="">
             <p className="text-[13.5px] text-[#067647]">{tt("Key works")}{account ? tt(" for {account}", { account }) : ""}.</p>
-            {provider === "klaviyo" && lists ? (
-              <Field label={tt("List for subscribers")} htmlFor="marketing-list-new">
+            {hasLists(provider) && lists ? (
+              <Field label={LIST_WORD[provider]()} htmlFor="marketing-list-new">
                 <SelectInput id="marketing-list-new" value={listId} onChange={setListId}>
                   {lists.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
                     </option>
                   ))}
+                  {makesList ? <option value="new">{tt("A new one: Storelib subscribers")}</option> : null}
                 </SelectInput>
               </Field>
             ) : null}
             <Toggle
               id={`marketing-backfill-${provider}`}
               label={tt("Send what you already have")}
-              description={tt("Your subscribers who said yes, and the orders of the last 90 days, in batches. Past orders are sent as history, so no automation emails them again.")}
+              description={BACKFILL_NOTE[provider]()}
               checked={backfill}
               onChange={setBackfill}
             />
@@ -301,7 +350,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
         {done && !error ? <p className="text-[13px] text-[#067647]" data-marketing-done="">{done}</p> : null}
         <div className="flex justify-end gap-2">
           {checked ? (
-            <button type="button" className={cn(BTN_PRIMARY)} disabled={!!busy || (provider === "klaviyo" && !listId)} onClick={() => void connect()} data-marketing-connect="">
+            <button type="button" className={cn(BTN_PRIMARY)} disabled={!!busy || (hasLists(provider) && !listId)} onClick={() => void connect()} data-marketing-connect="">
               {busy === "connect" ? tt("Connecting") : tt("Connect")}
             </button>
           ) : (

@@ -65,6 +65,7 @@ import { communityProducts, defaultRefundDeps, defaultSubscriptionDeps, type Ref
 import { syncTierProducts } from "./tiers"
 import { communityRoom } from "./creator-policies"
 import { KEEP_LIMIT_TEXT, type CommunityPlan } from "../plan-limit"
+import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 
 export type DeletionResult<T = unknown> = ({ ok: true } & T) | { ok: false; status: number; error: string; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -280,7 +281,7 @@ function memberEmail(kind: MailKind, m: { communityName: string; url: string; da
   const name = m.communityName.replace(/[\r\n]+/g, " ").trim() || "This community"
   const date = emailDate(m.date)
   /* From the community, by its own name and picture, as every email it sends its members (lib/notify/templates brandOf). */
-  const sender: EmailSender = { kind: "store", name, pictureUrl: inboxPicture(m.logoUrl, 36), picture: "mark", url: m.url }
+  const sender: EmailSender = { kind: "store", name, pictureUrl: inboxPicture(m.logoUrl, LOGO_FILE_PX), picture: "mark", url: m.url }
   const platformEmail = (input: PlatformEmailInput) => drawEmail({ ...input, sender })
   if (kind === "staying") {
     const subject = `${name} is staying open`

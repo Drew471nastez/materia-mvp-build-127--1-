@@ -244,6 +244,13 @@ export async function deliverSignup(db: Db, creatorId: string | null | undefined
   const out: Partial<Record<PageIntegration, DeliveryResult>> = {}
   if (!creatorId || !signup.email) return out
   await nudge(db, creatorId)
+  /* The signup as a lead, on to the store's analytics tools (lib/analytics/destinations): generate_lead, Meta's Lead by the page pixel's own id. */
+  try {
+    const { forwardLead } = await import("@/lib/analytics/destinations/forward-server")
+    await forwardLead(db, creatorId, { email: signup.email, form: signup.form, eventId: signup.eventId ?? null, key: deliveryKey(signup), url: signup.pageUrl ?? null, at: signup.at })
+  } catch {
+    /* the signup is on Storelib already */
+  }
   let rows: ConnectionRow[] = []
   try {
     rows = await connectedRows(db, creatorId)
@@ -276,7 +283,7 @@ export async function deliverSignup(db: Db, creatorId: string | null | undefined
 }
 
 /** The signup as the routes have it, into the shape that goes out. */
-export function pageSignup(input: { email: string; name?: string | null; form: string; magnet?: string | null; detail?: string | null; blockId?: string | null; onepageId?: string | null; pageUrl?: string | null }): PageSignup {
+export function pageSignup(input: { email: string; name?: string | null; form: string; magnet?: string | null; detail?: string | null; blockId?: string | null; onepageId?: string | null; pageUrl?: string | null; eventId?: string | null }): PageSignup {
   let pageUrl: string | null = null
   try {
     pageUrl = input.pageUrl ? new URL(input.pageUrl).toString().slice(0, 500) : null
@@ -292,6 +299,7 @@ export function pageSignup(input: { email: string; name?: string | null; form: s
     blockId: typeof input.blockId === "string" ? input.blockId.slice(0, 80) : null,
     onepageId: input.onepageId ?? null,
     pageUrl,
+    ...(typeof input.eventId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(input.eventId) ? { eventId: input.eventId } : {}),
     at: new Date().toISOString(),
   }
 }

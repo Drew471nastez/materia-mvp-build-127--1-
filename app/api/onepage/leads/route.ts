@@ -275,7 +275,7 @@ export async function POST(request: Request) {
       subscriber list on their own sync (lib/integrations/marketing).
     */
     const toolsOwner = onepage.seller_id || onepage.creator_id || null
-    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer") })))
+    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer"), eventId: lead.id })))
 
     // No email sending - download happens directly on the page
     console.log("[leads] ========== REQUEST COMPLETE ==========")

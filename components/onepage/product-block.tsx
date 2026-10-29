@@ -55,7 +55,8 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { backThen } from "@/lib/navigation/go-back"
-import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapPlan, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
+import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapPlan, sheetButtonPrice, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
+import { fontStack } from "@/lib/onepage/fonts"
 import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
@@ -535,6 +536,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           /* Round 41: the creator's choice of the sheet's button (lib/onepage/product-block). */
           action={productSheetAction(data)}
           pageLink={sheetShowsPageLink(data)}
+          /* Round 43: "Buy now · €49" when the creator asked for it, and the page's own typefaces. */
+          priceOnButton={sheetButtonPrice(data)}
+          font={{ body: fontStack(theme.font_family), title: fontStack((theme as { title_font?: string }).title_font || theme.font_family) }}
         />
       ) : null}
       {checkout && data.product_id ? (

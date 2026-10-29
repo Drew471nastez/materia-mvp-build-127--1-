@@ -208,19 +208,18 @@ console.log("\nAsked only when a report opens, through the page's own question")
   check("counted for All or a website, with a website and no product", /const nav = !q\.product && q\.properties\.websites\.length > 0 && \(q\.selector\.type === "all" \|\| q\.selector\.type === "website"\) \? readNavClicks\(admin, q\)/.test(answer))
 }
 
-console.log("\nThe type filter is one chip, beside the others")
+console.log("\nThe type filter is one picker, beside the others, all of them round 23's white pills again")
 {
   const client = read("app/app/analytics/analytics-client.tsx")
   const controls = client.slice(client.indexOf("data-analytics-controls"), client.indexOf("{/* The four figures and the chart"))
-  check("All / Digital / Physical / Communities is one KindPicker in the filters' row, not segments", /<KindPicker options=\{kindPills\} value=\{shownView\} onChange=\{setView\} onIntent=\{warmView\} allLabel=\{tt\("All types"\)\} \/>/.test(controls) && !/SegmentedPills/.test(client) && /data-filter-chips=""/.test(controls))
+  check("All / Digital / Physical / Communities is one KindPicker in the filters' row, not segments", /<KindPicker options=\{kindPills\} value=\{shownView\} onChange=\{setView\} onIntent=\{warmView\} allLabel=\{tt\("All types"\)\} \/>/.test(controls) && !/SegmentedPills/.test(client) && /* Changed on purpose (round 43): the Emails chips taken back, so the row no longer asks for them. */ !/data-filter-chips/.test(controls))
   const picker = read("components/app/kind-picker.tsx")
   check("a popover on a computer, the shared sheet on a phone, a check on the one showing", /<BottomSheet isOpen=\{open\}/.test(picker) && /<PopoverContent/.test(picker) && /checked=\{o\.value === value\}/.test(picker) && /data-filter-set=\{isAll \? undefined : ""\}/.test(picker))
   const css = read("app/globals.css")
-  const rule = /\[data-analytics-controls\]\[data-filter-chips\] button\[aria-haspopup="dialog"\] \{([^}]*)\}/.exec(css)?.[1] ?? ""
-  check("the chip is the Emails one: 28px, dashed hairline, 8px corners, 12px words", /height: 28px/.test(rule) && /border: 1px dashed #c9ccd3/.test(rule) && /border-radius: 8px/.test(rule) && /font-size: 12px/.test(rule))
-  const emails = read("app/app/emails/emails-home.tsx")
-  check("  as Emails draws it (h-7, rounded-lg, 12px, the same dashed grey)", /"flex h-7 shrink-0 items-center rounded-lg border text-\[12px\] font-medium"/.test(emails) && /border-dashed border-\[#c9ccd3\]/.test(emails))
-  check("a filter that narrows the page is filled, and says so: the place, the product, the type; the period always", /data-filter-set=\{options\[0\] && !sameProperty\(value, options\[0\]\.value\) \? "" : undefined\}/.test(read("components/app/property-picker.tsx")) && /data-filter-set=\{value === "all" \? undefined : ""\}/.test(read("components/app/product-picker.tsx")) && /data-filter-set=""/.test(read("components/app/date-range-picker.tsx")) && /\[data-filter-set\] \{\s*border-style: solid;/.test(css))
+  /* Changed on purpose (round 43, the owner: the filters look as they did before round 42): the round white pill, 36px, for every filter, the type too. */
+  const rule = /\[data-analytics-controls\] button\[aria-haspopup="dialog"\] \{([^}]*)\}/.exec(css)?.[1] ?? ""
+  check("every filter is the round white pill again: 36px, round, white, 14px words", /height: 36px/.test(rule) && /border-radius: 999px/.test(rule) && /background-color: #fff/.test(rule) && /font-size: 14px/.test(rule) && !/\[data-filter-chips\]/.test(css))
+  check("a filter that narrows the page says so: the place, the product, the type; the period always", /data-filter-set=\{options\[0\] && !sameProperty\(value, options\[0\]\.value\) \? "" : undefined\}/.test(read("components/app/property-picker.tsx")) && /data-filter-set=\{value === "all" \? undefined : ""\}/.test(read("components/app/product-picker.tsx")) && /data-filter-set=""/.test(read("components/app/date-range-picker.tsx")))
 }
 
 console.log("\nThe SQL, part 331")

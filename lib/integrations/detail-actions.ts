@@ -69,6 +69,15 @@ export function removalPlan(item: Integration, facts: ConnectionFacts): RemovalP
       refresh: "/api/store/tracking-app",
     }
   }
+  if (item.kind === "app" && item.appId === "marketing_sync" && item.marketingProvider) {
+    if (!facts.marketingConnected) return null
+    return {
+      verb: "disconnect",
+      calls: [{ path: MARKETING_SYNC_PATH, method: "POST", body: { provider: item.marketingProvider, disconnect: true } }],
+      consequence: `Nothing more is sent to ${item.name}, and the webhook Storelib added there is removed. What's already in your ${item.name} account stays there.`,
+      refresh: MARKETING_SYNC_PATH,
+    }
+  }
   if (item.kind === "app") return null
   if (item.kind === "tracker" && item.trackerId) {
     const calls: ActionCall[] = []
@@ -110,7 +119,7 @@ export function installVerb(item: Integration): "Turn on" | "Connect" | "Install
   if (item.kind === "listed" || item.comingSoon) return null
   if (item.kind === "tracker") return item.trackerId === "klaviyo" || item.trackerId === "omnisend" ? "Connect" : "Install"
   if (item.kind === "commerce") return item.builtIn ? "Install" : "Connect"
-  if (item.id === "aftership") return "Connect"
+  if (item.id === "aftership" || item.appId === "marketing_sync") return "Connect"
   return null
 }
 
@@ -122,6 +131,7 @@ export function setupSteps(item: Integration): string[] {
   if (item.kind === "listed" || item.comingSoon) return []
   if (item.kind === "app" && item.appId === "storelib_reviews") return ["Turn it on below.", "Choose when buyers get the email asking for a review.", "Reviews and stars show on your product pages."]
   if (item.id === "aftership") return ["In AfterShip, go to Settings › API keys and create a key.", "Paste it below, with the webhook secret for instant updates.", "Your parcels are followed with your AfterShip account from then on."]
+  if (item.kind === "app" && item.appId === "marketing_sync") return [`Create an API key in ${item.name} and paste it below.`, item.marketingProvider === "kit" ? "Pick the tag your subscribers get." : item.marketingProvider === "mailerlite" ? "Pick the group your subscribers join." : "Pick the list your subscribers join.", "New subscribers go there within a minute. Unsubscribes come back."]
   if (item.kind === "app") return []
   if (item.kind === "tracker" && item.trackerId) {
     const t = TRACKERS[item.trackerId]

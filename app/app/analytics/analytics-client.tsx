@@ -57,6 +57,7 @@ import { CommerceReports } from "./commerce-reports"
 import { CommunityReports, type CommunityPlace } from "./community-reports"
 import { AddReportButton, ReportPicker, reportActions, useAddedReports } from "./add-reports"
 import { ExportButton } from "./export-button"
+import { SendAnalyticsButton } from "@/components/app/analytics/send-analytics"
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
@@ -353,6 +354,12 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const reportChoices = useMemo(() => reportOptions(profile), [profile])
   const shownAdded = added.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode }))
   const actions = reportActions(added, saveAdded)
+  /* What Digital and Physical need on their own (round 43): Digital its downloads and refunds, Physical its refunds (returns). */
+  const standingReports = useMemo<ReportId[]>(() => {
+    if (shownView !== "digital" && shownView !== "physical") return []
+    const wanted: ReportId[] = shownView === "digital" ? ["downloads", "refunds"] : ["refunds"]
+    return wanted.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode }))
+  }, [shownView, profile, property, chosenProduct, mode])
   const [picking, setPicking] = useState(false)
   /* A report just added is brought into view once it is on screen, wherever the picker was opened from. */
   const reveal = useRef<ReportId | null>(null)
@@ -649,16 +656,15 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
 
         {/* THE FILTERS, ONE ROW IN ONE ORDER (the owner: "arrange the whole control area with UX in mind"): the
             period, the place, the product, then what is shown (All types, Digital, Physical, Communities), and
-            Export, the one action, at the row's end. Round 42 (the owner: "like the Emails subscribers filters"):
-            every filter is the Emails toolbar's chip, 28px, small text and a chevron, dashed while it is at its
-            default (All pages, All products, All types) and filled once it narrows the page, so a glance says
-            which filters are on; the period always is (app/globals.css [data-filter-chips]).
+            Export, the one action, at the row's end. Every one is the same 36px round white pill (app/globals.css
+            [data-analytics-controls]); round 42's dashed Emails chips were taken back in round 43, keeping the
+            type as one picker beside the others.
             On a phone the filters are ONE row that scrolls sideways, with momentum and no bar, fading where it is
             cut (components/app/use-edge-fade), and Export stays put at its right end as an icon, so it never
             scrolls off the screen. On a computer they sit together from the left and Export says its name. Each
             picker opens its sheet through a portal, so the scroller clips none of them. The 4px around the
             strip are the chips' rings. */}
-        <div className="flex items-center gap-2" data-analytics-controls="" data-filter-chips="">
+        <div className="flex items-center gap-2" data-analytics-controls="">
           <div
             ref={pickersRef}
             data-scroll-x
@@ -672,10 +678,13 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             {/* What is shown, when there is a choice: one chip like the others, its list in a popover or the sheet (components/app/kind-picker). A pointer resting on a row reads it ahead. */}
             {kindPills.length ? <KindPicker options={kindPills} value={shownView} onChange={setView} onIntent={warmView} allLabel={tt("All types")} /> : null}
           </div>
+          {/* Storelib analytics on to the store's other tools, and the read only API (components/app/analytics/send-analytics). */}
+          <SendAnalyticsButton />
           <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
 
-        {/* The four figures and the chart of the one chosen */}
+        {/* The four figures and the chart of the one chosen. With Communities chosen, the communities' own figures and chart take their place (./community-reports, round 43). */}
+        {communitiesOnly ? null : (
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
           <LoadingLine active={waitingFigures || waitingLists} />
           {/* One row that scrolls sideways on a phone, like the home page's
@@ -757,9 +766,11 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           </div>
         </div>
 
+        )}
+
         {/* The store's sales reports, for the same period, comparison, place and product as the chart (./commerce-reports). Physical sales are in the chart, the figures and Top products like any other sale; shipping and fulfilment only for a seller who ships or has a published website. */}
         {communitiesOnly ? (
-          <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} />
+          <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} full rangeText={rangeLabel(period)} againstText={compareLabel} legend={<ChartLegend range={period} compare={comparedRange} align="start" />} />
         ) : sections.sales ? (
           <CommerceReports
             span={safeSpan}
@@ -787,8 +798,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           state={reportsState}
           property={property}
           sections={sections}
-          extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} /> : null}
+          extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} rangeText={rangeLabel(period)} againstText={compareLabel} /> : null}
           added={{ ids: shownAdded, ...actions }}
+          standing={standingReports}
         />}
         {/* The grid's last tile, the full width: where the next report goes. */}
         <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />

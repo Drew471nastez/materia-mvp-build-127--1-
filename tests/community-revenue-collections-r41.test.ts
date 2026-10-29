@@ -129,7 +129,7 @@ async function communityMoney() {
   const creator = read("lib/communities/server/creator.ts")
   const stats = read("lib/communities/server/stats.ts")
   const ar = read("lib/communities/server/analytics-report.ts")
-  check("one rule: the list, the Overview, the stats and the report all read ../membership-money", /mrrAt\(/.test(creator) && /mrrAt\(/.test(stats) && /communitySellingProducts/.test(creator) && /from "\.\.\/membership-money"/.test(ar) && !/monthlyValue/.test(creator + stats + ar))
+  check("one rule: the list, the Overview, the stats and the report all read ../membership-money", /* Changed on purpose (round 43): the list, the Overview and the stats read MRR through mrrOfRows, mrrAt in the store's currency. */ /mrrOfRows\(|communityMrr\(/.test(creator) && /mrrOfRows\(/.test(stats) && /communitySellingProducts/.test(creator) && /from "\.\.\/membership-money"/.test(ar) && !/monthlyValue/.test(creator + stats + ar))
   check("/app/analytics shows Community revenue with a switcher by community, Payments received and MRR named apart", /title=\{tt\("Community revenue"\)\}/.test(reports) && /<ReportTabs label=\{tt\("Community"\)\}/.test(reports) && /tt\("Payments received"\)/.test(reports) && /tt\("MRR now"\)/.test(reports))
   check("the Overview calls it MRR, a level, not Monthly revenue", /label: tt\("MRR"\), value: money\(f\.mrrCents, f\.currency\)/.test(read("components/community/creator/logic.ts")))
 }

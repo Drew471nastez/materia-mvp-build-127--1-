@@ -71,8 +71,9 @@ check("the store's words show in its own language and not in another", previewCu
 const confirmFr = previewCustomerEmail("order_confirmation", shop, null, { language: { lang: "fr", words: FR, own: false } })!
 check("an order that ships, in French, its date too", confirmFr.subject === "Commande #1042 confirmée" && /<html lang="fr"/.test(confirmFr.html) && confirmFr.html.includes("octobre"), confirmFr.subject)
 const panel = read("components/app/settings/customer-emails-panel.tsx")
-check("the editor offers the website's languages and where it was bought", /data-preview-language/.test(panel) && /\{ id: "website", label: tt\("Your website"\) \}/.test(panel) && /\?channel=storelib/.test(panel) && /\?lang=\$\{encodeURIComponent\(lang\)\}/.test(panel))
-check("  and says when the store's own words do not go in this language", /data-preview-own-note/.test(panel))
+check("the editor offers the website's languages and where it was bought", /data-preview-language/.test(panel) && /\{ id: "website", label: tt\("Website"\) \}/.test(panel) /* Changed on purpose (round 43): a small "Preview as" Website / Creator page over the preview */ && /\?channel=storelib/.test(panel) && /\?lang=\$\{encodeURIComponent\(lang\)\}/.test(panel))
+/* Changed on purpose (round 43, the owner: too much explanatory text): no notes; the language is one select in the sheet's header, the place a "Preview as" control over the preview. */
+check("  with no notes explaining either, the language in the header, the place over the preview", !/data-preview-own-note|data-preview-place-note/.test(panel) && /\{languageSelect\}\s*<\/div>/.test(panel) && /tt\("Preview as"\)/.test(panel))
 check("  a test is sent the way the preview shows it", /body: \{ id, channel: where\.channel, lang: where\.lang/.test(panel) && /storePreview\(db, c\.creatorId, id, words, \{ channel:/.test(read("app/api/store/emails/test/route.ts")))
 check("community emails are English: no language to pick", !/language/i.test(read("components/app/emails/community-emails.tsx").split("export function CommunityEmails")[1].split("function useServerPreview")[0]))
 

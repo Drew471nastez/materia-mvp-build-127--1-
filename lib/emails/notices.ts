@@ -45,7 +45,7 @@ export function leadMagnetEmail(p: {
   const subject = clean(p.customSubject, 120) || `Your download is ready: ${title}`
   const heading = clean(p.customHeading, 120) || "Here's your free download"
   const body = clean(p.customBody, 2000) || `Thanks for signing up. As promised, here's ${title}.`
-  const sender: EmailSender = { kind: "store", name: seller, pictureUrl: p.sellerPictureUrl ?? null, picture: "avatar" }
+  const sender: EmailSender = { kind: "store", name: seller, pictureUrl: p.sellerPictureUrl ?? null, picture: "logo" }
   const k = emailKit(sender)
   const html = emailDocument({
     sender,
@@ -112,7 +112,7 @@ export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; seller
   /* The store's own words (Settings › Customer emails › Refund), when it wrote any: the facts, the bank's days and the contact stay. */
   const own = p.copy ?? null
   const subject = own?.subject || et("Your {amount} refund for {product} has been processed", { amount: p.amount, product })
-  const sender: EmailSender = { kind: "store", name: store, pictureUrl: p.sellerPictureUrl ?? null, picture: "avatar" }
+  const sender: EmailSender = { kind: "store", name: store, pictureUrl: p.sellerPictureUrl ?? null, picture: "logo" }
   const k = emailKit(sender)
   const facts = [
     { label: et("Refund"), value: p.amount },

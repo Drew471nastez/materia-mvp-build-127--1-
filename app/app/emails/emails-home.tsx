@@ -48,6 +48,7 @@ import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, St
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 import { CUSTOMER_EMAILS_PATH, CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { ConnectedPlatforms, type PlatformsData } from "@/components/email/connected-platforms"
 import { CommunityAutomations } from "@/components/app/emails/community-automations"
 import type { CommunityRef } from "@/components/app/emails/community-emails"
 import { api as storeApi, peekGet } from "@/components/physical/ui"
@@ -55,7 +56,7 @@ import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
-export type EmailsTab = "subscribers" | "messages" | "flows" | "customer" | "published" | "scheduled" | "drafts"
+export type EmailsTab = "subscribers" | "messages" | "flows" | "customer" | "published" | "scheduled" | "drafts" | "platforms"
 
 /** A message from a contact form on one of the creator's websites (site_contact_messages, lib/site-contact). */
 export interface MessageRow {
@@ -156,6 +157,9 @@ export interface EmailsHomeProps {
   customerEmails?: CustomerEmailsData | null
   /** The Customer emails tab changed what it read (words saved, the reminder switched): kept for its next look. */
   onCustomerEmails?: (data: CustomerEmailsData) => void
+  /** The Platforms tab's read: the connected email platforms and the sending domain. */
+  platforms?: PlatformsData | null
+  onPlatforms?: (data: PlatformsData) => void
   /** Physical commerce is on: the shipping, pickup and return emails are listed too. */
   physical: boolean
   search: string
@@ -202,6 +206,7 @@ export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "published", get label() { return tt("Sent") } },
   { id: "scheduled", get label() { return tt("Scheduled") } },
   { id: "drafts", get label() { return tt("Drafts") } },
+  { id: "platforms", get label() { return tt("Platforms") } },
 ]
 
 const PAGE_SIZE = 50
@@ -362,6 +367,8 @@ export function EmailsHome(props: EmailsHomeProps) {
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
           {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
+          {/* Klaviyo, Omnisend, Brevo, MailerLite and Kit kept in step, and the store's own sending domain. */}
+          {tab === "platforms" ? <ConnectedPlatforms data={props.platforms ?? null} onChange={props.onPlatforms} /> : null}
         </section>
       </div>
     </>
@@ -525,6 +532,17 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: tt("Emails"), help: tt("The emails your buyers and members get: digital products, physical products and communities, each apart."), value: n(listed.length) },
       { label: tt("Edited"), help: tt("Emails you changed the words of. The rest go out with the default words."), value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
       { label: tt("Replies go to"), help: tt("Your store's contact email, from Settings › Store details. A buyer who answers an email writes to it."), value: c?.shop.supportEmail || "–" },
+    ]
+  }
+  if (p.tab === "platforms") {
+    const on = (p.platforms?.marketing ?? []).filter((m) => m.connected)
+    const last = on.map((m) => m.lastSyncAt).filter((x): x is string => !!x).sort().at(-1)
+    const d = p.platforms?.sending.domain ?? null
+    return [
+      { label: tt("Connected"), help: tt("Email platforms your subscribers and orders go to."), value: p.platforms ? n(on.length) : "–" },
+      { label: tt("Subscribers sent"), help: tt("Subscribers who said yes, on every connected platform together."), value: p.platforms ? n(on.reduce((t, m) => t + m.counts.subscribed, 0)) : "–" },
+      { label: tt("Last sync"), help: tt("The last time a connected platform was brought up to date."), value: last ? formatWhen(last) : "–" },
+      { label: tt("Sending domain"), help: tt("The domain your emails come from once it is verified. Without one, they come from Storelib's address."), value: d ? (d.status === "verified" ? d.domain : tt("Not verified")) : tt("Storelib's") },
     ]
   }
   if (p.tab === "published") {

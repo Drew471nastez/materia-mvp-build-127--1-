@@ -49,6 +49,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
+import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioWeightOf, caseOf, textSizeOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
@@ -1817,6 +1818,7 @@ function HeaderSection() {
             onClick={() => setShowEditModal(true)}
             aria-label={tt("Change profile image")}
             data-avatar-edit
+            style={{ borderRadius: avatarRadius(theme as never) }}
             className="relative isolate aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
           >
             {/*
@@ -1825,7 +1827,7 @@ function HeaderSection() {
               carried z-index 1, which painted it over the pencil, so the
               round button sat half hidden behind the picture.
             */}
-            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full isolate z-0 bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full isolate z-0 bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" style={{ borderRadius: avatarRadius(theme as never) }}>
           {avatarVideoUrl ? (
                 /* The same element the page draws, from the video's own first frame (components/onepage/poster-video). */
                 <PosterVideo
@@ -2143,6 +2145,8 @@ function HeaderSection() {
         })()}
       </PanelSection>
 
+      {effectiveLayout !== "hero" ? <AvatarFrameSection /> : null}
+
       {effectiveLayout !== "hero" ? (
         <PanelSection>
           <SwitchRow
@@ -2239,15 +2243,18 @@ function HeaderSection() {
           </div>
         ) : null}
 
-        <SettingRow label={tt("Title size")} className="mt-5">
-          <Segmented
-            className="w-[220px]"
-            label={tt("Title size")}
-            value={(theme as any).title_size === "large" ? "large" : "default"}
-            options={[{ id: "default", label: tt("Default") }, { id: "large", label: tt("Large") }] as const}
-            onChange={(id) => updateTheme({ title_size: id } as any)}
-          />
-        </SettingRow>
+        {/* The words' size, weight and spacing are under Text (TitleTypeSection); a logo's size stays here, beside the logo. */}
+        {(theme as any).title_style === "logo" ? (
+          <SettingRow label={tt("Logo size")} className="mt-5">
+            <Segmented
+              className="w-[220px]"
+              label={tt("Logo size")}
+              value={(theme as any).title_size === "large" ? "large" : "default"}
+              options={[{ id: "default", label: tt("Default") }, { id: "large", label: tt("Large") }] as const}
+              onChange={(id) => updateTheme({ title_size: id } as any)}
+            />
+          </SettingRow>
+        ) : null}
       </PanelSection>
     </div>
   )
@@ -2390,8 +2397,14 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
           {hero ? null : (
             <span
               data-theme-avatar=""
-              className="block h-[28px] min-h-[28px] w-[28px] min-w-[28px] flex-none aspect-square overflow-hidden rounded-full"
-              style={cover ? { background: `color-mix(in srgb, ${text} 18%, ${c.background_color || "#ffffff"})`, boxShadow: `0 0 0 2px ${c.background_color || "#ffffff"}` } : { background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}
+              /* Round 43: 34px, nearer a page's share of the width, in the theme's own shape and ring. */
+              className="block h-[34px] min-h-[34px] w-[34px] min-w-[34px] flex-none aspect-square overflow-hidden"
+              style={{
+                borderRadius: c.avatar_shape === "square" ? 4 : c.avatar_shape === "rounded" ? 9 : 999,
+                ...(cover
+                  ? { background: `color-mix(in srgb, ${text} 18%, ${c.background_color || "#ffffff"})`, boxShadow: `0 0 0 2px ${c.background_color || "#ffffff"}` }
+                  : { background: `${text}2e`, boxShadow: typeof c.avatar_border_color === "string" && c.avatar_border_color ? `0 0 0 1.5px ${c.avatar_border_color}` : `inset 0 0 0 1px ${text}1f` }),
+              }}
             />
           )}
           <span
@@ -3370,6 +3383,11 @@ function FontSample({ family, text, className }: { family: string; text: string;
  * no scrim, no page behind it to dim, and the list is where the eye already
  * is. Either way the rows draw their faces as they come into view (above).
  */
+/** The font sheet's tallest: three quarters of what a phone shows. */
+const FONT_SHEET_MAX = "min(75dvh, 640px)"
+/** The list's least room while a search narrows it: four rows, or a third of the visible screen when the keyboard leaves less. */
+const FONT_SHEET_SEARCH_ROOM = "min(232px, calc(var(--vv-h, 100dvh) * 0.33))"
+
 function FontPicker({
   label,
   description,
@@ -3444,7 +3462,14 @@ function FontPicker({
           />
         ) : null}
       </div>
-      <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2">
+      <div
+        ref={listRef}
+        role="listbox"
+        aria-label={label}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2"
+        /* On a phone the sheet is as tall as its list (FONT_SHEET_MAX at most); a search that narrows the list keeps a few rows of room, so the top edge does not fall to the search box under the thumb. */
+        style={phone && query.trim() ? { minHeight: FONT_SHEET_SEARCH_ROOM } : undefined}
+      >
         {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">{tt("No font by that name")}</p> : null}
         {shown.map((f) => {
           const on = f.value === value
@@ -3456,7 +3481,7 @@ function FontPicker({
               aria-selected={on}
               onClick={() => choose(f.value)}
               data-font-option={f.name}
-              className={cn("relative flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", !on && "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
+              className={cn("relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", phone ? "min-h-[56px] py-1.5" : "min-h-[52px]", !on && "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
             >
               {/* The chosen row's grey and its check fade in; the one it replaces fades out. */}
               <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-[inherit] bg-[#f1f2f4] transition-opacity duration-[180ms] ease-out", on ? "opacity-100" : "opacity-0")} />
@@ -3493,8 +3518,14 @@ function FontPicker({
       <>
         {trigger}
         {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)" aboveKeyboard keepMounted>
-          <div className="flex h-full min-h-0 flex-col pt-2" data-font-sheet="">{list}</div>
+        {/*
+          Round 43: as tall as what is in it, three quarters of the screen at
+          most. It was a fixed 80% (640px) whatever it held, so a short list
+          sat in a tall white sheet and a long one covered nearly the whole
+          page behind it.
+        */}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill maxHeight={FONT_SHEET_MAX} aboveKeyboard keepMounted>
+          <div className="flex min-h-0 flex-1 flex-col pt-2" data-font-sheet="">{list}</div>
         </BottomSheet>
       </>
     )
@@ -3515,6 +3546,172 @@ function FontPicker({
       </Popover>
       {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
     </>
+  )
+}
+
+/**
+ * ROUND 43: THE NAME AND THE BIO, SET AS TYPE. Size, weight, letter spacing
+ * and capitals for each, stored on the theme (lib/onepage/header-style) and
+ * drawn by the page and the preview alike. Nothing chosen is what a page
+ * always drew: a bold name, a regular bio, both at their usual size.
+ */
+function TypeRows({
+  which,
+  theme,
+  weights,
+  onChange,
+}: {
+  which: "title" | "bio"
+  theme: Record<string, unknown>
+  weights: readonly { id: string; label: string }[]
+  onChange: (patch: Record<string, unknown>) => void
+}) {
+  const weight = which === "title" ? titleWeightOf(theme) : bioWeightOf(theme)
+  /* Wide enough for four weights' names side by side. */
+  const row = "w-full sm:w-[308px]"
+  return (
+    <div className="space-y-4" data-type-rows={which}>
+      <SettingRow label={tt("Size")} stackOnPhone>
+        <Segmented
+          className={row}
+          label={tt("Size")}
+          value={textSizeOf(theme[`${which}_size`])}
+          options={[{ id: "small", label: tt("Small") }, { id: "default", label: tt("Default") }, { id: "large", label: tt("Large") }] as const}
+          onChange={(id) => onChange({ [`${which}_size`]: id === "default" ? null : id })}
+        />
+      </SettingRow>
+      <SettingRow label={tt("Weight")} stackOnPhone>
+        <Segmented
+          className={row}
+          label={tt("Weight")}
+          value={String(weight)}
+          options={weights}
+          onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
+        />
+      </SettingRow>
+      <SettingRow label={tt("Letter spacing")} stackOnPhone>
+        <Segmented
+          className={row}
+          label={tt("Letter spacing")}
+          value={trackingOf(theme[`${which}_tracking`])}
+          options={[{ id: "tight", label: tt("Tight") }, { id: "normal", label: tt("Normal") }, { id: "wide", label: tt("Wide") }] as const}
+          onChange={(id) => onChange({ [`${which}_tracking`]: id === "normal" ? null : id })}
+        />
+      </SettingRow>
+      <SettingRow label={tt("Case")} stackOnPhone>
+        <Segmented
+          className={row}
+          label={tt("Case")}
+          value={caseOf(theme[`${which}_case`])}
+          options={[{ id: "none", label: tt("As typed") }, { id: "upper", label: tt("Capitals") }] as const}
+          onChange={(id) => onChange({ [`${which}_case`]: id === "none" ? null : id })}
+        />
+      </SettingRow>
+    </div>
+  )
+}
+
+function HeaderTypeSections() {
+  const { onepage, updateTheme } = useOnePage()
+  if (!onepage) return null
+  const theme = onepage.theme as unknown as Record<string, unknown>
+  const logo = theme.title_style === "logo"
+  return (
+    <>
+      {logo ? null : (
+        <PanelSection>
+          <SectionTitle title={tt("Title")} />
+          <TypeRows
+            which="title"
+            theme={theme}
+            weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "700", label: tt("Bold") }, { id: "800", label: tt("Heavy") }]}
+            onChange={(patch) => updateTheme(patch as never)}
+          />
+        </PanelSection>
+      )}
+      <PanelSection>
+        <SectionTitle title={tt("Bio")} />
+        <TypeRows
+          which="bio"
+          theme={theme}
+          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "600", label: tt("Semibold") }]}
+          onChange={(patch) => updateTheme(patch as never)}
+        />
+      </PanelSection>
+    </>
+  )
+}
+
+/**
+ * ROUND 43: THE PICTURE'S FRAME. Its size, its shape (a circle, a rounded
+ * square with its corner, a square) and its ring: how thick, none at all,
+ * and in the theme's own colour or one of the creator's. The ring a page
+ * never chose is lighter than it was (lib/onepage/header-style
+ * AVATAR_BORDER_DEFAULT).
+ */
+function AvatarFrameSection() {
+  const { onepage, updateTheme } = useOnePage()
+  if (!onepage) return null
+  const theme = onepage.theme as unknown as Record<string, unknown>
+  const shape = avatarShapeOf(theme)
+  const ring = avatarBorderWidth(theme)
+  const row = "w-full sm:w-[260px]"
+  return (
+    <PanelSection>
+      <SectionTitle title={tt("Profile image frame")} />
+      <div className="space-y-4" data-avatar-frame="">
+        <SettingRow label={tt("Size")} stackOnPhone>
+          <Segmented
+            className={row}
+            label={tt("Profile image size")}
+            value={avatarSizeOf(theme)}
+            options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }] as const}
+            onChange={(id) => updateTheme({ avatar_size: id === "medium" ? null : id } as never)}
+          />
+        </SettingRow>
+        <SettingRow label={tt("Shape")} stackOnPhone>
+          <Segmented
+            className={row}
+            label={tt("Profile image shape")}
+            value={shape}
+            options={[{ id: "circle", label: tt("Circle") }, { id: "rounded", label: tt("Rounded") }, { id: "square", label: tt("Square") }] as const}
+            onChange={(id) => updateTheme({ avatar_shape: id === "circle" ? null : id } as never)}
+          />
+        </SettingRow>
+        {shape === "rounded" ? (
+          <RangeRow
+            label={tt("Corner radius")}
+            value={typeof theme.avatar_radius === "number" ? theme.avatar_radius : AVATAR_RADIUS_DEFAULT}
+            min={0}
+            max={AVATAR_RADIUS_MAX}
+            step={2}
+            unit="px"
+            onChange={(v) => updateTheme({ avatar_radius: v } as never)}
+          />
+        ) : null}
+        <RangeRow
+          label={tt("Border")}
+          value={ring}
+          min={0}
+          max={AVATAR_BORDER_MAX}
+          step={1}
+          unit="px"
+          ends={[tt("None"), tt("Thick")]}
+          onChange={(v) => updateTheme({ avatar_border_width: v } as never)}
+        />
+        {ring > 0 ? (
+          <ColorRow
+            label={tt("Border colour")}
+            value={typeof theme.avatar_border_color === "string" ? theme.avatar_border_color : null}
+            emptyLabel={tt("Theme")}
+            fallback={onepage.theme.text_color}
+            onChange={(color) => updateTheme({ avatar_border_color: color } as never)}
+            onClear={() => updateTheme({ avatar_border_color: null } as never)}
+            suggestions={["#ffffff", "#000000", "#1a1a2e", onepage.theme.text_color, onepage.theme.button_color, "#b2846c"]}
+          />
+        ) : null}
+      </div>
+    </PanelSection>
   )
 }
 
@@ -3553,6 +3750,8 @@ function TextSection() {
           />
         </div>
       </PanelSection>
+
+      <HeaderTypeSections />
 
       <PanelSection>
         <SectionTitle title={tt("Colours")} />

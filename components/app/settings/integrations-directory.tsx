@@ -44,8 +44,7 @@ import { activeFilterCount, inPill, passesFilters, pillCounts, readDirectoryStat
 import { storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
 import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
-import { holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
-import { LAYER_MOTION_EASE, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
+import { NAV_ENTER_EASE, NAV_ENTER_MS, holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
 
 /* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
 type Filter = DirectoryPill
@@ -119,13 +118,18 @@ const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px
   frame, as a tab changes page in the app (app/globals.css data-tab-swap, "a cut, not a dissolve").
 */
 
-/* Into an integration's page and back (round 42): how far each moves into place, and for how long. */
-export const PAGE_RISE_PHONE = 28
-export const PAGE_RISE = 12
-export const LIST_SETTLE_PHONE = 10
-export const LIST_SETTLE = 6
-export const PAGE_IN_MS = 300
-export const LIST_IN_MS = 240
+/*
+  Into an integration's page and back (round 43, the owner: the round 42
+  rise "feels like a bump"). The 28px phone / 12px desktop rise, held up to
+  650ms until frames flowed, is gone. Now the page settles the last 4px into
+  place and the list the last 2px, the same on a phone and a computer, over
+  the same 180ms and curve every /app page lands on (lib/ui/app-navigation
+  NAV_ENTER_MS, NAV_ENTER_EASE). It starts on the frame it is drawn: no hold.
+*/
+export const PAGE_SETTLE_PX = 4
+export const LIST_SETTLE_PX = 2
+export const PAGE_IN_MS = NAV_ENTER_MS
+export const LIST_IN_MS = 160
 
 /* A category switch (round 29): the cards crossfade in this long, and a shorter list eases to its height in this long. */
 const CROSSFADE_MS = 180
@@ -289,6 +293,10 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ settings: { enabled: boolean } }>("/api/store/reviews-app").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, storelib_reviews: r.data.settings?.enabled === true }))
     })
+    /* Send analytics is installed while any tool is connected (lib/analytics/destinations). */
+    void api<{ destinations?: { connected: boolean }[] }>("/api/analytics/destinations").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, analytics_destinations: (r.data.destinations ?? []).some((d) => d.connected) }))
+    })
   }, [])
   /* Storelib's own apps and the Essentials: On, Off or Set up, read off the store (lib/integrations/storelib-apps). */
   type AppsRead = { states: Record<string, AppState | null>; hrefs: Record<string, string> }
@@ -347,6 +355,8 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     (i: Integration): boolean => {
       /* AfterShip only with the store's own AfterShip account, never its 17TRACK one. */
       if (i.id === "aftership") return ownTracking === "aftership"
+      /* Brevo, MailerLite and Kit: connected with a key, like Klaviyo's sync. */
+      if (i.kind === "app" && i.appId === "marketing_sync") return !!marketing?.some((m) => m.provider === i.marketingProvider && m.connected)
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && (tracking?.[i.trackerId] || marketing?.some((m) => m.provider === i.trackerId && m.connected)))
       if (i.kind !== "commerce" || i.comingSoon) return false
@@ -367,6 +377,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
         if (s?.status === "needs_setup" && takesOrders(i)) return "needs_attention"
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
       } else if (i.kind === "tracker" && marketing?.some((m) => m.provider === i.trackerId && m.connected && m.lastError)) return "needs_attention"
+      else if (i.kind === "app" && i.appId === "marketing_sync" && marketing?.some((m) => m.provider === i.marketingProvider && m.connected && m.lastError)) return "needs_attention"
       else if (installed(i)) return "installed"
       return i.comingSoon ? "coming_soon" : "available"
     },
@@ -451,19 +462,15 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       if (at?.card) el.querySelector<HTMLElement>(`[data-integration-card="${CSS.escape(at.card)}"]`)?.focus({ preventScroll: true })
     }
     /*
-      AND IT MOVES INTO PLACE (round 42). Still whole on its first frame (no
-      fade, so never the pale flash of round 30), and it comes the way a layer
-      comes across /app (components/app/page-layer): an integration's page
-      rises the last few pixels into place, and the list it goes back to
-      settles down into its own. A translate alone, on the compositor, on the
-      layer's own curve, and nothing held after it ends.
+      AND IT SETTLES INTO PLACE (round 43). Still whole on its first frame
+      (no fade, so never the pale flash of round 30): an integration's page
+      settles up its last 4px, the list it goes back to settles down its last
+      2px. A translate alone, on the compositor, from the frame it appears,
+      and nothing held before or after it.
     */
     if (!reduced() && typeof el.animate === "function") {
-      const phone = window.matchMedia(LAYER_PHONE).matches
-      const from = how === "push" ? (phone ? PAGE_RISE_PHONE : PAGE_RISE) : -(phone ? LIST_SETTLE_PHONE : LIST_SETTLE)
-      const move = el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: how === "push" ? PAGE_IN_MS : LIST_IN_MS, easing: LAYER_MOTION_EASE })
-      /* Held where it starts until the page's own first drawing has landed and frames arrive a frame apart, as a layer's move played by hand is, so the whole of it is seen. */
-      startWhenFramesFlow([move], 2)
+      const from = how === "push" ? PAGE_SETTLE_PX : -LIST_SETTLE_PX
+      el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: how === "push" ? PAGE_IN_MS : LIST_IN_MS, easing: NAV_ENTER_EASE })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey])

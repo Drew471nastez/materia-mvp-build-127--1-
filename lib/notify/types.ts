@@ -394,6 +394,8 @@ export interface OutgoingEmail {
   variables?: Record<string, string>
   /** A Message-Id this delivery keeps across retries. */
   messageId?: string
+  /** The store's own verified sending domain, when `from` is an address on it (lib/emails/sending-domain-server.ts). */
+  sendingDomain?: string
   /** Files sent with the message. Today only a calendar file, drawn by the template from the job's own data. */
   attachments?: EmailFile[]
 }

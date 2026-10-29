@@ -77,7 +77,7 @@ async function main() {
   }
   const started = previewCustomerEmail("membership_started", SHOP, { subject: "{{plan_name}} for {{price}}" }, { creator: CREATOR, language: { lang: "en", words: {}, own: true } })!
   check("a membership's price is in the store's currency, two decimals", started.subject === "Bread club for €15.00 a month", started.subject)
-  check("a membership email comes from the creator by name, their picture on top, not Storelib's mark", /Maria Popescu/.test(started.html) && /class="e-avatar"/.test(started.html) && !/class="e-logo"/.test(started.html))
+  check("a membership email comes from the creator by name, their picture on top, not Storelib's mark", /Maria Popescu/.test(started.html) && /class="e-store-logo"/.test(started.html) && !/class="e-logo"/.test(started.html)) // Changed on purpose (round 43): no picture is cut round in any email; a logo is drawn at its own shape (lib/emails/brand-mark.ts)
   const noName = renderEmail("MEMBERSHIP_STARTED", { membershipTitle: "Club", amountCents: 900, currency: "jpy", interval: "month", tplMode: "body", tplIntro: "Hi {{customer_name}}, thanks.", brandName: "Shop" }, { baseUrl: "https://storelib.com" })
   check("a missing first name reads 'there'", /Hi there, thanks\./.test(noName.text), noName.text.slice(0, 200))
   check("a currency without decimals has none (¥900)", /¥900/.test(noName.text) && !/¥900\.00/.test(noName.text))
@@ -183,7 +183,7 @@ async function main() {
   check("a paid plan's emails are the community's, with its words", /t\.communityBrand\(facts\)/.test(sync) && /t\.MEMBERSHIP_WORD_KIND\[name\]/.test(sync))
   check("a membership sold on its own is the creator's, with the store's words in English only", /brandKind: "creator"/.test(sync) && /pickCopy\([^\n]*STORE_EMAIL_ID\[name\]\], language\)/.test(sync) /* Changed on purpose (round 28): English words, or the ones written for English, by pickCopy */ && /tplMode: "body"/.test(sync))
   check("a community's refund is the community's", /t\.communityBrand\(await t\.communityEmailFacts\(db, c\)\)/.test(read("lib/communities/server/membership-lifecycle.ts")))
-  check("a closing notice is the community's", /kind: "store", name, pictureUrl: inboxPicture\(m\.logoUrl, 36\)/.test(read("lib/communities/server/community-deletion.ts")))
+  check("a closing notice is the community's", /kind: "store", name, pictureUrl: inboxPicture\(m\.logoUrl, LOGO_FILE_PX\)/.test(read("lib/communities/server/community-deletion.ts"))) // Changed on purpose (round 43): a logo is fetched for up to 200px wide (lib/emails/brand-mark.ts)
   check("a download's refund carries the store's words", /signer\?\.words \?\? null/.test(read("lib/email.tsx")))
   check("the community editor has the values, Send test and Reset to default", /communityValuesFor\(kind\)/.test(read("components/app/emails/community-emails.tsx")) && /emails\/test/.test(read("components/app/emails/community-emails.tsx")) && /Reset to default/.test(read("components/app/emails/community-emails.tsx")))
   check("the community test goes only to the person who pressed it", /getUserById\(gate\.ctx\.userId\)/.test(read("app/api/app/community/[id]/emails/test/route.ts")) && /requireCreatorCommunity\(id, "manage_settings"\)/.test(read("app/api/app/community/[id]/emails/test/route.ts")))

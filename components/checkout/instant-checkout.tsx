@@ -43,6 +43,7 @@ import { instantOrderBody } from "@/lib/onepage/product-block"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
+import type { PersonalizationField } from "@/lib/products/personalization"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { CompactPay, type StartedPayment } from "@/components/community/public/compact-pay"
 import { CheckoutMark, CheckoutWindow } from "./checkout-window"
@@ -60,7 +61,20 @@ export interface ProductFacts {
     pwywMinCents: number
     currency: string
     images: string[]
-    variants: { id: string; name: string; description: string | null; priceCents: number; pwyw: boolean }[]
+    variants: {
+      id: string
+      name: string
+      description: string | null
+      priceCents: number
+      pwyw: boolean
+      /* Round 43, a product that ships (app/api/onepage/product): its option values, picture, sale price and stock. */
+      options?: (string | null)[]
+      imageUrl?: string | null
+      compareAtCents?: number | null
+      available?: boolean
+      left?: number | null
+      maxQuantity?: number
+    }[]
     soldOut: boolean
     left: number | null
     pageUrl: string
@@ -72,6 +86,10 @@ export interface ProductFacts {
     faqs?: { question: string; answer: string }[]
     /** Round 13: the size chart it shows (lib/size-charts/storefront.ts), or null. */
     sizeChart?: SizeChart | null
+    /** Round 43: Size, Colour and the rest, with the seller's own swatches (lib/products/option-swatches). Empty when the product has none. */
+    options?: { name: string; values: string[]; swatches?: Record<string, string> }[]
+    /** Round 43: what the buyer is asked to write or upload (lib/products/personalization). */
+    personalization?: PersonalizationField[]
   }
   seller: { name: string; avatarUrl: string | null }
   checkout: { instant: boolean; reason: string | null; url: string; tax: CheckoutTax | null; marketingOptIn: boolean; lastNameRequired: boolean }

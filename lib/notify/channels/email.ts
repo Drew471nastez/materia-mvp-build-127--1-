@@ -36,6 +36,7 @@
  */
 import type { ChannelResult, EmailProvider, NotificationType, PreferenceCategory, RegistryEntry, RenderedEmail, TemplateContext } from "../types"
 import type { JobRow } from "../store"
+import { ownFrom } from "@/lib/emails/sending-domain"
 
 export type RenderEmail = (type: NotificationType, data: Record<string, unknown>, ctx: TemplateContext) => RenderedEmail
 
@@ -49,6 +50,13 @@ export interface EmailChannelOptions {
   preferencesUrl?: () => string
   /** The domain part of the Message-Id. */
   messageDomain?: string
+  /**
+   * The store's own verified address (Emails › Platforms), for an email a
+   * buyer or member gets from that store: From it, through its domain, with
+   * the store's name in front. Null, or not handed in, and it goes as
+   * Storelib's, as before.
+   */
+  ownSender?: (creatorId: string) => Promise<{ address: string; domain: string } | null>
 }
 
 export interface EmailInput {
@@ -101,12 +109,15 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
     const domain = o.messageDomain || "storelib.com"
     /* The seller's name in front of Storelib's address, so the buyer sees who is asking; a community's own name as it is, as a store's receipt carries the store's. */
     const fromName = rendered.fromName ? (rendered.fromNameExact ? rendered.fromName : `${rendered.fromName} via Storelib`) : undefined
+    /* A store's own email to its buyer, from the store's own verified domain: its name alone, no "via Storelib". */
+    const own = entry.recipient === "customer" && job.creator_id && rendered.fromName && o.ownSender ? await o.ownSender(job.creator_id).catch(() => null) : null
     return o.provider.send({
       to,
       subject,
       html: rendered.html,
       text: rendered.text,
       fromName,
+      ...(own && rendered.fromName ? { from: ownFrom(rendered.fromName, own.address), sendingDomain: own.domain } : {}),
       replyTo: rendered.replyTo ?? undefined,
       headers,
       tags: [entry.type],

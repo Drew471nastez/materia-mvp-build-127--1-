@@ -12,6 +12,7 @@
  * one person cannot write a hundred times, and per creator, so a flood from
  * many addresses stops at the creator's inbox rather than in it.
  */
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject } from "@/lib/api/rate-limit"
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
       await recordContactSource(db, creatorId, email, detail as never)
       /* The website and the visit's touches, onto the same contact (lib/attribution). */
       await recordSignupAttribution(db, { creatorId, email, source: detail as never, sent })
+      /* Connected email platforms (Klaviyo, Brevo, MailerLite, Kit...) get it within the minute. */
+      await syncPlatformsSoon(db, creatorId)
     },
   })
 

@@ -24,16 +24,18 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { PoweredByStripe } from "@/app/checkout/parts/ui"
+import { holdPage } from "@/lib/onepage/page-hold"
 
+/**
+ * The page under the window stops scrolling and keeps its width (round 43,
+ * lib/onepage/page-hold): it set `overflow: hidden` on <html> alone, which
+ * took the scrollbar away, so on a computer the page behind jumped sideways
+ * by the bar's width as the window opened and back as it closed.
+ */
 export function useBodyLock(on: boolean) {
   React.useEffect(() => {
     if (!on) return
-    const html = document.documentElement
-    const before = html.style.overflow
-    html.style.overflow = "hidden"
-    return () => {
-      html.style.overflow = before
-    }
+    return holdPage()
   }, [on])
 }
 

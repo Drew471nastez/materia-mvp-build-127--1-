@@ -163,6 +163,24 @@ function note(what: string, code: string | undefined) {
  * before, and joins the contacts once it has.
  */
 export async function recordCheckoutContact(db: Db, input: CheckoutContactInput): Promise<ContactOutcome> {
+  const outcome = await recordContactOnce(db, input)
+  /* A new or changed contact reaches the store's connected email platforms within the minute (lib/integrations/marketing): a checkout, a community join, a free claim. */
+  if (outcome === "subscribed" || outcome === "resubscribed" || outcome === "customer") await syncPlatformsSoon(db, input.creatorId)
+  return outcome
+}
+
+/** Looked up when called: the marketing sync imports the order engine, which imports this file. */
+export async function syncPlatformsSoon(db: Db, creatorId: string | null | undefined): Promise<void> {
+  if (!creatorId) return
+  try {
+    const { marketingSubscriberChanged } = await import("@/lib/integrations/marketing/sync-server")
+    await marketingSubscriberChanged(db, creatorId)
+  } catch {
+    /* The quarter hour sync carries it. */
+  }
+}
+
+async function recordContactOnce(db: Db, input: CheckoutContactInput): Promise<ContactOutcome> {
   const email = (input.email ?? "").trim().toLowerCase()
   if (!input.creatorId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "skipped"
   const clean = { ...input, email }

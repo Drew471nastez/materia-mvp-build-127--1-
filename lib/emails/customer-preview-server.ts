@@ -14,6 +14,7 @@ import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { previewCustomerEmail } from "./customer-catalog"
 import { buyerEmailLanguage } from "./words-server"
+import { settleLogoShapes } from "./logo-shape-server"
 import type { BuyerChannel } from "./buyer-channel"
 import type { EmailCopy } from "./customer-custom"
 
@@ -49,6 +50,8 @@ export async function storePreview(db: Db, creatorId: string, id: string, words:
     words,
     { channel, language, creator: { name: creatorName, photoUrl: look?.avatarUrl ?? null, logoUrl: look?.logoUrl ?? null } },
   )
+  /* The logo settled as the sent email's is (lib/emails/logo-shape-server.ts): the name beside a square one. */
+  if (mail) mail.html = await settleLogoShapes(mail.html)
   /* Who the inbox shows it from: the shop, or the creator for a download bought on Storelib. */
   const signed = (channel === "storelib" && (id === "receipt" || id === "digital_refund")) || id.startsWith("membership_") ? creatorName : shopName
   return { name: signed, mail }

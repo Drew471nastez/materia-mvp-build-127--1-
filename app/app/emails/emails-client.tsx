@@ -57,6 +57,7 @@ import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type MessageRow, type SubscriberRow } from "./emails-home"
 import type { CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import type { PlatformsData } from "@/components/email/connected-platforms"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ContactPage } from "./contact-detail"
 import { MessagePage } from "./message-detail"
@@ -237,6 +238,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const messagesData = (shown === "messages" ? current.data : peek(keyFor("messages"))) as MessagesData | undefined
   const flows = ((shown === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
   const customerEmails = (shown === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
+  const platforms = (shown === "platforms" ? current.data : peek(keyFor("platforms"))) as PlatformsData | undefined
   const physical = usePhysicalCommerceEnabled()
   const sentData = (shown === "published" ? current.data : undefined) as SentData | undefined
   const campaigns: CampaignRow[] =
@@ -643,6 +645,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           checkoutBuyersCount={subscribersData?.buyers ?? 0}
           customerEmails={customerEmails ?? null}
           onCustomerEmails={(d) => write<CustomerEmailsData>(keyFor("customer"), () => d)}
+          platforms={platforms ?? null}
+          onPlatforms={(d) => write<PlatformsData>(keyFor("platforms"), () => d)}
           physical={physical}
           search={search}
           onSearch={setSearch}

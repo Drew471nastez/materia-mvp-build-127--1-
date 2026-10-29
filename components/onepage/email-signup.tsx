@@ -38,6 +38,14 @@ export type EmailSignupFormOptions = {
   inverted: { fill: string; text: string } | null
   /** Simple has no card: the box gets a hairline in the text colour, or a white box on a white page is not there. */
   outlined?: boolean
+  /**
+   * Round 43. "pill": the box and the button in one rounded pill, the button grey with the creator's picture in it
+   * (Connect). "line": the box drawn as a line in the text colour, the button as words with an arrow at its end
+   * (Letter). Unset: the box and the button as before.
+   */
+  shape?: "pill" | "line"
+  /** The creator's picture, for Connect's button. */
+  avatar?: { src: string | null; name: string } | null
 }
 
 function MailMark({ color, size }: { color: string; size: "sm" | "lg" }) {
@@ -49,6 +57,19 @@ function MailMark({ color, size }: { color: string; size: "sm" | "lg" }) {
       style={{ backgroundColor: tintOf(color, size === "sm" ? 8 : 10), color }}
     >
       <Mail className={size === "sm" ? "h-6 w-6" : "h-5 w-5"} strokeWidth={1.6} />
+    </span>
+  )
+}
+
+/** The creator's picture in a circle, or the first letter of their name on a soft disc. */
+export function Face({ avatar, ink, size }: { avatar: { src: string | null; name: string } | null | undefined; ink: string; size: number }) {
+  if (avatar?.src) {
+    return <img src={avatar.src} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} data-email-face="" />
+  }
+  const letter = (avatar?.name || "").trim().charAt(0).toUpperCase()
+  return (
+    <span aria-hidden className="grid shrink-0 place-items-center rounded-full font-semibold" style={{ width: size, height: size, fontSize: Math.round(size * 0.42), backgroundColor: tintOf(ink, 12), color: ink }} data-email-face="">
+      {letter || <Mail style={{ width: size * 0.45, height: size * 0.45 }} strokeWidth={1.8} />}
     </span>
   )
 }
@@ -65,6 +86,9 @@ export function EmailSignupView({
   successMessage,
   afterSignup,
   animationClass,
+  avatar = null,
+  buttonStyle,
+  buttonText,
 }: {
   layout: EmailSignupLayout
   headline: string
@@ -78,7 +102,14 @@ export function EmailSignupView({
   successMessage: string
   afterSignup: React.ReactNode
   animationClass?: string
+  /** Round 43: the creator's picture and name (Connect, Letter, Bar). */
+  avatar?: { src: string | null; name: string } | null
+  /** Round 43: the page's own button and its words, for Bar's button that opens the form. */
+  buttonStyle?: React.CSSProperties
+  buttonText?: string
 }) {
+  const [barOpen, setBarOpen] = React.useState(false)
+  const barForm = React.useRef<HTMLDivElement>(null)
   const ink = theme.text_color || "#111113"
   const soft = theme.secondary_text_color || ink
   const accent = theme.button_color || "#1a1a2e"
@@ -106,6 +137,87 @@ export function EmailSignupView({
         {description}
       </p>
     ) : null
+
+  /* Round 43: Connect, one pill with the creator's picture in its button. */
+  if (layout === "connect") {
+    return (
+      <div data-email-layout="connect" className={cn("w-full px-0.5 py-1", animationClass)}>
+        {title(ink, "center", "mb-1")}
+        {words(soft, "center", "mb-3")}
+        {renderForm({ stacked: false, inverted: null, shape: "pill", avatar })}
+        {thanks(ink, "center")}
+      </div>
+    )
+  }
+
+  /* Round 43: Letter, a note from the creator, signed with their picture and name. */
+  if (layout === "letter") {
+    return (
+      <div data-email-layout="letter" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(ink, 4), boxShadow: `inset 0 0 0 1px ${tintOf(ink, 8)}` }}>
+        <div className="mb-3.5 flex items-center gap-2.5">
+          <Face avatar={avatar} ink={ink} size={36} />
+          {avatar?.name ? (
+            <span className="min-w-0 truncate text-[13px] font-medium" style={{ color: soft }}>
+              {avatar.name}
+            </span>
+          ) : null}
+        </div>
+        {headline ? (
+          <h3 className="text-[19px] font-semibold leading-snug tracking-[-0.01em] sm:text-[21px]" style={{ color: ink }}>
+            {headline}
+          </h3>
+        ) : null}
+        {words(soft, "left", "mt-1.5")}
+        <div className="mt-4">{renderForm({ stacked: false, inverted: null, shape: "line" })}</div>
+        {thanks(ink, "left")}
+      </div>
+    )
+  }
+
+  /* Round 43: Bar, one slim row whose button slides the form open under it. */
+  if (layout === "bar") {
+    const open = barOpen || submitted
+    return (
+      <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+        <div className="flex items-center gap-3">
+          {image ? <img src={image} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <Face avatar={avatar} ink={ink} size={40} />}
+          <div className="min-w-0 flex-1">
+            {headline ? (
+              <p className="truncate text-[15px] font-semibold leading-snug" style={{ color: ink }}>
+                {headline}
+              </p>
+            ) : null}
+            {description ? (
+              <p className="truncate text-[13px] leading-snug" style={{ color: soft, opacity: 0.85 }}>
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            aria-expanded={open}
+            tabIndex={open ? -1 : undefined}
+            onClick={() => {
+              setBarOpen(true)
+              /* Into the box once it is there: the keyboard comes up with the form. */
+              window.setTimeout(() => barForm.current?.querySelector<HTMLInputElement>("input[type=email]")?.focus({ preventScroll: true }), 220)
+            }}
+            className={cn("h-9 shrink-0 px-4 text-[13.5px] font-medium transition-[opacity,scale] duration-200", open ? "pointer-events-none scale-95 opacity-0" : "opacity-100")}
+            style={{ ...buttonStyle, borderRadius: buttonStyle?.borderRadius ?? 999 }}
+            data-email-bar-open=""
+          >
+            {buttonText || "Subscribe"}
+          </button>
+        </div>
+        <div className={cn("grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")} inert={!open || undefined} data-email-bar-form="">
+          <div ref={barForm} className="min-h-0 overflow-hidden">
+            <div className="pt-3">{renderForm({ stacked: stackedForm, inverted: null })}</div>
+            {thanks(ink, "center")}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (layout === "pro") {
     return (
@@ -195,7 +307,7 @@ export function EmailSignupView({
  * own colours and with its image when it has one, so it looks like what
  * choosing it gives. 56px tall: three fit across a phone.
  */
-export function EmailLayoutThumb({ layout, image, theme }: { layout: EmailSignupLayout; image: string | null; theme: SignupTheme & { background_color?: string } }) {
+export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layout: EmailSignupLayout; image: string | null; theme: SignupTheme & { background_color?: string }; avatar?: string | null }) {
   const accent = theme.button_color || "#1a1a2e"
   const ink = theme.text_color || "#111113"
   const bold = boldColors(ink)
@@ -224,8 +336,46 @@ export function EmailLayoutThumb({ layout, image, theme }: { layout: EmailSignup
       </span>
     )
 
+  const face = (cls: string) =>
+    avatar ? <img src={avatar} alt="" className={cn("shrink-0 rounded-full object-cover", cls)} /> : <span className={cn("block shrink-0 rounded-full", cls)} style={{ backgroundColor: tintOf(ink, 22) }} />
+
   let card: React.ReactNode
-  if (layout === "pro") {
+  if (layout === "connect") {
+    card = (
+      <span className="flex w-full flex-col items-center gap-[4px]">
+        {line("w-1/2", true)}
+        <span className="flex h-[14px] w-full items-center rounded-full bg-white pl-1.5 pr-[2px] ring-1 ring-black/10">
+          <span className="block h-[2px] w-1/3 rounded-full bg-black/20" />
+          <span className="ml-auto flex h-[10px] items-center gap-[2px] rounded-full pl-1 pr-[1px]" style={{ backgroundColor: "#ececef" }}>
+            <span className="block h-[2px] w-2.5 rounded-full bg-black/45" />
+            {face("h-2 w-2")}
+          </span>
+        </span>
+      </span>
+    )
+  } else if (layout === "letter") {
+    card = (
+      <span className="block w-full rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 5) }}>
+        <span className="flex items-center gap-1">
+          {face("h-2.5 w-2.5")}
+          {line("w-1/3")}
+        </span>
+        <span className="mt-[3px] flex flex-col gap-[3px]">{line("w-4/5", true)}</span>
+        <span className="mt-[5px] flex items-end gap-1 border-b pb-[2px]" style={{ borderColor: tintOf(ink, 35) }}>
+          <span className="block h-[2px] flex-1" />
+          <span className="block h-[3px] w-3 rounded-full" style={{ backgroundColor: ink, opacity: 0.75 }} />
+        </span>
+      </span>
+    )
+  } else if (layout === "bar") {
+    card = (
+      <span className="flex w-full items-center gap-1 rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
+        {image ? <img src={image} alt="" className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" /> : face("h-3.5 w-3.5")}
+        <span className="flex flex-1 flex-col gap-[3px]">{line("w-4/5", true)}{line("w-1/2")}</span>
+        <span className="block h-[9px] w-[26%] rounded-full ring-1 ring-black/10" style={{ backgroundColor: accent }} />
+      </span>
+    )
+  } else if (layout === "pro") {
     card = (
       <span className="block w-full rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
         <span className="flex items-center gap-1">

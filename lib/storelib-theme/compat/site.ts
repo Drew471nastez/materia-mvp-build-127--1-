@@ -1869,7 +1869,8 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
   /* Which box it was, for the consent line and Emails' source: the form says (theme.ts formMarkup); a page drawn before it did is the footer's, as it always was. */
   const placement = b.storelib_placement === "newsletter" || b.storelib_placement === "bar" || b.storelib_placement === "popup" ? b.storelib_placement : "footer"
   const payload = subscribe
-    ? { creator_id: site.creatorId, email, placement }
+    ? /* With the first name when the box asks for one (a theme's contact[first_name], Storelib Newsletter's name box). */
+      { creator_id: site.creatorId, email, placement, ...((flat("first_name") || flat("name")).trim() ? { name: (flat("first_name") || flat("name")).trim() } : {}) }
     : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, ...contactContext(flat) }
   /*
     THE BUILDER'S CANVAS SENDS NOTHING AND SAYS IT WORKED (designMode, no

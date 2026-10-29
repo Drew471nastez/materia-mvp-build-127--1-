@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  ANALYTICS' FILTERS AS THE EMAILS TOOLBAR'S CHIPS, AT 390 AND 1440
+ *  ANALYTICS' FILTERS, ONE ROW OF ROUND WHITE PILLS, AT 390 AND 1440
  * ===========================================================================
  * Round 42, the owner: All / Digital / Physical / Communities as ONE filter
  * chip like Emails' "Status ▾" and "Source ▾", in one row with the period,
@@ -10,9 +10,9 @@
  *
  *   row     every chip's top (one row), the page's sideways scroll, Export
  *           whole on screen
- *   chips   each chip's height, corners, border style, words' size, fill:
- *           dashed and clear at a default, solid and filled once set (the
- *           period always), against Emails' own chip (28px, 8px, 12px)
+ *   chips   each pill's height, corners, words' size, fill: round 43 took
+ *           round 42's Emails chips back, so every filter is the 36px round
+ *           white pill, set or not
  *   type    "All types", opened: a popover on a computer, the sheet on a
  *           phone, four rows, All checked; Digital picked: the chip says
  *           Digital, filled, and the list is gone
@@ -111,15 +111,14 @@ try {
     for (const c of m.chips) console.log("  chip:", JSON.stringify(c))
     const filters = m.chips.filter((c) => !c.export)
     const exp = m.chips.find((c) => c.export)
-    expect(m.filterChips, "the analytics row is drawn as filter chips")
+    /* Changed on purpose (round 43): the row is round 23's white pills again, not Emails' chips. */
+    expect(!m.filterChips, "the analytics row is drawn as the round white pills, not the Emails chips")
     expect(new Set(m.chips.map((c) => c.top)).size === 1, "the period, place, product, type and Export are one row", m.chips.map((c) => c.top))
     expect(m.pageScrollX <= 0, "the page never scrolls sideways", m.pageScrollX)
-    expect(!!exp && exp.right <= width && exp.h === 28, "Export is whole on screen, the chips' height", exp)
-    expect(filters.length === 4 && filters.every((c) => c.h === 28 && c.radius === "8px" && c.font === "12px" && c.chevron), "every filter is Emails' chip: 28px tall, 8px corners, 12px words, a chevron", filters.map((c) => [c.words, c.h, c.radius, c.font]))
-    const unset = filters.filter((c) => !c.set)
-    const set = filters.filter((c) => c.set)
-    expect(unset.length === 3 && unset.every((c) => c.border.startsWith("dashed rgb(201, 204, 211)") && c.bg === "rgba(0, 0, 0, 0)"), "All pages, All products and All types: dashed, clear", unset.map((c) => [c.words, c.border, c.bg]))
-    expect(set.length === 1 && /days|month|week|year|Today|time/i.test(set[0].words) && set[0].border.startsWith("solid") && set[0].bg === "rgb(236, 238, 241)", "the period is set: solid and filled", set.map((c) => [c.words, c.border, c.bg]))
+    expect(!!exp && exp.right <= width && exp.h === 36, "Export is whole on screen, the pills' height", exp)
+    expect(filters.length >= 4 && filters.every((c) => c.h === 36 && parseFloat(c.radius) >= 18 && c.font === "14px" && c.bg === "rgb(255, 255, 255)" && c.chevron), "every filter is the round white pill: 36px tall, round, 14px words, white, a chevron", filters.map((c) => [c.words, c.h, c.radius, c.font]))
+    /* Changed on purpose (round 43): set or not, a filter is drawn the same; the attribute is still there to read. */
+    expect(filters.filter((c) => c.set).length === 1, "only the period narrows the page at first", filters.map((c) => [c.words, c.set]))
     const type = filters.find((c) => c.words === "All types")
     expect(!!type, "the type is one chip that says All types", filters.map((c) => c.words))
     if (shots) await p.screenshot({ path: join(shots, `filters-${width}.png`), clip: { x: 0, y: 0, width, height: phone ? 220 : 200 } })
@@ -144,7 +143,7 @@ try {
     const after = await measure()
     const picked = after.chips.find((c) => c.words === "Digital")
     const gone = await p.evaluate(() => [...document.querySelectorAll("[data-kind-list]")].filter((el) => el.getBoundingClientRect().height > 0).length)
-    expect(!!picked && picked.set && picked.border.startsWith("solid") && picked.bg === "rgb(236, 238, 241)", "Digital picked: the chip says Digital, solid and filled", picked)
+    expect(!!picked && picked.set && picked.bg === "rgb(255, 255, 255)" && picked.h === 36, "Digital picked: the pill says Digital, the same white pill", picked)
     expect(gone === 0, "and the list closed", gone)
     expect(new Set(after.chips.map((c) => c.top)).size === 1 && after.pageScrollX <= 0, "still one row, nothing sideways", after.chips.map((c) => c.top))
     expect(/kind=digital/.test(await p.evaluate(() => location.search)), "?kind=digital in the address")

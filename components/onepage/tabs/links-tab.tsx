@@ -136,6 +136,8 @@ import { pageClickCounts } from "@/lib/onepage/stats-client"
 const ROW_COUNT_TYPES = new Set(["link_button", "email_capture", "group", "product", "pdf_document", "food_menu", "calendly", "image", "social_row"])
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
+import NextLink from "next/link"
+import { blockAnalyticsHref } from "@/lib/onepage/analytics-href"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
@@ -167,10 +169,10 @@ import { PosterVideo } from "@/components/onepage/poster-video"
 import { videoPoster } from "@/lib/onepage/poster-video"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { FilesLibraryChooser, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
-import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
+import { LinkLayoutThumb, ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
-import { emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { connectButtonPatch, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
 import { canGoInGroup, deleteFromGroup, findBlockDeep, groupCandidates, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
 
@@ -3440,8 +3442,15 @@ function BlockItem({
         /* Round 40: the card the rest of /app draws, and an open one lifted a little rather than ringed in grey. */
         "relative rounded-2xl border bg-white transition-[border-color,box-shadow] duration-200",
         isSelected ? "border-[#d5d7dc] shadow-[0_0_0_1px_#d5d7dc,0_8px_24px_-12px_rgba(16,24,40,0.18)]" : "border-[#ececf1] shadow-[0_1px_2px_rgba(16,24,40,0.04)] hover:border-[#d5d7dc]",
-        !block.enabled && "opacity-50",
       )}
+      /*
+        Round 43: a block that is off fades its picture and its name, never
+        its controls. The whole card was at half opacity, so its open
+        settings, the toggle that turns it back on and Remove's question
+        (Archive, Delete, Cancel) were all drawn faded too, as if they could
+        not be pressed.
+      */
+      data-block-off={block.enabled ? undefined : ""}
     >
       {/*
         The card's row is where it is picked up (components/onepage/link-reorder.ts):
@@ -3478,8 +3487,9 @@ function BlockItem({
             }}
             aria-label={tt("Edit thumbnail")}
             /* Round 40: a soft ring under a mouse on the box-shadow alone (it was transition-all on a ring), and the picture decoded off the main thread. */
-            className="group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden outline-none transition-[box-shadow] duration-150 hover:shadow-[0_0_0_2px_#d5d7dc] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            className={cn("group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden outline-none transition-[box-shadow,opacity] duration-150 hover:shadow-[0_0_0_2px_#d5d7dc] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]", !block.enabled && "opacity-50")}
             data-row-thumbnail=""
+            data-block-fade=""
           >
             {(preview as any).thumbnail_url ? (
               <img
@@ -3501,7 +3511,7 @@ function BlockItem({
             <div className="absolute inset-0 rounded-[11px] bg-black/20 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden">
+          <div className={cn("w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !block.enabled && "opacity-50")} data-block-fade="">
             {(preview as any).thumbnail_url ? (
               <img
                 src={(preview as any).thumbnail_url}
@@ -3528,7 +3538,8 @@ function BlockItem({
           aria-expanded={isSelected}
           aria-controls={settingsId}
           data-block-open={block.id}
-          className="flex-1 min-w-0 cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.35)]"
+          data-block-fade=""
+          className={cn("flex-1 min-w-0 cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.35)]", !block.enabled && "opacity-50")}
           onClick={onSelect}
           onKeyDown={(e) => {
             if (e.target !== e.currentTarget) return
@@ -3723,9 +3734,23 @@ function BlockItem({
 
                 {/* In the sheet this scrolls under the title, and a pull down from its top closes the sheet. */}
                 <div className={cn("p-4", isMobileStatsViewport && "min-h-0 overflow-y-auto overscroll-contain")}>
-                  {/* The period: the same picker as every page in /app. */}
-                  <div className="mb-4">
-                    <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
+                  {/*
+                    The period: the same picker as every page in /app, as a
+                    popover over the sheet (round 43). It opened inline, so the
+                    dialog grew by the whole panel and ran over the page.
+                    Beside it, the same figures in Analytics.
+                  */}
+                  <div className="mb-4 flex items-center justify-between gap-3" data-stats-head="">
+                    <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} overlay />
+                    <NextLink
+                      href={blockAnalyticsHref(statsPeriod, isEmailCapture ? "signups" : isPDFDocument ? "opens" : "clicks")}
+                      onClick={() => setShowStatsModal(false)}
+                      data-stats-analytics=""
+                      className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[9px] px-2 text-[13px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f4f4f6] outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+                    >
+                      {tt("See in Analytics")}
+                      <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    </NextLink>
                   </div>
 
                   {/* The OnePage chart from Analytics, with this block's figures (components/onepage/link-stats-chart). */}
@@ -4269,18 +4294,9 @@ function BlockEditor({
                 className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-2 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
               >
                 <ChoiceMark on={on} />
-                <span className="grid aspect-[4/3] place-items-center rounded-xl bg-[#f7f7f8] px-3">
-                  {o.id === "default" ? (
-                    <span className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#e3e4e8] bg-white px-2">
-                      <span className="h-5 w-5 shrink-0 rounded bg-[#d9dbe0]" />
-                      <span className="h-1.5 flex-1 rounded-full bg-[#d9dbe0]" />
-                    </span>
-                  ) : (
-                    <span className="block w-full rounded-lg border border-[#e3e4e8] bg-white p-1.5">
-                      <span className="block h-10 w-full rounded-md bg-[#d9dbe0]" />
-                      <span className="mx-auto mt-1.5 block h-1.5 w-2/3 rounded-full bg-[#d9dbe0]" />
-                    </span>
-                  )}
+                {/* Round 43: drawn in this page's colours and button style, with this link's own picture (./product-block-editor LinkLayoutThumb). */}
+                <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                  <LinkLayoutThumb id={o.id} theme={onepage?.theme as never} image={(block.data as { thumbnail_url?: string | null; custom_thumbnail?: string | null }).thumbnail_url || (block.data as { custom_thumbnail?: string | null }).custom_thumbnail || null} />
                 </span>
                 <span className={cn("block py-2 text-center text-[13.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
               </button>
@@ -4843,6 +4859,10 @@ function BlockEditor({
           { id: "cover", label: tt("Cover") },
           { id: "bold", label: tt("Solid") },
           { id: "minimal", label: tt("Simple") },
+          /* Round 43: three more (components/onepage/email-signup). */
+          { id: "connect", label: tt("Connect") },
+          { id: "letter", label: tt("Letter") },
+          { id: "bar", label: tt("Bar") },
         ]
         const currentEmailLayout = emailSignupLayout(data.layout_type)
         const emailImage = emailSignupImage(data)
@@ -5005,7 +5025,7 @@ function BlockEditor({
               <div className="space-y-2 pt-2 border-t">
                 <Label className="text-xs">{tt("Product Image")}</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  {tt("Shown in the Featured, Cover, Solid and Simple layouts.")}
+                  {tt("Shown in the Featured, Cover, Solid, Simple and Bar layouts.")}
                 </p>
                 <div className="flex gap-2 items-center">
                   {data.product_image ? (
@@ -5140,19 +5160,20 @@ function BlockEditor({
                       onClick={() => {
                         if (on) return
                         hapticTap("soft")
-                        updateData({ layout_type: option.id as EmailCaptureLayoutType })
+                        /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
+                        updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
                       }}
                       className="relative isolate flex flex-col gap-1.5 rounded-xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 [@media(hover:hover)]:hover:border-[#c9cbd1]"
                     >
                       <CardMark on={on} width={1.5} tint="#ffffff" />
-                      <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} />
+                      <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} />
                       <span className="px-1 pb-0.5 text-[12.5px] font-medium text-[#1a1a2e]">{option.label}</span>
                     </button>
                   )
                 })}
               </div>
               <p className="text-[12px] leading-snug text-[#6b7280]">
-                {emailImage ? tt("Featured, Cover, Solid and Simple show your image.") : tt("No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.")}
+                {emailImage ? tt("Featured, Cover, Solid, Simple and Bar show your image.") : tt("No image needed. Add one in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}
               </p>
             </TabsContent>
           </Tabs>
@@ -6750,13 +6771,14 @@ function BlockEditor({
                           selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
                           groupDraggedId === child.id && "opacity-50",
                           groupDragOverId === child.id && "border-[#9ca3af] border-dashed bg-[#f4f4f6]",
-                          !child.enabled && "opacity-50"
                         )}
+                        /* Round 43: an off block fades its picture and name; its switch and Move out stay as they are. */
+                        data-block-off={child.enabled ? undefined : ""}
                       >
                         <div className="cursor-grab text-gray-300 hover:text-gray-400">
                           <GripVertical className="h-4 w-4" />
                         </div>
-                        <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className={cn("w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
@@ -6765,7 +6787,7 @@ function BlockEditor({
                             <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}
                         </div>
-                        <span className="flex-1 text-sm truncate">{preview.title}</span>
+                        <span className={cn("flex-1 text-sm truncate", !child.enabled && "opacity-50")} data-block-fade="">{preview.title}</span>
                         <button
                           type="button"
                           role="switch"

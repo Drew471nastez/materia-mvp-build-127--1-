@@ -1,0 +1,1 @@
+{"compilerOptions":{"outDir":"/tmp/storelib-mine-qlNx0c","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","skipLibCheck":true,"strict":false,"baseUrl":".","paths":{"@/*":["./*"]}},"files":["tests/onepage-search-share.test.ts","tests/onepage-share-image.test.ts","tests/products-area.test.ts","tests/onepage-editor-r43.test.ts"]}

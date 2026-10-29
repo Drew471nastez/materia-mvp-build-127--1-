@@ -35,16 +35,28 @@ async function runJob(request: Request) {
   const started = Date.now()
   try {
     const summary = await runNotificationWork(RUN_BUDGET_MS)
+    /* Storelib analytics on to the stores' own tools (lib/analytics/destinations): what is due, retries included, in the time left. */
+    const forwarded = await drainForwarded(Math.max(2_000, 55_000 - (Date.now() - started)))
     const ms = Date.now() - started
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
     const didWork = summary.events + summary.eventErrors + summary.planned + summary.cancelled + summary.jobs > 0
     if (didWork) console.log(
       `[cron/notify] ${summary.available ? "ran" : "not available (its SQL has not run)"}: ${summary.events} events (${summary.eventErrors} errors), ${summary.planned} jobs planned, ${summary.cancelled} cancelled, ${summary.jobs} jobs run: ${summary.sent} sent, ${summary.skipped} skipped, ${summary.retried} to retry, ${summary.deferred} deferred, ${summary.failed} failed, ${ms}ms${summary.stoppedForTime ? ", stopped for time" : ""}`,
     )
-    return NextResponse.json({ ...summary, ms }, { headers: { "Cache-Control": "no-store" } })
+    if (forwarded.taken > 0) console.log(`[cron/notify] analytics forwarded: ${forwarded.sent} sent, ${forwarded.retried} to retry, ${forwarded.failed} failed, ${forwarded.skipped} skipped`)
+    return NextResponse.json({ ...summary, analyticsForwarded: forwarded, ms }, { headers: { "Cache-Control": "no-store" } })
   } catch {
     console.error("[cron/notify] the run failed")
     return NextResponse.json({ error: "Run failed" }, { status: 500 })
+  }
+}
+
+async function drainForwarded(budgetMs: number) {
+  try {
+    const [{ drain }, { createAdminClient }] = await Promise.all([import("@/lib/analytics/destinations/queue-server"), import("@/lib/supabase/admin")])
+    return await drain(createAdminClient(), { budgetMs: Math.min(budgetMs, 10_000), limit: 100 })
+  } catch {
+    return { taken: 0, sent: 0, retried: 0, failed: 0, skipped: 0 }
   }
 }
 

@@ -1,5 +1,7 @@
 <template>
-<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+<section class="s{% if settings.bg_image %} s--image{% endif %}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --s-min-h: {{ settings.min_height }}px; --s-overlay: {{ settings.overlay }};">
+  {# A picture behind it, under the scheme's own background at the strength asked for. #}
+  {% if settings.bg_image %}<img class="s__bg" src="{{ settings.bg_image | asset }}" alt="" loading="lazy" decoding="async"><span class="s__veil" aria-hidden="true"></span>{% endif %}
   <div class="s__in s__in--{{ settings.max_width }}">
     <div class="s__head {% if settings.align == 'center' %}s__head--center{% endif %}">
       {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
@@ -7,14 +9,18 @@
       {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
       {# An email box on a Storelib site collects emails for that site's creator.
          With no form address set, data-storelib-form="subscribe" sends each
-         sign-up to Subscribers (lib/website-builder/form-intent.ts). With one, the
-         browser posts to that mailing list as written. #}
-        <form class="nl" method="post" action="{% if settings.action %}{{ settings.action | url }}{% endif %}" target="{% if settings.action %}_blank{% else %}_self{% endif %}" data-storelib-form="{% if settings.action %}native{% else %}subscribe{% endif %}">
+         sign-up to Emails, Subscribers (lib/website-builder/form-intent.ts),
+         with the first name when it is asked for, and the section's own thank
+         you (data-storelib-success) is shown in place of the form. With an
+         address, the browser posts to that mailing list as written. #}
+        <form class="nl nl--{{ settings.form_layout }}" method="post" action="{% if settings.action %}{{ settings.action | url }}{% endif %}" target="{% if settings.action %}_blank{% else %}_self{% endif %}" data-storelib-form="{% if settings.action %}native{% else %}subscribe{% endif %}">
           <label class="nl__label" for="nl-{{ section.id }}">{{ settings.field_label }}</label>
           <div class="nl__row">
+            {% if settings.show_name %}<input class="nl__input nl__input--name" type="text" name="name" placeholder="{{ settings.name_placeholder }}" aria-label="{{ settings.name_placeholder }}" autocomplete="given-name">{% endif %}
             <input class="nl__input" id="nl-{{ section.id }}" type="email" name="{{ settings.field_name }}" placeholder="{{ settings.placeholder }}" required autocomplete="email">
             <button class="s__btn s__btn--primary nl__go" type="submit">{{ settings.button_text }}</button>
           </div>
+          {% if settings.success %}<p class="nl__ok" role="status" data-storelib-success hidden>{{ settings.success }}</p>{% endif %}
         </form>
       {% if settings.note %}<p class="s__note">{{ settings.note }}</p>{% endif %}
     </div>
@@ -23,7 +29,10 @@
 </template>
 
 <style scoped>
-.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }
+.s { container-type: inline-size; position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: center; min-height: var(--s-min-h, 0px); background: var(--s-bg); color: var(--s-text); }
+.s > .s__in { width: 100%; }
+.s__bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.s__veil { position: absolute; inset: 0; z-index: -1; background: var(--s-bg); opacity: calc(var(--s-overlay, 50) / 100); }
 .s__in {
   margin: 0 auto;
   padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
@@ -72,6 +81,7 @@
 
 .nl { margin-top: 26px; }
 .nl__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+/* Inline: the box and the button on one row once there is room (wraps under 480px of its own); stacked: each the width of the form, the button under the box. */
 .nl__row { display: flex; flex-wrap: wrap; gap: 10px; }
 .s__head--center .nl__row { justify-content: center; }
 .nl__input {
@@ -81,7 +91,18 @@
 }
 .nl__input::placeholder { color: var(--s-para); opacity: 0.7; }
 .nl__input:focus { outline: 2px solid var(--s-accent); outline-offset: 1px; }
-.nl__go { flex: none; }
+.nl__go { flex: none; min-height: 44px; }
+.nl--inline .nl__input--name { flex-basis: 100%; max-width: 100%; }
+.s__head--center .nl--inline .nl__input--name { max-width: 500px; }
+.nl--stacked .nl__row { flex-direction: column; align-items: stretch; max-width: 420px; }
+.s__head--center .nl--stacked .nl__row { margin-inline: auto; }
+.nl--stacked .nl__input { flex: none; max-width: none; width: 100%; }
+@container (max-width: 479px) {
+  .nl__input { max-width: none; flex-basis: 100%; }
+  .nl__go { flex: 1 1 100%; }
+}
+.nl__ok { margin: 0; font-size: 16px; font-weight: 600; color: var(--s-heading); }
+.nl__ok[hidden] { display: none; }
 </style>
 
 <schema>
@@ -136,6 +157,26 @@
       "default": "Leave whenever you like."
     },
     {
+      "type": "text",
+      "id": "success",
+      "label": "Thank you",
+      "default": "Thanks, you're on the list.",
+      "info": "Shown in place of the form once somebody signs up."
+    },
+    {
+      "type": "toggle",
+      "id": "show_name",
+      "label": "Ask for a first name",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "name_placeholder",
+      "label": "Name box says",
+      "default": "First name",
+      "visible_if": "{{ section.settings.show_name }}"
+    },
+    {
       "type": "radio",
       "id": "align",
       "label": "Text sits",
@@ -155,6 +196,11 @@
       "type": "header",
       "id": "hdr_list",
       "label": "Your mailing list"
+    },
+    {
+      "type": "paragraph",
+      "id": "list_note",
+      "content": "Sign-ups go to Emails, Subscribers, listed as Newsletter section with the consent line they agreed to. They are subscribed at once; there is no confirmation email."
     },
     {
       "type": "url",
@@ -180,6 +226,39 @@
       "type": "header",
       "id": "hdr_layout",
       "label": "Layout"
+    },
+    {
+      "type": "radio",
+      "id": "form_layout",
+      "label": "Box and button",
+      "default": "inline",
+      "options": [
+        {
+          "label": "On one row",
+          "value": "inline"
+        },
+        {
+          "label": "Button under the box",
+          "value": "stacked"
+        }
+      ]
+    },
+    {
+      "type": "image_picker",
+      "id": "bg_image",
+      "label": "Background image",
+      "default": ""
+    },
+    {
+      "type": "range",
+      "id": "overlay",
+      "label": "Colour over the image",
+      "default": 60,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "visible_if": "{{ section.settings.bg_image }}"
     },
     {
       "type": "select",
@@ -240,6 +319,17 @@
       "max": 160,
       "step": 4,
       "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "min_height",
+      "label": "Minimum height",
+      "default": 0,
+      "min": 0,
+      "max": 800,
+      "step": 20,
+      "unit": "px",
+      "info": "0 fits the content. Taller, the content sits in the middle."
     }
   ],
   "presets": [

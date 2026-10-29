@@ -848,15 +848,23 @@ export interface DateRangePickerProps {
    * wide, instead of in a popover or a sheet, which would open behind it.
    */
   inline?: boolean
+  /**
+   * Inside a dialog or a sheet, round 43: the one month panel as a popover
+   * over whatever is under it, on a phone too. `inline` pushed the dialog
+   * taller by the panel's height, so a block's stats grew over the page
+   * each time the period was opened. The popover is above every dialog and
+   * sheet (components/ui/popover's layer), so it never opens behind one.
+   */
+  overlay?: boolean
 }
 
-export function DateRangePicker({ value, onChange, today, firstDay, align = "start", className, inline = false }: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, today, firstDay, align = "start", className, inline = false, overlay = false }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false)
   /* A new panel each time it opens, so it always opens on the list. Not
      keyed by the value: a panel that is closing keeps what it shows. */
   const [session, setSession] = React.useState(0)
   const phone = usePhone()
-  const compact = phone || inline
+  const compact = phone || inline || overlay
   /**
    * A choice closes the picker at once; the page catches up behind it, at a
    * priority that cannot hold up the close.
@@ -884,7 +892,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
   }
   const pick = (v: RangeValue) => {
     setOpen(false)
-    if (phone && !inline) {
+    if (phone && !inline && !overlay) {
       pendingPick.current = v
       return
     }
@@ -914,14 +922,14 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
          the app's CSS, and a change to either restyled the whole document
          on the tap (scripts/check-app-sheets-frames.mjs). The popover on a
          computer still gets both from Radix's trigger. */
-      data-state={phone && !inline ? undefined : open ? "open" : "closed"}
+      data-state={phone && !inline && !overlay ? undefined : open ? "open" : "closed"}
       data-open={open ? "" : undefined}
-      /* A period always narrows what is shown: a filter row that tells set from unset draws it set (app/globals.css [data-filter-chips]). */
+      /* A period always narrows what is shown: said for whatever reads the row (scripts/check-analytics-filter-chips.mjs). */
       data-filter-set=""
       aria-haspopup="dialog"
-      aria-expanded={phone && !inline ? undefined : open}
+      aria-expanded={phone && !inline && !overlay ? undefined : open}
       title={value.preset === "custom" ? undefined : rangeLabel(value)}
-      onClick={compact ? () => setShown(inline ? !open : true) : undefined}
+      onClick={compact && !overlay ? () => setShown(inline ? !open : true) : undefined}
     >
       <span className="tabular-nums">{valueLabel(value)}</span>
       <ChevronDown className={cn("h-3.5 w-3.5 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
@@ -937,7 +945,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       </div>
     )
   }
-  if (phone) {
+  if (phone && !overlay) {
     return (
       <>
         {trigger}
@@ -954,7 +962,9 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       <PopoverContent
         align={align}
         sideOffset={6}
-        className={cn(pickerSurface, "w-auto max-w-[calc(100vw-24px)]")}
+        collisionPadding={overlay ? 12 : undefined}
+        data-drp-overlay={overlay ? "" : undefined}
+        className={cn(pickerSurface, "w-auto max-w-[calc(100vw-24px)]", overlay && "max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain")}
         onOpenAutoFocus={(e) => {
           /* Onto the period that is showing, not the first row. */
           e.preventDefault()

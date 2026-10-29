@@ -246,7 +246,8 @@ function main() {
   /* On a phone the page hears about the choice once the sheet has left (onClosed), as the website builder's sheets
      tell their page about a release once they have arrived: the page's redraw was in the frames of the slide down. */
   check("a preset applies at once and closes; the page catches up behind the close",
-    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*if \(phone && !inline\) \{\s*pendingPick\.current = v\s*return\s*\}\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
+    /* Changed on purpose (round 43): an `overlay` picker (a popover in a block's stats) applies at once like `inline`. */
+    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*if \(phone && !inline && !overlay\) \{\s*pendingPick\.current = v\s*return\s*\}\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
       && /const onSheetClosed = React\.useCallback\(\(\) => \{\s*setRestart\(\(n\) => n \+ 1\)\s*flushPick\(\)/.test(picker)
       && /if \(v\) React\.startTransition\(\(\) => onChangeRef\.current\(v\)\)/.test(picker)
       && /const preset = \(id: PresetId\) => onPick\(/.test(picker))

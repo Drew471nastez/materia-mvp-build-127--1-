@@ -9,6 +9,7 @@ import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../../parts/shop-bar"
 import { ClearCart } from "./clear-cart"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { noteThanks } from "@/lib/analytics/destinations/forward-server"
 import { gaItem, type GaItem } from "@/lib/store/ga"
 import { storeCurrencyFor } from "@/lib/store/ga-server"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
@@ -164,6 +165,8 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
   ])
   if (!order) notFound()
   const shopUrl = `${site.origin}/`
+  /* The buyer's own browser: the purchase's queued server events take what their consent allows, and go (lib/analytics/destinations). */
+  await noteThanks(admin, site.creatorId, order.ga.id, order.email)
 
   return (
     <CheckoutWords lang={language.lang} words={language.words}>

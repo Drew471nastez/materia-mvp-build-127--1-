@@ -10,7 +10,8 @@
  *   - nothing is wider than the screen, and the column is 560px at most
  *     (the shared layout, lib/emails/layout.ts);
  *   - every picture loads (no broken image), says its size, and is drawn at
- *     it: product thumbnails 56 by 56, the creator's photo 36 round;
+ *     it: product thumbnails 56 by 56, the creator's photo 40 by 40 at its
+ *     own shape, never cut round (round 43, lib/emails/brand-mark.ts);
  *   - a product with no thumbnail has its letter tile instead;
  *   - the creator is shown by ONE picture, in the receipt and in the
  *     automated email that used to carry a logo and a different photo;
@@ -161,7 +162,8 @@ try {
           res.contentWidth = box(card).w
           res.thumbs = [...document.querySelectorAll(".e-thumb")].map((i) => ({ ...box(i), fit: getComputedStyle(i).objectFit, radius: getComputedStyle(i).borderTopLeftRadius }))
           res.tiles = [...document.querySelectorAll("td.e-tile, td.e-tile-accent")].map((t) => ({ ...box(t), letter: t.textContent.trim() }))
-          const avatar = document.querySelector(".e-avatar")
+          /* Changed on purpose (round 43, lib/emails/brand-mark.ts): the photo is drawn at its own shape, never round. */
+          const avatar = document.querySelector(".e-store-logo")
           res.avatar = avatar ? { ...box(avatar), radius: getComputedStyle(avatar).borderTopLeftRadius } : null
           /* Each amount stays on its line at the right, at every width. */
           res.priceRight = [...document.querySelectorAll("td[align=right]")].filter((td) => /\$|Free/.test(td.textContent)).map((td) => visible(td) && td.getBoundingClientRect().right >= card.getBoundingClientRect().right - 1)
@@ -178,7 +180,7 @@ try {
         if (receipt) {
           expect(m.thumbs.every((t) => t.w === 58 && t.h === 58 && t.fit === "cover" && t.radius === "10px"), `${tag}: thumbnails 56 by 56 inside a 1px border, covered, 10px radius`, m.thumbs)
           expect(m.tiles.every((t) => (t.w === 36 && t.h === 36) || (t.w === 56 && t.h === 56)) && m.tiles.every((t) => t.letter.length === 1), `${tag}: a letter tile where there is no picture`, m.tiles)
-          if (file !== "receipt-bare") expect(m.avatar && m.avatar.w === 36 && m.avatar.h === 36 && m.avatar.radius === "18px", `${tag}: the creator's photo, 36 round`, m.avatar)
+          if (file !== "receipt-bare") expect(m.avatar && m.avatar.w === 40 && m.avatar.h === 40 && m.avatar.radius === "0px", `${tag}: the creator's photo, 40 square, never cut round`, m.avatar)
           else expect(m.avatar === null && m.creatorPictures === 0, `${tag}: no picture, the initial instead`, m.tiles)
           expect(m.button.h >= 44, `${tag}: the button is a comfortable tap`, m.button)
           expect(m.buttonText >= 4.5, `${tag}: the button's words read on it (4.5:1)`, m.buttonText)

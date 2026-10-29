@@ -27,6 +27,20 @@ function sendableHtml(html: string, subject: string): string {
   return doc
 }
 
+/**
+ * A store's logo whose shape the template could not know, settled before it
+ * goes (lib/emails/logo-shape-server.ts): a square one gets the name beside
+ * it. An email without one is not touched; a failure sends it as drawn.
+ */
+async function withLogoShapes(html: string): Promise<string> {
+  if (!html || !html.includes('data-logo-shape="auto"')) return html
+  try {
+    return await (await import("@/lib/emails/logo-shape-server")).settleLogoShapes(html)
+  } catch {
+    return html
+  }
+}
+
 // Mailgun configuration from environment variables
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY || ""
 const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || "storelib.com"
@@ -110,6 +124,20 @@ export interface MailgunSendOptions {
    * without tracking; Mailgun drops it if the address is still suppressed.
    */
   keepBounce?: boolean
+  /**
+   * The seller's own domain, verified with Mailgun (lib/emails/sending-domain-
+   * server.ts): the message is sent through that domain, so Mailgun signs it
+   * with the seller's DKIM and a From on it passes DMARC. Only ever a domain
+   * Storelib added to its own Mailgun account and saw verified; anything
+   * else is ignored here and the message goes as Storelib's.
+   */
+  sendingDomain?: string
+}
+
+/** A sending domain as Mailgun names it in a path: a hostname and nothing else. */
+export function sendingDomainOf(domain: string | undefined | null): string {
+  const d = String(domain ?? "").trim().toLowerCase()
+  return /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(d) ? d : MAILGUN_DOMAIN
 }
 
 export interface MailAttachment {
@@ -181,8 +209,8 @@ export function isValidEmail(email: string): boolean {
  * From it named, unless that domain is not the sending domain and a signed
  * address is configured.
  */
-function fromForSend(requested: string | undefined, _transactional?: boolean): string {
-  const sendingDomain = MAILGUN_DOMAIN.toLowerCase()
+function fromForSend(requested: string | undefined, _transactional?: boolean, through?: string): string {
+  const sendingDomain = (through || MAILGUN_DOMAIN).toLowerCase()
   const signedEmail = (process.env.MAILGUN_FROM_EMAIL || "").replace(/[<>"\s]/g, "").trim()
   const signedDomain = signedEmail.split("@")[1]?.toLowerCase() || ""
   const name = (process.env.MAILGUN_FROM_NAME || "Storelib").replace(/[<>"\r\n]/g, "").trim() || "Storelib"
@@ -286,7 +314,8 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  const fromAddress = fromForSend(options.from, options.transactional)
+  const domain = sendingDomainOf(options.sendingDomain)
+  const fromAddress = fromForSend(options.from, options.transactional, domain)
   const replyTo = options.replyTo || EMAIL_REPLY_TO
   /* A code they just asked for must not die on a stale bounce. Mailgun
      drops those after it has already answered "queued", so the page looks
@@ -298,7 +327,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   formData.append("from", fromAddress)
   formData.append("to", options.to)
   formData.append("subject", options.subject)
-  const html = sendableHtml(options.html, options.subject)
+  const html = sendableHtml(await withLogoShapes(options.html), options.subject)
   formData.append("html", html)
 
   // Always include a plain text version (critical for spam prevention)
@@ -340,8 +369,8 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  // Mailgun API endpoint
-  const url = `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/messages`
+  // Mailgun API endpoint: the seller's verified domain when the message has one
+  const url = `${MAILGUN_BASE_URL}/v3/${domain}/messages`
 
   // Basic auth credentials
   const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
@@ -349,7 +378,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   console.log("[mailgun] Sending email:", {
     to: maskEmail(options.to),
     replyTo: maskEmail(replyTo),
-    domain: MAILGUN_DOMAIN,
+    domain,
   })
 
   // Retry with backoff for 429 rate limit responses
@@ -470,7 +499,7 @@ export async function sendMailgunOnce(
   form.append("from", quotedFrom(withDisplayName(options.from || EMAIL_FROM)))
   form.append("to", options.to)
   form.append("subject", options.subject)
-  const html = sendableHtml(options.html, options.subject)
+  const html = sendableHtml(await withLogoShapes(options.html), options.subject)
   form.append("html", html)
   form.append("text", options.text || htmlToPlainText(html))
   form.append("h:Reply-To", options.replyTo || EMAIL_REPLY_TO)
@@ -484,7 +513,7 @@ export async function sendMailgunOnce(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(`${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/messages`, {
+    const response = await fetch(`${MAILGUN_BASE_URL}/v3/${sendingDomainOf(options.sendingDomain)}/messages`, {
       method: "POST",
       headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` },
       body: form,

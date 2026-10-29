@@ -70,6 +70,20 @@ export interface OnePageTheme {
   // Title customization
   title_font?: string | null
   title_color?: string | null
+  /* Round 43 (lib/onepage/header-style): the name's and the bio's type, and the profile picture's frame. Missing draws what a page always drew. */
+  title_size?: "small" | "default" | "large" | null
+  title_weight?: 400 | 500 | 600 | 700 | 800 | null
+  title_tracking?: "tight" | "normal" | "wide" | null
+  title_case?: "none" | "upper" | null
+  bio_size?: "small" | "default" | "large" | null
+  bio_weight?: 400 | 500 | 600 | null
+  bio_tracking?: "tight" | "normal" | "wide" | null
+  bio_case?: "none" | "upper" | null
+  avatar_size?: "small" | "medium" | "large" | null
+  avatar_shape?: "circle" | "rounded" | "square" | null
+  avatar_radius?: number | null
+  avatar_border_width?: number | null
+  avatar_border_color?: string | null
   card_width: "narrow" | "standard" | "wide"
   spacing: "compact" | "normal" | "comfortable"
   // New gradient properties
@@ -155,7 +169,7 @@ export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
 
 // Email capture layout types
-export type EmailCaptureLayoutType = 'default' | 'pro' | 'cover' | 'bold' | 'minimal'
+export type EmailCaptureLayoutType = 'default' | 'pro' | 'cover' | 'bold' | 'minimal' | 'connect' | 'letter' | 'bar'
 
 export interface StreamingService {
   platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
@@ -264,6 +278,8 @@ export interface ProductBlockData {
   sheet_action?: ProductSheetAction
   /** Round 41: with checkout as the main button, a quiet link to the full page under it. Unset: shown. */
   sheet_page_link?: boolean
+  /** Round 43: the sheet's checkout button carries the price ("Buy now · €49"). Unset: the words alone. */
+  sheet_button_price?: boolean
   /** Refreshed from the product row (lib/onepage/live-products): a sale price's "was", and pay what you want. */
   product_compare_at_cents?: number | null
   product_pwyw?: boolean | null

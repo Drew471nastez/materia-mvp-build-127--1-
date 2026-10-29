@@ -23,6 +23,7 @@ import { runWork, type WorkSummary } from "./engine"
 import { notifyLog } from "./log"
 import { emailProvider, mailgunDomain } from "./providers/mailgun"
 import { supabaseNotifyStore } from "./store"
+import { verifiedSender } from "@/lib/emails/sending-domain-server"
 import { renderEmail, renderInApp } from "./templates"
 import { communityUnsubscribeUrl, reviewUnsubscribeUrl, unsubscribeUrl } from "./unsubscribe"
 import { baseUrl, preferencesUrl } from "./urls"
@@ -47,6 +48,7 @@ export async function runNotificationWork(budgetMs: number): Promise<WorkSummary
         customerUnsubscribeUrl: (job) => (job.entity_type === "order" && job.entity_id ? reviewUnsubscribeUrl(job.entity_id) : job.entity_type === "community" && job.entity_id ? communityUnsubscribeUrl(job.entity_id, job.data?.memberUserId) : null),
         preferencesUrl,
         messageDomain: mailgunDomain(),
+        ownSender: (creatorId) => verifiedSender(db, creatorId),
       }),
       inApp: inAppChannel(store, { render: renderInApp, baseUrl }),
     },

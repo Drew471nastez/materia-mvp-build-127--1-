@@ -23,6 +23,7 @@ import type { InAppContent, NotificationType, RenderedEmail, TemplateContext } f
 import { CATALOG, DATA_KEYS, Data, factsOf, type Audience, type Message } from "./catalog"
 import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, safeImageUrl, sameSiteUrl } from "./escape"
 import { ITEM_PX, MEDIA_PX, renderHtml, renderText, type LayoutInput, type OrderSummary } from "./layout"
+import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 
 export { DATA_KEYS, PATHS, BRAND_KEYS, formatMoney, formatDate } from "./catalog"
 export { FAMILY_STYLES, EMAIL_LOGO_URL } from "./layout"
@@ -80,8 +81,8 @@ export interface EmailBrand {
 
 const HOST = /^(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/
 
-/** The drawn size of the community's or creator's picture in the header (lib/emails/layout.ts draws it at 36px). */
-const BRAND_PX = 36
+/** The drawn size of the community's or creator's picture in the header: a photo at 40px, a logo up to 200px wide (lib/emails/brand-mark.ts). */
+const BRAND_PX = 40
 
 export function brandOf(data: Record<string, unknown>, audience: Audience): EmailBrand | null {
   if (audience !== "customer" || !data || typeof data !== "object") return null
@@ -94,7 +95,7 @@ export function brandOf(data: Record<string, unknown>, audience: Audience): Emai
   return {
     name,
     kind: d.text("brandKind", 12) === "creator" ? "creator" : "community",
-    pictureUrl: inboxPicture(data.brandLogoUrl, BRAND_PX),
+    pictureUrl: inboxPicture(data.brandLogoUrl, d.text("brandPicture", 8) === "avatar" ? BRAND_PX : LOGO_FILE_PX),
     picture: d.text("brandPicture", 8) === "avatar" ? "avatar" : "mark",
     replyTo: replyAddress(d.text("brandReplyTo", 200)),
     origin,

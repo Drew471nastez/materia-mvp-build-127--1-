@@ -242,6 +242,13 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
             ))}
           </div>
           {sheetAction === "checkout" ? (
+            /* Round 43: "Buy now · €49" (lib/onepage/product-block sheetButtonLabel). */
+            <div className="flex items-center gap-3 pt-0.5" data-sheet-button-price="">
+              <p className="min-w-0 flex-1 text-[12px] leading-snug text-[#6b7280]">{tt("Price on the button")}</p>
+              <Switch checked={data.sheet_button_price === true} onChange={(on) => onChange({ sheet_button_price: on })} label={tt("Price on the button")} />
+            </div>
+          ) : null}
+          {sheetAction === "checkout" ? (
             <div className="flex items-center gap-3 pt-0.5">
               <p className="min-w-0 flex-1 text-[12px] leading-snug text-[#6b7280]">{tt("Link to the full page under the button")}</p>
               <Switch checked={data.sheet_page_link !== false} onChange={(on) => onChange({ sheet_page_link: on })} label={tt("Link to the full page under the button")} />
@@ -284,33 +291,183 @@ function layoutLabel(id: ProductBlockStyle): string {
   }
 }
 
-/** A small drawing of each layout, in the editor's greys. */
-function LayoutSketch({ id }: { id: ProductBlockStyle }) {
-  const bar = "block rounded-full bg-[#d9dbe0]"
-  const pic = "block rounded-[5px] bg-[#c9ccd2]"
-  const btn = "block rounded-[5px] bg-[#1a1a2e]"
-  const card = "block w-full rounded-lg border border-[#e3e4e8] bg-white"
-  switch (id) {
-    case "button":
-      return <span className={cn(card, "flex h-8 items-center gap-1.5 px-2")}><span className={cn(pic, "h-4 w-4")} /><span className={cn(bar, "h-1.5 flex-1")} /><span className={cn(bar, "h-1.5 w-4")} /></span>
-    case "callout":
-      return <span className={cn(card, "p-1.5")}><span className="flex gap-1.5"><span className={cn(pic, "h-6 w-6")} /><span className="flex flex-1 flex-col gap-1 pt-0.5"><span className={cn(bar, "h-1.5 w-4/5")} /><span className={cn(bar, "h-1.5 w-1/2")} /></span></span><span className={cn(btn, "mt-1.5 h-2.5 w-full")} /></span>
-    case "row":
-      return <span className={cn(card, "flex items-center gap-1.5 p-1.5")}><span className={cn(pic, "h-5 w-5")} /><span className="flex flex-1 flex-col gap-1"><span className={cn(bar, "h-1.5 w-4/5")} /><span className={cn(bar, "h-1.5 w-1/3")} /></span><span className={cn(btn, "h-3.5 w-6 rounded-full")} /></span>
-    case "preview":
-      return <span className={cn(card, "overflow-hidden")}><span className={cn(pic, "h-6 w-full rounded-none")} /><span className="block space-y-1 p-1.5"><span className={cn(bar, "h-1.5 w-2/3")} /><span className={cn(btn, "h-2.5 w-full")} /></span></span>
-    case "side":
-      return <span className={cn(card, "flex overflow-hidden")}><span className={cn(pic, "h-[44px] w-[38%] rounded-none")} /><span className="flex flex-1 flex-col gap-1 p-1.5"><span className={cn(bar, "h-1.5 w-4/5")} /><span className={cn(bar, "h-1.5 w-1/2")} /><span className={cn(btn, "mt-auto h-2.5 w-full")} /></span></span>
-    case "tile":
-      return <span className="grid w-full grid-cols-2 gap-1">{[0, 1].map((i) => <span key={i} className={cn(card, "overflow-hidden")}><span className={cn(pic, "aspect-square w-full rounded-none")} /><span className="block space-y-1 p-1"><span className={cn(bar, "h-1 w-3/4")} /><span className={cn(btn, "h-2 w-full")} /></span></span>)}</span>
-    case "overlay":
-      return <span className="relative block h-[52px] w-full overflow-hidden rounded-lg bg-[#b9bcc4]"><span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" /><span className="absolute bottom-1.5 left-1.5 flex flex-col gap-1"><span className="block h-1.5 w-10 rounded-full bg-white/90" /><span className="block h-1.5 w-6 rounded-full bg-white/70" /></span><span className="absolute bottom-1.5 right-1.5 block h-3 w-6 rounded-[4px] bg-white" /></span>
-    case "minimal":
-      return <span className="flex w-full items-center gap-1.5 border-b border-[#d9dbe0] px-0.5 py-2"><span className="flex flex-1 flex-col gap-1"><span className={cn(bar, "h-1.5 w-3/4")} /><span className={cn(bar, "h-1.5 w-1/2")} /></span><span className={cn(btn, "h-3.5 w-7 rounded-full")} /></span>
-  }
+/*
+  ROUND 43, the owner: the layout picker's small previews "look bad". They were the same grey wireframe on every
+  page, so a Photo or Tile choice said nothing about how it would sit on this page. Each is now this block on this
+  page, small: the page's ground, the card in the page's button style (Solid, Soft, Outline or Glass, its corners
+  and border), the words in the colour the card gives them, the button inside it turned around as the live block
+  turns it (lib/onepage/button-style cardButtonTheme), and the product's own picture where the layout shows one.
+  The proportions are the live layouts' (components/onepage/product-block), at about a quarter of their size.
+*/
+type ThumbTheme = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+
+function thumbColours(t: ThumbTheme) {
+  const fill = t.button_style === "outline" || t.button_style === "glass" || t.button_style === "soft" ? t.button_style : "filled"
+  const text = t.text_color || "#111113"
+  const btn = t.button_color || "#1a1a2e"
+  const btnText = t.button_text_color || "#ffffff"
+  const r = Number(t.button_border_radius ?? 8)
+  const radius = Math.max(2, Math.min(r >= 100 ? 9 : r * 0.4, 9))
+  const border = Number(t.button_border_width) || 0
+  const card: React.CSSProperties =
+    fill === "outline"
+      ? { background: "transparent", boxShadow: `inset 0 0 0 1.25px ${t.button_border_color || btn}`, borderRadius: radius }
+      : fill === "glass"
+        ? { background: "rgba(255,255,255,0.16)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.28)", borderRadius: radius }
+        : fill === "soft"
+          ? { background: `color-mix(in srgb, ${btn} 14%, transparent)`, borderRadius: radius }
+          : { background: btn, boxShadow: border ? `inset 0 0 0 1px ${t.button_border_color || btn}` : undefined, borderRadius: radius }
+  /* A Solid card is the page's button, so its words are the button's and its button is turned around. */
+  const ink = fill === "filled" ? btnText : text
+  /* Soft, Outline and Glass: the button inside the card is drawn the same way as the card, as the live block draws it. */
+  const cta: React.CSSProperties = fill === "filled" ? { background: btnText } : fill === "outline" ? { background: "transparent", boxShadow: `inset 0 0 0 1.25px ${t.button_border_color || btn}` } : fill === "glass" ? { background: "rgba(255,255,255,0.22)" } : { background: `color-mix(in srgb, ${btn} 22%, transparent)` }
+  const page = t.background_type === "gradient" && t.background_gradient ? t.background_gradient : t.background_color || "#f7f7f8"
+  return { card, ink, cta, page, radius, text, btn }
 }
 
-export function ProductLayoutPicker({ data, theme, onPick }: { data: ProductBlockData; theme?: { product_layout?: unknown } | null; onPick: (id: ProductBlockStyle) => void }) {
+export function ProductLayoutThumb({ id, theme, image }: { id: ProductBlockStyle; theme?: ThumbTheme | null; image?: string | null }) {
+  const c = thumbColours(theme ?? {})
+  const line = (w: string, strong = false, color = c.ink) => <span className="block h-[3px] shrink-0 rounded-full" style={{ width: w, background: color, opacity: strong ? 0.85 : 0.45 }} />
+  const pic = (cls: string, style?: React.CSSProperties) =>
+    image ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={image} alt="" className={cn("block shrink-0 object-cover", cls)} style={style} draggable={false} />
+    ) : (
+      <span className={cn("block shrink-0", cls)} style={{ background: `color-mix(in srgb, ${c.ink} 22%, transparent)`, ...style }} />
+    )
+  const cta = (cls: string, extra?: React.CSSProperties) => <span className={cn("block shrink-0", cls)} style={{ ...c.cta, borderRadius: Math.max(2, c.radius - 1), ...extra }} />
+  const inner = Math.max(2, c.radius - 2)
+  let body: React.ReactNode
+  switch (id) {
+    case "button":
+      body = (
+        <span className="flex h-[22px] w-full items-center gap-1.5 px-1.5" style={c.card}>
+          {pic("h-3 w-3 rounded-[2px]")}
+          <span className="flex flex-1 justify-center">{line("55%", true)}</span>
+          {line("16%")}
+        </span>
+      )
+      break
+    case "callout":
+      body = (
+        <span className="flex w-full flex-col gap-1.5 p-1.5" style={c.card}>
+          <span className="flex items-center gap-1.5">
+            {pic("h-[18px] w-[18px]", { borderRadius: inner })}
+            <span className="flex flex-1 flex-col gap-[3px]">{line("80%", true)}{line("40%")}</span>
+          </span>
+          {cta("h-[7px] w-full")}
+        </span>
+      )
+      break
+    case "row":
+      body = (
+        <span className="flex w-full items-center gap-1.5 p-[5px]" style={c.card}>
+          {pic("h-[15px] w-[15px]", { borderRadius: inner })}
+          <span className="flex flex-1 flex-col gap-[3px]">{line("85%", true)}{line("35%")}</span>
+          {cta("h-[9px] w-[22%]")}
+        </span>
+      )
+      break
+    case "preview":
+      body = (
+        <span className="flex w-full flex-col overflow-hidden" style={c.card}>
+          {pic("aspect-[2/1] w-full")}
+          <span className="flex flex-col gap-[3px] p-1.5">
+            {line("70%", true)}
+            {cta("mt-[2px] h-[7px] w-full")}
+          </span>
+        </span>
+      )
+      break
+    case "side":
+      body = (
+        <span className="flex h-[40px] w-full overflow-hidden" style={c.card}>
+          {pic("h-full w-[36%]")}
+          <span className="flex flex-1 flex-col gap-[3px] p-1.5">
+            {line("85%", true)}
+            {line("50%")}
+            <span className="mt-auto">{cta("h-[7px] w-full")}</span>
+          </span>
+        </span>
+      )
+      break
+    case "tile":
+      body = (
+        <span className="grid w-full grid-cols-2 gap-1.5">
+          {[0, 1].map((i) => (
+            <span key={i} className="flex flex-col overflow-hidden" style={c.card}>
+              {i === 0 ? pic("aspect-square w-full") : <span className="block aspect-square w-full" style={{ background: `color-mix(in srgb, ${c.ink} 14%, transparent)` }} />}
+              <span className="flex flex-col gap-[3px] p-1">
+                {line("75%", true)}
+                {cta("h-[6px] w-full")}
+              </span>
+            </span>
+          ))}
+        </span>
+      )
+      break
+    case "overlay":
+      body = (
+        <span className="relative block aspect-[4/3] w-[78%] overflow-hidden" style={{ borderRadius: c.radius }}>
+          {pic("absolute inset-0 h-full w-full")}
+          <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_35%,rgba(0,0,0,0.65)_100%)]" />
+          <span className="absolute inset-x-1.5 bottom-1.5 flex items-end gap-1">
+            <span className="flex flex-1 flex-col gap-[3px]">{line("80%", true, "#ffffff")}{line("45%", false, "#ffffff")}</span>
+            {cta("h-[8px] w-[28%]", { background: "#ffffff", boxShadow: "none" })}
+          </span>
+        </span>
+      )
+      break
+    case "minimal":
+      body = (
+        <span className="flex w-full items-center gap-1.5 py-1.5" style={{ borderBottom: `1px solid color-mix(in srgb, ${c.text} 22%, transparent)` }}>
+          <span className="flex flex-1 flex-col gap-[3px]">{line("70%", true, c.text)}{line("45%", false, c.text)}</span>
+          {cta("h-[10px] w-[24%]", c.card.background === "transparent" ? { boxShadow: `inset 0 0 0 1.25px ${c.btn}` } : { background: String(c.card.background) })}
+        </span>
+      )
+      break
+  }
+  return (
+    <span aria-hidden data-product-layout-thumb={id} className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl px-[10%]" style={{ background: c.page }}>
+      {body}
+    </span>
+  )
+}
+
+/** Round 43: a link's two layouts the same way, in the page's own colours: Classic (a button) and Featured (a card with its picture). */
+export function LinkLayoutThumb({ id, theme, image }: { id: "default" | "pro"; theme?: ThumbTheme | null; image?: string | null }) {
+  const c = thumbColours(theme ?? {})
+  const line = (w: string) => <span className="block h-[3px] rounded-full" style={{ width: w, background: c.ink, opacity: 0.85 }} />
+  const pic = (cls: string, style?: React.CSSProperties) =>
+    image ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={image} alt="" className={cn("block shrink-0 object-cover", cls)} style={style} draggable={false} />
+    ) : (
+      <span className={cn("block shrink-0", cls)} style={{ background: `color-mix(in srgb, ${c.ink} 22%, transparent)`, ...style }} />
+    )
+  return (
+    <span aria-hidden data-link-layout-thumb={id} className="flex h-full w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl px-[12%]" style={{ background: c.page }}>
+      {id === "default" ? (
+        <>
+          {[0, 1].map((i) => (
+            <span key={i} className="relative flex h-[22px] w-full items-center justify-center" style={{ ...c.card, opacity: i ? 0.45 : 1 }}>
+              {i === 0 ? pic("absolute left-1 h-[14px] w-[14px]", { borderRadius: Math.max(2, c.radius - 2) }) : null}
+              {line(i ? "40%" : "48%")}
+            </span>
+          ))}
+        </>
+      ) : (
+        <span className="flex w-full flex-col overflow-hidden" style={c.card}>
+          {pic("aspect-[16/9] w-full")}
+          <span className="grid h-[16px] place-items-center">{line("50%")}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
+export function ProductLayoutPicker({ data, theme, onPick }: { data: ProductBlockData; theme?: ({ product_layout?: unknown } & ThumbTheme) | null; onPick: (id: ProductBlockStyle) => void }) {
+  const image = data.custom_thumbnail || data.product_thumbnail || null
   /* What the page draws: under a theme that shows products its own way, a block left as the Callout is drawn as the theme says. */
   const current = productLayoutOf(data, theme)
   return (
@@ -332,8 +489,8 @@ export function ProductLayoutPicker({ data, theme, onPick }: { data: ProductBloc
               className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
             >
               <ChoiceMark on={on} />
-              <span className="grid aspect-[4/3] place-items-center rounded-xl bg-[#f7f7f8] px-2">
-                <LayoutSketch id={id} />
+              <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                <ProductLayoutThumb id={id} theme={theme} image={image} />
               </span>
               <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{layoutLabel(id)}</span>
             </button>

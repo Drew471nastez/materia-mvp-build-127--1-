@@ -67,6 +67,8 @@ export interface PageSignup {
   blockId?: string | null
   onepageId?: string | null
   pageUrl?: string | null
+  /** The lead's id the page's pixel was given (Meta's eventID), so a server event can be matched to it. Never sent to the email tools. */
+  eventId?: string | null
   at: string
 }
 

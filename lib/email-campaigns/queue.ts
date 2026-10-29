@@ -56,6 +56,8 @@ import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { mailgunDomain, sendMailgunOnce, type MailgunOnceResult } from "@/lib/mailgun"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { verifiedSender } from "@/lib/emails/sending-domain-server"
+import { ownFrom } from "@/lib/emails/sending-domain"
 import { scoreSignup } from "@/lib/security/spam-signals"
 import { APP_URL, unsubscribeUrlFor } from "@/lib/email-automation"
 import { normalizeAddress, safeDisplayName } from "./address"
@@ -140,6 +142,8 @@ export interface Sender {
   blocked: boolean
   /** The store's name, logo, colour and address, as they are now. */
   brand: Brand
+  /** The store's own verified domain (lib/emails/sending-domain-server.ts) when `from` is on it; else Storelib's. */
+  sendingDomain: string | null
 }
 
 function fromAddress(): string {
@@ -148,10 +152,12 @@ function fromAddress(): string {
 }
 
 /**
- * Campaign mail is always From our verified domain, with the creator's name
- * in front and their own address as Reply-To. A creator's own domain is not
- * verified with Mailgun, and sending as it would fail DMARC and teach every
- * inbox to distrust both of us.
+ * Campaign mail is From our verified domain, with the creator's name in
+ * front and their own address as Reply-To, unless the store has verified a
+ * domain of its own with Mailgun (Emails › Platforms): then From is that
+ * address and the message goes through that domain, signed with its DKIM.
+ * An unverified domain of the creator's is never sent as: it would fail
+ * DMARC and teach every inbox to distrust both of us.
  */
 export async function loadSender(db: Db, creatorId: string, fromName?: string | null): Promise<Sender | null> {
   const { data: creator } = await db
@@ -177,11 +183,13 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
   const replyTo = normalizeAddress(creator.support_email) || normalizeAddress(ownerAddress(profile?.email)) || EMAIL_REPLY_TO
   const verdict = scoreSignup({ handle: profile?.username, email: profile?.email, displayName: profile?.display_name })
   const brand = await loadBrand(db, creatorId)
+  const own = await verifiedSender(db, creatorId)
   return {
     creatorId,
     userId: creator.user_id,
     name,
-    from: `${name} <${fromAddress()}>`,
+    from: own ? ownFrom(name, own.address) : `${name} <${fromAddress()}>`,
+    sendingDomain: own?.domain ?? null,
     replyTo,
     /* The photo on this business's profile as it is now, read when the send starts (brand-server loadBrand). */
     avatarUrl: brand.avatarUrl,
@@ -833,7 +841,8 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
     html,
     text: emailText({ bodyHtml: personal, brand, kind: "marketing", unsubscribeUrl: page, viewOnlineUrl: view }),
     headers,
-    messageId: `<c${campaignId}.r${row.id}@${mailgunDomain()}>`,
+    messageId: `<c${campaignId}.r${row.id}@${frame.sender.sendingDomain ?? mailgunDomain()}>`,
+    ...(frame.sender.sendingDomain ? { sendingDomain: frame.sender.sendingDomain } : {}),
     tags: ["campaign"],
     metadata: { campaign_id: campaignId, recipient_id: row.id },
   }

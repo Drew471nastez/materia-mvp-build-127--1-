@@ -22,6 +22,8 @@ import { buildFromHeader, sendEmail } from "@/lib/mail"
 import { APP_URL, automationEmail, brandOfIdentity } from "@/lib/email-automation"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { mailgunDomain } from "@/lib/mailgun"
+import { verifiedSender } from "@/lib/emails/sending-domain-server"
+import { ownFrom } from "@/lib/emails/sending-domain"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { enroll, runDue, type DueResult, type EnrollResult, type Mailer, type TriggerInput } from "./engine"
@@ -92,6 +94,8 @@ export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
     async send(mail) {
       let { html, text } = mail
       const pending = drawn.get(mail.html)
+      /* The store's own verified domain (Emails › Platforms): From its address, sent through that domain. */
+      const own = pending ? await verifiedSender(db, pending.creatorId) : null
       if (pending) {
         drawn.delete(mail.html)
         const address = await addressFor(pending.creatorId)
@@ -102,7 +106,8 @@ export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
         }
       }
       return sendEmail({
-        from: buildFromHeader(mail.fromName),
+        from: own ? ownFrom(mail.fromName || "Storelib", own.address) : buildFromHeader(mail.fromName),
+        ...(own ? { sendingDomain: own.domain } : {}),
         to: mail.to,
         replyTo: mail.replyTo,
         subject: mail.subject,

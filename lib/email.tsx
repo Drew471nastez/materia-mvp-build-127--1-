@@ -28,6 +28,8 @@ import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundMail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
 import { formatMinor } from "@/lib/markets/money"
 import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
+import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
+import { ownSendingFor } from "@/lib/emails/sending-domain-server"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -969,12 +971,15 @@ export async function sendBuyerDownloadEmail(
   }
   /* The same build as its preview in Emails (lib/receipts/receipt-mail.ts): the language, then the store's own words when the email is in its website's language. */
   const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
+  /* The store's own verified domain, when it has one (Emails › Platforms). */
+  const own = await ownSendingFor(admin, creatorId, fromName)
 
   try {
     const result = await withRetry(
       async () => {
         const response = await sendEmail({
-          from: buildFromHeaderLocal(fromName),
+          from: own?.from ?? buildFromHeaderLocal(fromName),
+          ...(own ? { sendingDomain: own.sendingDomain } : {}),
           to: customerEmail,
           replyTo,
           subject,
@@ -1053,9 +1058,11 @@ export async function sendReceiptCopyEmail(
     return { success: false, error: CURRENCY_UNKNOWN_HOLD }
   }
   const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
+  const own = await ownSendingFor(admin, params.creatorId, fromName)
   try {
     const sent = await sendEmail({
-      from: buildFromHeaderLocal(fromName),
+      from: own?.from ?? buildFromHeaderLocal(fromName),
+      ...(own ? { sendingDomain: own.sendingDomain } : {}),
       to: normalizeEmail(params.buyerEmail),
       replyTo,
       subject,
@@ -1437,7 +1444,8 @@ export async function sendLeadMagnetEmail(
     customBody,
   })
   const subject = lead.subject
-  const fromHeader = buildFromHeaderLocal(fromName)
+  const own = await ownSendingFor(admin, creatorId, fromName)
+  const fromHeader = own?.from ?? buildFromHeaderLocal(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
     from: fromHeader,
@@ -1450,6 +1458,7 @@ export async function sendLeadMagnetEmail(
       async () => {
         const response = await sendEmail({
           from: fromHeader,
+          ...(own ? { sendingDomain: own.sendingDomain } : {}),
           to: customerEmail,
           replyTo,
           subject,
@@ -1886,7 +1895,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
   const signedName = safeText(signer?.name || storeName || "Store")
   /* The seller's one picture (lib/email-campaigns/sender senderPicture, read by the caller), https only
      and sized for the inbox; the initials when there is none, never a broken image. */
-  const sellerAvatarSrc = emailImageSrc(signer?.pictureUrl ?? sellerAvatarUrl, 36)
+  const sellerAvatarSrc = emailImageSrc(signer?.pictureUrl ?? sellerAvatarUrl, LOGO_FILE_PX)
   const buyerMail = buyerRefundMail(
     { storeName: signedName, productTitle: escapedProduct, amountCents: refundAmount, currency: code, orderId, reason, orderDate: orderDate ?? null, refundDate: new Date().toISOString(), contactEmail, sellerPictureUrl: sellerAvatarSrc, creditNote: creditNote ?? null },
     signer?.language ?? null,

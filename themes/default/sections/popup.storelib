@@ -19,6 +19,7 @@
           <label class="pop__sr" for="pop-email-{{ section.id }}">{{ words.email_address }}</label>
           <input class="pop__input" id="pop-email-{{ section.id }}" type="email" name="email" placeholder="{{ settings.placeholder }}" required autocomplete="email">
           <button class="pop__btn" type="submit">{{ settings.button_text }}</button>
+          {% if settings.success %}<p class="pop__ok" role="status" data-storelib-success hidden>{{ settings.success }}</p>{% endif %}
         </form>
       {% elsif settings.content == 'button' and settings.button_text %}
         <a class="pop__btn" href="{{ settings.button_url | default: '/products' | url }}">{{ settings.button_text }}</a>
@@ -73,6 +74,8 @@
 }
 .pop__body > .pop__btn { margin-top: 20px; }
 .pop__btn:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.pop__ok { margin: 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
+.pop__ok[hidden] { display: none; }
 .pop__note { margin: 14px 0 0; font-size: 13px; color: var(--s-para); opacity: 0.8; }
 .pop__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (prefers-reduced-motion: reduce) { .pop__dim, .pop__card { transition: none; transform: none; } }
@@ -103,6 +106,7 @@
     },
     { "type": "text", "id": "placeholder", "label": "Email box says", "default": "you@example.com" },
     { "type": "text", "id": "button_text", "label": "Button", "default": "Send me the code" },
+    { "type": "text", "id": "success", "label": "Thank you", "default": "Thanks, you're on the list.", "info": "Shown in place of the email box once somebody signs up. Sign-ups go to Emails, Subscribers, listed as Popup." },
     { "type": "url", "id": "button_url", "label": "Button goes to", "default": "/products", "info": "Used when Below the text is A button." },
     { "type": "text", "id": "note", "label": "Small print", "default": "" },
     { "type": "text", "id": "close_label", "label": "Close button read aloud", "default": "Close" },

@@ -39,7 +39,7 @@ export async function readAppFacts(db: Db, creatorId: string, physical: boolean)
     safe(loadReviewsApp(db, creatorId)),
     safe(loadCheckoutConfig(db, creatorId)),
     safe(readChallengeCounts(db, creatorId)),
-    read(db.from("commerce_integrations").select("provider", { count: "exact", head: true }).eq("creator_id", creatorId).in("provider", ["klaviyo", "omnisend"]).eq("status", "connected")),
+    read(db.from("commerce_integrations").select("provider", { count: "exact", head: true }).eq("creator_id", creatorId).in("provider", ["klaviyo", "omnisend", "brevo", "mailerlite", "kit"]).eq("status", "connected")),
     read(db.from("commerce_tax_rates").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
     read(db.from("custom_domains").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).in("status", LIVE_STATUSES)),
     read(db.from("coupons").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),

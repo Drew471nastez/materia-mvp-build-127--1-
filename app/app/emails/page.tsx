@@ -12,7 +12,7 @@ import type { EmailsTab } from "./emails-home"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts"]
+const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts", "platforms"]
 
 export default async function EmailsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams

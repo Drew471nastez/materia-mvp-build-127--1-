@@ -43,7 +43,7 @@ import { tt, msg } from "@/lib/i18n/text"
 export const CONTACT_SURFACES = ["website", "profile", "onepage", "product", "checkout", "import", "manual", "api"] as const
 export type ContactSurface = (typeof CONTACT_SURFACES)[number]
 
-export const FORMS = ["newsletter", "footer", "contact", "section", "popup", "lead_magnet", "bar", "password"] as const
+export const FORMS = ["newsletter", "footer", "contact", "section", "popup", "lead_magnet", "bar", "password", "site_popup"] as const
 export type ContactForm = (typeof FORMS)[number]
 
 export interface ContactSource {
@@ -83,11 +83,13 @@ export const FORM_NAME: Record<ContactForm, string> = {
   get newsletter() { return tt("Newsletter section") },
   get footer() { return tt("Footer sign-up") },
   get contact() { return tt("Contact form") },
-  section: "Sign-up form",
+  get section() { return tt("Sign-up form") },
   get popup() { return tt("Subscribe button") },
   get lead_magnet() { return tt("Free download") },
   get bar() { return tt("Subscribe bar") },
   get password() { return tt("Coming soon page") },
+  /* A website's popup (the Popup section, Storelib Newsletter's popup look), apart from the profile's Subscribe button above (round 43). */
+  get site_popup() { return tt("Popup") },
 }
 
 /** Every field checked on its own; null when nothing is left. */

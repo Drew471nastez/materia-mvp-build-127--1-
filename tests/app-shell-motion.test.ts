@@ -276,7 +276,8 @@ section("No page draws a picture of itself while it loads, inside or out")
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
       /* Changed on purpose: ten, with Referrers and Operating systems (round Z6); eleven with the added reports' own cards, which wait the same way (app/app/analytics/analytics-reports AddedCards). */
       /* Changed on purpose (round 42, clicks between pages): twelve, with the website's Clicks between pages card, which waits as rows the same way. */
-      && (reports.match(/<Body blank=\{/g) ?? []).length === 12
+      /* Changed on purpose (round 43): thirteen, with Digital's and Physical's own Downloads and Refunds cards (standing), which wait as a figure the same way. */
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 13
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} \/>\} className=\{BODY\} contentClassName="h-full flex flex-col">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was

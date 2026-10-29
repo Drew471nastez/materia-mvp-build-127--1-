@@ -139,7 +139,7 @@ function Card({
           <div className="min-w-0 flex-1">
             <HelpLabel as="h3" label={title} description={help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
           </div>
-          {detail ? <ViewReport id={detail.id} tab={detail.tab} /> : null}
+          {detail ? <ViewReport id={detail.id} tab={detail.tab} label={title} /> : null}
           {actions}
         </div>
         {tabs ? <div className="orders-strip -mx-1 overflow-x-auto px-1">{tabs}</div> : null}
@@ -803,7 +803,7 @@ function ProductsBody({ r, both, onAll }: { r: Reports; both: boolean; onAll?: (
  * THE CARDS, drawn whether or not the answer is in (`r` null): every title
  * and every switcher on the first paint, each body waiting in its own height.
  */
-function Grid({ r, property, sections, extra, added }: { r: Reports | null; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps }) {
+function Grid({ r, property, sections, extra, added, standing = [] }: { r: Reports | null; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[] }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
@@ -907,6 +907,19 @@ function Grid({ r, property, sections, extra, added }: { r: Reports | null; prop
           </Body>
         </Card>
       ) : null}
+
+      {/*
+        WHAT A KIND NEEDS, WITHOUT ADDING IT (round 43, the owner: "the same completeness for Digital and Physical"):
+        Digital shows Downloads and Refunds, Physical its Refunds (returns), as cards of the page's own, beside Top
+        products. One the seller already added is drawn once, where they put it.
+      */}
+      {standing.filter((id) => !added?.ids.includes(id)).map((id) => (
+        <Card key={`standing-${id}`} card={`standing-${id}`} detail={{ id: `added:${id}` }} title={REPORT_COPY[id].title} help={REPORT_COPY[id].help}>
+          <Body blank={!lists} wait="figure">
+            {lists && r ? <AddedBody id={id} r={r} onAll={all(`added:${id}`)} /> : null}
+          </Body>
+        </Card>
+      ))}
 
       <Card
         card="funnel"
@@ -1723,6 +1736,7 @@ export function AnalyticsReports({
   sections = DEFAULT_SECTIONS_ALL,
   extra,
   added,
+  standing,
 }: {
   start?: Date
   end?: Date
@@ -1735,10 +1749,12 @@ export function AnalyticsReports({
   extra?: React.ReactNode
   /** The reports the seller added: cards of their own, never figures on the chart. */
   added?: AddedProps
+  /** Reports drawn without being added, for what is chosen (Digital: downloads and refunds; Physical: refunds). */
+  standing?: readonly ReportId[]
 }) {
   reportCurrency = useStoreCurrency()
   return state ? (
-    <ReportsView state={state} property={property} sections={sections} extra={extra} added={added} />
+    <ReportsView state={state} property={property} sections={sections} extra={extra} added={added} standing={standing} />
   ) : (
     <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} sections={sections} currency={reportCurrency} />
   )
@@ -1751,7 +1767,7 @@ function SelfLoading({ start, end, product, property, sections, currency }: { st
   return <ReportsView state={state} property={property} sections={sections} />
 }
 
-function ReportsView({ state, property, sections, extra, added }: { state: ReportsState; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps }) {
+function ReportsView({ state, property, sections, extra, added, standing }: { state: ReportsState; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[] }) {
   const { data, lists, loading, failed, stale } = state
   /* A quick first answer to a new question keeps the last whole answer's lists on screen, softened, until the rest comes. */
   const shown = data && data.reports.partial && lists && !lists.reports.partial ? lists : data
@@ -1776,7 +1792,7 @@ function ReportsView({ state, property, sections, extra, added }: { state: Repor
           </p>
         ) : null}
 
-        <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} />
+        <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">

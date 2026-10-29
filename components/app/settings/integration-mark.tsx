@@ -66,6 +66,7 @@ const STORELIB_TILES: Record<string, { icon: LucideIcon; tint: Tint }> = {
   /* Apps with a page in the catalog (lib/integrations/catalog.ts). */
   "storelib-reviews": { icon: Star, tint: "reach" },
   "courier-tracking": { icon: PackageSearch, tint: "ship" },
+  "send-analytics": { icon: Send, tint: "insight" },
   manual: { icon: Package, tint: "ship" },
   "supplier-email": { icon: Send, tint: "ship" },
   "custom-webhook": { icon: Webhook, tint: "site" },

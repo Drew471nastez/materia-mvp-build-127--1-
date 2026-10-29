@@ -99,7 +99,20 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (u.pathname.startsWith("/api/app/community/")) {
     await new Promise((r) => setTimeout(r, w.__delay))
     const f = (value: number, previous: number) => ({ value, previous })
-    return json({ figures: { members: f(412, 380), joined: f(38, 29), left: f(6, 9), visits: f(1260, 1100), joinRate: f(0.031, 0.026) }, money: { currency: "USD", figures: { revenue: f(184000, 151000), mrr: f(52000, 48000), subscribers: f(31, 28) }, bySource: [{ key: "memberships", cents: 184000 }] }, live: { members: 412 } })
+    /* Round 43: the whole answer's shape (lib/communities/analytics-report CommunityReport), so Communities on their own draw their lines and lists. */
+    const days = Math.max(1, Math.round((Date.parse(q.get("end") || "") - Date.parse(q.get("start") || "")) / 86_400_000))
+    const l = (xs: (i: number) => number) => ({ current: Array.from({ length: days }, (_, i) => xs(i)), previous: Array.from({ length: days }, (_, i) => Math.max(0, Math.round(xs(i) * 0.85))) })
+    return json({
+      version: 2, grain: "day", buckets: days,
+      figures: { members: f(412, 380), joined: f(38, 29), left: f(6, 9), churn: f(1.6, 2.4), visits: f(1260, 1100), prospects: f(800, 700), joinRate: f(3.1, 2.6), active: f(164, 150), engagement: f(21.4, 19.8), posts: f(57, 44), comments: f(212, 180), reactions: f(640, 512), rsvps: f(0, 0), lessons: f(0, 0) },
+      lines: { members: l((i) => 380 + i * 5), joined: l((i) => 3 + (i % 4)), left: l((i) => i % 2), active: l((i) => 40 + (i % 5) * 6), posts: l((i) => 5 + (i % 3) * 2), comments: l((i) => 20 + i), reactions: l((i) => 60 + i * 3), visits: l((i) => 150 + i * 10) },
+      money: { currency: "usd", figures: { revenue: f(184000, 151000), mrr: f(52000, 48000), subscribers: f(31, 28), newPaid: f(6, 4), cancellations: f(2, 3) }, lines: { revenue: l((i) => 20000 + (i % 3) * 8000), mrr: l((i) => 48000 + i * 600), subscribers: l((i) => 28 + Math.floor(i / 2)) }, upgrades: 2, churnRate: 7.1, refunds: { count: 1, totalCents: 2500 }, bySource: [{ key: "memberships", cents: 164000 }, { key: "tickets", cents: 20000 }], byPlan: [{ key: "plan-m", label: "Monthly", cents: 124000, paying: 24 }, { key: "plan-y", label: "Yearly", cents: 40000, paying: 7 }], reasons: [{ reason: "too_expensive", count: 1 }] },
+      live: { members: 412, active1: 31, active7: 98, active30: 164, stickiness: 18.9 },
+      joins: { bySource: [{ key: "free", label: "free", value: 22 }, { key: "subscription", label: "subscription", value: 10 }, { key: "invite", label: "invite", value: 6 }], invites: [] },
+      leaveReasons: [{ reason: "too_busy", count: 3 }],
+      topSpaces: [{ id: "sp1", name: "Show and tell", slug: "show", posts: 21, comments: 96 }, { id: "sp2", name: "Film stocks", slug: "film", posts: 14, comments: 51 }, { id: "sp3", name: "Help", slug: "help", posts: 9, comments: 30 }],
+      topPosts: [{ id: "po1", title: "First roll through the Leica", reactions: 48, comments: 19 }, { id: "po2", title: "Pushing HP5 to 1600", reactions: 31, comments: 22 }],
+    })
   }
   const commerce = u.pathname.endsWith("/api/analytics/commerce")
   await new Promise((r) => setTimeout(r, w.__delay + (commerce ? 200 : 0)))

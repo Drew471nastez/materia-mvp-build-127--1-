@@ -138,6 +138,7 @@ async function sendOne(
   const result = await sendEmail({
     to: m.buyer_email,
     from: loaded.sender.from,
+    ...(loaded.sender.sendingDomain ? { sendingDomain: loaded.sender.sendingDomain } : {}),
     replyTo: loaded.sender.replyTo,
     subject: mail.subject,
     html: mail.html,

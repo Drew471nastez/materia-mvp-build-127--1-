@@ -1,3 +1,4 @@
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { NextResponse } from "next/server"
@@ -120,6 +121,8 @@ export async function POST(request: Request) {
     await recordContactSource(adminSupabase, creator.id, address, source)
     /* The property and the visit's touches, onto the same contact (lib/attribution). */
     await recordSignupAttribution(adminSupabase, { creatorId: creator.id, email: address, source, sent: origin })
+    /* Connected email platforms (Klaviyo, Brevo, MailerLite, Kit...) get it within the minute. */
+    await syncPlatformsSoon(adminSupabase, creator.id)
 
     if (welcome) {
       try {

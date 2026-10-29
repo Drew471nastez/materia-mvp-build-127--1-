@@ -8,6 +8,8 @@
  * way the page draws them, at a card's size: Solid, Soft, Outline or Glass,
  * the corners, the border and the shadow, hard ones included. Every layout
  * is the same height (65px), so cards of different themes line up.
+ * (Round 43: a list follows the theme's button size and text alignment, and
+ * draws two rows under a theme that also shows its products.)
  */
 import type * as React from "react"
 import { blockLayoutOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
@@ -74,6 +76,14 @@ function ThemeCardLinks({ c }: { c: CardConfig }) {
   const look = cardButtonLook(c)
   const line = (w: string) => <span className="block h-[3px] rounded-full" style={{ width: w, background: ink, opacity: 0.8 }} />
   const layout = blockLayoutOf(c)
+  /*
+    Round 43: closer to the page. A theme that sets its buttons' words flush left draws them so here, a Small or
+    Large button is a shorter or taller row (Small fits a fourth), and two rows leave room when the theme also shows
+    its products under them.
+  */
+  const left = c.button_text_align === "left"
+  const rowH = c.button_size === "compact" ? 14 : c.button_size === "large" ? 20 : 17
+  const rows = themeProductLayoutOf(c) !== "own" ? 2 : rowH <= 14 ? 4 : 3
 
   if (layout === "grid") {
     return (
@@ -109,8 +119,8 @@ function ThemeCardLinks({ c }: { c: CardConfig }) {
   }
   return (
     <span className="mt-[11%] flex w-full flex-col gap-[7px]" data-theme-card-layout="list">
-      {[0, 1, 2].map((i) => (
-        <span key={i} className="grid h-[17px] w-full place-items-center" style={look}>{line("36%")}</span>
+      {Array.from({ length: rows }, (_, i) => (
+        <span key={i} className={left ? "flex w-full items-center px-[9%]" : "grid w-full place-items-center"} style={{ ...look, height: rowH }}>{line(i % 2 ? "30%" : "38%")}</span>
       ))}
     </span>
   )

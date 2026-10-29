@@ -48,9 +48,16 @@ export interface MembershipMoneyRow {
 /** The columns every MRR read asks for. */
 export const MEMBERSHIP_MONEY_COLUMNS = "id, product_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end"
 
+/**
+ * Stripe's states that pay nothing whatever the dates say (round 43): a first payment that never went through, a
+ * subscription Stripe gave up on, one the seller paused. The community list read only active, past due, trialing and
+ * cancelled rows, Analytics read every row and counted these as paying; now neither does.
+ */
+const NOT_PAYING = new Set(["incomplete", "incomplete_expired", "unpaid", "paused"])
+
 /** Paying at a moment: started, not ended, out of any trial. A trial with no end date is not paying yet. */
 export function payingAt(m: MembershipMoneyRow, t: number): boolean {
-  if (m.status === "incomplete") return false
+  if (NOT_PAYING.has(m.status)) return false
   const started = Date.parse(m.started_at ?? m.created_at)
   if (!(started <= t)) return false
   const ended = m.ended_at ? Date.parse(m.ended_at) : m.status === "canceled" || m.status === "expired" ? Date.parse(m.canceled_at ?? m.created_at) : Infinity

@@ -53,7 +53,7 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Switch } from "@/components/ui/switch"
 import { SegmentedTabs } from "@/components/app/segmented-tabs"
-import { SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
+import { PILL_FADE_EASE, SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
 import { CommunityAutomations } from "@/components/app/emails/community-automations"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
@@ -69,6 +69,8 @@ import { previewVersion } from "@/lib/emails/preview-version"
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
 const ACTIVITY_PATH = "/api/store/emails/activity"
+/* Settings' section fade (app/globals.css .settings-panel), on the family list. */
+const VIEW_FADE_MS = 160
 
 export interface CustomerEmailsShop extends PreviewShop {
   name: string
@@ -229,6 +231,22 @@ export function CustomerEmailsPanel({
   ]
   /* A family that is not offered here (physical off, no community): All. */
   const shown: View = tabs.some((t) => t.value === view) ? view : "all"
+  /*
+    THE LIST COMES IN AS SETTINGS' SECTION DOES (round 43, the owner: "smooth exactly like the Settings
+    tab's pills"): 160ms from 0.25 on Settings' curve (app/globals.css .settings-panel), the old list gone
+    at once. Never from 0 and never remounted (round 28: no flash): the rows stay where they are and only
+    their opacity eases, on the list that is already there. Not on the first paint, not with reduced motion.
+  */
+  const viewPanel = React.useRef<HTMLDivElement>(null)
+  const viewDrawn = React.useRef<string | null>(null)
+  React.useLayoutEffect(() => {
+    const was = viewDrawn.current
+    viewDrawn.current = shown
+    const el = viewPanel.current
+    if (was === null || was === shown || !el || typeof el.animate !== "function") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: VIEW_FADE_MS, easing: PILL_FADE_EASE })
+  }, [shown])
   const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
   const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
 
@@ -253,8 +271,8 @@ export function CustomerEmailsPanel({
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill. It does not slide (the owner): the choice changes at once, nothing moves. No grey track. */}
-        <SegmentedPills variant="chips" value={shown} slide={false} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
+        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill. Nothing slides between them; the chosen one eases its fill in place, as Settings' pills do (round 43). No grey track. */}
+        <SegmentedPills variant="chips" value={shown} motion="fade" onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
@@ -286,7 +304,7 @@ export function CustomerEmailsPanel({
         family's section is kept by its own key, so All to Digital keeps
         Digital's rows as they are and only takes the others away.
       */}
-      <div id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
+      <div ref={viewPanel} id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
         {shown === "digital" || shown === "physical" ? (
           <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pt-3 sm:px-5" : "mb-3")} data-language-rule="">
             {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
@@ -528,11 +546,6 @@ const LABELS: Record<CopyField, string> = {
   get button() { return tt("Button") },
   get footer() { return tt("Footer note") },
 }
-/** What a field says about itself, under it, where its job is not plain from its name. */
-const HINTS: Partial<Record<CopyField, string>> = {
-  get preheader() { return tt("Shown after the subject in most inboxes. Empty, the email's first line is shown.") },
-  get footer() { return tt("A line of your own above the footer, such as a returns note. The address and links stay.") },
-}
 
 /**
  * The fields as they open. The main words start from the saved ones, or
@@ -613,7 +626,6 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const saved = asked ? savedAsked : keptSaved.current
   const id = email?.id
   const editable = !!id && !!DEFAULT_COPY[id]
-  const membership = !!id?.startsWith("membership_")
   const where = usePreviewPlace(email, data)
   /*
     WHICH WORDS ARE BEING WRITTEN (round 28, the owner: "per language where
@@ -772,13 +784,9 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const fields = editable ? (
     <div className="space-y-3.5" data-email-editor={id}>
       {!ready ? <Notice tone="amber">{tt("Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.")}</Notice> : null}
-      {otherLang ? (
-        <p className="rounded-lg bg-[#f4f5f7] px-3 py-2 text-[12.5px] leading-[18px] text-[#374151]" data-email-editing-lang={otherLang}>
-          {tt("Words for buyers who read this email in {language}. A part left empty goes out in the standard {language} words.", { language: languageName(otherLang) })}
-        </p>
-      ) : null}
+      {/* Round 43, the owner: less text. Another language's empty fields say "Standard French words" themselves, so no note says it again. */}
       {COPY_FIELDS.map((f) => (
-        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`} hint={HINTS[f]}>
+        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`}>
           {f === "body" || f === "footer" ? (
             <textarea
               id={`email-${f}`}
@@ -810,7 +818,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         </Field>
       ))}
       <div>
-        <p className="text-[12.5px] text-[#6b7280]">{tt("Placeholders fill in for each order. Tap one to add it where you're typing.")}</p>
+        <p className="text-[12.5px] font-medium text-[#374151]">{tt("Insert")}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {placeholdersFor(id).map((p) => (
             <button
@@ -830,63 +838,54 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       </div>
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("The price, the dates, the card and the link stay as they are, filled in from each membership.") : tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
       <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined, !!otherLang)))} onClick={reset}>
         {tt("Reset to default")}
       </button>
     </div>
   ) : null
 
-  /* Where the sample was bought, and in what language: the email that place sends (lib/emails/buyer-channel.ts). */
-  const placeControls =
-    where.digital || where.langs.length > 1 ? (
-      <div className="flex flex-wrap items-center gap-2" data-preview-place="">
-        {where.digital ? (
-          <SegmentedTabs
-            value={where.channel}
-            onChange={(v) => keepTyping() && where.setChannel(v)}
-            label={tt("Bought on")}
-            idPrefix="preview-place"
-            className="sm:w-auto"
-            tabs={[
-              { id: "website", label: tt("Your website") },
-              { id: "storelib", label: tt("Creator page") },
-            ]}
-          />
-        ) : null}
-        {where.channel === "website" && where.langs.length > 1 ? (
-          <select
-            value={where.lang}
-            onChange={(e) => keepTyping() && where.setLang(e.target.value)}
-            aria-label={tt("Language")}
-            className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:text-[13px]"
-            data-preview-language=""
-          >
-            {where.langs.map((l) => (
-              <option key={l} value={l}>
-                {languageName(l)}
-              </option>
-            ))}
-          </select>
-        ) : null}
-      </div>
+  /*
+    WHERE THE SAMPLE WAS BOUGHT, AND IN WHAT LANGUAGE (lib/emails/buyer-channel.ts), round 43. The owner:
+    the place switch sat awkwardly beside the language, under two sentences explaining both. Now the
+    language is one quiet select in the sheet's header (it chooses which words are being written, so it
+    belongs to the whole sheet), the place a small "Preview as" control over the preview, and no note.
+  */
+  const languageSelect =
+    where.channel === "website" && where.langs.length > 1 ? (
+      <select
+        value={where.lang}
+        onChange={(e) => keepTyping() && where.setLang(e.target.value)}
+        aria-label={tt("Language")}
+        className="h-9 max-w-[45%] shrink-0 truncate rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:max-w-none sm:text-[13px]"
+        data-preview-language=""
+      >
+        {where.langs.map((l) => (
+          <option key={l} value={l}>
+            {languageName(l)}
+          </option>
+        ))}
+      </select>
     ) : null
-  const placeNote =
-    where.channel === "storelib"
-      ? tt("Bought on your creator page, Explore or in a community: in English, from {name}.", { name: creator?.name || shop.name })
-      : where.digital
-        ? tt("Bought on your website: in the language the buyer used there, from {name}.", { name: shop.name })
-        : null
-  /* A membership is bought on Storelib: from the creator, in English (lib/memberships/sync.ts membershipVoice). */
-  const membershipNote = membership ? tt("Bought on your creator page: in English, from {name}.", { name: creator?.name || shop.name }) : null
-  /* Which buyers the words on the left reach, when the website has more than one language. */
-  const ownNote = editable && where.langs.length > 1 && !otherLang && where.channel === "website" ? tt("These words go to buyers in {language}, your website's language. Pick another language above to write its own.", { language: languageName(where.def) }) : null
+  const placeControls = where.digital ? (
+    <div className="flex items-center gap-2.5" data-preview-place="">
+      <span className="shrink-0 text-[12.5px] text-[#6b7280]">{tt("Preview as")}</span>
+      <SegmentedTabs
+        value={where.channel}
+        onChange={(v) => keepTyping() && where.setChannel(v)}
+        label={tt("Preview as")}
+        idPrefix="preview-place"
+        className="inline-grid w-auto"
+        tabs={[
+          { id: "website", label: tt("Website") },
+          { id: "storelib", label: tt("Creator page") },
+        ]}
+      />
+    </div>
+  ) : null
 
   const preview = (active: boolean) => (
     <div className="space-y-2.5" data-email-preview={id}>
       {placeControls}
-      {placeNote || membershipNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote || membershipNote}</p> : null}
-      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-own-note="">{ownNote}</p> : null}
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
@@ -896,7 +895,6 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         measurePreviewOpen(id, mailFrom)
         if (id) setDrawnFor(id)
       }} /> : <PreviewSkeleton />}
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )
 
@@ -942,11 +940,12 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const phoneTestNote = testNote ? <div className="flex shrink-0 bg-white px-4 pt-2 sm:hidden">{testNote}</div> : null
 
   const header = (
-    <div className="flex shrink-0 items-center gap-3 border-b border-[#f1f2f4] px-4 py-3 pr-12 sm:px-5 sm:py-4">
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#f1f2f4] px-4 py-3 pr-12 sm:px-5 sm:py-4 sm:pr-14">
       <div className="min-w-0">
         <SheetDialogTitle className="text-[16px] font-semibold leading-6 text-[#1a1a2e]">{email?.name ?? tt("Email")}</SheetDialogTitle>
         <p className="truncate text-[12.5px] text-[#6b7280]">{email?.sentWhen}</p>
       </div>
+      {languageSelect}
     </div>
   )
 

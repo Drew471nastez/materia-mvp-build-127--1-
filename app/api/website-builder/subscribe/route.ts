@@ -22,6 +22,7 @@
  *     "already subscribed" is an answer that tells a stranger who is on the
  *     list.
  */
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
@@ -151,12 +152,14 @@ export async function POST(req: NextRequest) {
    * (a site's forms post to their own origin), never one the page claims;
    * what the page adds is where its visit came from. lib/contacts/contact-source.
    */
-  /* A website's popup is a sign-up form to Emails: "popup" there is the profile's Subscribe button (lib/contacts/contact-source FORM_NAME). */
-  const placement: ContactForm = body.placement === "popup" ? "section" : typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
+  /* A website's popup is its own door in Emails, "Popup" (round 43): "popup" there is the profile's Subscribe button (lib/contacts/contact-source FORM_NAME). */
+  const placement: ContactForm = body.placement === "popup" ? "site_popup" : typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
   const source = contactSourceFrom({ request: req, surface: "website", form: placement, sent: body.origin })
   await recordContactSource(db, creatorId, email, source)
   /* And onto the same contact, this website and the visit's touches (lib/attribution). */
   await recordSignupAttribution(db, { creatorId, email, source, sent: body.origin })
+  /* Connected email platforms (Klaviyo, Brevo, MailerLite, Kit...) get it within the minute. */
+  await syncPlatformsSoon(db, creatorId)
 
   /**
    * The creator's own welcome automation, the same one every other capture

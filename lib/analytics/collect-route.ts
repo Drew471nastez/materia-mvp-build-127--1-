@@ -7,6 +7,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { collect, type CollectKind, type CollectOutcome } from "./collect"
 import { MARKER_TTL_MS, OWN_MARKER_COOKIE, marksOwner } from "./own-marker"
 import { isOwnVisit } from "./own-visit"
+import { afterResponse } from "./destinations/queue-server"
 
 /**
  * The three tracking routes' shared door onto lib/analytics/collect: the
@@ -34,7 +35,7 @@ export async function readBody(req: Request): Promise<unknown> {
 type Db = Parameters<typeof collect>[1]["db"]
 
 export async function collectFrom(req: NextRequest, kind: CollectKind, body: unknown, db: Db): Promise<CollectOutcome> {
-  return collect(
+  const outcome = await collect(
     {
       kind,
       body,
@@ -51,6 +52,16 @@ export async function collectFrom(req: NextRequest, kind: CollectKind, body: unk
       limited: async (subject) => (await rateLimit({ bucket: "track", subjects: [subject], windows: LIMITS.track })) !== null,
     },
   )
+  /* A recorded page view, on to the store's own analytics tools when it has any and the visitor's consent allows (lib/analytics/destinations), after the response. */
+  if (kind === "view" && outcome.recorded && outcome.row) {
+    const row = outcome.row
+    const visitor = { headers: req.headers, cookie: (name: string) => req.cookies.get(name)?.value }
+    afterResponse(async () => {
+      const { forwardPageView } = await import("./destinations/forward-server")
+      await forwardPageView(db, row, visitor)
+    })
+  }
+  return outcome
 }
 
 /**

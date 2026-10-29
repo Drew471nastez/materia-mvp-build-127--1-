@@ -5,11 +5,12 @@
  * The real Integrations page in the /app shell (scripts/render-integrations-
  * y2.tsx, the same entry), in headless Chromium at 1280x800 and 390x844:
  *
- *   T1  a card's page is there on the first frame after the press, a few px
- *       under its place, whole (opacity 1 every frame), and rises into place
- *       by a translate alone in about 300ms, frames at pace
- *   T2  Back: the list is there on its first frame, settles down into place,
- *       and the card that was opened has the focus again
+ *   T1  a card's page is there on the first frame after the press, at most
+ *       4px under its place, whole (opacity 1 every frame), and settles into
+ *       place by a translate alone in about 180ms, starting on the frame it
+ *       is drawn (round 43: the 28px / 12px rise held up to 650ms was a bump)
+ *   T2  Back: the list is there on its first frame, at most 2px above its
+ *       place, settles down at once, and the opened card has the focus again
  *   T3  reduced motion: nothing moves
  *   S1  the way to the steps is a row of its own saying how many there are
  *   S2  the steps: the one to do now, the ones after it; where the
@@ -195,10 +196,10 @@ export const isNativePlatform = () => false
     const run = page.filter((f) => startsAt && settled && f.t >= startsAt.t && f.t <= settled.t)
     const runGap = run.length > 1 ? Math.max(...run.slice(1).map((f, i) => f.t - run[i].t)) : null
     report[`T ${tag} in`] = { first: firstPage, movesFrom: startsAt?.t ?? null, settledAt: settled && firstPage ? settled.t - firstPage.t : null, moving: settled && startsAt ? settled.t - startsAt.t : null, runGap, worstGap: +into.worstGap.toFixed(1), film: page.slice(0, 24).map((f) => [f.t, f.ty, f.op]) }
-    expect(!!firstPage && firstPage.ty > 4, `T1 ${tag}: the page is drawn on the first frame after the press, a few px under its place (${firstPage?.ty}px)`)
+    expect(!!firstPage && firstPage.ty > 0 && firstPage.ty <= 4, `T1 ${tag}: the page is drawn on the first frame after the press, at most 4px under its place (${firstPage?.ty}px)`)
     expect(page.every((f) => f.op === 1), `T1 ${tag}: and whole: opacity 1 on every frame, no fade, no flash`, [...new Set(page.map((f) => f.op))])
     expect(moving.every((f, i) => i === 0 || f.ty <= moving[i - 1].ty + 0.01), `T1 ${tag}: it only rises, frame on frame`)
-    expect(!!settled && !!startsAt && settled.t - startsAt.t >= 200 && settled.t - startsAt.t <= 360, `T1 ${tag}: it moves for ${settled && startsAt ? settled.t - startsAt.t : null}ms once it starts, ${startsAt && firstPage ? startsAt.t - firstPage.t : null}ms after the page is drawn`)
+    expect(!!settled && !!startsAt && !!firstPage && settled.t - startsAt.t <= 220 && page.indexOf(startsAt) <= 3, `T1 ${tag}: no hold, short: it moves within ${page.indexOf(startsAt)} frames of being drawn (the page's own first drawing is one long frame), for ${settled && startsAt ? settled.t - startsAt.t : null}ms once it starts, ${startsAt && firstPage ? startsAt.t - firstPage.t : null}ms after the page is drawn`)
     expect(into.frames.every((f) => f.props.every((x) => x === "transform")), `T1 ${tag}: only transform animates`, [...new Set(into.frames.flatMap((f) => f.props))])
     expect(runGap !== null && runGap < 40, `T1 ${tag}: while it moves, frames keep their pace (worst gap ${runGap}ms; the page's own first drawing before it took ${into.worstGap.toFixed(1)}ms)`)
     await sleep(200)
@@ -244,8 +245,8 @@ export const isNativePlatform = () => false
     const lset = list.find((f, i) => i > 0 && Math.abs(f.ty) <= 0.05 && Math.abs(list[i - 1].ty) > 0.05)
     const lstart = list.find((f) => list[0] && f.ty > list[0].ty + 0.05)
     report[`T ${tag} back`] = { first: list[0], movesFrom: lstart?.t ?? null, moving: lset && lstart ? lset.t - lstart.t : null, settledAt: lset && list[0] ? lset.t - list[0].t : null, worstGap: +back.worstGap.toFixed(1), film: list.slice(0, 20).map((f) => [f.t, f.ty, f.op]) }
-    expect(!!list[0] && list[0].ty < -2 && list.every((f) => f.op === 1), `T2 ${tag}: the list is there on the first frame, settling down from ${list[0]?.ty}px, whole`)
-    expect(lmove.every((f, i) => i === 0 || f.ty >= lmove[i - 1].ty - 0.01) && !!lset && !!lstart && lset.t - lstart.t <= 300, `T2 ${tag}: and in place ${lset && lstart ? lset.t - lstart.t : null}ms after it starts to move (${lstart && list[0] ? lstart.t - list[0].t : null}ms after the list is drawn), only one way`)
+    expect(!!list[0] && list[0].ty < 0 && list[0].ty >= -2 && list.every((f) => f.op === 1), `T2 ${tag}: the list is there on the first frame, settling down from ${list[0]?.ty}px, whole`)
+    expect(lmove.every((f, i) => i === 0 || f.ty >= lmove[i - 1].ty - 0.01) && !!lset && !!lstart && lset.t - lstart.t <= 200 && list.indexOf(lstart) <= 3, `T2 ${tag}: and in place ${lset && lstart ? lset.t - lstart.t : null}ms after it starts to move (${lstart && list[0] ? lstart.t - list[0].t : null}ms after the list is drawn), only one way`)
     const focus = await p.evaluate(() => document.activeElement?.dataset?.integrationCard ?? null)
     expect(focus === "meta-pixel", `T2 ${tag}: the card that was opened has the focus again`, focus)
     expect(errors.length === 0, `${tag}: no page errors`, errors)

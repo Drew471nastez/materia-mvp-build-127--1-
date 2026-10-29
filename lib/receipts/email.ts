@@ -25,6 +25,7 @@
 import { et } from "@/lib/emails/words"
 import { emailImageSrc, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { emailDocument, emailKit, esc, identity, type EmailSender } from "@/lib/emails/layout"
+import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 
 const PLATFORM_BRAND_NAME = "Storelib"
 /** The drawn size of a product's thumbnail and of the creator's picture, in CSS pixels. */
@@ -132,7 +133,7 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
   const sellerPlain = safeText(m.sellerName) || PLATFORM_BRAND_NAME
   const first = safeName(m.firstName)
   const picture = m.sellerPicture
-  const pictureUrl = picture ? emailImageSrc(picture.url, picture.kind === "logo" ? 120 : AVATAR_PX) : null
+  const pictureUrl = picture ? emailImageSrc(picture.url, picture.kind === "logo" ? LOGO_FILE_PX : AVATAR_PX) : null
   const sender: EmailSender = { kind: "store", name: sellerPlain, pictureUrl, picture: picture?.kind === "photo" ? "avatar" : "logo", accent: m.accent ?? null }
   const k = emailKit(sender)
   const doc = documentLine(m)

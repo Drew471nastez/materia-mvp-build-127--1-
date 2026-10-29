@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
-import { Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
+import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
@@ -60,6 +60,8 @@ import { tt } from "@/lib/i18n/text"
 import { useLiveLayout } from "@/lib/onepage/live-layout"
 import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
+import { followDialogLocks, useHeldPage } from "@/lib/onepage/page-hold"
+import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
@@ -1178,6 +1180,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   }, [purchasedProducts])
 
   const quickCheckoutModalContextValue = { openQuickCheckoutModal, purchasedProducts, downloadPurchasedAsset }
+
+  /*
+    ROUND 43: EVERY WINDOW OVER THE PAGE HOLDS IT THE SAME WAY (lib/onepage/
+    page-hold). The centred windows below (music, the free checkout, a PDF)
+    let the page scroll behind them; a Radix dialog (the product sheet on a
+    computer) hid the scrollbar and the page jumped by its width. Now a
+    window on a computer holds the page and keeps the bar's room, and a
+    Radix lock is followed into the same hold. A phone's sheet is the shared
+    bottom sheet, which holds the page itself.
+  */
+  useHeldPage(isPhone === false && ((spotifyModalOpen && !!spotifyModalData) || (appleMusicModalOpen && !!appleMusicModalData) || (quickCheckoutModalOpen && !!quickCheckoutModalData) || (pdfModalOpen && !!pdfModalData)))
+  useEffect(() => followDialogLocks(), [])
 
   // Safe defaults - MERGE theme with defaults to ensure all properties exist
   const safeTheme = {
@@ -3342,20 +3356,12 @@ function PublicBlockRenderer({
                 ) : (
                   profile.title && (
                     <h1
-                      className={cn(
-                        "font-bold inline-flex items-center justify-center",
-                        (theme as any).title_size === "large"
-                          ? isDesktop
-                            ? "text-[36px]"
-                            : "text-[33px] sm:text-[37px]"
-                          : isDesktop
-                            ? "text-[31px]"
-                            : "text-[27px] sm:text-[31px]",
-                      )}
+                      className={cn("font-bold inline-flex items-center justify-center", titleSizeClass(theme as never, true, isDesktop))}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
                         textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                        ...titleTypeStyle(theme as never),
                       }}
                     >
                       {profile.title}
@@ -3367,10 +3373,11 @@ function PublicBlockRenderer({
                 ))}
               {data.show_bio !== false && profile.bio && (
                 <p
-                  className={cn("mt-2 max-w-sm mx-auto", isDesktop ? "text-base" : "text-sm sm:text-base")}
+                  className={cn("mt-2 max-w-sm mx-auto", bioSizeClass(theme as never, true, isDesktop))}
                   style={{
                     color: theme.secondary_text_color || theme.text_color,
                     textShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                    ...bioTypeStyle(theme as never),
                   }}
                 >
                   {profile.bio}
@@ -3389,8 +3396,9 @@ function PublicBlockRenderer({
       // Glow intensity settings - reduced spread by 40%
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
-      // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 121 : 114
+      /* The picture's size, corner and ring are the creator's (lib/onepage/header-style); medium, round and a light ring when unset. */
+      const look = avatarLook(theme as never, isDesktop)
+      const avatarSize = look.size
       /* The theme's cover picture, over the classic header (lib/onepage/theme-layout). */
       const cover = coverImageOf(theme)
 
@@ -3426,26 +3434,27 @@ function PublicBlockRenderer({
                   onError={(e) => { e.currentTarget.style.display = "none" }}
                 />
               </div>
-              {data.show_avatar !== false && theme.background_type === "solid" && theme.background_color ? (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full"
-                  style={{ width: avatarSize + 8, height: avatarSize + 8, bottom: -(avatarSize / 2 + 4), backgroundColor: theme.background_color }}
-                />
-              ) : null}
             </div>
           )}
           {data.show_avatar !== false && (
             /* A circle whatever the column around it does: its own size, never shrunk by the flex column (flex-shrink 0). */
-            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0 }}>
+            /*
+              Round 43: on a cover, the ring of the page's colour that parts the
+              picture from the cover is the picture's own shadow, so it is
+              wherever the picture is. It was a circle of its own, centred
+              under the cover: with the header set to Left the picture moved
+              and the circle stayed, and the page showed two.
+            */
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
                   {/* Trail layer 3 - farthest behind */}
                   <div
-                    className="absolute rounded-full"
+                    className="absolute"
                     style={{
                       inset: 0,
+                      borderRadius: look.radius,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 200deg, ${laserGlowColor}22 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}66 340deg, ${laserGlowColor} 360deg)`,
                       animation: "laserGlowRotate 3.25s linear infinite",
                       filter: `blur(${glowSpread + 4}px)`,
@@ -3454,9 +3463,10 @@ function PublicBlockRenderer({
                   />
                   {/* Trail layer 2 */}
                   <div
-                    className="absolute rounded-full"
+                    className="absolute"
                     style={{
                       inset: 0,
+                      borderRadius: look.radius,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
                       animation: "laserGlowRotate 3.25s linear infinite",
                       filter: `blur(${glowSpread + 2}px)`,
@@ -3465,9 +3475,10 @@ function PublicBlockRenderer({
                   />
                   {/* Main glow layer - brightest point */}
                   <div
-                    className="absolute rounded-full"
+                    className="absolute"
                     style={{
                       inset: 0,
+                      borderRadius: look.radius,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 320deg, ${laserGlowColor}88 345deg, ${laserGlowColor} 360deg)`,
                       animation: "laserGlowRotate 3.25s linear infinite",
                       filter: `blur(${glowSpread}px)`,
@@ -3481,9 +3492,12 @@ function PublicBlockRenderer({
               <div className="absolute inset-0">
                 {hasVideo ? (
                   <div
-                    className="rounded-full overflow-hidden border-2 shadow-lg w-full h-full relative bg-white/15"
+                    className="overflow-hidden shadow-lg w-full h-full relative bg-white/15"
                     style={{
-                      borderColor: `${theme.text_color}20`,
+                      borderRadius: look.radius,
+                      borderStyle: "solid",
+                      borderWidth: look.borderWidth,
+                      borderColor: look.borderColor,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
@@ -3502,9 +3516,12 @@ function PublicBlockRenderer({
                   </div>
                 ) : (
                   <Avatar
-                    className="border-2 shadow-lg w-full h-full"
+                    className="shadow-lg w-full h-full"
                     style={{
-                      borderColor: `${theme.text_color}20`,
+                      borderRadius: look.radius,
+                      borderStyle: "solid",
+                      borderWidth: look.borderWidth,
+                      borderColor: look.borderColor,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
@@ -3521,7 +3538,7 @@ function PublicBlockRenderer({
                         no picture coming, an empty circle. */}
                     <AvatarFallback
                       delayMs={profile.avatar_url ? undefined : 0}
-                      className="text-2xl sm:text-3xl font-semibold"
+                      className="text-2xl sm:text-3xl font-semibold rounded-[inherit]"
                       /*
                         A solid button's colours; on a glass or outline theme the
                         button colour is see-through white and the circle under it
@@ -3564,19 +3581,11 @@ function PublicBlockRenderer({
             ) : (
               profile.title && (
                 <h1
-                  className={cn(
-                    "font-bold text-center inline-flex items-center justify-center",
-                    (theme as any).title_size === "large"
-                      ? isDesktop
-                        ? "text-[39px]"
-                        : "text-[36px] sm:text-[40px]"
-                      : isDesktop
-                        ? "text-[33px]"
-                        : "text-[29px] sm:text-[33px]",
-                  )}
+                  className={cn("font-bold text-center inline-flex items-center justify-center", titleSizeClass(theme as never, false, isDesktop))}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
                     fontFamily: fontStack((theme as any).title_font || theme.font_family),
+                    ...titleTypeStyle(theme as never),
                   }}
                 >
                   {profile.title}
@@ -3588,8 +3597,8 @@ function PublicBlockRenderer({
             ))}
           {data.show_bio !== false && profile.bio && (
             <p
-              className="text-sm sm:text-base text-center leading-relaxed max-w-sm mx-auto"
-              style={{ color: theme.secondary_text_color || `${theme.text_color}cc` }}
+              className={cn("text-center leading-relaxed max-w-sm mx-auto", bioSizeClass(theme as never, false, isDesktop))}
+              style={{ color: theme.secondary_text_color || `${theme.text_color}cc`, ...bioTypeStyle(theme as never) }}
             >
               {profile.bio}
             </p>
@@ -4772,8 +4781,89 @@ function PublicBlockRenderer({
         Each of the five layouts now asks for this form in one row or
         stacked, and the Bold card for its button in the card's text colour.
       */
-      const renderEmailForm = ({ stacked, inverted, outlined }: EmailSignupFormOptions) => {
+      const renderEmailForm = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
+        const pageInk = theme.text_color || "#111113"
+        /*
+          ROUND 43: CONNECT, ONE PILL. The box and a grey button inside one rounded field, the button carrying the
+          creator's picture (the owner's screenshot: "Connect with" and the photo). The whole pill takes the focus
+          ring, so it reads as one control; 52px tall, the button 40px, the box at 16px so iOS never zooms.
+        */
+        if (shape === "pill") {
+          const done = emailSubmitted && downloadLink
+          return (
+            <>
+              {emailExtras}
+              <form
+                onSubmit={handleSubmit}
+                className="flex h-[52px] items-center gap-1.5 rounded-full bg-white py-1.5 pl-4 pr-1.5 transition-shadow duration-150 focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.14)]"
+                style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 14%, transparent), 0 1px 2px rgba(16,24,40,0.05)` }}
+                data-email-form="pill"
+              >
+                <input
+                  type="email"
+                  value={email}
+                  onChange={handleEmailChange}
+                  placeholder={data.placeholder || "Your email"}
+                  aria-label={tt("Email")}
+                  required
+                  disabled={isSubmitting}
+                  className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#111113] outline-none placeholder:text-[#8b8f98] disabled:opacity-70 sm:text-[15px]"
+                />
+                <button
+                  type={done ? "button" : "submit"}
+                  onClick={done ? handleDownloadClick : undefined}
+                  disabled={!done && (isSubmitting || emailSubmitted)}
+                  className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-150 disabled:cursor-not-allowed disabled:opacity-60 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
+                  data-email-connect=""
+                >
+                  <span className="truncate">{done ? "Download" : isSubmitting ? "..." : buttonText}</span>
+                  {avatar?.src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatar.src} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[0_0_0_2px_#fff]" data-email-connect-face="" />
+                  ) : (
+                    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[13px] font-semibold text-[#111113]" data-email-connect-face="">
+                      {(avatar?.name || "").trim().charAt(0).toUpperCase() || "@"}
+                    </span>
+                  )}
+                </button>
+              </form>
+            </>
+          )
+        }
+        /* ROUND 43: LETTER, THE BOX AS A LINE. A hairline in the text colour under it and the button's words with an arrow at its end. */
+        if (shape === "line") {
+          const done = emailSubmitted && downloadLink
+          return (
+            <>
+              {emailExtras}
+              <form onSubmit={handleSubmit} className="flex items-center gap-3 border-b-[1.5px] transition-[border-color] duration-150" style={{ borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)`, color: pageInk }} data-email-form="line">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={handleEmailChange}
+                  placeholder={data.placeholder || "Your email"}
+                  aria-label={tt("Email")}
+                  required
+                  disabled={isSubmitting}
+                  className="h-12 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:opacity-55 disabled:opacity-70 sm:text-[15px]"
+                  style={{ color: pageInk }}
+                />
+                <button
+                  type={done ? "button" : "submit"}
+                  onClick={done ? handleDownloadClick : undefined}
+                  disabled={!done && (isSubmitting || emailSubmitted)}
+                  className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ color: pageInk }}
+                  data-email-send=""
+                >
+                  {done ? "Download" : isSubmitting ? "..." : buttonText}
+                  <ArrowRight aria-hidden className="h-4 w-4 transition-[translate] duration-200 [@media(hover:hover)]:group-hover/send:translate-x-0.5" />
+                </button>
+              </form>
+            </>
+          )
+        }
         const submitStyles: React.CSSProperties = inverted
           ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
           : emailButtonStyles
@@ -4824,6 +4914,10 @@ function PublicBlockRenderer({
           successMessage={data.success_message || "Thanks for subscribing!"}
           afterSignup={afterSignupLink}
           animationClass={getEmailAnimationClass(data.animation_type)}
+          /* Round 43: the creator's picture for Connect, Letter and Bar, and the page's button for Bar's. */
+          avatar={{ src: onePageImageSrc(profile.avatar_url, 128) || null, name: profile.title || "" }}
+          buttonStyle={emailButtonStyles}
+          buttonText={getButtonText()}
         />
       )
     }
@@ -4874,9 +4968,23 @@ function PublicBlockRenderer({
             </h3>
           )}
           <div className="w-full flex flex-col gap-4 sm:gap-5 py-3">
-            {enabledChildren.map((child, index) => {
-              const isFirst = index === 0
-              const isLast = index === enabledChildren.length - 1
+            {/*
+              Round 43: product tiles in a group sit two to a row, as on the page (lib/onepage/product-block
+              pairProductTiles). Under a Grid theme each product in a group was a tile drawn alone at full width.
+            */}
+            {pairProductTiles(enabledChildren, theme).map((item) => {
+              if ("tiles" in item) {
+                return (
+                  <div key={item.key} className={cn("grid w-full gap-3 px-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1")} data-product-pair="">
+                    {item.tiles.map((t) => (
+                      <div key={t.id} className="min-w-0" data-sensitive-label={sensitiveLabel(t)}>
+                        <PublicBlockRenderer block={t} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} isInsideGroup={true} inPair={item.tiles.length > 1} />
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+              const child = item
 
               return (
                 <div
@@ -5354,6 +5462,8 @@ function PublicBlockRenderer({
       useEffect(() => {
         window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showCalendlyModal } }))
       }, [showCalendlyModal])
+      /* The page behind keeps its width (lib/onepage/page-hold), as under every other window. */
+      useHeldPage(showCalendlyModal && !!isDesktop)
 
       const handleOpenCalendly = () => {
         if (!calendlyUrl) return
