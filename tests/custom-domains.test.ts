@@ -141,7 +141,8 @@ console.log("\nproxy.ts serves each purpose")
 console.log("\nOnly the owner, on the server")
 {
   const owner = code("lib/custom-domains/owner.ts")
-  check("the session names the user, and the user names the creator", /supabase\.auth\.getUser\(\)/.test(owner) && /\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(owner))
+  /* Changed on purpose (round rel-auth): the session is read through lib/auth/route-user routeUser() (getUser with a ceiling and one retry, 503 when Auth did not answer). */
+  check("the session names the user, and the user names the creator", /await routeUser\(\)/.test(owner) && /if \(who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(owner) && /\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(owner))
   for (const route of ["app/api/domains/route.ts", "app/api/domains/verify/route.ts", "app/api/domains/check/route.ts"]) {
     const src = code(route)
     check(`${route} starts from the session`, /await domainOwner\(\)/.test(src) && /if \(owner instanceof NextResponse\) return owner/.test(src))

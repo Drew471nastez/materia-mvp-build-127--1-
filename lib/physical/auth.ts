@@ -1,7 +1,7 @@
 import "server-only"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { actingStore, creatorFor } from "@/lib/team/server"
@@ -61,11 +61,11 @@ export async function physicalCaller(area: TeamArea = "store"): Promise<Physical
  * they are not behind the physical commerce switch.
  */
 export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store"): Promise<PhysicalCaller | NextResponse> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return physicalJson({ error: "Sign in to continue." }, 401)
+  /* Bounded, retried once, and a 503 with Try again when Supabase Auth did not answer, never "Sign in" (lib/auth/route-user). Nothing is allowed on that answer. */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  if (who.kind !== "user") return physicalJson({ error: "Sign in to continue." }, 401)
+  const user = who.user
   const db = createAdminClient()
   /* Whose store: their own, or the one they work in when their role has this area (lib/team/server creatorFor). */
   /* Round 41: a route a team member reaches from more than one area (a read the OnePage editor shows, kept by Settings) names them all; the first their permissions hold is asked. One area, as before, reads the store once. */

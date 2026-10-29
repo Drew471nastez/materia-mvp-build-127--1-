@@ -99,11 +99,12 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 /** For a Payouts or Billing route: the store, for this level, or the answer to send. */
 export async function moneyCaller(kind: MoneyKind, level: MoneyLevel, opts: { noStore?: string } = {}): Promise<MoneyCaller> {
-  const { createClient } = await import("@/lib/supabase/server")
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
-  if (!user) return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) }
+  /* Bounded, retried once; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). */
+  const { routeUser, authUnavailableResponse } = await import("@/lib/auth/route-user")
+  const who = await routeUser()
+  if (who.kind === "unavailable") return { ok: false, response: authUnavailableResponse() }
+  if (who.kind !== "user") return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) }
+  const user = who.user
   const admin = createAdminClient()
   const acting = await actingStore(admin, user.id).catch(() => null)
   const found = await moneyStoreFor(admin, user.id, kind, level, acting)

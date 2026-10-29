@@ -123,6 +123,9 @@ await settle(1000)
 
 const STOPS = process.env.STOPS ? process.env.STOPS.split(",") : ["/app/products", "/app/orders", "/app/analytics", "/app/emails", "/app/customers", "/app/coupons", "/app/payouts", "/app/settings", "/app"]
 
+/* FULL=1: every stop opened as a full page load (a deep link, a reload, the app's cold start) instead of a click. */
+const FULL = process.env.FULL === "1"
+
 async function move(href) {
   reqs = []
   /* One left open by the move before (a keepalive write) is not this move's. */
@@ -130,7 +133,7 @@ async function move(href) {
   const dbFrom = dbHits.length
   const t0 = Date.now()
   lastEnd = t0
-  const clicked = await page.evaluate((h) => {
+  const clicked = FULL ? (await page.goto(`${BASE}${href}`, { waitUntil: "load", timeout: 60000 }), true) : await page.evaluate((h) => {
     const a = [...document.querySelectorAll(`a[href="${h}"]`)].find((x) => x.getBoundingClientRect().width > 0)
     if (!a) return false
     a.click()
@@ -155,6 +158,8 @@ async function move(href) {
     rsc: mine.filter((x) => x.rsc || new URL(x.url).searchParams.has("_rsc")).length,
     rscList: mine.filter((x) => x.rsc || new URL(x.url).searchParams.has("_rsc")).map((x) => new URL(x.url).pathname + new URL(x.url).search.replace(/_rsc=[^&]+&?/, "")),
     dbServer: db.filter((d) => d.from === "server").length,
+    /* Supabase Auth itself (/auth/v1/: getUser, a refresh, the signing keys), server and browser together: the repeated verification this counts. */
+    auth: db.filter((d) => d.what.includes("/auth/v1/")).length,
     dbBrowser: db.filter((d) => d.from === "browser").length,
     dbList: db.map((d) => `${d.from[0]} ${d.what}`),
     twice,
@@ -187,12 +192,12 @@ if (process.env.HEAP_SNAPSHOT) {
   writeFileSync(process.env.HEAP_SNAPSHOT, parts.join(""))
 }
 
-console.log("\n  page                nav   all   api  rsc  db.server  db.browser  twice")
+console.log(`\n  ${FULL ? "full loads" : "clicks"}\n  page                nav   all   api  rsc  db.server  db.browser  auth  twice`)
 for (const r of first) {
-  console.log(`  ${r.href.padEnd(18)} ${String(r.navMs).padStart(5)} ${String(r.ms).padStart(5)} ${String(r.api).padStart(5)} ${String(r.rsc).padStart(4)} ${String(r.dbServer).padStart(10)} ${String(r.dbBrowser).padStart(11)}  ${r.twice.length ? r.twice.join(", ") : "-"}${r.clicked ? "" : "  (no link: pushed)"}`)
+  console.log(`  ${r.href.padEnd(18)} ${String(r.navMs).padStart(5)} ${String(r.ms).padStart(5)} ${String(r.api).padStart(5)} ${String(r.rsc).padStart(4)} ${String(r.dbServer).padStart(10)} ${String(r.dbBrowser).padStart(11)} ${String(r.auth).padStart(5)}  ${r.twice.length ? r.twice.join(", ") : "-"}${r.clicked ? "" : "  (no link: pushed)"}`)
 }
 const total = (k) => first.reduce((n, r) => n + r[k], 0)
-console.log(`  ${"all".padEnd(18)} ${String(total("navMs")).padStart(5)} ${String(total("ms")).padStart(5)} ${String(total("api")).padStart(5)} ${String(total("rsc")).padStart(4)} ${String(total("dbServer")).padStart(10)} ${String(total("dbBrowser")).padStart(11)}`)
+console.log(`  ${"all".padEnd(18)} ${String(total("navMs")).padStart(5)} ${String(total("ms")).padStart(5)} ${String(total("api")).padStart(5)} ${String(total("rsc")).padStart(4)} ${String(total("dbServer")).padStart(10)} ${String(total("dbBrowser")).padStart(11)} ${String(total("auth")).padStart(5)}`)
 console.log(`\n  heap after each loop of ${STOPS.length} moves (MB, after GC): ${heap.join(" → ")}`)
 console.log(`  DOM nodes after each loop (live and detached): ${domAfter.join(" → ")}; listeners ${jsEventListeners}`)
 if (process.env.VERBOSE) for (const r of first) console.log(`\n  ${r.href}\n    api: ${r.apiList.join(", ") || "-"}\n    rsc: ${r.rscList.join(", ") || "-"}\n    db: ${r.dbList.join(", ") || "-"}`)

@@ -10,6 +10,7 @@ import "server-only"
  */
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export type Owner = {
@@ -20,12 +21,12 @@ export type Owner = {
 }
 
 export async function domainOwner(): Promise<Owner | NextResponse> {
+  /* Bounded, retried once; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  if (who.kind !== "user") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = who.user
   const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-  if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
     supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle(),

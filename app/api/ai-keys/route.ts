@@ -11,7 +11,8 @@
  *                     message.
  */
 import { NextResponse, type NextRequest } from "next/server"
-import { currentCreatorId } from "@/lib/creators/current"
+import { creatorIdOf } from "@/lib/creators/current"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { isKeySource, listKeys, removeKey, saveKey } from "@/lib/ai-keys/store"
 import { checkKey } from "@/lib/ai-keys/verify"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -23,7 +24,10 @@ export const dynamic = "force-dynamic"
 const NOT_SET_UP = "Connecting your own AI is not switched on yet. It needs one database update (supabase/sql/run-now/37_own_ai_keys.sql)."
 
 export async function GET() {
-  const creatorId = await currentCreatorId()
+  /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const own = await listKeys(creatorId).catch(() => null)
   if (!own) return NextResponse.json({ error: "Could not read your connections." }, { status: 500 })
@@ -34,7 +38,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const creatorId = await currentCreatorId()
+  /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const body = (await request.json().catch(() => null)) as { source?: unknown; key?: unknown } | null
   const source = body?.source
@@ -58,7 +65,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const creatorId = await currentCreatorId()
+  /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const source = request.nextUrl.searchParams.get("source")
   if (!isKeySource(source)) return NextResponse.json({ error: "Nothing to remove." }, { status: 400 })

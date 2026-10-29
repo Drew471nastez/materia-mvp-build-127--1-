@@ -3013,11 +3013,13 @@ check(
   "the creator lookup uses the same client every other working lookup uses",
   (() => {
     const helper = strip(read("lib/creators/current.ts"))
-    const at = helper.indexOf("export async function currentCreatorId")
+    /* Changed on purpose (round rel-auth): the lookup is creatorIdOf(userId), which currentCreatorId and the routes that asked routeUser() share; the id is still only ever the verified user's. */
+    const at = helper.indexOf("export async function creatorIdOf")
     const body = helper.slice(at, helper.indexOf("\n}", at))
     return (
       /const admin = createAdminClient\(\)/.test(body) &&
-      /admin\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(body)
+      /admin\.from\("creators"\)\.select\("id"\)\.eq\("user_id", userId\)/.test(body) &&
+      /export async function currentCreatorId\(\)[\s\S]*return creatorIdOf\(user\.id\)/.test(helper)
     )
   })(),
 )

@@ -10,7 +10,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 import { recordAnswer } from "@/lib/sites/agent/asking"
-import { currentCreatorId, getSite } from "@/lib/sites/projects"
+import { getSite } from "@/lib/sites/projects"
+import { creatorIdOf } from "@/lib/creators/current"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -21,7 +23,10 @@ const MAX_ANSWER = 2_000
 export async function POST(request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await context.params
 
-  const creatorId = await currentCreatorId()
+  /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) {
     return NextResponse.json({ error: "Only creators can edit sites." }, { status: 403 })
   }

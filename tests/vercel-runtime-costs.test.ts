@@ -86,8 +86,9 @@ console.log("\n1. The proxy reads no session for calls that read none")
   const skip = at("if (skipsSessionRefresh(pathname,")
   check("the proxy skips only after the published site guards", skip > at('{ error: "Requests from published sites are not allowed." }') && skip > at("isPublishedSiteOrigin(request.headers.get(\"origin\"))"))
   check("after the custom domain lookup and the native app gate, which run as before", skip > at("await resolveCustomDomain(host)") && skip > at('url.pathname = "/native-start"'))
-  check("and before the Supabase client is made or the session read", skip > 0 && skip < at("createServerClient(supabaseUrl") && skip < at("await readVerifiedSession(supabase"))
-  check("answering with the response the request would have had", /if \(skipsSessionRefresh\(pathname, request\.cookies\.getAll\(\)\.map\(\(c\) => c\.name\)\)\) return supabaseResponse/.test(proxy) && skip > at("supabaseResponse = respond()"))
+  check("and before the Supabase client is made or the session read", skip > 0 && skip < at("createServerClient(supabaseUrl") && skip < at("await readVerifiedSession(supabase") && at("await readVerifiedSession(supabase") > 0)
+  /* Changed on purpose (round rel-auth): the cookie names are read once, for this skip and for the no session fast path after it (carriesSignIn). */
+  check("answering with the response the request would have had", /const cookieNames = request\.cookies\.getAll\(\)\.map\(\(c\) => c\.name\)\s*if \(skipsSessionRefresh\(pathname, cookieNames\)\) return supabaseResponse/.test(proxy) && skip > at("supabaseResponse = respond()"))
 }
 
 console.log("\n2. CSP reports: a sample reaches a function")
