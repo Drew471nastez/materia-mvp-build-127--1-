@@ -47,15 +47,15 @@ export async function readSitemapFile(name: string): Promise<SitemapEntry[]> {
     case "pages":
       return pagesSitemap()
     case "products":
-      return productsSitemap(wanted.chunk)
+      return productsSitemap(wanted.chunk, wanted.of)
     case "creators":
-      return creatorsSitemap(wanted.chunk)
+      return creatorsSitemap(wanted.chunk, wanted.of)
     case "onepages":
-      return onePagesSitemap(wanted.chunk)
+      return onePagesSitemap(wanted.chunk, wanted.of)
     case "communities":
-      return communitiesSitemap(wanted.chunk)
+      return communitiesSitemap(wanted.chunk, wanted.of)
     case "websites":
-      return websitesSitemap(wanted.chunk)
+      return websitesSitemap(wanted.chunk, wanted.of)
   }
 }
 

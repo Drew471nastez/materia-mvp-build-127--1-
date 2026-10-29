@@ -15,7 +15,7 @@ import {
   nextToScore,
   readSyncState,
   recordFile,
-  retireSources,
+  retireUnseen,
   rowByUrl,
   saveInspection,
   saveScore,
@@ -79,7 +79,6 @@ export async function syncInventory(admin: Admin, deadline: number, summary: Run
   if (!state || state.next_file >= state.files.length) {
     const files = await sitemapFiles()
     const at = now()
-    summary.retired += await retireSources(admin, files, at)
     await writeSyncState(admin, { files, next_file: 0, sweep_started_at: at, ...(state ? { sweep_finished_at: state.sweep_finished_at } : {}) })
     state = { files, next_file: 0, sweep_started_at: at, sweep_finished_at: state?.sweep_finished_at ?? null, last_run_at: null, last_error: null }
   }
@@ -97,6 +96,7 @@ export async function syncInventory(admin: Admin, deadline: number, summary: Run
     summary.files.push({ name, listed: result.written, left: result.left })
     position++
     await writeSyncState(admin, { next_file: position, last_run_at: at, last_error: null, ...(position >= state.files.length ? { sweep_finished_at: at } : {}) })
+    if (position >= state.files.length && state.sweep_started_at) summary.retired += await retireUnseen(admin, state.sweep_started_at, at)
   }
 }
 

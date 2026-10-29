@@ -258,14 +258,19 @@ export async function recordFile(admin: Admin, source: string, addresses: Listed
   return { written: unique.length, left: (data ?? []).length }
 }
 
-/** Rows from a sitemap file the current list no longer names (a chunk that emptied). */
-export async function retireSources(admin: Admin, keep: string[], seenAt: string): Promise<number> {
+/**
+ * At the end of a full pass: every address no sitemap file named during it
+ * has left. By the time it was last seen rather than by file name, because
+ * a file's name carries the number of files of its kind (products-3-of-16),
+ * which changes as the catalogue grows, and the addresses move between files.
+ */
+export async function retireUnseen(admin: Admin, sweepStartedAt: string, seenAt: string): Promise<number> {
   const { data, error } = await admin
     .from("seo_index_status")
     .update({ in_sitemap: false, left_sitemap_at: seenAt, updated_at: seenAt })
     .eq("in_sitemap", true)
     .not("source", "like", "site:%")
-    .not("source", "in", `(${keep.map((s) => `"${s}"`).join(",")})`)
+    .lt("last_seen_at", sweepStartedAt)
     .select("url")
   if (error) throw error
   return (data ?? []).length
