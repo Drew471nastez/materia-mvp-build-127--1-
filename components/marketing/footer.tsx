@@ -63,6 +63,7 @@ const PRODUCT = [
   { label: "Blog", href: "/blog" },
   { label: "Sign In", href: "/login" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Compare", href: "/alternatives" },
   { label: "Features", href: "/features" },
   { label: "Developers", href: "/developers" },
 ]

@@ -8,6 +8,7 @@ import { SplitFeaturesSection } from "@/components/marketing/split-features-sect
 import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
+import { CompareStrip } from "@/components/alternatives/compare-strip"
 import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
@@ -119,6 +120,9 @@ export function PricingPageClient() {
         subtitleOverride={isUpgradeMode ? "Pro is $29 a month. Cancel at any time from Billing." : undefined}
         upgradeCallbacks={upgradeCallbacks}
       />
+
+      {/* COMPARE STORELIB: a line of links to each comparison (lib/alternatives). */}
+      <CompareStrip />
 
       {/* FEATURE BADGES - Launch in minutes, Cancel anytime, No coding, Get paid directly */}
       <FeaturesBadgesSection />

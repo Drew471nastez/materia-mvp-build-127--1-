@@ -123,5 +123,5 @@ export function hasConcaveEdge(pathname: string): boolean {
     inset under the header, and the owner asked for less room between the
     two. The edge was 20px of it.
   */
-  return pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || pathname === "/developers" || pathname.startsWith("/developers/")
+  return pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || pathname === "/alternatives" || pathname.startsWith("/alternatives/") || pathname === "/developers" || pathname.startsWith("/developers/")
 }

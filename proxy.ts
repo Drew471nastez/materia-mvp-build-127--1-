@@ -1387,7 +1387,7 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  * this file exists.
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
-  "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
+  "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "c",
   "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt",
@@ -1993,7 +1993,7 @@ async function routeRequest(request: NextRequest) {
   //     pages — the app's actual screens.
   // Everything here lands on /native-start, which resolves the session and sends
   // a seller to /app, a buyer to /library, and a stranger to /welcome.
-  const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog"]
+  const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog", "/alternatives"]
   const isCapacitor = (request.headers.get("user-agent") || "").includes("Capacitor")
   if (
     isCapacitor &&

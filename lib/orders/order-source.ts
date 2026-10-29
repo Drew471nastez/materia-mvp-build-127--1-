@@ -222,7 +222,7 @@ export function decodeOrigin(value: unknown): OrderOrigin | null {
  * handle. A path under one of these is not a profile or a product.
  */
 const PLATFORM_SEGMENTS = new Set([
-  "access", "account-deletion", "admin", "api", "app", "auth", "blog", "c", "cart", "checkout", "cover-render",
+  "access", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "c", "cart", "checkout", "cover-render",
   "creators", "dashboard", "developers", "downloads", "editions", "faq", "features", "feed", "forgot-password",
   "legal", "library", "login", "logout", "marketplace", "native-start", "onboarding", "pricing", "privacy",
   "purchase", "receipt", "reset-password", "search", "settings", "signup", "terms", "welcome", "wishlist", "w",
