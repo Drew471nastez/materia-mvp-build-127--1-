@@ -48,6 +48,35 @@
  *     compared, the library's sheet redrawn); each is a change somebody is
  *     waiting to see.
  *
+ * Round 2, a store theme (BIG_THEME_ZIP: Dawn made 156 sections, a home
+ * page of 39, scripts/big-theme-kit.mjs), CPU 4x, main before and after,
+ * scrolled throughout. Here the stutter itself shows:
+ *
+ *                                 before                 after
+ *   agent, a file each 1.5s, 60s  long tasks 30.7s,      9.0s, longest 404ms,
+ *                                 longest 1,865ms,       frames 33ms p95,
+ *                                 frames 117ms p95       27 of 38 saves drawn alone
+ *   40 file push, five in a row   longest 377 to 748ms,  268 to 302ms,
+ *                                 frames 50 to 267ms p95 33 to 150ms p95
+ *   200 files streamed            longest 604ms          479ms
+ *   heap over five pushes         48 to 78.7MB           45.9 to 67.8MB
+ *
+ *   Each save of a section file drew the page by Liquid and parsed it (about
+ *     400ms at 4x): now its own sections are drawn and swapped (compat-
+ *     canvas.tsx syncFileChange, held to the page drawn whole by scripts/
+ *     check-editor-section-file-sync.mjs). A stylesheet saved loaded the page
+ *     behind, and each file saved while it loaded threw it away and loaded
+ *     another: they wait for it now (behindStale). A push's page is drawn in
+ *     one task and parsed in the next (prepareDraw), parsed once, its body
+ *     copied once. The closed library's preview sheet was drawn again for
+ *     every file (CLOSED_ADOPT_MS). The markup of a theme file was read by
+ *     parsing its schema too (compatMarkupOf); a section's kind was cached
+ *     under a new string of its whole file (kindOfSource).
+ *   Not changed: a push that loads the canvas again still has one task of
+ *     about 500ms at 4x (the theme's page parsed and its scripts started in
+ *     the frame); the editor still renders whole for each apply (about
+ *     130ms at 4x on this theme).
+ *
  *   npx tsx scripts/check-editor-push-lag.mjs
  *   SCENARIOS=stream200,burst300  some only (names below)
  *   CPU=4                         the CPU slowed
@@ -56,6 +85,8 @@
  *   EDITOR_BUNDLE=<file>          a bundle built from another commit, to compare
  *   NOSCROLL=1                    no wheel: the main thread time is the push's alone
  *   PROFILE=1                     a CPU profile of each push (stream and agent scenarios)
+ *   BIG_THEME_ZIP=<zip>           a store theme instead of Materia (budgets on long tasks and frames too)
+ *   AGENT_MS=60000 PUSHES=5       how long the agent writes, how many pushes in a row
  */
 import { writeFileSync } from "node:fs"
 
@@ -186,6 +217,7 @@ async function startWindow(ed, cdp) {
     P.d0 = P.docs
     P.r0 = { ...P.req }
     P.scrollFrames = []
+    P.tailFrom = undefined
   })
   return metrics(cdp)
 }
@@ -200,7 +232,12 @@ async function stopWindow(ed, cdp, m0, rows) {
     for (const seg of P.scrollFrames) for (let i = 1; i < seg.length; i++) gaps.push(seg[i] - seg[i - 1])
     gaps.sort((a, b) => a - b)
     const q = (p) => (gaps.length ? Math.round(gaps[Math.min(gaps.length - 1, Math.floor(p * gaps.length))]) : 0)
+    /* The frames while the push landed, and in the seconds after it (markTail), apart. */
+    const part = (segs) => { const g = []; for (const seg of segs) for (let i = 1; i < seg.length; i++) g.push(seg[i] - seg[i - 1]); g.sort((a, b) => a - b); return { p95: g.length ? Math.round(g[Math.min(g.length - 1, Math.floor(0.95 * g.length))]) : 0, max: g.length ? Math.round(g[g.length - 1]) : 0, over50: g.filter((x) => x > 50).length } }
+    const cut = P.tailFrom ?? P.scrollFrames.length
+    const during = part(P.scrollFrames.slice(0, cut)), afterward = part(P.scrollFrames.slice(cut))
     return {
+      during, afterward,
       longTasks: longs.length,
       longTotal: Math.round(longs.reduce((a, [, d]) => a + d, 0)),
       longMax: Math.round(longs.reduce((a, [, d]) => Math.max(a, d), 0)),
@@ -218,6 +255,9 @@ async function stopWindow(ed, cdp, m0, rows) {
   const script = Math.round(m1.script - m0.script)
   return { ...w, mainScript: script, mainStyleLayout: Math.round(m1.style - m0.style + m1.layout - m0.layout), mainTask: Math.round(m1.task - m0.task), perRowMs: rows ? +((m1.task - m0.task) / rows).toFixed(1) : null, rows }
 }
+
+/* From here on the frames are the ones after the push. */
+const markTail = (ed) => ed.js(() => { window.__lag.tailFrom = window.__lag.scrollFrames.length })
 
 /* Scrolls with a wheel for `ms`, over the canvas or the sidebar, keeping the frames it saw. */
 async function wheel(ed, cdp, where, ms) {
@@ -276,7 +316,9 @@ async function appendRows(ed, rows, gap) {
 }
 
 /* ── The imported theme, made as large as a store theme ── */
-const compat = await importedTheme({
+/* BIG_THEME_ZIP=<a theme's zip>: a store theme at a store's size instead (scripts/big-theme-kit.mjs: Dawn, 150+ sections, a long home page). */
+const BIG = !!process.env.BIG_THEME_ZIP
+const compat = BIG ? await (await import("./big-theme-kit.mjs")).bigImportedTheme() : await importedTheme({
   store: true,
   edit: async (zip) => {
     /* About the size of a store theme's snippet: a card, a price, a badge, with loops and conditions. */
@@ -298,9 +340,14 @@ ${Array.from({ length: 12 }, (_, j) => `<p class="probe-line-${j}">{% if section
   },
 })
 /* An imported theme's Liquid is kept as .storelib files (sections/, snippets/), its assets, config and templates under shopify/. */
-const SNIPPET_PATHS = Object.keys(compat.sources).filter((p) => /^snippets\/probe-/.test(p))
-const SECTION_PATHS = Object.keys(compat.sources).filter((p) => /^sections\/.*\.storelib$/.test(p))
-console.log(`imported theme: ${Object.keys(compat.files).length} files under shopify/, ${Object.keys(compat.sources).length} .storelib (${SNIPPET_PATHS.length} extra snippets)`)
+const SNIPPET_PATHS = Object.keys(compat.sources).filter((p) => (BIG ? /^snippets\// : /^snippets\/probe-/).test(p))
+/* The sections the home page draws first, so a push of any size changes something on screen. */
+const ON_PAGE = new Set((compat.pages.home ?? []).map((s) => `sections/${s.type}.storelib`))
+const PAGE_SECTION_PATHS = Object.keys(compat.sources).filter((p) => ON_PAGE.has(p) && /\.storelib$/.test(p) && !/theme-(header|footer)|announcement/.test(p) && compat.sources[p].split("</template>").length === 2)
+const SECTION_PATHS = [...PAGE_SECTION_PATHS, ...Object.keys(compat.sources).filter((p) => /^sections\/.*\.storelib$/.test(p) && !ON_PAGE.has(p))]
+/* The stylesheet a push changes, with a marker the canvas must show. */
+const CSS_PATH = BIG ? "shopify/assets/base.css" : "shopify/assets/materia.css"
+console.log(`imported theme${BIG ? " (big)" : ""}: ${Object.keys(compat.files).length} files under shopify/, ${Object.keys(compat.sources).length} .storelib, ${SECTION_PATHS.length} sections (${PAGE_SECTION_PATHS.length} on the home page of ${compat.pages.home?.length ?? 0}), ${SNIPPET_PATHS.length} snippets`)
 
 const GLOBALS = `window.PROBE_ACTIVITY={events:[{id:1000,agent_name:"GitHub · ada",path:"pages/home",action:"page",detail:{page:"home",replaced:true},created_at:"2026-10-01T00:00:00.000Z"}],syncAt:"2026-10-01T00:00:00.000Z"};window.PROBE_CONNECTIONS={agents:[{name:"Claude Code",kind:"claude"}],github:{repo:"ada/theme"},latest:null};`
 
@@ -309,8 +356,8 @@ function pushFiles(stamp, n, who = "GitHub · ada") {
   const paths = [...SNIPPET_PATHS.slice(0, Math.max(0, n - SECTION_PATHS.length - 1)), ...SECTION_PATHS.slice(0, Math.min(SECTION_PATHS.length, n - 1))]
   const sources = {}
   for (const p of paths) sources[p] = compat.sources[p].replace("</template>", `<i data-push="${stamp}"></i></template>`)
-  const files = { "shopify/assets/materia.css": `${compat.files["shopify/assets/materia.css"]}\n:root{--push-${stamp}:1}` }
-  const rows = [...paths, "shopify/assets/materia.css"].map((path) => ({ agent_name: who, path, action: "updated" }))
+  const files = { [CSS_PATH]: `${compat.files[CSS_PATH]}\n:root{--push-${stamp}:1}` }
+  const rows = [...paths, CSS_PATH].map((path) => ({ agent_name: who, path, action: "updated" }))
   return { patch: { sources, files }, rows }
 }
 /* The page's routes answer from PROBE_COMPAT; the theme's stylesheet is served by this process from compat.all (canvas-probe-kit.mjs). */
@@ -377,6 +424,7 @@ async function onePush(ed, cdp, stamp, n, gap) {
   })
   await writing
   const tail = Date.now()
+  await markTail(ed)
   await scrollWhile(ed, cdp, async () => Date.now() - tail > QUIET)
   if (landed === null && (await arrived(ed))) landed = Date.now() - t0
   if (process.env.PROFILE) printProfile((await cdp.send("Profiler.stop")).profile)
@@ -386,7 +434,7 @@ async function onePush(ed, cdp, stamp, n, gap) {
   return w
 }
 
-const fmt = (name, w) => console.log(`  ${name.padEnd(30)} rows ${String(w.rows ?? 0).padStart(3)}  landed ${w.landedMs === null ? "NEVER" : `${w.landedMs}ms`}  long ${w.longTasks} (total ${w.longTotal}ms, max ${w.longMax}ms)  frames p95 ${w.frameP95}ms max ${w.frameMax}ms >50ms ${w.framesOver50}  commits ${w.commits}  iframes made ${w.iframesMade} docs ${w.docsLoaded} now ${w.iframesNow}  requests ${w.requests} ${JSON.stringify(w.req)}  main ${w.mainTask}ms (script ${w.mainScript}, style+layout ${w.mainStyleLayout}) ${w.perRowMs !== null ? `${w.perRowMs}ms/row` : ""}`)
+const fmt = (name, w) => console.log(`  ${name.padEnd(30)} rows ${String(w.rows ?? 0).padStart(3)}  landed ${w.landedMs === null ? "NEVER" : `${w.landedMs}ms`}  long ${w.longTasks} (total ${w.longTotal}ms, max ${w.longMax}ms)  frames p95 ${w.frameP95}ms max ${w.frameMax}ms >50ms ${w.framesOver50} (during ${w.during?.p95}/${w.during?.max}, after ${w.afterward?.p95}/${w.afterward?.max})  commits ${w.commits}  iframes made ${w.iframesMade} docs ${w.docsLoaded} now ${w.iframesNow}  requests ${w.requests} ${JSON.stringify(w.req)}  main ${w.mainTask}ms (script ${w.mainScript}, style+layout ${w.mainStyleLayout}) ${w.perRowMs !== null ? `${w.perRowMs}ms/row` : ""}`)
 
 if (WANT.includes("stream50")) await importedScenario("stream50", async (ed, cdp) => { const w = await onePush(ed, cdp, "a50", 50, GAP); fmt("github push, 50 files streamed", w); return w })
 if (WANT.includes("stream200")) await importedScenario("stream200", async (ed, cdp) => { const w = await onePush(ed, cdp, "a200", 200, GAP); fmt("github push, 200 files streamed", w); return w })
@@ -395,7 +443,7 @@ if (WANT.includes("burst300")) await importedScenario("burst300", async (ed, cdp
 if (WANT.includes("repeat")) await importedScenario("repeat", async (ed, cdp, base) => {
   const pushes = []
   const heap = [base]
-  for (let k = 0; k < 5; k++) {
+  for (let k = 0; k < Number(process.env.PUSHES ?? 5); k++) {
     const { patch, rows } = pushFiles(`r${k}`, 40)
     await putPatch(ed, patch)
     const m0 = await startWindow(ed, cdp)
@@ -428,12 +476,13 @@ if (WANT.includes("agentminute")) await importedScenario("agentminute", async (e
   const t0 = Date.now()
   let k = 0
   const writing = (async () => {
-    while (Date.now() - t0 < 60_000) {
-      const p = SECTION_PATHS[k % SECTION_PATHS.length]
+    while (Date.now() - t0 < Number(process.env.AGENT_MS ?? 60_000)) {
+      const p = PAGE_SECTION_PATHS[k % PAGE_SECTION_PATHS.length]
       const text = compat.sources[p].replace("</template>", `<i data-push="g${k}"></i></template>`)
-      const css = `${compat.files["shopify/assets/materia.css"]}\n:root{--push-g${k}:1}`
-      await putPatch(ed, { sources: { [p]: text }, files: { "shopify/assets/materia.css": css } })
-      await appendRows(ed, [{ agent_name: "Claude Code", path: p, action: "updated" }, ...(k % 8 === 7 ? [{ agent_name: "Claude Code", path: "shopify/assets/materia.css", action: "updated" }] : [])], 0)
+      const css = `${compat.files[CSS_PATH]}\n:root{--push-g${k}:1}`
+      /* The stylesheet only when its row is written too: a read of it may come after the next save, and must find what that row says. */
+      await putPatch(ed, { sources: { [p]: text }, files: k % 8 === 7 ? { [CSS_PATH]: css } : {} })
+      await appendRows(ed, [{ agent_name: "Claude Code", path: p, action: "updated" }, ...(k % 8 === 7 ? [{ agent_name: "Claude Code", path: CSS_PATH, action: "updated" }] : [])], 0)
       k++
       await sleep(1500)
     }
@@ -442,11 +491,18 @@ if (WANT.includes("agentminute")) await importedScenario("agentminute", async (e
   void writing.then(() => { done = true })
   await scrollWhile(ed, cdp, async () => done)
   const tail = Date.now()
+  await markTail(ed)
   await scrollWhile(ed, cdp, async () => Date.now() - tail > QUIET)
   if (process.env.PROFILE) printProfile((await cdp.send("Profiler.stop")).profile)
   const w = await stopWindow(ed, cdp, m0, k)
   const last = [...Array(k).keys()].reverse().find((j) => j % 8 === 7)
-  w.landedMs = last === undefined ? 0 : (await cssArrived(`g${last}`)(ed)) ? 0 : null
+  /* The last file saved is on the canvas (its marker), and the last stylesheet saved with it. */
+  w.sectionLanded = (await untilOr(() => sectionArrived(`g${k - 1}`)(ed), 20_000)) !== null
+  /* How many saves were drawn alone (compat-canvas.tsx syncFileChange), and any other marks the canvas left. */
+  w.marks = await ed.js(() => { const c = {}; for (const e of performance.getEntriesByType("mark")) if (/^(sfs|sl-)/.test(e.name)) c[e.name] = (c[e.name] || 0) + 1; return c })
+  w.drawnAlone = w.marks["sl-section-file-sync"] ?? 0
+  console.log(`  saves drawn alone: ${w.drawnAlone} of ${k}; ${JSON.stringify(w.marks)}`)
+  w.landedMs = (last === undefined || (await cssArrived(`g${last}`)(ed))) && w.sectionLanded ? 0 : null
   w.iframesNow = await ed.js(() => document.querySelectorAll("iframe").length)
   fmt(`agent, a file each 1.5s, 60s`, w)
   return w
@@ -457,6 +513,7 @@ if (WANT.includes("echo")) await importedScenario("echo", async (ed, cdp) => {
   const m0 = await startWindow(ed, cdp)
   await ed.js(() => { window.PROBE_ACTIVITY.syncAt = new Date().toISOString() })
   const tail = Date.now()
+  await markTail(ed)
   await scrollWhile(ed, cdp, async () => Date.now() - tail > 6000)
   const w = await stopWindow(ed, cdp, m0, 0)
   w.landedMs = 0
@@ -472,7 +529,9 @@ if (WANT.includes("native200")) {
 <style scoped>.own-${k} { padding: 32px 24px; text-align: center; }</style>
 <schema>{"schema_version":1,"type":"own_${k}","name":"Own ${k}","category":"content","settings":[{"type":"text","id":"heading","label":"Heading","default":"Own ${k}"}],"presets":[{"name":"Own ${k}","settings":{"heading":"Own ${k}"}}]}</schema>`
   const files = Object.fromEntries([...Array(N).keys()].map((k) => [`sections/own_${k}.storelib`, own(k, "v0")]))
-  const home = ["header", "hero_centered", ...[...Array(8).keys()].map((k) => ({ id: `own_${k}-x`, type: `own_${k}`, settings: { heading: `Own ${k}` }, blocks: [] })), "faq_accordion", "footer"]
+  /* BIG_THEME_ZIP set: a long page, thirty-six built-in sections between them (big-theme-kit.mjs longStorelibPage). */
+  const longMiddle = BIG ? (await import("./big-theme-kit.mjs")).longStorelibPage().slice(1, -1) : []
+  const home = ["header", "hero_centered", ...[...Array(8).keys()].map((k) => ({ id: `own_${k}-x`, type: `own_${k}`, settings: { heading: `Own ${k}` }, blocks: [] })), ...longMiddle, "faq_accordion", "footer"]
   const globals = `window.PROBE_FILES=${JSON.stringify(files)};window.PROBE_PAGES={home:${JSON.stringify(home)},about:["header","text_rich","footer"]};window.PROBE_PAGE_DELAY_MS=0;` + GLOBALS
   const ed = await openEditor({ kind: "native", bundle, css, globals, init: INIT, cpu: CPU, width: 1280, height: 900, settle: 5000 })
   try {
@@ -497,6 +556,8 @@ if (WANT.includes("native200")) {
     })
     await writing
     const tail = Date.now()
+    await markTail(ed)
+  await markTail(ed)
     await scrollWhile(ed, cdp, async () => Date.now() - tail > QUIET)
     if (landed === null && (await seen())) landed = Date.now() - t0
     if (process.env.PROFILE) printProfile((await cdp.send("Profiler.stop")).profile)
@@ -535,9 +596,30 @@ if (process.env.BUDGET !== "0") {
         want(by(/sources=1|compat=1/) <= 1, `${n}: the theme is read once for the whole push`, w.req)
         want(by(/path=/) <= 6, `${n}: not one request per pushed file`, w.req)
         want(by(/sync-status/) <= 2, `${n}: the sync report is read once or twice, not per poll`, w.req)
-        want(w.commits <= 30, `${n}: React commits stay a few per push, not per row or per poll`, w.commits)
+        /* A store theme's first push also builds the library's cards for its new files: more commits, once. */
+        want(w.commits <= (BIG ? 120 : 30), `${n}: React commits stay a few per push, not per row or per poll`, w.commits)
       }
       if (n === "echo") want(w.docsLoaded === 0 && w.requests <= 12, `echo: a push that changed nothing reloads nothing`, { docs: w.docsLoaded, req: w.req })
+      /*
+        THE STUTTER ITSELF, on a store theme (BIG_THEME_ZIP), scaled from a quarter speed (round 2's numbers, CPU 4x, Dawn
+        made 156 sections with a 39 section home page): before, an agent's minute of saves was 31s of long tasks, the longest
+        1.5s, frames while it wrote 183ms at p95; a 200 file push had a 1.5s task; a 40 file push frames of 100 to 650ms at p95.
+      */
+      if (BIG) {
+        const s = Math.max(1, CPU) / 4
+        const ms = (x) => Math.max(120, Math.round(x * s))
+        if (/^stream|^burst|^repeat/.test(n)) {
+          want(w.longMax <= ms(800), `${n}: no task over ${ms(800)}ms while a push of a store theme lands`, w.longMax)
+          want((w.during?.p95 ?? 0) <= ms(350), `${n}: scroll frames at p95 under ${ms(350)}ms while it lands`, w.during)
+        }
+        if (n === "agentminute") {
+          want(w.longMax <= ms(700), `agentminute: no task over ${ms(700)}ms while an agent saves file after file`, w.longMax)
+          want(w.longTotal <= ms(15_000), `agentminute: long tasks under ${ms(15_000)}ms in all for a minute of saves`, w.longTotal)
+          want((w.during?.p95 ?? 0) <= ms(120), `agentminute: scroll frames at p95 under ${ms(120)}ms while the agent writes`, w.during)
+        }
+      }
+      /* Most saves of one section file are drawn alone (compat-canvas.tsx syncFileChange); a stylesheet, and saves while its page loads behind, are not. */
+      if (n === "agentminute" && w.drawnAlone !== undefined) want(w.drawnAlone * 2 >= w.rows, `agentminute: most saves are drawn alone, not the page drawn again`, { alone: w.drawnAlone, rows: w.rows })
     }
   }
   if (out.scenarios.repeat) {
@@ -546,7 +628,8 @@ if (process.env.BUDGET !== "0") {
     const last = h[h.length - 1]
     /* A frame's document kept after its iframe went (the library's old sheet held it) was two more documents alive after every push. */
     want(last.documents === null || last.documents - first.documents <= 1, "repeat: documents alive do not grow push after push", h.map((x) => x.documents))
-    want(last.heapMB - first.heapMB <= 8, "repeat: heap does not grow push after push", h.map((x) => x.heapMB))
+    /* A store theme keeps the parsed files of its last pushes (theme.ts, bounded): it grows for a while, about 20MB over five pushes before round 2, then levels. */
+    want(last.heapMB - first.heapMB <= (BIG ? 14 : 8), "repeat: heap does not grow push after push", h.map((x) => x.heapMB))
     want(last.lis - first.lis <= 20, "repeat: listeners do not pile up", h.map((x) => x.lis))
     want(last.intervals - first.intervals <= 1, "repeat: intervals do not pile up", h.map((x) => x.intervals))
     want(last.obs - first.obs <= 6, "repeat: observers do not pile up", h.map((x) => x.obs))

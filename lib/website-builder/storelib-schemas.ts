@@ -24,7 +24,7 @@ import { compileBlock } from "@/lib/storelib-theme/storelib/compile"
 import { blockTypeFromPath, isPrivateBlock, listFromPreset, presetTree } from "@/lib/storelib-theme/blocks"
 import type { SectionPreset as EnginePreset, SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
-import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
+import { compatMarkupOf, isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { contentForStatics } from "./product-details-rule"
 import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
 import { SIZE_CHART_APP_BLOCK_SCHEMAS, sizeChartAppBlockSchema } from "@/lib/storelib-theme/compat/size-chart"
@@ -130,7 +130,8 @@ function staticsIn(templateText: string, file: string): { type: string; id: stri
 export type StorelibSchemaResult = { ok: true; schema: SectionSchema } | { ok: false; errors: string[] }
 
 /** Bounded for the same reason the compile cache is: the key is the file's text. */
-const cache = createLru<StorelibSchemaResult>(COMPILE_CACHE_LIMIT)
+/* Room for a store theme's every section (push lag, round 2): at 200, a theme of more than 200 sections read every schema again on every change. */
+const cache = createLru<StorelibSchemaResult>(Math.max(COMPILE_CACHE_LIMIT, 1000))
 
 /** The `<schema>` of a `.storelib` source, as the editor's schema. Cached per source text. */
 export function schemaFromStorelib(source: string, file: string): StorelibSchemaResult {
@@ -155,7 +156,7 @@ export function schemaFromStorelib(source: string, file: string): StorelibSchema
       if (valid.ok === false) result = { ok: false, errors: describe(valid.errors) }
       else {
         const schema = editorSchema(valid.value)
-        const statics = isCompatSource(source) ? compatStatics(splitCompatFile(source).markup) : staticsIn(parsed.value.template.text, file)
+        const statics = isCompatSource(source) ? compatStatics(compatMarkupOf(source)) : staticsIn(parsed.value.template.text, file)
         if (statics.length) schema.statics = statics
         /* From an imported theme: each placed section's own name comes first in the sidebar (section-name.ts). */
         if (isCompatSource(source)) schema.imported = true
@@ -425,7 +426,7 @@ function compatBlockSchema(source: string, path: string, type: string): BlockSch
   if (s.accepts?.length) out.accepts = [...s.accepts]
   if (s.max_blocks !== undefined) out.max_blocks = s.max_blocks
   if (s.presets?.length) out.presets = editorPresets(type, s.presets)
-  const statics = compatStatics(splitCompatFile(source).markup)
+  const statics = compatStatics(compatMarkupOf(source))
   if (statics.length) out.statics = statics
   return takesAppBlocks(json.value) ? withAppBlocks(out) : out
 }

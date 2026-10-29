@@ -49,6 +49,8 @@ interface CompatPreviewValue {
 }
 
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
+/** How long a closed library waits after the last change before it takes the newest (CompatPreviewProvider): as long as a Storelib theme's closed library waits to draw its previews again (section-library.tsx REWARM_AFTER_MS). */
+export const CLOSED_ADOPT_MS = 10_000
 const keptThemes = new WeakMap<Record<string, string>, { key: string; sources: Record<string, string>; theme: CompatTheme }>()
 
 /** Whether the library's cards are an imported theme's, drawn here. */
@@ -59,19 +61,58 @@ export function useCompatPreview(): CompatPreviewValue | null {
 /** The theme, built once for the whole library from the install's own files. */
 export function CompatPreviewProvider({
   installId,
-  sources,
-  settings,
+  sources: sourcesNow,
+  settings: settingsNow,
+  live = true,
   children,
 }: {
   installId: string
   sources: Record<string, string>
   settings: Record<string, unknown> | undefined
+  /**
+   * Whether somebody can see the cards (the library open, the block picker
+   * up). Unset, they can. When they cannot, a change is taken once the
+   * editor has been left alone (CLOSED_ADOPT_MS), not as it lands.
+   */
+  live?: boolean
   children: ReactNode
 }) {
   const [files, setFiles] = useState<Record<string, string> | null>(null)
   const [failed, setFailed] = useState(false)
   /* A push changed the theme's code: its cards are drawn again from the new files, the old ones staying until those are here. */
-  const filesVersion = useCompatFilesVersion(installId)
+  const filesVersionNow = useCompatFilesVersion(installId)
+  /*
+    A CLOSED LIBRARY TAKES A CHANGE WHEN THE EDITOR IS LEFT ALONE (push lag,
+    round 2). Each file an agent saved made a new theme here, so a new sheet:
+    its whole preview document drawn again and its frame loaded again, about
+    150ms of the main thread on a store theme at a quarter speed for every
+    file, while nobody was looking at a card. Closed, the newest sources,
+    settings and files are taken once nothing has changed for
+    CLOSED_ADOPT_MS and the browser has a moment; open, at once.
+  */
+  const [taken, setTaken] = useState({ sources: sourcesNow, settings: settingsNow, filesVersion: filesVersionNow })
+  const newest = useRef(taken)
+  newest.current = { sources: sourcesNow, settings: settingsNow, filesVersion: filesVersionNow }
+  const behind = taken.sources !== sourcesNow || taken.settings !== settingsNow || taken.filesVersion !== filesVersionNow
+  useEffect(() => {
+    if (!behind) return
+    if (live) {
+      setTaken(newest.current)
+      return
+    }
+    let idleId = 0
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const t = window.setTimeout(() => {
+      const take = () => setTaken(newest.current)
+      if (w.requestIdleCallback) idleId = w.requestIdleCallback(take, { timeout: 2_000 })
+      else take()
+    }, CLOSED_ADOPT_MS)
+    return () => {
+      window.clearTimeout(t)
+      if (idleId) w.cancelIdleCallback?.(idleId)
+    }
+  }, [behind, live, sourcesNow, settingsNow, filesVersionNow])
+  const { sources, settings, filesVersion } = taken
   useEffect(() => {
     let live = true
     loadCompatFiles(installId).then(

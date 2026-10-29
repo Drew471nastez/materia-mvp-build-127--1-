@@ -216,17 +216,18 @@ function boundedCache<V>(limit: number) {
     },
   }
 }
-const splitHeld = boundedCache<{ markup: string; schemaText: string | null }>(4000)
-const treesHeld = boundedCache<{ tree: Parsed | null; warning: string | null }>(4000)
+/* 1,500 (push lag, round 2): room for a store theme's files three or four times over. At 4,000, each push of a store theme kept its files' text and trees beside the last ones until 4,000 were held: about 1MB more a push on Dawn, a hundred pushes long. */
+const splitHeld = boundedCache<{ markup: string; schemaText: string | null }>(1500)
+const treesHeld = boundedCache<{ tree: Parsed | null; warning: string | null }>(1500)
 const bundlesHeld = boundedCache<string>(16)
 
 /** The markup and the schema of a compatible file. The schema is a new object on every call. */
-export function splitCompatFile(source: string): { markup: string; schema: O | null } {
+function splitOf(source: string): { markup: string; schemaText: string | null } | null {
   let hit = splitHeld.get(source)
   if (!hit) {
     const lines = source.split("\n")
     const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
-    if (start < 0) return { markup: "", schema: null }
+    if (start < 0) return null
     let end = start + 1
     while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
     const markup = lines.slice(start + 1, end).join("\n").split(GUARD).join("")
@@ -235,6 +236,22 @@ export function splitCompatFile(source: string): { markup: string; schema: O | n
     hit = { markup, schemaText: sm ? sm[1] : null }
     splitHeld.set(source, hit)
   }
+  return hit
+}
+
+/**
+ * Only the markup of a compatible file, without reading its schema
+ * (push lag, round 2): every caller that wanted the markup parsed the
+ * schema's JSON as well, once per file per draw, about a fifth of what
+ * taking an agent's one saved file cost the editor on a store theme.
+ */
+export function compatMarkupOf(source: string): string {
+  return splitOf(source)?.markup ?? ""
+}
+
+export function splitCompatFile(source: string): { markup: string; schema: O | null } {
+  const hit = splitOf(source)
+  if (!hit) return { markup: "", schema: null }
   let schema: O | null = null
   if (hit.schemaText !== null) {
     try { schema = JSON.parse(hit.schemaText) as O } catch { schema = null }
@@ -523,7 +540,7 @@ export class CompatTheme {
     const src = this.files[path]
     let out: Parsed | null = null
     if (src !== undefined) {
-      const markup = isCompatSource(src) ? splitCompatFile(src).markup : src
+      const markup = isCompatSource(src) ? compatMarkupOf(src) : src
       /* Parsed once for every theme object (parsedMarkup above); the warning is still this theme's to report. */
       const read = parsedMarkup(markup)
       if (read.warning !== null) this.warnings.push(`${path}${read.warning}`)

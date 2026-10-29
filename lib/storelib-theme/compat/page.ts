@@ -12,7 +12,7 @@
 import type { Ctx } from "./runtime"
 import { renderTree } from "./runtime"
 import { parseCompat } from "./parser"
-import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
+import { CompatTheme, compatMarkupOf, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
 import { withShopifyModules } from "./shims"
@@ -140,7 +140,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     }
     /* A template written in Liquid (gift_card.liquid, an older theme's product.liquid) is the page's content itself. */
     try {
-      content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate, { lax: true }), ctx)
+      content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? compatMarkupOf(liquidTemplate) : liquidTemplate, { lax: true }), ctx)
     } catch (e) {
       errors.template = [(e as Error).message]
     }

@@ -32,6 +32,7 @@ import "server-only"
 
 import { after } from "next/server"
 import { openSecret } from "@/lib/physical/secrets"
+import { postPublic } from "@/lib/onepage/integrations/post-public"
 import { readTracking } from "@/lib/store/tracking"
 import {
   DESTINATION_NAME,
@@ -263,7 +264,6 @@ async function fixedHost(req: ProviderRequest): Promise<Answer> {
 export const realTransport: Transport = {
   send: async (req, publicOnly) => {
     if (!publicOnly) return fixedHost(req)
-    const { postPublic } = await import("@/lib/onepage/integrations/deliver-server")
     const a = await postPublic(req.url, req.body, req.headers, SEND_TIMEOUT_MS)
     let body: unknown = a.body
     if (typeof body === "string") {

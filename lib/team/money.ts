@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { permits, type TeamPermission } from "./permissions"
 import { actingStore, type ActingStore } from "./server"
 import { teamStampDb } from "./audit"
+import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -100,7 +101,6 @@ const NO_STORE = { "Cache-Control": "no-store" }
 /** For a Payouts or Billing route: the store, for this level, or the answer to send. */
 export async function moneyCaller(kind: MoneyKind, level: MoneyLevel, opts: { noStore?: string } = {}): Promise<MoneyCaller> {
   /* Bounded, retried once; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). */
-  const { routeUser, authUnavailableResponse } = await import("@/lib/auth/route-user")
   const who = await routeUser()
   if (who.kind === "unavailable") return { ok: false, response: authUnavailableResponse() }
   if (who.kind !== "user") return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) }

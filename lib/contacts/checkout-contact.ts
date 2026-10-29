@@ -58,6 +58,8 @@
 
 import { v4 as uuidv4 } from "uuid"
 import { recordContactSource, type ContactSource } from "./contact-source"
+/* Imported, not loaded with import(), so checkout routes share one copy of it (see lib/notify/outbox). */
+import { marketingSubscriberChanged } from "@/lib/integrations/marketing/sync-server"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -173,7 +175,6 @@ export async function recordCheckoutContact(db: Db, input: CheckoutContactInput)
 export async function syncPlatformsSoon(db: Db, creatorId: string | null | undefined): Promise<void> {
   if (!creatorId) return
   try {
-    const { marketingSubscriberChanged } = await import("@/lib/integrations/marketing/sync-server")
     await marketingSubscriberChanged(db, creatorId)
   } catch {
     /* The quarter hour sync carries it. */

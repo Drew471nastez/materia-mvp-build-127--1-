@@ -29,6 +29,8 @@ import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type Inv
 import { teamHomeHref } from "./landing"
 import { teamStampDb } from "./audit"
 import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
+/* Imported, not loaded with import(): an import() gave each of the ~640 routes that reach this file its own async chunk for it, and `next build` outgrew Vercel's 8 GB. */
+import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -657,7 +659,6 @@ export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | 
     session had ended. Now: a user, a 401 only when Auth said nobody, and a 503 with Try again when it did not
     answer. Nothing is allowed on that last answer; it is refused with a true reason.
   */
-  const { routeUser, authUnavailableResponse } = await import("@/lib/auth/route-user")
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
