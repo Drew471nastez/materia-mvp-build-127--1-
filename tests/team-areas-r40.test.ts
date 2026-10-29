@@ -113,7 +113,7 @@ async function main() {
     check("the product pickers list the store's products for a member", /teamStoreForProducts\(\)/.test(read("components/onepage/tabs/product-block-editor.tsx")) && /teamStoreForProducts\(\)/.test(read("components/onepage/creator-blocks.tsx")))
     const links = read("components/onepage/tabs/links-tab.tsx")
     const design = read("components/onepage/tabs/design-tab.tsx")
-    check("the profile photo is the owner's account photo: a member is told, and never saves it", (links.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && (design.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && /if \(team\) throw new Error\(photoIsOwners\(team\.store\)\)/.test(design))
+    check("the profile photo is the owner's account photo: a member is told, and never saves it", (links.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && (design.match(/photoIsOwners\(team\.store\)/g) ?? []).length >= 2 && /if \(team\) throw new SaveError\(photoIsOwners\(team\.store\)\)/.test(design)) // Changed on purpose (round 42 settings): a SaveError (lib/onepage/photo-save), whose words the crop sheet shows
   }
 
   console.log("\nUploads go in the store's folder")

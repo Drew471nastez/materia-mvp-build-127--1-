@@ -99,7 +99,10 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("OnePage links") }, href: "/app/onepage#links", group: "Pages", under: "OnePage", get words() { return tt("buttons blocks") } },
   { get label() { return tt("OnePage design") }, href: "/app/onepage#design", group: "Pages", under: "OnePage", get words() { return tt("colours fonts background theme") } },
   { get label() { return tt("OnePage products") }, href: "/app/onepage#products", group: "Pages", under: "OnePage", get words() { return tt("shop items") } },
-  { label: "OnePage SEO", href: "/app/onepage#settings-seo", group: "Pages", under: "OnePage", get words() { return tt("google title description") } },
+  {
+    label: "OnePage SEO", // i18n-ignore: the product's name and SEO, the same in every language
+    href: "/app/onepage#settings-seo", group: "Pages", under: "OnePage", get words() { return tt("google title description") },
+  },
   { get label() { return tt("OnePage integrations") }, href: "/app/onepage#settings-integrations", group: "Pages", under: "OnePage", get words() { return tt("mailchimp zapier pixel analytics") } },
   { get label() { return tt("Verified badge") }, href: "/app/onepage#settings-verified", group: "Pages", under: "OnePage", get words() { return tt("check tick") } },
   /* Integrations and the rest. */

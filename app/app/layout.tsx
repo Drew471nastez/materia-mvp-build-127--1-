@@ -174,9 +174,26 @@ export default async function AppLayout({
     (components/app/service-unavailable.tsx, Try again in place, once by itself), and no gate below is decided
     from it. Everything else here keeps falling back as it did: those rows only decorate the shell.
   */
-  let critical: Awaited<ReturnType<typeof criticalShellReads>>
+  /* The reads the shell's gates are decided from, together, in one round. The profile and the creator row throw a ServiceUnavailable when they could not be read. */
+  const shellReads = Promise.all([
+    profileOrThrowForRequest(user.id),
+    creatorOrThrowForRequest(user.id),
+    supabase
+      .from("onepages")
+      .select("id, avatar_url, published, draft_blocks, bio")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+    /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
+       shell draws no later; an error reads as this business alone, as it always was. */
+    listBusinesses(user.id).catch(() => []),
+    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
+    teamStoreForRequest(user.id).catch(() => null),
+    /* The stores they are on as a team member, for the account menu's switcher. */
+    teamStoresForRequest(user.id),
+  ])
+  let critical: Awaited<typeof shellReads>
   try {
-    critical = await criticalShellReads(user.id, supabase)
+    critical = await shellReads
   } catch (e) {
     if (!isServiceUnavailable(e)) throw e
     return (
@@ -328,24 +345,4 @@ export default async function AppLayout({
     </NativeAuthGate>
     </>
   )
-}
-
-/** The reads the shell's gates are decided from, together. The profile and the creator row throw a ServiceUnavailable when they could not be read. */
-function criticalShellReads(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
-  return Promise.all([
-    profileOrThrowForRequest(userId),
-    creatorOrThrowForRequest(userId),
-    supabase
-      .from("onepages")
-      .select("id, avatar_url, published, draft_blocks, bio")
-      .eq("owner_id", userId)
-      .maybeSingle(),
-    /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
-       shell draws no later; an error reads as this business alone, as it always was. */
-    listBusinesses(userId).catch(() => []),
-    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
-    teamStoreForRequest(userId).catch(() => null),
-    /* The stores they are on as a team member, for the account menu's switcher. */
-    teamStoresForRequest(userId),
-  ])
 }

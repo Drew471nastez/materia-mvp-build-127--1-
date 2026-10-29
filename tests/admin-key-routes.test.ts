@@ -87,6 +87,14 @@ const PROOFS: [string, RegExp][] = [
      Supabase (auth.getUser(token)) when the web view's cookie is missing; the push routes answer 401 without one and act only on that user. */
   ["a signed-in account for the app's push routes, cookie or bearer", /await pushRequestUser\(req\)[\s\S]*if \(!user\)/],
   ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
+  /* Changed on purpose (round 42 team access): lib/team/money.ts moneyCaller is auth.getUser() (401 without a session), then the store this
+     account owns, or the store it acts in as an active member holding that money permission at that level (403 otherwise), read on every
+     request; the route returns its response unless ok, and acts only on the store it got back. */
+  ["the store behind the session, for Payouts or Billing", /const (\w+) = await moneyCaller\("(payouts|billing)", "(view|manage)"[^\n]*\n\s*if \(!\1\.ok\) return \1\.response/],
+  /* Changed on purpose (round 42 team access): lib/team/website.ts websiteCaller is editorUser (401 for nobody, 503 for a blip), then the
+     store this account owns or acts in with Website (403 otherwise); websiteInstallCaller adds the install checked to be that store's.
+     The route answers with the refusal whenever error is not null, and acts only on what it got back. */
+  ["the store behind the session, for the website builder", /const (\w+) = await website(Install)?Caller(<[^\n]*>)?\([^\n]*\n\s*if \(\1\.error !== null/],
 ]
 
 /**

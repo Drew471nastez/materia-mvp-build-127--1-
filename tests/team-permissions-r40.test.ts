@@ -284,7 +284,8 @@ async function main() {
     check("the picker has the presets, the groups, and says what is not open or not theirs to give", /TEAM_PRESETS\.map/.test(picker) && /permissionGroups\(\)\.map/.test(picker) && /Not open to the team yet/.test(picker) && /Only the owner can give this/.test(picker))
     check("the layout hands the shell the member's permissions", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(read("app/app/layout.tsx")) && /permissions=\{acting\.permissions\}/.test(read("app/app/layout.tsx")))
     check("Home sends a member to the first page they may use", /redirect\(homeFor\(acting\.permissions\)\)/.test(read("app/app/page.tsx")))
-    check("search shows a member only the groups they may open", /permits\(acting\.permissions, GROUP_AREA\[g\]\)/.test(read("app/api/app/search/route.ts")))
+    /* Changed on purpose (round 42 search): the group's area is read once into `area` (null is the Help Center's, everyone's), then asked of permits. */
+    check("search shows a member only the groups they may open", /const area = GROUP_AREA\[g\]\s*\n\s*return g !== "communities" && \(area === null \|\| permits\(acting\.permissions, area\)\)/.test(read("app/api/app/search/route.ts")))
   }
 
   console.log("\nThe SQL (part 320)")

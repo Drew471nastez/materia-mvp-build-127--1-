@@ -139,7 +139,8 @@ check("a square asks for a copy its own size", !!set.srcSet && /w=256&q=75 256w/
 const photo = stripComments(read("components/onepage/themes/wallpaper-photo.tsx"))
 check("the photo is preloaded, decoded before it is shown, faded with opacity", /preload\(src, \{ as: "image", fetchPriority: "high" \}\)/.test(photo) && /img\.decode\(\)/.test(photo) && /transitionProperty: "opacity"/.test(photo) && /backgroundAttachment: undefined/.test(photo))
 const live = stripComments(read("components/onepage/public-onepage.tsx"))
-check("the live page draws every photo wallpaper through it", (live.match(/<WallpaperPhoto\b/g) ?? []).length === 3 && !/backgroundAttachment: "fixed"/.test(live))
+/* Changed on purpose (round 42, poster video stills): a video wallpaper's blurred surround is its saved first frame, drawn through WallpaperPhoto too, so there are four: the three photo wallpapers and the video's still. */
+check("the live page draws every photo wallpaper through it", (live.match(/<WallpaperPhoto\b/g) ?? []).length === 4 && (live.match(/<WallpaperPhoto\s+url=\{safeTheme\.background_image_url\}/g) ?? []).length === 3 && /<WallpaperPhoto\s+url=\{videoPoster\(/.test(live) && !/backgroundAttachment: "fixed"/.test(live))
 
 /* ─── The gradient's direction ────────────────────────────────────────── */
 console.log("\nThe gradient's direction")

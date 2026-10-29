@@ -54,6 +54,7 @@ export interface CreatorBilling {
 }
 
 export interface SyncDeps {
+  /** The service role (subscriptions is a money table, written by the server only: run-now part 62). */
   db: Db
   /** subscriptions.list for one customer, status "all". Throws when Stripe could not answer. */
   listSubscriptions(customerId: string): Promise<StripeSubLike[]>
@@ -217,14 +218,15 @@ function rowFor(creatorId: string, sub: StripeSubLike, customer: string, plan: s
 
 /** Writes the plan. Throws on any database error, so the webhook answers 500 and Stripe retries. */
 export async function applyCreatorSync(deps: SyncDeps, plan: SyncPlan): Promise<void> {
+  const db = deps.db
   if (plan.subscriptionUpsert) {
-    const { error } = await deps.db
+    const { error } = await db
       .from("subscriptions")
       .upsert({ ...plan.subscriptionUpsert, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
     if (error) throw new Error(`subscriptions not written: ${error.message}`)
   }
   if (plan.creatorUpdate) {
-    const { error } = await deps.db.from("creators").update(plan.creatorUpdate).eq("id", plan.creatorId)
+    const { error } = await db.from("creators").update(plan.creatorUpdate).eq("id", plan.creatorId)
     if (error) throw new Error(`creators plan not written: ${error.message}`)
   }
   if (deps.recordPaidPlan && (plan.outcome === "paid" || plan.outcome === "free")) {

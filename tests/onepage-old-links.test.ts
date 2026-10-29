@@ -361,7 +361,8 @@ function wiring() {
   const proxy = code("proxy.ts")
   check("the proxy resolves an old address before answering it", /onePage\.onePage \? await oldOnePageTarget\(onePage\.onePage, onePage, search\) : null/.test(proxy))
   check("with the same resolver and lookup as the page", /resolveOnePageAddress\(name, supabaseOnePageLookup\(supabase, "id, slug"\)\)/.test(proxy))
-  check("with no session: its own client, persisting nothing", /createClient\(supabaseUrl, supabaseKey, \{ auth: \{ persistSession: false/.test(proxy))
+  /* Changed on purpose (round 42): the client also takes the proxy's fetch with its deadline (PROXY_DB), spread before its own auth. Still no session, nothing persisted. */
+  check("with no session: its own client, persisting nothing", /createClient\(supabaseUrl, supabaseKey, \{ (?:\.\.\.PROXY_DB, )?auth: \{ persistSession: false/.test(proxy))
   check("and a slow database cannot hold the redirect", /ONEPAGE_LOOKUP_MS/.test(proxy) && /Promise\.race/.test(proxy))
   const found = code("lib/onepage/published-page.ts")
   check("the page reads the same resolver, once per request", /export const resolveOnePage = cache\(/.test(found) && /resolveOnePageAddress<any>\(slug, supabaseOnePageLookup/.test(found))

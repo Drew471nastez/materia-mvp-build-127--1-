@@ -583,7 +583,10 @@ export const AppSearch = memo(
           <div className="hidden shrink-0 items-center gap-4 border-t border-[#eef0f2] px-5 py-2 text-[12px] text-[#6b7280] md:flex" aria-hidden="true" data-search-keys="">
             <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> {tt("to move")}</span>
             <span><Kbd>{tt("Enter")}</Kbd> {tt("to open")}</span>
-            <span className="ml-auto"><Kbd>Esc</Kbd> {tt("to close")}</span>
+            <span className="ml-auto">
+              <Kbd>Esc</Kbd>{" "}{/* i18n-ignore: the key's name, as the keyboard prints it */}
+              {tt("to close")}
+            </span>
           </div>
         </div>
       </>
