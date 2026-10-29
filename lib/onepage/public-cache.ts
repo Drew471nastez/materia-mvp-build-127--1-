@@ -47,8 +47,10 @@ import "server-only"
  * keeps that way. What a visitor costs is a render, not the database.
  *
  * ONE_PAGE_HOLD_SECONDS is the backstop for a writer that does not clear a
- * tag (an editor that writes from the browser): what it changed shows within
- * a minute, the same backstop the product page and the website use.
+ * tag (an editor that writes from the browser): a minute after it was held,
+ * the next visit reads the page again behind the visitor and the visit
+ * after it is shown the change, the same backstop the product page and the
+ * website use.
  */
 import { revalidateTag, unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
