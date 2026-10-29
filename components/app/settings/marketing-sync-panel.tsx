@@ -47,7 +47,7 @@ export interface MarketingState {
 
 export const MARKETING_PATH = "/api/store/integrations/marketing"
 
-export const MARKETING_NAME: Record<MarketingProviderId, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend", brevo: "Brevo", mailerlite: "MailerLite", kit: "Kit" }
+export const MARKETING_NAME: Record<MarketingProviderId, string> = { klaviyo: "Klaviyo", omnisend: "Omnisend", brevo: "Brevo", mailerlite: "MailerLite", kit: "Kit" } // i18n-ignore: brand names
 const NAME = MARKETING_NAME
 /** Klaviyo, Brevo, MailerLite and Kit choose where subscribers go; Omnisend has one list. */
 const hasLists = (p: MarketingProviderId) => p !== "omnisend"
