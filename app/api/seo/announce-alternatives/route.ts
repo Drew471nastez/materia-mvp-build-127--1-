@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
   const body = (await request.json().catch(() => null)) as { slugs?: unknown } | null
-  const slugs = Array.isArray(body?.slugs) ? body.slugs.filter((s): s is string => typeof s === "string").slice(0, 100) : []
+  const raw = body?.slugs
+  const slugs = Array.isArray(raw) ? raw.filter((s): s is string => typeof s === "string").slice(0, 100) : []
   const urls = alternativesAddresses(...slugs)
   after(() => announceAddresses(urls))
   return NextResponse.json({ ok: true, urls }, { status: 202 })
