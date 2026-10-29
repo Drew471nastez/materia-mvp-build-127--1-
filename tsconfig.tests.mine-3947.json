@@ -1,1 +1,0 @@
-{"compilerOptions":{"outDir":"/tmp/storelib-mine-BOnnDE","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","skipLibCheck":true,"strict":false,"baseUrl":".","paths":{"@/*":["./*"]}},"files":["tests/emails-layout.test.ts","tests/email-logo-shape.test.ts"]}
