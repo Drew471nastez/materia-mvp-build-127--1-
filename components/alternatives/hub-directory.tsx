@@ -26,7 +26,7 @@ export interface HubItem {
  * have their final size from the first paint, so nothing moves when the
  * script arrives.
  */
-export function HubDirectory({ items, categories, storelibLine }: { items: HubItem[]; categories: { id: CategoryId; label: string }[]; storelibLine: string }) {
+export function HubDirectory({ items, categories }: { items: HubItem[]; categories: { id: CategoryId; label: string }[] }) {
   const id = useId()
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<CategoryId | "all">("all")
@@ -104,12 +104,10 @@ export function HubDirectory({ items, categories, storelibLine }: { items: HubIt
                 <p className="mt-1 text-[13px] text-[#6b7280]">{i.categoryLabels.join(", ")}</p>
               </div>
               <p className="text-[15px] leading-[1.55] text-[#374151]">{i.summary}</p>
-              <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 text-[13.5px] leading-[1.45]">
-                <dt className="text-[#6b7280]">{i.name}</dt>
-                <dd className="text-[#1a1a2e]">{i.pricingShort}</dd>
-                <dt className="text-[#6b7280]">Storelib</dt>
-                <dd className="text-[#1a1a2e]">{storelibLine}</dd>
-              </dl>
+              <p className="text-[14px] leading-[1.5] text-[#1a1a2e]">
+                <span className="text-[#6b7280]">How {i.name} charges: </span>
+                {i.pricingShort}
+              </p>
             </div>
           </li>
         ))}

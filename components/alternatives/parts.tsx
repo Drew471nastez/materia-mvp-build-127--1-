@@ -107,10 +107,10 @@ export function ClaimList({ claims, numbers }: { claims: Claim[]; numbers: Sourc
 
 const VALUE_WORDS: Record<CellValue, string> = { yes: "Yes", no: "No", partial: "Partly", unknown: "Not confirmed" }
 
-function CellBody({ value, text, tone }: { value: CellValue; text?: string; tone: "storelib" | "competitor" }) {
+function CellBody({ value, text, wordless }: { value: CellValue; text?: string; wordless: boolean }) {
   const strong = value === "yes" ? "text-[#1a1a2e]" : value === "no" ? "text-[#6b7280]" : "text-[#374151]"
   /* A row that is all detail ("$29 a month") reads better without a bare Yes before it. */
-  const showWord = !(value === "yes" && text) || tone === "storelib"
+  const showWord = !(wordless && value === "yes" && text)
   return (
     <>
       {showWord ? <span className={`font-semibold ${strong}`}>{VALUE_WORDS[value]}</span> : null}
@@ -119,9 +119,9 @@ function CellBody({ value, text, tone }: { value: CellValue; text?: string; tone
   )
 }
 
-export function storelibCellFor(cell: StorelibCell, flags: Flags): { value: CellValue; text?: string } {
-  if (cell.flag && !flags[cell.flag]) return { value: "no", text: "Not offered today" }
-  return { value: cell.value, text: cell.text }
+export function storelibCellFor(cell: StorelibCell, flags: Flags): { value: CellValue; text?: string; wordless: boolean } {
+  if (cell.flag && !flags[cell.flag]) return { value: "no", text: "Not offered today", wordless: false }
+  return { value: cell.value, text: cell.text, wordless: !!cell.wordless }
 }
 
 export function FeatureTable({ name, rows, numbers, flags }: { name: string; rows: FeatureRow[]; numbers: SourceNumbers; flags: Flags }) {
@@ -148,7 +148,7 @@ export function FeatureTable({ name, rows, numbers, flags }: { name: string; row
               <tr key={r.id} className="border-b border-[#f1f2f4] align-top last:border-0">
                 <th scope="row" className="px-3 py-3 text-[14px] font-medium leading-[1.4] text-[#1a1a2e] sm:px-5">{r.label}</th>
                 <td className="break-words px-3 py-3 text-[14px] sm:px-5">
-                  <CellBody value={sl.value} text={sl.text} tone="storelib" />
+                  <CellBody value={sl.value} text={sl.text} wordless={sl.wordless} />
                 </td>
                 <td className="break-words px-3 py-3 text-[14px] sm:px-5">
                   <CompetitorCellBody cell={r.competitor} numbers={numbers} />
@@ -165,9 +165,10 @@ export function FeatureTable({ name, rows, numbers, flags }: { name: string; row
 function CompetitorCellBody({ cell, numbers }: { cell: CompetitorCell; numbers: SourceNumbers }) {
   return (
     <>
-      <CellBody value={cell.value} text={cell.text} tone="competitor" />
+      <CellBody value={cell.value} text={cell.text} wordless />
       <SourceMarks ids={cell.sources} numbers={numbers} />
-      {cell.status !== "verified" ? <StatusNote status={cell.status} note={cell.note} /> : null}
+      {/* "Not confirmed" already says it: the note alone, quietly, rather than "Not verified" a second time. */}
+      {cell.value === "unknown" ? (cell.note ? <span className="mt-0.5 block text-[12.5px] leading-[1.45] text-[#6b7280]">{cell.note}</span> : null) : cell.status !== "verified" ? <StatusNote status={cell.status} note={cell.note} /> : null}
     </>
   )
 }

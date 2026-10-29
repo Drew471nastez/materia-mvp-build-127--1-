@@ -57,7 +57,7 @@ export default function AlternativesHub() {
         </div>
 
         <div className="mt-10">
-          <HubDirectory items={items} categories={categories} storelibLine={`Free: ${STORELIB.freeFee}. Pro: ${STORELIB.proPrice} a month, ${STORELIB.proFee}`} />
+          <HubDirectory items={items} categories={categories} />
         </div>
 
         <section aria-labelledby="method-h" className="mt-14 grid gap-8 border-t border-[#e5e7eb] pt-10 md:grid-cols-2">

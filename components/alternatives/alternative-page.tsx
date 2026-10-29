@@ -134,7 +134,7 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                       </span>
                     </dt>
                     <dd className="mt-1 text-[14px] leading-[1.5] text-[#4b5563]">
-                      {rate(p.fee)} per sale to {c.name}. Card processing: {p.processingLabel.charAt(0).toLowerCase() + p.processingLabel.slice(1)}.
+                      {rate(p.fee)} per sale to {c.name}. Card processing: {p.processingLabel}.
                       {p.sellsDigital ? null : " Not able to sell digital products."}
                       <SourceMarks ids={p.claim.sources} numbers={numbers} />
                       <StatusNote status={p.claim.status} note={p.claim.note} />

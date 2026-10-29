@@ -79,8 +79,10 @@ export interface StorelibCell {
   value: CellValue
   text?: string
   code: string
-  /** Drawn as "Not available yet" while this switch is off. */
+  /** Drawn as "Not offered today" while this switch is off. */
   flag?: StorelibFlag
+  /** A row whose answer is a figure ("None on Free"), drawn without a Yes before it. */
+  wordless?: true
 }
 
 export interface FeatureRow {

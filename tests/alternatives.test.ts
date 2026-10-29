@@ -302,7 +302,7 @@ for (const c of ALTERNATIVES) {
 console.log("\nRendered: the hub")
 {
   const items = ALTERNATIVES.map((c) => ({ slug: c.slug, name: c.name, href: alternativePath(c.slug), summary: c.summary, pricingShort: c.pricingShort, categories: c.categories, categoryLabels: [], search: c.name.toLowerCase() }))
-  const html = renderToStaticMarkup(createElement(HubDirectory, { items, categories: [...CATEGORIES], storelibLine: "x" }))
+  const html = renderToStaticMarkup(createElement(HubDirectory, { items, categories: [...CATEGORIES] }))
   check("every comparison is in the server markup, none hidden", ALTERNATIVES.every((c) => html.includes(`href="${alternativePath(c.slug)}"`)) && !/<li[^>]* hidden=""/.test(html))
   check("the category buttons say which is on", (html.match(/aria-pressed="true"/g) ?? []).length === 1)
   check("the search has a label", /<label[^>]*for="[^"]+-q"/.test(html))

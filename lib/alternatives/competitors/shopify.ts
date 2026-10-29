@@ -70,7 +70,7 @@ export const shopify: Competitor = {
   features: [
     { id: "monthly", label: "Monthly fee", storelib: SL.monthlyFee, competitor: { value: "yes", text: "$39 Basic, $105 Grow, $399 Advanced, billed monthly", sources: ["shopify-pricing"], status: "verified" } },
     { id: "per-sale", label: "Platform fee per sale", storelib: SL.perSaleFee, competitor: { value: "yes", text: "None with Shopify Payments, 2% to 0.6% with another provider", sources: ["shopify-pricing", "shopify-payments-cost"], status: "verified" } },
-    { id: "cards", label: "Card processing", storelib: { value: "yes", text: "Stripe, 2.9% + 30¢ (US cards)", code: "lib/billing/plans.ts" }, competitor: { value: "yes", text: "2.9% to 2.5% + 30¢ by plan", sources: ["shopify-pricing"], status: "verified" } },
+    { id: "cards", label: "Card processing", storelib: { value: "yes", wordless: true, text: "Stripe, 2.9% + 30¢ (US cards)", code: "lib/billing/plans.ts" }, competitor: { value: "yes", text: "2.9% to 2.5% + 30¢ by plan", sources: ["shopify-pricing"], status: "verified" } },
     { id: "digital", label: "Digital products", storelib: SL.digitalProducts, competitor: { value: "partial", text: "Through an app", sources: ["shopify-digital-app"], status: "verified" } },
     { id: "courses", label: "Courses", storelib: SL.courses, competitor: { value: "partial", text: "Through third party apps", sources: ["shopify-digital-category"], status: "verified" } },
     { id: "physical", label: "Physical products and shipping", storelib: SL.physical, competitor: { value: "yes", sources: ["shopify-pricing"], status: "verified" } },

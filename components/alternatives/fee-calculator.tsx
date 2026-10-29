@@ -183,7 +183,7 @@ export function FeeCalculator({
           .filter((r) => !r.isStorelib)
           .map((r) => (
             <p key={r.key}>
-              {r.platform} {r.plan}: card processing {r.processingLabel.charAt(0).toLowerCase() + r.processingLabel.slice(1)}.
+              {r.platform} {r.plan}, card processing: {r.processingLabel}.
             </p>
           ))}
         {anyUnknown ? <p>A total marked + leaves out card processing because its rate could not be confirmed, so the real cost is higher.</p> : null}
