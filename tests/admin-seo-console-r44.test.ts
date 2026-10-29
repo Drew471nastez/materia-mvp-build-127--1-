@@ -362,7 +362,7 @@ async function main() {
     check("the paging indexes are there", sql.includes("seo_index_status_kind_idx") && sql.includes("seo_index_status_inspect_next_idx") && sql.includes("seo_index_status_score_next_idx"))
     check("the migration is the same SQL", read("supabase/migrations/20271101_seo_index_status.sql") === sql)
     const after = read("supabase/sql/run-now/99_check_after.sql")
-    check("99_check_after has a p342 column that cannot error before 342 ran", /as p342_seo_index_status;\s*$/.test(after) && after.includes("case when to_regclass('public.seo_index_status') is null"))
+    check("99_check_after has a p342 column that cannot error before 342 ran", /as p342_seo_index_status[,;]/.test(after) && after.includes("case when to_regclass('public.seo_index_status') is null"))
     check("the README lists it", read("supabase/sql/run-now/README.md").includes("| `342_seo_index_status.sql` |"))
     const catalog = JSON.parse(read("lib/admin/sql-catalog.generated.json")) as { id: string; file: string }[]
     check("the SQL catalog has it", catalog.some((c) => c.id === "342" && c.file === "342_seo_index_status.sql"))
