@@ -77,9 +77,10 @@ async function main() {
   check("the form's call is one storelib.me answers", onMe("/api/onepage/leads", "POST")?.kind === "next", onMe("/api/onepage/leads", "POST"))
 
   section("3. A visitor joins from each layout")
-  for (const layout of EMAIL_SIGNUP_LAYOUT_IDS) {
+  /* Each layout's visitor comes from their own address: the route allows a few sign-ups a minute from one place (LIMITS.subscribe), and round 43 took the layouts past that. */
+  for (const [i, layout] of EMAIL_SIGNUP_LAYOUT_IDS.entries()) {
     const email = `fan-${layout}@example.com`
-    const r = await j.call("POST /api/onepage/leads", { body: { onepage_id: page.id, email, company: "", elapsed: 5000, block_id: `signup_${layout}`, origin: "https://storelib.me/lena" } })
+    const r = await j.call("POST /api/onepage/leads", { headers: { "x-forwarded-for": `203.0.113.${20 + i}` }, body: { onepage_id: page.id, email, company: "", elapsed: 5000, block_id: `signup_${layout}`, origin: "https://storelib.me/lena" } })
     const sub = j.rows("subscribers").find((s) => s.email === email)
     const lead = j.rows("onepage_leads").find((l) => l.email === email)
     check(`${layout}: on the creator's subscriber list, the lead kept from that block`, r.status === 200 && !!sub && sub.creator_id === creator.id && sub.status === "subscribed" && lead?.block_id === `signup_${layout}`, { r, sub, lead })

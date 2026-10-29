@@ -29,6 +29,7 @@ import {
   signupLooksAutomated,
   signupName,
 } from "@/lib/onepage/creator-blocks"
+import { EMAIL_SIGNUP_LAYOUT_IDS } from "@/lib/onepage/email-signup"
 import { EXTRA_BLOCK_TYPES, isBlockShown, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { lessonCounts, productIdsInBlocks, resolveProductBlocks, type ProductsDb } from "@/lib/onepage/live-products"
 import { createDefaultBlock, type OnePageBlock, type OnePageTheme } from "@/lib/onepage/types"
@@ -213,7 +214,8 @@ async function main() {
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("the live block sends the name, the hidden field and the time on screen", /name: data\.ask_name \? leadName\.trim\(\) \|\| undefined : undefined,\s*company: leadTrap,\s*elapsed: Date\.now\(\) - leadShownAt\.current/.test(live))
     /* Changed on purpose (round 11): the form is written once (renderEmailForm) and every one of the five layouts asks for it (components/onepage/email-signup), so the name field and the hidden field are in one place that all of them draw. */
-    check("every layout carries the name field and the hidden field", (email.match(/\{emailExtras\}/g) ?? []).length === 1 && /renderForm=\{renderEmailForm\}/.test(email) && (read("components/onepage/email-signup.tsx").match(/renderForm\(\{/g) ?? []).length === 5)
+    /* Changed on purpose (round 43): three more layouts (connect, letter, bar), each drawing the same form once, so the count follows the layout list. */
+    check("every layout carries the name field and the hidden field", (email.match(/\{emailExtras\}/g) ?? []).length === 1 && /renderForm=\{renderEmailForm\}/.test(email) && (read("components/onepage/email-signup.tsx").match(/renderForm\(\{/g) ?? []).length === EMAIL_SIGNUP_LAYOUT_IDS.length)
     /* Changed on purpose (round 11): the thanks and the link after it are drawn by the layout (EmailSignupView thanks), once they have joined. */
     check("the link after joining is offered once they have joined, with the thanks", /afterSignup=\{afterSignupLink\}/.test(email) && /submitted \? \(\s*<div data-email-thanks="">[\s\S]*?\{afterSignup\}/.test(read("components/onepage/email-signup.tsx")) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")

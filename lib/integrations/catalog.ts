@@ -475,8 +475,8 @@ function marketingApp(id: "brevo" | "mailerlite" | "kit", name: string, logo: st
 
 const MARKETING_APPS: Integration[] = [
   marketingApp("brevo", "Brevo", "/integrations/brevo.svg", "Your subscribers and orders in Brevo, unsubscribes both ways.", "Each order is a Brevo event: order_placed, order_fulfilled, order_cancelled and order_refunded, with its total and items, for your automations and segments.", "https://developers.brevo.com/"),
-  marketingApp("mailerlite", "MailerLite", null, "Your subscribers in a MailerLite group, buyers and refunds as groups.", "A subscriber who buys joins the Storelib buyers group, and one refunded joins Storelib refunded, so your automations can start from them.", "https://developers.mailerlite.com/"),
-  marketingApp("kit", "Kit", null, "Your subscribers in Kit with your tag, buyers and refunds as tags.", "A subscriber who buys gets the Storelib buyer tag, and one refunded the Storelib refunded tag, so your sequences can start from them.", "https://developers.kit.com/"),
+  marketingApp("mailerlite", "MailerLite", "/integrations/mailerlite.svg", "Your subscribers in a MailerLite group, buyers and refunds as groups.", "A subscriber who buys joins the Storelib buyers group, and one refunded joins Storelib refunded, so your automations can start from them.", "https://developers.mailerlite.com/"),
+  marketingApp("kit", "Kit", "/integrations/kit.svg", "Your subscribers in Kit with your tag, buyers and refunds as tags.", "A subscriber who buys gets the Storelib buyer tag, and one refunded the Storelib refunded tag, so your sequences can start from them.", "https://developers.kit.com/"),
 ]
 
 /**
