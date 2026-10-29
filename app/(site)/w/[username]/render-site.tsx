@@ -297,6 +297,13 @@ export async function renderSite(
    * email for when it opens, and offers the creator page as a link. See
    * app/(site)/w/[username]/not-published.tsx.
    */
+  /*
+    Coming soon is the website's front page. Any other address of a website
+    that is not live (taken down, or never published) is a real 404, so a
+    search engine that listed /about while it was up drops it, rather than
+    reading the same Coming soon page at every address it knew.
+  */
+  if (found.kind === "unpublished" && pageKey !== "home") notFound()
   if (found.kind === "unpublished") return <SiteNotPublished username={username} displayName={found.displayName} creatorId={(await creatorByName(username))?.creatorId ?? null} />
 
   const { site } = found

@@ -18,6 +18,7 @@ import { creatorAvatar, siteOrigin } from "./site-seo-data"
 import { compatSearchHead } from "./compat-search"
 import { imagesOnPage, siteSameAs } from "./site-seo"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
+import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -466,6 +467,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const origin = await originAsked
   const shareImage = compatShareImage(settings as Record<string, unknown>, pages.home ?? [], await avatarAsked)
   const storeName = brandOf(settings) || store.name || creator.displayName
+  /* The handle alone (the settings' own switch is pageSeoForSite's): the one rule a Storelib theme's pages read. */
+  const heldBack = !builtSiteIndexable({}, name)
   const sold = await soldAsked
   const site: SiteData = {
     creatorId: creator.creatorId,
@@ -482,7 +485,16 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     ...(origin ? { canonicalHost: new URL(origin).host } : {}),
     designMode: false,
     /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
-    seo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
+    /*
+      And noindex on every page under a handle the spam rules hold back, as a
+      Storelib theme's pages say and the site's own sitemap already leaves
+      out (lib/seo/indexing builtSiteIndexable). The creator's own switch is
+      read by pageSeoForSite.
+    */
+    seo: (key) => {
+      const seo = pageSeoForSite(settings as Record<string, unknown>, key)
+      return heldBack ? { ...seo, noindex: true } : seo
+    },
     /*
       What the theme's own head leaves out (lib/website-builder/compat-search.ts):
       a description, a share picture, structured data and noindex where a page

@@ -2,6 +2,8 @@ import { websiteInstallCaller } from "@/lib/team/website"
 import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse, after } from "next/server"
 import { announce, websiteAddresses } from "@/lib/seo/announce"
+import { indexNowKey } from "@/lib/seo/indexnow"
+import { goneAddresses } from "@/lib/website-builder/site-changes"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
@@ -50,6 +52,8 @@ export async function POST(req: Request, { params }: Params) {
   const action = body?.action as "publish" | "unpublish" | "save_draft"
 
   if (action === "publish") {
+    /* The addresses live before this publish, so the ones it takes down are announced too (below). Only when IndexNow is on; never waited on here. */
+    const liveBefore = indexNowKey() ? websiteAddresses(creator.id).catch(() => [] as string[]) : null
     /*
       ======================================================================
        THE NEW SITE IS READY BEFORE THE OLD ONE STOPS
@@ -280,6 +284,8 @@ export async function POST(req: Request, { params }: Params) {
        take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
     const announced = creator.id
     after(() => announce(() => websiteAddresses(announced)))
+    /* And the addresses that went with this publish (a page dropped, the last theme's pages), which are 404s now (lib/website-builder/site-changes.ts). */
+    if (liveBefore) after(() => announce(async () => goneAddresses(await liveBefore, await websiteAddresses(announced))))
     /* And the whole theme to its linked GitHub repository, pages and settings with it, if it sends builder changes. */
     after(() => mirrorWholeTheme(installId, "Published in the builder"))
     /* Translate changes automatically: its new and edited words, in a few minutes (lib/markets/translate-queue.ts). */
