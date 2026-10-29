@@ -53,9 +53,9 @@ function whole(img: string): string | null {
 console.log("\n1. One mark\n")
 {
   const wide = brandMarkHtml({ name: "loud LIB.", src: LOGO, shape: "wide", font: FONT, ink: "#111" })
-  check("a wordmark is drawn alone, its alt the name", imgsOf(wide).length === 1 && /alt="loud LIB\."/.test(wide) && !/>loud LIB\.<\/td>/.test(wide) && whole(imgsOf(wide)[0]) === null, wide)
+  check("a wordmark is drawn alone, its alt the name", imgsOf(wide).length === 1 && /alt="loud LIB\."/.test(wide) && !/>loud LIB\.<\/td>/.test(wide) && whole(imgsOf(wide)[0] ?? "") === null, wide)
   const square = brandMarkHtml({ name: "loud LIB.", src: LOGO, shape: "square", font: FONT, ink: "#111" })
-  check("a square icon gets the name beside it, its own alt empty", /alt=""/.test(square) && />loud LIB\.<\/td>/.test(square) && whole(imgsOf(square)[0]) === null, square)
+  check("a square icon gets the name beside it, its own alt empty", /alt=""/.test(square) && />loud LIB\.<\/td>/.test(square) && whole(imgsOf(square)[0] ?? "") === null, square)
   const none = brandMarkHtml({ name: "Shop <x>", src: null, shape: "auto", font: FONT, ink: "#111" })
   check("no picture: the name in type, escaped", imgsOf(none).length === 0 && />Shop &lt;x&gt;<\/td>/.test(none), none)
   const auto = brandMarkHtml({ name: "A--B", src: LOGO, shape: "auto", font: FONT, ink: "#111" })
