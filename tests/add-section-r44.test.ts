@@ -110,7 +110,7 @@ console.log("\nA card is a still picture")
 console.log("\nThe Header group's library")
 {
   const spare = between(lib, "const spareJobs = useMemo", "/**\n   * The cards are built")
-  check("the header and the footer are drawn ahead with the rest, after them", /for \(const type of \["header", "footer"\]\)/.test(spare) && /if \(!schema \|\| addable\.includes\(type\) \|\| own\.has\(type\)\) continue/.test(spare) && /requestPreviews\(spareJobs\)/.test(lib))
+  check("the header and the footer are drawn ahead with the rest, after them", /for \(const type of \["header", "footer"\]\)/.test(spare) && /if \(!schema \|\| addable\.includes\(type\) \|\| own\.has\(type\)\) continue/.test(spare) && /* Changed on purpose (round 44 merge): on a reopen only the spare previews not yet drawn are asked for, as main does for the rest. */ /requestPreviews\((again \? spareJobs\.filter\(\(j\) => !MARKUP\.has\(j\.key\)\) : )?spareJobs\)/.test(lib))
   check("  under the same key their cards read", /key: previewKey\(type, i, renderWidth, lookTag\)/.test(spare) && /keyFor: \(w\) => previewKey\(type, i, w, `\$\{own\.has\(type\) \? sourcesTag : ""\}\$\{lookTag\}`\)/.test(lib))
   check("a small device draws the first screen and the header and footer ahead", /const SPARE_DEVICE_AHEAD = 4/.test(lib) && /requestPreviews\(\[\.\.\.jobs\.slice\(0, SPARE_DEVICE_AHEAD\), \.\.\.spareJobs\]\)/.test(lib))
   check("the heights are remembered in this browser, read before any card asks", /const HEIGHTS_STORE = "wb-preview-h:r44"/.test(lib) && /readRememberedHeights\(\)\n\s*const \[phone, setPhone\]/.test(lib) && /notify\(\)\n\s*rememberHeights\(\)/.test(lib))
