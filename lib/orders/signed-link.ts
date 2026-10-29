@@ -26,7 +26,8 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 export const LINK_TTL_MS = 5 * 60_000
 
 export type OrderLink =
-  | { k: "invoice"; c: string; o: string; z: string; d: "inline" | "attachment"; e: number }
+  /* `cn`: the order's credit note instead of its invoice (lib/checkout/credit-note.ts): a note's id, or "latest". */
+  | { k: "invoice"; c: string; o: string; z: string; d: "inline" | "attachment"; cn?: string; e: number }
   /* Orders by number (`n`), or a list as the Orders page draws it: its address (`q`) and the instants of its dates (`ws`, `we`; none for every order). */
   | { k: "csv"; c: string; n: string; q?: string; ws?: number; we?: number; f: "spreadsheet" | "plain"; z: string; name: string; d: "inline" | "attachment"; e: number }
   /* Analytics as a CSV (app/api/analytics/export): the signed in user (`u`), their store (`c`) and the page's question (`q`). */

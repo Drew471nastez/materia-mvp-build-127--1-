@@ -29,5 +29,18 @@ export function memberMaySave(body: Record<string, unknown>): boolean {
 
 /** The Settings sections a member working in a store sees beyond their own account's. */
 export function memberSettingsTabs(perms: readonly TeamPermission[] | null): readonly string[] {
-  return perms && permits(perms, "settings") ? MEMBER_SETTINGS_TABS : []
+  if (!perms) return []
+  /* Round 42: Plan with Billing (the store's plan, changed only with Change billing), Payments with Change payouts. */
+  return [
+    ...(permits(perms, "settings") ? MEMBER_SETTINGS_TABS : []),
+    ...(permits(perms, "billing") ? ["billing"] : []),
+    ...(permits(perms, "payouts_manage") ? ["payments"] : []),
+  ]
 }
+
+/**
+ * The Settings sections in the account group that are about the store and
+ * not the person: shown to a member working in a store only when given
+ * (Plan is the store's plan there, never the member's own).
+ */
+export const STORE_SIDE_ACCOUNT_TABS: readonly string[] = ["billing"]

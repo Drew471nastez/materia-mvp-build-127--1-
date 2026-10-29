@@ -21,6 +21,7 @@ import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { fetchBillingSubscription } from "@/lib/billing/plan-client"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -42,6 +43,12 @@ interface BillingPageClientProps {
     currentPlan: any
     invoices: any[]
     paymentMethod: any | null
+    /**
+     * Round 42: false for a team member who may see the store's plan but not
+     * change it (lib/team/money). The buttons that change it are not drawn;
+     * the routes refuse them anyway.
+     */
+    canManage?: boolean
   }
   /**
    * Drawn INSIDE the settings tabs rather than as its own page.
@@ -69,6 +76,7 @@ interface BillingPageClientProps {
 const PLAN_COLUMN = "mx-auto w-full max-w-[720px]"
 
 export function BillingPageClient({ initialData, embedded = false }: BillingPageClientProps) {
+  const readOnly = initialData.canManage === false
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
@@ -120,11 +128,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const refreshBillingData = useCallback(async () => {
     setRefreshing(true)
     try {
-      // Fetch subscription status (which triggers Stripe sync on server)
-      const subRes = await fetch("/api/billing/subscription")
-      if (subRes.ok) {
-        const subData = await subRes.json()
-        // Always update from API (source of truth from Stripe)
+      /* After the creator changed something: a fresh read (no cache, here or on the server). A read never writes the plan;
+         the Stripe webhook does (lib/billing/subscription-sync.ts). No answer keeps what is on screen. */
+      const subData = await fetchBillingSubscription({ fresh: true })
+      if (subData) {
         setLiveSubscription(subData.subscription || null)
         setLiveCurrentPlan(subData.currentPlan || initialData.currentPlan)
       }
@@ -146,12 +153,8 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     setRefreshing(false)
   }, [initialData.currentPlan])
 
-  // Refresh billing data from Stripe on mount so status is always current
-  // (handles the case where user canceled via Stripe portal then navigated back)
-  useEffect(() => {
-    refreshBillingData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  /* No refresh on mount: initialData is the billing overview read a moment ago, which asked Stripe for the same thing.
+     A return from Stripe's portal is a full navigation, so the overview is read again then. */
 
   useEffect(() => {
     const success = searchParams.get("success")
@@ -394,7 +397,12 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         <div data-billing-column="" className={cn(PLAN_COLUMN, "space-y-10 sm:space-y-12")}>
 
           {/* ---- FIRST: the plans, the same cards the plans page shows. What you could be on comes before what you are on (the owner's order: plans, then the overview, the card and the history). ---- */}
-          <PricingTiers
+          {readOnly ? (
+            <p data-billing-read-only="" className="rounded-xl border border-[#e5e7eb]/60 bg-white px-4 py-3 text-[13px] leading-5 text-[#6b7280]">
+              {tt("You can see this store's plan. Changing it is for the owner, or someone they give Change billing.")}
+            </p>
+          ) : null}
+          {readOnly ? null : <PricingTiers
             plans={plans}
             currentPlan={currentPlan}
             subscription={subscription}
@@ -405,7 +413,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
             pendingPlanId={pendingPlanId}
             onCancelClick={canCancel ? () => { setCancelError(null); setCancelOpen(true) } : undefined}
-          />
+          />}
 
           {/*
             ---- SECTION 1: Subscription Overview ----
@@ -480,7 +488,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 )}
 
                 {/* On a phone the buttons are one full width column; from 640 a row that shares the width, each on its own line when two do not fit. */}
-                <div className="mt-auto flex flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap">
+                <div className={cn("mt-auto flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap", readOnly ? "hidden" : "flex")}>
                   {(currentPlan.id === "free" || subscription?.status === "canceled") && !isSubscribed && (
                     <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline sm:flex-1")}>
                       {subscription?.status === "canceled" ? tt("Start Pro again") : tt("Upgrade to Pro")}
@@ -540,7 +548,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   <TrustBadges />
                 </div>
 
-                <div className="mt-auto flex pt-5">
+                <div className={cn("mt-auto pt-5", readOnly ? "hidden" : "flex")}>
                   <button type="button" onClick={handleAddPaymentMethod} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] max-sm:flex-1")}>
                     {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                     {livePaymentMethod ? tt("Update card") : tt("Add card")}
@@ -560,7 +568,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
           <div data-billing-history="" className={cn(CARD, "overflow-hidden")}>
             <div className="flex items-center justify-between gap-3 app-card-x pb-2 pt-5">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">{tt("Billing History")}</h2>
-              {liveInvoices.length > 0 && (
+              {liveInvoices.length > 0 && !readOnly && (
                 <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
                   {tt("View all")}
                 </button>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import {
@@ -30,14 +30,10 @@ export const maxDuration = 60
  * from the same definition, so "Add" never 404s on a theme the page offered.
  */
 export async function POST(req: Request) {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the new website is the store's. */
+  const site = await websiteCaller()
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { supabase, user, creator } = site
 
   const body = await req.json().catch(() => ({}))
   const themeId: unknown = body?.theme_id
@@ -148,7 +144,7 @@ export async function POST(req: Request) {
     (themeCatalogRow's preview_image_url is null for all of them), so the
     photograph is the first picture it can have.
   */
-  const first = await coverForNewWebsite({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "add", null)
+  const first = await coverForNewWebsite({ installId: newInstall.id as string, userId: site.ownerUserId, creatorId: creator.id as string }, renderOrigin(req.url), "add", null)
 
   return NextResponse.json({ install: newInstall, ...first })
 }

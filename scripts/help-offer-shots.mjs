@@ -103,15 +103,17 @@ const sel = (...selectors) => (p) => p.evaluate((s) => window.__rect(s.map((x) =
 const O = (n) => `a1000000-0000-4000-8000-00000000000${n}`
 /* An offer's own page (/app/offers/new, /app/offers/<id>) as a computer draws it from 1024px: header, two columns and the foot bar with Cancel and Save. */
 const editor = (p) => p.evaluate(() => window.__rect([document.querySelector("[data-offer-editor]")], 0))
+/* Round 42: where it shows, the dates and the limits fold under More options; a picture of a saved offer opens it, so the article's words are in it. */
+const openMore = async (p) => { await p.evaluate(() => document.querySelector("[data-offer-more] > button")?.click()); await wait(300) }
 
 const SHOTS = [
   { name: "offers-list", view: "list", width: 1200, height: 760, clip: sel("#shot h1", "[data-offers-card]") },
   { name: "offers-list-phone", view: "list", width: 390, height: 844, phone: true, clip: sel("#shot h1", "[data-offers-card]") },
   { name: "offers-empty", view: "empty", width: 1100, height: 700, clip: sel("#shot h1", "[data-offers-card]") },
   { name: "offer-new", view: "new", q: "kind=bundle", width: 1100, height: 1400, clip: editor },
-  { name: "offer-upsell-editor", view: "offer", q: `id=${O(2)}`, width: 1100, height: 1600, clip: editor },
-  { name: "offer-bundle-editor", view: "offer", q: `id=${O(1)}`, width: 1100, height: 1400, clip: editor },
-  { name: "offer-quantity-break-editor", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600, clip: editor },
+  { name: "offer-upsell-editor", view: "offer", q: `id=${O(2)}`, width: 1100, height: 1600, act: [openMore], clip: editor },
+  { name: "offer-bundle-editor", view: "offer", q: `id=${O(1)}`, width: 1100, height: 1400, act: [openMore], clip: editor },
+  { name: "offer-quantity-break-editor", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600, act: [openMore], clip: editor },
   {
     name: "offer-try-cart", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600,
     act: [async (p) => { await p.evaluate(() => document.querySelector("[data-try-price]")?.click()); await wait(900) }],

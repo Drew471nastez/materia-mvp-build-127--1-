@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { editorUser } from "@/lib/website-builder/owned-install"
 import { compatCartPricing } from "@/lib/storelib-theme/compat/cart-pricing-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import type { CartEntry } from "@/lib/storelib-theme/compat/site"
@@ -26,11 +25,11 @@ export const dynamic = "force-dynamic"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { user, status, error } = await editorUser(supabase)
-  if (!user) return NextResponse.json({ error }, { status })
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ offers: null })
+  /* The owner, or a team member with Website working in the store (lib/team/website). */
+  const site = await websiteCaller()
+  if (site.error !== null && site.status !== 404) return NextResponse.json({ error: site.error }, { status: site.status })
+  if (site.error !== null) return NextResponse.json({ offers: null })
+  const creator = site.creator
   let body: { cart?: unknown; shown?: unknown }
   try {
     body = (await request.json()) as { cart?: unknown; shown?: unknown }

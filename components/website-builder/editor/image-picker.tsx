@@ -37,6 +37,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
+import { teamSignedUpload } from "@/lib/team/upload-fallback"
+import { websiteUploadOwner } from "@/lib/website-builder/team-upload-owner"
 import { ChevronDown, FolderOpen, ImageIcon, ImageOff, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
@@ -242,14 +244,16 @@ export function WbImagePicker({
 
       // Sanitize filename: only keep alphanumeric + timestamp
       const safeName = `${Date.now()}.${ext}`
-      const filePath = `${user.id}/${folder}/${safeName}`
+      /* A team member's picture goes into the store owner's folder (lib/website-builder/team-upload-owner). */
+      const owner = websiteUploadOwner()
+      const filePath = `${owner ?? user.id}/${folder}/${safeName}`
 
       const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, body, {
         cacheControl: "31536000", // 1 year — immutable content-addressed names
         upsert: true,
         contentType: file.type,
       })
-      if (uploadError) throw uploadError
+      if (uploadError && !(owner && owner !== user.id && (await teamSignedUpload(bucket, filePath, body, file.type)))) throw uploadError
       confirmUpload(bucket, filePath)
 
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
@@ -290,9 +294,11 @@ export function WbImagePicker({
       const urls = await Promise.all(wanted.map(async (file, i) => {
         try {
           const ext = (file.name.split(".").pop() ?? "").toLowerCase()
-          const filePath = `${user.id}/${folder}/${Date.now()}-${i}.${ext}`
-          const { error } = await supabase.storage.from(bucket).upload(filePath, await withoutMetadata(file), { cacheControl: "31536000", upsert: true, contentType: file.type })
-          if (error) return null
+          const owner = websiteUploadOwner()
+          const filePath = `${owner ?? user.id}/${folder}/${Date.now()}-${i}.${ext}`
+          const clean = await withoutMetadata(file)
+          const { error } = await supabase.storage.from(bucket).upload(filePath, clean, { cacheControl: "31536000", upsert: true, contentType: file.type })
+          if (error && !(owner && owner !== user.id && (await teamSignedUpload(bucket, filePath, clean, file.type)))) return null
           confirmUpload(bucket, filePath)
           return supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
         } catch {

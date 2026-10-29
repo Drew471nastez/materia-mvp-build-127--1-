@@ -33,6 +33,8 @@
  * PURE and safe in the browser: it reads only the public env.
  */
 
+import { deadlineFetch, REST_RETRY_STATUSES } from "@/lib/net/deadline"
+
 const PUBLIC_PATH = "/storage/v1/object/public/"
 export const MEDIA_PATH = "/media/"
 
@@ -173,11 +175,19 @@ export function withMediaAddresses<T>(client: T): T {
  * What is stored is not changed: a row keeps the address it was saved with,
  * and the server checks read either form (`toStorageUrl`).
  */
+/*
+  EVERY REQUEST ENDS (lib/net/deadline.ts). Each one through here, auth,
+  database, storage, from the server and the browser alike, has a deadline by
+  what it is, and a read that hit a network error, a 502, a 504 or a 429 is
+  asked again at most twice with backoff. Before, none had a deadline, and a
+  request that was accepted and never answered held its function until
+  Vercel's 300 second ceiling (the HeadersTimeoutError of Oct 28).
+*/
 export function mediaFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
-  if (!url.includes("/rest/v1/")) return globalThis.fetch(input, init)
+  if (!url.includes("/rest/v1/")) return deadlineFetch(input, init)
   const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase()
-  const run = method === "GET" || method === "HEAD" ? readWithSchemaRetry(input, init) : globalThis.fetch(input, init)
+  const run = method === "GET" || method === "HEAD" ? readWithSchemaRetry(input, init) : deadlineFetch(input, init)
   return run.then(async (res) => {
     if (res.status === 204 || res.status === 304 || (init?.method ?? "GET").toUpperCase() === "HEAD") return res
     if (!(res.headers.get("content-type") || "").includes("json")) return res
@@ -215,14 +225,15 @@ async function isSchemaCacheReload(res: Response, method: string): Promise<boole
 async function readWithSchemaRetry(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase()
   const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
-  let res = await globalThis.fetch(input, init)
+  const once = (i: RequestInfo | URL) => deadlineFetch(i, init, { retryStatuses: REST_RETRY_STATUSES })
+  let res = await once(input)
   for (const wait of SCHEMA_RETRY_WAITS) {
     if (!(await isSchemaCacheReload(res, method))) return res
     if (signal?.aborted) return res
     await res.body?.cancel().catch(() => {})
     await new Promise((resolve) => setTimeout(resolve, wait))
     if (signal?.aborted) return res
-    res = await globalThis.fetch(input instanceof Request ? input.clone() : input, init)
+    res = await once(input instanceof Request ? input.clone() : input)
   }
   return res
 }

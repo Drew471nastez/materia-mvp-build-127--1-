@@ -45,6 +45,7 @@ import { storelibApps, type AppState, type StorelibApp } from "@/lib/integration
 import { tt } from "@/lib/i18n/text"
 import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
 import { holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { LAYER_MOTION_EASE, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
 
 /* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
 type Filter = DirectoryPill
@@ -117,6 +118,14 @@ const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px
   same dip round 29 took out of the pills. Now it is whole on its first frame, its scroll placed in that same
   frame, as a tab changes page in the app (app/globals.css data-tab-swap, "a cut, not a dissolve").
 */
+
+/* Into an integration's page and back (round 42): how far each moves into place, and for how long. */
+export const PAGE_RISE_PHONE = 28
+export const PAGE_RISE = 12
+export const LIST_SETTLE_PHONE = 10
+export const LIST_SETTLE = 6
+export const PAGE_IN_MS = 300
+export const LIST_IN_MS = 240
 
 /* A category switch (round 29): the cards crossfade in this long, and a shorter list eases to its height in this long. */
 const CROSSFADE_MS = 180
@@ -440,6 +449,21 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       listAt.current = null
       if (box && at) box.scrollTop = at.scroll
       if (at?.card) el.querySelector<HTMLElement>(`[data-integration-card="${CSS.escape(at.card)}"]`)?.focus({ preventScroll: true })
+    }
+    /*
+      AND IT MOVES INTO PLACE (round 42). Still whole on its first frame (no
+      fade, so never the pale flash of round 30), and it comes the way a layer
+      comes across /app (components/app/page-layer): an integration's page
+      rises the last few pixels into place, and the list it goes back to
+      settles down into its own. A translate alone, on the compositor, on the
+      layer's own curve, and nothing held after it ends.
+    */
+    if (!reduced() && typeof el.animate === "function") {
+      const phone = window.matchMedia(LAYER_PHONE).matches
+      const from = how === "push" ? (phone ? PAGE_RISE_PHONE : PAGE_RISE) : -(phone ? LIST_SETTLE_PHONE : LIST_SETTLE)
+      const move = el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: how === "push" ? PAGE_IN_MS : LIST_IN_MS, easing: LAYER_MOTION_EASE })
+      /* Held where it starts until the page's own first drawing has landed and frames arrive a frame apart, as a layer's move played by hand is, so the whole of it is seen. */
+      startWhenFramesFlow([move], 2)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey])

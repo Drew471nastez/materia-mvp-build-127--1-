@@ -14,7 +14,7 @@
  * service key, so this check is the access control).
  */
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanPassword, hashPassword, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/site-password/hash"
@@ -23,12 +23,11 @@ import { publicAccess, readSiteAccess, saveSiteAccess } from "@/lib/site-passwor
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-async function me(): Promise<{ userId: string; creatorId: string } | null> {
-  const supabase = await createClient()
-  const { data: auth } = await supabase.auth.getUser()
-  if (!auth.user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
-  return creator ? { userId: auth.user.id, creatorId: (creator as { id: string }).id } : null
+/* The owner, or a team member with Website working in the store (lib/team/website). */
+async function me(): Promise<{ userId: string; creatorId: string } | NextResponse> {
+  const site = await websiteCaller()
+  if (site.error !== null) return json({ error: site.status === 401 ? "Sign in again." : site.error }, site.status)
+  return { userId: site.userId, creatorId: site.creatorId }
 }
 
 function json(body: unknown, status = 200) {
@@ -37,13 +36,13 @@ function json(body: unknown, status = 200) {
 
 export async function GET() {
   const who = await me()
-  if (!who) return json({ error: "Sign in again." }, 401)
+  if (who instanceof NextResponse) return who
   return json(publicAccess(await readSiteAccess(createAdminClient(), who.creatorId)))
 }
 
 export async function POST(req: Request) {
   const who = await me()
-  if (!who) return json({ error: "Sign in again." }, 401)
+  if (who instanceof NextResponse) return who
   const limited = await rateLimit({
     bucket: "site-password-settings",
     subjects: [`user:${who.userId}`],

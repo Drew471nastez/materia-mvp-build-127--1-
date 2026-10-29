@@ -182,8 +182,11 @@ function switchScreen() {
       && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(jar)
       && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(jar) && /cleanSwitchName\(arrival\.name\)/.test(jar))
   const layout = read("app/app/layout.tsx")
-  check("the new /app's HTML draws the screen when the cookie came, before its session gate, on both of the layout's paths",
-    /readSwitchArrival\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
+  /* Changed on purpose (round 42 reliability): the layout has a third path, Storelib could not read the profile or the creator row
+     (components/app/service-unavailable.tsx), and it draws the screen before its gate too. Every gate, so the count is all of them. */
+  check("the new /app's HTML draws the screen when the cookie came, before its session gate, on every one of the layout's paths",
+    /readSwitchArrival\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 3
+      && (layout.match(/<NativeAuthGate/g) ?? []).length === 3
       && /__html: SWITCH_ARRIVAL_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\.name\} photo=\{switchingTo\.photo\} \/>/.test(layout))
   const screen = read("components/app/business-switch-screen.tsx")
   /*

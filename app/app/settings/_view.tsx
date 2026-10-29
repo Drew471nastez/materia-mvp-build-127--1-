@@ -2,6 +2,9 @@ import { SettingsFormNew } from "@/components/app/settings-form-new"
 import { loadSettingsData } from "./_server"
 import { TeamPanel } from "@/components/app/settings/lazy-panels"
 import { getServerTt } from "@/lib/i18n/server"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { logServiceFailure } from "@/lib/net/log"
+import { ServiceUnavailable } from "@/components/app/service-unavailable"
 
 /**
  * Settings, drawn as the sheet. Two ways in, one drawing:
@@ -24,7 +27,19 @@ import { getServerTt } from "@/lib/i18n/server"
  * before it) so a slow answer arrives rather than snaps into the sheet.
  */
 export async function SettingsForm() {
-  const data = await loadSettingsData()
+  let data: Awaited<ReturnType<typeof loadSettingsData>>
+  try {
+    data = await loadSettingsData()
+  } catch (e) {
+    /* Supabase did not answer in time (lib/net/service-error.ts): said in Settings' own place, with Try again, never /onboarding or the app's error page. */
+    if (!isServiceUnavailable(e)) throw e
+    logServiceFailure(e)
+    return (
+      <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6" data-settings-unavailable="">
+        <ServiceUnavailable inline />
+      </div>
+    )
+  }
   if (!data) return null
   /* A team member with no store of their own: their Team section, which is all of Settings that is theirs to change here. */
   if (data.memberOnly) {

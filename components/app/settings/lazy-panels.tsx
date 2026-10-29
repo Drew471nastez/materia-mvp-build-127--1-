@@ -45,10 +45,58 @@ export type SettingsPanelKey = keyof typeof LOADERS
 const loaded = new Map<SettingsPanelKey, ComponentType<AnyProps>>()
 const loading = new Map<SettingsPanelKey, Promise<ComponentType<AnyProps>>>()
 
+/*
+  A SECTION'S CODE IS WAITED FOR, BUT NOT FOR EVER. "I click on something and
+  it doesn't load it": a chunk request that is taken and never answered (a
+  phone on a stalled connection, a captive network) left the import pending,
+  and the press waited on it (settings-form-new swaps a section in only once
+  its code is here), so the pill lit and the section before stayed, with
+  nothing to say why. scripts/check-settings-switch.mjs SWITCH_ONLY=hang
+  measured it: still the section before after 15s. Turbopack's chunk loader
+  has no deadline of its own.
+
+  Past CODE_WAIT_MS the wait rejects with SettingsCodeTimeout, which the
+  section's own boundary reads as "taking too long", with Try again. The
+  import itself is not cancelled (nothing can cancel one): if it lands later
+  the section is kept (`loaded`) and the next press draws it at once.
+*/
+export const CODE_WAIT_MS = 8_000
+
+export class SettingsCodeTimeout extends Error {
+  constructor(key: string) {
+    super(`settings section ${key} code took longer than ${CODE_WAIT_MS / 1000}s`) // i18n-ignore: for the log
+    this.name = "SettingsCodeTimeout"
+  }
+}
+
+function within<T>(p: Promise<T>, key: SettingsPanelKey): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new SettingsCodeTimeout(key)), CODE_WAIT_MS)
+    p.then(
+      (v) => {
+        window.clearTimeout(t)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(t)
+        reject(e)
+      },
+    )
+  })
+}
+
+function importCode(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
+  const p = LOADERS[key]() as Promise<ComponentType<AnyProps>>
+  /* Landing after its deadline still counts: the next press finds it here. */
+  p.then((c) => loaded.set(key, c), () => undefined)
+  return p
+}
+
 /** Once more after a moment: a phone that dropped the connection for a second gets the section rather than its failure. */
 function fetchCode(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
-  return (LOADERS[key]() as Promise<ComponentType<AnyProps>>).catch(
-    () => new Promise<ComponentType<AnyProps>>((resolve, reject) => window.setTimeout(() => (LOADERS[key]() as Promise<ComponentType<AnyProps>>).then(resolve, reject), 400)),
+  return within(
+    importCode(key).catch(() => new Promise<ComponentType<AnyProps>>((resolve, reject) => window.setTimeout(() => importCode(key).then(resolve, reject), 400))),
+    key,
   )
 }
 
@@ -73,6 +121,7 @@ function load(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
           failed answer, so the section's boundary says so at once instead of
           the press waiting through a second fetch of a file that is gone.
         */
+        failed.add(key)
         window.setTimeout(() => {
           if (loading.get(key) === p) loading.delete(key)
         }, FAILED_KEPT_MS)
@@ -86,6 +135,13 @@ function load(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
   return p
 }
 const FAILED_KEPT_MS = 3000
+const failed = new Set<SettingsPanelKey>()
+
+/** A section's Try again (components/app/settings/section-boundary.tsx): every failed section is asked for afresh, at once. */
+export function forgetFailedSettingsPanels(): void {
+  for (const key of failed) if (!loaded.has(key)) loading.delete(key)
+  failed.clear()
+}
 
 /** The settings tab ids whose section is one of these chunks. Returns are two sections (shipping's and the reasons). */
 const TAB_PANELS: Record<string, SettingsPanelKey[]> = {
@@ -137,6 +193,7 @@ const idle = () =>
 
 export function preloadSettingsPanels(): void {
   const keys = (Object.keys(LOADERS) as SettingsPanelKey[]).filter((k) => !loading.has(k) && !loaded.has(k))
+  /* Each step ends by CODE_WAIT_MS at the latest (fetchCode): one stalled chunk never holds back the ones after it. */
   void keys.reduce<Promise<unknown>>((chain, k) => chain.then(idle).then(() => (loaded.has(k) ? null : load(k).catch(() => null))), Promise.resolve())
 }
 

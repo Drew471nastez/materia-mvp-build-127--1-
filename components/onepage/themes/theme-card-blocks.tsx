@@ -10,7 +10,7 @@
  * is the same height (65px), so cards of different themes line up.
  */
 import type * as React from "react"
-import { blockLayoutOf } from "@/lib/onepage/theme-layout"
+import { blockLayoutOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
 
 type CardConfig = Record<string, any>
 
@@ -25,7 +25,50 @@ export function cardButtonLook(c: CardConfig, scale = 0.5): React.CSSProperties 
   return { background: c.button_color, border: border ? `${Math.min(border, 2)}px solid ${c.button_border_color}` : undefined, borderRadius: radius, boxShadow: shadow }
 }
 
+/**
+ * Round 42: a theme that shows products its own way says so on its card: two
+ * small tiles with a picture (Grid), or two rows with a price pill (Rows).
+ */
+function CardProducts({ c, look, ink }: { c: CardConfig; look: React.CSSProperties; ink: string }) {
+  const kind = themeProductLayoutOf(c)
+  const text = c.text_color || "#111111"
+  if (kind === "grid") {
+    return (
+      <span className="mt-[7px] grid w-full grid-cols-2 gap-[7px]" data-theme-card-products="grid">
+        {[0, 1].map((i) => (
+          <span key={i} className="flex flex-col overflow-hidden" style={{ ...look, borderRadius: Math.min(Number(look.borderRadius) || 0, 6) }}>
+            <span className="block aspect-[4/3] w-full" style={{ background: `color-mix(in srgb, ${ink} 24%, transparent)` }} />
+            <span className="grid h-[9px] place-items-center"><span className="block h-[2px] w-[50%] rounded-full" style={{ background: ink, opacity: 0.8 }} /></span>
+          </span>
+        ))}
+      </span>
+    )
+  }
+  if (kind === "rows") {
+    return (
+      <span className="mt-[7px] flex w-full flex-col" data-theme-card-products="rows">
+        {[0, 1].map((i) => (
+          <span key={i} className="flex h-[13px] w-full items-center justify-between" style={{ borderBottom: `1px solid color-mix(in srgb, ${text} 22%, transparent)` }}>
+            <span className="block h-[3px] w-[44%] rounded-full" style={{ background: text, opacity: 0.7 }} />
+            <span className="block h-[7px] w-[18%]" style={{ background: c.button_color, borderRadius: 4 }} />
+          </span>
+        ))}
+      </span>
+    )
+  }
+  return null
+}
+
 export function ThemeCardBlocks({ c }: { c: CardConfig }) {
+  return (
+    <>
+      <ThemeCardLinks c={c} />
+      <CardProducts c={c} look={cardButtonLook(c)} ink={c.button_text_color || c.text_color || "#111111"} />
+    </>
+  )
+}
+
+function ThemeCardLinks({ c }: { c: CardConfig }) {
   const text = c.text_color || "#111111"
   const ink = c.button_text_color || text
   const look = cardButtonLook(c)

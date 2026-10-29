@@ -251,7 +251,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /<AppTopCorners \/>/.test(cold)
       && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
   const layout = code("app/app/layout.tsx")
-  check("and both of the layout's gates use it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2)
+  /* Changed on purpose (round 42 reliability): a third gate, over the screen that says the profile or the creator row could not be read; it uses it too. */
+  check("and every one of the layout's gates uses it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 3 && (layout.match(/<NativeAuthGate/g) ?? []).length === 3)
   const dash = code("components/app/dashboard-client.tsx")
   /* "The loading should not be the spinner in the charts loading and the
      tables loading; loading structures or skeleton, light gray shimmering."
@@ -274,7 +275,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Analytics' cards draw their own shapes while they wait (rows, the funnel, a figure) and crossfade into the figures",
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
       /* Changed on purpose: ten, with Referrers and Operating systems (round Z6); eleven with the added reports' own cards, which wait the same way (app/app/analytics/analytics-reports AddedCards). */
-      && (reports.match(/<Body blank=\{/g) ?? []).length === 11
+      /* Changed on purpose (round 42, clicks between pages): twelve, with the website's Clicks between pages card, which waits as rows the same way. */
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 12
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} \/>\} className=\{BODY\} contentClassName="h-full flex flex-col">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was
@@ -300,7 +302,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts")? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts"| label=\{tt\("Loading payouts"\)\})? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady(, canManage)? \}\)\}\s*<\/Suspense>/.test(payoutsPage) /* Changed on purpose (round 42 team): canManage, whether Cash out and the bank are drawn */
       && (/function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage) || /function PayoutsWaiting\(\{ label \}: \{ label: string \}\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label=\{label\}>/.test(payoutsPage) /* its words from the page, in the request's language */)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))

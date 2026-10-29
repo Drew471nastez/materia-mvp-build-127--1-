@@ -23,6 +23,7 @@ import { renderReviewWidget, type WidgetReviews } from "@/lib/reviews/widgets/re
 import { buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
 import { DESKTOP_WIDTH, PHONE_WIDTH, WidgetPreview } from "./widget-preview"
 import { hapticTap } from "@/lib/native-bridge"
+import { SlimScrollRail } from "@/components/website-builder/editor/slim-scroll-rail"
 
 const LABEL = "text-[13px] font-medium text-[#1a1a2e]"
 const INPUT = "h-9 w-full rounded-lg border border-[#e3e4e8] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 md:text-[13px]"
@@ -98,6 +99,7 @@ export function WidgetCustomizer(props: CustomizerProps) {
 
   return (
     <div className="pb-24 md:pb-10" data-widget-customizer={type}>
+      <SlimScrollRail />
       <div className="flex flex-wrap items-center gap-2 pb-3">
         <button type="button" onClick={props.onBack} className={buttonSecondary} data-customizer-back="">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -140,7 +142,8 @@ export function WidgetCustomizer(props: CustomizerProps) {
             </div>
             {!props.ready ? <p className="mt-2 text-[12.5px] text-[#6b7280]">{tt("Saving looks needs the database update (SQL part 216).")}</p> : null}
           </div>
-          <div className="max-h-none divide-y divide-[#eef0f2] lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto">
+          {/* The settings scroll on their own beside the preview, under a thin bar drawn over them that takes no width (the builder's SlimScrollRail): the platform's classic bar was a grey column down the card. */}
+          <div className="wb-slim-scroll max-h-none divide-y divide-[#eef0f2] lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto lg:overscroll-contain" data-customizer-fields="">
             {fieldsFor(type).map((g, i) => (
               <details key={g.id} open={i < 2} className="group">
                 <summary className="flex h-11 cursor-pointer list-none items-center justify-between px-4 text-[14px] font-semibold text-[#1a1a2e] [&::-webkit-details-marker]:hidden">

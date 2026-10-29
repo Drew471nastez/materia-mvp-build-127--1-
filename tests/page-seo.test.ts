@@ -196,9 +196,11 @@ console.log("\nA product is described in its creator's words, with its real avai
 
 console.log("\nA picture that means something says what it is")
 {
-  const onepage = read("components/onepage/public-onepage.tsx")
+  /* Changed on purpose (round 42, theme layout covers): a theme's cover picture across the top is decoration, like a hero's backdrop, so its alt="" is the one allowed. Everything else still has no empty alt. */
+  const onepageRaw = read("components/onepage/public-onepage.tsx")
+  const onepage = onepageRaw.replace(/data-cover-image=""[\s\S]*?alt=""/, "data-cover-image=\"\"")
   check("a OnePage names every product, link and file thumbnail by its title, and the avatar by the name",
-    !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
+    onepage !== onepageRaw && !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
       /* Round 10: the product block's pictures are drawn by components/onepage/product-block.tsx, each named by the product's title. */
       !/alt=""/.test(read("components/onepage/product-block.tsx")) && (read("components/onepage/product-block.tsx").match(/alt=\{title\}/g) ?? []).length === 2 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
       /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) &&

@@ -28,15 +28,16 @@ import { siteCollections } from "@/lib/website-builder/storefront-collections-se
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+/* Round 42: the builder's collection picker reads the store's for Website (and Products); making one is Products'. */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller(["website", "products"])
   if (c instanceof NextResponse) return c
   const { collections, choices } = await siteCollections(c.db, c.creatorId, { published: false })
   return physicalJson({ choices, cards: collections })
 }
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

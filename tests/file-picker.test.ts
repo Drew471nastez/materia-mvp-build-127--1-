@@ -61,7 +61,7 @@ check("it uploads through the website file route, with a progress bar", /fetch\(
 check("and the server checks the bytes after", /confirmUpload\(ticket\.bucket, ticket\.path\)/.test(control))
 check("it refuses a file that does not fit before uploading", /if \(!fileFits\(file\.name, accept\)\)/.test(control))
 check("and still takes a pasted link", /data-file-address=""/.test(control) && /Or paste a file link/.test(control))
-check("the route checks sign in, a seller, the rate limit, accept and the public file rules", /auth\.getUser\(\)/.test(route) && /from\("creators"\)/.test(route) && /uploadRateLimit\(/.test(route) && /fileFits\(fileName, body\?\.accept\)/.test(route) && /validateFile\(fileName, contentType, fileSize, null, "link_page_file"\)/.test(route))
+check("the route checks sign in, a seller, the rate limit, accept and the public file rules", /websiteCaller\(\)/.test(route) && /from\("creators"\)/.test(route) /* Changed on purpose (round 42 team): signed in and the store through lib/team/website */ && /uploadRateLimit\(/.test(route) && /fileFits\(fileName, body\?\.accept\)/.test(route) && /validateFile\(fileName, contentType, fileSize, null, "link_page_file"\)/.test(route))
 check("the file goes in the creator's own folder, under its own name", /`\$\{creator\.id\}\/site-files\/\$\{folder\}\/\$\{safeStem\(fileName\)\}\.\$\{storageExtension\(fileName\)\}`/.test(route))
 check("the controls reference documents accept", /- Reads these extra keys: `accept`/.test(read("docs/theme/05-controls-reference.md")) && /### Files: `file_picker` and `accept`/.test(read("content/developers/schema.md")))
 

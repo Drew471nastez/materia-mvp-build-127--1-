@@ -122,7 +122,7 @@ function main() {
 
     check("the link can be asked about, made and taken away", /export async function GET/.test(api) && /export async function POST/.test(api) && /export async function DELETE/.test(api))
     check("and there is no rotate, because off then on is the same thing", !/export async function PUT/.test(api))
-    check("and only by whoever owns the theme", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(api))
+    check("and only by whoever owns the theme", /\.eq\("creator_id", site\.creatorId\)/.test(api) && /websiteInstallCaller\(installId\)/.test(api) /* Changed on purpose (round 42 team): the store's, the owner's or the one a member with Website works in */)
     check("revoking sets it to null, so every link already sent stops working", /update\(\{ preview_token: null \}\)/.test(api))
     check("before the migration is run it says which file to run", /RUN_THEME_PREVIEW_LINK\.sql/.test(api))
     check("the migration is idempotent and additive", /add column if not exists preview_token/.test(sql) && /create unique index if not exists/.test(sql))

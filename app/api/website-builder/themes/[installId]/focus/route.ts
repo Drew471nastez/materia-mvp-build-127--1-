@@ -11,8 +11,8 @@
  * table (RUN_AGENT_MCP.sql); nothing in the body names a creator or a table.
  * Before that SQL has been run this answers 204 and stores nothing.
  */
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 
@@ -28,18 +28,9 @@ export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
   if (!/^[0-9a-f-]{36}$/i.test(installId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const { data: install } = await supabase
-    .from("store_theme_installs")
-    .select("id")
-    .eq("id", installId)
-    .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle()
-  if (!install) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website). */
+  const site = await websiteInstallCaller(installId)
+  if (site.error !== null) return NextResponse.json({ error: site.status === 404 ? "Not found" : site.error }, { status: site.status })
 
   /* Three short strings, so a small cap: lib/website-builder/request-body.ts. */
   const read = await readEditorBody(req, BODY_LIMITS.small)

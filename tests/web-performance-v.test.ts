@@ -510,7 +510,7 @@ async function main() {
     check("the migration says the same", read("supabase/migrations/20270201_v2_site_web_performance.sql").includes("create table if not exists public.site_rum_events"))
     check("listed in the README and the check after", /`210_site_web_performance\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p210_site_web_performance/.test(read("supabase/sql/run-now/99_check_after.sql")))
     const routeRead = code("app/api/website-builder/themes/[installId]/performance/route.ts")
-    check("the read route proves the install is the signed in creator's, then reads as the user", /\.eq\("creator_id", creator\.id\)/.test(routeRead) && /readPerformance\(\{ user: supabase/.test(routeRead))
+    check("the read route proves the install is the signed in creator's, then reads as the user", /websiteInstallCaller/.test(routeRead) && /readPerformance\(\{ user: supabase/.test(routeRead) /* Changed on purpose (round 42 team): the install checked by lib/team/website */)
     const reader = code("lib/website-builder/web-performance-read.ts")
     check("the reader reads with the user's client: the policies decide", /user\.rpc\("site_rum_window"/.test(reader) && /user\s*\.from\("site_rum_daily"\)/.test(reader) && /readEvents\(user, installId/.test(reader))
   }

@@ -28,12 +28,14 @@ import { OFFERS_APP_BLOCK } from "./offers-app-block"
 
 export const REVIEWS_SECTION_TYPE = "storelib-reviews"
 export const REVIEW_WIDGET_SECTION_TYPE = "storelib-review-widget"
+/* Storelib Email's sign up (./storelib-newsletter.ts). */
+export const NEWSLETTER_SECTION_TYPE = "storelib-newsletter"
 
 /** The section types Storelib adds to every imported theme. */
-export const STORELIB_APP_SECTION_TYPES: readonly string[] = [REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE]
+export const STORELIB_APP_SECTION_TYPES: readonly string[] = [REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE, NEWSLETTER_SECTION_TYPE]
 
 /** What the builder names each one, as Add section does. */
-export const STORELIB_APP_SECTION_NAMES: Readonly<Record<string, string>> = { [REVIEWS_SECTION_TYPE]: "Storelib Reviews", [REVIEW_WIDGET_SECTION_TYPE]: "Reviews widget" }
+export const STORELIB_APP_SECTION_NAMES: Readonly<Record<string, string>> = { [REVIEWS_SECTION_TYPE]: "Storelib Reviews", [REVIEW_WIDGET_SECTION_TYPE]: "Reviews widget", [NEWSLETTER_SECTION_TYPE]: "Newsletter" }
 
 /** Storelib's own app blocks, by the address a page keeps them under. */
 export const STORELIB_APP_BLOCK_TYPES: readonly string[] = [REVIEW_STARS_BLOCK, REVIEWS_LIST_BLOCK, STOCK_STATUS_BLOCK, ESTIMATED_DELIVERY_BLOCK, SIZE_CHART_APP_BLOCK, OFFERS_APP_BLOCK]

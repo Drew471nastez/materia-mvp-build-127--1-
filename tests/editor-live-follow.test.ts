@@ -232,8 +232,9 @@ function wiring() {
 
   console.log("\nOnePage never spins for ever")
   const gate = read("components/native-auth-gate.tsx")
-  check("the trip through sync-session has an end, and that end is Try again", /window\.location\.assign\(syncUrl\)\s*\/\*[^*]*\*\/\s*window\.setTimeout\(\(\) => \{\s*if \(!cancelled\) setStuck\(true\)\s*\}, SYNC_NAVIGATION_MS\)/.test(gate) && /SYNC_NAVIGATION_MS = 12_000/.test(gate) && /Try again/.test(gate))
-  check("  bounded per tab, so it is never a reload loop", /MAX_RECOVERIES = 2/.test(gate) && /noteRecovery\(\)\s*window\.location\.assign\(syncUrl\)/.test(gate))
+  /* Changed on purpose (round net-1028): the trip is a same origin form post (postSessionSync), so the tokens are never in an address Vercel logs. */
+  check("the trip through sync-session has an end, and that end is Try again", /postSessionSync\(session, currentPath\)\s*\/\*[^*]*\*\/\s*window\.setTimeout\(\(\) => \{\s*if \(!cancelled\) setStuck\(true\)[\s\S]{0,80}\}, SYNC_NAVIGATION_MS\)/.test(gate) && /SYNC_NAVIGATION_MS = 12_000/.test(gate) && /Try again/.test(gate))
+  check("  bounded per tab, so it is never a reload loop", /MAX_RECOVERIES = 2/.test(gate) && /noteRecovery\(\)\s*postSessionSync\(session, currentPath\)/.test(gate))
   const stage = read("components/app/app-stage.tsx")
   check("a press loaded as a document that never finishes gives way", /window\.location\.assign\(nav\.href as string\)[\s\S]{0,900}?timers\.push\(window\.setTimeout\(\(\) => \{\s*if \(getAppNavigation\(\) !== nav\) return\s*try \{ window\.stop\(\) \}[\s\S]{0,300}?\}, DOCUMENT_LOAD_CAP_MS\)\)/.test(stage) && /DOCUMENT_LOAD_CAP_MS = 15_000/.test(stage))
   const page = read("app/app/onepage/page.tsx")

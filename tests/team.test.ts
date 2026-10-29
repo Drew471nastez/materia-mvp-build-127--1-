@@ -32,7 +32,7 @@ console.log("\nWho may do what (round 40: permissions per member)")
   check("an old Manager row keeps Orders, and only Orders", legacyPermissions("manager").join() === "orders" && permits(legacyPermissions("manager"), "orders") && !permits(legacyPermissions("manager"), "products"))
   check("an old Staff row has nothing", legacyPermissions("staff").length === 0)
   check("payouts and billing and the team are in no preset", (["full", "content", "support"] as const).every((p) => OFF_BY_DEFAULT.every((k) => !presetPermissions(p).includes(k))))
-  check("the store's own area is nobody's but the owner's", !permits(["orders", "team", "payouts_billing"], "store"))
+  check("the store's own area is nobody's but the owner's", !permits(["orders", "team", "payouts_billing" as never], "store"))
   check("an Orders member starts in Orders", homeFor(["orders"]) === "/app/orders")
   check("only manager and staff are values of the old role column", isMemberRole("manager") && isMemberRole("staff") && !isMemberRole("owner") && !isMemberRole("admin") && !isMemberRole(undefined))
 }
@@ -49,7 +49,8 @@ console.log("\nWhich area a dashboard address is")
 {
   check("orders and an order's pages are Orders", areaOfPath("/app/orders") === "orders" && areaOfPath("/app/orders/sales") === "orders" && areaOfPath("/app/orders/abc/") === "orders")
   check("the dashboard, settings and one's own account belong to nobody's store", areaOfPath("/app") === null && areaOfPath("/app/settings") === null && areaOfPath("/app/settings/account") === null)
-  check("payouts and billing are one permission", areaOfPath("/app/payouts") === "payouts_billing" && areaOfPath("/app/settings/billing") === "payouts_billing" && areaOfPath("/app/settings/payments") === "payouts_billing")
+  /* Changed on purpose (round 42 team): payouts and billing are two permissions each, to see and to change (lib/team/money). */
+  check("payouts and billing are their own permissions", areaOfPath("/app/payouts") === "payouts" && areaOfPath("/app/settings/billing") === "billing" && areaOfPath("/app/settings/payments") === "payouts_manage")
   check("an address nobody listed is the owner's, never open by default", areaOfPath("/app/something-new") === "store")
 }
 

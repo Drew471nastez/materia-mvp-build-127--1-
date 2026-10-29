@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { websitePage } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
@@ -13,7 +13,6 @@ import {
   snapshotTakenAt,
   mobilePartner,
 } from "@/lib/website-builder/snapshot"
-import { pageUser } from "@/lib/auth/page-user"
 import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 import { getServerTt } from "@/lib/i18n/server"
 import { publishedListings } from "@/lib/themes/marketplace-server"
@@ -108,15 +107,15 @@ function toSummary(row: InstallRow): WebsiteSummary {
 }
 
 export default async function WebsiteBuilderPage() {
-  const supabase = await createClient()
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /* Whose store (round 42): the owner's own, or the store a team member with Website works in (lib/team/website). */
+  const access = await websitePage()
+  if (access.kind === "closed") return null
+  if (access.kind === "none") redirect("/app")
+  const supabase = access.db
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug").eq("user_id", user.id).maybeSingle(),
-    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
+    supabase.from("creators").select("id, slug").eq("id", access.creatorId).maybeSingle(),
+    supabase.from("profiles").select("username").eq("id", access.ownerUserId).maybeSingle(),
   ])
   if (!creator) redirect("/app")
 
@@ -154,12 +153,13 @@ export default async function WebsiteBuilderPage() {
 
   const installs = await withStoredCovers(
     ((rows ?? []) as unknown as InstallRow[]).map(toSummary),
-    user.id,
+    /* Covers are kept in the store owner's folder. */
+    access.ownerUserId,
   )
 
   /* The website's own name on Storelib, when its creator gave it one. */
   const siteHandle = await handle
-  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={user.id} />
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={access.viewer} teamMember={!access.isOwner} />
 }
 
 /**

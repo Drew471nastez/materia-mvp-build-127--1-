@@ -1,7 +1,6 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
@@ -13,25 +12,11 @@ type Params = { params: Promise<{ installId: string }> }
  * and this install is theirs. A backup route that trusted the install id in
  * the URL would let anyone list anyone's history.
  */
+/* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 async function ownInstall(installId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401, supabase: null }
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
-  if (!creator) return { error: "Creator not found", status: 404, supabase: null }
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id")
-    .eq("id", installId)
-    .eq("creator_id", creator.id)
-    .maybeSingle())
-  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
-  if (!install) return { error: "Theme not found", status: 404, supabase: null }
-
-  return { error: null, status: 200, supabase, userId: user.id }
+  const c = await websiteInstallCaller(installId)
+  if (c.error !== null) return { error: c.error, status: c.status, supabase: null }
+  return { error: null, status: 200, supabase: c.supabase, userId: c.userId }
 }
 
 // GET /api/website-builder/themes/[installId]/backups

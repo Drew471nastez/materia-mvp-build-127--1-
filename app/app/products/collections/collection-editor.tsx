@@ -36,10 +36,10 @@ import { ThumbScroll } from "@/components/app/thumb-scroll"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { RULE_FIELDS, inSmartCollection, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
 import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS } from "@/lib/products/category-groups"
-import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../new/editor-controls"
+import { FormSwitch, Segmented, SwapPanels } from "../new/editor-controls"
 import { LeaveButton } from "../new/editor-buttons"
 import { useConfirm } from "../new/confirm-sheet"
-import { iconButton } from "../../orders/order-parts"
+import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { CouponSaveButton, Tick } from "../../coupons/coupon-parts"
 import { collectionsReturn } from "./list-return"
 import {
@@ -373,6 +373,12 @@ export function CollectionPage({ collection, products }: { collection: Collectio
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
+          {/* Where it stands, as the coupon's header says it: the saved state, so it changes on Save, not on the switch. */}
+          {c ? (
+            <span className="ml-1 shrink-0" data-collection-state={c.published ? "published" : "hidden"}>
+              <StatusBadge tone={c.published ? "success" : "neutral"}>{c.published ? tt("Published") : tt("Hidden")}</StatusBadge>
+            </span>
+          ) : null}
         </header>
 
         {error ? (
@@ -443,20 +449,35 @@ export function CollectionPage({ collection, products }: { collection: Collectio
             </section>
           </div>
 
+          {/* From lg the side column stays in view while the collection is filled in, drawn as the coupon editor's side is (../../coupons/coupon-editor.tsx): a card with its switch, not a settings list. */}
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
-            <div className={SWITCH_GROUP}>
-              <SwitchRow title={tt("Published")} hint={published ? tt("Can be shown on your website") : tt("Hidden from your website")} checked={published} onChange={setPublished} />
-              <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
-                <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
+            {/* ── Shown or not, and in what order ─────────────────────── */}
+            <section data-collection-status="" className={CARD} aria-labelledby="collection-status-title">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 id="collection-status-title" className={CARD_TITLE}>
+                    {tt("Published")}
+                  </h2>
+                  <p className={cn(HINT, "mt-0.5")}>{published ? tt("Its page is on your website, and menus and sections can show it.") : tt("Hidden. Nobody sees it on your website until you turn it on.")}</p>
+                </div>
+                <div className="pt-0.5">
+                  <FormSwitch checked={published} onChange={setPublished} label={tt("Published")} />
+                </div>
+              </div>
+              <div className="border-t border-[#eef0f2] pt-4">
+                <label htmlFor="collection-sort" className={LABEL}>
+                  {tt("Products are shown")}
+                </label>
+                <select id="collection-sort" value={sort} onChange={(e) => setSort(e.target.value)} className={SELECT}>
                   {SORTS.map(([v, label]) => (
                     <option key={v} value={v}>
                       {tt(label)}
                     </option>
                   ))}
                 </select>
-              </label>
-            </div>
+                {sort === "manual" && kind === "manual" ? <p className={cn(HINT, "mt-1.5")}>{tt("In the order you picked them.")}</p> : null}
+              </div>
+            </section>
 
             {c ? (
               <div className="flex justify-start lg:justify-end">

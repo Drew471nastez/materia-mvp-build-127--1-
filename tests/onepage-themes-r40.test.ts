@@ -73,7 +73,8 @@ const page = { id: "p", theme: { template_id: "swiss", block_layout: "grid", hea
 const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }).theme as unknown as Record<string, unknown>
 check("from Swiss to a theme that names none, the page is a list, centred, regular, the old Fill", after.block_layout === null && after.header_align === null && after.button_size === null && after.button_hover_fill === null)
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }, { id: "d", category: "image" }])
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,b,lagoon,c,ember,d,atlas")
+/* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,b,lagoon,c,ember,ledger,d,atlas")
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")
@@ -138,7 +139,8 @@ check("a square asks for a copy its own size", !!set.srcSet && /w=256&q=75 256w/
 const photo = stripComments(read("components/onepage/themes/wallpaper-photo.tsx"))
 check("the photo is preloaded, decoded before it is shown, faded with opacity", /preload\(src, \{ as: "image", fetchPriority: "high" \}\)/.test(photo) && /img\.decode\(\)/.test(photo) && /transitionProperty: "opacity"/.test(photo) && /backgroundAttachment: undefined/.test(photo))
 const live = stripComments(read("components/onepage/public-onepage.tsx"))
-check("the live page draws every photo wallpaper through it", (live.match(/<WallpaperPhoto\b/g) ?? []).length === 3 && !/backgroundAttachment: "fixed"/.test(live))
+/* Changed on purpose (round 42, poster video stills): a video wallpaper's blurred surround is its saved first frame, drawn through WallpaperPhoto too, so there are four: the three photo wallpapers and the video's still. */
+check("the live page draws every photo wallpaper through it", (live.match(/<WallpaperPhoto\b/g) ?? []).length === 4 && (live.match(/<WallpaperPhoto\s+url=\{safeTheme\.background_image_url\}/g) ?? []).length === 3 && /<WallpaperPhoto\s+url=\{videoPoster\(/.test(live) && !/backgroundAttachment: "fixed"/.test(live))
 
 /* ─── The gradient's direction ────────────────────────────────────────── */
 console.log("\nThe gradient's direction")

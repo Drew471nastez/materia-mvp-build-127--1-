@@ -1,8 +1,8 @@
+import { moneyCaller } from "@/lib/team/money"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { addDays, todayIn } from "@/lib/date-range/range"
 import { NextResponse } from "next/server"
 import { lineMoney } from "@/lib/analytics/reports"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
@@ -17,19 +17,16 @@ import { inStoreCurrency } from "@/lib/money/report-currency-server"
  */
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    /* The owner, or a team member who may see the store's payouts (round 42, lib/team/money): the store's own Stripe account, never the member's. */
+    const who = await moneyCaller("payouts", "view")
+    if (!who.ok) return who.response
 
     const { data: creator } = await adminSupabase
       .from("creators")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })

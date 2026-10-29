@@ -370,3 +370,115 @@ export function RadioRows<T extends string>({ value, options, onChange, label }:
     </div>
   )
 }
+
+/* ─── What kind of offer ──────────────────────────────────────────────── */
+
+type KindValue = "quantity_break" | "bundle" | "checkout"
+
+/** A grey block in a kind's small drawing: a product's picture, a line of words, a price. */
+const Block = ({ className }: { className: string }) => <span aria-hidden className={cn("block shrink-0 rounded-[4px] bg-[#dfe2e6]", className)} />
+
+/**
+ * EACH KIND, DRAWN SMALL. Not a picture of a real offer (the Preview on the
+ * right is that, once products are picked): the shape a buyer will meet,
+ * so the three can be told apart before a word is read. Tiers stacked with
+ * one marked; two products and a plus; a cart line and one more to add.
+ */
+function KindDrawing({ kind, on }: { kind: KindValue; on: boolean }) {
+  const ink = on ? "bg-[#1a1a2e]" : "bg-[#9ca3af]"
+  if (kind === "quantity_break")
+    return (
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={cn("flex h-[14px] items-center gap-1.5 rounded-[5px] border bg-white px-1.5", i === 1 ? (on ? "border-[#1a1a2e]" : "border-[#9ca3af]") : "border-[#e3e5e8]")}>
+            <Block className={cn("h-[4px]", i === 0 ? "w-5" : i === 1 ? "w-8" : "w-7")} />
+            {i === 1 ? <span className={cn("ml-auto h-[6px] w-3 rounded-full", ink)} /> : <Block className="ml-auto h-[4px] w-3" />}
+          </span>
+        ))}
+      </span>
+    )
+  if (kind === "bundle")
+    return (
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1.5">
+        <span className="flex items-center justify-center gap-1">
+          <Block className="h-[22px] w-[22px]" />
+          <span className="text-[11px] font-semibold leading-none text-[#9ca3af]">+</span>
+          <Block className="h-[22px] w-[22px]" />
+        </span>
+        <span className={cn("block h-[9px] w-full rounded-[4px]", ink)} />
+      </span>
+    )
+  return (
+    <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
+      <span className="flex h-[16px] items-center gap-1.5">
+        <Block className="h-[14px] w-[14px]" />
+        <Block className="h-[4px] w-10" />
+      </span>
+      <span className="flex h-[18px] items-center gap-1.5 rounded-[5px] border border-dashed border-[#c7cad1] bg-white px-1">
+        <Block className="h-[12px] w-[12px]" />
+        <Block className="h-[4px] w-6" />
+        <span className={cn("ml-auto h-[8px] w-4 rounded-[3px]", ink)} />
+      </span>
+    </span>
+  )
+}
+
+/**
+ * THE START OF A NEW OFFER: the three kinds side by side from 640px, one
+ * under another on a phone, each with its name, what it does in one line and
+ * its small drawing. A radio group underneath, so the arrow keys move it and
+ * a screen reader reads it as one choice. `value` null is nothing chosen yet.
+ */
+export function KindChooser({ label, value, onChange, options }: { label: string; value: KindValue | null; onChange: (k: KindValue) => void; options: { value: KindValue; name: string; line: string }[] }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      data-kind-chooser=""
+      className="grid gap-2 sm:grid-cols-3"
+      onKeyDown={(e) => {
+        if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) return
+        e.preventDefault()
+        const i = options.findIndex((o) => o.value === value)
+        const forward = e.key === "ArrowRight" || e.key === "ArrowDown"
+        const next = i < 0 ? options[0] : options[(i + (forward ? 1 : options.length - 1)) % options.length]
+        onChange(next.value)
+        ;(e.currentTarget.querySelector(`[data-kind="${next.value}"]`) as HTMLElement | null)?.focus()
+      }}
+    >
+      {options.map((o, n) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-kind={o.value}
+            tabIndex={on || (value === null && n === 0) ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "flex min-h-[76px] cursor-pointer items-center gap-3 rounded-xl border bg-white p-3 text-left outline-none transition-[border-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.10)] sm:flex-col sm:items-stretch sm:gap-2.5",
+              on ? "border-[#1a1a2e] shadow-[inset_0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#c9ccd3]",
+            )}
+          >
+            <span className={cn("flex h-[56px] w-[72px] shrink-0 items-center rounded-lg px-2.5 transition-colors duration-150 sm:h-[64px] sm:w-full sm:px-4", on ? "bg-[#eef0f3]" : "bg-[#f6f7f8]")}>
+              <KindDrawing kind={o.value} on={on} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="text-[15px] font-semibold leading-5 text-[#1a1a2e] sm:text-[14px]">{o.name}</span>
+                <span className="ml-auto sm:hidden">
+                  <Radio on={on} />
+                </span>
+              </span>
+              <span data-kind-hint={o.value} className="mt-0.5 block text-[13px] leading-[18px] text-[#6b7280]">
+                {o.line}
+              </span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}

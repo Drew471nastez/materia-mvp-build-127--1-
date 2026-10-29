@@ -32,7 +32,10 @@ export const TEAM_PERMISSIONS = [
   "analytics",
   "settings",
   "team",
-  "payouts_billing",
+  "payouts",
+  "payouts_manage",
+  "billing",
+  "billing_manage",
 ] as const
 
 export type TeamPermission = (typeof TEAM_PERMISSIONS)[number]
@@ -55,7 +58,7 @@ export function isTeamPermission(v: unknown): v is TeamPermission {
  * A permission not open yet is shown in the invite form, unticked and
  * unavailable, and is never stored or honoured.
  */
-export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(["onepage", "products", "orders", "customers", "marketing", "community", "analytics", "settings", "team"])
+export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(TEAM_PERMISSIONS)
 /*
   Round 40, second pass: OnePage (lib/team/onepage, the store owner's page
   through the editor's server routes) and Community (lib/communities/server
@@ -73,6 +76,16 @@ export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>
   Store settings is open as Settings › Store details alone: the name,
   contact, phone and logo (lib/team/settings). Still closed, and why, in
   tests/team-areas-r41.test.ts: the website builder and the creator page.
+
+  Round 42: everything is open. The website builder (lib/team/website: its
+  routes and pages read the store's sites by the store's id, a site in the
+  URL checked to be the store's), the creator page (lib/team/creator-page:
+  the store owner's profile and page, edited in place by a member with
+  Creator page), and money, split in two each (lib/team/money): Payouts to
+  see the balance and payouts, Change payouts to cash out and change the
+  payout account; Billing to see the plan and invoices, Change billing to
+  change the plan and the card. Changing always gives seeing too. The
+  money permissions are never in a preset. tests/team-areas-r42.test.ts.
 */
 
 export function isOpen(p: TeamPermission): boolean {
@@ -80,7 +93,31 @@ export function isOpen(p: TeamPermission): boolean {
 }
 
 /** Never in a preset: given one by one, by the owner, when they mean it. */
-export const OFF_BY_DEFAULT: readonly TeamPermission[] = ["payouts_billing", "team"]
+export const OFF_BY_DEFAULT: readonly TeamPermission[] = ["payouts", "payouts_manage", "billing", "billing_manage", "team"]
+
+/**
+ * Round 42: the money permissions come in pairs. Changing gives seeing: a
+ * list that holds payouts_manage holds payouts too, and taking away seeing
+ * takes away changing.
+ */
+export const MANAGE_NEEDS: Readonly<Partial<Record<TeamPermission, TeamPermission>>> = { payouts_manage: "payouts", billing_manage: "billing" }
+
+/** Pure: a list with one permission ticked or unticked, keeping each pair whole. */
+export function togglePermission(perms: readonly TeamPermission[], p: TeamPermission, on: boolean): TeamPermission[] {
+  if (on) return normalizePermissions([...perms, p])
+  const dependants = (Object.keys(MANAGE_NEEDS) as TeamPermission[]).filter((m) => MANAGE_NEEDS[m] === p)
+  return normalizePermissions(perms.filter((x) => x !== p && !dependants.includes(x)))
+}
+
+/**
+ * THE OLD payouts_billing KEY (before round 42). It was never open to the
+ * team, so a row that holds it could use nothing of payouts or billing. It
+ * is not a key any more and is dropped here like any unknown string: such a
+ * member keeps exactly what they had (their other permissions), and is never
+ * given Payouts or Billing in its place. SQL part 333 still allows it in the
+ * column so no row stops being valid.
+ */
+export const RETIRED_PERMISSIONS: readonly string[] = ["payouts_billing"]
 
 /**
  * A member's permissions as the server keeps them: known keys only, each
@@ -90,6 +127,7 @@ export const OFF_BY_DEFAULT: readonly TeamPermission[] = ["payouts_billing", "te
 export function normalizePermissions(v: unknown): TeamPermission[] {
   if (!Array.isArray(v)) return []
   const given = new Set(v.filter(isTeamPermission))
+  for (const [manage, view] of Object.entries(MANAGE_NEEDS) as [TeamPermission, TeamPermission][]) if (given.has(manage)) given.add(view)
   return TEAM_PERMISSIONS.filter((p) => given.has(p) && isOpen(p))
 }
 
@@ -189,15 +227,17 @@ const PATH_AREAS: [prefix: string, area: TeamArea][] = [
   ["/app/analytics", "analytics"],
   ["/app/community", "community"],
   ["/app/website-builder", "website"],
-  ["/app/sites", "website"],
+  /* Storelib AI's sites are kept by the owner's account under row level security alone (lib/sites/projects): the owner's. */
+  ["/app/sites", "store"],
   ["/app/onepage", "onepage"],
   ["/app/creator-page", "creator_pages"],
   ["/creator-page", "creator_pages"],
   /* Round 41: Store settings gives Store details alone (lib/team/settings); the Integrations page and its keys stay the owner's. */
   ["/app/integrations", "store"],
-  ["/app/payouts", "payouts_billing"],
-  ["/app/settings/billing", "payouts_billing"],
-  ["/app/settings/payments", "payouts_billing"],
+  /* Round 42: Payouts is seeing them; Settings › Payments (how buyers pay, the payout account) is changing them. */
+  ["/app/payouts", "payouts"],
+  ["/app/settings/billing", "billing"],
+  ["/app/settings/payments", "payouts_manage"],
 ]
 
 export function areaOfPath(pathname: string): TeamArea | null {
@@ -225,7 +265,8 @@ const AREA_HOME: Partial<Record<TeamPermission, string>> = {
   website: "/app/website-builder",
   onepage: "/app/onepage",
   creator_pages: "/creator-page",
-  payouts_billing: "/app/payouts",
+  payouts: "/app/payouts",
+  billing: "/app/settings?tab=billing",
 }
 
 /**
@@ -240,7 +281,7 @@ export function homeFor(perms: readonly TeamPermission[]): string {
 
 /** The area homeFor opens, or null for Settings › Team. */
 export function homeArea(perms: readonly TeamPermission[]): TeamPermission | null {
-  const order: TeamPermission[] = ["orders", "products", "customers", "website", "onepage", "creator_pages", "community", "marketing", "analytics", "payouts_billing"]
+  const order: TeamPermission[] = ["orders", "products", "customers", "website", "onepage", "creator_pages", "community", "marketing", "analytics", "payouts", "billing"]
   return order.find((p) => permits(perms, p) && !!AREA_HOME[p]) ?? null
 }
 
@@ -258,7 +299,10 @@ export const PERMISSION_LABEL: Record<TeamPermission, string> = {
   get analytics() { return tt("Analytics") },
   get settings() { return tt("Store settings") },
   get team() { return tt("Team") },
-  get payouts_billing() { return tt("Payouts and billing") },
+  get payouts() { return tt("Payouts") },
+  get payouts_manage() { return tt("Change payouts") },
+  get billing() { return tt("Billing") },
+  get billing_manage() { return tt("Change billing") },
 }
 
 /** One line under each permission in the invite form: what it lets them do. */
@@ -274,7 +318,10 @@ export const PERMISSION_HINT: Record<TeamPermission, string> = {
   get analytics() { return tt("Reports and exports") },
   get settings() { return tt("The store's name, contact email, phone and logo") },
   get team() { return tt("Invite people and change their access, up to their own") },
-  get payouts_billing() { return tt("Payouts, the plan and invoices") },
+  get payouts() { return tt("See the balance, payouts and tax summaries") },
+  get payouts_manage() { return tt("Cash out and change the bank account payouts go to") },
+  get billing() { return tt("See the plan, invoices and the card on file") },
+  get billing_manage() { return tt("Change or cancel the plan and the card it is paid with") },
 }
 
 /*
@@ -294,7 +341,10 @@ export const PERMISSION_CAN_EN: Record<TeamPermission, string> = {
   analytics: "See reports and export them",
   settings: "Change the store's name, contact and logo",
   team: "Invite people and change their access",
-  payouts_billing: "See payouts and billing",
+  payouts: "See the balance and payouts",
+  payouts_manage: "Cash out and change the payout bank account",
+  billing: "See the plan and invoices",
+  billing_manage: "Change the plan and the card it is paid with",
 }
 /** What stays with the owner, whatever is given. */
 export const OWNER_KEEPS_EN = "Refunds and deleting the store stay with the owner."
@@ -317,7 +367,8 @@ export function permissionGroups(): PermissionGroup[] {
     { id: "pages", label: tt("Pages"), keys: ["website", "onepage", "creator_pages"] },
     { id: "store", label: tt("Store"), keys: ["products", "orders", "customers"] },
     { id: "audience", label: tt("Audience"), keys: ["marketing", "community", "analytics"] },
-    { id: "admin", label: tt("Admin"), keys: ["settings", "team", "payouts_billing"] },
+    { id: "admin", label: tt("Admin"), keys: ["settings", "team"] },
+    { id: "money", label: tt("Money"), keys: ["payouts", "payouts_manage", "billing", "billing_manage"] },
   ]
 }
 
@@ -332,7 +383,8 @@ export const PRESET_LABEL: Record<TeamPreset, string> = {
 const PRESET_LABEL_EN: Record<TeamPreset, string> = { full: "Full access", content: "Content editor", support: "Support", custom: "Custom access" }
 const PERMISSION_NAME_EN: Record<TeamPermission, string> = {
   website: "Website", onepage: "OnePage", creator_pages: "Creator page", products: "Products", orders: "Orders", customers: "Customers",
-  marketing: "Marketing", community: "Community", analytics: "Analytics", settings: "Store settings", team: "Team", payouts_billing: "Payouts and billing",
+  marketing: "Marketing", community: "Community", analytics: "Analytics", settings: "Store settings", team: "Team",
+  payouts: "Payouts", payouts_manage: "Change payouts", billing: "Billing", billing_manage: "Change billing",
 }
 /* i18n-ignore-end */
 

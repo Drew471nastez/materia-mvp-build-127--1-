@@ -138,17 +138,33 @@ function innerOf(html: string): string {
  * screen (the Preview pane while Edit is showing) is brought up to date when
  * it comes back.
  */
-export function PreviewFrame({ title, html, paused = false }: { title: string; html: string; paused?: boolean }) {
+/* The height each email's frame last measured, so it opens at that height the next time and the column does not jump when it is measured. */
+const heightsKept = new Map<string, number>()
+
+export function PreviewFrame({ title, html, paused = false, heightKey, onDrawn }: { title: string; html: string; paused?: boolean; /** Which email this is: its last measured height is where the frame opens. */ heightKey?: string; /** Told once the email is in the frame's document, for the time from a click to a preview. */ onDrawn?: () => void }) {
   const ref = React.useRef<HTMLIFrameElement>(null)
   const drawn = React.useRef<string | null>(null)
-  const [height, setHeight] = React.useState(640)
+  const [height, setHeight] = React.useState(() => (heightKey ? heightsKept.get(heightKey) : undefined) ?? 640)
+  const keyRef = React.useRef(heightKey)
+  keyRef.current = heightKey
+  const drawnRef = React.useRef(onDrawn)
+  drawnRef.current = onDrawn
 
   const measure = React.useCallback(() => {
     const doc = ref.current?.contentDocument
     if (!doc?.documentElement) return
     const h = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0)
-    if (h > 0) setHeight(Math.min(8000, Math.max(320, Math.ceil(h))))
+    if (h <= 0) return
+    const next = Math.min(8000, Math.max(320, Math.ceil(h)))
+    if (keyRef.current) heightsKept.set(keyRef.current, next)
+    setHeight(next)
   }, [])
+
+  /* Another email in the same frame: its own last height at once, before it is measured. */
+  React.useLayoutEffect(() => {
+    const h = heightKey ? heightsKept.get(heightKey) : undefined
+    if (h) setHeight(h)
+  }, [heightKey])
 
   const draw = React.useCallback(
     (force = false) => {
@@ -157,6 +173,7 @@ export function PreviewFrame({ title, html, paused = false }: { title: string; h
       drawn.current = html
       doc.documentElement.innerHTML = innerOf(html)
       measure()
+      if (html) drawnRef.current?.()
       doc.querySelectorAll("img").forEach((img) => {
         if (!img.complete) img.addEventListener("load", measure, { once: true })
       })

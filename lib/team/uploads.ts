@@ -106,7 +106,7 @@ export async function productCreatorFor(db: Db, userId: string, acting: ActingSt
 export const TEAM_BUCKET_AREAS: Readonly<Record<string, readonly TeamPermission[]>> = {
   "product-images": ["products"],
   /* Videos, and the Files library's uploads, which the OnePage and Store details pickers upload through too. */
-  "store-builder-images": ["products", "onepage", "settings"],
+  "store-builder-images": ["products", "onepage", "settings", "website", "creator_pages"],
   /* The OnePage editor's pictures and videos, under the page owner's account (lib/onepage/media-upload). */
   "onepage-assets": ["onepage"],
 }

@@ -27,6 +27,10 @@
  * (app/globals.css [data-analytics-controls]), its options inside it and the
  * chosen one a dark pill that slides between them. It never scrolls by
  * itself: it sits in the filters' own row, which does.
+ *
+ * `slide={false}` (Customer emails' All / Digital / Physical / Communities,
+ * the owner: no sliding) drops the moving pill: the chosen option draws its
+ * own, so a change of selection is instant and nothing travels.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -38,12 +42,14 @@ export interface PillOption<T extends string> {
   label: React.ReactNode
 }
 
-export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md", variant = "track" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md"; variant?: "track" | "chips" | "filter" }) {
+export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md", variant = "track", slide = true }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md"; variant?: "track" | "chips" | "filter"; slide?: boolean }) {
   const track = useEdgeFade<HTMLDivElement>()
   const filter = variant === "filter"
   const chips = variant === "chips" || filter
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
-  const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
+  const [measured, setBox] = React.useState<{ x: number; w: number } | null>(null)
+  /* Without the slide there is no moving pill: each chosen option draws its own. */
+  const box = slide ? measured : null
   const index = Math.max(0, options.findIndex((o) => o.value === value))
 
   React.useLayoutEffect(() => {
@@ -121,7 +127,8 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
               pick(next)
             }}
             className={cn(
-              "relative z-[1] shrink-0 whitespace-nowrap rounded-full font-semibold outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
+              "relative z-[1] shrink-0 whitespace-nowrap rounded-full font-semibold outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
+              slide && "transition-colors duration-150",
               filter
                 ? cn("h-[30px] px-3 text-[14px]", on ? "text-white" : "text-[#6b7280] pointer-fine:hover:text-[#1a1a2e]", on && !box && "bg-[#1a1a2e]")
                 : chips

@@ -55,6 +55,7 @@ import { Switch } from "@/components/ui/switch"
 import { SegmentedTabs } from "@/components/app/segmented-tabs"
 import { SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
+import { CommunityAutomations } from "@/components/app/emails/community-automations"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
 import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, type CustomerEmail, type EmailFamily } from "@/lib/emails/customer-list"
 import type { PreviewShop } from "@/lib/emails/customer-catalog"
@@ -64,6 +65,7 @@ import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
 import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
 import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
 import { tt } from "@/lib/i18n/text"
+import { previewVersion } from "@/lib/emails/preview-version"
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
 const ACTIVITY_PATH = "/api/store/emails/activity"
@@ -251,8 +253,8 @@ export function CustomerEmailsPanel({
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill that slides. No grey track. */}
-        <SegmentedPills variant="chips" value={shown} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
+        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill. It does not slide (the owner): the choice changes at once, nothing moves. No grey track. */}
+        <SegmentedPills variant="chips" value={shown} slide={false} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
@@ -295,6 +297,8 @@ export function CustomerEmailsPanel({
             community ? (
               <FamilySection key={family} title={shown === "all" ? FAMILY_NAMES.communities : null} bare={bare}>
                 <CommunityEmails community={community} sent={activity?.communities[community.id] ?? null} days={activity?.days ?? 30} bare={bare} />
+                {/* Its automated messages, as each family lists its automations under its emails; they open over this page. */}
+                <CommunityAutomations communities={[community]} bare={bare} titled={false} />
               </FamilySection>
             ) : null
           ) : (
@@ -321,8 +325,11 @@ export function CustomerEmailsPanel({
                               <Switch checked={data.reminder} onCheckedChange={(v) => void toggleReminder(v)} aria-label={tt("Send a checkout reminder")} data-reminder-switch="" />
                             ) : null
                           }
-                          onOpen={() => setOpen(e)}
-                          onIntent={() => void warmPreviews()}
+                          onOpen={() => {
+                            markPreviewOpen(e.id)
+                            setOpen(e)
+                          }}
+                          onIntent={() => void prefetchStorePreview(e.id, data)}
                         />
                       ))}
                     </ul>
@@ -408,8 +415,8 @@ function FlowRows({ flows, days, bare, onToggle }: { flows: FlowActivity[]; days
   editor must be fast"). A preview is drawn by the very templates that send
   the email: the receipt, every order and shipping email, the notices. They
   are most of this panel's weight and the list needs none of them, so they
-  are read the first time a row is pressed, hovered or focused (warmPreviews,
-  from EmailRow's own intent) and kept; the editor opens at once with its
+  are read once the server's preview is in the editor's frame, or a key is
+  typed (warmPreviews, below) and kept; the editor opens at once with its
   fields, and a frame in the preview's own shape until they are in, which on
   a press is under one frame most of the time.
 */
@@ -432,6 +439,68 @@ function usePreviewModule(want: boolean): PreviewModule | null {
     }
   }, [want, mod])
   return mod
+}
+
+/*
+  THE PREVIEW IS THERE WHEN THE SHEET OPENS (the owner: "the preview must
+  open smoothly and fast"). Measured in Chromium, a first open waited on
+  the templates' chunk and then on drawing the email in the browser before
+  anything showed. Now a pointer resting on a row, or a finger landing on
+  it, asks the server for that email already drawn
+  (/api/store/emails/preview, which keeps it per version of the saved
+  words), and the sheet opens with it in the frame; the templates load
+  meanwhile and take over at the first key typed. Kept for the page's life
+  per email, place, language and version, so the second open is immediate.
+*/
+type DrawnPreview = { subject: string; html: string }
+const drawnKept = new Map<string, DrawnPreview>()
+const drawnAsked = new Map<string, Promise<DrawnPreview | null>>()
+const drawnKey = (id: string, channel: BuyerChannel, lang: string, version: string) => `${id}|${channel}|${lang}|${version}`
+const defaultLangOf = (data: CustomerEmailsData | null | undefined) => data?.languages?.defaultLanguage ?? data?.language?.lang ?? "en"
+
+/** Read one email's preview as the server draws it, for its saved words, unless it is kept or on its way. */
+export function prefetchStorePreview(id: string, data: CustomerEmailsData | null | undefined, askedChannel?: BuyerChannel, askedLang?: string): Promise<DrawnPreview | null> {
+  /* A membership is only ever bought on Storelib, in English (usePreviewPlace below); everything else opens as bought on the website, in its language. */
+  const channel: BuyerChannel = askedChannel ?? (id.startsWith("membership_") ? "storelib" : "website")
+  const lang = askedLang ?? (channel === "storelib" ? "en" : defaultLangOf(data))
+  const version = previewVersion(data?.copy[id])
+  const key = drawnKey(id, channel, lang, version)
+  const have = drawnKept.get(key)
+  if (have) return Promise.resolve(have)
+  const pending = drawnAsked.get(key)
+  if (pending) return pending
+  const q = new URLSearchParams({ id, v: version, channel, lang })
+  const p = api<DrawnPreview>(`${CUSTOMER_EMAILS_PATH}/preview?${q}`).then((r) => {
+    drawnAsked.delete(key)
+    if (!r.ok || typeof r.data?.html !== "string") return null
+    const d = { subject: r.data.subject, html: r.data.html }
+    drawnKept.set(key, d)
+    return d
+  })
+  drawnAsked.set(key, p)
+  return p
+}
+
+/** The drawn preview kept for these words, if any. */
+function keptPreview(id: string | undefined, saved: EmailCopy | undefined, channel: BuyerChannel, lang: string): DrawnPreview | null {
+  return id ? drawnKept.get(drawnKey(id, channel, lang, previewVersion(saved))) ?? null : null
+}
+
+/* From the click on a row to its preview in the frame, as a performance measure (customer-email-preview) the checks read. */
+let openedAt: { id: string; at: number } | null = null
+function markPreviewOpen(id: string) {
+  openedAt = typeof performance !== "undefined" ? { id, at: performance.now() } : null
+}
+function measurePreviewOpen(id: string | undefined, how: "kept" | "live") {
+  if (!openedAt || openedAt.id !== id || typeof performance === "undefined") return
+  const ms = performance.now() - openedAt.at
+  openedAt = null
+  try {
+    performance.measure("customer-email-preview", { start: performance.now() - ms, detail: { id, how } })
+  } catch {
+    /* An older browser without measure details: the attribute below still says it. */
+  }
+  if (typeof document !== "undefined") document.documentElement.dataset.emailPreviewMs = `${Math.round(ms)}:${how}`
 }
 
 /** The preview's room while its templates load: the subject line and the email's page, in light gray, the height the frame opens at. */
@@ -606,12 +675,46 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
     return { ...(pickCopy(saved, null) ?? {}), langs }
   }, [checked, saved, otherLang])
   const creator = data?.creator ?? null
-  const templates = usePreviewModule(!!asked)
-  const mail = React.useMemo(
-    () => (id && templates ? templates.previewCustomerEmail(id, shop, previewWords, { channel: where.channel, language: where.language, creator }) : null),
-    [id, templates, shop, previewWords, where.channel, where.language, creator],
-  )
   const dirty = !sameDraft(draft, start)
+  /*
+    The words on screen are the saved ones: the preview the server drew for
+    them (prefetched as the row was hovered), at once. Once a key is typed,
+    the templates draw the words being typed, live.
+  */
+  const pristine = !dirty && sameDraft(shown, start)
+  const [, keptArrived] = React.useState(0)
+  const keptMail = pristine ? keptPreview(id, saved, where.channel, where.lang) : null
+  /* The server could not draw it: the templates draw it here instead. */
+  const [serverMissed, setServerMissed] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (!asked || !id || !pristine || keptMail) return
+    let live = true
+    void prefetchStorePreview(id, data, where.channel, where.lang).then((d) => {
+      if (!live) return
+      if (d) keptArrived((n) => n + 1)
+      else setServerMissed(id)
+    })
+    return () => {
+      live = false
+    }
+  }, [asked, id, pristine, keptMail, data, where.channel, where.lang])
+  /*
+    THE TEMPLATES WAIT FOR THE PREVIEW (measured, scripts/check-customer-email-preview-time.mjs):
+    read and run as the sheet opened, their chunk took the main thread from the server's preview
+    arriving in the same moment, and the first open was slower than before. Now they load once
+    the preview is in its frame, or as soon as a key is typed, or when the server could not draw it.
+  */
+  const [drawnFor, setDrawnFor] = React.useState<string | null>(null)
+  const templates = usePreviewModule(!!asked && (!pristine || drawnFor === id || serverMissed === id))
+  const liveMail = React.useMemo(
+    () => (id && templates && !keptMail ? templates.previewCustomerEmail(id, shop, previewWords, { channel: where.channel, language: where.language, creator }) : null),
+    [id, templates, keptMail, shop, previewWords, where.channel, where.language, creator],
+  )
+  /* A key typed before the templates are in keeps the last picture of this email up, never the skeleton. */
+  const lastMail = React.useRef<{ id: string; mail: DrawnPreview } | null>(null)
+  const mail: DrawnPreview | null = keptMail ?? liveMail ?? (lastMail.current && lastMail.current.id === id ? lastMail.current.mail : null)
+  if (id && mail) lastMail.current = { id, mail }
+  const mailFrom: "kept" | "live" = keptMail ? "kept" : "live"
   const isDefault = !savedWords
 
   /* A switch of language changes which words are being written: unsaved ones are asked about first. */
@@ -789,7 +892,10 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
-      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} /> : <PreviewSkeleton />}
+      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} heightKey={id} onDrawn={() => {
+        measurePreviewOpen(id, mailFrom)
+        if (id) setDrawnFor(id)
+      }} /> : <PreviewSkeleton />}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )

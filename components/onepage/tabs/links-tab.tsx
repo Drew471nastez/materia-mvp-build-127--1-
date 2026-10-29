@@ -161,6 +161,7 @@ import { tt } from "@/lib/i18n/text"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
 import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
 import { CropUpload } from "@/components/onepage/crop-upload"
+import { SaveError, saveAccountPhoto } from "@/lib/onepage/photo-save"
 import { OnePageImageField } from "@/components/onepage/image-field"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { videoPoster } from "@/lib/onepage/poster-video"
@@ -211,6 +212,8 @@ const SOCIAL_SHEET_HEIGHT = "calc((var(--vv-h, 100dvh) + var(--kb-inset, 0px)) *
 
 /** The social sheet clears what was typed this long after it closes: after the sheet's own close (bottom-sheet SHEET_CLOSE_MS), and the dialog's. */
 const SOCIAL_RESET_MS = 420
+/* The list's height to a field's own, and back, as a glide where the browser can interpolate to auto (round 42). */
+const SOCIAL_SHEET_GLIDE = "[interpolate-size:allow-keywords] transition-[height] duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
@@ -1303,6 +1306,8 @@ export function LinksTab() {
                 poster={videoPoster((onepage.settings as any)?.avatar_video_crop)}
                 alt={title || tt("Avatar")}
                 mediaStyle={croppedMediaStyle((onepage.settings as any)?.avatar_video_crop) as React.CSSProperties | undefined}
+                /* Round 42: a still here; the preview beside it is where the video plays, once. */
+                still
               />
             ) : avatar_url ? (
               <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
@@ -1697,14 +1702,21 @@ export function LinksTab() {
           250ms curve). The top edge, the title and the field stay exactly
           where they were; only the empty space under Cancel gives way.
         */
-        sheet={{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT }}
+        /*
+          ROUND 42, "a lot of empty white space at the bottom": the list keeps
+          that one tall height (it scrolls), and a platform's field is as tall
+          as what it holds, its foot the phone's own safe area
+          (lib/ui/keyboard-safe-sheet sheetFoot). The change between the two
+          is a glide of the sheet's height (interpolate-size), not a jump.
+        */
+        sheet={{ keepMounted: true, height: selectedSocial ? undefined : SOCIAL_SHEET_HEIGHT, className: SOCIAL_SHEET_GLIDE }}
         /*
           ROUND 40, ON A COMPUTER: one height for the list and for a platform's
           field, so choosing a platform does not snap the dialog's edges in and
           out (it was as tall as whatever it showed), and the dialog's own
           open and close (components/ui/sheet-dialog SHEET_DIALOG_MOTION).
         */
-        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-[440px] rounded-2xl h-[min(580px,85vh)] shadow-[0_24px_64px_-12px_rgba(17,17,19,0.25),0_2px_6px_rgba(17,17,19,0.06)]"
+        className={cn("p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-[440px] rounded-2xl max-h-[85vh] shadow-[0_24px_64px_-12px_rgba(17,17,19,0.25),0_2px_6px_rgba(17,17,19,0.06)]", SOCIAL_SHEET_GLIDE, selectedSocial ? "h-auto" : "h-[min(580px,85vh)]")}
       >
           <DialogHeader data-social-sheet="" className="flex-row items-center gap-1.5 px-4 pb-3 pt-4 sm:px-5 sm:pt-5 shrink-0 space-y-0 text-left">
             {selectedSocial ? (
@@ -3052,13 +3064,9 @@ export function LinksTab() {
                     Settings uses, so every surface takes it
                     (lib/account/avatar-save, lib/account/profile-follow).
                   */
-                  if (team) throw new Error(photoIsOwners(team.store))
-                  const saved = await fetch("/api/account/avatar", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url: result.url }),
-                  })
-                  if (!saved.ok) throw new Error(tt("profile photo not saved"))
+                  if (team) throw new SaveError(photoIsOwners(team.store))
+                  /* The route's own reason reaches the sheet when it refuses (lib/onepage/photo-save). */
+                  await saveAccountPhoto(result.url)
                   announceAvatar(result.url)
                   updateProfile({ avatar_url: result.url, avatar_video_url: null })
                   closeAvatarCrop()
@@ -4055,7 +4063,7 @@ function BlockEditor({
     // Special layout content for product blocks
     if (block.type === "product") {
       const data = block.data as ProductBlockData
-      const layout = productLayoutOf(data)
+      const layout = productLayoutOf(data, onepage?.theme)
       const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
       const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
@@ -4064,13 +4072,14 @@ function BlockEditor({
 
       // Handle style selection (always use filled button style)
       const handleStyleSelect = (styleId: ProductBlockStyle) => {
-        updateData({ style: styleId, button_style: "filled" })
+        /* Picked here, so a theme's own way of showing products leaves it alone (lib/onepage/theme-layout themedProductStyle). */
+        updateData({ style: styleId, style_chosen: true, button_style: "filled" })
       }
 
       return (
         <div className="space-y-4">
           {/* Eight layouts, each drawn small (./product-block-editor); the live page draws them in components/onepage/product-block. */}
-          <ProductLayoutPicker data={data} onPick={handleStyleSelect} />
+          <ProductLayoutPicker data={data} theme={onepage?.theme} onPick={handleStyleSelect} />
 
           {/* Custom Thumbnail Section */}
           <div className="space-y-2 pt-2 border-t">

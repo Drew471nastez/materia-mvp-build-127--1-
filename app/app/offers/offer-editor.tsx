@@ -44,9 +44,10 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, offerState, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
 import { amountOf, bodyOf, draftOf, problemsOf, tierOf, type Draft, type Problems } from "./offer-draft"
@@ -56,7 +57,7 @@ import { useConfirm } from "../products/new/confirm-sheet"
 import { StatusBadge, iconButton } from "../orders/order-parts"
 import { CouponSaveButton, Tick, quietDanger } from "../coupons/coupon-parts"
 import { BreakPreview, KIND_WORD, OfferPreview, PLACEMENT_WORD, STATE_TONE, STATE_WORD, currencySign, moneyIn, type OfferCollection, type OfferProduct } from "./offer-parts"
-import { BAD, ChoiceGrid, ERR, FIELD, HINT, LABEL, MoneyField, ProductPicker, Radio, RadioRows, TierEditor } from "./offer-fields"
+import { BAD, ChoiceGrid, ERR, FIELD, HINT, KindChooser, LABEL, MoneyField, ProductPicker, Radio, RadioRows, TierEditor } from "./offer-fields"
 import { DRAFT_ID, offerWarnings, type Tried } from "@/lib/offers/try-cart"
 import { sendOffer } from "./offer-api"
 import { newOfferHref, offersReturn } from "./list-return"
@@ -67,6 +68,19 @@ const KIND_HINT: Record<OfferKind, () => string> = {
   checkout: () => tt("One product suggested when the cart has others, at a lower price."),
   quantity_break: () => tt("Buy more of one product, pay less each, or get some free."),
 }
+
+/* The Help Center's guide to each kind (lib/help/offer-articles.ts), linked from the preview. */
+const KIND_HELP: Record<OfferKind, { href: string; label: () => string }> = {
+  quantity_break: { href: "/help/products/quantity-breaks", label: () => tt("How quantity breaks work") },
+  bundle: { href: "/help/products/bundles", label: () => tt("How bundles work") },
+  checkout: { href: "/help/products/upsells", label: () => tt("How upsells work") },
+}
+
+/** "a", "a and b", "a, b and c". */
+const listWords = (words: string[]) => (words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} ${tt("and")} ${words[words.length - 1]}`)
+
+/* The order the kinds are offered in: one product, several, one more. */
+const KIND_ORDER: OfferKind[] = ["quantity_break", "bundle", "checkout"]
 
 /* The coupon editor's card (CLAUDE.md's /app card), its padding from --app-card-x. */
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
@@ -179,6 +193,7 @@ export function OfferEditor({
   settingsReady,
   breaksReady,
   sold = 0,
+  askKind = false,
 }: {
   /** Null for a new offer. */
   offer: Offer | null
@@ -199,6 +214,8 @@ export function OfferEditor({
   breaksReady: boolean
   /** Units it sold in the last 90 days (lib/offers/offers-server soldThrough). */
   sold?: number
+  /** A new offer opened from New offer, with no kind in its address: the page starts on the choice of kind alone. */
+  askKind?: boolean
 }) {
   const router = useRouter()
   /* The currency this offer's amounts were typed in, kept while it is open: a save after the store's currency changed is refused (lib/store/currency-guard), never written over the converted amounts. */
@@ -211,6 +228,10 @@ export function OfferEditor({
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
+  /* Nothing is asked before the kind: the rest of the form comes in once one is picked. */
+  const [kindChosen, setKindChosen] = React.useState(!!offer || !askKind)
+  /* Where it shows, dates and limits: folded under More options until wanted. */
+  const [moreOpen, setMoreOpen] = React.useState(false)
   const busy = saving || deleting
   const paneRef = React.useRef<HTMLDivElement>(null)
   const [ask, confirmSheet] = useConfirm()
@@ -218,6 +239,8 @@ export function OfferEditor({
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const problems = problemsOf(d, currency)
   const shown: Problems = tried ? problems : {}
+  const moreProblem = !!(shown.places || shown.dates || shown.limit)
+  const moreShown = moreOpen || moreProblem
   const sign = currencySign(currency)
   const money = moneyIn(currency)
   /* What to watch for before saving (lib/offers/try-cart.ts offerWarnings): a draft product, a tier that costs more per item, another offer on the same products. */
@@ -235,7 +258,7 @@ export function OfferEditor({
   const state = offer ? offerState(offer, now) : null
 
   const save = async () => {
-    if (busy || !ready) return
+    if (busy || !ready || !kindChosen) return
     setTried(true)
     if (Object.keys(problems).length) {
       /* The first field with something to fix, brought into view. */
@@ -321,6 +344,15 @@ export function OfferEditor({
   const togglePlace = (p: Placement) => set({ placements: d.placements.includes(p) ? d.placements.filter((x) => x !== p) : PLACEMENTS_FOR[d.kind].filter((x) => x === p || d.placements.includes(x)) })
 
   const changeKind = (k: OfferKind) => {
+    setKindChosen(true)
+    if (k === d.kind) {
+      try {
+        window.history.replaceState(window.history.state, "", newOfferHref(k))
+      } catch {
+        /* The page still works on the address it had. */
+      }
+      return
+    }
     /* A name typed by hand stays; the other kind's own default name replaces the default one. */
     const fresh = draftOf(null, k, currency)
     const typed = d.title !== draftOf(null, d.kind, currency).title
@@ -341,9 +373,13 @@ export function OfferEditor({
     ...(physical || d.discountType === "free_shipping" ? [{ value: "free_shipping" as const, label: tt("Free shipping") }] : []),
     { value: "none", label: tt("None") },
   ]
+  /* What More options holds, in one line, while it is folded. */
+  const placesLine = d.placements.length === 0 ? tt("Shown nowhere yet") : tt("Shown on {places}", { places: listWords(d.placements.map((p) => PLACEMENT_WORD[p]().toLowerCase())) })
+  const datesLine = d.startsAt || d.endsAt ? (d.endsAt ? tt("ends {date}", { date: new Date(d.endsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) }) : tt("starts {date}", { date: new Date(d.startsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) })) : tt("no end date")
+  const moreLine = `${placesLine} · ${datesLine}${d.combinesWithCodes ? "" : ` · ${tt("no codes on top")}`}`
   const heading = offer ? offer.title : tt("New offer")
   const newSettingsUsed = !settingsReady && (d.condition === "collections" || d.placements.length !== PLACEMENTS_FOR[d.kind].length || !!d.startsAt || !!d.endsAt || !!d.maxPerOrder || !d.combinesWithCodes || !!d.minSubtotal || d.discountType === "free_shipping")
-  const canSave = ready && !busy && (offer ? dirty : true)
+  const canSave = ready && !busy && kindChosen && (offer ? dirty : true)
   const saveWord = offer ? tt("Save") : tt("Create")
   const problemCount = Object.keys(shown).length
 
@@ -429,33 +465,32 @@ export function OfferEditor({
           className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:items-start"
         >
           <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
-            {/* ── What kind, and its name ──────────────────────────── */}
+            {/* ── What kind (a new one only): the start of the page ── */}
+            {!offer ? (
+              <section className={CARD} aria-labelledby="offer-kind-title" data-offer-start={kindChosen ? "chosen" : "asking"}>
+                <h2 id="offer-kind-title" className={CARD_TITLE}>
+                  {tt("What do you want to make?")}
+                </h2>
+                <KindChooser
+                  label={tt("Kind of offer")}
+                  value={kindChosen ? d.kind : null}
+                  onChange={changeKind}
+                  options={KIND_ORDER.map((k) => ({ value: k, name: KIND_WORD[k](), line: KIND_HINT[k]() }))}
+                />
+                {!kindChosen ? <p className={HINT}>{tt("Pick one to start. You can change it until you create the offer.")}</p> : null}
+              </section>
+            ) : null}
+
+            {kindChosen ? (
+            <>
+            {/* ── Its name ─────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="offer-name-title">
-              {!offer ? (
-                <div className="space-y-2">
-                  <Segmented
-                    label={tt("Kind of offer")}
-                    value={d.kind}
-                    /* Three kinds on a phone's width: each as wide as its name, so "Quantity break" is never cut. */
-                    fit="content"
-                    onChange={changeKind}
-                    options={[
-                      { value: "bundle", label: tt("Bundle") },
-                      { value: "checkout", label: tt("Upsell") },
-                      { value: "quantity_break", label: tt("Quantity break") },
-                    ]}
-                  />
-                  <p data-kind-hint={d.kind} className={HINT}>
-                    {KIND_HINT[d.kind]()}
-                  </p>
-                </div>
-              ) : null}
               <div {...(shown.title ? { "data-problem": "" } : {})}>
                 <label id="offer-name-title" htmlFor="offer-title" className={cn(CARD_TITLE, "mb-2 block")}>
                   {tt("Name buyers see")}
                 </label>
                 <input id="offer-title" value={d.title} maxLength={80} autoComplete="off" enterKeyHint="done" onChange={(e) => set({ title: e.target.value })} aria-invalid={!!shown.title} className={cn(FIELD, shown.title && BAD)} />
-                {shown.title ? <p className={ERR}>{shown.title}</p> : <p className={cn(HINT, "mt-1.5")}>{tt("Shown above the offer on your website.")}</p>}
+                {shown.title ? <p className={ERR}>{shown.title}</p> : <p className={cn(HINT, "mt-1.5")}>{d.kind === "quantity_break" ? tt("The heading above the tiers on the product page.") : d.kind === "bundle" ? tt("The heading above the set on each product's page.") : tt("The line above the product you offer.")}</p>}
               </div>
             </section>
 
@@ -617,11 +652,35 @@ export function OfferEditor({
               </section>
             ) : null}
 
+            {/* ── More options: where it shows, dates and limits ──────
+                Folded until wanted, with what is set said in one line, so a
+                new offer is the kind, the name, the products and the discount.
+                Opened by itself when something in it needs fixing. */}
+            <section className={CARD} data-offer-more={moreShown ? "open" : "closed"} aria-labelledby="offer-more-title">
+              <button
+                type="button"
+                aria-expanded={moreShown}
+                aria-controls="offer-more"
+                onClick={() => setMoreOpen(!moreShown)}
+                className="-my-1 flex w-full cursor-pointer items-center gap-3 rounded-lg py-1 text-left outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
+              >
+                <span className="min-w-0 flex-1">
+                  <span id="offer-more-title" className={cn(CARD_TITLE, "block")}>
+                    {tt("More options")}
+                  </span>
+                  <span data-offer-more-line="" className={cn(HINT, "mt-0.5 block")}>
+                    {moreLine}
+                  </span>
+                </span>
+                <ChevronDown aria-hidden className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-[rotate] duration-200 motion-reduce:transition-none", moreShown && "rotate-180")} />
+              </button>
+              {moreShown ? (
+                <div id="offer-more" className="space-y-4 border-t border-[#eef0f2] pt-4">
             {/* ── Where it shows ───────────────────────────────────── */}
-            <section className={CARD} aria-labelledby="offer-places" {...(shown.places ? { "data-problem": "" } : {})}>
-              <h2 id="offer-places" className={CARD_TITLE}>
+            <div className="space-y-3" role="group" aria-labelledby="offer-places" {...(shown.places ? { "data-problem": "" } : {})}>
+              <h3 id="offer-places" className={SUB_TITLE}>
                 {tt("Show it on")}
-              </h2>
+              </h3>
               <div className={cn(SWITCH_GROUP, "divide-y")}>
                 {PLACEMENTS_FOR[d.kind].map((p) => {
                   const on = d.placements.includes(p)
@@ -634,13 +693,13 @@ export function OfferEditor({
                 })}
               </div>
               {shown.places ? <p className={ERR}>{shown.places}</p> : null}
-            </section>
+            </div>
 
             {/* ── Dates and limits ─────────────────────────────────── */}
-            <section className={CARD} aria-labelledby="offer-rules">
-              <h2 id="offer-rules" className={CARD_TITLE}>
+            <div className="space-y-4 border-t border-[#eef0f2] pt-4" role="group" aria-labelledby="offer-rules">
+              <h3 id="offer-rules" className={SUB_TITLE}>
                 {tt("Dates and limits")}
-              </h2>
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2" {...(shown.dates ? { "data-problem": "" } : {})}>
                 <div>
                   <label htmlFor="offer-start" className={LABEL}>
@@ -671,10 +730,16 @@ export function OfferEditor({
               {newSettingsUsed ? (
                 <p className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.")}</p>
               ) : null}
+            </div>
+                </div>
+              ) : null}
             </section>
+            </>
+            ) : null}
           </div>
 
           {/* From lg the side column stays in view while the offer is filled in, so the preview follows the change. */}
+          {kindChosen ? (
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
             {/* ── On or off ────────────────────────────────────────── */}
             <section data-offer-status="" className={CARD} aria-label={tt("Status")}>
@@ -722,6 +787,9 @@ export function OfferEditor({
                 </ul>
               ) : null}
               {Object.keys(problems).length === 0 ? <TryCart offer={asOffer} id={offer?.id ?? null} body={bodyOf(d, currency)} products={products} money={money} /> : null}
+              <a href={KIND_HELP[d.kind].href} data-offer-help={d.kind} className="inline-block text-[13px] font-medium text-[#4b5563] underline decoration-[#d1d5db] underline-offset-[3px] hover:text-[#1a1a2e] hover:decoration-[#9ca3af]">
+                {KIND_HELP[d.kind].label()}
+              </a>
             </section>
 
             {offer ? (
@@ -732,6 +800,7 @@ export function OfferEditor({
               </div>
             ) : null}
           </div>
+          ) : null}
         </form>
       </div>
 

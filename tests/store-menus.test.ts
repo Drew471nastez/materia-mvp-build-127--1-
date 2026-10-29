@@ -108,7 +108,7 @@ async function run() {
   const project = read("lib/agent-access/project.ts")
   check("an agent reads the store's menus and saves a menu change to the store", /storeMenusOrNull\(db, creatorId\)/.test(project) && /if \(menusChanged\) await writeStoreMenus\(db, who\.creatorId/.test(project))
   const route = read("app/api/website-builder/menus/route.ts")
-  check("the save route checks the creator, is rate limited, capped, and drops the site cache", /* Changed on purpose (round 12, WBPERF): editorUser, a blip a 503 not a 401. */ /await editorUser\(supabase\)/.test(route) && /rateLimit\(/.test(route) && /readEditorBody\(req, MENUS_BODY\)/.test(route) && /revalidatePublishedSite\(who\.creatorId\)/.test(route))
+  check("the save route checks the creator, is rate limited, capped, and drops the site cache", /* Changed on purpose (round 12, WBPERF): editorUser, a blip a 503 not a 401. */ /websiteCaller\(\)/.test(route) /* Changed on purpose (round 42 team): editorUser is asked in lib/team/website */ && /rateLimit\(/.test(route) && /readEditorBody\(req, MENUS_BODY\)/.test(route) && /revalidatePublishedSite\(who\.creatorId\)/.test(route))
   check("  the database's own words never reach the browser", !/error\.message/.test(route))
   check("the editor gets the store's menus with the theme", /builderStoreMenus\(creator!\.id, installId\)/.test(read("app/api/website-builder/themes/[installId]/route.ts")))
 

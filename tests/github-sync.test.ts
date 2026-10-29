@@ -295,7 +295,7 @@ function main() {
   check("the top bar shows the connection's own mark, GitHub's when nothing is connected, and opens its path",
     /<ConnectionButton\s+mark=\{connection\}/.test(editor) && /<ConnectionMarkIcon kind=\{mark\.kind\}/.test(button) &&
       /return <GitHubMark className=\{className\} \/>/.test(marks) && /kind: "github",\s*online: false/.test(rules) &&
-      /const openGitHub = \(\) => \{\s*openConnections\(\)\s*setConnectVia\("github"\)/.test(editor) &&
+      /const openGitHub = \(\) => \{\s*(\/\*[^*]*\*\/\s*if \(teamMember\) return\s*)?openConnections\(\)\s*setConnectVia\("github"\)/.test(editor) /* Changed on purpose (round 42 team): not for a team member, who gets none of the store owner's AI or connections. */ &&
       /connection\.kind !== "github" \? openConnections\(\) : openGitHub\(\)/.test(editor))
   check("  with a green dot while it is live, and nothing when nothing is connected",
     /\{mark\.online && <span aria-hidden className="wb-live-dot"/.test(button) && /\.wb-live-dot \{[\s\S]{0,200}background: #10b981/.test(read("app/globals.css")))

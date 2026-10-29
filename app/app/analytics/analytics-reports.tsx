@@ -49,6 +49,7 @@
  */
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { MoreHorizontal, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Shimmer, ShimmerBlock, ShimmerSwap } from "@/components/ui/shimmer"
@@ -67,7 +68,7 @@ import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatMinor } from "@/lib/markets/money"
 import { changeOf, percentText, ratio, roundShares } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
-import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailSection, type DetailView } from "./report-detail"
+import { DetailBody, DetailPanel, OpenDetailContext, RowLinesContext, ViewReport, type DetailSection, type DetailView, type RowLines } from "./report-detail"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"
@@ -877,6 +878,23 @@ function Grid({ r, property, sections, extra, added }: { r: Reports | null; prop
         </Card>
       )}
 
+      {r?.siteClicks && !onePage ? (
+        <Card card="siteclicks" detail={{ id: "siteclicks" }} title={tt("Clicks between pages")} help={siteClicksHelp()}>
+          <Body blank={!lists} wait="list">
+            {lists ? (
+              <List
+                title={tt("Clicks between pages")}
+                rows={r.siteClicks.rows.map((x) => ({ key: x.key, label: x.label, value: x.clicks, note: siteClickNote(x) }))}
+                previous={Object.fromEntries(r.siteClicks.rows.map((x) => [x.key, x.previous]))}
+                format={fmtCount}
+                empty={tt("No clicks between pages in this period.")}
+                onAll={all("siteclicks")}
+              />
+            ) : null}
+          </Body>
+        </Card>
+      ) : null}
+
       {sections.topProducts ? (
         <Card
           card="products"
@@ -1001,14 +1019,21 @@ function overTime(series: Series | { labels: string[]; current: Array<number | n
 const leadOf = (lead: Lead, row: { key: string; code?: string }): React.ReactNode => (lead && "flag" in lead ? <Flag code={row.code ?? row.key} /> : lead ? <SourceIcon kind={lead.icon} value={row.key} /> : null)
 
 /** A breakdown's every row, with the period before and each row's share of the whole. */
-function breakdownSection(title: string, rows: BreakdownRow[], lead: Lead, note: "share" | ((r: BreakdownRow) => string | null) = "share", format = fmtCount): DetailSection {
+function breakdownSection(title: string, rows: BreakdownRow[], lead: Lead, note: "share" | ((r: BreakdownRow) => string | null) = "share", format = fmtCount, lines?: string): DetailSection {
   const list = fromBreakdown(rows, note)
-  return { title, format, bars: true, rows: list.rows.map((r) => ({ key: r.key, label: r.label, value: r.value, previous: list.previous[r.key], note: r.note, lead: leadOf(lead, r) })) }
+  return { title, format, bars: true, lines, rows: list.rows.map((r) => ({ key: r.key, label: r.label, value: r.value, previous: list.previous[r.key], note: r.note, lead: leadOf(lead, r) })) }
 }
 
 const chartOf = (series: Series, format: (n: number) => string, label: string, integer = true): DetailView["chart"] => ({ labels: series.labels, current: series.current, previous: series.previous, format, integer, label })
 const figureOf = (h: { value: number; previous: number }, format: (n: number) => string, note?: string | null): DetailView["figure"] => ({ value: format(h.value), now: h.value, before: h.previous, beforeText: format(h.previous), note })
 const rateText = (f: number | null) => fmtPct(f)
+
+/** A button's places: the page it is on and the page it leads to, and the site under All when there are several. */
+function siteClickNote(x: { from: string; to: string; place: string | null; label: string }): string {
+  const route = x.label === x.to ? tt("from {from}", { from: x.from }) : `${x.from} → ${x.to}`
+  return x.place ? `${route} · ${x.place}` : route
+}
+const siteClicksHelp = () => tt("Links and buttons on your website that open another of its pages, by their words: the page each was pressed on, the page it opened, and how often. Each button counts once per visit.")
 
 /** The four figures over the chart, opened. */
 export type MetricDetail = "views" | "revenue" | "orders" | "conversion" | "pageviews" | "clicks"
@@ -1025,16 +1050,16 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
   const tabs = <T extends string>(value: T, options: Array<{ value: T; label: string }>, label: string) => <Tabs label={label} value={value} onChange={(v) => setTab(v)} options={options} />
   switch (id) {
     case "metric:views":
-      return { title: tt("Visitors"), ...visitors, sections: [overTime(r.visitors.series, fmtCount), breakdownSection(tt("By source"), b.source, { icon: "source" })], help: tt("People who opened one of your pages, each counted once per day.") }
+      return { title: tt("Visitors"), ...visitors, sections: [overTime(r.visitors.series, fmtCount), breakdownSection(tt("By source"), b.source, { icon: "source" }, "share", fmtCount, "source")], help: tt("People who opened one of your pages, each counted once per day.") }
     case "metric:pageviews":
     case "added:pageviews":
-      return { title: tt("Page views"), figure: figureOf(r.views, fmtCount), chart: chartOf(r.views.series, fmtCount, tt("Page views")), sections: [overTime(r.views.series, fmtCount), { title: tt("By page"), format: fmtCount, bars: true, rows: r.topPages.map((p) => ({ key: p.key, label: p.title || p.label, value: p.views, note: p.title ? p.label : p.place })) }], help: REPORT_COPY.pageviews.help }
+      return { title: tt("Page views"), figure: figureOf(r.views, fmtCount), chart: chartOf(r.views.series, fmtCount, tt("Page views")), sections: [overTime(r.views.series, fmtCount), { title: tt("By page"), format: fmtCount, bars: true, lines: "page", rows: r.topPages.map((p) => ({ key: p.key, label: p.title || p.label, value: p.views, note: p.title ? p.label : p.place })) }], help: REPORT_COPY.pageviews.help }
     case "added:sessions":
-      return { title: tt("Visits"), figure: figureOf(r.sessions, fmtCount), chart: chartOf(r.sessions.series, fmtCount, tt("Visits")), sections: [overTime(r.sessions.series, fmtCount), breakdownSection(tt("By source"), b.source, { icon: "source" })], help: REPORT_COPY.sessions.help }
+      return { title: tt("Visits"), figure: figureOf(r.sessions, fmtCount), chart: chartOf(r.sessions.series, fmtCount, tt("Visits")), sections: [overTime(r.sessions.series, fmtCount), breakdownSection(tt("By source"), b.source, { icon: "source" }, "share", fmtCount, "source")], help: REPORT_COPY.sessions.help }
     case "metric:clicks":
     case "added:clicks": {
       const h = delta(r.linkClicks?.value ?? 0, sumOf(r.linkClicks?.series.previous))
-      return { title: tt("Link clicks"), figure: figureOf(h, fmtCount), chart: chartOf(r.linkClicks.series, fmtCount, tt("Link clicks")), sections: [overTime(r.linkClicks.series, fmtCount), { title: tt("By link"), format: fmtCount, bars: true, rows: r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) })) }], help: REPORT_COPY.clicks.help }
+      return { title: tt("Link clicks"), figure: figureOf(h, fmtCount), chart: chartOf(r.linkClicks.series, fmtCount, tt("Link clicks")), sections: [overTime(r.linkClicks.series, fmtCount), { title: tt("By link"), format: fmtCount, bars: true, lines: "link", rows: r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) })) }], help: REPORT_COPY.clicks.help }
     }
     case "metric:revenue":
       return {
@@ -1043,7 +1068,7 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
         chart: chartOf(r.sales.series, fmtMoney, tt("Total revenue"), false),
         sections: [
           overTime(r.sales.series, fmtMoney),
-          { title: tt("By product"), format: fmtMoney, bars: true, rows: r.topProducts.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: plural(p.orders, tt("order"), tt("orders")) })) },
+          { title: tt("By product"), format: fmtMoney, bars: true, lines: "product", rows: r.topProducts.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: plural(p.orders, tt("order"), tt("orders")) })) },
           ...(r.kinds.length > 1 ? [{ title: tt("By kind"), format: fmtMoney, bars: true, rows: r.kinds.map((k) => ({ key: k.key, label: k.label, value: k.salesCents, note: plural(k.orders, tt("order"), tt("orders")) })) }] : []),
         ],
       }
@@ -1072,16 +1097,16 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
     }
     case "traffic": {
       const t = (SOURCE_TABS.some((o) => o.value === tab) ? tab : "source") as SourceTab
-      return { title: tt("Traffic sources"), tabs: tabs(t, SOURCE_TABS, tt("Traffic sources")), ...visitors, sections: [breakdownSection(SOURCE_TABS.find((o) => o.value === t)!.label, b[t], { icon: t })] }
+      return { title: tt("Traffic sources"), tabs: tabs(t, SOURCE_TABS, tt("Traffic sources")), ...visitors, sections: [breakdownSection(SOURCE_TABS.find((o) => o.value === t)!.label, b[t], { icon: t }, "share", fmtCount, t)] }
     }
     case "referrers":
-      return { title: tt("Referrers"), ...visitors, sections: [breakdownSection(tt("Referrers"), b.referrer, { icon: "referrer" })] }
+      return { title: tt("Referrers"), ...visitors, sections: [breakdownSection(tt("Referrers"), b.referrer, { icon: "referrer" }, "share", fmtCount, "referrer")] }
     case "pages":
-      return { title: tt("Top pages"), figure: figureOf(r.views, fmtCount), chart: chartOf(r.views.series, fmtCount, tt("Page views")), sections: [{ title: tt("Pages"), format: fmtCount, bars: true, valueLabel: tt("Views"), rows: r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.title, p.place, plural(p.visitors, tt("visitor"), tt("visitors"))].filter(Boolean).join(" · ") })) }] }
+      return { title: tt("Top pages"), figure: figureOf(r.views, fmtCount), chart: chartOf(r.views.series, fmtCount, tt("Page views")), sections: [{ title: tt("Pages"), format: fmtCount, bars: true, lines: "page", valueLabel: tt("Views"), rows: r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.title, p.place, plural(p.visitors, tt("visitor"), tt("visitors"))].filter(Boolean).join(" · ") })) }] }
     case "links":
     case "added:toplinks": {
       const h = delta(r.linkClicks?.value ?? 0, sumOf(r.linkClicks?.series.previous))
-      return { title: id === "links" ? tt("Top links") : REPORT_COPY.toplinks.title, figure: figureOf(h, fmtCount), chart: chartOf(r.linkClicks.series, fmtCount, tt("Link clicks")), sections: [{ title: tt("Links"), format: fmtCount, bars: true, valueLabel: tt("Taps"), rows: r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) })) }] }
+      return { title: id === "links" ? tt("Top links") : REPORT_COPY.toplinks.title, figure: figureOf(h, fmtCount), chart: chartOf(r.linkClicks.series, fmtCount, tt("Link clicks")), sections: [{ title: tt("Links"), format: fmtCount, bars: true, lines: "link", valueLabel: tt("Taps"), rows: r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) })) }] }
     }
     case "products": {
       const kindName = (k: string | null | undefined) => (k === "physical" ? tt("Physical") : k ? tt("Digital") : null)
@@ -1090,9 +1115,19 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
         figure: figureOf(r.sales, fmtMoney),
         chart: chartOf(r.sales.series, fmtMoney, tt("Total sales"), false),
         sections: [
-          { title: tt("Products"), format: fmtMoney, bars: true, valueLabel: tt("Sales"), rows: r.topProducts.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: [kindName(p.kind), plural(p.orders, tt("order"), tt("orders")), plural(p.views, tt("view"), tt("views"))].filter(Boolean).join(" · ") })) },
+          { title: tt("Products"), format: fmtMoney, bars: true, lines: "product", valueLabel: tt("Sales"), rows: r.topProducts.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: [kindName(p.kind), plural(p.orders, tt("order"), tt("orders")), plural(p.views, tt("view"), tt("views"))].filter(Boolean).join(" · ") })) },
           ...(r.kinds.length > 1 ? [{ title: tt("By kind"), format: fmtMoney, bars: true, rows: r.kinds.map((k) => ({ key: k.key, label: k.label, value: k.salesCents, note: plural(k.orders, tt("order"), tt("orders")) })) }] : []),
         ],
+      }
+    }
+    case "siteclicks": {
+      const c = r.siteClicks
+      if (!c) return { title: tt("Clicks between pages"), sections: [{ title: tt("Buttons"), format: fmtCount, rows: [], empty: tt("Clicks between pages could not be read. Refresh the page to try again.") }] }
+      return {
+        title: tt("Clicks between pages"),
+        figure: figureOf(c, fmtCount),
+        sections: [{ title: tt("Buttons"), format: fmtCount, bars: true, lines: "nav", valueLabel: tt("Clicks"), rows: c.rows.map((x) => ({ key: x.key, label: x.label, value: x.clicks, previous: x.previous, note: siteClickNote(x) })) }],
+        help: siteClicksHelp(),
       }
     }
     case "subscribers": {
@@ -1111,14 +1146,14 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
         title: tt("Countries"),
         tabs: tabs(t, [{ value: "visitors", label: tt("Visitors") }, { value: "orders", label: tt("Orders") }], tt("Countries")),
         ...(t === "orders" ? { figure: figureOf(r.orders, fmtCount), chart: chartOf(r.orders.series, fmtCount, tt("Orders")) } : visitors),
-        sections: [t === "orders" ? breakdownSection(tt("Orders by country"), b.orderCountry, { flag: true }, (row) => fmtMoney(row.extra?.salesCents ?? 0)) : breakdownSection(tt("Visitors by country"), b.country, { flag: true })],
+        sections: [t === "orders" ? breakdownSection(tt("Orders by country"), b.orderCountry, { flag: true }, (row) => fmtMoney(row.extra?.salesCents ?? 0)) : breakdownSection(tt("Visitors by country"), b.country, { flag: true }, "share", fmtCount, "country")],
       }
     }
     case "os":
       return { title: tt("Operating systems"), ...visitors, sections: [breakdownSection(tt("Operating systems"), b.os, { icon: "os" })] }
     case "devices": {
       const t = tab === "browser" ? "browser" : "device"
-      return { title: tt("Devices"), tabs: tabs(t, [{ value: "device", label: tt("Device") }, { value: "browser", label: tt("Browser") }], tt("Devices")), ...visitors, sections: [breakdownSection(t === "device" ? tt("Devices") : tt("Browsers"), b[t], { icon: t })] }
+      return { title: tt("Devices"), tabs: tabs(t, [{ value: "device", label: tt("Device") }, { value: "browser", label: tt("Browser") }], tt("Devices")), ...visitors, sections: [breakdownSection(t === "device" ? tt("Devices") : tt("Browsers"), b[t], { icon: t }, "share", fmtCount, t)] }
     }
     case "added:refunds": {
       const h = delta(r.refunds.value, r.refunds.previous)
@@ -1151,7 +1186,7 @@ function detailFor(id: string, tab: string | undefined, r: Reports, setTab: (t: 
  * updates an open panel in place. The report stays drawn while the panel
  * slides out.
  */
-export function ReportDetailHost({ state, range, against, children }: { state: ReportsState; range: string; against: string | null; children: React.ReactNode }) {
+export function ReportDetailHost({ state, range, against, question, children }: { state: ReportsState; range: string; against: string | null; /** The page's question (lib/analytics/report-cache reportKey), for each row's own line. */ question?: string; children: React.ReactNode }) {
   reportCurrency = useStoreCurrency()
   const [open, setOpen] = React.useState(false)
   const [which, setWhich] = React.useState<{ id: string; tab?: string } | null>(null)
@@ -1160,18 +1195,44 @@ export function ReportDetailHost({ state, range, against, children }: { state: R
     setOpen(true)
   }, [])
   const setTab = React.useCallback((tab: string) => setWhich((w) => (w ? { ...w, tab } : w)), [])
+  /*
+    A REPORT BY ITS ADDRESS (round 42): ?report=traffic, the way the /app
+    search opens one (lib/search/app-pages.ts). Opened once on arriving, or
+    when the address names another while the page is open, and the word
+    taken out of the address in place, so Back and a reload keep the page
+    without opening the panel again.
+  */
+  const askedReport = useReportParam()
+  React.useEffect(() => {
+    if (!askedReport || !titleOf(askedReport)) return
+    openDetail(askedReport)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("report")
+      window.history.replaceState(window.history.state, "", url.toString())
+    } catch {
+      /* An address that can't be written: the report is open all the same. */
+    }
+  }, [askedReport, openDetail])
   const shown = state.data && state.data.reports.partial && state.lists && !state.lists.reports.partial ? state.lists : state.data
   const r = shown && !shown.reports.partial ? shown.reports : null
   const view = which && r ? detailFor(which.id, which.tab, r, setTab) : null
   const compared = !!r && r.compared !== false && against !== null
   const title = view?.title ?? (which ? titleOf(which.id) : "")
+  const lines = useRowLines(open ? question : undefined, view)
   return (
     <OpenDetailContext.Provider value={openDetail}>
       {children}
       <DetailPanel open={open} onClose={() => setOpen(false)} title={title} sub={against ? tt("{range} compared with {against}", { range, against }) : range} panelKey={which ? `${which.id}` : undefined}>
         <ComparedContext.Provider value={compared}>
           <div data-detail-id={which?.id} aria-busy={!view} className={cn("transition-opacity duration-200", state.stale ? "opacity-60 delay-150" : "opacity-100")}>
-            {view ? <DetailBody view={view} compared={compared} /> : <Waiting kind="list" />}
+            {view ? (
+              <RowLinesContext.Provider value={lines}>
+                <DetailBody view={view} compared={compared} />
+              </RowLinesContext.Provider>
+            ) : (
+              <Waiting kind="list" />
+            )}
           </div>
         </ComparedContext.Provider>
       </DetailPanel>
@@ -1179,10 +1240,72 @@ export function ReportDetailHost({ state, range, against, children }: { state: R
   )
 }
 
+/** The report the address names, read from the address as it changes (next/navigation keeps useSearchParams in step with history). */
+function useReportParam(): string | null {
+  const params = useSearchParams()
+  return params?.get("report") ?? null
+}
+
+/* ─── Each row's own line, asked for when a report opens ─────────────── */
+
+/** Lines already asked for, by question and dimension: a report opened again is drawn at once. A few, the latest kept. */
+const askedLines = new Map<string, Promise<RowLines>>()
+const LINES_KEPT = 24
+
+function askLines(question: string, dim: string): Promise<RowLines> {
+  const key = `${question}|${dim}`
+  const known = askedLines.get(key)
+  if (known) return known
+  const p: Promise<RowLines> = fetch(`/api/analytics/rows?${question}&dim=${encodeURIComponent(dim)}`, { credentials: "same-origin" })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(String(res.status))
+      const body = (await res.json()) as { series?: Record<string, number[]> }
+      return { state: "ready" as const, series: body.series ?? {} }
+    })
+    .catch(() => {
+      /* A failure is not kept: the next opening asks again. */
+      askedLines.delete(key)
+      return { state: "failed" as const }
+    })
+  askedLines.set(key, p)
+  while (askedLines.size > LINES_KEPT) askedLines.delete(askedLines.keys().next().value as string)
+  return p
+}
+
+/**
+ * THE OPENED REPORT'S LINES (./report-detail RowLinesContext): for each
+ * dimension its sections name, asked once the panel is open
+ * (app/api/analytics/rows) and never before, so the page itself reads
+ * nothing more. A dimension not in yet reads "loading".
+ */
+function useRowLines(question: string | undefined, view: DetailView | null): Record<string, RowLines> {
+  const dims = view ? [...new Set(view.sections.map((s) => s.lines).filter((d): d is string => !!d))].join(",") : ""
+  const [got, setGot] = React.useState<Record<string, RowLines>>({})
+  React.useEffect(() => {
+    if (!question || !dims) return
+    let live = true
+    for (const dim of dims.split(",")) {
+      const key = `${question}|${dim}`
+      void askLines(question, dim).then((answer) => {
+        if (live) setGot((g) => (g[key] === answer ? g : { ...g, [key]: answer }))
+      })
+    }
+    return () => {
+      live = false
+    }
+  }, [question, dims])
+  return React.useMemo(() => {
+    const out: Record<string, RowLines> = {}
+    if (!question) return out
+    for (const dim of dims ? dims.split(",") : []) out[dim] = got[`${question}|${dim}`] ?? { state: "loading" }
+    return out
+  }, [question, dims, got])
+}
+
 /** A report's name before its numbers are in. */
 function titleOf(id: string): string {
   if (id.startsWith("added:")) return REPORT_COPY[id.slice(6) as ReportId]?.title ?? ""
-  return ({ traffic: tt("Traffic sources"), referrers: tt("Referrers"), pages: tt("Top pages"), links: tt("Top links"), products: tt("Top products"), funnel: tt("Funnel"), subscribers: tt("Subscribers"), countries: tt("Countries"), os: tt("Operating systems"), devices: tt("Devices"), "metric:views": tt("Visitors"), "metric:revenue": tt("Total revenue"), "metric:orders": tt("Total orders"), "metric:conversion": tt("Conversion rate"), "metric:pageviews": tt("Page views"), "metric:clicks": tt("Link clicks") } as Record<string, string>)[id] ?? ""
+  return ({ traffic: tt("Traffic sources"), referrers: tt("Referrers"), pages: tt("Top pages"), links: tt("Top links"), products: tt("Top products"), funnel: tt("Funnel"), subscribers: tt("Subscribers"), countries: tt("Countries"), os: tt("Operating systems"), devices: tt("Devices"), "metric:views": tt("Visitors"), "metric:revenue": tt("Total revenue"), "metric:orders": tt("Total orders"), "metric:conversion": tt("Conversion rate"), "metric:pageviews": tt("Page views"), "metric:clicks": tt("Link clicks"), siteclicks: tt("Clicks between pages") } as Record<string, string>)[id] ?? ""
 }
 
 /**

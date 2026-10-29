@@ -1,10 +1,9 @@
 import { sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
-import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 
@@ -18,26 +17,13 @@ const SettingsBodySchema = z.object({
   mode: z.enum(["draft", "publish"]).optional(),
 })
 
+/* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 async function getCreatorInstall(installId: string) {
-  const supabase = await createClient()
-  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-  const { user, status: authStatus, error: authError } = await editorUser(supabase)
-  if (!user) return { error: authError, status: authStatus, supabase: null }
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
-  if (!creator) return { error: "Creator not found", status: 404, supabase: null }
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs").select("id")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
-  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
-  if (!install) return { error: "Theme not found", status: 404, supabase: null }
-
+  const c = await websiteInstallCaller(installId)
+  if (c.error !== null) return { error: c.error, status: c.status, supabase: null }
   // The creator id comes back too: a write that lands on the LIVE `settings`
   // column changes the website, so the cached published site has to go.
-  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id, userId: user.id }
+  return { error: null, status: 200, supabase: c.supabase, creatorId: c.creatorId, userId: c.userId }
 }
 
 // GET /api/website-builder/themes/[installId]/settings

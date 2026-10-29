@@ -334,6 +334,13 @@ export interface Reports {
     /** Orders by the buyer's country; `extra.salesCents` their revenue. */
     orderCountry: BreakdownRow[]
   }
+  /**
+   * Clicks between pages of the same site (lib/analytics/site-clicks): which
+   * buttons were pressed, on which page, to which page. Added to the answer
+   * by lib/analytics/report-answer for a seller with a website, for All or a
+   * website, with no product chosen; absent otherwise.
+   */
+  siteClicks?: import("./site-clicks").SiteClicks
 }
 
 const HOUR = 3_600_000
@@ -968,6 +975,40 @@ function mapRows(now: Record<string, number> | undefined, before: Record<string,
 
 const OTHER = "(other)"
 
+/**
+ * HOW A BREAKDOWN'S STORED KEYS BECOME ITS ROWS: a source category under its
+ * group, a referrer's host under its company, a campaign in lower case, a
+ * country by its code. The Traffic sources, Referrers, Countries and Devices
+ * cards and each of their rows' own lines (lib/analytics/row-series) fold by
+ * this one function, so a row's line adds up to the row.
+ */
+export type BreakdownKind = "source" | "social" | "referrer" | "campaign" | "country" | "device" | "browser"
+export function breakdownKeyer(kind: BreakdownKind, mainDomain: string): (k: string) => { key: string; label: string } | null {
+  switch (kind) {
+    case "source":
+      return (k) => {
+        if (k === OTHER) return { key: "other", label: tt("Other") }
+        const g = sourceGroup(k)
+        return { key: g, label: SOURCE_LABEL[g] }
+      }
+    case "social":
+      return (k) => {
+        const nw = socialNetwork(k)
+        return nw ? { key: nw, label: SOCIAL_LABEL[nw] ?? (nw === "other" ? tt("Other social") : titleCase(nw)) } : null
+      }
+    case "referrer":
+      return referrerKeyer(mainDomain)
+    case "campaign":
+      return (k) => (k === OTHER ? { key: OTHER, label: tt("Other campaigns") } : k.trim() ? { key: k.toLowerCase(), label: k } : null)
+    case "country":
+      return (k) => (k === "unknown" || k === "XX" || k === OTHER || !/^[A-Z]{2}$/.test(k) ? null : { key: k, label: countryName(k) })
+    case "device":
+      return (k) => ({ key: k === OTHER ? OTHER : ["mobile", "desktop", "tablet"].includes(k) ? k : "unknown", label: deviceLabel(k) })
+    case "browser":
+      return (k) => (k === "unknown" ? { key: "unknown", label: tt("Unknown") } : k === OTHER ? { key: OTHER, label: tt("Other") } : { key: k, label: titleCase(k) })
+  }
+}
+
 export function referrerKeyer(mainDomain: string) {
   return (k: string) => {
     const d = k.trim().toLowerCase().replace(/^www\./, "")
@@ -1415,24 +1456,13 @@ export function buildReports(input: {
   const maps = now.maps ?? {}
   const before = then.maps ?? {}
   const breakdowns: Reports["breakdowns"] = {
-    source: mapRows(maps.source, before.source, (k) => {
-      if (k === OTHER) return { key: "other", label: tt("Other") }
-      const g = sourceGroup(k)
-      return { key: g, label: SOURCE_LABEL[g] }
-    }),
-    social: mapRows(maps.source, before.source, (k) => {
-      const nw = socialNetwork(k)
-      return nw ? { key: nw, label: SOCIAL_LABEL[nw] ?? (nw === "other" ? tt("Other social") : titleCase(nw)) } : null
-    }),
-    referrer: mapRows(maps.referrer, before.referrer, referrerKeyer(mainDomain)),
-    campaign: mapRows(maps.campaign, before.campaign, (k) => (k === OTHER ? { key: OTHER, label: tt("Other campaigns") } : k.trim() ? { key: k.toLowerCase(), label: k } : null)),
-    country: mapRows(maps.country, before.country, (k) =>
-      k === "unknown" || k === "XX" || k === OTHER || !/^[A-Z]{2}$/.test(k) ? null : { key: k, label: countryName(k) },
-    ).map((r) => ({ ...r, extra: { code: r.key } })),
-    device: mapRows(maps.device, before.device, (k) => ({ key: k === OTHER ? OTHER : ["mobile", "desktop", "tablet"].includes(k) ? k : "unknown", label: deviceLabel(k) })),
-    browser: mapRows(maps.browser, before.browser, (k) =>
-      k === "unknown" ? { key: "unknown", label: tt("Unknown") } : k === OTHER ? { key: OTHER, label: tt("Other") } : { key: k, label: titleCase(k) },
-    ),
+    source: mapRows(maps.source, before.source, breakdownKeyer("source", mainDomain)),
+    social: mapRows(maps.source, before.source, breakdownKeyer("social", mainDomain)),
+    referrer: mapRows(maps.referrer, before.referrer, breakdownKeyer("referrer", mainDomain)),
+    campaign: mapRows(maps.campaign, before.campaign, breakdownKeyer("campaign", mainDomain)),
+    country: mapRows(maps.country, before.country, breakdownKeyer("country", mainDomain)).map((r) => ({ ...r, extra: { code: r.key } })),
+    device: mapRows(maps.device, before.device, breakdownKeyer("device", mainDomain)),
+    browser: mapRows(maps.browser, before.browser, breakdownKeyer("browser", mainDomain)),
     /* Visitors by system: iOS, Android, Windows, macOS, Linux, ChromeOS by name, everything else Other. */
     os: (() => {
       const toMap = (xs: WindowWire["os"]) => Object.fromEntries(Object.entries((xs ?? []).reduce<Record<string, number>>((m, [k, people]) => ((m[k] = (m[k] ?? 0) + (Number(people) || 0)), m), {})))

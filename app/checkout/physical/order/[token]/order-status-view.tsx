@@ -53,6 +53,8 @@ interface Props {
     savings?: { label: string; cents: number }[]
     /** A receipt token of the order's, which opens its invoice PDF; null when it has none (cash, free). */
     invoiceToken?: string | null
+    /** Each refund's credit note (lib/checkout/credit-note.ts): its number and its PDF's link. */
+    creditNotes?: { number: string; href: string }[]
     /** Collected by the buyer instead of shipped. */
     pickup: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
     processing: boolean
@@ -461,6 +463,16 @@ export function OrderStatusView({ token, justPaid, shop, orderUrl, order, canRet
                 <Download className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
                 {ct("Download invoice (PDF)")}
               </a>
+            ) : null}
+            {order.creditNotes?.length ? (
+              <div className="mt-1 flex flex-wrap gap-x-4 print:hidden" data-order-credit-notes="">
+                {order.creditNotes.map((n) => (
+                  <a key={n.number} href={n.href} download className="inline-flex min-h-9 items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 hover:decoration-[#1a1a2e]">
+                    <Download className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                    {ct("Credit note {number}", { number: n.number })}
+                  </a>
+                ))}
+              </div>
             ) : null}
             {order.cash && !order.cancelled ? (
               <p data-cash-payment="" className="mt-3 rounded-[10px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">

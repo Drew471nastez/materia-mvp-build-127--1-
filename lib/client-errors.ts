@@ -88,6 +88,25 @@ export function isStaleCodeError(error: unknown, newDeploy: boolean = false): bo
   return isChunkLoadError(error) || (newDeploy && isLoadFailed(error))
 }
 
+/**
+ * WHAT WENT WRONG IN ONE SETTINGS SECTION, NOT ONE ANSWER FOR ALL OF IT
+ * (components/app/settings/section-boundary.tsx):
+ *
+ *   offline  the device has no connection: Try again, never Reload (a reload
+ *            while offline swaps Settings for the browser's own error page)
+ *   slow     the section's code was asked for and did not come in time
+ *            (lazy-panels CODE_WAIT_MS): Try again asks afresh
+ *   stale    code a deploy removed: Reload
+ *   fault    the section itself threw: Try again
+ */
+export type SectionFailure = "offline" | "slow" | "stale" | "fault"
+
+export function sectionFailure(error: unknown, online: boolean, newDeploy: boolean = false): SectionFailure {
+  if ((error as { name?: unknown } | null)?.name === "SettingsCodeTimeout") return online ? "slow" : "offline"
+  if (isStaleCodeError(error, newDeploy)) return online ? "stale" : "offline"
+  return "fault"
+}
+
 export interface ReloadStore {
   getItem(key: string): string | null
   setItem(key: string, value: string): void

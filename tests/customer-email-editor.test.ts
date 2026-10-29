@@ -132,7 +132,8 @@ console.log("\nSaved per store, used by the senders\n")
 console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
 {
   const panel = read("components/app/settings/customer-emails-panel.tsx")
-  check("the preview is drawn in the browser, not fetched on each open", /previewCustomerEmail\(id, shop,/.test(panel) && !/\/api\/store\/emails\/preview/.test(panel))
+  /* Changed on purpose (round cn-1028, the owner: "the preview must open smoothly and fast"): the saved words' preview is read from the server once per version, ahead on hover, and kept for the page's life; live edits are still drawn in the browser. */
+  check("the preview is drawn in the browser as it is typed, and read once per version, not on each open", /previewCustomerEmail\(id, shop,/.test(panel) && /drawnKept\.get\(key\)/.test(panel) && /preview\?\$\{q\}/.test(panel))
   check("  from what Settings already fetched", /peekGet<CustomerEmailsData>\(CUSTOMER_EMAILS_PATH\)/.test(panel) && /emails: \(\) => \["\/api\/store\/emails"\]/.test(read("components/app/settings-form-new.tsx")))
   check("a dialog on a computer, the shared bottom sheet on a phone", /<SheetDialog/.test(panel) && /phone=\{phone\}/.test(panel) && /usePhoneWidth\(\)/.test(panel))
   check("an editor with live preview, Save and Reset to default", /useDeferredValue\(draft\)/.test(panel) && /data-email-save/.test(panel) && /Reset to default/.test(panel))

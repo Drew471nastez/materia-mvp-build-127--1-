@@ -308,7 +308,7 @@ function main() {
     check("a crop keeps its finger from the sheet", /data-sheet-no-drag=""/.test(read("components/onepage/media-cropper.tsx")) && (linksSrc.match(/<CropUpload\b/g) ?? []).length >= 2 && (design.match(/<CropUpload\b/g) ?? []).length >= 4)
     check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
       /* Round 11: the social sheet keeps one height whose top the keyboard never moves (SOCIAL_SHEET_HEIGHT), on purpose. */
-      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT \}\}/.test(linksSrc)
+      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /* Changed on purpose (round 42): SOCIAL_SHEET_HEIGHT for the list only, a field sized to itself. */ /sheet=\{\{ keepMounted: true, height: selectedSocial \? undefined : SOCIAL_SHEET_HEIGHT/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
     check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", /* 11 since round 11: the email signup's two hand-written cards became one card drawn for each of its five layouts. */ (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 11 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
@@ -383,10 +383,12 @@ function main() {
       reduced motion. Measured by scripts/check-onepage-addblock-r11.mjs.
     */
     const plus = read("components/onepage/add-block-picker.tsx")
-    check("its + turns a quarter under a mouse, to an x while the sheet is up, never on touch, and not under reduced motion",
+    /* Changed on purpose (round 42): "when clicked, rotate the + icon smoothly (45 degrees to an x)", for a finger as for a mouse, with a haptic tick in the apps. No hover turn, so the click is the only one. */
+    check("its + turns 45 degrees to an x while the sheet is up, for every pointer, no hover turn, not under reduced motion, a tick in the apps",
       /<AddBlockButton\n\s*fromButton=\{addSheetFromButton\}/.test(add) && /<AddBlockPlus open=\{open\} \/>/.test(plus) && /const open = useAddSheetOpen\(\) && fromButton/.test(plus)
       && /transition-\[rotate\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none/.test(plus)
-      && /open \? "pointer-fine:rotate-\[135deg\]" : "group-hover\/add:rotate-90"/.test(plus)
+      && /open \? "rotate-45" : "rotate-0"/.test(plus) && !/group-hover\/add:rotate/.test(plus) && !/pointer-fine:rotate/.test(plus)
+      && /if \(isNativeApp\(\)\) hapticTap\("light"\)/.test(plus)
       && /className=\{cn\("group\/add", className\)\}/.test(plus)
       && !/rotate-\[(360|405)deg\]/.test(plus)
       && /const addSheetFromButton = insertAfterId === null && addToGroupId === null/.test(links))

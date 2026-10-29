@@ -19,7 +19,8 @@ import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { LanguageProvider } from "@/lib/i18n/context"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"
+import { REMOVED_PRODUCT, buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"
+import { productSalesSeries, rowSeriesOf, storedDimOf, storedRowSeries, type RowDim } from "@/lib/analytics/row-series"
 import { commerceReport } from "@/lib/analytics/commerce"
 import { parseMode } from "@/lib/analytics/sections"
 import { grainFor } from "@/lib/analytics/buckets"
@@ -98,7 +99,7 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (u.pathname.startsWith("/api/app/community/")) {
     await new Promise((r) => setTimeout(r, w.__delay))
     const f = (value: number, previous: number) => ({ value, previous })
-    return json({ figures: { members: f(412, 380), joined: f(38, 29), left: f(6, 9), visits: f(1260, 1100), joinRate: f(0.031, 0.026) }, money: { currency: "USD", figures: { revenue: f(184000, 151000) } }, live: { members: 412 } })
+    return json({ figures: { members: f(412, 380), joined: f(38, 29), left: f(6, 9), visits: f(1260, 1100), joinRate: f(0.031, 0.026) }, money: { currency: "USD", figures: { revenue: f(184000, 151000), mrr: f(52000, 48000), subscribers: f(31, 28) }, bySource: [{ key: "memberships", cents: 184000 }] }, live: { members: 412 } })
   }
   const commerce = u.pathname.endsWith("/api/analytics/commerce")
   await new Promise((r) => setTimeout(r, w.__delay + (commerce ? 200 : 0)))
@@ -128,6 +129,14 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const cs = q.get("cstart")
   const previous = cs ? { start: Date.parse(cs), end: Date.parse(q.get("cend")!) } : null
   const timeZone = q.get("tz") || "UTC"
+  /* An opened report's own lines (app/api/analytics/rows), counted from the same rows by the route's rules (lib/analytics/row-series). */
+  if (u.pathname.endsWith("/api/analytics/rows")) {
+    const dim = q.get("dim") as RowDim
+    const series = dim === "product"
+      ? productSalesSeries({ orders: mine, window: window_, timeZone, selector, defaultWebsite: PLACES.defaultWebsite, productTitles: titles, productTypes: types, mode: kind, removedKey: REMOVED_PRODUCT })
+      : rowSeriesOf(dim, storedRowSeries({ views, steps, window: window_, timeZone, selector, defaultWebsite: PLACES.defaultWebsite, product, dim: storedDimOf(dim) }), "storelib.com")
+    return json({ dim, series, truncated: false })
+  }
   const wire = wireFromRows({ views, steps, window: window_, previous, timeZone, selector, defaultWebsite: PLACES.defaultWebsite, product, mainDomain: "storelib.com" })
   const reports = buildReports({ orders: mine, window: window_, previous, timeZone, mainDomain: "storelib.com", productTitles: titles, productTypes: types, selector, properties: PLACES, product, wire, linkLabels: { b1: "Shop my presets" } })
   const sales = salesFor(mine, { type: "all" }, PLACES.defaultWebsite)

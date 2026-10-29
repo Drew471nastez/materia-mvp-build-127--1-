@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { readSessionBounded } from "@/lib/auth/session-read"
 import { syncSessionHref } from "@/lib/auth/native-session"
+import { goToAuthHref } from "@/lib/auth/session-sync"
 import { viewerSyncMove, VIEWER_SYNC_KEY } from "@/lib/auth/viewer-sync"
 
 /**
@@ -57,7 +58,7 @@ export function ViewerSync({ serverSignedIn }: { serverSignedIn: boolean }) {
       })
       if (move.kind === "none") return
       remember(move.key)
-      if (move.kind === "sync" && read.session) window.location.assign(syncSessionHref(read.session, move.path))
+      if (move.kind === "sync" && read.session) goToAuthHref(syncSessionHref(read.session, move.path))
       else router.refresh()
     }
 

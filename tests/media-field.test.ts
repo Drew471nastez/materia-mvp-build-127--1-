@@ -52,7 +52,7 @@ function main() {
   console.log("\nWhat it sends")
   check("the picture without its location, camera and owner details", /const body = await withoutMetadata\(file\)/.test(picker) && /import \{ withoutMetadata \} from "@\/lib\/images\/compress"/.test(picker))
   check("and that copy is the one uploaded, not the original", /\.upload\(filePath, body, \{/.test(picker) && !/\.upload\(filePath, file,/.test(picker))
-  check("into the signed in person's own folder", /const filePath = `\$\{user\.id\}\/\$\{folder\}\/\$\{safeName\}`/.test(picker))
+  check("into the signed in person's own folder", /const filePath = `\$\{owner \?\? user\.id\}\/\$\{folder\}\/\$\{safeName\}`/.test(picker) /* Changed on purpose (round 42 team): the store owner's folder for a team member with Website */)
   check("the file on screen is still the one chosen, before anything is sent", /showFile\(file\)\s*\n\s*setUploading\(true\)\s*\n\s*try \{\s*\n[\s\S]{0,200}const body = await withoutMetadata\(file\)/.test(picker))
 
   console.log(`\n${passed} passed, ${failed} failed`)

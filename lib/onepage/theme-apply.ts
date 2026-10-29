@@ -68,6 +68,9 @@ export const LOOK_RESET: Record<string, unknown> = {
   button_size: null,
   button_hover_fill: null,
   button_hover_text: null,
+  /* Round 42: how products are shown, and the cover picture (lib/onepage/theme-layout). Null is each block's own layout, and no cover. */
+  product_layout: null,
+  cover_image_url: null,
 }
 
 /** The colours a block can keep of its own, by block type. */

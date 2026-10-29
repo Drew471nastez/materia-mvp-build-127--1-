@@ -1,6 +1,5 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
-import { createClient } from "@/lib/supabase/server"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
 import { newestCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
 import { mintCoverPass } from "@/lib/website-builder/cover-pass"
@@ -37,26 +36,16 @@ export const maxDuration = 60
 type Params = { params: Promise<{ installId: string }> }
 
 /** The signed-in user and their creator, when that creator owns the install; otherwise the answer to send. */
-async function owned(installId: string): Promise<{ userId: string; creatorId: string } | NextResponse> {
+/**
+ * The signed-in person and the store, when the store owns the install (the
+ * owner, or a team member with Website: lib/team/website); otherwise the
+ * answer to send. The cover lives in the store owner's folder.
+ */
+async function owned(installId: string): Promise<{ userId: string; ownerUserId: string; creatorId: string } | NextResponse> {
   if (!isThemeId(installId)) return NextResponse.json({ error: "Invalid install id" }, { status: 400 })
-
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id")
-    .eq("id", installId)
-    .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle())
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
-  return { userId: user.id, creatorId: (creator as { id: string }).id }
+  const site = await websiteInstallCaller(installId)
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  return { userId: site.userId, ownerUserId: site.ownerUserId, creatorId: site.creatorId }
 }
 
 /**
@@ -84,7 +73,7 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({ render }, { headers: { "Cache-Control": "no-store" } })
   }
   try {
-    const cover = await newestCover({ installId, userId: who.userId })
+    const cover = await newestCover({ installId, userId: who.ownerUserId })
     return NextResponse.json(cover ?? { url: null }, { headers: { "Cache-Control": "no-store" } })
   } catch {
     return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } })
@@ -108,7 +97,7 @@ export async function POST(req: Request, { params }: Params) {
   /* The photographing is shared with the routes that create a website: lib/website-builder/cover-take.ts */
   try {
     const cover = await takeCover(
-      { installId, userId: who.userId, creatorId: who.creatorId },
+      { installId, userId: who.ownerUserId, creatorId: who.creatorId },
       renderOrigin(req.url),
     )
     return NextResponse.json(cover)

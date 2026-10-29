@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./hover-variant.css";
 
 
 
@@ -21,23 +22,7 @@
  */
 @custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
 
-/*
-  AND EVERY `hover:` IS THAT HOVER. The rule above asked each class to opt in,
-  and the ones that did not (a card's lift, a row's tint, a cover's veil)
-  went on lighting up under a thumb on every Android phone and WebView that
-  answers `hover: hover`, and stayed lit after the finger left: the grey
-  veil over a card that a scroll or a tap left behind. So the variant itself
-  asks both questions, once, for every `hover:`, `group-hover:` and
-  `peer-hover:` in the product. A real mouse sees exactly what it saw; a
-  finger sees no hover state at all, which is what a touch screen has.
-*/
-@custom-variant hover {
-  @media (hover: hover) and (pointer: fine) {
-    &:hover {
-      @slot;
-    }
-  }
-}
+/* And every `hover:` is that hover: the variant is ./hover-variant.css, imported at the top, which says why it lives on its own. */
 
 :root {
   /* ── Theme defaults ────────────────────────────────────────────────────
@@ -7215,6 +7200,57 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 [data-analytics-controls] button[aria-haspopup="dialog"][data-state="open"] {
   background-color: #f1f2f4;
   box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.1);
+}
+
+/* THE FILTERS AS THE EMAILS TOOLBAR'S CHIPS (round 42, the owner: "one filter chip like the Emails subscribers filters
+   Status and Source"): on /app/analytics the period, the place, the product and the type are each that chip
+   (app/app/emails/emails-home.tsx FilterChip): 28px, 8px corners, 12px words and a chevron, a dashed hairline while
+   the filter is at its default (All pages, All products, All types) and a filled one once it narrows the page
+   (`data-filter-set`, which the period always has). Export keeps its place at the end, the same height, solid. The
+   community's own Analytics row (no data-filter-chips) keeps the round pills above. */
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"] {
+  height: 28px;
+  border: 1px dashed #c9ccd3;
+  border-radius: 8px;
+  padding: 0 10px;
+  gap: 4px;
+  background-color: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  box-shadow: none;
+  transition: background-color 100ms, border-color 100ms;
+}
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-filter-set] {
+  border-style: solid;
+  border-color: rgba(26, 26, 46, 0.15);
+  background-color: #eceef1;
+  color: #1a1a2e;
+}
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"] svg { color: #6b7280; }
+@media (hover: hover) and (pointer: fine) {
+  [data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"]:hover { background-color: rgba(26, 26, 46, 0.04); }
+  [data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-filter-set]:hover { background-color: #e5e7eb; }
+}
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-open],
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-state="open"] {
+  background-color: #e5e7eb;
+  border-color: rgba(26, 26, 46, 0.22);
+  box-shadow: none;
+}
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-analytics-export] {
+  border: 1px solid #e3e4e8;
+  background-color: #fff;
+  color: #1a1a2e;
+  padding: 0 10px 0 9px;
+  gap: 5px;
+}
+[data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-analytics-export] svg { color: #4b5563; }
+@media (max-width: 639.98px) {
+  [data-analytics-controls][data-filter-chips] button[aria-haspopup="dialog"][data-analytics-export] {
+    width: 28px;
+    padding: 0;
+  }
 }
 
 /* ANALYTICS ARRIVE AS THEY ARE REACHED (round 23, "as I scroll down ... should appear smooth ... the progress bars ...

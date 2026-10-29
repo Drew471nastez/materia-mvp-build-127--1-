@@ -16,8 +16,8 @@
  * products, not another install. It is stored as written and compared
  * against, rather than decoded, so there is nothing in it to forge.
  */
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { newPreviewToken, previewBase } from "@/lib/website-builder/preview-link"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
@@ -28,22 +28,14 @@ export const dynamic = "force-dynamic"
 
 type Params = { params: Promise<{ installId: string }> }
 
+/* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 async function owned(installId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Sign in to use this.", status: 401 as const, supabase: null }
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return { error: "Only creators can do this.", status: 403 as const, supabase: null }
-  /** RLS decides: a theme somebody else owns reads as absent. */
-  const { data: install, error } = await supabase
-    .from("store_theme_installs")
-    .select("id, preview_token")
-    .eq("id", installId)
-    .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle()
+  const site = await websiteInstallCaller(installId)
+  if (site.error !== null) return { error: site.error, status: site.status as 401 | 403 | 404 | 503, supabase: null }
+  const { data: install, error } = await site.supabase.from("store_theme_installs").select("id, preview_token").eq("id", installId).eq("creator_id", site.creatorId).maybeSingle()
   if (error && /preview_token/.test(error.message)) return { error: MIGRATION, status: 503 as const, supabase: null }
   if (!install) return { error: "Theme not found", status: 404 as const, supabase: null }
-  return { error: null, status: 200 as const, supabase, install: install as { id: string; preview_token: string | null }, userId: user.id }
+  return { error: null, status: 200 as const, supabase: site.supabase, install: install as { id: string; preview_token: string | null }, userId: site.userId }
 }
 
 /**

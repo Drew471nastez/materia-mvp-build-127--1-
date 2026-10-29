@@ -47,7 +47,10 @@ import { SegmentedPills } from "@/components/app/segmented-pills"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
-import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { CUSTOMER_EMAILS_PATH, CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { CommunityAutomations } from "@/components/app/emails/community-automations"
+import type { CommunityRef } from "@/components/app/emails/community-emails"
+import { api as storeApi, peekGet } from "@/components/physical/ui"
 import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -1076,9 +1079,29 @@ function MessagesTable(props: EmailsHomeProps) {
  * in full, what starts it, its steps and what it has done, with its switch
  * and its menu at the end, where a thumb is. Tapping the row opens it.
  */
+/**
+ * The owner's communities, for their automated messages under the store's
+ * automations: from the Customer emails read when it is in, otherwise read
+ * once here (the same kept read, /api/store/emails).
+ */
+function useCommunities(known: CustomerEmailsData | null | undefined): CommunityRef[] {
+  const [read, setRead] = React.useState<CommunityRef[] | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)?.communities ?? null)
+  const have = known?.communities
+  React.useEffect(() => {
+    if (have || read) return
+    let live = true
+    void storeApi<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => live && r.ok && setRead(r.data.communities ?? []))
+    return () => {
+      live = false
+    }
+  }, [have, read])
+  return have ?? read ?? []
+}
+
 function FlowsTable(props: EmailsHomeProps) {
   const router = useRouter()
   const press = usePress()
+  const communities = useCommunities(props.customerEmails)
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   const menu = (f: FlowRow, on: boolean): ActionMenuItem[] => [
     { label: tt("Edit"), onClick: () => openLayer(router, href(f)) },
@@ -1188,6 +1211,13 @@ function FlowsTable(props: EmailsHomeProps) {
           </>
         )}
       </ShimmerSwap>
+      {/* Each community's automated messages, with the store's automations; a row opens the community's own manager over this page. */}
+      {!props.loading && communities.length ? (
+        <section className="border-t border-[#f1f2f4] pb-1" aria-label={tt("Communities")} data-flow-communities="">
+          <h3 className="px-4 pt-4 text-[14px] font-semibold text-[#1a1a2e] sm:px-5">{tt("Communities")}</h3>
+          <CommunityAutomations communities={communities} titled={communities.length > 1} />
+        </section>
+      ) : null}
     </>
   )
 }

@@ -19,6 +19,7 @@ import { getFeeDescription } from "@/lib/billing/fee-calculator"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { StatusBadge, card as APP_CARD } from "@/app/app/orders/order-parts"
 import { tt } from "@/lib/i18n/text"
+import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 
 /* Words only: a row of stock icons beside six words said nothing the words did not. */
 const SETTINGS_SECTIONS = [
@@ -82,16 +83,19 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
         from each side of the word, 8px apart) and a little more under it.
         The pills themselves are Storelib's (components/onepage/pill-tabs).
 
-        SEVEN PILLS, NONE CUT OFF. With Integrations there are seven, about
-        690px of pills at Storelib's size. From 768px the row is never cut:
-        one row where the column holds them (the editor gives Settings 768px,
-        720 inside), and where it does not (the column beside the phone
-        preview is 364px at 1024 and 620px at 1280) the pills that do not fit
-        go on to a second row, the same size, rather than past the edge. On a
-        phone it scrolls sideways with no bar, the chosen pill kept in view,
-        and the last one reaches the screen's 16px margin like the first: a
-        flex row drops its end padding from what scrolls, so a 1px end piece
-        (`after:`) plus the 8px gap and the row's own padding hold it.
+        SEVEN PILLS, ONE ROW, AT EVERY WIDTH (round 42). With Integrations
+        there are seven, about 690px of pills at Storelib's size, and where
+        the column did not hold them (364px beside the preview at 1024, 620px
+        at 1280) they went on to a second row. The owner: "make them one
+        horizontal row that scrolls, with small arrow buttons". Now the row
+        never wraps: it scrolls sideways with no bar, the end with pills past
+        it fades, and a small round arrow in the fade moves it by what is on
+        screen (PillTabs `scroll`, the toolbars' ScrollRow), for a mouse with
+        no sideways wheel. A pressed pill is scrolled smoothly clear of the
+        fade (keepInView). The last pill reaches the 16px margin like the
+        first: a flex row drops its end padding from what scrolls, so a 1px
+        end piece (`after:`) plus the 8px gap and the row's own padding hold
+        it.
       */}
       <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 bg-white px-4 pb-3 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6" data-settings-pills="">
         <PillTabs
@@ -101,7 +105,8 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
           value={active}
           onChange={choose}
           keepInView
-          className="-mx-4 flex gap-2 overflow-x-auto scroll-px-4 px-4 py-0.5 app-no-scrollbar after:block after:w-px after:shrink-0 after:content-[''] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:after:hidden"
+          scroll={{ wrapClassName: "-mx-4 md:-mx-6" }}
+          className="flex gap-2 px-4 py-0.5 app-no-scrollbar after:block after:w-px after:shrink-0 after:content-[''] md:px-6"
           itemClassName="h-10 px-4 text-[13px] sm:h-9"
         />
       </div>
@@ -172,10 +177,8 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   const [ownPlan, setOwnPlan] = useState<"free" | "growth" | "pro" | null>(null)
   useEffect(() => {
     if (givenPlan !== undefined) return
-    fetch("/api/billing/subscription")
-      .then((r) => r.json())
-      .then((data) => setOwnPlan(((data.subscription?.plan_id || data.currentPlan?.id) as "free" | "growth" | "pro" | undefined) || "free"))
-      .catch(() => setOwnPlan("free"))
+    /* Shared with everything else on screen (lib/billing/plan-client.ts): one request, not one per panel. */
+    void fetchBillingSubscription().then((data) => setOwnPlan((plan) => planIdOf(data) ?? plan ?? "free"))
   }, [givenPlan])
   const userPlan = givenPlan !== undefined ? givenPlan : ownPlan
   const planLoading = userPlan === null

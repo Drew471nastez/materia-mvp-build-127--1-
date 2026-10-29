@@ -1809,6 +1809,8 @@ interface SendRefundEmailsParams {
   storeName: string
   orderDate?: string
   sellerAvatarUrl?: string
+  /** The refund's credit note (lib/checkout/credit-note.ts): its number and the buyer's link to its PDF. */
+  creditNote?: { number: string; url: string } | null
 }
 
 
@@ -1842,7 +1844,7 @@ async function refundSigner(orderId: string): Promise<{ name: string | null; pic
 }
 
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
-  const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate, sellerAvatarUrl } = params
+  const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate, sellerAvatarUrl, creditNote } = params
 
   /*
     A REFUND IS WRITTEN IN THE CURRENCY IT WAS PAID BACK IN, which the caller
@@ -1886,7 +1888,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
      and sized for the inbox; the initials when there is none, never a broken image. */
   const sellerAvatarSrc = emailImageSrc(signer?.pictureUrl ?? sellerAvatarUrl, 36)
   const buyerMail = buyerRefundMail(
-    { storeName: signedName, productTitle: escapedProduct, amountCents: refundAmount, currency: code, orderId, reason, orderDate: orderDate ?? null, refundDate: new Date().toISOString(), contactEmail, sellerPictureUrl: sellerAvatarSrc },
+    { storeName: signedName, productTitle: escapedProduct, amountCents: refundAmount, currency: code, orderId, reason, orderDate: orderDate ?? null, refundDate: new Date().toISOString(), contactEmail, sellerPictureUrl: sellerAvatarSrc, creditNote: creditNote ?? null },
     signer?.language ?? null,
     signer?.words ?? null,
   )

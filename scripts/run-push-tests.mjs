@@ -35,6 +35,8 @@ const SUITES = [
   "tests/explore25.test.ts",
   "tests/proxy-auth-speed.test.ts",
   "tests/net-request.test.ts",
+  /* Round net-1028: every Supabase request has a deadline, a read that hit a blip is asked again (never a write), a failed read is not "no row", auth that did not answer falls back to the token's signature, request ids and clean log lines; scripts/check-settings-switch.mjs SWITCH_ONLY=hang measures a Settings section whose code never comes. */
+  "tests/net-resilience.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
@@ -89,6 +91,8 @@ const SUITES = [
   "tests/storelib-reviews.test.ts",
   "tests/reviews-manage.test.ts",
   "tests/review-widgets.test.ts",
+  /* Storelib Reviews › Add to website: the builder adds the widget once the page asked for is open (lib/reviews/widgets/arrival.ts). */
+  "tests/review-widget-arrival.test.ts",
   "tests/reviews-import-v.test.ts",
   "tests/reviews-product-page.test.ts",
   /* Round reviews-1023: Storelib Reviews in an imported theme as a Shopify reviews app (the review metafields everywhere, Star rating and Reviews app blocks, Shop words, aggregateRating); scripts/check-compat-reviews.mjs measures them. */
@@ -202,6 +206,8 @@ const SUITES = [
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
   "tests/analytics-collection.test.ts",
+  /* Round 42: each row's own line in an opened report (lib/analytics/row-series), clicks between pages of the same site (nav_click, lib/analytics/site-clicks), and the type filter as one chip. */
+  "tests/analytics-row-series.test.ts",
   "tests/analytics-rollup-sql.test.ts",
   "tests/analytics-report-sql.test.ts",
   "tests/analytics-review.test.ts",
@@ -493,6 +499,8 @@ const SUITES = [
   "tests/ops-safety.test.ts",
   "tests/public-abuse.test.ts",
   "tests/section-signups.test.ts",
+  /* The Email app's newsletter end to end: the subscribe route against an in-memory database, an imported theme's form naming its box, and the canvas sending nothing. */
+  "tests/newsletter-signup.test.ts",
   "tests/developer-hub.test.ts",
   "tests/ai-section-placement.test.ts",
   "tests/email-automation.test.ts",
@@ -705,6 +713,8 @@ const SUITES = [
   "tests/onepage-theme-apply.test.ts",
   /* Round 40: five more themes, block layouts, hover colours, the themed product sheet and checkout window, the wallpaper library and the gradient direction. */
   "tests/onepage-themes-r40.test.ts",
+  /* Round 42: two more themes (a cover page, a price list), products shown the theme's way, one-row pill rows with arrows, + Add's turn, the steady tab bar, the photo save's reasons, the OnePage SQL in one file. */
+  "tests/onepage-themes-r42.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -877,6 +887,7 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  "tests/billing-fail-closed.test.ts",
   "tests/physical-w7.test.ts",
   "tests/fulfil23.test.ts",
   "tests/tracking24.test.ts",
@@ -973,6 +984,8 @@ const SUITES = [
   /* Round 40, second pass: OnePage and Community open to the team (lib/team/onepage, lib/communities/server/team.ts), uploads in the store's folder, SQL part 319; website, creator page, products and settings still closed. */
   "tests/team-areas-r40.test.ts",
   "tests/team-areas-r41.test.ts",
+  /* Round 42: the website, the creator page, payouts and billing open to the team (lib/team/website, creator-page, money), money as see and change, SQL part 333. */
+  "tests/team-areas-r42.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
@@ -992,6 +1005,12 @@ const SUITES = [
   "tests/wb-ux-r12.test.ts",
   /* Round 12 (live websites): a made up server action refused by the proxy, a Publish followed by its own pages drawn; scripts/check-site-perf-r12.mjs measures load and navigation. */
   "tests/site-perf-r12.test.ts",
+  /* Round cn-1028: a credit note for every refund, in the store's invoice sequence (lib/checkout/credit-note.ts, SQL part 329), its lines and tax by rate negative, in the buyer's language; linked from the refund email, the receipt, the order page and the seller's menu. */
+  "tests/credit-notes.test.ts",
+  /* Round cn-1028: View in browser in campaign emails, a signed public page with the reader's own unsubscribe link and no tracking (lib/email-campaigns/view-online.ts). */
+  "tests/view-online.test.ts",
+  /* Round cn-1028: community emails and automations edited from Emails itself, Customer emails' family pills without the slide, the editor's preview drawn once per version and shown at once. */
+  "tests/emails-community-in-place.test.ts",
 ]
 
 /**
@@ -1094,6 +1113,8 @@ const STRICT_SUITES = [
   "tests/legal-and-onepage-settings-r40.test.ts",
   /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
   "tests/onepage-public-r41.test.ts",
+  /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
+  "tests/onepage-r42.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

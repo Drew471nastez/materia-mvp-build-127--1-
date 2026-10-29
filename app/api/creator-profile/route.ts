@@ -25,6 +25,9 @@
  * signed-in user can only ever reach their own row. No admin client here.
  */
 import { createClient } from "@/lib/supabase/server"
+import { creatorPageStore } from "@/lib/team/creator-page"
+import { recordTeamAction } from "@/lib/team/areas"
+import { NO_ACCESS } from "@/lib/team/server"
 import { type NextRequest, NextResponse, after } from "next/server"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { identityChanged } from "@/lib/account/identity-caches"
@@ -94,6 +97,12 @@ export async function PATCH(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 })
   }
+
+  /* Round 42: the owner's own page, or the store's for a team member with Creator page (lib/team/creator-page). Never the member's own in its place. */
+  const page = await creatorPageStore(supabase, user.id)
+  if (page.kind === "denied") return NextResponse.json({ error: NO_ACCESS }, { status: 403 })
+  if (page.kind === "unreachable") return NextResponse.json({ error: "Storelib could not reach your store just now. Try again in a moment." }, { status: 503 })
+  const db = page.db
 
   let body: Record<string, unknown>
   try {
@@ -389,15 +398,15 @@ export async function PATCH(request: NextRequest) {
        every other row that holds a copy of them follows this change, and
        only a copy that still holds the OLD value moves
        (lib/account/profile-follow). */
-    const { data: before } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
+    const { data: before } = await db.from("profiles").select("display_name, avatar_url").eq("id", page.profileId).maybeSingle()
 
-    const { error } = await supabase.from("profiles").update(profileUpdate).eq("id", user.id)
+    const { error } = await db.from("profiles").update(profileUpdate).eq("id", page.profileId)
     if (error) {
       console.error("[creator-profile] profile update failed", error)
       return NextResponse.json({ error: "Could not save your profile" }, { status: 500 })
     }
 
-    const followed = await followProfileIdentity(supabase as unknown as FollowClient, user.id, {
+    const followed = await followProfileIdentity(db as unknown as FollowClient, page.profileId, {
       ...(displayName !== undefined ? { name: { before: before?.display_name, after: displayName } } : {}),
       ...(avatarUrl !== undefined ? { photo: { before: before?.avatar_url, after: avatarUrl } } : {}),
     })
@@ -405,10 +414,10 @@ export async function PATCH(request: NextRequest) {
        visitors (lib/commerce/product-page-cache): they show the new name on
        their next view, not a minute later. */
     /* The website's own copy of the profile too, expired now rather than marked stale (lib/account/identity-caches). */
-    await identityChanged({ userId: user.id, creatorId: followed.creatorId })
+    await identityChanged({ userId: page.profileId, creatorId: followed.creatorId })
   }
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator } = page.creatorId ? { data: { id: page.creatorId } } : await db.from("creators").select("id").eq("user_id", page.profileId).maybeSingle()
 
   // A user who has not become a creator has no storefront to edit; the name is
   // still theirs to change, so that half is already saved and this is a
@@ -432,11 +441,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (Object.keys(creatorUpdate).length > 0) {
-    const { error } = await supabase.from("creators").update(creatorUpdate).eq("id", creator.id)
+    const { error } = await db.from("creators").update(creatorUpdate).eq("id", creator.id)
     if (error) console.error("[creator-profile] creators update failed", error)
   }
 
-  const { data: config } = await supabase
+  const { data: config } = await db
     .from("store_builder_configs")
     .select("id, draft_config, published_config")
     .eq("creator_id", creator.id)
@@ -558,7 +567,7 @@ export async function PATCH(request: NextRequest) {
     return { ...cfg, headerSettings: next, globalSettings, sections: mergeAbout(cfg.sections) }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("store_builder_configs")
     .update({
       draft_config: merge(config.draft_config),
@@ -572,5 +581,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   announceProfile()
+  /* A team member's change to the owner's page is on the record with their name (lib/team/areas). */
+  if (page.creatorId) await recordTeamAction({ isOwner: page.isOwner, creatorId: page.creatorId, acting: page.acting }, user.id, "creator_pages", "creator_page_changed", { fields: Object.keys(body).slice(0, 20) })
   return NextResponse.json({ ok: true, storefront: true })
 }

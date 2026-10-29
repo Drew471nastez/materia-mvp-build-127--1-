@@ -15,14 +15,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const KINDS: readonly OfferKind[] = ["bundle", "checkout", "quantity_break"]
 
-/** A new offer, `?kind=bundle`, `checkout` (an upsell) or `quantity_break`; any other kind starts as a bundle. */
+/** A new offer, `?kind=bundle`, `checkout` (an upsell) or `quantity_break`; with no kind (New offer) the page asks which first. */
 export default async function NewOfferPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const { kind } = await searchParams
   const load = await loadOfferArea()
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") return noStorePage("/app/offers/new")
   const a = load.area
-  const start = KINDS.includes(kind as OfferKind) ? (kind as OfferKind) : "bundle"
+  const given = KINDS.includes(kind as OfferKind)
+  const start = given ? (kind as OfferKind) : "bundle"
   return (
     <OfferEditor
       key={start}
@@ -37,6 +38,7 @@ export default async function NewOfferPage({ searchParams }: { searchParams: Pro
       settingsReady={a.settings}
       breaksReady={a.breaks}
       sold={0}
+      askKind={!given}
     />
   )
 }

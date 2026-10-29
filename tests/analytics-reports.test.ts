@@ -754,7 +754,8 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
   const ranges = (reads.match(/\.limit\(PAGE\)/g) ?? []).length
   const tieBroken = (reads.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)\s*\.limit\(PAGE\)/g) ?? []).length
   /* Changed on purpose: six, the systems and carts read from the rows before part 253 is the sixth (round Z6). */
-  check("every paged read is sorted by time and then by id", ranges === 6 && tieBroken === ranges, { ranges, tieBroken })
+  /* Changed on purpose (round 42): nine, with the clicks between pages and an opened report's lines read from the rows before part 331. */
+  check("every paged read is sorted by time and then by id", ranges === 9 && tieBroken === ranges, { ranges, tieBroken })
 }
 
 console.log("\nAnalytics: counted by the database, and from the rows while it cannot")
@@ -783,7 +784,8 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
   const route = read("app/api/analytics/reports/route.ts") + read("lib/analytics/report-answer.ts")
   check("the reads it makes go side by side, not one after another",
     /* Changed on purpose: systems, carts and titles (part 253) and the digital orders' downloads are read beside the rest (round Z6). */
-    /const \[v, d, l, o, s, labelsById, a, \[audNow, audBefore\], dl\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads\]\)/.test(route))
+    /* Changed on purpose (round 42): the clicks between pages (nav) are read beside them too. */
+    /const \[v, d, l, o, s, labelsById, a, \[audNow, audBefore\], dl, navWire\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads, nav\]\)/.test(route))
   check("an answer is kept a few seconds for the same person and the same whole question, never longer",
     /const key = `\$\{gate\.userId\}\|\$\{gate\.creatorId\}\|\$\{asked\.question\}`/.test(route) /* Round 40: the store is part of the key */ && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
 

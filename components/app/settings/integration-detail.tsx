@@ -29,9 +29,10 @@
  */
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ExternalLink, Settings2 } from "lucide-react"
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Settings2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, dateTime, readFresh } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, dateTime, peekGet, readFresh } from "@/components/physical/ui"
+import { copyText } from "@/lib/platform/copy-text"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark, hasBuiltInArt, tileColor } from "@/components/app/settings/integration-mark"
 import { CATEGORY_NAMES, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
@@ -254,6 +255,20 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* A bar wherever the page has a Back to integrations, or an action to follow (round Y2). */
   const barOn = !!onBack || pinnable
   const steps = installed || notifyOnly ? [] : setupSteps(item)
+  /*
+    THE STEPS, WITH WHAT TO COPY (round 42). Each step says where it stands:
+    the one to do now, the ones after it, and a tick once the integration is
+    connected. A value the other service asks for (the webhook address
+    Gelato or AfterShip sends updates to) is in the step that needs it, with
+    its own Copy, read off what the page already has; it is never made up.
+  */
+  const ownTrackingHook = item.id === "aftership" ? (peekGet<{ tracking?: { own?: { provider?: string; webhookUrl?: string | null } | null } }>("/api/store/tracking-app")?.tracking?.own ?? null) : null
+  const shownSteps: SetupStep[] = steps.map((text, i) => ({
+    text,
+    copy: item.id === "aftership" && i === 1 && ownTrackingHook?.provider === "aftership" && ownTrackingHook.webhookUrl ? { label: tt("Webhook address"), value: ownTrackingHook.webhookUrl } : null,
+  }))
+  if (item.id === "gelato" && providerState?.webhookAddress && providerState.webhooks !== "on")
+    shownSteps.push({ text: tt("In Gelato, Developer › Webhooks, add this address for order status and tracking updates."), copy: { label: tt("Webhook address"), value: providerState.webhookAddress } })
   /* The header's Tell me when it's ready sends the request itself. */
   const [askTick, setAskTick] = React.useState(0)
   /* A header action changed what a panel shows: the panel is drawn again from the fresh read. */
@@ -373,9 +388,20 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div key={panelKey}>{panel}</div>
           {steps.length > 0 ? (
-            <button type="button" onClick={() => setHowTo(true)} className="mt-3 inline-flex h-9 items-center gap-1 rounded-lg px-1 text-[13.5px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline" data-integration-steps-open="">
-              {tt("How to set it up")}
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            /*
+              THE WAY TO THE STEPS (round 42): a row of its own under the panel,
+              the whole width a target (44px on a phone), saying how many there
+              are, so it reads as a place to go rather than a footnote.
+            */
+            <button
+              type="button"
+              onClick={() => setHowTo(true)}
+              className="group -mx-2 mt-3 flex h-11 w-[calc(100%+16px)] items-center gap-3 rounded-xl px-2 text-left outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-10 [-webkit-tap-highlight-color:transparent]"
+              data-integration-steps-open=""
+            >
+              <span className="min-w-0 flex-1 text-[13.5px] font-medium text-[#1a1a2e]">{tt("How to set it up")}</span>
+              <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{tt("{n, plural, one {# step} other {# steps}}", { n: shownSteps.length })}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
             </button>
           ) : null}
         </div>
@@ -743,15 +769,37 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           />
         )}
 
-        <Modal open={howTo} onClose={() => setHowTo(false)} title={tt("Set up {name}", { name: item.name })}>
-          <ol className="space-y-2.5" data-integration-steps="">
-            {steps.map((s, i) => (
-              <li key={s} className="flex gap-3 text-[14px] leading-[21px] text-[#374151]">
-                <span aria-hidden className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{i + 1}</span>
-                <span className="pt-px">{s}</span>
-              </li>
-            ))}
-          </ol>
+        <Modal open={howTo}
+          onClose={() => setHowTo(false)}
+          title={tt("Set up {name}", { name: item.name })}
+          footer={
+            primaryLabel ? (
+              <div className="flex w-full gap-2 sm:justify-end">
+                <button type="button" className={cn(BTN_SECONDARY, "flex-1 sm:flex-none")} onClick={() => setHowTo(false)}>
+                  {tt("Close")}
+                </button>
+                <button
+                  type="button"
+                  className={cn(BTN_PRIMARY, "flex-1 sm:flex-none")}
+                  disabled={busy}
+                  onClick={() => {
+                    setHowTo(false)
+                    /* After the sheet has gone, so the page's field takes the focus and not the sheet's last button. */
+                    window.setTimeout(pressPrimary, reduced() ? 0 : 220)
+                  }}
+                  data-integration-steps-go=""
+                >
+                  {primaryLabel}
+                </button>
+              </div>
+            ) : undefined
+          }
+        >
+          <div className="mb-4 flex items-center gap-1.5 text-[13px] text-[#6b7280]" data-integration-steps-standing={status}>
+            <span aria-hidden className={cn("h-2 w-2 rounded-full", DOT[standing.tone])} />
+            <span className="font-medium text-[#1a1a2e]">{standing.label}</span>
+          </div>
+          <SetupStepList steps={shownSteps} done={installed} />
         </Modal>
 
         {/* What it does, your data and the facts at a glance, a tap away (round 41: the page itself is the header, the setup and the status). */}
@@ -949,6 +997,80 @@ function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** One step of setting an integration up, and the value it asks to copy, when it has one. */
+export interface SetupStep {
+  text: string
+  copy?: { label: string; value: string } | null
+}
+
+/**
+ * THE STEPS AS A LIST TO FOLLOW (round 42). Numbered circles on one hairline,
+ * top to bottom: the step to do now is dark, the ones after it are open
+ * circles, and every one is a tick once it is connected. Read as a list by a
+ * screen reader, with where each step stands in words.
+ */
+export function SetupStepList({ steps, done }: { steps: SetupStep[]; done: boolean }) {
+  return (
+    <ol className="relative" data-integration-steps="">
+      {steps.map((st, i) => {
+        const state = done ? "done" : i === 0 ? "now" : "next"
+        const last = i === steps.length - 1
+        return (
+          <li key={st.text} className={cn("relative flex gap-3", last ? null : "pb-5")} data-integration-step={state}>
+            {last ? null : <span aria-hidden className="absolute bottom-0 left-[11.5px] top-[26px] w-px bg-[#e5e7eb]" />}
+            <span
+              aria-hidden
+              className={cn(
+                "relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums",
+                state === "done" ? "bg-[#ecfdf3] text-[#067647]" : state === "now" ? "bg-[#1a1a2e] text-white" : "border border-[#d1d5db] bg-white text-[#4b5563]",
+              )}
+            >
+              {state === "done" ? <Check className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <div className="min-w-0 flex-1 pt-[2px]">
+              <p className={cn("text-[14px] leading-[21px]", state === "next" ? "text-[#4b5563]" : "text-[#1a1a2e]")}>
+                <span className="sr-only">{state === "done" ? tt("Done.") : state === "now" ? tt("Do this now.") : null} </span>
+                {st.text}
+              </p>
+              {st.copy ? <CopyValue label={st.copy.label} value={st.copy.value} /> : null}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** A value to paste somewhere else, with its own Copy that says Copied for a moment. */
+function CopyValue({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = React.useState(false)
+  React.useEffect(() => {
+    if (!copied) return
+    const t = window.setTimeout(() => setCopied(false), 1800)
+    return () => window.clearTimeout(t)
+  }, [copied])
+  return (
+    <div className="mt-2 rounded-xl border border-[#eceef1] bg-[#f8f9fa] p-1.5 pl-3" data-integration-copy="">
+      <p className="pt-1 text-[12px] font-medium text-[#6b7280]">{label}</p>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate font-mono text-[12.5px] leading-[18px] text-[#1a1a2e]" title={value}>
+          {value}
+        </code>
+        <button
+          type="button"
+          onClick={async () => setCopied(await copyText(value))}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb] transition-colors hover:bg-[#f3f4f6] active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
+          aria-label={copied ? tt("Copied") : tt("Copy {label}", { label })}
+          data-integration-copy-button={copied ? "copied" : "idle"}
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-[#067647]" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+          {copied ? tt("Copied") : tt("Copy")}
+        </button>
+      </div>
     </div>
   )
 }

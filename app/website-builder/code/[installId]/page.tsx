@@ -532,6 +532,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   }, [embedded, codeTheme])
 
   const [install, setInstall] = useState<ThemeInstall | null>(null)
+  /* Round 42: a team member with Website (the install's read names the store owner for them). Solve with AI spends the owner's plan, so it is not offered. */
+  const [teamMember, setTeamMember] = useState(false)
   const [fileTree, setFileTree] = useState<ThemeFileNode[]>([])
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set(["config", "templates", "sections"]))
   const [selectedFile, setSelectedFile] = useState<ThemeFileNode | null>(null)
@@ -862,6 +864,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       if (!res.ok) throw new Error(`status ${res.status}`)
       const data = await res.json()
       setInstall(data.install)
+      setTeamMember(typeof data.storeOwner === "string")
 
       // Load customized paths list
       const filesRes = await fetchWithDeadline(`/api/website-builder/themes/${installId}/files`, {}, WAIT_MS.read).catch(() => null)
@@ -2555,6 +2558,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   {copiedErrors ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copiedErrors ? "Copied" : "Copy all"}
                 </button>
+                {teamMember ? null : (
                 <button
                   type="button"
                   onClick={() => void solveWithAi()}
@@ -2565,6 +2569,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   {solving ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <StorelibLogo size={12} alt="" />}
                   {solving ? "Solving" : "Solve with AI"}
                 </button>
+                )}
               </div>
               <ul className="mt-1 space-y-0.5">
                 {compileErrors.map((err, i) => (

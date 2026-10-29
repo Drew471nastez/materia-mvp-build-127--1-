@@ -138,6 +138,29 @@ export function LivePreviewFrame({
   const latestCurrency = useRef(currency)
   latestCurrency.current = currency
   const [drawn, setDrawn] = useState(false)
+  /*
+    THE PHONE IS ZOOMED, NOT SCALED (round 42, "the straight top and bottom
+    edges of a button's border fade out"). A transform scales a picture of
+    the page: nothing in it is snapped to the screen's pixels any more, so
+    a 1px border became 0.74 of a pixel smeared over two rows, nearly gone
+    on a dark page, and only where it happened to land between pixels
+    (often the top and bottom, rarely the sides). CSS zoom lays the page out
+    at that size instead, so the browser snaps every edge as it does on a
+    real screen: measured, the border reads at its full colour on all four
+    sides, where the transform left it at a third. A browser that does not
+    carry zoom into the frame (the frame's own width would then come out
+    small) is given the transform, as before.
+  */
+  const [zoomed, setZoomed] = useState(true)
+  const onFrameLoad = useCallback(() => {
+    if (scale === 1 || typeof width !== "number") return
+    try {
+      const inner = frame.current?.contentWindow?.innerWidth ?? width
+      if (Math.abs(inner - width) > 2) setZoomed(false)
+    } catch {
+      setZoomed(false)
+    }
+  }, [scale, width])
   const onDrawnRef = useRef(onDrawn)
   onDrawnRef.current = onDrawn
 
@@ -209,14 +232,15 @@ export function LivePreviewFrame({
         */
         sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"
         data-onepage-preview-frame=""
+        data-preview-scale={scale === 1 ? undefined : zoomed ? "zoom" : "transform"}
+        onLoad={onFrameLoad}
         data-drawn={drawn ? "" : undefined}
         /* The creator page's frame arrives on the same fade (app/globals.css creator-frame-in). */
         className={cn("absolute left-0 top-0 block border-0", drawn ? "creator-frame-in" : "opacity-0")}
         style={{
           width: typeof width === "number" ? `${width}px` : width,
           height: typeof height === "number" ? `${height}px` : height,
-          transform: scale === 1 ? undefined : `scale(${scale})`,
-          transformOrigin: "0 0",
+          ...(scale === 1 ? null : zoomed ? { zoom: scale } : { transform: `scale(${scale})`, transformOrigin: "0 0" }),
           background: "transparent",
           colorScheme: "light",
         }}

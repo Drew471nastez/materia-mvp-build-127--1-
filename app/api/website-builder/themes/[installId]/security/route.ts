@@ -12,9 +12,8 @@
  * Read only. Signed in, and only for an install that is this creator's, the
  * same as every other route beside it.
  */
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
-import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { scanSiteSecurity, SECURITY_ISSUE_LIMIT } from "@/lib/website-builder/security-scan"
 
@@ -25,23 +24,10 @@ type Params = { params: Promise<{ installId: string }> }
 
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  /** RLS decides as well: a theme somebody else owns reads as absent. */
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id")
-    .eq("id", installId)
-    .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle())
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
+  const site = await websiteInstallCaller(installId)
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { supabase, user } = site
 
   /* It reads every page of the site, so it is a press rather than a poll: LIMITS.siteAction. */
   const limited = await rateLimit({

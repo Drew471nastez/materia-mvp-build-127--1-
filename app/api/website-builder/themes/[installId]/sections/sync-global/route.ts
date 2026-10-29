@@ -1,6 +1,6 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
-import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
@@ -9,7 +9,6 @@ import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { inGroup, splitGroups } from "@/lib/storelib-theme/section-groups"
 
@@ -56,21 +55,10 @@ const SyncBodySchema = z.object({
 // Syncs header/footer sections to ALL pages for this install
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
-  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-  const { user, status: authStatus, error: authError } = await editorUser(supabase)
-  if (!user) return NextResponse.json({ error: authError }, { status: authStatus })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs").select("id")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
+  const site = await websiteInstallCaller(installId)
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { supabase, user, creator, install } = site
 
   /* Part of every autosave, so the same allowance as the other two saves: RATE_LIMITS.siteSave. */
   const limited = await rateLimit({

@@ -64,6 +64,12 @@ export interface CurrentUser {
   state: AuthState
   /** Present when the state is indeterminate. For logs, never for a screen. */
   reason?: string
+  /**
+   * How an authenticated answer was verified: "user" by Supabase Auth itself
+   * (getUser), "claims" by the access token's signature against Supabase's
+   * public keys when Auth did not answer (readCurrentUser's fallback).
+   */
+  verifiedBy?: "user" | "claims"
 }
 
 /**
@@ -101,7 +107,12 @@ async function getUserBounded(supabase: SupabaseClient, ms: number) {
  */
 export async function readCurrentUser(
   supabase: SupabaseClient,
-  { timeoutMs = 3_000, retries = 1 }: { timeoutMs?: number; retries?: number } = {},
+  {
+    timeoutMs = 3_000,
+    retries = 1,
+    /** The Supabase URL, whose public keys verify the token when Auth does not answer. Off unless given. */
+    fallbackClaims = null,
+  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null } = {},
 ): Promise<CurrentUser> {
   let reason = "unknown"
 
@@ -112,7 +123,7 @@ export async function readCurrentUser(
       reason = "timed out"
     } else {
       const { data, error } = result as { data: { user: User | null }; error: unknown }
-      if (data?.user) return { user: data.user, state: "authenticated" }
+      if (data?.user) return { user: data.user, state: "authenticated", verifiedBy: "user" }
 
       if (!error) return { user: null, state: "anonymous" }
 
@@ -121,11 +132,64 @@ export async function readCurrentUser(
       reason = verdict.reason
     }
 
-    /** A short pause, so the retry lands after the blip rather than inside it. */
-    if (attempt < retries) await new Promise((r) => setTimeout(r, 250))
+    /** A short pause, with jitter, so the retry lands after the blip rather than inside it, and not in step with every other request that hit it. */
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 200 + Math.round(Math.random() * 150)))
+  }
+
+  /*
+    SUPABASE AUTH DID NOT ANSWER: THE TOKEN CAN STILL BE CHECKED. This is
+    what put "Cannot reach the server" over /app/settings: getUser() is a
+    round trip to Supabase Auth on every page, every soft navigation and
+    every prefetch, and when it timed out the layout handed the screen to the
+    browser's recovery (components/native-auth-gate.tsx), which went through
+    /auth/sync-session (the same Auth again) and, twice later, gave up.
+
+    The access token in the cookie is a JWT Supabase signed. Checked against
+    Supabase's public keys (kept per instance, signingKeys below) it says who
+    this is without asking Auth: a forged, altered or expired token fails.
+    That is the same check Postgres row level security makes on every query,
+    so nothing is readable here that the token would not open anyway. What it
+    cannot see is a session revoked in the last hour (the token's life),
+    which row level security cannot see either; and user_metadata is as of
+    the token, which is why getUser stays the first question.
+
+    Only with asymmetric keys: on the shared secret getClaims would call
+    getUser again, which is the call that just failed.
+  */
+  if (fallbackClaims) {
+    const claimed = await userFromClaims(supabase, fallbackClaims)
+    if (claimed) return { user: claimed, state: "authenticated", verifiedBy: "claims", reason }
   }
 
   return { user: null, state: "indeterminate", reason }
+}
+
+/** The fallback's own ceiling: the keys are normally in memory, so this is a signature check, not a request. */
+const CLAIMS_FALLBACK_MS = 1_500
+
+async function userFromClaims(supabase: SupabaseClient, supabaseUrl: string): Promise<User | null> {
+  try {
+    const jwks = await signingKeys(supabaseUrl)
+    if (!jwks.keys.length) return null
+    const result = await getClaimsBounded(supabase, jwks, CLAIMS_FALLBACK_MS)
+    if (result.timedOut) return null
+    const claims = (result as { data: { claims?: Record<string, unknown> } | null }).data?.claims
+    const sub = typeof claims?.sub === "string" ? claims.sub : null
+    if (!claims || !sub || (result as { error?: unknown }).error) return null
+    return {
+      id: sub,
+      aud: typeof claims.aud === "string" ? claims.aud : "authenticated",
+      role: typeof claims.role === "string" ? claims.role : undefined,
+      email: typeof claims.email === "string" ? claims.email : undefined,
+      phone: typeof claims.phone === "string" ? claims.phone : undefined,
+      app_metadata: (claims.app_metadata as User["app_metadata"]) ?? {},
+      user_metadata: (claims.user_metadata as User["user_metadata"]) ?? {},
+      is_anonymous: claims.is_anonymous === true,
+      created_at: "",
+    } as User
+  } catch {
+    return null
+  }
 }
 
 /**

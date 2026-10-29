@@ -11,6 +11,18 @@
  *   turbopackMemoryLimit 4.5 GB          peak 8,583 MB (no effect)
  *   Turbopack source maps off            peak 6,960 MB, compiled in 2.3 min
  *
+ * Measured again on 2026-10-29, the app grown since, same machine, sampled
+ * every 0.5 s, cold `pnpm build`:
+ *
+ *   as it was                            peak 8,447 MB (Turbopack 7.2 GB, CSS worker 0.86 GB)
+ *   hover variant in its own file        CSS worker 0.86 GB to 0.33 GB, same CSS byte for byte
+ *   input source maps not read           a further 80 MB, 20 s
+ *   result                               peak 7,797 to 7,842 MB over three builds
+ *
+ *   turbopackMemoryLimit 3 GB, RAYON/TOKIO at 1 thread, scope hoisting off:
+ *   no change. Filesystem cache for build: 10.7 GB cold, worse. Client nested
+ *   async chunking off: compile still running after 30 min.
+ *
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
@@ -34,6 +46,10 @@ function check(name: string, ok: boolean) {
 console.log("\n1. Builds")
 const config = readFileSync("next.config.mjs", "utf8")
 check("Turbopack's production build makes no source maps (8.5 GB to 7.0 GB peak)", /turbopackSourceMaps: false,/.test(config))
+check("and the source maps packages ship are not read in either", /turbopackInputSourceMaps: false,/.test(config))
+const globalsCss = readFileSync("app/globals.css", "utf8")
+check("no block @custom-variant in globals.css: Tailwind clones the whole file's source for every class that uses one (CSS worker 610 MB to 90 MB)", !/@custom-variant [\w-]+\s*\{/.test(globalsCss) && /^@import "\.\/hover-variant\.css";$/m.test(globalsCss) && /@custom-variant hover \{/.test(readFileSync("app/hover-variant.css", "utf8")))
+check("sass is loaded from node_modules on the server, not bundled", /serverExternalPackages:[^\]]*'sass'/.test(config))
 check("type checking and the rest of the build are as they were (no new skips)", !/eslint:\s*\{\s*ignoreDuringBuilds/.test(config))
 const vercel = JSON.parse(readFileSync("vercel.json", "utf8"))
 check("agent branches (claude/*, codex/*) do not deploy on every push", vercel.git?.deploymentEnabled?.["claude/*"] === false && vercel.git?.deploymentEnabled?.["codex/*"] === false)

@@ -916,6 +916,8 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
          computer still gets both from Radix's trigger. */
       data-state={phone && !inline ? undefined : open ? "open" : "closed"}
       data-open={open ? "" : undefined}
+      /* A period always narrows what is shown: a filter row that tells set from unset draws it set (app/globals.css [data-filter-chips]). */
+      data-filter-set=""
       aria-haspopup="dialog"
       aria-expanded={phone && !inline ? undefined : open}
       title={value.preset === "custom" ? undefined : rangeLabel(value)}

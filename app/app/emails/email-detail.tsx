@@ -144,6 +144,8 @@ export function EmailDetail({
   const failed = report?.stats?.failed ?? 0
   const items: ActionMenuItem[] = [
     { label: tt("Send a test to yourself"), icon: <Send className="h-4 w-4" />, onClick: () => setDialog("test") },
+    /* The page every reader's View in browser opens, as a reader with no name gets it: to look at or share. */
+    ...(report?.view_url ? [{ label: tt("View in browser"), icon: <ExternalLink className="h-4 w-4" />, onClick: () => void window.open(report.view_url!, "_blank", "noopener,noreferrer") }] : []),
     ...(status === "sent" || status === "partially_failed" || status === "failed" || status === "cancelled" || running
       ? []
       : [{ label: tt("Duplicate"), icon: <Copy className="h-4 w-4" />, onClick: () => void run("duplicate") }]),

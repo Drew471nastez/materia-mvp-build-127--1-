@@ -54,7 +54,9 @@ const FIXTURES: Record<string, SearchResult> = {
   slow: result({ products: [{ id: "py", title: "Slow cooker guide", detail: "Draft · $5.00", href: "/app/products/py" }] }),
 }
 
-window.fetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+window.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+  /* Changed on purpose (round 42): only the search's own questions are recorded; the platform's flags read is answered with none. */
+  if (!String(url).includes("/api/app/search")) return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } })
   const q = JSON.parse(String(init?.body ?? "{}")).q as string
   window.__asked.push(q)
   const wait = q.startsWith("slowly") ? 700 : 60

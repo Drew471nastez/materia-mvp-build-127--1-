@@ -226,7 +226,7 @@ async function main() {
     (callback.match(/providerPhotoWanted\(\{/g) ?? []).length === 2 && /const providerPhoto = providerPhotoOf\(data\.user\.user_metadata\)/.test(callback) && /AVATAR_CHOSEN\] === true/.test(callback) && !/accountAgeMs/.test(callback))
   const sync = readCode("app/auth/sync-session/route.ts")
   check("the app's sign in (sync-session) keeps it too, after the answer so nobody waits",
-    /if \(signedIn\) after\(\(\) => keepProviderPhoto\(createAdminClient\(\) as unknown as ProviderPhotoDb, signedIn\)/.test(sync) && sync.indexOf("after(") < sync.lastIndexOf("return NextResponse.redirect(`${origin}${next}`)"))
+    /if \(signedIn\) after\(\(\) => keepProviderPhoto\(createAdminClient\(\) as unknown as ProviderPhotoDb, signedIn\)/.test(sync) && sync.indexOf("after(") > sync.indexOf("supabase.auth.setSession(") && sync.indexOf("after(") < sync.lastIndexOf("const res = NextResponse.redirect(`${origin}${next}`, status)")) // Changed on purpose (round 42 reliability): the signed in answer is a no-store redirect with the POST's 303
 
   console.log("\nRun-now part 97: existing accounts, once")
   const part = raw("supabase/sql/run-now/97_profile_provider_photos.sql")

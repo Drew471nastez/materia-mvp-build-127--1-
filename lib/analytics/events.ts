@@ -33,6 +33,10 @@ export function isPropertyType(v: unknown): v is PropertyType {
  *                      and path for 30 minutes
  *   link_click         a link out of the page: a OnePage link block, or an
  *                      outbound link on the creator page or a website
+ *   nav_click          a link or button to another page of the same site
+ *                      (part 331): `path` the page it was on, `link_url`
+ *                      the page it leads to, `link_label` its words. Once
+ *                      per visit, page, target and label
  *   buy_click          Buy pressed, once per visit and product
  *   checkout_start     the checkout opened, once per visit and product
  *   checkout_complete  the checkout finished (allowed, not sent by any page today)
@@ -44,6 +48,7 @@ export function isPropertyType(v: unknown): v is PropertyType {
 export const EVENT = {
   pageView: "view",
   linkClick: "link_click",
+  navClick: "nav_click",
   buyClick: "buy_click",
   checkoutStart: "checkout_start",
   checkoutComplete: "checkout_complete",
@@ -79,6 +84,23 @@ export const OWN_HASH_PARAM = "sl_own"
 export const PATH_MAX = 300
 /** The longest link destination kept. */
 export const LINK_URL_MAX = 500
+/** The most of a button's words kept with an internal click. */
+export const LINK_LABEL_MAX = 80
+
+/**
+ * A BUTTON'S WORDS, AS THEY ARE KEPT with an internal click (nav_click): its
+ * whitespace made single spaces, at most LINK_LABEL_MAX characters, and
+ * nothing that looks like a visitor's own details. An address or a long run
+ * of digits (an order number, a phone) is not a button's name; it is left
+ * out rather than stored. Null when nothing is left.
+ */
+export function normalizeLinkLabel(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const s = raw.replace(/\s+/g, " ").trim()
+  if (!s) return null
+  if (/@/.test(s) || /\d{5,}/.test(s.replace(/[\s().-]/g, ""))) return null
+  return s.slice(0, LINK_LABEL_MAX).trim() || null
+}
 
 /**
  * A page's path as it is stored: no scheme or host, no query, no hash,
@@ -134,6 +156,8 @@ export interface AnalyticsEventRow {
   visitor_id: string | null
   link_id?: string | null
   link_url?: string | null
+  /** An internal click's button words (nav_click, part 331). */
+  link_label?: string | null
   page_url?: string | null
   referrer?: string | null
   referrer_domain?: string | null

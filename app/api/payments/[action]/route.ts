@@ -33,8 +33,8 @@
  * stay in the server log.
  */
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { moneyCaller, paymentsActionLevel, type MoneyCaller } from "@/lib/team/money"
+import { recordTeamAction } from "@/lib/team/areas"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
 import { signSheetLink } from "@/lib/payments/stripe/app-sheet-link"
@@ -59,22 +59,18 @@ export const maxDuration = 60
 
 const NO_STORE = { "cache-control": "no-store" }
 
-async function signedInCreator(): Promise<CreatorRef | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await createAdminClient().from("creators").select("id, user_id").eq("user_id", user.id).maybeSingle()
-  const row = data as { id: string; user_id: string } | null
-  if (!row) return null
-  return { id: row.id, userId: row.user_id, email: user.email ?? null }
-}
-
-async function paymentsCreator(): Promise<CreatorRef | NextResponse> {
-  const creator = await signedInCreator()
-  if (!creator) return NextResponse.json({ error: "Sign in to use this." }, { status: 401, headers: NO_STORE })
-  return creator
+/*
+  Round 42: the owner, or a team member working in the store whose
+  permissions cover this action (lib/team/money paymentsActionLevel): the
+  store's Stripe account, named by the store's id and its owner's account,
+  never the member's. Setting the account up is the owner's alone.
+*/
+async function paymentsCreator(action: string, body: Record<string, unknown>): Promise<{ creator: CreatorRef; who: Extract<MoneyCaller, { ok: true }> } | NextResponse> {
+  const level = paymentsActionLevel(action, body)
+  const who = await moneyCaller("payouts", level === "owner" ? "manage" : level)
+  if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Sign in to use this." }, { status: 401, headers: NO_STORE }) : who.response
+  if (level === "owner" && !who.isOwner) return NextResponse.json({ error: "Only the store's owner can set up or change the payment account itself." }, { status: 403, headers: NO_STORE })
+  return { creator: { id: who.creatorId, userId: who.ownerUserId, email: who.ownerEmail }, who }
 }
 
 function problem(e: unknown): NextResponse {
@@ -86,8 +82,9 @@ function problem(e: unknown): NextResponse {
 export async function GET(_request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params
   if (action !== "overview") return NextResponse.json({ error: "Not found." }, { status: 404 })
-  const creator = await paymentsCreator()
-  if (creator instanceof NextResponse) return creator
+  const found = await paymentsCreator("overview", {})
+  if (found instanceof NextResponse) return found
+  const creator = found.creator
   try {
     /* Opening Payouts: the webhook keeps the account current, so Stripe is only asked when the copy is old. */
     return NextResponse.json(await overview(creator, { sync: "stale" }), { headers: NO_STORE })
@@ -98,11 +95,12 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ac
 
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params
-  const creator = await paymentsCreator()
-  if (creator instanceof NextResponse) return creator
   /* A document arrives as a file; everything else is JSON. */
   const form = action === "document" ? await request.formData().catch(() => null) : null
   const body = action === "document" ? {} : (((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>)
+  const found = await paymentsCreator(action, body)
+  if (found instanceof NextResponse) return found
+  const creator = found.creator
 
   /* Reads the flow makes on its own (polling for Stripe's answer) must not spend the budget for writes. */
   const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component" || action === "hosted-setup" || action === "app-sheet"
@@ -132,11 +130,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
             ? body.purpose
             : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        if (purpose === "stripe_payouts") await recordTeamAction(found.who, found.who.userId, "payouts_manage", "payout_account_opened", { action: "component" })
         return NextResponse.json(await componentAuth(creator, purpose), { headers: NO_STORE })
       }
       case "app-sheet": {
         const form = body.form === "bank" ? "bank" : "setup"
         const token = signSheetLink({ c: creator.id, u: creator.userId, f: form })
+        await recordTeamAction(found.who, found.who.userId, "payouts_manage", "payout_account_opened", { action: "app-sheet", form })
         if (!token) return NextResponse.json({ error: "Try again in a moment." }, { status: 503, headers: NO_STORE })
         return NextResponse.json({ url: `${originOf(request)}/payouts-sheet#f=${form}&t=${encodeURIComponent(token)}` }, { headers: NO_STORE })
       }
@@ -180,6 +180,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       }
       case "bank": {
         const form = await addBank(creator, body)
+        /* A team member's change of the payout bank is on the record with their name (lib/team/areas). */
+        await recordTeamAction(found.who, found.who.userId, "payouts_manage", "payout_account_opened", { action: "bank" })
         return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
       }
       case "identity": {

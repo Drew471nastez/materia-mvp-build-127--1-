@@ -1,6 +1,5 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
@@ -36,22 +35,12 @@ const PATH = /^\/[a-z0-9\-_/.~%]{0,200}$/i
  */
 export async function POST(request: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id, username").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id, status")
-    .eq("id", installId)
-    .eq("creator_id", creator.id)
-    .maybeSingle())
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
+  const site = await websiteInstallCaller<{ id: string; status: string }>(installId, "id, status")
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { supabase, user, install } = site
+  const { data: creatorRow } = await supabase.from("creators").select("id, username").eq("id", site.creatorId).maybeSingle()
+  const creator = { id: site.creatorId, username: (creatorRow as { username?: string | null } | null)?.username ?? null }
   if (install.status !== "published") return NextResponse.json({ error: "Publish your website to test it." }, { status: 409 })
 
   const body = (await request.json().catch(() => ({}))) as { strategy?: unknown; path?: unknown; locale?: unknown }

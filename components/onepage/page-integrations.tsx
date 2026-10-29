@@ -56,7 +56,9 @@ function publish(a: Answer | null) {
 async function reload(): Promise<Answer | null> {
   try {
     const r = await fetch("/api/onepage/integrations", { cache: "no-store" })
-    const d = r.ok ? ((await r.json()) as Answer) : null
+    /* Only an answer of the shape the rows read: anything else (an error body, a proxy's page) is no answer, never a crash in Settings. */
+    const raw = r.ok ? ((await r.json().catch(() => null)) as Partial<Answer> | null) : null
+    const d = raw && Array.isArray(raw.integrations) ? { integrations: raw.integrations, ready: raw.ready !== false } : null
     publish(d)
     return d
   } catch {

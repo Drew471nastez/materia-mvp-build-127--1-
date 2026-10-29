@@ -25,6 +25,8 @@ import { buyerProperties } from "@/lib/physical/cart-link"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { CheckoutWords } from "@/app/checkout/parts/words"
+import { creditNoteNumber, creditNotePath, creditNotesForReceipt } from "@/lib/checkout/credit-note"
+import { withinTime } from "@/lib/receipts/discount"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -65,6 +67,10 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     buyerPageLanguage(order.creatorId, { channel, named: lang, order: origin?.lang }).catch(() => ENGLISH),
   ])
   const cancelAsked = await cancelEvents(db, order.id)
+  /* A refunded order's credit notes, one per refund (lib/checkout/credit-note.ts), opened by the order's own receipt token as its invoice is. */
+  const noteToken = order.refundedCents > 0 ? (order.lines.find((l) => l.receiptToken)?.receiptToken ?? null) : null
+  const notes = noteToken ? await withinTime(() => creditNotesForReceipt(db, noteToken), 1500).catch(() => null) : null
+  const creditNotes = noteToken ? (notes?.notes ?? []).map((n) => ({ number: creditNoteNumber(n.seq), href: creditNotePath(noteToken, n.id) })) : []
   const path = orderPagePath(token)
   const orderUrl = host && path ? `${/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"}://${host}${path}` : null
   const returnable = returnableQuantities(progressOf(order))
@@ -99,6 +105,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         savings: savingsOfLines(order.lines),
         /* The invoice PDF (lib/checkout/invoice.ts, app/api/checkout/invoice), opened by one of the order's own receipt tokens: for an order paid by card. */
         invoiceToken: order.payment === "card" && order.totalCents > 0 ? (order.lines.find((l) => l.receiptToken)?.receiptToken ?? null) : null,
+        creditNotes,
         pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready], hours: order.pickup.hours ?? null } : null,
         processing: !!order.processingAt,
         cash: order.payment === "cod_due" ? "due" : order.payment === "cod_collected" ? "paid" : null,

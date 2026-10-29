@@ -33,6 +33,7 @@ import { createClient } from "@/lib/supabase/client"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { completeNativeSession } from "@/lib/auth/native-session"
+import { goToAuthHref, hrefForLog } from "@/lib/auth/session-sync"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 import { connectReturnPath, finishConnect } from "@/lib/native-connect"
 
@@ -500,9 +501,10 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       still read here, but only to remember the home a cold start opens on.
     */
     const nextUrl = await completeNativeSession(supabase, { ...data.session, user: { id: verifiedSession.user.id } })
-    console.log(`${TAG}   destination: ${nextUrl}`)
+    /* Never the tokens in the device's log: the address names them, the post carries them (lib/auth/session-sync.ts). */
+    console.log(`${TAG}   destination: ${hrefForLog(nextUrl)}`)
 
-    window.location.assign(nextUrl)
+    goToAuthHref(nextUrl)
 
   } catch (err) {
     const raw = err instanceof Error ? err.message : ""

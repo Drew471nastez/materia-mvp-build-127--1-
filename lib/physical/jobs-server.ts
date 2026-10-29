@@ -109,6 +109,27 @@ export async function queueRefundEmail(db: Db, checkoutId: string, creatorId: st
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents } })
 }
 
+/**
+ * The latest credit note of a refunded checkout (lib/checkout/credit-note.ts), issued now if its refund has none
+ * yet, with the buyer's link to it (their receipt token is the key). Null when there is none to link.
+ */
+async function refundCreditNote(db: Db, checkoutId: string, creatorId: string): Promise<{ number: string; url: string } | null> {
+  try {
+    const { data } = await db.from("orders").select("id, created_at, currency, receipt_token").eq("checkout_id", checkoutId).limit(50)
+    const rows = ((data ?? []) as Array<{ id: string; created_at: string | null; currency: string | null; receipt_token: string | null }>).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || a.id.localeCompare(b.id))
+    const token = rows.find((r) => r.receipt_token)?.receipt_token
+    if (!token) return null
+    const { creditNoteNumber, creditNotePath, ensureCreditNotes } = await import("@/lib/checkout/credit-note")
+    const notes = await ensureCreditNotes(db as never, rows, creatorId)
+    const last = notes[notes.length - 1]
+    if (!last) return null
+    const base = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/$/, "")
+    return { number: creditNoteNumber(last.seq), url: `${base}${creditNotePath(token, last.id)}` }
+  } catch {
+    return null
+  }
+}
+
 export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "requested" | "approved" | "rejected" | "received" | "completed"): Promise<void> {
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:return:${returnId}:${status}`, payload: { template: "return", status, checkoutId, returnId } })
 }
@@ -892,7 +913,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
     mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
   } else if (p.template === "refund") {
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = say(() => refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
+    const creditNote = await refundCreditNote(db, co.id, co.creator_id)
+    mail = say(() => refundEmail({ creditNote, shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
   } else {
     return
   }

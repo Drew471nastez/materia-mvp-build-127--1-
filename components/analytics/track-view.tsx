@@ -12,7 +12,7 @@ import {
   getLanguage,
   getAttributionForTracking,
 } from "@/lib/analytics-utils"
-import { schedulePageView, skipReason, takeOwnHandoff, watchOutboundLinks } from "@/lib/analytics/page-tracker"
+import { schedulePageView, skipReason, takeOwnHandoff, watchInternalLinks, watchOutboundLinks } from "@/lib/analytics/page-tracker"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { cameFromExplore } from "@/lib/analytics/events"
 
@@ -26,7 +26,8 @@ interface TrackViewProps {
   creatorId: string | null | undefined
   productId?: string | null
   /**
-   * Record clicks on links out of the page. Off on the OnePage, whose link
+   * Record clicks on links out of the page, and on links and buttons to
+   * another page of the same site (nav_click). Off on the OnePage, whose link
    * blocks report their own clicks with the block they came from
    * (app/api/onepage/track).
    */
@@ -123,11 +124,14 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
   useEffect(() => {
     if (!links || !creatorId || typeof window === "undefined") return
     try {
-      return watchOutboundLinks(window, {
-        creatorId,
-        mainDomain: process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com",
-        ids: () => ({ sessionId: getOrCreateSessionId() || undefined, visitorId: getOrCreateVisitorId() || undefined }),
-      })
+      const ids = () => ({ sessionId: getOrCreateSessionId() || undefined, visitorId: getOrCreateVisitorId() || undefined })
+      const out = watchOutboundLinks(window, { creatorId, mainDomain: process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com", ids })
+      /* And the moves inside the site: which button led from which page to which (lib/analytics/page-tracker watchInternalLinks). */
+      const inside = watchInternalLinks(window, { creatorId, ids })
+      return () => {
+        out()
+        inside()
+      }
     } catch {
       return
     }

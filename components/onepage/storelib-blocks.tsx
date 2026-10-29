@@ -56,6 +56,7 @@ import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { GlyphEmail, GlyphProduct, GlyphSocial, GlyphStore, GlyphTestimonials, type Glyph } from "@/components/onepage/block-icons"
 import { EmbedFrame } from "@/components/onepage/embed-frame"
+import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import {
   FOLLOWER_NETWORKS,
   REFRESHABLE_NETWORKS,
@@ -493,7 +494,7 @@ function PostSlide({ item, look }: { item: SocialPostItem; look: StorelibBlockLo
   }
   const tall = item.kind === "tiktok"
   const width = tall ? px(200, look.scale) : px(260, look.scale)
-  const src = item.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${item.id}?autoplay=1&rel=0&playsinline=1` : `https://www.tiktok.com/embed/v2/${item.id}`
+  const src = item.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${item.id}?autoplay=1&rel=0&playsinline=1` : tiktokPlayerUrl(item.id)
   return (
     <div className="flex shrink-0 snap-start flex-col" style={{ width, gap: px(6, look.scale) }}>
       <div className="relative w-full overflow-hidden bg-black" style={{ aspectRatio: tall ? "9 / 16" : "16 / 9", borderRadius: radius }}>

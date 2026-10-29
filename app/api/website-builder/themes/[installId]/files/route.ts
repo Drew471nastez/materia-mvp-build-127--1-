@@ -1,10 +1,9 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse, after } from "next/server"
-import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent, shownPath } from "@/lib/website-builder/theme-file-tree"
 import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
@@ -63,24 +62,11 @@ async function pagesUsingSection(
   return (pages ?? []).filter((pg) => uses(pg.sections) || uses(pg.draft_sections)).map((pg) => pg.page_key as string)
 }
 
+/* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 async function getCreatorInstall(installId: string) {
-  const supabase = await createClient()
-  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-  const { user, status: authStatus, error: authError } = await editorUser(supabase)
-  if (!user) return { error: authError, status: authStatus, supabase: null, creator: null }
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null, creator: null }
-  if (!creator) return { error: "Creator not found", status: 404, supabase: null, creator: null }
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs").select("id, theme_id, name")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
-  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null, creator: null }
-  if (!install) return { error: "Theme not found", status: 404, supabase: null, creator: null }
-
-  return { error: null, status: 200, supabase, creator, install }
+  const c = await websiteInstallCaller<{ id: string; theme_id: string; name: string }>(installId, "id, theme_id, name")
+  if (c.error !== null) return { error: c.error, status: c.status, supabase: null, creator: null }
+  return { error: null, status: 200, supabase: c.supabase, creator: c.creator, install: c.install }
 }
 
 // GET /api/website-builder/themes/[installId]/files?path=templates/home.json

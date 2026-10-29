@@ -1,6 +1,5 @@
+import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { listReleases } from "@/lib/website-builder/site-releases-server"
@@ -19,22 +18,10 @@ type Params = { params: Promise<{ installId: string }> }
  */
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id, status")
-    .eq("id", installId)
-    .eq("creator_id", creator.id)
-    .maybeSingle())
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
+  const site = await websiteInstallCaller<{ id: string; status: string }>(installId, "id, status")
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { user, install } = site
 
   const limited = await rateLimit({ bucket: "site-releases-read", subjects: [`user:${user.id}`], windows: LIMITS.siteRead })
   if (limited) return limited

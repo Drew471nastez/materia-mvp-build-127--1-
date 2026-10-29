@@ -715,11 +715,12 @@ section("The cover")
   const route = stripComments(read("app/api/website-builder/themes/[installId]/cover/route.ts"))
   /* The photographing moved to one helper every route that makes a website calls. */
   const take = stripComments(read("lib/website-builder/cover-take.ts"))
-  check("the install must belong to the caller's creator", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
+  /* Changed on purpose (round 42 team): the install is checked to be the store's by lib/team/website (owner, or a member with Website); the cover goes in the store owner's folder. */
+  check("the install must belong to the caller's creator", /websiteInstallCaller\(installId\)/.test(route) && /\.eq\("creator_id", creatorId\)/.test(read("lib/team/areas.ts")))
   check("the install id is validated as a UUID before it becomes part of a path", /isThemeId\(installId\)/.test(route))
   check("the storage path is built from the user id and the install id only",
     snapshotFolder("u1", "i1") === "u1/theme-snapshots/i1" &&
-      /const folder = snapshotFolder\(owner\.userId, owner\.installId\)/.test(take) && /userId: user\.id/.test(route) &&
+      /const folder = snapshotFolder\(owner\.userId, owner\.installId\)/.test(take) && /userId: who\.ownerUserId/.test(route) &&
       snapshotName("abc", "webp") === `abc.v${SNAPSHOT_VERSION}.webp` &&
       snapshotName("abc", "webp", true) === `abc.v${SNAPSHOT_VERSION}.m.webp`)
   /*
@@ -754,7 +755,7 @@ section("The cover")
   for (const [label, file, start] of [
     ["added", "app/api/website-builder/themes/add/route.ts", "null"],
     ["imported", "app/api/website-builder/themes/import/route.ts", "packaged"],
-    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "await copyCover(user.id, installId, owner)"],
+    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "await copyCover(site.ownerUserId, installId, owner)"], // Changed on purpose (round 42 team): the store owner's folder
   ] as const) {
     const src = stripComments(read(file))
     check(`a website ${label} has its first picture in the answer that made it`,
@@ -768,7 +769,7 @@ section("The cover")
       /if \(first === "late"\) \{\s*after\(\(\) => shot\.then\(\(\) => undefined\)\)\s*return \{ cover: null, cover_pending: true \}/.test(take))
   check("  a package's cover is stored inside the request, not after it",
     /packaged = await storeCover\(owner, Buffer\.from\(desktop\)/.test(stripComments(read("app/api/website-builder/themes/import/route.ts"))))
-  check("  a copy starts from its source's picture", /await copyCover\(user\.id, installId, owner\)/.test(stripComments(read("app/api/website-builder/themes/[installId]/duplicate/route.ts"))))
+  check("  a copy starts from its source's picture", /await copyCover\(site\.ownerUserId, installId, owner\)/.test(stripComments(read("app/api/website-builder/themes/[installId]/duplicate/route.ts"))))
   check("  every route that launches the browser has it in its function",
     ["/api/website-builder/themes/*/cover", "/api/website-builder/themes/add", "/api/website-builder/themes/import", "/api/website-builder/themes/*/duplicate", "/api/website-builder/themes/*/export"]
       .every((r) => new RegExp(`'${r.replace(/[*/]/g, (c) => `\\${c}`)}': \\[\\s*'\\./node_modules/\\.pnpm/@sparticuz\\+chromium@\\*/node_modules/@sparticuz/chromium/bin/\\*\\*',\\s*\\]`).test(read("next.config.mjs"))))
@@ -776,7 +777,7 @@ section("The cover")
     /if \(!cover\.ref\) \{\s*try \{\s*await takeCover\(/.test(stripComments(read("app/api/website-builder/themes/[installId]/export/route.ts"))) &&
       /export const maxDuration = 60/.test(read("app/api/website-builder/themes/[installId]/export/route.ts")))
   check("  the cover route answers GET with the cover as it is, without taking one",
-    /export async function GET\(/.test(route) && /newestCover\(\{ installId, userId: who\.userId \}\)/.test(route) && /"Cache-Control": "no-store"/.test(route))
+    /export async function GET\(/.test(route) && /newestCover\(\{ installId, userId: who\.ownerUserId \}\)/.test(route) /* Changed on purpose (round 42 team): the store owner's folder */ && /"Cache-Control": "no-store"/.test(route))
   {
     const refresh = read("lib/website-builder/cover-refresh.ts")
     const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
@@ -1504,8 +1505,9 @@ section("Two at once still make five, and an import that says what went wrong")
   check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
     /* Changed on purpose (round 12, WBPERF): the install route asks through editorUser (readCurrentUser: 401 for nobody, 503 for a blip). */
-    [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)|await editorUser\(supabase\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
-      [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
+    /* Changed on purpose (round 42 team): duplicate, the install route, publish and add ask lib/team/website (signed in through editorUser, the store's install checked in lib/team/areas storeInstall); import stays the owner's. */
+    [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts"), routes.add].every((src) => /website(Install)?Caller/.test(src)) && /await editorUser\(own\)/.test(read("lib/team/website.ts")) && /\.eq\("creator_id", creatorId\)/.test(read("lib/team/areas.ts")) && /\.eq\("creator_id", creator\.id\)/.test(routes.duplicate) &&
+      [routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
 
   /*
     THE PACKAGE GOES TO STORAGE, NOT THROUGH A FUNCTION. A function refuses
@@ -1644,7 +1646,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tick under the finger as it opens", /* Changed on purpose (round 12, WBPERF): the sheet is mounted on the first touch, so the tick is followed by the open (or by mounting it first, for a click with no touch before it). */ /hapticTap\("soft"\)[\s\S]{0,260}?setSheetOpen\(true\)/.test(menu))
   check("the editor's Actions list is memoised on what it says, and calls through a ref",
     /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
-      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /* Changed on purpose (round AJ: GitHub and your own AI, no connection mark of its own) */ /\}, \[inCode, githubRepo, websiteUrl, siteLive, installId\]\)/.test(editor) &&
+      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /* Changed on purpose (round AJ: GitHub and your own AI, no connection mark of its own) */ /\}, \[inCode, githubRepo, websiteUrl, siteLive, installId(, teamMember)?\]\)/.test(editor) /* round 42 team */ &&
       /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",

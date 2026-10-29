@@ -174,7 +174,8 @@ async function main() {
     check("the layout hands the sidebar the permissions and the stores they are on", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(layout) && /teamStoresForRequest\(user\.id\)/.test(layout))
     check("the account switcher lists team stores and opens them through /api/team/act", /data-business-row="team"/.test(read("components/app/business-switcher.tsx")) && /\/api\/team\/act/.test(read("components/app/business-switcher.tsx")))
     const settings = read("components/app/settings-form-new.tsx")
-    check("Settings while working in another store shows only the account's own sections", /!teamActing \|\| tab\.group === "account"/.test(settings))
+    /* Changed on purpose (round 42 team): Plan, in the account group, is the store's plan for a member, shown only with Billing (lib/team/settings STORE_SIDE_ACCOUNT_TABS). */
+    check("Settings while working in another store shows only the account's own sections", /!teamActing \|\| \(tab\.group === "account" && !STORE_SIDE_ACCOUNT_TABS\.includes\(tab\.id\)\)/.test(settings))
     check("a member with no store of their own still reaches Team in Settings", /memberOnly: true as const/.test(read("app/app/settings/_server.ts")) && /data\.memberOnly/.test(read("app/app/settings/_view.tsx")))
   }
 

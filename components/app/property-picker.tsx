@@ -74,6 +74,7 @@ export function PropertyPicker({
       className={cn(pickerButton, "min-w-0 max-w-[200px] sm:max-w-[240px]", className)}
       data-state={open ? "open" : "closed"}
       data-property-picker=""
+      data-filter-set={options[0] && !sameProperty(value, options[0].value) ? "" : undefined}
       aria-haspopup="dialog"
       aria-expanded={open}
       title={label}

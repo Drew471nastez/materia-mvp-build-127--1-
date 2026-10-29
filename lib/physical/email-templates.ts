@@ -734,7 +734,7 @@ export function orderCancelledEmail(m: { shopName: string; orderNumber: string; 
 }
 
 /** Money went back: how much this time, how much in all, and when it shows. */
-export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null; cash?: boolean }): {
+export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null; cash?: boolean; /** The refund's credit note (lib/checkout/credit-note.ts): its number and the link to its PDF. */ creditNote?: { number: string; url: string } | null }): {
   subject: string
   html: string
   text: string
@@ -762,8 +762,9 @@ export function refundEmail(m: { shopName: string; orderNumber: string; buyerFir
     ...(m.refundedCents !== m.amountCents ? [{ label: et("Refunded in all"), value: formatMoney(m.refundedCents, m.currency) }] : []),
     { label: et("Order total"), value: formatMoney(m.totalCents, m.currency) },
   ])
-  const body = [table, button(k, m.statusUrl, m.copy?.button ?? et("View your order"))].join("")
-  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `${et("This refund")}: ${formatMoney(m.amountCents, m.currency)}`, ...(m.refundedCents !== m.amountCents ? [`${et("Refunded in all")}: ${formatMoney(m.refundedCents, m.currency)}`] : []), `${et("Order total")}: ${formatMoney(m.totalCents, m.currency)}`, "", `${et("View your order")}: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
+  const note = m.creditNote && /^https:\/\//.test(m.creditNote.url) ? m.creditNote : null
+  const body = [table, button(k, m.statusUrl, m.copy?.button ?? et("View your order")), note ? k.link(`${et("Download the credit note")} (${note.number})`, note.url) : ""].join("")
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `${et("This refund")}: ${formatMoney(m.amountCents, m.currency)}`, ...(m.refundedCents !== m.amountCents ? [`${et("Refunded in all")}: ${formatMoney(m.refundedCents, m.currency)}`] : []), `${et("Order total")}: ${formatMoney(m.totalCents, m.currency)}`, "", `${et("View your order")}: ${m.statusUrl}`, ...(note ? [`${et("Download the credit note")} (${note.number}): ${note.url}`] : []), ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
   return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? et("Your order was refunded") : et("You were sent a refund")), intro, body, subject, { aside: et("Order {number}", { number: m.orderNumber }), brand: m.brand, date: m.orderDate }), text }
 }
 

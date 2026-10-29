@@ -150,7 +150,10 @@ async function main() {
       /data-tab-fill=""/.test(bar) && /style=\{\{ opacity: on \? 1 : 0, transitionDuration: `\$\{TAB_SELECT_MS\}ms` \}\}/.test(bar) && /const TAB_SELECT_MS = 140/.test(editor))
     /* Changed on purpose (round 11): "it bumps the buttons" on touch. A press no longer scales the button; it greys its own ground, nothing moves, and a finger gets a light haptic tick. */
     check("a press greys the button's ground, never scales it, and a finger's tap ticks", !/active:scale-/.test(bar) && /transition-\[background-color\] duration-\[120ms\] ease-out active:bg-\[#f3f4f6\]/.test(bar) && /motion-reduce:transition-none/.test(bar) && /if \(phonePointer\.current === "touch" && !on\) hapticTap\("light"\)/.test(bar))
-    check("the word's line holds Inter's whole height, not 1em", /truncate text-center leading-\[1\.3\]" data-tab-word=""/.test(bar) && !/leading-none/.test(bar))
+    /* Changed on purpose (round 42, bottom bar): the word's line is a whole 15px (1.3 of the 11.5px word, rounded) so the column starts on a whole pixel. It must still hold Inter's ascender and descender, 1.21em of the button's text size. */
+    const wordLine = Number(bar.match(/h-\[(\d+(?:\.\d+)?)px\] max-w-full truncate text-center leading-\[\1px\]" data-tab-word=""/)?.[1] ?? 0)
+    const wordSize = Number(bar.match(/text-\[(\d+(?:\.\d+)?)px\] font-medium/)?.[1] ?? 99)
+    check("the word's line holds Inter's whole height, not 1em", wordLine >= Math.ceil(wordSize * 1.21) && !/leading-none/.test(bar), `${wordLine}px line, ${wordSize}px word`)
     /* The slide is the one every pill-tab row in the editor shares now (components/onepage/pill-tabs usePillSlide). */
     check("the computer's segmented row keeps its sliding pill", /const desktopPill = usePillSlide\(activeTab\)/.test(editor) && /pillMoves\.current = \[desktopPill\.slideTo\]/.test(editor))
   }
