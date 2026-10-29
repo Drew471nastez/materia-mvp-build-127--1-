@@ -49,6 +49,8 @@ interface BillingPageClientProps {
      * the routes refuse them anyway.
      */
     canManage?: boolean
+    /** Stripe could not be asked just now: the plan shown is the last one known, never a guessed Free (lib/billing/overview.ts). */
+    stale?: boolean
   }
   /**
    * Drawn INSIDE the settings tabs rather than as its own page.
@@ -114,6 +116,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const [liveSubscription, setLiveSubscription] = useState<any | null>(initialData.subscription)
   const [liveCurrentPlan, setLiveCurrentPlan] = useState<any>(initialData.currentPlan)
   const [liveInvoices, setLiveInvoices] = useState<any[]>(initialData.invoices)
+  const [liveStale, setLiveStale] = useState(initialData.stale === true)
   const [refreshing, setRefreshing] = useState(false)
 
   // Sync from initialData when server data changes (e.g. router.refresh())
@@ -122,7 +125,8 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     setLiveSubscription(initialData.subscription)
     setLiveCurrentPlan(initialData.currentPlan)
     setLiveInvoices(initialData.invoices)
-  }, [initialData.paymentMethod, initialData.subscription, initialData.currentPlan, initialData.invoices])
+    setLiveStale(initialData.stale === true)
+  }, [initialData.paymentMethod, initialData.subscription, initialData.currentPlan, initialData.invoices, initialData.stale])
 
   // Client-side refresh of billing data from API (fallback when server data is stale)
   const refreshBillingData = useCallback(async () => {
@@ -134,6 +138,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       if (subData) {
         setLiveSubscription(subData.subscription || null)
         setLiveCurrentPlan(subData.currentPlan || initialData.currentPlan)
+        setLiveStale(subData.stale === true)
       }
     } catch (err) {
       console.error("[Billing] Client refresh error:", err)
@@ -427,6 +432,12 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
           <div data-billing-overview="">
             {/* Centred on a phone, under the centred plans (round 22); on the left beside the cards from 640. */}
             <h2 className="mb-4 text-center text-[17px] font-bold text-[#1a1a2e] sm:text-left">{tt("Subscription Overview")}</h2>
+            {/* Stripe did not answer: the plan below is the last one known and nothing about it changed. A line, not an error: the creator has nothing to do. */}
+            {liveStale ? (
+              <p data-billing-stale="" role="status" className="mb-4 rounded-xl border border-[#e5e7eb]/60 bg-white px-4 py-3 text-[13px] leading-5 text-[#6b7280]">
+                {tt("Stripe didn't answer just now, so this is your plan as of its last update. Nothing about it has changed.")}
+              </p>
+            ) : null}
             {/* Side by side from 768px, where the plan cards pair up too, with the same 20px between them. */}
             <div data-billing-overview-grid="" className="grid grid-cols-1 gap-5 md:grid-cols-2">
 

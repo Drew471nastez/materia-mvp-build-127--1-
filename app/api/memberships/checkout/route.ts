@@ -190,7 +190,8 @@ export async function POST(request: Request) {
       feePercent: fee.percent,
       paymentMethodId,
       paymentMethodTypes: paymentMethodId ? ["card"] : methodsFrom(body.paymentMethods),
-      idempotencyKey: `membership:${productId}:${email}:${interval}:${Date.now()}`,
+      /* Who and what. The key itself is made from this and the subscription's exact params (lib/memberships/billing.ts createSubscription): the same Join sent twice inside a minute is one subscription. It was the time in milliseconds, which made every repeat a second one. */
+      idempotencyKey: `${productId}:${email}:${interval}`,
       metadata: {
         kind: "membership",
         product_id: product.id,

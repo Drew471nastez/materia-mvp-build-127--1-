@@ -214,7 +214,7 @@ async function main() {
   console.log("\nEvery checkout holds, and a payment over the cap is refunded\n")
   {
     const session = read("app/api/checkout/stripe-session/route.ts")
-    check("the product checkout holds a copy before the PaymentIntent exists", session.indexOf("holdSale(admin, product.id, saleHolder)") > 0 && session.indexOf("holdSale(admin, product.id, saleHolder)") < session.indexOf("stripe.paymentIntents.create(params)"))
+    check("the product checkout holds a copy before the PaymentIntent exists", session.indexOf("holdSale(admin, product.id, saleHolder)") > 0 && session.indexOf("holdSale(admin, product.id, saleHolder)") < session.indexOf("stripe.paymentIntents.create(params")) /* Changed on purpose (billing reliability): the create now carries an idempotency key, stripe.paymentIntents.create(params, { idempotencyKey }). */
     check("and refuses with Sold out, 409, code sold_out", /soldOutMessage\(product\.title\), code: "sold_out" \}, \{ status: 409 \}/.test(session))
     check("its holder rides on the payment, and goes back if the payment cannot start", session.includes("[SALE_HOLDER_KEY]: saleHolder") && session.includes("releaseSale(admin, product.id, saleHolder)"))
     for (const [file, label] of [["app/api/checkout/process/route.ts", "the free checkout"], ["app/api/checkout/quick-free/route.ts", "the quick free claim"]] as const) {

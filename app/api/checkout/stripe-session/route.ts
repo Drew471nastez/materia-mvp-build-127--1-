@@ -38,6 +38,7 @@ import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 /**
  * POST /api/checkout/stripe-session
@@ -345,7 +346,7 @@ async function handlePOST(request: Request) {
     */
     if (body.walletSheet === true) {
       const originHost = new URL(request.url).origin
-      const session = await stripe.checkout.sessions.create({
+      const walletParams: Stripe.Checkout.SessionCreateParams = {
         mode: "payment",
         customer_email: email,
         success_url: `${originHost}/pay/wallet-return?session_id={CHECKOUT_SESSION_ID}`,
@@ -367,13 +368,15 @@ async function handlePOST(request: Request) {
           ...(params.statement_descriptor_suffix ? { statement_descriptor_suffix: params.statement_descriptor_suffix } : {}),
           ...(params.on_behalf_of ? { on_behalf_of: params.on_behalf_of } : {}),
         },
-      })
+      }
+      /* The same request twice inside a minute (a double tap, a retried request) is one payment form (lib/stripe/resilience). */
+      const session = await stripe.checkout.sessions.create(walletParams, { idempotencyKey: stripeIdempotencyKey("product-wallet", [creator.id, product.id], walletParams) })
       return NextResponse.json({ url: session.url, sessionId: session.id })
     }
 
     let intent: Stripe.PaymentIntent
     try {
-      intent = await stripe.paymentIntents.create(params)
+      intent = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("product-intent", [creator.id, product.id], params) })
     } catch (e) {
       /* Stripe refused the statement's part (a suffix it will not take, or an
          account it will not charge on behalf of): the sale goes through with
@@ -383,7 +386,7 @@ async function handlePOST(request: Request) {
       if (!statementPart) throw e
       delete params.statement_descriptor_suffix
       delete params.on_behalf_of
-      intent = await stripe.paymentIntents.create(params)
+      intent = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("product-intent", [creator.id, product.id], params) })
     }
     /* The checkout reached Pay: written down after the answer goes back, so
        the button is not slower for it. The start is what a checkout

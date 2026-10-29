@@ -11533,6 +11533,7 @@ const words: Record<string, string> = {
  "Products are shown": "Los productos se muestran",
  "In the order you picked them.": "En el orden en que los elegiste.",
  "You can see this store's plan. Changing it is for the owner, or someone they give Change billing.": "Puedes ver el plan de esta tienda. Cambiarlo es del propietario, o de quien reciba Cambiar facturación.",
+ "Stripe didn't answer just now, so this is your plan as of its last update. Nothing about it has changed.": "Stripe no respondió hace un momento, así que ves tu plan según su última actualización. No ha cambiado nada.",
  "All types": "Todos los tipos",
  "Automated messages in {name}": "Mensajes automáticos en {name}",
  "Centimetres": "Centímetros",

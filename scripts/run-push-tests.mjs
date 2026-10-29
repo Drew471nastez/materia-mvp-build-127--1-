@@ -526,6 +526,8 @@ const SUITES = [
   "tests/github-publish-sync.test.ts",
   /* The whole theme reaches an empty repository (README.md first, every file read back), a branch is protected only when GitHub says so, a file push protection refuses is set apart, a send out of time finishes on the next. */
   "tests/github-complete-sync.test.ts",
+  /* The stylesheet is compiled before next build, so the build fits Vercel's 8 GB Standard machine; the shipped CSS is the same. */
+  "tests/build-css-precompiled.test.ts",
   /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
   "tests/github-format-z4.test.ts",
   /* Round repo-1022: Storelib's own Theme settings (Hover and focus, the built-in groups) in the repository both ways, the theme's placement winning in the builder, the store's menus, push results as a comment, a git note and the status's Details; everything the builder shows is in the export; Add block lists what the schema allows, and MCP adds the same blocks. */
@@ -892,6 +894,8 @@ const SUITES = [
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
   "tests/billing-fail-closed.test.ts",
+  /* Reliability: Stripe bounded (a 20s timeout, two retries with capped jittered backoff, a circuit breaker), the staleness window (Stripe's last answer, then the stored plan, never Free on an error) with a soft line on the billing page, one Stripe object per press (idempotency keys from exact params, no second plan checkout for a creator already paying), a late failed payment that cannot mark a paid plan past due; all against the real SDK and a fake Stripe. */
+  "tests/billing-resilience.test.ts",
   "tests/physical-w7.test.ts",
   "tests/fulfil23.test.ts",
   "tests/tracking24.test.ts",
@@ -922,6 +926,8 @@ const SUITES = [
   "tests/ops-safety-nets.test.ts",
   /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
   "tests/db-indexes.test.ts",
+  /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
+  "tests/db-load-isolation.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */

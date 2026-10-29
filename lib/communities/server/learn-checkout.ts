@@ -36,6 +36,7 @@ import type { Viewer } from "./context"
 import { type Db } from "./db"
 import { findProgram, grantProgram, ownedPrograms, programViewer, type ProgramRow } from "./learn"
 import { pushCommunitySale } from "@/lib/orders/sale-events"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 export const PROGRAM_SESSION_KIND = "community_program"
 
@@ -51,7 +52,7 @@ export interface PlatformFee {
 export interface StripeSessions {
   checkout: {
     sessions: {
-      create(params: Stripe.Checkout.SessionCreateParams): Promise<Pick<Stripe.Checkout.Session, "id" | "client_secret">>
+      create(params: Stripe.Checkout.SessionCreateParams, options?: { idempotencyKey?: string }): Promise<Pick<Stripe.Checkout.Session, "id" | "client_secret">>
       retrieve(id: string): Promise<Stripe.Checkout.Session>
       /** Closes a session nobody should pay any more (an event ticket's earlier form). */
       expire?(id: string): Promise<unknown>
@@ -160,9 +161,9 @@ export async function startProgramCheckout(db: Db, deps: CheckoutDeps, a: { comm
     return refuse(400, "currency", "This currency is not available for checkout yet.")
   }
   try {
-    const session = await deps.stripe.checkout.sessions.create(
-      programCheckoutParams({ program, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee }),
-    )
+    const params = programCheckoutParams({ program, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee })
+    /* A double tap on Buy inside a minute opens the same payment form, not a second one (lib/stripe/resilience). */
+    const session = await deps.stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey("community-program", [community.id, program.id, viewer.userId], params) })
     if (!session.client_secret) return refuse(502, "stripe", "The payment form did not load. Nothing was charged. Try again.")
     return { ok: true, clientSecret: session.client_secret, sessionId: session.id, amountCents: program.priceCents, currency: deps.chargeCurrency }
   } catch (e) {

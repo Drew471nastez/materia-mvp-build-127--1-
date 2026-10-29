@@ -2,7 +2,11 @@
 
 Everything the app is waiting on from the last three weeks, in four files for
 the Supabase SQL editor. They hold every part in `supabase/sql/run-now/`
+<<<<<<< HEAD
 (01 to 341, then the storage policies and the check), text unchanged, so there
+=======
+(01 to 341, then the storage policies and the check), text unchanged, so there
+>>>>>>> origin/main
 is one list and nothing to pick out by hand.
 
 ## How to run them
