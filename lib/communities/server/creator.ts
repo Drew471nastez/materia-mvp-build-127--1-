@@ -1091,12 +1091,29 @@ async function spaceOf(db: Db, communityId: string, spaceId: string): Promise<Sp
   return (data as SpaceRow | null) ?? null
 }
 
+/**
+ * Whether anything was written in a space: its first post and its first message, asked side by side. Only the answer
+ * "any" is wanted, so neither table is counted (a chat space can hold a hundred thousand messages, and an exact count
+ * read every one of them, one table after the other). A read that fails says "used", so a space is never deleted on a
+ * question that went unanswered (a delete takes its posts and messages with it); a table this database does not have yet
+ * holds nothing.
+ */
+const NO_TABLE = new Set(["42P01", "PGRST205"])
+async function spaceUsed(db: Db, spaceId: string): Promise<boolean> {
+  const first = (table: string) =>
+    Promise.resolve(db.from(table).select("id").eq("space_id", spaceId).limit(1)).then(
+      ({ data, error }: { data: unknown[] | null; error: { code?: string } | null }) => (error ? !NO_TABLE.has(error.code ?? "") : (data?.length ?? 0) > 0),
+      () => true,
+    )
+  const [posts, messages] = await Promise.all([first("community_feed_posts"), first("community_messages")])
+  return posts || messages
+}
+
 export async function updateSpace(db: Db, a: { communityId: string; spaceId: string; actorId: string; input: SpaceInput; archived?: boolean }): Promise<Result> {
   const space = await spaceOf(db, a.communityId, a.spaceId)
   if (!space) return no(404, "That space is not in this community.")
   if (space.kind !== a.input.kind && (space.kind === "chat" || a.input.kind === "chat")) {
-    const used = (await count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", space.id))) + (await count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", space.id)))
-    if (used > 0) return no(409, "A space with posts cannot change between chat and posts. Make a new space instead.", "kind")
+    if (await spaceUsed(db, space.id)) return no(409, "A space with posts cannot change between chat and posts. Make a new space instead.", "kind")
   }
   const patch: Record<string, unknown> = {
     name: a.input.name,
@@ -1138,8 +1155,7 @@ export async function reorderSpaces(db: Db, a: { communityId: string; actorId: s
 export async function deleteSpace(db: Db, a: { communityId: string; spaceId: string; actorId: string }): Promise<Result> {
   const space = await spaceOf(db, a.communityId, a.spaceId)
   if (!space) return no(404, "That space is not in this community.")
-  const used = (await count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", space.id))) + (await count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", space.id)))
-  if (used > 0) return no(409, "It has posts in it. Archive it instead.")
+  if (await spaceUsed(db, space.id)) return no(409, "It has posts in it. Archive it instead.")
   const { count: total } = await db.from("community_spaces").select("id", { count: "exact", head: true }).eq("community_id", a.communityId).is("archived_at", null)
   if ((total ?? 0) <= 1 && !space.archived_at) return no(409, "Keep at least one space.")
   const { error } = await db.from("community_spaces").delete().eq("id", space.id).eq("community_id", a.communityId)

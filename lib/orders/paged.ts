@@ -67,10 +67,9 @@ import {
 } from "./order-view"
 import { moneyFrom, readMetrics, type MetricReading } from "./metrics"
 import { ordersCurrency } from "./money"
-import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { codeOf, needsConversion, type ReportMoneyRow } from "@/lib/money/report-currency"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
-import { withOrderCurrency } from "@/lib/store/currency-at-read"
+import { storeCurrencyOnce, withOrderCurrency } from "@/lib/store/currency-at-read"
 import { buildIndex, orderNumbered, ordersWithin, type IndexRow, type IndexedOrder, type OrderIndex } from "./order-index"
 import { OrdersReadError, attachCheckouts, readCreatorProducts, toOrderRow, type CreatorProduct } from "./load-rows"
 
@@ -490,7 +489,7 @@ async function metricsInStore(
   req: ListingRequest,
 ): Promise<{ metrics: MetricReading[]; currency: string }> {
   const read = (list: Order[]) => readMetrics(list, req.window, req.previous, req.timeZone)
-  const store = (await readStoreCurrency(db, creatorId).catch(() => null))?.currency ?? ordersCurrency(orders)
+  const store = (await storeCurrencyOnce(db, creatorId).catch(() => null))?.currency ?? ordersCurrency(orders)
   if (!needsConversion(raw, store)) return { metrics: read(orders), currency: store }
   /* Every order in one other currency: added as charged and said in it, which mixes nothing, when not every one converts. */
   const charged = new Set(raw.map((r) => codeOf(r.currency)).filter((c): c is string => !!c))
