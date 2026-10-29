@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
+import { cache } from "react"
 import { notFound } from "next/navigation"
-import { fetchPost } from "@/lib/blog/post"
 import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { categoryToSlug } from "@/lib/blog-categories"
@@ -162,7 +162,21 @@ function renderLegacyContent(content: string[]): React.ReactNode {
 }
 
 // ─── Data fetching ─────────────────────────────────────────────────────────
-/* The post itself is read once per render by lib/blog/post fetchPost, shared with this route's layout and metadata. */
+/* One read per render: generateMetadata and the page both ask for the post, and cache() hands the second the first one's answer. */
+const fetchPost = cache(async (slug: string) => {
+  try {
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("slug", slug)
+      .eq("is_published", true)
+      .single()
+    return data
+  } catch {
+    return null
+  }
+})
 
 async function fetchSiblingPosts(slug: string, category: string) {
   try {

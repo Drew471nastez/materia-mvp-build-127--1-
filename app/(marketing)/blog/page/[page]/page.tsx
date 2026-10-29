@@ -20,7 +20,12 @@ type Props = { params: Promise<{ page: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const n = blogPageParam((await params).page)
-  return n && n > 1 ? blogIndexMetadata(n) : { title: "Not found", robots: { index: false, follow: true } }
+  /*
+    A page past the last is never indexable. Measured on the built site
+    (round 44): a page rendered on demand under revalidate answers 200 even
+    when it calls notFound(), so its own robots tag is what keeps it out.
+  */
+  return n && n > 1 && (await blogIndexPage(n)) ? blogIndexMetadata(n) : { title: "Not found", robots: { index: false, follow: true } }
 }
 
 export default async function BlogOlderPage({ params }: Props) {
