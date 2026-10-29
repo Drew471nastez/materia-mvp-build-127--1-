@@ -944,21 +944,41 @@ export async function communityAddressForProduct(communityId: string, db: Db = a
  * a sitemap may only name addresses on its own host.
  */
 export async function sitemapCommunities(offset: number, limit: number, db: Db = admin()): Promise<{ slug: string; updated_at: string | null; cover_url: string | null; creator_id: string | null }[]> {
-  const found = await rows<{ id: string; creator_id: string | null; slug: string; updated_at: string | null; cover_url: string | null }>("sitemap communities", () =>
-    db
-      .from("communities")
-      .select("id, creator_id, slug, updated_at, cover_url")
-      .eq("status", "published")
-      .eq("visibility", "public")
-      .neq("access", "invite_only")
-      .eq("platform_hidden", false)
-      .is("deleted_at", null)
-      .is("suspended_at", null)
-      .order("id", { ascending: true })
-      .range(offset, offset + limit - 1),
-  )
-  const [onOwnDomain, deleting] = await Promise.all([communitiesOnOwnDomain(db, found), communitiesDeleting(db, found)])
-  return found.filter((c) => !onOwnDomain.has(c.id) && !deleting.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url, creator_id: c.creator_id }))
+  const found = await rows<SitemapCommunityRow>("sitemap communities", () => sitemapCommunityQuery(db).order("id", { ascending: true }).range(offset, offset + limit - 1))
+  return sitemapCommunitiesListed(db, found)
+}
+
+/** A row of the query below. */
+export type SitemapCommunityRow = { id: string; creator_id: string | null; slug: string; updated_at: string | null; cover_url: string | null }
+
+/** The rule above as a filter, one chain for the rows and their count. */
+const listedCommunities = (q: any) =>
+  q.eq("status", "published").eq("visibility", "public").neq("access", "invite_only").eq("platform_hidden", false).is("deleted_at", null).is("suspended_at", null)
+
+/**
+ * The listable communities as a query with no order or range yet, for
+ * lib/seo/sitemaps.ts to read a whole slice by id (round 44: one request for
+ * ten thousand rows was answered with the first thousand). A failed read is
+ * the caller's to refuse, never an empty page.
+ */
+export function sitemapCommunityQuery(db: Db = admin()) {
+  return listedCommunities(db.from("communities").select("id, creator_id, slug, updated_at, cover_url"))
+}
+
+/**
+ * Of these rows, the ones a sitemap lists: not on a domain of their own, not
+ * waiting to be deleted. Asked 150 ids at a time (round 44): the ids travel
+ * in the URL, and a thousand of them is a request line a gateway refuses,
+ * which these soft reads took for "none", listing every community.
+ */
+export async function sitemapCommunitiesListed(db: Db, found: SitemapCommunityRow[]): Promise<{ slug: string; updated_at: string | null; cover_url: string | null; creator_id: string | null }[]> {
+  const leftOut = new Set<string>()
+  for (let i = 0; i < found.length; i += 150) {
+    const batch = found.slice(i, i + 150)
+    const [onOwnDomain, deleting] = await Promise.all([communitiesOnOwnDomain(db, batch), communitiesDeleting(db, batch)])
+    for (const id of [...onOwnDomain, ...deleting]) leftOut.add(id)
+  }
+  return found.filter((c) => !leftOut.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url, creator_id: c.creator_id }))
 }
 
 /** Which of these communities wait to be deleted (part 202, W1's community_deletions), read softly: before part 202, none. A scheduled deletion archives the community already; this holds whatever the status says. */
@@ -998,20 +1018,17 @@ async function communitiesOnOwnDomain(db: Db, list: { id: string; creator_id: st
   return out
 }
 
-export async function sitemapCommunityCount(db: Db = admin()): Promise<number> {
+/**
+ * How many communities the sitemap lists: 0 before part 81 (no table, a
+ * normal state), null when the count failed (round 44: it was 0, and the
+ * sitemap index then named no community file for the hour it was held).
+ */
+export async function sitemapCommunityCount(db: Db = admin()): Promise<number | null> {
   try {
-    const { count, error } = await db
-      .from("communities")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("visibility", "public")
-      .neq("access", "invite_only")
-      .eq("platform_hidden", false)
-      .is("deleted_at", null)
-      .is("suspended_at", null)
-    if (error) return 0
+    const { count, error } = await listedCommunities(db.from("communities").select("id", { count: "exact", head: true }))
+    if (error) return missing(error) ? 0 : null
     return count ?? 0
   } catch {
-    return 0
+    return null
   }
 }

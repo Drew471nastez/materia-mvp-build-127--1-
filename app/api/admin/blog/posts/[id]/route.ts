@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
+import { announceAddresses, blogPostAddresses } from "@/lib/seo/announce-pages"
 import { adminFailure } from "@/lib/admin/gate"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -53,6 +54,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   delete updates.updated_at
   delete updates.views
 
+  /* A new slug leaves the old address behind: it is announced too, so engines drop it. */
+  const before = "slug" in updates ? (await supabase.from("blog_posts").select("slug, is_published").eq("id", id).maybeSingle()).data : null
+
   const { data, error } = await supabase
     .from("blog_posts")
     .update(updates)
@@ -64,6 +68,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   // Revalidate public blog pages so changes appear immediately
   revalidateBlogPages(data?.slug)
+
+  /* A live post, or one just taken down: tell the engines after the answer (lib/seo/announce-pages.ts). A draft has no page. */
+  if (data?.is_published || updates.is_published === false || before?.is_published) {
+    const slugs = [before?.slug, data?.slug]
+    after(() => announceAddresses(blogPostAddresses(...slugs)))
+  }
 
   return NextResponse.json(data)
 }
@@ -92,6 +102,9 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
   // Revalidate public blog pages so deleted post is removed
   revalidateBlogPages(post?.slug)
+  /* Its address answers 404 now; engines told look again and drop it. */
+  const gone = post?.slug
+  after(() => announceAddresses(blogPostAddresses(gone)))
 
   return NextResponse.json({ ok: true })
 }

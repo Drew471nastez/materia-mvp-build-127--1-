@@ -456,6 +456,8 @@ const SUITES = [
   /* Website settings › Performance, round W: the quick check when Google's test cannot run, the switches, a new period without a flash */
   "tests/performance-tab-w.test.ts",
   "tests/sitemaps.test.ts",
+  /* Round 44: the sitemap engine at millions of pages (slices read by id, never by offset; 1,000 and 50,000 row limits; RFC 3986 addresses; real lastmod; a 503 for a failed read; robots coverage; IndexNow on every publish, change and delete; SQL part 343). */
+  "tests/seo-sitemap-engine-r44.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",
   "tests/storefront-data.test.ts",

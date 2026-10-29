@@ -22,6 +22,7 @@
  */
 import type { SectionInstance } from "./types"
 import { SITE_DISALLOW, xmlEscape } from "@/lib/seo/indexing"
+import { SITE_ALLOW } from "@/lib/seo/indexing"
 import { sameAsUrls } from "@/lib/seo/structured-data"
 import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
@@ -234,7 +235,8 @@ export function robotsTxt(origin: string, indexable: boolean): string {
     keys `cart` and `search` are reserved (./site-pages.ts), so the rules name
     those addresses exactly: SITE_DISALLOW in lib/seo/indexing.ts.
   */
-  const lines = ["User-agent: *", "Allow: /", ...SITE_DISALLOW.map((rule) => `Disallow: ${rule}`)]
+  /* An imported theme's CSS, JS and pictures stay fetchable under /api/ (SITE_ALLOW, round 44). */
+  const lines = ["User-agent: *", "Allow: /", ...SITE_ALLOW.map((rule) => `Allow: ${rule}`), ...SITE_DISALLOW.map((rule) => `Disallow: ${rule}`)]
   if (indexable) lines.push("", `Sitemap: ${origin}/sitemap.xml`)
   return `${lines.join("\n")}\n`
 }

@@ -18,7 +18,7 @@
  *                            is not fighting a cached redirect)
  *   /robots.txt              its own, naming its own sitemap
  *   /sitemap.xml             its own index of OnePage sitemaps
- *   /sitemap/onepages-N.xml  one file of it
+ *   /sitemap/onepages-N-of-M.xml  one file of it
  *   /api/...                 ONLY the calls a public OnePage makes, with the
  *                            method it makes them with; every other API is a
  *                            404 here, so the session, the dashboard and the
@@ -251,7 +251,8 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   if (pathname === "/") return { kind: "redirect", location: `https://${main}/${search}`, status: 307 }
   if (pathname === "/robots.txt") return { kind: "robots", body: onePageRobots(domain) }
   if (pathname === "/sitemap.xml") return { kind: "rewrite", path: "/sitemap/onepages.xml" }
-  if (/^\/sitemap\/onepages-\d{1,6}\.xml$/.test(pathname)) return { kind: "next" }
+  /* onepages-N-of-M.xml since round 44 (lib/seo/indexing.ts chunkIdRange); onepages-N.xml from an older index. */
+  if (/^\/sitemap\/onepages-\d{1,6}(?:-of-\d{1,6})?\.xml$/.test(pathname)) return { kind: "next" }
 
   if (pathname === "/api" || pathname.startsWith("/api/")) {
     const allowed = ONEPAGE_HOST_API.some((a) => a.path.test(pathname) && a.methods.includes(method))
