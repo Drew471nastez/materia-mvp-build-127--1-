@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
-import { productMetadata, productStructuredData, renderProduct } from "@/components/website-builder/theme/render-product"
+import { productMetadata, productStructuredData, renamedProductSlug, renderProduct } from "@/components/website-builder/theme/render-product"
 import { creatorByName, publishedShopByName } from "@/lib/website-builder/published-site"
 import { productUrl } from "@/lib/website-builder/site-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
@@ -88,6 +88,14 @@ export default async function SiteProductPage({ params }: PageProps) {
   const { name: username, locale, market } = splitSiteName(segment)
   const creator = await creatorByName(username)
   if (!creator) notFound()
+  /* A renamed product's old address: its new one, for good (308), in the same language. */
+  const renamed = await renamedProductSlug(slug, creator.creatorId)
+  if (renamed) {
+    const langs = locale ? await siteLanguages(creator.creatorId) : null
+    const pageLocale = (locale && langs?.others.find((l) => l.toLowerCase() === locale)) || null
+    const path = `/products/${encodeURIComponent(renamed)}`
+    permanentRedirect(pageLocale && langs ? localizedPath(path, pageLocale, langs.defaultLanguage) : path)
+  }
   const [origin, localizer] = await Promise.all([siteOrigin(creator.creatorId, username), siteLocalizer(creator.creatorId, locale).catch(() => null)])
   const [page, structured] = await Promise.all([
     renderProduct(slug, { creatorId: creator.creatorId, locale, market }),

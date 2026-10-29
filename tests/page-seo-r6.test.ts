@@ -58,7 +58,8 @@ async function main() {
   check("  and a page that is not, does not", !/name="robots"/.test(about))
 
   console.log("\nWired in")
-  check("the live route hands the theme the site's SEO", /seo: \(key\) => pageSeoForSite\(settings as Record<string, unknown>, key\)/.test(read("lib/website-builder/compat-site.ts")))
+  /* Changed on purpose (round 44): and noindex under a handle the spam rules hold back (tests/seo-sites-r44.test.ts). */
+  check("the live route hands the theme the site's SEO", /seo: \(key\) => \{\s*const seo = pageSeoForSite\(settings as Record<string, unknown>, key\)/.test(read("lib/website-builder/compat-site.ts")))
   const render = read("app/(site)/w/[username]/render-site.tsx")
   check("Storelib's own pages use a page's own share picture", /own\.image \? \{ \.\.\.settings, seo_og_image: own\.image \} : settings/.test(render))
   const pages = read("components/website-builder/website-settings/pages.tsx")

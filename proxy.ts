@@ -1782,6 +1782,16 @@ async function routeRequest(request: NextRequest) {
         const domain = await websiteDomainOf(subdomain)
         if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
       }
+      /*
+        AND ITS SITEMAP. It lists the domain's addresses (the canonical ones),
+        which a search engine refuses in a sitemap on another host. So the
+        Storelib address's /sitemap.xml goes to the domain's, the way its
+        pages do; its robots.txt already names that one.
+      */
+      if (pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD") && !(await hasLiveAiSite(subdomain))) {
+        const domain = await websiteDomainOf(subdomain)
+        if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
+      }
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
       if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request))) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)

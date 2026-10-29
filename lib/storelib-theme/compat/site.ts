@@ -45,7 +45,7 @@ import { regionCode } from "@/lib/physical/regions"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
-import { defaultPageTitle, groupSections } from "./theme"
+import { canonicalPath, defaultPageTitle, groupSections } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
@@ -478,7 +478,9 @@ function languageLinks(site: SiteData, path: string): string {
   const i18n = site.i18n
   const host = site.canonicalHost ?? site.host
   if (!i18n || i18n.languages.length < 2 || !host) return ""
-  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${path === "/" && localeRoot(i18n, code) ? "" : path}`
+  /* The page's canonical path (a product reached from a collection is the product's page), so each language names the address its canonical does. */
+  const own = canonicalPath(path)
+  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${own === "/" && localeRoot(i18n, code) ? "" : own}`
   const links = i18n.languages.map((l) => `<link rel="alternate" hreflang="${escapeHtml(l)}" href="${escapeHtml(at(l))}">`)
   links.push(`<link rel="alternate" hreflang="x-default" href="${escapeHtml(at(i18n.defaultLanguage))}">`)
   return links.join("")

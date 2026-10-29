@@ -149,6 +149,18 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string,
 })
 
 /**
+ * The slug a product has now, when the one asked for is an old one it was
+ * renamed from (product_slug_history), else null. The website's product
+ * page sends the old address to the new one for good, so a renamed product
+ * is one page at one address, not the same page at two that each name
+ * themselves canonical. The same read the page makes, once per request.
+ */
+export async function renamedProductSlug(slug: string, creatorId: string): Promise<string | null> {
+  const found = await fetchProductBySlug(slug, creatorId)
+  return found?.slug && found.slug !== slug ? found.slug : null
+}
+
+/**
  * A product page's metadata, and which address it is canonical at.
  *
  *   on a creator's website (`url`, `brand`, `indexable`): the site's own

@@ -52,6 +52,7 @@ import {
   reviewMetafields,
   storelibReviewSummary,
   requestObject,
+  localeRoot,
   schemesObject,
   typedSettings,
   type CardLike,
@@ -90,6 +91,25 @@ import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import type { SizeChart } from "@/lib/size-charts/model"
 
 /** Every product's published rating from the page's Storelib Reviews, by product id; none for sample reviews or the app off. */
+/**
+ * THE PATH A PAGE'S canonical_url NAMES, which the theme prints as its one
+ * `<link rel="canonical">` and its og:url. Two things the page's own path
+ * got wrong:
+ *
+ *   /collections/<c>/products/<p> is the product's page reached from a
+ *     collection, the same page as /products/<p>, which is the one the
+ *     sitemap lists (as Shopify's canonical_url does);
+ *   a page in another of the website's languages (/fr/about) is drawn
+ *     with the path under the language (/about), so its canonical named
+ *     the default language's page while its hreflang named itself. Each
+ *     language is its own canonical, as on a Storelib theme.
+ */
+export function canonicalPath(path: string, i18n?: SiteI18n): string {
+  const own = path.replace(/^\/collections\/[^/]+(?=\/products\/[^/]+\/?$)/, "")
+  const root = localeRoot(i18n)
+  return root ? (own === "/" || own === "" ? root : `${root}${own}`) : own
+}
+
 function pageRatings(reviews: unknown): Resources["ratings"] {
   const r = reviews as { enabled?: unknown; sample?: unknown; ratings?: unknown } | null | undefined
   if (!r || r.enabled !== true || r.sample === true || !r.ratings || typeof r.ratings !== "object") return undefined
@@ -841,7 +861,7 @@ export class CompatTheme {
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
       /* The website's own address, as its built pages name it, whatever host this page was reached at. */
-      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${page.path}` : page.path,
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,
