@@ -157,18 +157,18 @@ function CopyLine({ value, label }: { value: string; label: string }) {
 
 /* ── one tool's fields ─────────────────────────────────────────────────── */
 
-type Field = { key: string; label: string; placeholder: string; secret?: boolean; optional?: boolean }
+type Field = { key: string; label: string; placeholder: string; hint?: string; secret?: boolean; optional?: boolean }
 
 function fieldsOf(p: Provider): Field[] {
   if (p === "ga4")
     return [
       { key: "measurementId", label: tt("Measurement ID"), placeholder: "G-XXXXXXXXXX" }, // i18n-ignore
-      { key: "apiSecret", label: tt("API secret"), placeholder: tt("Admin › Data streams › Measurement Protocol API secrets"), secret: true },
+      { key: "apiSecret", label: tt("API secret"), placeholder: "", hint: tt("Admin › Data streams › Measurement Protocol API secrets"), secret: true },
     ]
   if (p === "meta")
     return [
       { key: "pixelId", label: tt("Pixel ID"), placeholder: "123456789012345" },
-      { key: "accessToken", label: tt("Conversions API access token"), placeholder: tt("Events Manager › Settings › Generate access token"), secret: true },
+      { key: "accessToken", label: tt("Conversions API access token"), placeholder: "", hint: tt("Events Manager › Settings › Generate access token"), secret: true },
       { key: "testEventCode", label: tt("Test event code"), placeholder: "TEST12345", optional: true },
     ]
   if (p === "posthog")
@@ -280,6 +280,7 @@ function DestinationBody({ view, canEdit, onAnswer }: { view: DestinationView; c
                 placeholder={f.secret && view.connected ? tt("Kept as it is when left empty") : f.placeholder}
                 onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
               />
+              {f.hint ? <span className="mt-1 block text-[12px] leading-4 text-[#9ca3af]">{f.hint}</span> : null}
             </label>
           ))}
           <div className="flex items-center gap-2 pt-1">
