@@ -231,6 +231,17 @@ const INIT_RAW = String.raw`
       if (COMP[n.tag] && (!p || (n.flags & 1) === 1)) {
         var nm = nameOf(n)
         P.renders[nm] = (P.renders[nm] || 0) + 1
+        /* HOOKS=1: which state hooks of the editor changed in each of its renders, by their place and a look at the value (what made it render). */
+        if (__HOOKS__ && nm === "StoreEditorPage" && p && P.counting) {
+          P.hooks = P.hooks || {}
+          for (var a = n.memoizedState, b = p.memoizedState, hi = 0; a && b; a = a.next, b = b.next, hi++) {
+            if (a.queue && a.memoizedState !== b.memoizedState) {
+              var v = a.memoizedState, look = v === null ? "null" : typeof v === "object" ? (Array.isArray(v) ? "array" + v.length : "{" + Object.keys(v).slice(0, 4).join(",") + "}") : String(v).slice(0, 30)
+              var hk = hi + " " + look
+              P.hooks[hk] = (P.hooks[hk] || 0) + 1
+            }
+          }
+        }
         /* Which sections ran, by type: a change to one section should run that one. */
         if (nm === "SectionRendererInner" && n.memoizedProps && n.memoizedProps.section) { var st = n.memoizedProps.section.type; P.sectionTypes[st] = (P.sectionTypes[st] || 0) + 1 }
         /* OWNERS=1: whose render drew each tooltip and field, by the nearest component of the editor's own above it. */
@@ -279,7 +290,7 @@ const INIT_RAW = String.raw`
 })()
 `
 
-const INIT = INIT_RAW.replace("__OWNERS__", process.env.OWNERS ? "true" : "false")
+const INIT = INIT_RAW.replace("__OWNERS__", process.env.OWNERS ? "true" : "false").replace("__HOOKS__", process.env.HOOKS ? "true" : "false")
 
 /** In the page once it is up: windows of measurement, and the few ways in. */
 const TOOLS = String.raw`
@@ -1280,12 +1291,14 @@ async function smoothScenario({ device, bundle, css, cpu }) {
       /* TRACE=select: style, layout and the layouts a script forced, and by what. */
       const tracing = process.env.TRACE && /select/i.test(process.env.TRACE)
       if (tracing) await startTrace()
-      await ed.js(() => { if (window.__perf.owners) window.__perf.owners = {}; window.__sw.start() })
+      await ed.js(() => { if (window.__perf.owners) window.__perf.owners = {}; window.__perf.hooks = {}; window.__sw.start() })
       for (const t of ["hero_centered", "features_grid", "faq_accordion", "text_image"]) { await clickSection(t); await sleep(700) }
       out.select = await ed.js(() => window.__sw.stop())
       if (profiling) { console.log("  profile, select"); printProfile((await cdp.send("Profiler.stop")).profile) }
       if (tracing) out.select.trace = await endTrace()
       if (process.env.TOP) console.log(`      ${out.select.top.join("  ")}`)
+      if (process.env.HOOKS) console.log(`      editor state that changed: ${await ed.js(() => JSON.stringify(window.__perf.hooks || {}))}
+      every component that ran: ${await ed.js(() => { const r = window.__perf.renders; return Object.keys(r).sort((a, b) => r[b] - r[a]).slice(0, 70).map((k) => k + ":" + r[k]).join("  ") })}`)
       /* OWNERS=1: whose render drew each tooltip and field. */
       if (process.env.OWNERS) console.log(`      drawn by: ${await ed.js(() => { const o = window.__perf.owners || {}; return Object.keys(o).sort((a, b) => o[b] - o[a]).slice(0, 16).map((k) => k + ":" + o[k]).join("  ") })}`)
       line("select", out.select)

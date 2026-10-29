@@ -297,7 +297,7 @@ let running = false
 function Capture({ onCapture, children }: { onCapture: (html: string) => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    onCapture(ref.current?.innerHTML ?? "")
+    onCapture(ref.current ? stillMarkup(ref.current) : "")
   })
   return <div ref={ref}>{children}</div>
 }
@@ -752,10 +752,28 @@ function useDrawnEmpty(key: string): boolean {
   Each ends at once on its last frame, so an entrance shows what it brings
   in, never the nothing it starts from.
 */
-const CLOSED_ON_PURPOSE = `:not([aria-hidden="true"]):not([inert]):not([style*="pointer-events: none"]):not([style*="pointer-events:none"])`
-const REVEAL_SHOWN = `[data-preview-box] :is([data-reveal],[data-animate],[data-aos],.reveal,.fade-in,.fade-up,.scroll-trigger,.animate-on-scroll,.js-animate,.wow,[class*="reveal"],[class*="animate--"],[style*="opacity: 0"],[style*="opacity:0"])${CLOSED_ON_PURPOSE}{opacity:1!important;visibility:visible!important;transform:none!important;clip-path:none!important}
-[data-preview-box] :is(.sticky,[style*="position: sticky"],[style*="position:sticky"]){position:relative!important;inset:auto!important}
-[data-preview-box] [data-keep-transform] *{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;will-change:auto!important}`
+/*
+  WHAT WOULD BE REVEALED IS FOUND ONCE, AS THE PREVIEW IS DRAWN, NOT BY THE
+  PAGE'S STYLESHEET (round 44). These were attribute substring selectors in
+  the document, tried against every element restyled anywhere in the editor
+  while somebody scrolled the canvas. A copy of the drawn preview is walked
+  once instead, and what is to be shown gets a class of its own; the cards'
+  rules are class selectors under the preview's own class, `.wb-pv`.
+*/
+const REVEALED = `[data-reveal],[data-animate],[data-aos],.reveal,.fade-in,.fade-up,.scroll-trigger,.animate-on-scroll,.js-animate,.wow,[class*="reveal"],[class*="animate--"],[style*="opacity: 0"],[style*="opacity:0"]`
+function closedOnPurpose(el: Element): boolean {
+  const style = el.getAttribute("style") ?? ""
+  return el.getAttribute("aria-hidden") === "true" || el.hasAttribute("inert") || /pointer-events\s*:\s*none/i.test(style)
+}
+/** A drawn preview's markup, what a script would reveal marked to be shown (wb-pv-reveal). Read from a copy: the drawing root's own nodes are React's. */
+function stillMarkup(root: HTMLElement): string {
+  const copy = root.cloneNode(true) as HTMLElement
+  for (const el of Array.from(copy.querySelectorAll(REVEALED))) if (!closedOnPurpose(el)) el.classList.add("wb-pv-reveal")
+  return copy.innerHTML
+}
+const REVEAL_SHOWN = `.wb-pv .wb-pv-reveal{opacity:1!important;visibility:visible!important;transform:none!important;clip-path:none!important}
+.wb-pv .sticky{position:relative!important;inset:auto!important}
+.wb-pv *{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;will-change:auto!important}`
 let revealStyled = false
 function showRevealsInCards() {
   if (revealStyled || typeof document === "undefined") return
@@ -1012,7 +1030,7 @@ const PreviewBox = memo(function PreviewBox({
       {html && (
         <div
           ref={innerRef}
-          className="absolute left-0 top-0 origin-top-left bg-white"
+          className="wb-pv absolute left-0 top-0 origin-top-left bg-white"
           data-keep-transform
           style={inner}
           aria-hidden
