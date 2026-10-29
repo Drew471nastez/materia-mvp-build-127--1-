@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { publicHelpUrl } from "@/lib/help/paths"
 
 /**
  * Thin link row for signed-in Explore. Real routes only — no mailto traps.
@@ -8,7 +9,7 @@ import Link from "next/link"
 const LINKS = [
   { label: "Home", href: "/explore" },
   { label: "Blog", href: "/blog" },
-  { label: "Help", href: "/help" },
+  { label: "Help", href: publicHelpUrl() },
   { label: "Terms", href: "/terms" },
   { label: "Privacy", href: "/privacy" },
 ] as const

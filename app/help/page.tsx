@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   title: { absolute: "Storelib Help Center: guides and answers" },
   description: DESCRIPTION,
   alternates: { canonical: publicHelpUrl("/") },
-  openGraph: { title: "Storelib Help Center", description: DESCRIPTION, url: "/help", siteName: "Storelib", type: "website" },
+  /* og:url at help.storelib.com, like the canonical: "/help" resolved to storelib.com/help, which is a redirect. */
+  openGraph: { title: "Storelib Help Center", description: DESCRIPTION, url: publicHelpUrl("/"), siteName: "Storelib", type: "website" },
   twitter: { card: "summary", title: "Storelib Help Center", description: DESCRIPTION },
 }
 

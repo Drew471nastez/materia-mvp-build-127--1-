@@ -17,6 +17,8 @@ import type React from "react"
 import { OnThisPage } from "@/components/help/help-parts"
 import { TocSpy } from "@/components/help/toc-spy"
 import { LEGAL_DOCS, legalDate, type LegalKind } from "./legal-parts"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { legalJsonLd } from "@/lib/seo/page-metadata"
 
 const WIDTH = "mx-auto w-full max-w-[1080px] px-4 sm:px-6 lg:px-8"
 
@@ -25,6 +27,8 @@ export function LegalPage({ kind, toc, children }: { kind: LegalKind; toc: { id:
   const items = toc.map((t) => ({ id: t.id, text: t.label }))
   return (
     <div className="bg-white" data-legal-page={kind}>
+      {/* What a search engine reads: the document, the day it last changed, and where it sits (lib/seo/page-metadata legalJsonLd). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(legalJsonLd(kind)) }} />
       <header className="relative isolate overflow-hidden bg-[#1a1a2e] text-white" data-legal-hero="">
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
           <svg className="h-full w-full" preserveAspectRatio="xMaxYMid slice" viewBox="0 0 1200 360">

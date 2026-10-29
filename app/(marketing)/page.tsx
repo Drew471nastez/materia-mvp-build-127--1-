@@ -4,6 +4,17 @@ import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
 import { storelibLogoUrl } from "@/lib/brand/logo"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import type { Metadata } from "next"
+
+/*
+  THE HOME PAGE NAMES ITSELF. The title, description and share card are the
+  root layout's (app/layout.tsx), which describe this page; the canonical is
+  set here and only here, because a canonical in the root layout would be
+  inherited by every page that sets none and point all of them at "/".
+*/
+export const metadata: Metadata = {
+  alternates: { canonical: "https://storelib.com" },
+}
 
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).

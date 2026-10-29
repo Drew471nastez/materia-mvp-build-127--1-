@@ -4,6 +4,14 @@ import { HtmlClass } from "@/components/platform/html-class"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 export const metadata: Metadata = {
+  /*
+    NOT INDEXED, EXCEPT /signup. Logging in, resetting a password, checking an
+    email and the welcome step are one person's steps, client pages that set
+    no metadata of their own, so each was indexed under the home page's title.
+    /signup is the one a search for "Storelib sign up" should land on, and it
+    says so itself (app/(auth)/signup/layout.tsx). Links are still followed.
+  */
+  robots: { index: false, follow: true },
   openGraph: {
     type: "website",
     locale: "en_US",
