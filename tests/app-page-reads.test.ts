@@ -122,9 +122,10 @@ section("The layout: everything that needs only the user, together")
      ownCreator, and a team member's store (lib/team/server teamStoreForRequest,
      checked against the membership in the database) is read in the same batch. */
   /* Changed on purpose (round net-1028): the batch is criticalShellReads, whose profile and creator reads throw on a failed read instead of reading as no row. */
-  const first = batchAfter(layout, /function criticalShellReads/)
+  /* Changed on purpose (round 42 merge fixes): the batch is inline again, as const shellReads, keyed by user.id. */
+  const first = batchAfter(layout, /const shellReads = /)
   check("the gates, the creator row and the OnePage are one batch",
-    /profileOrThrowForRequest\(userId\)/.test(first) && /creatorOrThrowForRequest\(userId\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(userId\)/.test(first))
+    /profileOrThrowForRequest\(user\.id\)/.test(first) && /creatorOrThrowForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))

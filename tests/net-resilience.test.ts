@@ -251,7 +251,8 @@ async function run() {
   check("  and every other client in the proxy ends in 5s", (proxy.match(/createClient\(/g) ?? []).length === (proxy.match(/createClient\([^)]*PROXY_DB/g) ?? []).length && /PROXY_READ_MS = 5_000/.test(proxy))
   check("  the proxy sends the request id on and back", /request\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy) && /res\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy))
   const layout = read("app/app/layout.tsx")
-  check("the /app shell decides its gates from reads that throw on failure", /profileOrThrowForRequest\(userId\)/.test(layout) && /creatorOrThrowForRequest\(userId\)/.test(layout) && /if \(!isServiceUnavailable\(e\)\) throw e/.test(layout) && /<ServiceUnavailable \/>/.test(layout))
+  /* Changed on purpose (round 42 merge fixes): the batch is inline in the layout again, keyed by user.id. */
+  check("the /app shell decides its gates from reads that throw on failure", /profileOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /creatorOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /if \(!isServiceUnavailable\(e\)\) throw e/.test(layout) && /<ServiceUnavailable \/>/.test(layout))
   const settings = read("app/app/settings/_server.ts")
   check("Settings never sends a seller to /onboarding for a read that failed", /dataOrThrow\("settings creator", creatorRead\)/.test(settings) && /dataOrThrow\("settings profile", profileRead\)/.test(settings) && /<ServiceUnavailable inline \/>/.test(read("app/app/settings/_view.tsx")))
   const gate = read("components/native-auth-gate.tsx")
