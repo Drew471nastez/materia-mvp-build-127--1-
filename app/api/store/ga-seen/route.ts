@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readBody } from "@/lib/analytics/collect-route"
 import { recordGaSeen } from "@/lib/store/tracking-server"
 import { GA_ID } from "@/lib/store/ga"
+import { LIMITS, addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,6 +25,8 @@ export async function POST(req: NextRequest) {
   const done = new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } })
   const body = (await readBody(req)) as { creatorId?: unknown; id?: unknown } | null
   if (!body || typeof body.creatorId !== "string" || !UUID.test(body.creatorId) || typeof body.id !== "string" || !GA_ID.test(body.id)) return done
+  /* recordGaSeen holds one write a minute per store, but a new store id each time was a read each time: an address is held to the tracker's limit too, counted in memory first. */
+  if (await rateLimit({ bucket: "ga-seen", subjects: [addressSubject(req)], windows: LIMITS.track, memoryFirst: true })) return done
   await recordGaSeen(createAdminClient(), body.creatorId, body.id, "at")
   return done
 }

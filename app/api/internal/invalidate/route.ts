@@ -24,6 +24,7 @@
  */
 import { NextResponse, after } from "next/server"
 import { revalidatePath, revalidateTag } from "next/cache"
+import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 import { matchesSecret } from "@/lib/api/require-secret"
 import { PingGate, parsePing, type Batch } from "@/lib/cache/db-invalidate"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
@@ -45,6 +46,8 @@ async function purge(b: Batch): Promise<void> {
   }
   revalidateTag(creatorTag(b.creatorId), "max")
   revalidateTag(creatorShopTag(b.creatorId), "max")
+  /* The OnePage blocks that draw this store's products (lib/onepage/public-cache). */
+  onePageProductsChanged(b.creatorId)
   if (b.explore === "taken-down") exploreCatalogueTakenDown()
   else if (b.explore === "changed") exploreCatalogueChanged()
   /* The product's page on the creator's website, held for a minute like the rest of it. */

@@ -912,6 +912,8 @@ const SUITES = [
   /* Round 25 */
   "tests/i18n25.test.ts",
   "tests/publishing-cache.test.ts",
+  /* Reliability (public delivery): a published OnePage held for every visitor and cleared by each of its writers, no view row written by the render, private pages never given a shared cache, beacons limited in memory first, every public write or search limited; scripts/check-public-roundtrips.mjs measures each public surface on a build. */
+  "tests/public-delivery.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
   /* An earlier publish live again (SQL part 188) */

@@ -293,9 +293,10 @@ check(
 console.log("\nThe creator page does not start from three queries of its own\n")
 
 const layout = code("app/(marketing)/u/[username]/layout.tsx")
+/* Changed on purpose (rel-public): the helper holds the layout's two facts for every visitor (heldShopLayout), since the layout also wraps the OnePage at /<name>/links. */
 check(
   "the layout asks one helper for the one thing it needs",
-  /loadShopThemePreset\(username\)/.test(layout),
+  /heldShopLayout\(username\)/.test(layout),
   "it ran profiles, creators and store_builder_configs in series before anything could render",
 )
 check(

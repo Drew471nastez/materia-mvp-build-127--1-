@@ -33,6 +33,7 @@ import "server-only"
  * unpublish would not come back.
  */
 import { revalidatePath, revalidateTag } from "next/cache"
+import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { withoutProduct } from "@/lib/onepage/live-products"
@@ -64,6 +65,8 @@ export function purgeProductCaches({
   revalidateTag(creatorTag(creatorId), "max")
   /* The website's shop grid, its product count and its SEO product list. */
   revalidateTag(creatorShopTag(creatorId), "max")
+  /* A OnePage block that drew it, expired at once rather than shown once more (lib/onepage/public-cache). */
+  onePageProductsChanged(creatorId)
   /* Explore's catalogue, which every visitor shares (lib/explore/catalogue-cache.ts): gone, archived or taken down is off it now. */
   exploreCatalogueTakenDown()
   if (slug) revalidatePath(`/p/${slug}`)

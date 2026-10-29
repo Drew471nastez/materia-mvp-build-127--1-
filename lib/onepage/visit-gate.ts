@@ -18,10 +18,9 @@ import "server-only"
  *              one address and the owner write nothing to either table
  *              (`legacyClickAllowed`). With no answer (a page with no
  *              creator behind it) the same checks are made here.
- *   a view     at the page's render, before anything is written: not a
- *              robot or a link preview, not a prefetch, not the owner or
- *              their team (lib/analytics/own-visit), not a browser the app
- *              marked as theirs (lib/analytics/own-marker).
+ *   a view     no longer written by the page's render at all:
+ *              Analytics' own view event is the count, and a view posted
+ *              here is held to the click's checks (clickCountable).
  *
  * These tables are only read for the time before a OnePage's first event in
  * analytics_events (lib/analytics/report-read readLegacyOnePage), so this is
@@ -29,8 +28,6 @@ import "server-only"
  */
 import { isCrossSite, isPrefetch, type CollectOutcome } from "@/lib/analytics/collect"
 import { isBotAgent } from "@/lib/analytics/user-agent"
-import { isOwnVisit } from "@/lib/analytics/own-visit"
-import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, marksOwner } from "@/lib/analytics/own-marker"
 import { LIMITS, addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 /** The pipeline's reasons that mean nobody real pressed it, or the owner did. */
@@ -54,23 +51,5 @@ export async function clickCountable(request: Request): Promise<boolean> {
   if (!looksLikeVisitor(request.headers)) return false
   const subject = addressSubject(request)
   if (!subject) return true
-  return (await rateLimit({ bucket: "onepage-track", subjects: [subject], windows: LIMITS.track })) === null
-}
-
-/**
- * Whether the page's render may count a view in onepage_views. The page is
- * drawn for every request, so the request is the evidence: its signature,
- * its purpose, and the owner's session or marker.
- */
-export async function viewCountable(input: {
-  headers: Headers
-  cookie: (name: string) => string | undefined
-  cookieNames: string[]
-  ownerUserId: string | null
-  creatorId: string | null
-}): Promise<boolean> {
-  const ua = input.headers.get("user-agent")
-  if (isBotAgent(ua) || isPrefetch(input.headers)) return false
-  if (input.creatorId && (marksOwner(input.cookie(OWN_MARKER_COOKIE), input.creatorId) || marksOwner(input.cookie(OWN_MARKER_DOMAIN_COOKIE), input.creatorId))) return false
-  return !(await isOwnVisit(input.cookieNames, input.ownerUserId, input.creatorId))
+  return (await rateLimit({ bucket: "onepage-track", subjects: [subject], windows: LIMITS.track, memoryFirst: true })) === null
 }

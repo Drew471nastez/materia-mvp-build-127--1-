@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isUuid } from "@/lib/physical/auth"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { MAX_LINES, type LinePrice } from "@/lib/website-builder/cart"
+import { LIMITS, addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
   const body: Body | null = await request.json().then((b: unknown) => (b && typeof b === "object" ? (b as Body) : null), () => null)
   const shopId = body?.shopId
   if (!isUuid(shopId)) return NextResponse.json({ error: "Bad request." }, { status: 400 })
+  /* Asked once per cart opened after a currency change; a loop asking for every price of a store is not that (lib/api/rate-limit cartPrices, counted in memory first). */
+  const limited = await rateLimit({ bucket: "cart-prices", subjects: [addressSubject(request)], windows: LIMITS.cartPrices, memoryFirst: true, message: "Prices could not be checked just now. Try again in a moment." })
+  if (limited) return limited
   const asked: unknown = body?.items
   const items = (Array.isArray(asked) ? (asked as unknown[]) : [])
     .slice(0, MAX_LINES)

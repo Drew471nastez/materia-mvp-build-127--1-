@@ -42,7 +42,7 @@ import type { Metadata } from "next"
 
 import PublicOnePageRoute, { generateMetadata as onePageMetadata } from "../../l/[slug]/page"
 
-/* The page reads headers() for view tracking, exactly as /l/{slug} does. */
+/* Drawn per request, exactly as /l/{slug} is: a block's schedule is decided by the clock at each draw, and the visitor's query rides on a redirect. Its reads are held (lib/onepage/public-cache). */
 export const dynamic = "force-dynamic"
 
 interface Props {

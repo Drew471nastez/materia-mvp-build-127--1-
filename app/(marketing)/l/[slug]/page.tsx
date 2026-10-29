@@ -10,9 +10,7 @@ import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
-import { cookies, headers } from "next/headers"
-import { viewCountable } from "@/lib/onepage/visit-gate"
-import { after } from "next/server"
+import { headers } from "next/headers"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
 import { isResolvableOnePageName } from "@/lib/onepage/username"
@@ -25,12 +23,6 @@ import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
 import { OnePageArrival } from "@/components/onepage/page-arrival"
 import { onePageSensitive, onePageShowsSomething, onePageSocialLinks } from "@/lib/onepage/page-presence"
-import crypto from "crypto"
-
-// Hash IP address for privacy (same as track API)
-function hashIP(ip: string): string {
-  return crypto.createHash("sha256").update(ip + process.env.SUPABASE_URL).digest("hex").slice(0, 16)
-}
 
 export const dynamic = "force-dynamic"
 
@@ -146,95 +138,20 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
   if (owner.banned) console.warn(`OnePage ${onepage.id} at "${slug}" withheld: its owner is banned (found by ${address.via})`)
   if (owner.banned) notFound()
 
-  // Track view with IP/device deduplication (one view per IP per day)
-  try {
-    const headersList = await headers()
-    const forwardedFor = headersList.get("x-forwarded-for")
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown"
-    const ipHash = hashIP(ip)
-    const userAgent = headersList.get("user-agent") || ""
-    const referrer = headersList.get("referer") || ""
-
-    // Get country from Vercel geo headers
-    const countryCode = headersList.get("x-vercel-ip-country") || ""
-    const countryNames: Record<string, string> = {
-      US: "United States", GB: "United Kingdom", CA: "Canada", AU: "Australia",
-      DE: "Germany", FR: "France", ES: "Spain", IT: "Italy", NL: "Netherlands",
-      BR: "Brazil", MX: "Mexico", JP: "Japan", KR: "South Korea", IN: "India",
-      CN: "China", RU: "Russia", PL: "Poland", SE: "Sweden", NO: "Norway",
-      DK: "Denmark", FI: "Finland", PT: "Portugal", BE: "Belgium", AT: "Austria",
-      CH: "Switzerland", IE: "Ireland", NZ: "New Zealand", SG: "Singapore",
-      HK: "Hong Kong", TW: "Taiwan", TH: "Thailand", MY: "Malaysia", PH: "Philippines",
-      ID: "Indonesia", VN: "Vietnam", ZA: "South Africa", AE: "United Arab Emirates",
-      SA: "Saudi Arabia", IL: "Israel", TR: "Turkey", EG: "Egypt", NG: "Nigeria",
-      KE: "Kenya", AR: "Argentina", CL: "Chile", CO: "Colombia", PE: "Peru",
-      RO: "Romania", UA: "Ukraine", CZ: "Czech Republic", HU: "Hungary", GR: "Greece",
-    }
-    const countryName = countryCode ? (countryNames[countryCode] || countryCode) : ""
-
-    // Generate visitor ID from IP hash + user agent (for deduplication)
-    const visitorId = crypto
-      .createHash("sha256")
-      .update(ipHash + userAgent)
-      .digest("hex")
-      .slice(0, 32)
-
-    /*
-      COUNTED ONLY FOR A PERSON WHO IS NOT THE OWNER, by the checks Analytics
-      makes (lib/onepage/visit-gate): a robot, a link preview, a prefetch, the
-      owner, their team or a browser the app marked as theirs is not a view.
-      Asked here, while the request is still here; awaited after the page is sent.
-    */
-    const cookieStore = await cookies()
-    const countable = viewCountable({
-      headers: headersList,
-      cookie: (name) => cookieStore.get(name)?.value,
-      cookieNames: cookieStore.getAll().map((c) => c.name),
-      ownerUserId: onepage.owner_id ?? null,
-      creatorId: onepage.seller_id || onepage.creator_id || owner.creatorId || null,
-    }).catch(() => false)
-
-    // Check for duplicate view (same IP within the same calendar day - UTC)
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-    const todayStr = today.toISOString()
-
-    /*
-      COUNTED AFTER THE PAGE IS SENT (next/server `after`). The same two
-      reads, the same row, the same one view per address a day; the visitor
-      no longer waits on them before the first byte. Everything they need
-      from the request is read above, while the request is still here.
-    */
-    after(async () => {
-      try {
-        if (!(await countable)) return
-        const { data: existingView } = await adminSupabase
-          .from("onepage_views")
-          .select("id")
-          .eq("onepage_id", onepage.id)
-          .eq("ip_hash", ipHash)
-          .gte("created_at", todayStr)
-          .maybeSingle()
-
-        // Only insert if no view from this IP today
-        if (!existingView) {
-          await adminSupabase.from("onepage_views").insert({
-            onepage_id: onepage.id,
-            visitor_id: visitorId,
-            referrer,
-            user_agent: userAgent.slice(0, 500),
-            ip_hash: ipHash,
-            country_code: countryCode || null,
-            country_name: countryName || null,
-          })
-        }
-      } catch {
-        // Ignore
-      }
-    })
-  } catch {
-    // Ignore
-  }
+  /*
+    NO VIEW IS WRITTEN HERE ANY MORE. The render used to count one in
+    onepage_views after the page was sent: an owner check (a call to Supabase
+    Auth for anybody signed in to Storelib), a read for today's row and an
+    insert, on every visit. That table is only read for the time before a
+    OnePage's first view in analytics_events (lib/analytics/report-read
+    readLegacyOnePage), and TrackView below records that view for every page
+    with a creator behind it, by Analytics' own checks (a robot, a prefetch,
+    the owner, too many from one address). So the rows this wrote after the
+    first event were never read by anything, and the one written beside the
+    first event was counted twice. Without it the render reads no cookie and
+    no header and writes nothing: a visitor costs the held reads above
+    (lib/onepage/public-cache) and nothing else.
+  */
 
   // IMPORTANT: Resolve the correct creator_id for subscribe functionality
   // Priority: seller_id > creator_id > lookup from owner_id
@@ -343,9 +260,10 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
       {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
       <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
       {/* The OnePage in Analytics, as one property among the creator's, by the
-          same rules as every other page (lib/analytics/collect). The count
-          above, in onepage_views, is the OnePage editor's and is unchanged.
-          Its links report their own clicks, with the block they came from. */}
+          same rules as every other page (lib/analytics/collect). It is the
+          page's only view count now (the editor's figures read the same
+          events, lib/onepage/link-stats). Its links report their own clicks,
+          with the block they came from. */}
       {resolvedCreatorId && <TrackView creatorId={resolvedCreatorId} links={false} />}
       {/* The store's own Google Analytics and pixels (Settings › Integrations). */}
       {resolvedCreatorId && <StoreTracking creatorId={resolvedCreatorId} />}

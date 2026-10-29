@@ -579,8 +579,10 @@ async function main() {
         /legacyClickAllowed\(outcome\)/.test(route))
     check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, seller_id, creator_id, owner_id"\)\.eq\("id", body\.onepage_id\)/.test(route))
     const onePageRoute = read("app/(marketing)/l/[slug]/page.tsx")
-    check("the OnePage editor's view count is written as before (one per address per UTC day)",
-      /\.from\("onepage_views"\)\s*\.select\("id"\)\s*\.eq\("onepage_id", onepage\.id\)\s*\.eq\("ip_hash", ipHash\)\s*\.gte\("created_at", todayStr\)/.test(onePageRoute))
+    /* Changed on purpose (rel-public): the render no longer writes onepage_views. That table is read only before a
+       OnePage's first view event (the check below), and the tracker records that event for every visit. */
+    check("the OnePage's render writes no view row of its own",
+      !/onepage_views/.test(onePageRoute.replace(/\/\*[\s\S]*?\*\//g, "")))
     check("  and the page carries the analytics tracker, with its links left to the blocks", /<TrackView creatorId=\{resolvedCreatorId\} links=\{false\} \/>/.test(onePageRoute))
     /* Changed on purpose (round 40): the editor's link stats are Analytics' own figures now, read through
        lib/onepage/link-stats-server from analytics_events with the older tables folded in before the first event. */

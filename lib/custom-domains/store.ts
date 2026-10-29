@@ -33,6 +33,7 @@ import "server-only"
  */
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import {
   isApexHost,
   isDomainPurpose,
@@ -224,11 +225,15 @@ export async function syncOnepageDomain(admin: Admin, creatorId: string, userId:
     const filters = [`creator_id.eq.${creatorId}`, `seller_id.eq.${creatorId}`]
     if (userId) filters.push(`owner_id.eq.${userId}`)
     const { data: pages } = await admin.from("onepages").select("id, settings").or(filters.join(","))
+    let moved = false
     for (const page of (pages ?? []) as { id: string; settings: Record<string, unknown> | null }[]) {
       const settings = page.settings && typeof page.settings === "object" ? page.settings : {}
       if ((settings.custom_domain ?? null) === host) continue
       await admin.from("onepages").update({ settings: { ...settings, custom_domain: host } }).eq("id", page.id)
+      moved = true
     }
+    /* The live OnePage's held copy carries these settings (lib/onepage/public-cache): read afresh. */
+    if (moved && userId) await onePageChangedFor(userId)
   } catch (err) {
     console.error("[custom-domains] onepage sync failed:", err instanceof Error ? err.message : err)
   }
