@@ -1033,6 +1033,8 @@ const SUITES = [
   "tests/email-logo-shape.test.ts",
   /* Round ana-1029: Storelib analytics sent on to GA4 (Measurement Protocol), Meta (Conversions API), PostHog and a signed webhook through a queued, idempotent, retrying sender with consent and hashing, the status view and Send test, GET /api/v1/analytics with read only keys, SQL part 338; scripts/check-send-analytics.mjs measures the dialog. */
   "tests/analytics-destinations.test.ts",
+  /* Round 44: /admin/seo, every address in Storelib's sitemaps with Google's URL Inspection answer (service account JWT signed with node:crypto, per property, a quota counted in the database, rotated never checked and stalest first) and a score from the live page with every check; admin only, Check now rate limited, SQL part 342; scripts/check-admin-seo.mjs renders it. */
+  "tests/admin-seo-console-r44.test.ts",
 ]
 
 /**

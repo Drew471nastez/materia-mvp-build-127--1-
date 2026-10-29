@@ -82,6 +82,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically, the safety sweep: queues a store nothing has queued for a day (store_localization.translate_dirty_at); before part 186, translates the stores itself" },
   { path: "/api/cron/translation-jobs", schedule: "*/5 * * * *", what: "Translate with AI in the background: carries on a language's translation that a run let go of or was cut off from (store_translation_jobs), and translates the stores whose website changed a few minutes ago (Translate changes automatically)" },
   { path: "/api/cron/warm-sites", schedule: "*/5 * * * *", what: "After a deploy, loads every published website's home and products pages once so the first visitor gets them from the cache (lib/website-builder/warm-sites.ts); does nothing once a deploy is warmed" },
+  { path: "/api/cron/seo-index", schedule: "*/10 * * * *", what: "SEO status in /admin/seo: reads the next sitemap files into the inventory, asks Google's URL Inspection API about this run's share of the daily quota (never checked first, then the stalest), and scores the pages checked longest ago" },
 ] as const
 
 /**
@@ -134,4 +135,6 @@ export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] =
   { name: "CLAMAV_SERVICE_SECRET", group: "Malware engine (optional)", optional: true },
   { name: "ALERT_EMAIL", group: "Alerts when something breaks", optional: true },
   { name: "ALERT_WEBHOOK_URL", group: "Alerts when something breaks", optional: true },
+  { name: "GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL", group: "Google Search Console, /admin/seo (optional)", optional: true },
+  { name: "GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY", group: "Google Search Console, /admin/seo (optional)", optional: true },
 ]

@@ -219,4 +219,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "334", file: "334_database_load_and_isolation.sql", sha256: "3c84c8dfd886177d4ac957c3e94471ff88d717345ac2700d3392d5ff77184548" },
   { part: "338", file: "338_analytics_destinations.sql", sha256: "16869c355c0f81cc20a1ea733f36614567f5a40d065f315ed09894eec34b1d6e" },
   { part: "341", file: "341_connected_email_platforms.sql", sha256: "7048f8b380ea77a7e205ba62724f07f5ff84a7c4bd5cf01a7974fb30d3f2149a" },
+  { part: "342", file: "342_seo_index_status.sql", sha256: "fb46eb2563518a4666e510cb52071835205f3029d1526dd898bea7461bf5bbd7" },
 ]
