@@ -86,7 +86,8 @@ function main() {
 
   check("the layout runs no queries of its own", countFrom(layout, "products") === 0 && countFrom(layout, "store_builder_configs") === 0)
   check("and does not reach for a supabase client at all", !/createClient/.test(layout))
-  check("it reads the product through the loader", /loadProductBySlug\(slug\)/.test(layout))
+  /* Changed on purpose (round 44): with the creator the address names, `owner`, as a slug is unique per creator. */
+  check("it reads the product through the loader", /loadProductBySlug\(slug, owner\)/.test(layout))
 
   check("generateMetadata queries no products row itself", countFrom(metadata, "products") === 0)
   check("nor the slug history", countFrom(metadata, "product_slug_history") === 0)
@@ -98,7 +99,7 @@ function main() {
 
   const body = page.slice(metaEnd)
   /* Changed on purpose (currency round AM): read as `loaded`, then `product` is that row in the page's currency (lib/money/marketplace-server productPageQuote). */
-  check("the page reads the product through the loader", /const \{ product: loaded, viaHistory \} = await loadProductBySlug\(slug\)/.test(body) && /const product = pageQuote\.convert\(loaded\)/.test(body))
+  check("the page reads the product through the loader", /const \{ product: loaded, viaHistory \} = await loadProductBySlug\(slug, owner\)/.test(body) && /const product = pageQuote\.convert\(loaded\)/.test(body))
   check("the page looks the product up by slug nowhere itself", !/\.eq\("slug", slug\)/.test(body))
   /* The seller's other work was the page's last `products` query of its own.
      It is the same question for every visitor, so it moved into the shared

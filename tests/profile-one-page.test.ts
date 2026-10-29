@@ -103,7 +103,8 @@ async function main() {
   check("indexed and followed", JSON.stringify(meta.robots).includes('"index":true'))
   check("a handle the sign up guard calls spam is left out", JSON.stringify(profileMetadata({ ...facts, indexable: false }).robots).includes('"index":false'))
   const route = readCode("app/(marketing)/member/[username]/page.tsx")
-  check("the page asks profileMetadata, with the spam verdict", /return profileMetadata\(\{/.test(route) && /indexable: !scoreSignup\(\{ handle: profile\.username \}\)\.blocked/.test(route))
+  check("the page asks profileMetadata, with the spam verdict", /return profileMetadata\(\{/.test(route) && /* Changed on purpose (round 44): the handle score and an operator's verdict, by deservesIndexing. */
+    /indexable: await inSearch\(profile\.userId, profile\.username\)/.test(route) && /deservesIndexing\(\{ handle: username, spamState: await spamStateOf\(userId\) \}\)/.test(route))
   const share = readCode("app/(marketing)/member/[username]/share.png/route.tsx")
   check("the share picture: next/og, an unknown handle a 404, the communities count only when they show it",
     /new ImageResponse\(/.test(share) && /if \(!profile\) return notFound\(\)/.test(share) && /profile\.privacy\.showCommunities/.test(share))

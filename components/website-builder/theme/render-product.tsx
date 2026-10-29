@@ -39,6 +39,8 @@ import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { productIndexable } from "@/lib/seo/indexing"
+import { isBanned } from "@/lib/seo/bans"
+import { primaryHostFor } from "@/lib/custom-domains/store"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
 import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
@@ -193,14 +195,20 @@ export async function productMetadata(
   let index = site ? site.indexable : true
   if (where && "platform" in where && product.creator_id && product.slug) {
     const admin = createAdminClient()
-    const { data: creator } = await admin.from("creators").select("user_id").eq("id", product.creator_id).maybeSingle()
+    /* Read whole, so a database without banned_at (lib/seo/bans.ts) reads as no ban. */
+    const [{ data: creator }, pageHost] = await Promise.all([
+      admin.from("creators").select("*").eq("id", product.creator_id).maybeSingle(),
+      primaryHostFor(product.creator_id, "creator_page"),
+    ])
     const userId = (creator as { user_id?: string } | null)?.user_id
     const { data: profile } = userId
       ? await admin.from("profiles").select("username").eq("id", userId).maybeSingle()
       : { data: null }
     const handle = (profile as { username?: string } | null)?.username ?? ""
-    if (handle) canonical = getProductShareUrl(handle, product.slug)
-    index = productIndexable(product, handle || null)
+    /* Round 44: the address storelib.com/<handle>/<slug> itself names, its creator page's own domain when it has one, never one canonical pointing at another. */
+    if (handle) canonical = getProductShareUrl(handle, product.slug, pageHost)
+    /* And out of search for a banned seller, as storelib.com/<handle>/<slug> is. */
+    index = productIndexable(product, handle || null) && !isBanned(creator as { banned_at?: string | null } | null)
   }
   /* On a website, the tab every page of it uses: its SEO title exactly, else "<product> | <store>" (lib/website-builder/tab-title.ts). */
   const tab = site ? siteTabTitle({ page: { kind: "product", name }, storeName: site.brand, ownTitle }) : null

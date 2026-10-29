@@ -75,19 +75,25 @@ export const PRODUCT_SELECT = `
       )
     `
 
-export const cachedProductBySlug = (slug: string) =>
+/*
+  A SLUG IS UNIQUE PER CREATOR, NOT ACROSS STORELIB (round 44). Two creators
+  may both sell an `ebook`, and `.maybeSingle()` answers no row at all when
+  two match, so both products were a 404 at the addresses every link and the
+  sitemap name. Held to its creator when the address names one
+  (storelib.com/<handle>/<slug>); without one (/p/<slug>) the oldest, which
+  is the one the slug first belonged to, as the website's product page reads
+  it (components/website-builder/theme/render-product.tsx).
+*/
+export const cachedProductBySlug = (slug: string, creatorId?: string | null) =>
   unstable_cache(
     async () => {
       const supabase = createPublicReadClient()
-      const { data } = await supabase
-        .from("products")
-        .select(PRODUCT_SELECT)
-        .eq("slug", slug)
-        .eq("status", "published")
-        .maybeSingle()
-      return data ?? null
+      let query = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
+      if (creatorId) query = query.eq("creator_id", creatorId)
+      const { data } = await query.order("created_at", { ascending: true }).limit(1)
+      return (Array.isArray(data) ? data[0] : null) ?? null
     },
-    ["product-by-slug", slug],
+    ["product-by-slug", slug, creatorId ?? ""],
     { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(slug)] },
   )()
 

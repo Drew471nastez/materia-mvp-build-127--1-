@@ -85,7 +85,7 @@ async function main() {
   const ld = personJsonLd(facts) as { "@type": string; mainEntity: { "@type": string; name: string; url: string } }
   check("a person's page says who it is about: ProfilePage, a Person", ld["@type"] === "ProfilePage" && ld.mainEntity["@type"] === "Person" && ld.mainEntity.name === "Maya Ortiz" && ld.mainEntity.url === "https://storelib.com/@maya")
   const route = readCode("app/(marketing)/member/[username]/page.tsx")
-  check("  printed only when the page is in search", /\{indexable \? <script type="application\/ld\+json" dangerouslySetInnerHTML=\{\{ __html: jsonLdScript\(personJsonLd\(profile\)\) \}\} \/> : null\}/.test(route) && /const indexable = !scoreSignup\(\{ handle: profile\.username \}\)\.blocked/.test(route))
+  check("  printed only when the page is in search", /\{indexable \? <script type="application\/ld\+json" dangerouslySetInnerHTML=\{\{ __html: jsonLdScript\(personJsonLd\(profile\)\) \}\} \/> : null\}/.test(route) && /const indexable = await inSearch\(profile\.userId, profile\.username\)/.test(route))
   check("a creator page's shared link: their chosen Social image, else the same drawn card", /chosenImage \|\|\s*profileShareImageUrl\(\s*handle,/.test(creatorPage) && /card: "summary_large_image"/.test(creatorPage) && !/profile\.avatar_url \|\|\s*avatarFromHeader \|\|\s*undefined/.test(creatorPage))
   const share = readCode("app/(marketing)/member/[username]/share.png/route.tsx")
   check("  the card draws a creator from their page's header: its cover, bio and photo, and how many products", /header\?\.coverImageUrl \|\| row\?\.cover_url/.test(share) && /products: creatorFace \? profile\.productCount : null/.test(share) && /keptPhoto\(header\?\.avatarUrl\)/.test(share))

@@ -201,6 +201,8 @@ const SUITES = [
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
   "tests/creator-domain-seo.test.ts",
+  /* Round 44: creator surfaces in search: storelib.com/<handle>/<slug> is that creator's product (a wrong handle goes to the right one, two creators may share a slug), a creator page domain lists only its own pages, /products/<slug> names the one canonical, a member profile and a banned creator's community follow the spam and ban rules, drafts and private pages in no index. */
+  "tests/seo-creator-r44.test.ts",
   /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
   "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",

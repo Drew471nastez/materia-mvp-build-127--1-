@@ -114,7 +114,13 @@ function getIncludedItemIcon(_item: string, iconColor?: string) {
 export const dynamic = "force-dynamic"
 
 interface ProductPageProps {
-  params: Promise<{ slug: string }>
+  /*
+    `owner` never comes from the URL: /p/[slug] has no such segment. It is
+    set by storelib.com/<handle>/<slug> (../../[sellername]/[productSlug]),
+    the creator that address names, so the slug is read among their
+    products only (round 44: a slug is unique per creator).
+  */
+  params: Promise<{ slug: string; owner?: string | null }>
   searchParams: Promise<{
     purchase?: string
     already_owned?: string
@@ -129,11 +135,11 @@ interface ProductPageProps {
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
-  const { slug } = await params
+  const { slug, owner } = await params
 
   /* The same row the layout and the page read, fetched once per request.
      See lib/commerce/product-page-data.ts. */
-  const { product } = await loadProductBySlug(slug)
+  const { product } = await loadProductBySlug(slug, owner)
 
   if (!product) {
     return { title: "Product Not Found" }
@@ -267,7 +273,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 }
 
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
-  const { slug } = await params
+  const { slug, owner } = await params
   const { purchase, already_owned, src, layout, recommended, embedded, back } = await searchParams
   const showDiscoverBreadcrumb = recommended === "1"
   const inEditorCanvas = embedded === "1"
@@ -280,7 +286,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     same question and used to each pay for it — three products queries to
     render one product page. lib/commerce/product-page-data.ts.
   */
-  const { product: loaded, viaHistory } = await loadProductBySlug(slug)
+  const { product: loaded, viaHistory } = await loadProductBySlug(slug, owner)
 
   // The slug in the URL is an old one: send them to the current address.
   // Permanent (308): the old slug is not coming back, and a search engine

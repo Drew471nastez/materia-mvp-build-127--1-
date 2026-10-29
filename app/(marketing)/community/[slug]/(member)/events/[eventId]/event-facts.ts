@@ -5,6 +5,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { loadCommunity } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import type { AccessRuleJson, CommunityRow } from "@/lib/communities/types"
+import { creatorIsBanned } from "@/lib/seo/bans"
 import type { EventFacts } from "./event-seo"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,6 +17,8 @@ export const eventFacts = cache(async (slug: string, eventId: string): Promise<(
     const db = admin()
     const community = await loadCommunity(db, { slug: decodeURIComponent(slug || "").toLowerCase() })
     if (!community) return null
+    /* Round 44: its creator banned keeps the event out of search (./event-seo.ts indexableEvent). */
+    const banned = community.creator_id ? creatorIsBanned(community.creator_id) : Promise.resolve(false)
     const { data, error } = await db
       .from("community_events")
       .select("id, title, description, cover_url, starts_at, timezone, location, status, access, updated_at")
@@ -50,6 +53,7 @@ export const eventFacts = cache(async (slug: string, eventId: string): Promise<(
         access: row.access,
         updatedAt: row.updated_at,
       },
+      ownerBanned: await banned,
     }
   } catch {
     return null

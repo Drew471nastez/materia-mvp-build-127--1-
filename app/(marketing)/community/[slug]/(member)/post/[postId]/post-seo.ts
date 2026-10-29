@@ -62,6 +62,8 @@ export interface PostFacts {
     commentCount: number
   }
   author: { name: string; username: string | null; avatarUrl: string | null } | null
+  /** Round 44: the community's creator is banned (lib/seo/bans.ts). Still readable by its link; never in search. */
+  ownerBanned?: boolean
 }
 
 /** The rule above, in one place. */
@@ -86,7 +88,7 @@ export function publicPost(f: PostFacts): boolean {
  * by their links, but they say noindex and claim nothing to a search engine.
  */
 export function indexablePost(f: PostFacts): boolean {
-  return publicPost(f) && f.community.status === "published"
+  return publicPost(f) && f.community.status === "published" && !f.ownerBanned
 }
 
 /** Canonical path for a post (readable slug + short id). */

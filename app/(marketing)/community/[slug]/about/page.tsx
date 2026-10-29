@@ -13,6 +13,7 @@ import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
 import { communityDeleting, communitySummary } from "@/lib/communities/server/community-summary"
 import { memberPage } from "@/components/community/member/data"
 import { PlacePage } from "@/components/community/member/place-page"
+import { creatorIsBanned } from "@/lib/seo/bans"
 
 /**
  * storelib.com/community/<slug>/about: the community's page for everyone,
@@ -27,8 +28,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const community = await communityBySlug(slug)
   /* A draft or a suspended community says nothing about itself to a link preview either. */
   if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
+  /* Round 44: a banned creator's community is out of search, as on /community/<slug>. */
+  const banned = community.creator_id ? creatorIsBanned(community.creator_id) : Promise.resolve(false)
   const deleting = await communityDeleting(community.id)
-  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), summary: await communitySummary(community.id), origin: await communityDomainOrigin(community.id) }, { about: true })
+  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), ...((await banned) ? { indexable: false } : {}), summary: await communitySummary(community.id), origin: await communityDomainOrigin(community.id) }, { about: true })
 }
 
 export default async function CommunityAboutPage({ params }: { params: Promise<{ slug: string }> }) {
