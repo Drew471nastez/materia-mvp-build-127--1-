@@ -256,11 +256,13 @@ async function main() {
 
     const pump = library.slice(library.indexOf("function pump()"), library.indexOf("export function requestPreviews"))
     check("each preview is measured once, after it is drawn and its styles are in",
-      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /sizes = measureMany\(batch\)/.test(pump) && /const batch = unmeasured\.splice\(0, MEASURE_BATCH\)/.test(pump))
+      /* Changed on purpose (round 44): the batch is what the moment has room for (roomFor), eight at most. */
+      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /sizes = measureMany\(batch\)/.test(pump) && /const batch = unmeasured\.splice\(0, roomFor\(deadline, measureCost, MEASURE_BATCH\)\)/.test(pump))
     check("and its card is handed the preview and the height together",
       /HEIGHTS\.set\(next\.key, height\)\s*\n\s*MARKUP\.set\(next\.key, next\.html\)/.test(pump) && /unmeasured\.push\(\{ key: job\.key, html, width: job\.width \}\)/.test(pump) && !/MARKUP\.set\(job\.key/.test(pump))
     check("an idle moment measures or draws, never both, and stops at its deadline",
-      /\} while \(unmeasured\.length && deadline\.timeRemaining\(\) > MEASURE_ROOM_MS\)/.test(pump) && /\} else \{\s*\n\s*do \{/.test(pump) && /\} while \(queue\.length && deadline\.timeRemaining\(\) > 12\)/.test(pump))
+      /* Changed on purpose (round 44): another only while the moment has room for what one has cost on this device. */
+      /\} while \(unmeasured\.length && deadline\.timeRemaining\(\) > Math\.max\(MEASURE_ROOM_MS, measureCost \* 2\)\)/.test(pump) && /\} else \{\s*\n\s*do \{/.test(pump) && /\} while \(queue\.length && deadline\.timeRemaining\(\) > Math\.max\(12, drawCost \* 1\.25\)\)/.test(pump))
     check("and a preview being measured is not asked for twice", /!MARKUP\.has\(j\.key\) && !queued\.has\(j\.key\) && !pending\.has\(j\.key\)/.test(library))
     const flush = library.slice(library.indexOf("function flushStyles()"), library.indexOf("/* ── The preview store"))
     check("each idle moment's styles go in a small sheet of their own, not on the end of one that is read again",

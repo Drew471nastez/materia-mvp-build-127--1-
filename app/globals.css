@@ -5812,11 +5812,14 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
    inside them went on animating, a style pass and a layering pass on every
    frame of every canvas scroll (scripts/check-editor-perf.mjs, TRACE=scroll:
    "StyleRecalc Animation" each frame, 13ms of it at a quarter speed). Paused,
-   not taken off, so each is where it was when the shell opens again. */
-.wb-library-layer[data-state="closed"] *,
-.wb-library-layer[data-state="closed"] *::before,
-.wb-library-layer[data-state="closed"] *::after,
-[data-section-library="phone"]:not([data-library-open]) *,
+   not taken off, so each is where it was when the shell opens again.
+
+   NOT THE SECTION LIBRARY ANY MORE (round 44). Its previews hold nothing that
+   moves now (section-library.tsx, REVEAL_SHOWN: a card is a still picture,
+   every animation in it ends on its first frame) and its shimmer stops by
+   the rule above. A rule on every element under the library made each open
+   and each close restyle all of them, about 360 elements and 90 to 120ms at
+   a sixth of a computer's speed, to pause animations that are not there. */
 [data-block-picker-layer][data-state="closed"] *,
 [data-ask-card][aria-hidden="true"] *,
 [data-ask-card][aria-hidden="true"] *::before,
@@ -8153,6 +8156,71 @@ html[data-canvas-swap]::view-transition-new(root) {
   --sl-vw: 1cqw;
   /* A section growing under a sidebar drag must not shove the page. The browser's scroll anchor did that, a jump on every value. */
   overflow-anchor: none;
+}
+/*
+  While the wheel moves the canvas a clear pane is laid over its content, so
+  no hover restyles and repaints a frame (lib/website-builder/wheel-hold.ts).
+  The pane is the scroller's last child, held over the visible part by
+  sticky and taking no room (its negative margin is its own height). Only
+  its pointer-events change, one element restyled: the same switch on the
+  content itself restyled the whole page twice a gesture.
+*/
+.wb-wheel-shield {
+  position: sticky;
+  bottom: 0;
+  flex: none;
+  height: 100cqh;
+  margin-top: -100cqh;
+  z-index: 2147483000;
+  pointer-events: none;
+}
+#wb-preview-root[data-wb-wheeling] > .wb-wheel-shield {
+  pointer-events: auto;
+}
+/*
+  A panel's list being wheeled: a clear pane over its rows takes the pointer
+  until it rests (the same file). Its own attribute, and a pane rather than
+  the rows themselves: switching pointer-events on the rows restyled them
+  all twice a gesture (200ms tasks at a quarter speed), the pane is one
+  element. Zero high and stuck to the bottom of the list, it takes no room;
+  what it lays over the list is its ::after, clipped by the list.
+*/
+.wb-list-shield {
+  position: sticky;
+  bottom: 0;
+  height: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.wb-list-shield::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100vh;
+  pointer-events: none;
+}
+.wb-slim-scroll[data-wb-list-wheeling] > .wb-list-shield::after {
+  pointer-events: auto;
+}
+/* The canvas's thumb, moved by the canvas's own scroll where the browser can (components/website-builder/canvas-scrollbar.tsx): the compositor's work, nothing on the main thread per frame. Its two ends are written when the page changes size. */
+@keyframes wb-canvas-thumb {
+  from { transform: translate3d(0, var(--wb-thumb-from, 8px), 0); }
+  to { transform: translate3d(0, var(--wb-thumb-to, 8px), 0); }
+}
+[data-canvas-scrollbar][data-scroll-driven] {
+  animation: wb-canvas-thumb linear both;
+  animation-timeline: --wb-canvas-scroll;
+}
+/* The sidebar's thumb, the same way (components/website-builder/editor/slim-scroll-rail.tsx): the scroller under it publishes its scroll, the thumb travels between its two ends. */
+@keyframes wb-slim-thumb {
+  from { transform: translate3d(var(--slim-x, -20px), var(--slim-from, 0px), 0); }
+  to { transform: translate3d(var(--slim-x, -20px), var(--slim-to, 0px), 0); }
+}
+[data-slim-scroll-thumb][data-scroll-driven] {
+  animation: wb-slim-thumb linear both;
+  animation-timeline: --wb-slim-scroll;
 }
 
 /* A popover or dialog a section opens, opened in place rather than in the

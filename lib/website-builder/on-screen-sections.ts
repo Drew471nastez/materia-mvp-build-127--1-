@@ -33,6 +33,33 @@ import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useSt
 /** How far past the visible canvas a section still counts as on screen: a wheel turn away. */
 export const ON_SCREEN_MARGIN = "200px 0px"
 
+/*
+  A LOOP NOBODY CAN SEE IS HELD (round 44). A section's endless animation (a
+  logo marquee, scrolling text) is drawn by the compositor, and still asked
+  the main thread for a frame sixty times a second, each one restyled and
+  layerized (scripts/check-editor-perf.mjs PART=scroll, TRACE=scroll: with the
+  canvas's one marquee paused a wheel at a quarter speed dropped 11% of its
+  frames, running 24%). The same observer that knows which sections are on
+  screen pauses those of a section that has left, and plays them again when
+  it comes back, by the animations themselves: no style is changed, so
+  nothing is restyled. Only endless ones, and only ones it paused itself.
+*/
+const heldLoops = new WeakMap<Element, Animation[]>()
+export function holdLoops(el: Element, onScreen: boolean): void {
+  if (onScreen) {
+    const held = heldLoops.get(el)
+    if (!held) return
+    heldLoops.delete(el)
+    for (const a of held) if (a.playState === "paused") a.play()
+    return
+  }
+  if (heldLoops.has(el) || typeof (el as Element & { getAnimations?: unknown }).getAnimations !== "function") return
+  const loops = el.getAnimations({ subtree: true }).filter((a) => a.playState === "running" && a.effect?.getTiming().iterations === Infinity)
+  if (!loops.length) return
+  for (const a of loops) a.pause()
+  heldLoops.set(el, loops)
+}
+
 /**
  * Whether a section is on screen, by its id. `ids` are the sections drawn
  * (their elements are `#<prefix><id>`); `live` says a theme value is under a
@@ -65,6 +92,7 @@ export function useOnScreenSections(
         for (const e of entries) {
           const id = map.get(e.target)
           if (!id) continue
+          holdLoops(e.target, e.isIntersecting)
           if (e.isIntersecting) {
             if (!seen.current.has(id)) {
               seen.current.add(id)

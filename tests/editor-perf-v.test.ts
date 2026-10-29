@@ -178,7 +178,8 @@ console.log("\nKEYS: a memo keyed by what it reads")
 console.log("\nWARM-UP: the library's previews measured in batches")
 {
   const lib = readCode("components/website-builder/editor/section-library.tsx")
-  check("a batch at a time", /export const MEASURE_BATCH = 8/.test(lib) && /const batch = unmeasured\.splice\(0, MEASURE_BATCH\)/.test(lib) && /sizes = measureMany\(batch\)/.test(lib))
+  /* Changed on purpose (round 44): a batch is as many as the idle moment has room for on this device, eight at most. */
+  check("a batch at a time", /export const MEASURE_BATCH = 8/.test(lib) && /const batch = unmeasured\.splice\(0, roomFor\(deadline, measureCost, MEASURE_BATCH\)\)/.test(lib) && /sizes = measureMany\(batch\)/.test(lib))
   const many = lib.slice(lib.indexOf("function measureMany("), lib.indexOf("const idle ="))
   check("all of a batch goes in before any height is read", many.indexOf("ruler.append(...boxes)") > 0 && many.indexOf("ruler.append(...boxes)") < many.indexOf("getBoundingClientRect()"))
   check("each box is laid out as the ruler was: its width, and contained", /box\.style\.cssText = `width:\$\{item\.width\}px;contain:layout paint`/.test(many))

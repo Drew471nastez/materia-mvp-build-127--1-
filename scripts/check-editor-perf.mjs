@@ -133,7 +133,7 @@
  *
  *   node scripts/check-editor-perf.mjs
  *   npx tsx scripts/check-editor-perf.mjs    (an imported theme needs tsx: its converter is TypeScript)
- *   PART=interactions|scroll|live|load       some parts only (comma separated; all by default)
+ *   PART=interactions|scroll|live|smooth|load  some parts only (comma separated; all but smooth by default)
  *   DEVICE=desktop|phone  THEME=storelib|imported   for scroll and live
  *   BUDGET=0                                 report without failing on the budgets
  *   OWNERS=1                                 whose render drew each tooltip and field
@@ -1118,6 +1118,201 @@ async function liveScenario({ device, bundle, css, cpu }) {
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   SMOOTH (round 44): the three gestures of the report, on a slow CPU
+   ───────────────────────────────────────────────────────────────────────────
+   "Stutters and lags badly when scrolling the canvas, scrolling the section
+   settings sidebar, and switching between sections, worse when pushes
+   arrive." The canvas wheel is PART=scroll; this adds the other two and the
+   push stream under a moving canvas, on the same long page:
+
+   SIDEBAR   a section open, the wheel over the sidebar's longest list (its
+             settings when they overflow, else the sections list), down and back
+   SELECT    four sections clicked in turn on the canvas, each given 700ms
+   STREAM    the canvas wheeled for six seconds while ten agent edits land,
+             500ms apart, each to a different section: frames, long tasks,
+             commits, when the last edit was on the canvas after the wheel
+             stopped, and the editor's message traffic (window "message"
+             events, the frame's and the editor's)
+   MEMORY    the heap and DOM after a collection, before and after the stream
+*/
+async function smoothScenario({ device, bundle, css, cpu }) {
+  const { openEditor } = await import("./canvas-probe-kit.mjs")
+  const view = device === "phone" ? PHONE : DESKTOP
+  const MSG = `;(function(){var n={c:0,by:{}};window.__msgs=n;window.addEventListener("message",function(e){n.c++;var d=e.data,k=d&&typeof d==="object"?String(d.type||d.kind||"object"):typeof d;n.by[k]=(n.by[k]||0)+1},true)})();`
+  /* PROBE_RAIL: the sidebar's drawn scrollbar, as the layout mounts it (slim-scroll-rail.tsx). */
+  const ed = await openEditor({ kind: "native", bundle, css, globals: STORELIB_PAGE + LIVE_GLOBALS + "window.PROBE_RAIL=true;", init: INIT + SCROLL_INIT + MSG, cpu, width: view.width, height: view.height, touch: device === "phone", settle: 6000 })
+  const out = {}
+  try {
+    const cdp = await ed.page.createCDPSession()
+    if (cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpu })
+    await settleQuiet(ed)
+    const heap = async () => {
+      await cdp.send("HeapProfiler.enable")
+      await cdp.send("HeapProfiler.collectGarbage")
+      await sleep(200)
+      await cdp.send("HeapProfiler.collectGarbage")
+      const h = await cdp.send("Runtime.getHeapUsage")
+      const d = await cdp.send("Memory.getDOMCounters")
+      return { heapMB: +(h.usedSize / 1048576).toFixed(1), nodes: d.nodes, listeners: d.jsEventListeners }
+    }
+    /* TRACE=select|sidebar|stream: the main thread by event, and the layouts a script forced, by what. */
+    const startTrace = () => ed.page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack"] })
+    const endTrace = async () => {
+      const events = JSON.parse(Buffer.from(await ed.page.tracing.stop()).toString("utf8")).traceEvents
+      printTrace(events)
+      const forced = events.filter((e) => e.ph === "X" && e.name === "Layout" && (e.args?.beginData?.stackTrace ?? []).length)
+      const by = {}
+      for (const e of forced) { const f = e.args.beginData.stackTrace[0]; const k = `${f.functionName || "(anon)"}:${f.lineNumber}`; by[k] = (by[k] || 0) + e.dur / 1000 }
+      console.log(`      forced layouts ${forced.length}: ${Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => `${k} ${v.toFixed(0)}ms`).join(", ")}`)
+      return traceSummary(events)
+    }
+    const line = (name, m, extra = "") => console.log(`  smooth  ${device.padEnd(7)} ${name.padEnd(9)} frames p95 ${m.p95}ms max ${m.max}ms, dropped ${m.droppedPct}%; long ${m.longTasks} (max ${m.longest}ms, blocking ${m.tbt}ms); ${m.commits} commits, ${m.renders} renders (editor ${m.editor}, sections ${m.sections}); handlers ${JSON.stringify(m.handlers)}${extra}`)
+    const clickSection = async (type) => {
+      const p = await ed.js((t) => { const b = document.querySelector(`#wb-preview-root [data-section-box][data-section-type='${t}']`); if (!b) return null; b.scrollIntoView({ block: "center" }); const r = b.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(40, r.height / 2)) } }, type)
+      if (!p) return false
+      await sleep(250)
+      await ed.page.mouse.click(p.x, p.y)
+      return true
+    }
+
+    /* A CLICK STRAIGHT AFTER THE WHEEL, the mouse not moved: it selects the section under the pointer (the pane the wheel lays over the page hands the press on, wheel-hold.ts). */
+    if (device === "desktop") {
+      const at = await ed.js(() => { const r = document.getElementById("wb-preview-root").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } })
+      await ed.page.mouse.move(at.x, at.y)
+      for (let k = 0; k < 12; k++) { await ed.page.mouse.wheel({ deltaY: 100 }); await sleep(16) }
+      const wheeling = await ed.js(() => document.getElementById("wb-preview-root").hasAttribute("data-wb-wheeling"))
+      await ed.page.mouse.down()
+      await ed.page.mouse.up()
+      await sleep(1500)
+      out.clickAfterWheel = await ed.js((p) => {
+        const hit = document.elementFromPoint(p.x, p.y)
+        const box = hit && hit.closest("[data-section-box]")
+        const sec = box && box.querySelector("[id^='wb-section-']")
+        const id = sec ? sec.id : box ? box.id : null
+        const selected = !!(box && [...box.querySelectorAll(".wb-ring")].some((r) => (r.textContent || "").trim().length > 0))
+        return { id, selected }
+      }, at)
+      out.clickAfterWheel.heldWhenPressed = wheeling
+      /* And once the wheel rests, the pointer not moved: hover is the page's again (the section's ring), not the pane's. */
+      for (let k = 0; k < 12; k++) { await ed.page.mouse.wheel({ deltaY: -100 }); await sleep(16) }
+      await sleep(700)
+      out.hoverAfterRest = await ed.js(() => { const h = [...document.querySelectorAll(":hover")].pop(); return { inSection: !!(h && h.closest("[data-section-box]")), pane: !!(h && h.hasAttribute("data-wb-wheel-shield")), held: document.getElementById("wb-preview-root").hasAttribute("data-wb-wheeling") } })
+      console.log(`  smooth  ${device.padEnd(7)} click     straight after the wheel (held: ${wheeling}): ${out.clickAfterWheel.selected ? "selected" : "NOT SELECTED"} ${out.clickAfterWheel.id}; hover once it rests: ${out.hoverAfterRest.inSection ? "on the section" : out.hoverAfterRest.pane ? "ON THE PANE" : "elsewhere"}${out.hoverAfterRest.held ? " (STILL HELD)" : ""}`)
+      await settleQuiet(ed)
+
+      /* THE THUMB where the scroll puts it, at the top, the middle and the end (scroll driven or written, canvas-scrollbar.tsx), against the same sums (scroll-rest.ts thumbFor). */
+      out.thumb = []
+      for (const f of [0, 0.5, 1]) {
+        await ed.js((f) => { const sc = document.getElementById("wb-preview-root"); sc.scrollTop = Math.round((sc.scrollHeight - sc.clientHeight) * f) }, f)
+        await sleep(400)
+        out.thumb.push(await ed.js(() => {
+          const sc = document.getElementById("wb-preview-root"), t = document.querySelector("[data-canvas-scrollbar]")
+          if (!t || getComputedStyle(t).display === "none") return null
+          const host = t.offsetParent || t.parentElement
+          const top = t.getBoundingClientRect().top - host.getBoundingClientRect().top
+          const track = sc.clientHeight - 16, h = t.getBoundingClientRect().height, range = sc.scrollHeight - sc.clientHeight
+          const want = 8 + Math.round((sc.scrollTop / range) * (track - h))
+          return { top: Math.round(top), want, driven: t.hasAttribute("data-scroll-driven") }
+        }))
+      }
+      console.log(`  smooth  ${device.padEnd(7)} thumb     ${out.thumb.map((t) => (t ? `${t.top}px (want ${t.want})` : "none")).join(", ")}; ${out.thumb[0]?.driven ? "driven by the scroll" : "written"}`)
+      await ed.js(() => { document.getElementById("wb-preview-root").scrollTop = 0 })
+      await sleep(300)
+    }
+
+    /* SELECT: four sections in turn. */
+    if (device === "desktop") {
+      /* PROFILE=select: where the main thread's time went. */
+      const profiling = process.env.PROFILE && /select/i.test(process.env.PROFILE)
+      if (profiling) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
+      /* TRACE=select: style, layout and the layouts a script forced, and by what. */
+      const tracing = process.env.TRACE && /select/i.test(process.env.TRACE)
+      if (tracing) await startTrace()
+      await ed.js(() => { if (window.__perf.owners) window.__perf.owners = {}; window.__sw.start() })
+      for (const t of ["hero_centered", "features_grid", "faq_accordion", "text_image"]) { await clickSection(t); await sleep(700) }
+      out.select = await ed.js(() => window.__sw.stop())
+      if (profiling) { console.log("  profile, select"); printProfile((await cdp.send("Profiler.stop")).profile) }
+      if (tracing) out.select.trace = await endTrace()
+      if (process.env.TOP) console.log(`      ${out.select.top.join("  ")}`)
+      /* OWNERS=1: whose render drew each tooltip and field. */
+      if (process.env.OWNERS) console.log(`      drawn by: ${await ed.js(() => { const o = window.__perf.owners || {}; return Object.keys(o).sort((a, b) => o[b] - o[a]).slice(0, 16).map((k) => k + ":" + o[k]).join("  ") })}`)
+      line("select", out.select)
+      await settleQuiet(ed)
+
+      /* SIDEBAR: a section with a long list of settings open (the first of these that has one), its settings wheeled down and back. */
+      let side = null
+      for (const t of ["hero_centered", "product_grid", "header", "footer", "features_grid"]) {
+        await clickSection(t)
+        await ed.page.waitForFunction(() => (document.querySelector("[data-wb-sidebar-scroll]")?.querySelectorAll("input, textarea, button[role=switch]").length ?? 0) > 3, { timeout: 20000, polling: 200 }).catch(() => {})
+        await settleQuiet(ed)
+        side = await ed.js(() => { const s = [...document.querySelectorAll("[data-wb-sidebar-scroll], [data-sheet-scroll]")].filter((e) => e.getClientRects().length && !e.closest("#wb-preview-root")).sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]; if (!s) return null; const r = s.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), room: s.scrollHeight - s.clientHeight, fields: s.querySelectorAll("input, textarea, button").length, which: s.hasAttribute("data-wb-sidebar-scroll") ? "settings" : "sections list" } })
+        if (side && side.room > 300) { side.section = t; break }
+      }
+      if (side) {
+        await ed.page.mouse.move(side.x, side.y)
+        const tracing = process.env.TRACE && /sidebar/i.test(process.env.TRACE)
+        if (tracing) await startTrace()
+        await ed.js(() => window.__sw.start())
+        for (const dir of [1, -1, 1]) { for (let k = 0; k < 30; k++) { await ed.page.mouse.wheel({ deltaY: 80 * dir }); await sleep(16) } await sleep(150) }
+        out.sidebar = await ed.js(() => window.__sw.stop())
+        if (tracing) out.sidebar.trace = await endTrace()
+        /* The sidebar's thumb where its scroll puts it (slim-scroll-rail.tsx, scroll driven or written), part way down. */
+        await ed.page.mouse.wheel({ deltaY: -400 })
+        await sleep(500)
+        out.sidebar.thumb = await ed.js(() => {
+          const t = document.querySelector("[data-slim-scroll-thumb]")
+          const s = [...document.querySelectorAll("[data-wb-sidebar-scroll], [data-sheet-scroll]")].filter((e) => e.getClientRects().length && !e.closest("#wb-preview-root")).sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]
+          if (!t || !s) return null
+          const box = s.getBoundingClientRect(), r = t.getBoundingClientRect(), room = s.scrollHeight - s.clientHeight
+          return { top: Math.round(r.top), want: Math.round(box.top + (s.scrollTop / room) * (box.height - r.height)), scrollTop: Math.round(s.scrollTop), driven: t.hasAttribute("data-scroll-driven") }
+        })
+        out.sidebar.room = side.room
+        line("sidebar", out.sidebar, `; ${side.which} with ${side.section ?? "?"} open, ${side.room}px to scroll, ${side.fields} controls; thumb ${out.sidebar.thumb ? `${out.sidebar.thumb.top}px (want ${out.sidebar.thumb.want}) at ${out.sidebar.thumb.scrollTop}, ${out.sidebar.thumb.driven ? "driven by the scroll" : "written"}` : "none"}`)
+      }
+      await settleQuiet(ed)
+    }
+
+    /* STREAM: ten agent edits under a canvas that keeps moving. */
+    const m0 = await heap()
+    const stamp = `S${Date.now() % 100000}`
+    const targets = ["features_grid", "text_rich", "faq_accordion", "promo_newsletter", "text_image", "gallery", "about_image", "process_steps", "logo_bar", "proof_testimonials"].map(id)
+    await ed.js(() => { window.__msgs.c = 0; window.__msgs.by = {} })
+    await ed.js(() => window.__sw.start())
+    const t0 = Date.now()
+    const wheel = (async () => {
+      const at = await ed.js(() => { const r = document.getElementById("wb-preview-root").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 300)) } })
+      if (device === "phone") {
+        while (Date.now() - t0 < 6000) { await cdp.send("Input.synthesizeScrollGesture", { x: at.x, y: at.y, yDistance: -1200, speed: 1800, gestureSourceType: "touch" }); await cdp.send("Input.synthesizeScrollGesture", { x: at.x, y: at.y, yDistance: 1200, speed: 1800, gestureSourceType: "touch" }) }
+      } else {
+        await ed.page.mouse.move(at.x, at.y)
+        let dir = 1
+        while (Date.now() - t0 < 6000) { for (let k = 0; k < 25; k++) { await ed.page.mouse.wheel({ deltaY: 100 * dir }); await sleep(16) } dir = -dir }
+      }
+    })()
+    for (let k = 0; k < targets.length; k++) {
+      await pushActivity(ed, [{ agent_name: "Claude Code", path: "pages/home", action: "page", detail: { page: "home", ops: [{ kind: "update_section", id: targets[k], settings: { heading: `${stamp} ${k}` } }] } }])
+      await sleep(500)
+    }
+    await wheel
+    const stoppedAt = Date.now()
+    const last = await arrival(ed, (a) => a.ids.every((sid, k) => { const el = document.getElementById(`wb-section-${sid}`); return !el || (el.textContent || "").includes(`${a.stamp} ${k}`) }), { ids: targets, stamp })
+    out.stream = await ed.js(() => window.__sw.stop())
+    out.stream.lastAfterWheel = last === null ? null : Math.max(0, Date.now() - stoppedAt - 0)
+    out.stream.landed = last !== null
+    out.stream.messages = await ed.js(() => ({ c: window.__msgs.c, by: window.__msgs.by }))
+    const m1 = await heap()
+    out.memory = { before: m0, after: m1, growthMB: +(m1.heapMB - m0.heapMB).toFixed(1) }
+    line("stream", out.stream, `; all ten on the canvas: ${last === null ? "NEVER" : "yes"}; messages ${out.stream.messages.c} ${JSON.stringify(out.stream.messages.by)}`)
+    console.log(`  smooth  ${device.padEnd(7)} memory    heap ${m0.heapMB} -> ${m1.heapMB}MB, DOM nodes ${m0.nodes} -> ${m1.nodes}, listeners ${m0.listeners} -> ${m1.listeners}`)
+    out.errors = ed.errors.slice(0, 5)
+    if (ed.errors.length) console.log(`  page errors: ${ed.errors.slice(0, 3).join(" | ")}`)
+    return out
+  } finally {
+    await ed.close()
+  }
+}
+
 /* ── First load on a slow network: every API route answering after a Slow 4G round trip ── */
 async function slowLoad({ bundle, css, cpu, device }) {
   const { openEditor } = await import("./canvas-probe-kit.mjs")
@@ -1185,6 +1380,19 @@ function budgets(all, cpu) {
       want(m.longest <= 150 * k, `live ${dev} ${name}: no long task over ${Math.round(150 * k)}ms`, m.longest)
     }
   }
+  for (const [dev, sm] of Object.entries(all.smooth ?? {})) {
+    if (!sm) continue
+    if (sm.clickAfterWheel) want(sm.clickAfterWheel.selected, `smooth ${dev}: a click straight after the wheel selects the section under the pointer`, sm.clickAfterWheel)
+    if (sm.hoverAfterRest) want(sm.hoverAfterRest.inSection && !sm.hoverAfterRest.held, `smooth ${dev}: once the wheel rests the section under a still pointer is hovered again`, sm.hoverAfterRest)
+    if (sm.thumb) want(sm.thumb.every((t) => t && Math.abs(t.top - t.want) <= 2), `smooth ${dev}: the canvas's thumb is where the scroll puts it`, sm.thumb)
+    if (sm.sidebar) want(sm.sidebar.p95 <= 34 * k, `smooth ${dev}: sidebar wheel frames p95 under ${Math.round(34 * k)}ms`, sm.sidebar.p95)
+    if (sm.sidebar?.thumb) want(Math.abs(sm.sidebar.thumb.top - sm.sidebar.thumb.want) <= 2, `smooth ${dev}: the sidebar's thumb is where its scroll puts it`, sm.sidebar.thumb)
+    if (sm.stream) {
+      want(sm.stream.landed, `smooth ${dev}: ten edits under a moving canvas all land`, sm.stream.lastAfterWheel)
+      want(sm.stream.p95 <= 34 * k, `smooth ${dev}: frames p95 under ${Math.round(34 * k)}ms while edits land under the wheel`, sm.stream.p95)
+      want(sm.stream.longest <= 150 * k, `smooth ${dev}: no long task over ${Math.round(150 * k)}ms while edits land under the wheel`, sm.stream.longest)
+    }
+  }
   for (const [name, m] of Object.entries(all.interactions ?? {})) {
     if (!m || typeof m !== "object" || !("inp" in m)) continue
     if (/^(type 20 keys|toggle switch|slider 60 steps)$/.test(name)) want(m.inp <= 100 * k, `${name}: input to next paint under ${Math.round(100 * k)}ms`, m.inp)
@@ -1213,6 +1421,12 @@ if (PART.some((p) => p !== "interactions")) {
     all.live = {}
     for (const device of DEVICES) {
       try { all.live[device] = await liveScenario({ device, bundle: harness.bundle, css, cpu: CPU }) } catch (e) { console.log(`  live ${device} did not run: ${String(e).slice(0, 300)}`); unmeasured++ }
+    }
+  }
+  if (PART.includes("smooth")) {
+    all.smooth = {}
+    for (const device of DEVICES) {
+      try { all.smooth[device] = await smoothScenario({ device, bundle: harness.bundle, css, cpu: CPU }) } catch (e) { console.log(`  smooth ${device} did not run: ${String(e).slice(0, 300)}`); unmeasured++ }
     }
   }
   if (PART.includes("load")) {

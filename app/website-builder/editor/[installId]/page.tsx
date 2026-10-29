@@ -8635,6 +8635,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 pinned={pinnedSection}
               />
               </BlockPickerProvider>
+              {/* Takes the pointer over the rows while the wheel moves them (wheel-hold.ts). Last, and no room. */}
+              <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
             </div>
           )}
         </div>
@@ -11446,6 +11448,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </div>
                 </EditorFieldProvider>
                 </LinkTargetsProvider>
+                {/* Takes the pointer over the settings while the wheel moves them (wheel-hold.ts). Last, and no room. */}
+                <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -12212,6 +12216,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             )}
             </div>
+            {/* Takes the pointer over the page while the wheel moves it, so hover does not repaint a frame (wheel-hold.ts). Last, and no room. */}
+            {!isMobileView && <div aria-hidden data-wb-wheel-shield="" className="wb-wheel-shield" />}
           </div>
           {!isMobileView && <CanvasScrollbar targetId="wb-preview-root" />}
           {/* The page being left, held here until the next one is drawn (canvas-still.ts). */}

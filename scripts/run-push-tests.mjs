@@ -948,6 +948,8 @@ const SUITES = [
   "tests/round-bb.test.ts",
   "tests/round-bc-aiagent.test.ts",
   "tests/round-bc-previews.test.ts",
+  /* Round 44: Add section on a slow phone, and the Header card: what is drawn closed stays closed, a card is a still picture, the header drawn ahead, cards kept across groups, drawing between presses (scripts/check-add-section-perf.mjs). */
+  "tests/add-section-r44.test.ts",
   "tests/round-bc-liveseo.test.ts",
   "tests/round-bc-domains.test.ts",
   "tests/round-bc-dmnotify.test.ts",
@@ -970,6 +972,8 @@ const SUITES = [
   "tests/editor-incoming-push.test.ts",
   /* The canvas scroll moves its chrome from the scroll offset, and a push waits until the gesture rests. */
   "tests/editor-scroll-rest.test.ts",
+  /* Round 44: the canvas wheel holds hover (lib/website-builder/wheel-hold.ts) and its thumb moves by transform; scripts/check-editor-perf.mjs PART=scroll,smooth measures the canvas, the sidebar, a section switch and a push stream under a moving canvas. */
+  "tests/editor-smooth-r44.test.ts",
   /* A push reaches an open editor without a reload: a sleep with no visibilitychange is an absence, a full page reads on and the pile lands once, an apply has a ceiling, online, pageshow and the app's return wake it; the session recovery and a stalled OnePage load end in something to press. */
   "tests/editor-live-follow.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */

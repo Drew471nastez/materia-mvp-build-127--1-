@@ -40,6 +40,19 @@ export function splitStyles(html: string): { html: string; css: string[] } {
 }
 
 /**
+ * NOTHING STICKY IN A CARD (round 44). A card is a still picture of its
+ * section, and a sticky header or column has nothing there to stick to:
+ * relative, with its offsets taken off, lays it out exactly where sticky puts it at rest, without a
+ * layer of its own for the library to sort on every frame of a scroll.
+ * For a preview's own styles and its inline ones; the app's `.sticky` is
+ * the library's stylesheet's (section-library.tsx, REVEAL_SHOWN).
+ */
+export function withoutSticky(text: string): string {
+  /* Its offsets go with it: on a relative box `top: 24px` would move it down, where sticky at rest does not. */
+  return text.replace(/position\s*:\s*(?:-webkit-)?sticky/gi, "position:relative;inset:auto!important")
+}
+
+/**
  * Where a drawn preview is kept. The width is part of it because a section
  * drawn at 390 is a different document from one drawn at 800, and the
  * sources are because a creator's own section changes when its file does.
