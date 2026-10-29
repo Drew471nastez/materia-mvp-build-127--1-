@@ -7,9 +7,12 @@
  * share.png) all need the same row, the same owner and the same name and
  * face. They were built inside the page file; the share image needs them too,
  * so they live here and each caller reads the same answer. React `cache`
- * keeps it to one read per request for the page and its metadata.
+ * keeps it to one read per request for the page and its metadata, and
+ * Next's data cache to one read for every visitor until the page changes
+ * (lib/onepage/public-cache).
  */
 import "server-only"
+import { createHash } from "node:crypto"
 import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
@@ -23,6 +26,8 @@ import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolv
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
+import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
+import { creatorDomainsTag } from "@/lib/custom-domains/store"
 
 /**
  * WHOSE ONEPAGE THIS IS, AND WHETHER A SEARCH ENGINE MAY LIST IT
@@ -38,7 +43,26 @@ import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
  * profiles.avatar_url and profiles.display_name are the single source of
  * truth: Settings and Store Builder both sync to them (lib/account/profile-follow).
  */
-export const onePageOwner = cache(async (sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
+/*
+  HELD FOR EVERY VISITOR (lib/onepage/public-cache): the same owner for the
+  same page, under the owner's tag (a new name, photo, handle or ban) and the
+  store's (its published product count, its domain), for a minute at most
+  when nothing clears it. React's cache keeps it to one read of the held copy
+  per request, for the page and its metadata.
+*/
+export const onePageOwner = cache((sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
+  const effective = sellerId || creatorId || null
+  const tags = [
+    ...(ownerId ? [onePageOwnerTag(ownerId)] : []),
+    ...(effective ? [onePageShopTag(effective), shopProductsTag(effective), creatorDomainsTag(effective)] : []),
+  ]
+  return heldRead(() => readOnePageOwner(sellerId, creatorId, ownerId), ["onepage-owner", "v1", sellerId ?? "", creatorId ?? "", ownerId ?? ""], {
+    tags,
+    revalidate: ONE_PAGE_HOLD_SECONDS,
+  })
+})
+
+async function readOnePageOwner(sellerId: string | null, creatorId: string | null, ownerId: string | null) {
   const supabase = createAdminClient()
   const effective = sellerId || creatorId || null
   /*
@@ -95,26 +119,59 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
     publishedProducts: (products as { count?: number | null }).count ?? 0,
     canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
   }
-})
+}
 
-export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
+export type OnePageOwner = Awaited<ReturnType<typeof readOnePageOwner>>
 
 /**
  * THE PAGE'S BLOCKS WITH EVERY PRODUCT READ FROM ITS ROW (lib/onepage/live-products),
  * once per request for the same blocks: the metadata names the products
  * the body draws, and both asked the catalogue for them, two round trips
  * each. Keyed by the blocks themselves, so blocks that differ are read for
- * themselves and nothing is held past the request.
+ * themselves, and held for every visitor until a product changes (below).
  */
-const liveBlocksOnce = cache(async (creatorId: string, blocksJson: string) => {
-  const db = createAdminClient()
-  const products = await withLiveProducts(db as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[])
-  /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
-  return withStorelibBlocks(db, creatorId, products)
+const liveBlocksOnce = cache((creatorId: string, blocksJson: string) => {
+  /*
+    HELD FOR EVERY VISITOR (lib/onepage/public-cache), keyed by the blocks'
+    own fingerprint, so a publish that changes them is a new entry, and tagged
+    by the store, so a product saved, archived or deleted clears it at once
+    (app/api/revalidate, app/api/internal/invalidate, lib/products/forget-product).
+  */
+  const fingerprint = createHash("sha256").update(blocksJson).digest("base64url")
+  return heldRead(
+    async () => {
+      const db = createAdminClient()
+      const products = await withLiveProducts(db as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[])
+      /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
+      return withStorelibBlocks(db, creatorId, products)
+    },
+    ["onepage-live-blocks", "v1", creatorId, fingerprint],
+    { tags: [onePageShopTag(creatorId), shopProductsTag(creatorId)], revalidate: ONE_PAGE_HOLD_SECONDS },
+  )
 })
 export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
   if (blocks === null || blocks === undefined) return withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, blocks)
   return liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>
+}
+
+/*
+  WHAT IS HELD OF THE ROW IS WHAT A VISITOR IS SHOWN. The draft blocks, the
+  blocks put aside and the draft theme and links are the editor's, and the
+  live page reads them only for a page that has never been published with a
+  copy of its own (lib/onepage/public-shape: published first, the row's after).
+  So once a published copy is there, the draft is not kept beside it in a
+  cache every visitor is served from.
+*/
+export function publishedOnly<Row extends Record<string, unknown>>(row: Row): Row {
+  if (!row || typeof row !== "object") return row
+  const held: Record<string, unknown> = { ...row }
+  if (Array.isArray(row.published_blocks)) {
+    delete held.draft_blocks
+    delete held.archived_blocks
+  }
+  if (row.published_theme) delete held.theme
+  if (row.published_social_links) delete held.social_links
+  return held as Row
 }
 
 /**
@@ -125,9 +182,29 @@ export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
  * this one answer. A read that fails is a name that leads nowhere, which is
  * what it was before: the page's own not found.
  */
+/*
+  HELD FOR EVERY VISITOR (lib/onepage/public-cache), under the name it was
+  asked by: a OnePage's visitors all ask that one. Every answer is held, a
+  page, a creator page, a renamed address and nothing at all, because each is
+  what the next visitor would be told too, and a held answer that goes stale
+  is replaced by what the name leads to now, never kept: a name that stopped
+  leading to a page answers "nothing" after its minute, and at once when the
+  writer clears it. Publishing, a new address and a new username clear every
+  name involved (onePageChangedFor), so a page published a second ago is
+  never a held 404. A lookup that FAILED is thrown, which unstable_cache never
+  keeps: the visitor gets the page's own not found, as before, and the next
+  one asks again.
+*/
 export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress<any>> => {
   try {
-    return await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*"))
+    return await heldRead(
+      async (): Promise<OnePageAddress<any>> => {
+        const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*"))
+        return answer.kind === "page" ? { ...answer, page: publishedOnly(answer.page) } : answer
+      },
+      ["onepage-address", "v1", slug],
+      { tags: [onePageNameTag(slug)], revalidate: ONE_PAGE_HOLD_SECONDS },
+    )
   } catch {
     return { kind: "missing" }
   }

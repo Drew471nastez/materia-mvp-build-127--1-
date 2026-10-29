@@ -30,6 +30,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
 import { revalidatePath, revalidateTag } from "next/cache"
+import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -112,6 +113,8 @@ export async function POST(request: NextRequest) {
       save; this is the route the editor calls after every save.
     */
     revalidateTag(creatorShopTag(owned.creator_id), "max")
+    /* And the OnePage blocks that draw this store's products, expired at once (lib/onepage/public-cache). */
+    onePageProductsChanged(owned.creator_id)
     /* And the rendered pages that drew it: the front page's Featured products, every grid (revalidatePublishedPages). */
     await revalidatePublishedPages(owned.creator_id)
     /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */

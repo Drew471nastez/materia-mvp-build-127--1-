@@ -1,3 +1,18 @@
+/**
+ * The cookie a Supabase session is kept in (lib/supabase/session-jar.ts
+ * storedSessionKey), and its first chunk when it is split: a request with
+ * either is somebody's. Read at build time, as the headers below are.
+ * Empty when the address is unknown, and then Explore has no shared rule.
+ */
+const EXPLORE_SIGNED_IN_COOKIES = (() => {
+  try {
+    const key = `sb-${new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname.split(".")[0]}-auth-token`
+    return [key, `${key}.0`]
+  } catch {
+    return []
+  }
+})()
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /**
@@ -267,13 +282,35 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      {
-        // Explore / marketplace
-        source: '/explore/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
-        ],
-      },
+      /**
+       * Explore, at the edge for a minute, FOR A STRANGER ONLY. The page is
+       * drawn for whoever asks: somebody signed in with recommendations on
+       * gets "For you", ordered by what they bought and saved (lib/explore/
+       * interests). This rule used to apply whoever asked, and a page's own
+       * Cache-Control never replaces one set here (next/dist/server/
+       * send-payload.js: only `if (!res.getHeader('Cache-Control'))`), so a
+       * signed in person's ordering could be held by the CDN and handed to
+       * everybody for a minute. Now the shared rule needs the request to
+       * carry no Supabase session (EXPLORE_SIGNED_IN_COOKIES), and a request
+       * that carries one is answered `private, no-store`, so only a
+       * stranger's page is ever held. (A CDN keys on the address, not the
+       * cookie, so a signed in person may still be handed the stranger's
+       * copy: the plain Explore, never anybody else's.)
+       */
+      ...(EXPLORE_SIGNED_IN_COOKIES.length
+        ? [
+            {
+              source: '/explore/:path*',
+              missing: EXPLORE_SIGNED_IN_COOKIES.map((key) => ({ type: 'cookie', key })),
+              headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+            },
+            ...EXPLORE_SIGNED_IN_COOKIES.map((key) => ({
+              source: '/explore/:path*',
+              has: [{ type: 'cookie', key }],
+              headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+            })),
+          ]
+        : []),
       {
         /**
          * Creator store pages — NOT PUBLICLY CACHEABLE ANY MORE.

@@ -373,8 +373,9 @@ async function bansAndOneRule() {
   check("a website's pages say noindex under a farm's handle, as its sitemap already left them out",
     /websiteIndexable\(settings as Record<string, unknown>\) && !builtSiteIndexable\(settings as Record<string, unknown>, username\)\s*\? \{ robots: \{ index: false, follow: false \} \}/.test(render))
   const onepage = code("app/(marketing)/l/[slug]/page.tsx")
-  check("a banned owner's OnePage is not served, before a view is counted, and is never indexable",
-    /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("onepage_views") &&
+  /* Changed on purpose (rel-public): the render counts no view (Analytics' event is the count), so "before a view" is before the page is drawn. */
+  check("a banned owner's OnePage is not served, before anything is drawn, and is never indexable",
+    /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("publishedShape(onepage") &&
       /const indexable = !owner\.banned && onePageIndexable\(/.test(onepage))
   check("a banned creator's page and a product they put back are noindex",
     /* Changed on purpose (round 41): creatorIndexable, with the spam verdict. */

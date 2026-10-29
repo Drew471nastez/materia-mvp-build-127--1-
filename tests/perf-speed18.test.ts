@@ -257,15 +257,26 @@ async function onePage() {
   const first = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
   const productReads = (r: typeof first) => r.trips.filter((t) => t.table === "products").length
   check("and it answers what withLiveProducts answers", JSON.stringify(first.value) === JSON.stringify(await (await import("@/lib/onepage/live-products")).withLiveProducts((await import("@/lib/supabase/admin")).createAdminClient() as never, SITE.creatorId, blocks)))
-  /* The creator deletes a product: the very next visitor's page no longer has it (nothing held across visits). */
+  /*
+    Changed on purpose (rel-public): the blocks are held for every visitor
+    (lib/onepage/public-cache), so the second visitor reads nothing, and a
+    deleted product leaves the page at the purge every product writer makes
+    (onePageProductsChanged, beside creatorShopTag), not by being read again
+    on every visit.
+  */
+  const second = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
+  check("a second visitor's page reads no product at all", second.trips.length === 0 && JSON.stringify(second.value) === JSON.stringify(first.value), second.trips.map((t) => t.table))
   const named = (blocks.find((b) => (b as { type?: string }).type === "product") as { data: { product_id: string } }).data.product_id
   fixture.tables.products = fixture.tables.products.filter((p) => p.id !== named)
+  const { onePageProductsChanged } = await import("@/lib/onepage/public-cache")
+  onePageProductsChanged(SITE.creatorId)
   const next = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
-  check("a deleted product leaves the page on the next visit, with nothing to purge", productReads(next) === 1 && !JSON.stringify(next.value).includes(named))
+  check("a deleted product leaves the page on the next visit after the store's purge", productReads(next) === 1 && !JSON.stringify(next.value).includes(named))
 
   const route = code("app/(marketing)/l/[slug]/page.tsx")
-  check("a view is counted after the page is sent, by the same read and insert", /after\(async \(\) => \{[\s\S]*from\("onepage_views"\)[\s\S]*\.select\("id"\)[\s\S]*\.insert\(/.test(route) && (route.match(/from\("onepage_views"\)/g) ?? []).length === 2)
-  check("and the page still renders for every visitor (its products are live)", /export const dynamic = "force-dynamic"/.test(route))
+  /* Changed on purpose (rel-public): Analytics' own view event is the count; the render writes nothing (lib/onepage/visit-gate). */
+  check("the render writes no view of its own, and reads no cookie", !/onepage_views/.test(route) && !/\bafter\(/.test(route) && !/cookies\(\)/.test(route))
+  check("and the page still renders for every visitor (a block's schedule is decided at each draw)", /export const dynamic = "force-dynamic"/.test(route))
 }
 
 async function explore() {
