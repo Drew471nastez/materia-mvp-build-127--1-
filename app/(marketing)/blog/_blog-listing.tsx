@@ -1,17 +1,8 @@
 import Link from "next/link"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
+import { blogPagePath, type BlogPost } from "@/lib/blog/listing"
 
-export interface BlogPost {
-  id: string
-  slug: string
-  title: string
-  excerpt: string
-  category: string
-  published_at: string | null
-  read_time: string
-  cover_image_url: string | null
-  gradient?: string
-}
+export type { BlogPost }
 
 function fmtDate(dateStr: string | null) {
   if (!dateStr) return ""
@@ -23,11 +14,14 @@ export default function BlogListing({
   activeCategory,
   title,
   subtitle,
+  pagination,
 }: {
   posts: BlogPost[]
   activeCategory: string | null
   title: string
   subtitle: string
+  /** The index's page and how many there are (lib/blog/listing blogPage). */
+  pagination?: { page: number; pages: number }
 }) {
   return (
     <div className="min-h-screen bg-white">
@@ -156,6 +150,26 @@ export default function BlogListing({
                 ))}
               </div>
             )}
+            {/*
+              OLDER AND NEWER POSTS AS REAL LINKS. Without them the index
+              stopped at its newest fifty, and a crawler that runs no script
+              never saw a link to the rest.
+            */}
+            {pagination && pagination.pages > 1 ? (
+              <nav aria-label="Blog pages" className="mt-16 flex items-center justify-between border-t border-neutral-200 pt-6 text-sm font-medium" data-blog-pages="">
+                {pagination.page > 1 ? (
+                  <Link href={blogPagePath(pagination.page - 1)} rel="prev" className="text-neutral-600 hover:text-neutral-900 transition-colors">
+                    Newer posts
+                  </Link>
+                ) : <span />}
+                <span className="text-neutral-400">Page {pagination.page} of {pagination.pages}</span>
+                {pagination.page < pagination.pages ? (
+                  <Link href={blogPagePath(pagination.page + 1)} rel="next" className="text-neutral-600 hover:text-neutral-900 transition-colors">
+                    Older posts
+                  </Link>
+                ) : <span />}
+              </nav>
+            ) : null}
           </main>
         </div>
       </div>

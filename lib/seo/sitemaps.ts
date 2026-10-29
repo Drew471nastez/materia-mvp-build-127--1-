@@ -56,6 +56,9 @@ import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, he
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
+import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
+import { blogSitemapEntries } from "@/lib/blog/listing"
+import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunities, sitemapCommunityCount } from "@/lib/communities/server/public"
 import {
@@ -253,13 +256,6 @@ export async function communitiesSitemap(chunk: number): Promise<SitemapEntry[]>
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
 
-const STATIC_BLOG_SLUGS = [
-  "how-to-start-selling-digital-products-2026",
-  "why-low-transaction-fees-matter",
-  "building-an-audience-before-you-launch",
-  "pricing-strategies-for-digital-products",
-]
-
 /**
  * The platform's own pages. They carry no lastmod: nothing records when a
  * marketing page last changed, and "today" on every request would be a lie
@@ -268,18 +264,22 @@ const STATIC_BLOG_SLUGS = [
 export async function pagesSitemap(): Promise<SitemapEntry[]> {
   /* The physical products guide is listed only while physical commerce is on. */
   const physicalGuide = await isPhysicalCommerceEnabled()
+  /* Round 44: Explore is listed only while it is open; switched off, every Explore address is a redirect to "/". */
+  const exploreOpen = await isExploreMarketplaceEnabled()
   // "/" is the digital-products landing and the primary URL. /pricing,
   // /features and /faq are the pages somebody comparing platforms lands on.
   const routes: SitemapEntry[] = [
     { url: BASE },
     { url: `${BASE}/pricing` },
     { url: `${BASE}/features` },
-    { url: `${BASE}/explore` },
-    /* Explore's communities, while they are switched on. */
-    ...((await communitiesEnabled()) ? [{ url: `${BASE}/explore?type=communities` }] : []),
-    { url: `${BASE}/blog` },
+    ...(exploreOpen ? [{ url: `${BASE}/explore` }] : []),
+    /* Explore's communities, while they are switched on. Canonical at this address (lib/seo/explore-indexing). */
+    ...(exploreOpen && (await communitiesEnabled()) ? [{ url: `${BASE}/explore?type=communities` }] : []),
     { url: `${BASE}/faq` },
     { url: `${BASE}/signup` },
+    /* Round 44: the theme marketplace, and the two legal documents with the date each says it last changed. */
+    { url: `${BASE}/themes` },
+    ...Object.values(LEGAL_DOCS).map((d) => ({ url: `${BASE}${d.href}`, lastModified: d.updated })),
     /*
       The Storelib Developer Hub, from the same list its sidebar and
       /llms.txt read, so a page added to the hub is in the sitemap without
@@ -296,6 +296,7 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     /* At help.storelib.com, where the Help Center lives (lib/help/paths publicHelpUrl). */
     { url: helpUrl("/help") },
     { url: helpUrl("/help/questions") },
+    { url: helpUrl("/help/contact") },
     ...helpCategoriesFor(physicalGuide).map((c) => ({ url: helpUrl(`/help/${c.slug}`), lastModified: newestOf(...helpArticlesIn(c.slug).map((a) => a.updated)) })),
     /* Each article with the day it was last checked against the product, and its screenshots for Google Images. */
     ...helpArticlesFor(physicalGuide).map((a) => ({ url: helpUrl(helpArticlePath(a)), lastModified: a.updated ?? null, images: helpImages(a).map((src) => `${BASE}${src}`) })),
@@ -305,28 +306,25 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
    * ONE ROW PER CATEGORY. NO SUBCATEGORY ROWS. /explore/[category] does not
    * read `?sub=`, so seventy subcategory rows would be fourteen documents.
    */
-  for (const category of CATEGORIES) {
+  for (const category of exploreOpen ? CATEGORIES : []) {
     if (category.id === "all") continue
     routes.push({ url: `${BASE}/explore/${category.id}` })
   }
-  for (const category of STORELIB_CATEGORIES) {
-    routes.push({ url: `${BASE}/blog/explore/categories/${categoryToSlug(category)}` })
-  }
-  for (const slug of STATIC_BLOG_SLUGS) {
-    routes.push({ url: `${BASE}/blog/${slug}`, lastModified: "2026-02-14T00:00:00.000Z" })
-  }
 
   const admin = createAdminClient()
-  const posts = await readRange<{ slug: string; updated_at: string | null; published_at: string | null }>(
-    (a, b) => admin.from("blog_posts").select("slug, updated_at, published_at").eq("is_published", true).order("slug").range(a, b),
+  const posts = await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
+    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).order("slug").range(a, b),
     0,
     50_000,
     "blog",
   )
-  for (const post of posts) {
-    if (STATIC_BLOG_SLUGS.includes(post.slug)) continue
-    routes.push({ url: `${BASE}/blog/${post.slug}`, lastModified: newestOf(post.updated_at, post.published_at) })
-  }
+  /*
+    Round 44: the blog from one rule (lib/blog/listing blogSitemapEntries):
+    /blog and its older pages, each category that has a post, each post, all
+    with real dates. It listed every category, empty ones included, and gave
+    the four code-written posts one date between them.
+  */
+  routes.push(...blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug))
   return routes
 }
 

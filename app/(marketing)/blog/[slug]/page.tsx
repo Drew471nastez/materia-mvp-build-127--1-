@@ -9,7 +9,8 @@ import ShareButtons from "./_share-buttons"
 import ReadingProgress from "./_reading-progress"
 import CtaBanner from "./_cta-banner"
 import { jsonLdScript } from "@/lib/seo/json-ld"
-import { storelibLogoUrl } from "@/lib/brand/logo"
+import { STORELIB_OG_IMAGE, storelibAssetUrl, storelibLogoUrl } from "@/lib/brand/logo"
+import { BLOG_FEED_ALTERNATE, absoluteBlogImage } from "@/lib/blog/listing"
 
 /*
   HELD AT THE EDGE FOR A MINUTE, NOT RENDERED FOR EVERY READER (the owner:
@@ -194,18 +195,33 @@ async function fetchSiblingPosts(slug: string, category: string) {
   }
 }
 
+/** A post's cover as a full address, or Storelib's share card when it has none or it is an svg. */
+function postImage(cover: string | null | undefined): string {
+  const url = absoluteBlogImage(cover)
+  return url && !/\.svg(?:[?#]|$)/i.test(url) ? url : storelibAssetUrl(STORELIB_OG_IMAGE)
+}
+
+/** A byline as a schema.org Person: "Name - Role" splits into the name and its jobTitle. */
+function personOf(byline: string) {
+  const [name, ...role] = byline.split(/\s+[-–—]\s+/)
+  return { "@type": "Person", name: name.trim() || byline, ...(role.length ? { jobTitle: role.join(" - ").trim() } : {}) }
+}
+
 // ─── Metadata ─────────────────────────────────────────────────────────────
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const dbPost = await fetchPost(slug)
   const staticPost = BLOG_POSTS[slug]
   const source = dbPost || staticPost
-  if (!source) return { title: "Post Not Found" }
+  if (!source) return { title: "Post not found", robots: { index: false, follow: true } }
 
   const title = (dbPost?.seo_title || staticPost?.seo_title || source.title)?.replace(/ \| Storelib(?: Blog)?$/i, "") || source.title
   const description = dbPost?.seo_description || staticPost?.seo_description || source.excerpt || ""
   const keywords = dbPost?.seo_keywords || staticPost?.seo_keywords || ""
-  const cover = dbPost?.cover_image_url
+  /* A post's picture as a full address; Storelib's card when it has none (an svg is no share card). */
+  const cover = postImage(dbPost?.cover_image_url)
+  const modified = dbPost?.updated_at || source.published_at || undefined
+  const author = (dbPost?.author_name || dbPost?.author || DEFAULT_AUTHOR.name) as string
 
   return {
     title,
@@ -218,12 +234,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: "article",
       siteName: "Storelib",
       publishedTime: source.published_at || undefined,
+      modifiedTime: modified,
+      authors: [author],
       section: source.category || undefined,
       tags: keywords ? keywords.split(",").map((k: string) => k.trim()) : undefined,
-      images: cover ? [{ url: cover, width: 1200, height: 630 }] : undefined,
+      images: [{ url: cover, width: 1200, height: 630, alt: source.title }],
     },
-    twitter: { card: "summary_large_image", title, description, ...(cover ? { images: [cover] } : {}) },
-    alternates: { canonical: `https://storelib.com/blog/${slug}` },
+    twitter: { card: "summary_large_image", title, description, images: [cover] },
+    /* The posts table has no canonical override column, so a post is canonical at its own address. */
+    alternates: { canonical: `https://storelib.com/blog/${slug}`, types: BLOG_FEED_ALTERNATE },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
   }
 }
@@ -261,6 +280,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     excerpt: (dbPost?.excerpt || staticData?.excerpt) as string,
     category: (dbPost?.category || staticData?.category) as string,
     published_at: (dbPost?.published_at || staticData?.published_at) as string,
+    updated_at: (dbPost?.updated_at || dbPost?.published_at || staticData?.published_at) as string,
     read_time: (dbPost?.read_time || staticData?.read_time) as string,
     cover_image_url: dbPost?.cover_image_url as string | undefined,
     author: (dbPost?.author_name || dbPost?.author || DEFAULT_AUTHOR.name) as string,
@@ -276,12 +296,15 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     headline: post.title,
     description: post.excerpt,
     datePublished: post.published_at,
-    dateModified: post.published_at,
-    author: { "@type": "Person", name: post.author || DEFAULT_AUTHOR.name },
+    /* The row's last save; it was the publish date, so an edited post never said it changed. */
+    dateModified: post.updated_at,
+    /* "Anisia - Head of Marketing" is a name and a role: the role is the Person's jobTitle, not part of their name. */
+    author: personOf(post.author || DEFAULT_AUTHOR.name),
     publisher: { "@type": "Organization", name: "Storelib", url: "https://storelib.com", logo: { "@type": "ImageObject", url: storelibLogoUrl(), width: 512, height: 512 } },
     url: `https://storelib.com/blog/${slug}`,
     mainEntityOfPage: { "@type": "WebPage", "@id": `https://storelib.com/blog/${slug}` },
-    ...(post.cover_image_url ? { image: { "@type": "ImageObject", url: post.cover_image_url, width: 1200, height: 630 } } : {}),
+    /* Always a full address, and always one: Google asks a BlogPosting for an image. */
+    image: { "@type": "ImageObject", url: postImage(post.cover_image_url), width: 1200, height: 630 },
   }
 
   const breadcrumbLd = {

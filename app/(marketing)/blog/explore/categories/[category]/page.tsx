@@ -1,14 +1,16 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { createAdminClient } from "@/lib/supabase/admin"
 import {
   STORELIB_CATEGORIES,
   CATEGORY_SUBTITLES,
   categoryToSlug,
   slugToCategory,
 } from "@/lib/blog-categories"
-import BlogListing, { type BlogPost } from "../../../_blog-listing"
+import BlogListing from "../../../_blog-listing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { pageMetadata } from "@/lib/seo/page-metadata"
+import { BLOG_FEED_ALTERNATE } from "@/lib/blog/listing"
+import { readBlogPosts } from "@/lib/blog/read"
 
 /*
   HELD AT THE EDGE FOR A MINUTE, NOT RENDERED FOR EVERY READER (the owner:
@@ -20,29 +22,13 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 */
 export const revalidate = 60
 
-const STATIC_POSTS: BlogPost[] = [
-  { id: "s1", slug: "how-to-start-selling-digital-products-2026", title: "How to Start Selling Digital Products in 2026", excerpt: "Turn your skills into income. A no-fluff guide to launching your first digital product store.", category: "Getting Started", published_at: "2026-01-15T00:00:00Z", read_time: "5 min read", cover_image_url: "/images/blog/digital-products-2026.svg", gradient: "from-neutral-800 to-neutral-900" },
-  { id: "s2", slug: "why-low-transaction-fees-matter", title: "Why Low Transaction Fees Matter for Digital Creators", excerpt: "The difference between 3% and 15% fees adds up fast. We break down the real numbers.", category: "Creator Tips", published_at: "2026-02-03T00:00:00Z", read_time: "4 min read", cover_image_url: "/images/blog/transaction-fees.svg", gradient: "from-neutral-700 to-neutral-800" },
-  { id: "s3", slug: "building-an-audience-before-you-launch", title: "Building an Audience Before You Launch", excerpt: "The creators who sell the most don't start marketing on launch day.", category: "Growth", published_at: "2026-02-10T00:00:00Z", read_time: "6 min read", cover_image_url: "/images/blog/digital-products-2026.svg", gradient: "from-neutral-800 to-neutral-700" },
-  { id: "s4", slug: "pricing-strategies-for-digital-products", title: "Pricing Strategies That Actually Work for Digital Products", excerpt: "Most creators underprice their work. Learn proven pricing frameworks.", category: "Strategy", published_at: "2026-02-14T00:00:00Z", read_time: "7 min read", cover_image_url: "/images/blog/transaction-fees.svg", gradient: "from-neutral-700 to-neutral-900" },
-]
-
-async function fetchDbPostsByCategory(category: string): Promise<BlogPost[]> {
-  try {
-    const supabase = createAdminClient()
-    const { data } = await supabase
-      .from("blog_posts")
-      .select("id, slug, title, excerpt, category, published_at, read_time, cover_image_url")
-      .eq("is_published", true)
-      .eq("category", category)
-      .order("published_at", { ascending: false })
-      .limit(50)
-    return (data || []) as BlogPost[]
-  } catch {
-    return []
-  }
-}
-
+/*
+  THE TITLE NAMES THE CATEGORY ONCE AND THE BLOG ONCE. It was
+  "Growth — Storelib Blog", which the root template turned into
+  "Growth — Storelib Blog | Storelib". A category with no posts yet is a page
+  with nothing on it: noindex, and left out of the sitemap
+  (lib/seo/sitemaps.ts pagesSitemap), until its first post.
+*/
 export async function generateMetadata({
   params,
 }: {
@@ -52,17 +38,17 @@ export async function generateMetadata({
   const category = slugToCategory(slug)
   if (!category) return { title: "Not Found" }
 
-  const title = `${category} — Storelib Blog`
   const description = CATEGORY_SUBTITLES[category] || `Browse all Storelib articles about ${category}.`
+  const hasPosts = (await readBlogPosts(category)).length > 0
 
-  return {
-    title,
+  return pageMetadata({
+    path: `/blog/explore/categories/${slug}`,
+    title: `${category} | Storelib Blog`,
+    absolute: true,
     description,
-    openGraph: { title, description, url: `https://storelib.com/blog/explore/categories/${slug}`, type: "website", siteName: "Storelib" },
-    twitter: { card: "summary", title, description },
-    alternates: { canonical: `https://storelib.com/blog/explore/categories/${slug}` },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
-  }
+    robots: hasPosts ? { index: true, follow: true, googleBot: { index: true, follow: true } } : { index: false, follow: true },
+    types: BLOG_FEED_ALTERNATE,
+  })
 }
 
 export async function generateStaticParams() {
@@ -78,13 +64,8 @@ export default async function CategoryPage({
   const category = slugToCategory(slug)
   if (!category) notFound()
 
-  const dbPosts = await fetchDbPostsByCategory(category)
-  const dbSlugs = new Set(dbPosts.map(p => p.slug))
-  const staticForCat = STATIC_POSTS.filter(p => p.category === category && !dbSlugs.has(p.slug))
-
-  const posts = [...dbPosts, ...staticForCat].sort(
-    (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
-  )
+  /* Every published post in the category with the code-written ones, newest first (lib/blog/listing). */
+  const posts = await readBlogPosts(category)
 
   return (
     <>
@@ -94,7 +75,7 @@ export default async function CategoryPage({
           __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `${category} — Storelib Blog`,
+            name: `${category} | Storelib Blog`,
             description: CATEGORY_SUBTITLES[category] || `Browse all Storelib articles about ${category}.`,
             url: `https://storelib.com/blog/explore/categories/${categoryToSlug(category)}`,
             isPartOf: { "@type": "Blog", name: "Storelib Blog", url: "https://storelib.com/blog" },
