@@ -200,7 +200,7 @@ section("Pages a visitor can reach but no index should hold carry noindex")
   const themeProduct = code("components/website-builder/theme/render-product.tsx")
   check("a site's product page is canonical on the site, the platform's copy at storelib.com/<handle>/<slug>",
     /let canonical: string \| undefined = site\?\.url/.test(themeProduct) && /productUrl\(origin, slug\)/.test(code("app/(site)/w/[username]/products/[slug]/page.tsx"))
-      && /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
+      && /* Round 44: on the creator page's own domain when it has one. */ /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug(, pageHost)?\)/.test(themeProduct) && /plainSummary\(product\.description\)/.test(themeProduct))
 }
 
 section("IndexNow: off without a key, never in the way of a save, one notice per change")
