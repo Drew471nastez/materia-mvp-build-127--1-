@@ -476,6 +476,23 @@ class PreviewSheet {
     return this.renderWidth < 640 ? WINDOW_HEIGHT_PHONE : WINDOW_HEIGHT_DESKTOP
   }
 
+  /**
+   * ANOTHER SHEET HAS THE FRAME NOW (a push gave the theme new files, so the
+   * cards are drawn by a new sheet), or the library is gone. What this one
+   * held of the frame's document is let go: React keeps the last render's
+   * ref callback, and with it this sheet, for a while, and the document it
+   * held stayed alive with it, one more after every push (Memory
+   * getDOMCounters in scripts/check-editor-push-lag.mjs). Asked for again,
+   * it attaches to the frame as it would to a frame that reloaded.
+   */
+  release(): void {
+    this.doc = null
+    this.proto = null
+    this.frame = null
+    this.grid = null
+    this.wrappers.clear()
+  }
+
   /** The frame's whole document, built once. */
   get srcDoc(): string {
     if (!this.document_) {
@@ -1025,6 +1042,11 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     sheet.sync()
     sheet.schedule()
   }, [sheet, open, layoutKey])
+  /* A sheet given up for a newer one (or the library gone) lets go of the frame's document (PreviewSheet.release). */
+  useEffect(() => {
+    if (!sheet) return
+    return () => sheet.release()
+  }, [sheet])
   /* The list's width changes every card's size: put each section over its card again. */
   useEffect(() => {
     const grid = frame.current?.parentElement

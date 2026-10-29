@@ -48,7 +48,7 @@ import {
   type ConnectionsBrief,
 } from "@/lib/agent-access/connection-mark"
 import { tt } from "@/lib/i18n/text"
-import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, LOOKBACK_EVERY_MS, briefDue, isPile, mergeLines, nextCursor, readMore, remember, slept, withinTime } from "@/lib/website-builder/live-follow"
+import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, LOOKBACK_EVERY_MS, PUSH_HOLD_TICK_MS, briefDue, holdForPush, isPile, mergeLines, nextCursor, readMore, remember, slept, withinTime } from "@/lib/website-builder/live-follow"
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
@@ -257,6 +257,18 @@ export function useSiteActivity({
     let dueAt = 0
     /** When a read last looked back for a line that committed late. */
     let lookedBack = 0
+    /*
+      THE ROWS OF A PUSH STILL BEING WRITTEN (live-follow.ts holdForPush):
+      read, not applied yet, and not acknowledged, so a teardown reads them
+      again from the cursor. `heldAfter` is where the next read goes on from.
+    */
+    let held: ActivityEvent[] = []
+    let heldAfter: number | null = null
+    let heldFresh = 0
+    let heldSince = 0
+    let heldGrewAt = 0
+    let heldSync: string | null | undefined = undefined
+    let heldCatchUp = false
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
@@ -272,6 +284,8 @@ export function useSiteActivity({
       let arrived = false
       let eventsFull = false
       let retry = false
+      /* This read's rows wait for the rest of their push. */
+      let holding = false
       /* Timers frozen with no visibilitychange (sleep, a suspended web view): that is an absence too. */
       const away = slept(dueAt, Date.now(), CATCH_UP_AWAY_MS)
       const pending = catchUpPending
@@ -284,7 +298,7 @@ export function useSiteActivity({
         if (catchUp) await afterPaint()
         const fresh: ActivityEvent[] = []
         const late: ActivityEvent[] = []
-        let after = cursor.current
+        let after = heldAfter ?? cursor.current
         let pages = 0
         let syncSeen: string | null | undefined
         /* A full page means more is waiting: read it now and apply the lot once, however the pile came about. */
@@ -317,11 +331,39 @@ export function useSiteActivity({
           if (!readMore(batch.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE)) break
         }
         if (stopped) return
-        catchUp = isPile({ pending, slept: away, pagesRead: pages })
-        /* Each line once, oldest first: the new ones and any that committed late. */
-        const events = mergeLines(late, fresh, seen.current, floor.current)
+        catchUp = isPile({ pending, slept: away, pagesRead: pages }) || heldCatchUp
+        /* Each line once, oldest first: the new ones and any that committed late, and none already held. */
+        const skip = held.length ? new Set([...seen.current, ...held.map((ev) => ev.id)]) : seen.current
+        const incoming = mergeLines(late, fresh, skip, floor.current)
+        const now = Date.now()
+        if (incoming.length) {
+          if (!held.length) {
+            heldSince = now
+            heldSync = syncAt.current
+          }
+          heldGrewAt = now
+        }
+        const events = held.length && incoming.length ? [...held, ...incoming].sort((a, b) => a.id - b.id) : held.length ? held : incoming
+        /* A push still being written: wait for the rest of it, and apply it once (live-follow.ts holdForPush). */
+        const syncMoved = syncSeen !== undefined && heldSync !== undefined && syncSeen !== heldSync
+        if (events.length && holdForPush({ fromPush: events.some((ev) => isGitHubName(ev.agent_name)), syncMoved, heldSince, grewAt: heldGrewAt, now })) {
+          held = events
+          heldAfter = after
+          heldFresh += fresh.length
+          heldCatchUp = catchUp
+          if (incoming.length) arrived = true
+          holding = true
+          eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
+        }
+        const freshRead = heldFresh + (holding ? 0 : fresh.length)
+        if (!holding) {
+          held = []
+          heldAfter = null
+          heldFresh = 0
+          heldCatchUp = false
+        }
         /* Apply before moving the cursor. A throw used to skip the lines and never read them again. */
-        if (events.length) {
+        if (events.length && !holding) {
           arrived = true
           eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
           const applying = Date.now()
@@ -357,7 +399,8 @@ export function useSiteActivity({
         }
         /* A failed page is not consumed: `after` is the last page that was read.
            With no events and a failure, the cursor stays so the same read is asked again. */
-        cursor.current = nextCursor(cursor.current, after, retry, fresh.length)
+        /* Rows held for the rest of their push are not acknowledged until they are applied. */
+        if (!holding) cursor.current = nextCursor(cursor.current, after, retry, freshRead)
         if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
           syncAt.current = syncSeen
@@ -380,9 +423,11 @@ export function useSiteActivity({
          A full page of the log means more is waiting, so that one is immediate. */
       delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : POLL_ACTIVE_MS) : (arrived && eventsFull ? 200 : paced)
       if (retry) delay = POLL_ACTIVE_MS
+      /* A push being held: read again soon, so it lands as soon as it is in. */
+      else if (holding) delay = eventsFull ? 200 : PUSH_HOLD_TICK_MS
       /* The lines just applied waited for a scroll to rest: what came in behind them is read now, not a second after the rest. */
       else if (heldUp) delay = HELD_UP_MS
-      schedule(connected ? delay : POLL_BASE_MS)
+      schedule(connected || holding ? delay : POLL_BASE_MS)
     }
     let woke = 0
     const wake = () => {

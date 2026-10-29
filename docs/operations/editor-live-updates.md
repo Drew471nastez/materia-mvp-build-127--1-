@@ -6,6 +6,10 @@ A read drains up to six pages of activity before applying one batch. It acknowle
 
 The editor prepares files in the background and applies remote state in a React transition after canvas scrolling stops. Imported themes report the known scroll offset at a bounded 60ms cadence; the parent waits 120ms after the last message. This cadence must stay shorter than the rest interval. Expensive Liquid rendering and iframe promotion also check for scrolling, since a gesture can begin while a file or frame loads. An incoming frame restores the latest offset and acknowledges it before promotion. Storelib AI's streamed source writes are folded while scrolling, and its completed run refreshes code and settings together.
 
+A GitHub push is written to the log one row per saved file, and the link's `sync_at` moves once the whole push is in (`lib/github-sync/sync.ts` `finish`). While the rows of a push are still arriving, the editor holds them (`holdForPush` in `lib/website-builder/live-follow.ts`): it reads every 500ms, does not acknowledge the held rows, and applies them in one pass when `sync_at` moves, when no new row has come for 2s, or 10s after the first, whichever is first. Before this, a push of a few hundred files was applied once per poll while it was being written: a full theme read, a redraw of every section and a fresh canvas document each time. An agent's own edits are not held. More than eight theme sources in one pass are one `?sources=1` read, never a request per file.
+
+The library's section sheet for an imported theme lets go of its frame's document when a newer sheet replaces it (`PreviewSheet.release`). Before, React's previous ref callback kept the old sheet, and its document, alive: two more documents after every push.
+
 Regression checks (no live account, GitHub, or AI credentials required):
 
 ```sh
@@ -14,6 +18,11 @@ node scripts/check-editor-theme-reads.mjs
 # Uses the repository's existing real-editor harness and imported theme fixture.
 # Set CHROMIUM to an installed Chromium binary, as for the other editor probes.
 pnpm dlx tsx@4.20.6 scripts/check-editor-push-scroll.mjs
+# Pushes of 50 to 270 files streamed and at once, five pushes in a row, an agent writing for a minute,
+# a Push echo and a Storelib theme of 200 files, scrolled throughout; budgets on reloads, reads, commits and documents left alive.
+pnpm dlx tsx@4.20.6 scripts/check-editor-push-lag.mjs
+# What still holds a canvas document after a push, from a heap snapshot.
+pnpm dlx tsx@4.20.6 scripts/editor-push-retainers.mjs
 CHROMIUM=/path/to/chromium N=4 EDITS=0 pnpm dlx tsx@4.20.6 scripts/check-wb-stability-r13.mjs
 pnpm test:push
 pnpm lint

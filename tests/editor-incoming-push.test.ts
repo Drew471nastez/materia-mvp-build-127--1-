@@ -47,7 +47,8 @@ console.log("\nThe open editor takes a push in one pass")
   const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("} = useSiteActivity({"))
   check("only the files a push names are read, and they are applied at once", /readThemeTexts\(installId, sourcePaths\)/.test(handler) && /else files = await loadStorelibSources\(\{ hold: true \}\)/.test(handler) && /landRemote\(\); applyIncoming\(\); flush\(\)/.test(handler))
   check("one section file is drawn in place; a rewritten page or theme code is a fresh document", /if \(importedNow && \(themeCode \|\| replacedHere \|\| \(many && !catchUp\)\)\) setReplaceDocument/.test(handler))
-  check("coming back to a pile is one pass, and that pile does not reload the document for section files", /CATCH_UP_AWAY_MS = 8_000/.test(read("components/website-builder/site-connections.tsx")) && /await onEventsRef\.current\(events, \{ catchUp, isCurrent: \(\) => !stopped && applyCurrent \}\)/.test(read("components/website-builder/site-connections.tsx")) && /catchUp && sourcePaths\.length > 8/.test(handler))
+  /* Changed on purpose (push lag): more than eight theme files is one read of the theme whether or not the editor was away; a push held until it is in (live-follow.ts holdForPush) read them one request each. */
+  check("coming back to a pile is one pass, and that pile does not reload the document for section files", /CATCH_UP_AWAY_MS = 8_000/.test(read("components/website-builder/site-connections.tsx")) && /await onEventsRef\.current\(events, \{ catchUp, isCurrent: \(\) => !stopped && applyCurrent \}\)/.test(read("components/website-builder/site-connections.tsx")) && /const folded = sourcePaths\.length > 8/.test(handler))
   check("a page rewritten whole lands in the same render as its files", /afterQuietLoad\.current = \(\) => \{ landRemote\(\); applyIncoming\(\); flush\(\) \}/.test(handler) && /startTransition\(\(\) => \{[\s\S]{0,200}?setSettingsDraft\(\(prev\) => shareSettings\(prev, loadedSettings\)\)\s*setSections\(\(prev\) => shareUnchanged\(prev, loaded\)\)\s*alongside\?\.\(\)\s*\}\)/.test(editor))
   /* Changed on purpose: round perf2-1028 lays what was read over what is on screen (lib/website-builder/incoming-diff.ts), so only the sections a push changed draw again (tests/editor-perf-incoming.test.ts). */
   check("that page is not also built by replaying operations", /if \(!replacedHere\) for \(const op of/.test(handler))
@@ -55,6 +56,13 @@ console.log("\nThe open editor takes a push in one pass")
   check("an imported theme draws the new page once behind the one on screen", /replaceDocument=\{replaceDocument\}/.test(editor) && /if \(\(props\.replaceDocument \?\? 0\) > appliedReplace\.current && now\.key === docKey && !isLive\(\)\)/.test(canvas) && /loadBehind\(html, docKey, list\)/.test(canvas))
   check("a draw waits while the new files are on their way, so the old page is not painted and then replaced", /if \(\(props\.filesVersion \?\? 0\) !== loadedVersion\.current\) return/.test(canvas))
   check("this suite runs with the others", read("scripts/run-push-tests.mjs").includes('"tests/editor-incoming-push.test.ts"'))
+
+  console.log("\nA push lets go of what it replaced (push lag)")
+  const sheet = read("components/website-builder/compat/compat-section-preview.tsx")
+  check("the library's old sheet lets go of its frame's document when a newer sheet takes the frame", /release\(\): void \{\s*this\.doc = null\s*this\.proto = null\s*this\.frame = null\s*this\.grid = null\s*this\.wrappers\.clear\(\)/.test(sheet) && /useEffect\(\(\) => \{\s*if \(!sheet\) return\s*return \(\) => sheet\.release\(\)\s*\}, \[sheet\]\)/.test(sheet))
+  check("a push still being written is applied once, when it is in", /holdForPush\(/.test(read("components/website-builder/site-connections.tsx")) && /export const PUSH_QUIET_MS = 2_000/.test(read("lib/website-builder/live-follow.ts")) && /export const PUSH_HOLD_CAP_MS = 10_000/.test(read("lib/website-builder/live-follow.ts")))
+  check("the same sync report read again draws nothing again", /setStatus\(\(prev\) => \(JSON\.stringify\(prev\) === JSON\.stringify\(next\) \? prev : next\)\)/.test(read("components/website-builder/github-sync-notice.tsx")))
+  check("the browser probe for pushes holds its budgets", /documents alive do not grow push after push/.test(read("scripts/check-editor-push-lag.mjs")) && /the theme is read once for the whole push/.test(read("scripts/check-editor-push-lag.mjs")))
 }
 
 async function checkCache() {

@@ -30,8 +30,12 @@ import {
   CATCH_UP_AWAY_MS,
   CATCH_UP_PAGES,
   LATE_WINDOW_MS,
+  PUSH_HOLD_CAP_MS,
+  PUSH_HOLD_TICK_MS,
+  PUSH_QUIET_MS,
   SEEN_MAX,
   briefDue,
+  holdForPush,
   isPile,
   lateRows,
   mergeLines,
@@ -109,6 +113,50 @@ console.log("\nA line that committed after a later one is applied, once")
   check("the ids kept are bounded, the newest kept", many.size === SEEN_MAX && many.has(SEEN_MAX + 50) && !many.has(1))
 }
 
+/**
+ * The hold of site-connections.tsx against a log written over time: a read
+ * every tick (PUSH_HOLD_TICK_MS while holding, a second otherwise), rows held
+ * while holdForPush says so, then applied together.
+ */
+function trickle(rows: { id: number; at: number; who: string }[], cursor: number, opts: { syncAt: number | null }) {
+  const applied: number[][] = []
+  const cursorWhileHeld: number[] = []
+  let held: { id: number; who: string }[] = []
+  let heldAfter: number | null = null
+  let heldSince = 0
+  let grewAt = 0
+  let heldSync: string | null = null
+  let landedAt: number | null = null
+  const syncAt = (t: number) => (opts.syncAt !== null && t >= opts.syncAt ? "after" : "before")
+  let syncKnown = syncAt(0)
+  for (let now = 0; now < 120_000;) {
+    const after: number = heldAfter ?? cursor
+    const fresh = rows.filter((r) => r.at <= now && r.id > after).slice(0, ACTIVITY_PAGE * CATCH_UP_PAGES)
+    const syncSeen = syncAt(now)
+    if (fresh.length) {
+      if (!held.length) { heldSince = now; heldSync = syncKnown }
+      grewAt = now
+    }
+    const events = [...held, ...fresh]
+    const readTo = fresh.length ? fresh[fresh.length - 1].id : after
+    const holding = events.length > 0 && holdForPush({ fromPush: events.some((e) => e.who.startsWith("GitHub")), syncMoved: syncSeen !== heldSync, heldSince, grewAt, now })
+    if (holding) {
+      held = events
+      heldAfter = readTo
+      cursorWhileHeld.push(cursor)
+    } else {
+      if (events.length) { applied.push(events.map((e) => e.id)); landedAt = now }
+      cursor = readTo
+      held = []
+      heldAfter = null
+    }
+    syncKnown = syncSeen
+    if (!holding && applied.flat().length === rows.length) break
+    now += holding ? PUSH_HOLD_TICK_MS : 1_000
+  }
+  return { applied, landedAt, cursor, cursorWhileHeld }
+}
+
 /** The editor's loop against an in-memory log: the same decisions in the same order as site-connections.tsx. */
 async function drive(log: number[], cursor: number, opts: { pending: boolean; dueAt: number; now: number; applyHangs?: boolean; ceiling?: number }) {
   const applied: { ids: number[]; catchUp: boolean }[] = []
@@ -174,6 +222,27 @@ async function loop() {
     check("  and the cursor stays at the newest", cursor === 102)
   }
 
+  console.log("\nA push written one file at a time is applied once (push lag)")
+  {
+    /* sync.ts writes a row per saved file, a few dozen ms apart, then the link's time. The editor reads every PUSH_HOLD_TICK_MS while it holds. */
+    const rows: { id: number; at: number; who: string }[] = Array.from({ length: 200 }, (_, i) => ({ id: 501 + i, at: i * 40, who: "GitHub · ada" }))
+    const doneAt = 200 * 40 + 30
+    const r = trickle(rows, 500, { syncAt: doneAt })
+    check("two hundred rows over eight seconds land in one apply", r.applied.length === 1 && r.applied[0].length === 200, r.applied.map((a) => a.length))
+    check("  oldest first, each once", r.applied[0]?.[0] === 501 && r.applied[0]?.[199] === 700 && new Set(r.applied.flat()).size === 200)
+    check("  as soon as the link's time says the push is in", r.landedAt !== null && r.landedAt - doneAt <= PUSH_HOLD_TICK_MS + 1, r.landedAt)
+    check("  and the cursor is not moved past rows that were only held", r.cursorWhileHeld.every((c) => c === 500), r.cursorWhileHeld.slice(0, 3))
+    const noSync = trickle(rows, 500, { syncAt: null })
+    check("with no link time, quiet for PUSH_QUIET_MS ends it", noSync.applied.length === 1 && noSync.landedAt !== null && noSync.landedAt - (199 * 40) >= PUSH_QUIET_MS && noSync.landedAt - (199 * 40) <= PUSH_QUIET_MS + PUSH_HOLD_TICK_MS + 1, noSync.landedAt)
+    const long = Array.from({ length: 300 }, (_, i) => ({ id: 1001 + i, at: i * 100, who: "GitHub · ada" }))
+    const l = trickle(long, 1000, { syncAt: 300 * 100 })
+    check("a very long push still shows as it goes: at most every PUSH_HOLD_CAP_MS", l.applied.length >= 3 && l.applied.length <= 4 && new Set(l.applied.flat()).size === 300, l.applied.map((a) => a.length))
+    const agent = trickle([{ id: 2001, at: 0, who: "Claude Code" }], 2000, { syncAt: null })
+    check("an agent's own edit is not held", agent.applied.length === 1 && agent.landedAt !== null && agent.landedAt <= PUSH_HOLD_TICK_MS, agent.landedAt)
+    check("the hold is decided by holdForPush", !holdForPush({ fromPush: false, syncMoved: false, heldSince: 0, grewAt: 0, now: 1 }) && !holdForPush({ fromPush: true, syncMoved: true, heldSince: 0, grewAt: 0, now: 1 }) && holdForPush({ fromPush: true, syncMoved: false, heldSince: 0, grewAt: 0, now: 1 }) && !holdForPush({ fromPush: true, syncMoved: false, heldSince: 0, grewAt: PUSH_HOLD_CAP_MS, now: PUSH_HOLD_CAP_MS }))
+    check("  with bounds that keep a push timely", PUSH_QUIET_MS <= 3_000 && PUSH_HOLD_CAP_MS <= 12_000 && PUSH_HOLD_TICK_MS <= 1_000)
+  }
+
   console.log("\nAn apply that never answers")
   const t0 = Date.now()
   const h = await drive([401], 400, { pending: false, dueAt: 10_000, now: 10_100, applyHangs: true, ceiling: 30 })
@@ -195,13 +264,16 @@ function wiring() {
   check("a timer that slept is an absence", /const away = slept\(dueAt, Date\.now\(\), CATCH_UP_AWAY_MS\)/.test(hook) && /dueAt = Date\.now\(\) \+ ms/.test(hook))
   check("a full page reads on in the same pass", /while \(after !== null && pages < CATCH_UP_PAGES\)/.test(hook) && /if \(!readMore\(batch\.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE\)\) break/.test(hook))
   check("the apply has a ceiling", /withinTime\(run, APPLY_CEILING_MS\)\) === "late"/.test(hook))
-  check("the cursor through nextCursor", /cursor\.current = nextCursor\(cursor\.current, after, retry, fresh\.length\)/.test(hook))
+  /* Changed on purpose (push lag): rows held for the rest of their push are counted with the read that applies them, and never acknowledged while held. */
+  check("the cursor through nextCursor", /if \(!holding\) cursor\.current = nextCursor\(cursor\.current, after, retry, freshRead\)/.test(hook))
+  check("a push still being written is held, then applied once", /holdForPush\(\{ fromPush: events\.some\(\(ev\) => isGitHubName\(ev\.agent_name\)\), syncMoved, heldSince, grewAt: heldGrewAt, now \}\)/.test(hook) && /let after = heldAfter \?\? cursor\.current/.test(hook) && /if \(events\.length && !holding\) \{/.test(hook))
   check("nothing connected: the brief is asked again", /setBriefAsk\(\(n\) => n \+ 1\)/.test(hook) && /\[installId, recheck, briefAsk\]/.test(hook) && /if \(!installId \|\| connected \|\| missing \|\| !settled\) return/.test(hook))
   check("the restored page paints, and the browser has a moment, before the pile lands", /requestIdleCallback\(finish, \{ timeout: 800 \}\)/.test(hook) && /if \(catchUp\) await afterPaint\(\)/.test(hook))
 
   check("the look back every few seconds and on a return, each line once",
     /const look = pages === 0 && \(catchUp \|\| Date\.now\(\) - lookedBack >= LOOKBACK_EVERY_MS\)/.test(hook) && /\$\{look \? "&lookback=1" : ""\}/.test(hook) &&
-      /const events = mergeLines\(late, fresh, seen\.current, floor\.current\)/.test(hook) && /remember\(seen\.current, events\.map\(\(ev\) => ev\.id\)\)/.test(hook))
+      /* Changed on purpose (push lag): the rows already held are skipped too, so a look back does not add them twice. */
+      /const incoming = mergeLines\(late, fresh, skip, floor\.current\)/.test(hook) && /const skip = held\.length \? new Set\(\[\.\.\.seen\.current, \.\.\.held\.map\(\(ev\) => ev\.id\)\]\) : seen\.current/.test(hook) && /remember\(seen\.current, events\.map\(\(ev\) => ev\.id\)\)/.test(hook))
   const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
   check("  the route looks back down the same index, twenty rows, and a failed look back drops nothing",
     /\.lte\("id", after\)\.order\("id", \{ ascending: false \}\)\.limit\(20\)/.test(route) && /lateRows\(/.test(route) && /back && !back\.error \?/.test(route) && /events, late, sync_at/.test(route))
