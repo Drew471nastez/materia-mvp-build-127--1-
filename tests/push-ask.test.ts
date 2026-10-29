@@ -26,7 +26,8 @@ check("never reminded on this phone: remind", shouldAsk(null, now))
 check("reminded a moment ago: leave them alone", !shouldAsk({ at: now - 60_000, count: 1 }, now))
 check("a few days later: remind again", shouldAsk({ at: now - ASK_AGAIN_AFTER_MS, count: 1 }, now) && !shouldAsk({ at: now - ASK_AGAIN_AFTER_MS + 1000, count: 1 }, now))
 check("a limited number of times per install", !shouldAsk({ at: now - 365 * 24 * 3600 * 1000, count: ASK_AT_MOST }, now))
-check("every four days, eight times", ASK_AGAIN_AFTER_MS === 4 * 24 * 3600 * 1000 && ASK_AT_MOST === 8)
+/* Changed on purpose: every seven days now, the one budget for every permission the app asks for (lib/native-permissions-rule.ts). */
+check("every seven days, eight times", ASK_AGAIN_AFTER_MS === 7 * 24 * 3600 * 1000 && ASK_AT_MOST === 8)
 
 const ask = readFileSync("components/platform/notifications-ask.tsx", "utf8")
 const layout = readFileSync("app/layout.tsx", "utf8")
@@ -36,13 +37,16 @@ const client = readFileSync("lib/push/client.ts", "utf8")
 
 console.log("\nEvery install is asked")
 check("the app only: a browser has its own notifications", /if \(!inNativeApp\(\)\) return/.test(ask))
-check("not asked yet: the phone's own prompt, signed in or not", /if \(permission === "prompt"\) \{\s*const answer = await askPushPermission\(\)/.test(ask) && !/accountWantsPush/.test(ask))
-check("  a yes while signed in turns the account's own switch on", /answer === "granted" && \(await signedIn\(\)\)/.test(ask) && /JSON\.stringify\(\{ enabled: true \}\)/.test(ask))
+/* Changed on purpose: never before sign in, and a short sheet of Storelib's own before the phone's prompt (the owner's ask). */
+check("not asked yet: Storelib's sheet first, its button shows the phone's prompt, only once signed in", /if \(!\(await signedIn\(\)\)\) return/.test(ask) && /step === "explain"/.test(ask) && /void askPushPermission\(\)\.then\(\(answer\) => \(answer === "granted" \? accountOn\(\) : undefined\)\)/.test(ask) && !/accountWantsPush/.test(ask))
+check("  a yes while signed in turns the account's own switch on", /async function accountOn\(\)[\s\S]*?if \(!\(await signedIn\(\)\)\) return/.test(ask) && /JSON\.stringify\(\{ enabled: true \}\)/.test(ask))
 check("  a yes before signing in registers the phone on sign in", /onAuthStateChange/.test(init) && /event === "SIGNED_IN"/.test(init) && /if \(!\(await sessionUser\(\)\)\) return/.test(client) && /if \(knownToken\) void sendToken\(knownToken, platform\)/.test(client))
-check("after the first frame, not during it", /setTimeout\(\(\) => void decide\(\), 1200\)/.test(ask))
+/* Changed on purpose: considered once the page has settled, on each page where it matters. */
+check("after the first frame, not during it", /const SETTLE_MS = 1200/.test(ask) && /void consider\(kind, null, TRIES\), SETTLE_MS/.test(ask))
 
 console.log("\nA no is reminded, and one tap opens the phone's settings")
-check("only after a no, and not over a sheet already open", /if \(permission !== "denied"\) return/.test(ask) && /pageIsBusy/.test(ask))
+/* Changed on purpose: the rule (permissionAskStep) says "settings" only after a no. */
+check("only after a no, and not over a sheet already open", /permissionAskStep\(/.test(ask) && /was\.step === "settings"/.test(ask) && /if \(pageIsBusy\(\)\)/.test(ask))
 check("Open Settings opens the phone's own settings", /data-push-ask-allow/.test(ask) && /openPhoneSettings\(\)/.test(ask))
 check("Not now is remembered", /data-push-ask-later/.test(ask) && /writeRecord\(/.test(ask))
 

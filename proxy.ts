@@ -3,6 +3,9 @@ import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
 import { readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
+import { deadlineFetch } from "@/lib/net/deadline"
+import { REQUEST_ID_HEADER, requestIdOf } from "@/lib/net/request-id"
+import { logLine } from "@/lib/net/log"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
@@ -32,6 +35,22 @@ import { skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
+
+/*
+  THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
+  password gate, a OnePage address). They run in front of every request to a
+  website, and none had a deadline: one lookup Supabase accepted and never
+  answered held the request, and the function, until Vercel stopped it.
+  lib/net/deadline.ts asks a read again after a blip, within the same 5s.
+*/
+const PROXY_READ_MS = 5_000
+const proxyFetch: typeof fetch = (input, init) => {
+  const own = AbortSignal.timeout(PROXY_READ_MS)
+  const any = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any
+  const signal = init?.signal && any ? any([init.signal, own]) : init?.signal ?? own
+  return deadlineFetch(input, { ...init, signal })
+}
+const PROXY_DB = { global: { fetch: proxyFetch } }
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -174,7 +193,7 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
   if (!supabaseUrl || !supabaseKey) return null
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
 
     // Check if this username exists as a current profile
     const { data: currentProfile } = await supabase
@@ -238,7 +257,7 @@ async function hasLiveAiSite(slug: string): Promise<boolean> {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
   return remembered(`ai:${slug.toLowerCase()}`, async () => {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const { data, error } = await supabase
       .from("site_deployments")
       .select("storage_prefix")
@@ -265,7 +284,7 @@ const siteGate = createSiteGate({
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) return null
-    gateClient ??= createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    gateClient ??= createClient(url, key, { ...PROXY_DB, auth: { persistSession: false, autoRefreshToken: false } })
     return gateClient
   },
 })
@@ -352,7 +371,7 @@ async function oldOnePageTarget(name: string, already: OldAddressRedirect, searc
   if (!supabaseUrl || !supabaseKey) return { ...already, answer: "no-database" }
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const supabase = createClient(supabaseUrl, supabaseKey, { ...PROXY_DB, auth: { persistSession: false, autoRefreshToken: false } })
     const slow = new Promise<null>((resolve) => {
       timer = setTimeout(() => resolve(null), ONEPAGE_LOOKUP_MS)
     })
@@ -385,7 +404,7 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
   const lower = username.toLowerCase()
   /* The same read the compat question makes, shared (lib/website-builder/route-facts.ts): name, creator, published install. */
   return remembered(`site:${lower}`, async () => {
-    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey), lower)
+    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey, PROXY_DB), lower)
     return { value: facts.published, failed }
   })
 }
@@ -406,7 +425,7 @@ async function websiteDomainOf(name: string): Promise<string | null> {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return null
   try {
-    const db = createClient(supabaseUrl, supabaseKey)
+    const db = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const { facts, failed } = await siteFactsFor(db, lower)
     if (failed) return hit?.host ?? null
     let host: string | null = null
@@ -478,7 +497,7 @@ async function readSiteLocalization(lower: string, hit: { at: number; value: Sit
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return NO_LOCALIZATION
   try {
-    const db = createClient(supabaseUrl, supabaseKey)
+    const db = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const { facts, failed } = await siteFactsFor(db, lower)
     if (failed) return hit?.value ?? NO_LOCALIZATION
     let value = NO_LOCALIZATION
@@ -716,7 +735,7 @@ async function compatSiteFor(username: string, fresh = false): Promise<boolean> 
     and nothing is remembered.
   */
   const answer = (async () => {
-    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey), lower)
+    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey, PROXY_DB), lower)
     if (failed) return hit?.value ?? false
     if (compatHeld.size > 5000) compatHeld.clear()
     compatHeld.set(lower, { at: Date.now(), value: facts.compat })
@@ -1006,7 +1025,7 @@ async function resolveCustomDomainFresh(host: string): Promise<{ value: Connecte
   if (!supabaseUrl || !supabaseKey) return none
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
 
     // Strip www. prefix for lookup - domains are stored without www in the database
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
@@ -1129,7 +1148,7 @@ async function checkDomainRedirect(host: string): Promise<{ redirectTo: string; 
   if (!supabaseUrl || !supabaseKey) return null
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
 
     // Strip www. prefix for lookup
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
@@ -1163,7 +1182,7 @@ async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
   if (!supabaseUrl || !supabaseKey) return null
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
 
     const { data: domainRecord } = await supabase
@@ -1378,7 +1397,23 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
 ])
 
 export async function proxy(request: NextRequest) {
-  return forgetStaleCountry(request, await routeRequest(request))
+  /*
+    ONE ID PER REQUEST (lib/net/request-id.ts): forwarded to the page or route as x-request-id, so its log lines
+    carry it (lib/net/log.ts), and sent back on the response, so a person's failed load can be found in the logs.
+  */
+  const rid = requestIdOf(request.headers)
+  try {
+    request.headers.set(REQUEST_ID_HEADER, rid)
+  } catch {
+    /* Headers this runtime will not change: the response still carries it. */
+  }
+  const res = forgetStaleCountry(request, await routeRequest(request))
+  try {
+    res.headers.set(REQUEST_ID_HEADER, rid)
+  } catch {
+    /* an immutable response: it goes without the id */
+  }
+  return res
 }
 
 async function routeRequest(request: NextRequest) {
@@ -2412,6 +2447,13 @@ async function routeRequest(request: NextRequest) {
   const isLocalhost = MAIN_DOMAIN.includes("localhost")
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    /*
+      A DEADLINE ON THE REQUEST ITSELF (lib/net/deadline.ts). readVerifiedSession stops waiting after 3s, but a
+      race only stops the waiting: the token refresh or getUser it raced went on, holding this invocation, and a
+      refresh that finished after the response had left wrote its rotated cookies to a response nobody would
+      read. Now the request is aborted at its deadline instead of running on.
+    */
+    global: { fetch: deadlineFetch },
     cookies: {
       getAll() {
         return request.cookies.getAll()
@@ -2474,7 +2516,8 @@ async function routeRequest(request: NextRequest) {
     request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readVerifiedSession(supabase, supabaseUrl)
 
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
-    console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)
+    /* One JSON line (lib/net/log.ts): the path, why, and the request's id; never a cookie or a query. */
+    console.warn(logLine("proxy_auth_indeterminate", { path: request.nextUrl.pathname, reason: current.reason ?? "unknown", rid: request.headers.get(REQUEST_ID_HEADER) }))
   }
 
   /*

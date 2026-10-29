@@ -11,7 +11,7 @@ import { ledgerCurrency } from "@/lib/payments/ledger-currency";
 import { readStoreCurrency } from "@/lib/store/selling-currency-read";
 import { disputedInStore, taxYearsInUsd } from "@/lib/money/payout-figures";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
-import { pageUser } from "@/lib/auth/page-user"
+import { noStorePage, teamPageStore } from "@/lib/team/server"
 import { PaneBar } from "@/app/app/orders/order-parts"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
@@ -32,15 +32,21 @@ export default async function PayoutsPage() {
 
   /* The same answer the /app layout got, through the per-request cache
      (lib/auth/request-scope.ts): no second auth round trip on a full load. */
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /*
+    Whose store (round 42): the owner's own, or the store a team member with
+    Payouts works in (lib/team/server teamPageStore). A member sees its
+    balance and payouts; Cash out and the bank are drawn only with Change
+    payouts, and the routes ask again (lib/team/money).
+  */
+  const access = await teamPageStore("payouts")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") return noStorePage("/app/payouts")
+  const canManage = access.isOwner || !!access.acting?.permissions.includes("payouts_manage")
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("id", access.creatorId)
     .single();
 
   if (creatorError || !creator) {
@@ -62,7 +68,7 @@ export default async function PayoutsPage() {
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
           <div className="mx-auto max-w-[1200px] app-gutter pb-8">
-            <Suspense fallback={<PayoutsWaiting label={tt("Loading payouts")} />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
+            <Suspense fallback={<PayoutsWaiting label={tt("Loading payouts")} />}>{PayoutsBody({ creator, paymentsReady, canManage })}</Suspense>
           </div>
         </>
       ) : (
@@ -72,7 +78,14 @@ export default async function PayoutsPage() {
             <p className="-mt-1 text-[13px] leading-5 text-[#6b7280]">{tt("Set up payments to start selling")}</p>
           </header>
           <div className="mt-4">
-            <StorelibPaymentsInline compact />
+            {canManage && access.isOwner ? (
+              <StorelibPaymentsInline compact />
+            ) : (
+              /* Setting up payments is the account holder's own identity: the owner's whatever is given (lib/team/money). */
+              <p className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 text-[14px] text-[#6b7280] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                {tt("Payments are not set up for this store yet. The store's owner sets them up.")}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -149,7 +162,7 @@ const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-whi
 /** The longest Stripe's balance may hold the page's first draw. */
 const STRIPE_WAIT_MS = 2_500;
 
-async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsReady: boolean }) {
+async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any; paymentsReady: boolean; canManage: boolean }) {
   const { tt } = await getServerTt()
   const adminSupabase = createAdminClient();
 
@@ -313,6 +326,7 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
   return (
     <PayoutsClient
       paymentsReady={paymentsReady}
+      canManage={canManage}
       creator={creator}
       initialData={{
         balanceCurrency,

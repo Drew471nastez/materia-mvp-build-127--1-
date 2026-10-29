@@ -55,6 +55,7 @@ import { ROW_PRESS, RowControls, RowOpen, rowPress } from "./rows"
 import { BulkBar, LIST_BOX, ListFoot, MUTED, PickAll, PickOne, SortPick, TD, TH, TR, WIDE_LIST, WIDE_TABLE, bulkButton, count, downloadCsv, useSelection } from "./ui-kit"
 import { MemberSheet, sourceWords } from "./member-sheet"
 import { tt, ttx } from "@/lib/i18n/text"
+import { copyText } from "./share-link"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   get active() { return tt("Active") },
@@ -595,13 +596,16 @@ function InvitesList({ base, invites, setInvites }: { base: string; invites: { r
 
 function CopyField({ value }: { value: string }) {
   const [copied, setCopied] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
   return (
     <div className="flex items-center gap-2">
-      <input readOnly value={value} onFocus={(e) => e.target.select()} aria-label={tt("Invite link")} className={cn(field, "h-11 font-mono text-[13px] sm:h-10 sm:text-[12.5px]")} />
+      <input ref={inputRef} readOnly value={value} onFocus={(e) => e.target.select()} aria-label={tt("Invite link")} className={cn(field, "h-11 font-mono text-[13px] sm:h-10 sm:text-[12.5px]")} />
       <button
         type="button"
         onClick={() => {
-          void navigator.clipboard?.writeText(value).then(() => {
+          /* With no clipboard the field is selected instead, for a long press or Ctrl C (./share-link copyText). */
+          void copyText(value).then((ok) => {
+            if (!ok) return inputRef.current?.select()
             setCopied(true)
             window.setTimeout(() => setCopied(false), 1600)
           })

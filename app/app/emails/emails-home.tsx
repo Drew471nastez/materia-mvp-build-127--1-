@@ -12,10 +12,11 @@
  * the menu that is a dropdown on a desktop and a sheet on a phone.
  *
  * THE BAR HOLDS STILL. The title, New automation and New email, and the
- * five tabs are all in the pane's bar, which is never unmounted and never
+ * tabs are all in the pane's bar, which is never unmounted and never
  * changes height, so switching tabs moves nothing above the content: the
  * tab row keeps its own sideways scroll on a phone, and only what is under
- * the bar changes.
+ * the bar changes. It scrolls away with the page, as every list's bar does
+ * (round 28, the owner: not sticky).
  *
  * A ROW ANSWERS THE FINGER. Every row that opens something darkens while it
  * is pressed, and starts reading what it opens as the pointer arrives on it
@@ -46,8 +47,11 @@ import { SegmentedPills } from "@/components/app/segmented-pills"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
-import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
-import { emailsOf } from "@/lib/emails/customer-catalog"
+import { CUSTOMER_EMAILS_PATH, CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { CommunityAutomations } from "@/components/app/emails/community-automations"
+import type { CommunityRef } from "@/components/app/emails/community-emails"
+import { api as storeApi, peekGet } from "@/components/physical/ui"
+import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -67,6 +71,8 @@ export interface MessageRow {
   created_at: string
   /** When the creator opened it. Null is new. */
   read_at: string | null
+  /** The replies sent from its page, oldest first (lib/site-contact/reply.ts). */
+  replies?: { id: string; message: string; created_at: string; pending?: boolean }[]
 }
 
 export interface SubscriberRow {
@@ -126,7 +132,17 @@ export interface OverviewStats {
 }
 
 export interface EmailsHomeProps {
+  /** The tab whose content is drawn. */
   tab: EmailsTab
+  /**
+   * The tab chosen in the bar. It runs ahead of `tab` for a moment when the
+   * chosen one has nothing read yet: the content of the last one stays until
+   * the next has its rows (./emails-client.tsx), so a switch never shows an
+   * empty table. Missing, the bar shows `tab`.
+   */
+  chosenTab?: EmailsTab
+  /** The last tab's rows were already held for a while: a skeleton now shows at once, with no wait of its own. */
+  skeletonAtOnce?: boolean
   onTab: (tab: EmailsTab) => void
   /** A pointer resting on a tab: its data can be read ahead. */
   onTabIntent?: (tab: EmailsTab) => void
@@ -138,6 +154,8 @@ export interface EmailsHomeProps {
   checkoutBuyersCount: number
   /** The Customer emails tab's read (the store, its saved words), when it has come. */
   customerEmails?: CustomerEmailsData | null
+  /** The Customer emails tab changed what it read (words saved, the reminder switched): kept for its next look. */
+  onCustomerEmails?: (data: CustomerEmailsData) => void
   /** Physical commerce is on: the shipping, pickup and return emails are listed too. */
   physical: boolean
   search: string
@@ -315,7 +333,8 @@ export function EmailsHome(props: EmailsHomeProps) {
   const router = useRouter()
   return (
     <>
-      <PaneBar width={LIST_WIDTH} sticky className="pb-1 pt-2">
+      {/* Flat, as every list's bar (round 28, the owner): the title, the two buttons and the tabs scroll away with the page. */}
+      <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
           <div className="flex min-w-0 items-center gap-2">
@@ -330,10 +349,10 @@ export function EmailsHome(props: EmailsHomeProps) {
             </Link>
           </div>
         </div>
-        <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
+        <Tabs tab={props.chosenTab ?? tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
       </PaneBar>
 
-      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab}>
+      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
         <Metrics {...props} />
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
@@ -341,7 +360,7 @@ export function EmailsHome(props: EmailsHomeProps) {
           {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
-          {tab === "customer" ? <CustomerEmailsPanel bare /> : null}
+          {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
         </section>
       </div>
@@ -941,7 +960,8 @@ function MessagesTable(props: EmailsHomeProps) {
   const shown = props.messages.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const messageMenu = (m: MessageRow): ActionMenuItem[] => [
     { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
-    { label: tt("Reply"), onClick: () => { window.location.href = replyHref(m) } },
+    /* Its page has the reply box (./message-detail.tsx), and the thread of what was sent. */
+    { label: tt("Reply"), onClick: () => props.onOpenMessage(m) },
     { label: m.read_at ? tt("Mark as new") : tt("Mark as read"), onClick: () => props.onToggleRead(m) },
     { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
     { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
@@ -1059,9 +1079,29 @@ function MessagesTable(props: EmailsHomeProps) {
  * in full, what starts it, its steps and what it has done, with its switch
  * and its menu at the end, where a thumb is. Tapping the row opens it.
  */
+/**
+ * The owner's communities, for their automated messages under the store's
+ * automations: from the Customer emails read when it is in, otherwise read
+ * once here (the same kept read, /api/store/emails).
+ */
+function useCommunities(known: CustomerEmailsData | null | undefined): CommunityRef[] {
+  const [read, setRead] = React.useState<CommunityRef[] | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)?.communities ?? null)
+  const have = known?.communities
+  React.useEffect(() => {
+    if (have || read) return
+    let live = true
+    void storeApi<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => live && r.ok && setRead(r.data.communities ?? []))
+    return () => {
+      live = false
+    }
+  }, [have, read])
+  return have ?? read ?? []
+}
+
 function FlowsTable(props: EmailsHomeProps) {
   const router = useRouter()
   const press = usePress()
+  const communities = useCommunities(props.customerEmails)
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   const menu = (f: FlowRow, on: boolean): ActionMenuItem[] => [
     { label: tt("Edit"), onClick: () => openLayer(router, href(f)) },
@@ -1171,6 +1211,13 @@ function FlowsTable(props: EmailsHomeProps) {
           </>
         )}
       </ShimmerSwap>
+      {/* Each community's automated messages, with the store's automations; a row opens the community's own manager over this page. */}
+      {!props.loading && communities.length ? (
+        <section className="border-t border-[#f1f2f4] pb-1" aria-label={tt("Communities")} data-flow-communities="">
+          <h3 className="px-4 pt-4 text-[14px] font-semibold text-[#1a1a2e] sm:px-5">{tt("Communities")}</h3>
+          <CommunityAutomations communities={communities} titled={communities.length > 1} />
+        </section>
+      ) : null}
     </>
   )
 }

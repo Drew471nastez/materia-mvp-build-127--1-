@@ -100,7 +100,8 @@ function main() {
   */
   /* Changed on purpose: no blur at all now, the placeholder or a refetch: the chart goes soft by opacity alone, a compositor change (round ana-1021). */
   check("the placeholder is not blurred away, because the frame IS the loading state",
-    /chartIsLoading\s*\?\s*"opacity-100"\s*:\s*isRefreshing/.test(client) && !/blur-\[1\.5px\]/.test(client),
+    /* Changed on purpose (round 41): a refetch dims the chart only once it has waited SOFT_AFTER_MS (softLate), so an answer from memory never flashes; the placeholder still never dims. */
+    /chartIsLoading\s*\?\s*"opacity-100"\s*:\s*(isRefreshing|softLate)/.test(client) && !/blur-\[1\.5px\]/.test(client),
     "a placeholder at 30% opacity behind a 2px blur is the blank card again")
   /* Changed on purpose: the sample data toggle is gone. An empty period is the cards' empty states, never invented numbers. */
   check("and no sample data is drawn in place of an answer, before or after it lands",

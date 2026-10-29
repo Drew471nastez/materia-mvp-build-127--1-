@@ -56,38 +56,73 @@ let listening = false
 let knownToken: string | null = null
 let sentAs: string | null = null
 
-async function sessionUser(): Promise<string | null> {
+/*
+  WHAT THIS PHONE KNOWS ABOUT ITS OWN REGISTRATION, for Settings' Send a
+  test notification (components/account/notification-settings.tsx), which
+  says it next to what the server did. Without it a phone that never got a
+  token (no google-services.json, no aps-environment entitlement) looked the
+  same as one whose token was saved: "no devices", with no reason.
+*/
+export interface PushDeviceState {
+  /** A token came from the phone on this launch. */
+  token: boolean
+  /** The server saved it for the person signed in now; null when not tried yet. */
+  saved: boolean | null
+  /** The last thing that went wrong, in the phone's or the server's words. */
+  error: string | null
+}
+const state: PushDeviceState = { token: false, saved: null, error: null }
+
+export function pushDeviceState(): PushDeviceState {
+  return { ...state, token: !!knownToken }
+}
+
+async function session(): Promise<{ id: string; accessToken: string | null } | null> {
   try {
     const { createClient } = await import("@/lib/supabase/client")
     const { data } = await createClient().auth.getSession()
-    return data.session?.user?.id ?? null
+    const id = data.session?.user?.id
+    return id ? { id, accessToken: data.session?.access_token ?? null } : null
   } catch {
     return null
   }
 }
 
+async function sessionUser(): Promise<string | null> {
+  return (await session())?.id ?? null
+}
+
 /** Sends the phone's token for whoever is signed in now. Never twice for the same person and token. */
 async function sendToken(token: string, platform: "ios" | "android"): Promise<void> {
   knownToken = token
-  const user = await sessionUser()
-  if (!user) return
-  const key = `${user}:${token}`
+  const who = await session()
+  if (!who) return
+  const key = `${who.id}:${token}`
   if (sentAs === key) return
   sentAs = key
   try {
+    /* The access token too: the server reads it when the web view's cookie is missing (app/api/push/register). */
     const res = await fetch("/api/push/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(who.accessToken ? { Authorization: `Bearer ${who.accessToken}` } : {}) },
       credentials: "include",
       body: JSON.stringify({ token, platform }),
     })
     if (!res.ok) {
       /* Asked again on the next launch, sign in or token. */
       sentAs = null
-      console.error("[push] /api/push/register answered", res.status)
+      const detail = await res.json().then((j: { detail?: string; error?: string }) => j?.detail || j?.error || "").catch(() => "")
+      state.saved = false
+      state.error = `The server did not save this phone (${res.status}${detail ? `: ${detail}` : ""})`
+      console.error("[push] /api/push/register answered", res.status, detail)
+    } else {
+      state.saved = true
+      state.error = null
     }
   } catch (err) {
     sentAs = null
+    state.saved = false
+    state.error = `Could not reach Storelib to save this phone (${err instanceof Error ? err.message : "network"})`
     console.error("[push] could not reach /api/push/register:", err instanceof Error ? err.message : err)
   }
 }
@@ -123,6 +158,8 @@ export async function registerDevice(): Promise<void> {
   })
 
   PushNotifications.addListener("registrationError", (err) => {
+    /* iOS: usually no aps-environment entitlement in the build. Android: usually no google-services.json, so Firebase never started. */
+    state.error = `The phone refused to register for notifications (${err.error || "no reason given"})`
     console.error("[push] registration was refused:", err.error)
   })
 
@@ -175,7 +212,29 @@ export async function registerDevice(): Promise<void> {
   }
 
   /* Listeners first, so the token event is never missed. */
-  await PushNotifications.register()
+  await PushNotifications.register().catch((err: unknown) => {
+    /* An app build without the plugin compiled in (android/capacitor.settings.gradle before `npx cap sync`) lands here. */
+    state.error = `This app build cannot register for notifications (${err instanceof Error ? err.message : String(err)})`
+    throw err
+  })
+}
+
+/**
+ * Registers this phone and waits, at most `ms`, for the server to answer the
+ * save, so Settings' test sends to a phone whose token is already in
+ * push_tokens. Resolves with what this phone knows either way.
+ */
+export async function registerDeviceAndWait(ms = 4000): Promise<PushDeviceState> {
+  if (!Capacitor.isNativePlatform()) return pushDeviceState()
+  /* A fresh save for this test: the same token sent again only refreshes its row. */
+  sentAs = null
+  state.saved = null
+  await registerDevice().catch(() => undefined)
+  const until = Date.now() + ms
+  while (Date.now() < until && state.saved === null && !(state.error && !knownToken)) {
+    await new Promise((r) => setTimeout(r, 150))
+  }
+  return pushDeviceState()
 }
 
 /** Asks the app for the FCM token it keeps (AppDelegate StorelibPush); an older app build without it is simply not asked. */

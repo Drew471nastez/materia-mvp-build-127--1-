@@ -5,20 +5,28 @@ import { emptyResult, isSearchable, normalizeQuery, searchCreator, type SearchGr
 import { createAdminClient } from "@/lib/supabase/admin"
 import { actingStore } from "@/lib/team/server"
 import { permits, type TeamArea } from "@/lib/team/permissions"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
+import { communitiesEnabled } from "@/lib/communities/flag"
 
 /**
  * Which part of a store each group belongs to (lib/team/permissions), so a
  * teammate finds only what their permissions open, and nobody another
- * store's anything.
+ * store's anything. Null is everyone's: the Help Center's articles.
+ * Integrations are the store's own ("store"), which no teammate is given.
  */
-const GROUP_AREA: Record<SearchGroupId, TeamArea> = {
+const GROUP_AREA: Record<SearchGroupId, TeamArea | null> = {
   orders: "orders",
   customers: "customers",
   products: "products",
   collections: "products",
+  offers: "marketing",
   coupons: "marketing",
+  size_charts: "products",
   emails: "marketing",
   automations: "marketing",
+  communities: "community",
+  integrations: "store",
+  help: null,
 }
 
 export const runtime = "nodejs"
@@ -49,6 +57,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null)
   const q = normalizeQuery(body?.q)
+  /* Something was saved in the browser since its last search (components/app/app-search.tsx): nothing kept is used. */
+  const fresh = body?.fresh === true
   if (!isSearchable(q)) return NextResponse.json(emptyResult(), { headers: NO_STORE })
 
   const limited = await rateLimit({
@@ -66,12 +76,19 @@ export async function POST(request: Request) {
     account, which has nothing in it, so search found nothing at all.
   */
   const admin = createAdminClient()
-  const acting = await actingStore(admin, user.id).catch(() => null)
+  const [acting, physical, communities] = await Promise.all([
+    actingStore(admin, user.id).catch(() => null),
+    isPhysicalCommerceEnabled().catch(() => false),
+    communitiesEnabled().catch(() => false),
+  ])
   if (acting) {
-    const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => permits(acting.permissions, GROUP_AREA[g])))
-    if (groups.size === 0) return NextResponse.json(emptyResult(), { headers: NO_STORE })
+    /* A teammate never finds the owner's communities: those are the owner's account, not the store. */
+    const groups = new Set((Object.keys(GROUP_AREA) as SearchGroupId[]).filter((g) => {
+      const area = GROUP_AREA[g]
+      return g !== "communities" && (area === null || permits(acting.permissions, area))
+    }))
     try {
-      return NextResponse.json(await searchCreator(admin, acting.creatorId, q, { groups }), { headers: NO_STORE })
+      return NextResponse.json(await searchCreator(admin, acting.creatorId, q, { groups, physical, fresh }), { headers: NO_STORE })
     } catch (err) {
       console.error("[app-search] failed", err instanceof Error ? err.name : "error")
       return NextResponse.json({ error: "Search is not working right now." }, { status: 500, headers: NO_STORE })
@@ -87,7 +104,7 @@ export async function POST(request: Request) {
   if (!creator?.id) return NextResponse.json(emptyResult(), { headers: NO_STORE })
 
   try {
-    return NextResponse.json(await searchCreator(supabase, creator.id, q), { headers: NO_STORE })
+    return NextResponse.json(await searchCreator(supabase, creator.id, q, { ownerUserId: communities ? user.id : null, physical, fresh }), { headers: NO_STORE })
   } catch (err) {
     console.error("[app-search] failed", err instanceof Error ? err.name : "error")
     return NextResponse.json({ error: "Search is not working right now." }, { status: 500, headers: NO_STORE })

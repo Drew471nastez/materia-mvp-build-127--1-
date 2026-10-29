@@ -384,7 +384,7 @@ function SizeChartTable({ state, labelled }: { state: SizeChartDraftState; label
           {tt("Column")}
         </button>
       </div>
-      <div ref={tableRef} className="overflow-x-auto overscroll-x-contain rounded-xl border border-[#e5e7eb] [-webkit-overflow-scrolling:touch]" data-size-chart-grid="">
+      <div ref={tableRef} className="page-scroll overflow-x-auto overscroll-x-contain rounded-xl border border-[#e5e7eb] [-webkit-overflow-scrolling:touch]" data-size-chart-grid="">
         <table className="w-full border-separate border-spacing-0 text-[13.5px] sm:text-[14px]">
           <thead>
             <tr>

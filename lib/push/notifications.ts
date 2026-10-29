@@ -1,4 +1,4 @@
-import { sendPushToUser } from "./sender"
+import { sendPushToUser, type PushResult } from "./sender"
 import { moneyText, saleText } from "./sale-text"
 
 /**
@@ -38,7 +38,7 @@ async function milestoneTitle(userId: string): Promise<string | null> {
   }
 }
 
-export async function notifySale(userId: string, opts: SaleOptions): Promise<void> {
+export async function notifySale(userId: string, opts: SaleOptions): Promise<PushResult> {
   const milestone = opts.amountCents > 0 ? await milestoneTitle(userId) : null
   return sendPushToUser(userId, {
     ...saleText(opts, milestone),
@@ -51,7 +51,7 @@ export async function notifySale(userId: string, opts: SaleOptions): Promise<voi
 
 // ── Payout available ──────────────────────────────────────────────────────────
 
-export async function notifyPayoutAvailable(userId: string, amountCents: number): Promise<void> {
+export async function notifyPayoutAvailable(userId: string, amountCents: number): Promise<PushResult> {
   /* The wallet's balance, in the wallet's own currency (lib/payments/ledger-currency), never dollars by default. */
   const { ledgerCurrency } = await import("@/lib/payments/ledger-currency")
   const amount = moneyText(amountCents, ledgerCurrency())

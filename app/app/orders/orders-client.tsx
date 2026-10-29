@@ -740,6 +740,26 @@ export function OrdersClient(props: OrdersClientProps) {
         })
         return savedMessage(outcome, tt("Invoice"))
       }
+      case "credit-note": {
+        const outcome = await saveFile({
+          name: `credit-note-${order.number}.pdf`,
+          viewable: true,
+          file: async () => {
+            const res = await fetch(`/api/invoice?orderId=${encodeURIComponent(order.id)}&tz=${encodeURIComponent(timeZone)}&creditNote=latest`)
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}))
+              throw new Error(data?.error || tt("The credit note could not be made. Try again."))
+            }
+            return res.blob()
+          },
+          link: async (disposition) => {
+            const { res, data } = await postJson("/api/invoice", { orderId: order.id, disposition, timeZone, creditNote: "latest" })
+            if (!res.ok || !data?.url) throw new Error(data?.error || tt("The credit note could not be made. Try again."))
+            return data.url as string
+          },
+        })
+        return savedMessage(outcome, tt("Credit note"))
+      }
       case "email": {
         const { res, data } = await postJson(`/api/app/orders/${encodeURIComponent(order.id)}/email`, { email: action.email })
         if (!res.ok) throw new Error(data?.error || tt("The email was not changed. Try again."))

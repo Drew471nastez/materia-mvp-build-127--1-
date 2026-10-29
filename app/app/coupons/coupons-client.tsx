@@ -8,6 +8,7 @@ import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { tintReturnedRow } from "@/components/app/list-return"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupon-state"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonSecondary, card } from "../orders/order-parts"
@@ -104,10 +105,6 @@ const NEW_BUTTON = cn(inkDepth, "h-8 rounded-lg px-3 text-[13px] font-medium max
  */
 let leftAt: View | null = null
 
-/** The row you came back from: a grey tint, fading once the editor has gone. */
-const EDITED_TINT = "#eceef1"
-const EDITED_FADE_MS = 1200
-
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 /**
@@ -163,20 +160,7 @@ export function CouponsClient({ initialCoupons, products, currency = "USD" }: Co
     if (!back) return
     if (back.message) say(back.message)
     if (back.saved || back.deleted) router.refresh()
-    const section = sectionRef.current
-    if (!back.id || back.deleted || !section) return
-    const row = Array.from(section.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(back.id)}"]`)).find((el) => el.getClientRects().length > 0)
-    if (!row || typeof row.animate !== "function") return
-    const pane = section.closest<HTMLElement>(".orders-pane")
-    if (pane) {
-      const r = row.getBoundingClientRect()
-      const p = pane.getBoundingClientRect()
-      if (r.top < p.top || r.bottom > p.bottom) pane.scrollTo({ top: pane.scrollTop + r.top - p.top - (p.height - r.height) / 2, behavior: "smooth" })
-    }
-    const targets = row.tagName === "TR" ? (Array.from(row.children) as HTMLElement[]) : [row]
-    for (const el of targets) {
-      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: "rgba(236, 238, 241, 0)" }], { duration: EDITED_FADE_MS, delay: LAYER_LEAVE_MS, easing: "ease-out", fill: "backwards" })
-    }
+    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

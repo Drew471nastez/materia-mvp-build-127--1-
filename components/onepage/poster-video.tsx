@@ -58,6 +58,7 @@ export function PosterVideo({
   fallbackStyle,
   className,
   priority = false,
+  still: stillAsked = false,
 }: {
   src: string
   /** The video's first frame, drawn with `mediaStyle` exactly as the video is. */
@@ -71,9 +72,16 @@ export function PosterVideo({
   className?: string
   /** The hero: the poster is the largest thing on the first screen. */
   priority?: boolean
+  /**
+   * Drawn as a still, never played (round 42): the same video is already
+   * playing elsewhere on the page (the wallpaper), and two copies of one
+   * video playing at once is what the owner reported.
+   */
+  still?: boolean
 }) {
   const ref = React.useRef<HTMLVideoElement>(null)
-  const still = React.useSyncExternalStore(subscribeStill, stillNow, stillOnServer)
+  const stillMotion = React.useSyncExternalStore(subscribeStill, stillNow, stillOnServer)
+  const still = stillMotion || stillAsked
   const [shown, setShown] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
   /* play() refused (iOS Low Power Mode): it stays on its first frame, as a still. */

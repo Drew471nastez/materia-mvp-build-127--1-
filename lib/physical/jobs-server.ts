@@ -30,7 +30,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
-import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
+import { emailIdForJob, itemsText, pickCopy, resolveCopy, type ResolvedCopy } from "@/lib/emails/customer-custom"
+import { withOwnFrame } from "@/lib/emails/layout"
 import { COD_PAYMENT_METHOD, COD_PROVIDER } from "./cash-on-delivery"
 import { orderCancelledEmail, orderConfirmationEmail, orderDateText, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { creatorTimeZone } from "@/lib/account/time-zone"
@@ -106,6 +107,27 @@ export async function queueCancelledEmail(db: Db, checkoutId: string, creatorId:
 export async function queueRefundEmail(db: Db, checkoutId: string, creatorId: string, refundedCents: number, amountCents: number): Promise<void> {
   if (amountCents <= 0) return
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents } })
+}
+
+/**
+ * The latest credit note of a refunded checkout (lib/checkout/credit-note.ts), issued now if its refund has none
+ * yet, with the buyer's link to it (their receipt token is the key). Null when there is none to link.
+ */
+async function refundCreditNote(db: Db, checkoutId: string, creatorId: string): Promise<{ number: string; url: string } | null> {
+  try {
+    const { data } = await db.from("orders").select("id, created_at, currency, receipt_token").eq("checkout_id", checkoutId).limit(50)
+    const rows = ((data ?? []) as Array<{ id: string; created_at: string | null; currency: string | null; receipt_token: string | null }>).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || a.id.localeCompare(b.id))
+    const token = rows.find((r) => r.receipt_token)?.receipt_token
+    if (!token) return null
+    const { creditNoteNumber, creditNotePath, ensureCreditNotes } = await import("@/lib/checkout/credit-note")
+    const notes = await ensureCreditNotes(db as never, rows, creatorId)
+    const last = notes[notes.length - 1]
+    if (!last) return null
+    const base = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/$/, "")
+    return { number: creditNoteNumber(last.seq), url: `${base}${creditNotePath(token, last.id)}` }
+  } catch {
+    return null
+  }
 }
 
 export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "requested" | "approved" | "rejected" | "received" | "completed"): Promise<void> {
@@ -580,6 +602,8 @@ interface CheckoutForEmail {
   lines: Record<string, any>[]
   receipt_token: string
   buyer_note: string | null
+  /** The code the buyer typed, as written (lib/physical/checkout-server). */
+  coupon_code?: string | null
   delivery_method?: string | null
   pickup?: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
   paid_at?: string | null
@@ -675,8 +699,8 @@ async function linesOfOrders(db: Db, checkoutId: string, items: { order_id: stri
   })
 }
 
-/** Where a return is sent: the store's default location when the store ships from it, as address lines. */
-async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | null> {
+/** Where a return is sent: the store's default location when the store ships from it, as address lines. The return email and the packing slip say it. */
+export async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | null> {
   const { data: settings } = await db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle()
   let q = db.from("inventory_locations").select("name, kind, address_line1, address_line2, city, region, postal_code, country, forwarding").eq("creator_id", creatorId).eq("active", true)
   q = settings?.default_location_id ? q.eq("id", settings.default_location_id) : q.order("priority", { ascending: true })
@@ -753,9 +777,10 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   let mail: { subject: string; html: string; text: string }
   /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
   const saved = await loadCustomerEmailCopy(db, co.creator_id)
-  /* The store's own words are in its website's language: a buyer who bought in another gets the standard words in theirs. */
+  /* The store's own words in the buyer's language: the main ones in the website's, the ones written for another language in that one, the standard words when there are none (pickCopy). */
+  let ownCopy: ResolvedCopy | undefined
   const copyFor = (id: string | null, lines: { title?: string | null }[]) =>
-    id && language.own ? resolveCopy(saved[id], { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined
+    (ownCopy = id ? resolveCopy(pickCopy(saved[id], language), { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined)
 
   if (p.template === "confirmation") {
     /* How it was paid: optional, the email reads without it. */
@@ -787,6 +812,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
         codFee: Number(co.shipping_rate?.cod_fee_cents) || 0,
         /* Each offer's saving its own row, as the checkout's summary showed them. */
         savings: savingsOf(co.lines),
+        /* The code's row named by the code, as the checkout's summary named it. */
+        couponCode: co.coupon_code ?? null,
       },
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,
@@ -886,10 +913,13 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
     mail = say(() => orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate }))
   } else if (p.template === "refund") {
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = say(() => refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
+    const creditNote = await refundCreditNote(db, co.id, co.creator_id)
+    mail = say(() => refundEmail({ creditNote, shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines), orderDate, cash: paidRow?.payment_method === COD_PAYMENT_METHOD }))
   } else {
     return
   }
+  /* The store's own preheader and footer line, around whichever template drew it (lib/emails/layout.ts). */
+  mail = withOwnFrame(mail, ownCopy)
   await holdLease(lease)
   const sent = await sendEmail({
     from: buildFromHeader(shopName),

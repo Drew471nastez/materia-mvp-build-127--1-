@@ -171,7 +171,9 @@ check("Settings is one row of pills at every width, no list down the side",
   && !/w-48 flex-shrink-0/.test(settings) && !/md:flex-row gap-6/.test(settings)
   && /itemClassName="h-10 px-4 text-\[13px\] sm:h-9"/.test(settings) && !/pillClassName=/.test(settings))
 check("the row stays at the top, scrolls with no bar, and keeps the chosen pill in view",
-  /sticky top-0 z-20/.test(settings) && /overflow-x-auto[^"]*no-scrollbar/.test(settings) && /keepInView\n/.test(settings)
+  /* Changed on purpose (round 42): the row scrolls inside PillTabs' ScrollRow (fades and arrows), so overflow-x-auto is that row's own class, not the caller's. */
+  /sticky top-0 z-20/.test(settings) && /scroll=\{\{ wrapClassName: "-mx-4 md:-mx-6" \}\}/.test(settings) && /className="flex gap-2 px-4 py-0\.5 app-no-scrollbar/.test(settings) && /keepInView\n/.test(settings)
+  && /overflow-x-auto overflow-y-hidden overscroll-x-contain \[scrollbar-width:none\]/.test(read("components/app/rich-text/scroll-row.tsx")) && /<ScrollRow ref=\{rowRef\} role="tablist"/.test(pillTabs)
   && /row\.scrollTo\(\{ left: to, behavior: instant \|\| reducedMotion\(\) \? "auto" : "smooth" \}\)/.test(pillTabs))
 /*
   Changed on purpose (round 11): "the switching [...] should inherit how Storelib feels [...] the settings of the app".

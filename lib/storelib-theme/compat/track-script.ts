@@ -19,6 +19,8 @@
  *   add to cart  a form posting to /cart/add (the theme's own Add to cart,
  *                by form or by its script) or a Buy it now press: buy_click
  *   a link out   to another site: link_click, once per link per page
+ *   a link in    to another page of this site: nav_click, with the page it
+ *                leads to and the button's words, once per page and target
  *   the store's  view_item on a product page, add_to_cart, begin_checkout on
  *   pixels       the cart's Check out (lib/analytics/pixels.ts PIXEL_EVENT_JS)
  *
@@ -71,6 +73,8 @@ export function compatTrackScript(input: { creatorId: string; productId?: string
     `d.addEventListener('click',function(e){try{var n=e.target&&e.target.closest&&e.target.closest('.shopify-payment-button,[data-shopify="payment-button"],[name="checkout"],a[href*="/checkout"],button[name="add"],[data-storelib-buy-now]');if(!n)return;if(n.matches('[name="checkout"],a[href*="/checkout"]')){if(!steps.c){steps.c=1;w.__slPixel('begin_checkout',null)}}else step('buy_click','add_to_cart')}catch(x){}},true);` +
     /* A link out of the website (lib/analytics/page-tracker watchOutboundLinks). */
     `var out={};d.addEventListener('click',function(e){try{if(e.button>1)return;var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var t=new URL(a.href,location.href),s=t.protocol.replace(':','');var o=s==='mailto'||s==='tel'||((s==='http'||s==='https')&&t.host!==location.host&&!(t.hostname===K.m||t.hostname.slice(-K.m.length-1)==='.'+K.m));if(!o)return;var l=(s==='http'||s==='https')?t.protocol+'//'+t.host+t.pathname:s+':';if(out[l])return;out[l]=1;var i=ids();send('/api/track-event',{eventType:'link_click',creatorId:K.c,href:location.href,linkUrl:l,sessionId:i.sessionId,visitorId:i.visitorId},true)}catch(x){}},true)` +
+    /* A link or button to another page of this site (lib/analytics/page-tracker watchInternalLinks): nav_click, with the page it leads to and its words, once per page, target and words. */
+    `;var nv={};function np(p){return(p.toLowerCase().replace(/\\/{2,}/g,'/').replace(/\\/+$/,''))||'/'}d.addEventListener('click',function(e){try{if(e.button>1)return;var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a||a.hasAttribute('download'))return;var t=new URL(a.href,location.href);if((t.protocol!=='http:'&&t.protocol!=='https:')||t.host!==location.host)return;var to=np(t.pathname),fr=np(location.pathname);if(to===fr||/^\\/api(\\/|$)/.test(to)||/\\/cart\\/add(\\/|$)/.test(to))return;var im=a.querySelector&&a.querySelector('img[alt]');var lb=((a.getAttribute('aria-label')||'').replace(/\\s+/g,' ').trim()||(a.innerText||a.textContent||'').replace(/\\s+/g,' ').trim()||(im?(im.getAttribute('alt')||'').trim():'')||(a.getAttribute('title')||'').trim()).slice(0,200);var th=t.protocol+'//'+t.host+t.pathname,k=fr+'|'+th+'|'+lb;if(nv[k])return;nv[k]=1;var i=ids();send('/api/track-event',{eventType:'nav_click',creatorId:K.c,href:location.href,targetHref:th,label:lb||undefined,sessionId:i.sessionId,visitorId:i.visitorId},true)}catch(x){}},true)` +
     `})(${conf})`
   return `<script data-storelib-track>${js}</script>`
 }

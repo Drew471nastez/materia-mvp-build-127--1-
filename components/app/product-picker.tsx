@@ -128,6 +128,7 @@ export function ProductPicker({
       type="button"
       className={cn(pickerButton, "min-w-0 max-w-[220px] sm:max-w-[260px]", className)}
       data-state={open ? "open" : "closed"}
+      data-filter-set={value === "all" ? undefined : ""}
       aria-haspopup="dialog"
       aria-expanded={open}
       title={label}

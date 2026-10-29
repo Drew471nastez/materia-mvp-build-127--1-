@@ -115,9 +115,11 @@ check("the checkout's own back is inside its own watch", /const backThen = \(fal
 
 console.log("\nThe seller's editors land on their list")
 const products = code("app/app/products/list-return.ts")
-const coupons = code("app/app/coupons/list-return.ts")
+/* Changed on purpose: Coupons, Upsells and bundles, Collections and Size charts share one round trip. */
+const coupons = code("components/app/list-return.ts")
+const couponsUse = /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/app/coupons/list-return.ts"))
 check("the product editor's Back is watched, and the list is the fallback", /backThen\(replaceWithList\)/.test(products) && /const replaceWithList = \(\) => \{\s*\n\s*markTraversal\(\)\s*\n\s*router\.replace\(PRODUCTS_HREF\)/.test(products))
-check("the coupon editor's is too", /backThen\(replaceWithList\)/.test(coupons) && /router\.replace\(COUPONS_HREF\)/.test(coupons))
+check("the coupon editor's is too", couponsUse && /backThen\(/.test(coupons) && /replaceWithList\(\)/.test(coupons) && /router\.replace\(listHref\)/.test(coupons))
 /* The fallback is a replace and is marked as a return, so the list comes back where it was left rather than as a fresh visit. */
 check("and the fallback is the same return, not a fresh visit", /markTraversal\(\)/.test(products) && /markTraversal\(\)/.test(coupons))
 check("the way back is still one move of the layer", /moveLayer\("leave"/.test(products) && /moveLayer\("leave"/.test(coupons))

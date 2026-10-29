@@ -16,14 +16,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import {
+  MANAGE_NEEDS,
   PERMISSION_HINT,
   PERMISSION_LABEL,
   PRESET_LABEL,
   TEAM_PRESETS,
-  normalizePermissions,
   permissionGroups,
   presetOf,
   presetPermissions,
+  togglePermission,
   type TeamPermission,
   type TeamPreset,
 } from "@/lib/team/permissions"
@@ -58,7 +59,8 @@ export function PermissionPicker({
     if (p !== "custom") onChange(presetValue(p))
   }
   const toggle = (p: TeamPermission, on: boolean) => {
-    const next = normalizePermissions(on ? [...value, p] : value.filter((x) => x !== p))
+    /* Changing payouts or billing gives seeing them; taking seeing away takes changing too (lib/team/permissions togglePermission). */
+    const next = togglePermission(value, p, on)
     setCustomChosen(presetOf(next) === "custom")
     onChange(next)
   }
@@ -100,7 +102,7 @@ export function PermissionPicker({
                 const why = !open.includes(p) ? tt("Not open to the team yet") : !grant.includes(p) ? tt("Only the owner can give this") : PERMISSION_HINT[p]
                 return (
                   <li key={p}>
-                    <label htmlFor={id} className={cn("flex items-start gap-2.5 rounded-lg px-1 py-1.5", can && !disabled ? "cursor-pointer hover:bg-[#f8f9fa]" : "cursor-not-allowed")} data-team-permission={p}>
+                    <label htmlFor={id} className={cn("flex items-start gap-2.5 rounded-lg px-1 py-1.5", MANAGE_NEEDS[p] && "ml-[26px]", can && !disabled ? "cursor-pointer hover:bg-[#f8f9fa]" : "cursor-not-allowed")} data-team-permission={p}>
                       <input
                         id={id}
                         type="checkbox"

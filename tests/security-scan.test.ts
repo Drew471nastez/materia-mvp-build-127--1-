@@ -119,7 +119,7 @@ function main() {
   {
     const route = readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/security/route.ts"), "utf8")
     check("it only reads", /export async function GET/.test(route) && !/export async function (POST|PUT|PATCH|DELETE)/.test(route) && !/\.(update|insert|upsert|delete)\(/.test(route))
-    check("for whoever is signed in, and only for their own install", /auth\.getUser\(\)/.test(route) && /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
+    check("for whoever is signed in, and only for their own install", /websiteInstallCaller\(installId\)/.test(route) && /\.eq\("creator_id", creatorId\)/.test(readFileSync(join(process.cwd(), "lib/team/areas.ts"), "utf8")) /* Changed on purpose (round 42 team): signed in and the install checked in lib/team/website */)
     check("counted per person like the routes beside it", /bucket: "site-security-scan"/.test(route) && /subjects: \[`user:\$\{user\.id\}`\]/.test(route) && /if \(limited\) return limited/.test(route))
     check("it checks the draft that Publish would put live",
       /draft_settings \?\? settingsRow\?\.settings/.test(route) && /p\.draft_sections \?\? p\.sections/.test(route))

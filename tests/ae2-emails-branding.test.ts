@@ -181,7 +181,7 @@ async function main() {
   check("sendCommunityEmail brands every email with the community's picture, reply address and domain", /logo_url/.test(email) && /replyAddressOf\(db, communityId/.test(email) && /communityDomainHost/.test(email))
   const sync = read("lib/memberships/sync.ts")
   check("a paid plan's emails are the community's, with its words", /t\.communityBrand\(facts\)/.test(sync) && /t\.MEMBERSHIP_WORD_KIND\[name\]/.test(sync))
-  check("a membership sold on its own is the creator's, with the store's words in English only", /brandKind: "creator"/.test(sync) && /language\?\.own === false/.test(sync) && /tplMode: "body"/.test(sync))
+  check("a membership sold on its own is the creator's, with the store's words in English only", /brandKind: "creator"/.test(sync) && /pickCopy\([^\n]*STORE_EMAIL_ID\[name\]\], language\)/.test(sync) /* Changed on purpose (round 28): English words, or the ones written for English, by pickCopy */ && /tplMode: "body"/.test(sync))
   check("a community's refund is the community's", /t\.communityBrand\(await t\.communityEmailFacts\(db, c\)\)/.test(read("lib/communities/server/membership-lifecycle.ts")))
   check("a closing notice is the community's", /kind: "store", name, pictureUrl: inboxPicture\(m\.logoUrl, 36\)/.test(read("lib/communities/server/community-deletion.ts")))
   check("a download's refund carries the store's words", /signer\?\.words \?\? null/.test(read("lib/email.tsx")))

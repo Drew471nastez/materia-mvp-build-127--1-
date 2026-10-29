@@ -50,8 +50,9 @@ console.log("\nThe database accepts every event and email type the app writes")
   const eventsTs = read("lib/analytics/events.ts")
   const eventBlock = eventsTs.slice(eventsTs.indexOf("export const EVENT = {"), eventsTs.indexOf("} as const", eventsTs.indexOf("export const EVENT = {")))
   const written = [...eventBlock.matchAll(/^\s+[a-zA-Z]+: "([a-z_]+)",$/gm)].map((m) => m[1])
-  const part54 = read("supabase/sql/run-now/61_analytics_one_pipeline.sql")
-  const allowed = [/analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? "", /analytics_events_event_type_check CHECK \(event_type IN \(([\s\S]*?)\)\) NOT VALID/.exec(part54)?.[1] ?? ""].join(", ")
+  /* Changed on purpose (round 42): part 331 carries the check again, with nav_click (clicks between pages). */
+  const part54 = read("supabase/sql/run-now/61_analytics_one_pipeline.sql") + "\n" + read("supabase/sql/run-now/331_analytics_clicks_between_pages_and_row_lines.sql")
+  const allowed = [/analytics_events_event_type_check\s+check \(event_type in \(([\s\S]*?)\)\) not valid/.exec(sql)?.[1] ?? "", ...[...part54.matchAll(/analytics_events_event_type_check CHECK \(event_type IN \(([\s\S]*?)\)\) NOT VALID/g)].map((m) => m[1])].join(", ")
   const missing = [...new Set([...tracked, ...written, "purchase"])].filter((t) => !allowed.includes(`'${t}'`))
   check("every funnel step and view type is allowed", tracked.length >= 4 && written.includes("view") && written.includes("link_click") && missing.length === 0, missing)
   const types = /emailType: ([^\n]+)/.exec(read("lib/email.tsx"))?.[1] ?? ""

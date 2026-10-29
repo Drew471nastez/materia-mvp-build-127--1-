@@ -60,6 +60,7 @@ import * as React from "react"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
+import { ScrollRow } from "@/components/app/rich-text/scroll-row"
 import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS, PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 
 /** The pill slides to the next tab on iOS's curve. */
@@ -253,6 +254,7 @@ export function PillTabs<T extends string>({
   rowAttrs,
   itemAttr,
   keepInView = false,
+  scroll,
 }: {
   items: readonly PillTabItem<T>[]
   value: T
@@ -270,6 +272,16 @@ export function PillTabs<T extends string>({
   itemAttr?: `data-${string}`
   /** A row that scrolls sideways brings the chosen tab fully into view (see THE CHOSEN PILL IS ALWAYS IN VIEW). */
   keepInView?: boolean
+  /**
+   * ONE ROW THAT SCROLLS, AND SAYS SO (round 42). The row never wraps: it
+   * scrolls sideways inside itself, the end with pills past it fades, and a
+   * small round arrow sits in the fade and moves the row by what is on
+   * screen (components/app/rich-text/scroll-row, the toolbars' own row), for
+   * a mouse with no sideways wheel. `scroll` is the box around the row and
+   * its arrows: where the row bleeds to the screen's edge (`-mx-4`), the box
+   * does, so the arrows sit at the edge and the row keeps its own padding.
+   */
+  scroll?: { wrapClassName?: string }
 }) {
   const rowRef = useRef<HTMLDivElement>(null)
   /*
@@ -296,6 +308,7 @@ export function PillTabs<T extends string>({
     a row moves nothing in the layout.
   */
   const firstPlace = useRef(true)
+  const hasArrows = !!scroll
   useLayoutEffect(() => {
     if (!keepInView) return
     const row = rowRef.current
@@ -303,7 +316,8 @@ export function PillTabs<T extends string>({
     const instant = firstPlace.current
     firstPlace.current = false
     if (!row || !tab || row.scrollWidth <= row.clientWidth + 1) return
-    const room = 24
+    /* Clear of the fade and the arrow over it (40px) when the row has them. */
+    const room = hasArrows ? 44 : 24
     const left = tab.offsetLeft
     const right = left + tab.offsetWidth
     const from = row.scrollLeft
@@ -313,11 +327,9 @@ export function PillTabs<T extends string>({
     to = Math.max(0, Math.min(to, row.scrollWidth - row.clientWidth))
     if (Math.abs(to - from) < 1) return
     row.scrollTo({ left: to, behavior: instant || reducedMotion() ? "auto" : "smooth" })
-  }, [keepInView, picked])
+  }, [keepInView, picked, hasArrows])
 
-  return (
-    <div ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} className={cn("relative", className)}>
-      {items.map((item) => {
+  const pills = items.map((item) => {
         const on = item.id === picked
         return (
           <button
@@ -353,7 +365,18 @@ export function PillTabs<T extends string>({
             <PillWord on={on} text={item.label} align={align} />
           </button>
         )
-      })}
+      })
+
+  if (scroll) {
+    return (
+      <ScrollRow ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} wrapClassName={scroll.wrapClassName} className={cn("relative", className)}>
+        {pills}
+      </ScrollRow>
+    )
+  }
+  return (
+    <div ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} className={cn("relative", className)}>
+      {pills}
     </div>
   )
 }

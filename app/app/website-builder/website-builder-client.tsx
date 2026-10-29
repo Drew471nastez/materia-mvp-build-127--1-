@@ -692,8 +692,15 @@ export function WebsiteBuilderClient({
   siteHandle = null,
   listings = builtinListings(),
   account = null,
+  teamMember = false,
 }: {
   installs: WebsiteSummary[]
+  /**
+   * Round 42: a team member with Website, working in the store. Importing,
+   * exporting and removing a website stay the store owner's (lib/team/website),
+   * so those are not offered at all rather than answered "not found".
+   */
+  teamMember?: boolean
   username: string
   /** The signed in account, which the Last 30 days line is kept under. */
   account?: string | null
@@ -1228,6 +1235,8 @@ export function WebsiteBuilderClient({
    */
   const importZip = async (file: File): Promise<void> => {
     if (fileInput.current) fileInput.current.value = ""
+    /* Importing stays the store owner's (round 42): a member's dropped file is not sent. */
+    if (teamMember) return
     if (slotsLeft === 0) {
       setFull("import")
       return
@@ -1307,11 +1316,11 @@ export function WebsiteBuilderClient({
       ...(i.status === "published" ? [] : [{ label: tt("Website settings"), icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
       { label: tt("Rename"), icon: <Pencil />, onClick: () => setRenaming(i) },
       { label: tt("Duplicate"), icon: <Layers />, onClick: () => void duplicate(i) },
-      { label: tt("Export theme"), icon: <Download />, onClick: () => void exportTheme(i) },
+      ...(teamMember ? [] : [{ label: tt("Export theme"), icon: <Download />, onClick: () => void exportTheme(i) }]),
     )
     if (i.status === "published") {
       items.push({ label: tt("Take offline"), icon: <EyeOff />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
-    } else if (installs.length > 1) {
+    } else if (installs.length > 1 && !teamMember) {
       /* Not the only website: an empty library is given the default theme
          again on the next visit, so removing the last one would only put a
          fresh copy back. */
@@ -1688,10 +1697,10 @@ export function WebsiteBuilderClient({
           aria-labelledby="library-heading"
           data-page-block
           data-library-drop={libraryDrop ? "over" : "idle"}
-          onDragEnter={onLibraryDragEnter}
-          onDragOver={onLibraryDragOver}
-          onDragLeave={onLibraryDragLeave}
-          onDrop={onLibraryDrop}
+          onDragEnter={teamMember ? undefined : onLibraryDragEnter}
+          onDragOver={teamMember ? undefined : onLibraryDragOver}
+          onDragLeave={teamMember ? undefined : onLibraryDragLeave}
+          onDrop={teamMember ? undefined : onLibraryDrop}
           className="space-y-3"
         >
           <SectionHeading
@@ -1729,6 +1738,7 @@ export function WebsiteBuilderClient({
             {/* 44px, like every other button on the page. While a file is
                 on its way it says how far, then that the server has it; the
                 row it will become is already in the list below. */}
+            {teamMember ? null : (
             <Button
               variant="ghost"
               /* Never dead: with the library full it says why, instead of doing nothing. */
@@ -1742,6 +1752,7 @@ export function WebsiteBuilderClient({
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {importing && incoming ? (incoming.phase === "uploading" ? tt("Uploading {value}%", { value: Math.round(incoming.progress * 100) }) : tt("Importing")) : tt("Import theme")}
             </Button>
+            )}
             <Button
               asChild
               variant="outline"

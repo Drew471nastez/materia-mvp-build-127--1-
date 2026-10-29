@@ -32,8 +32,9 @@
  *
  * TABS ARE READ ONCE (components/email/emails-cache.ts). The tab that is
  * open shows what was read before at once and reads again behind it; once it
- * has loaded, the other tabs are read while the browser is idle, so a switch
- * rarely waits. Each tab keeps its own scroll position.
+ * has loaded, the other tabs are read while the browser is idle, and a tab
+ * is read ahead when a pointer rests on it, so a switch rarely waits; when it
+ * does, the last tab's content stays until the rows come (HOLD_MS).
  *
  * Every write goes through a route that checks the creator owns what it
  * changes, or through Supabase under the row policies.
@@ -88,6 +89,9 @@ function uuid(): string {
 
 const ALL_EMAIL_LISTS = ["emails:drafts", "emails:scheduled"]
 
+/** How long a chosen tab with nothing read yet keeps the last tab's content before its skeleton shows. */
+const HOLD_MS = 300
+
 export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -138,7 +142,34 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const keyFor = React.useCallback((t: EmailsTab) => tabKey(t, periodKey), [periodKey])
   const loaderFor = React.useCallback((t: EmailsTab) => () => loadTab(t, rangeQuery), [rangeQuery])
 
-  const current = useCached<unknown>(keyFor(tab), loaderFor(tab))
+  /*
+    THE CONTENT WAITS FOR ITS ROWS (round 28, the owner: "no blank, keep the
+    previous tab's content until the next is ready"). The bar shows the tab
+    chosen at once; what is under it stays the last tab's until the chosen
+    one has its rows, read before (at once) or arriving now. Only a read
+    slower than HOLD_MS shows the table's own skeleton, the shape of the
+    rows it stands for. `shown` is the tab whose content is drawn.
+  */
+  const [shown, setShown] = React.useState<EmailsTab>(tab)
+  const wanted = useCached<unknown>(keyFor(tab), loaderFor(tab))
+  const current = useCached<unknown>(keyFor(shown), loaderFor(shown))
+  const [heldOut, setHeldOut] = React.useState<EmailsTab | null>(null)
+  /*
+    THE BAR FIRST, THE CONTENT AS A TRANSITION. The chosen tab's pill moves
+    in the render the click makes; the new content is drawn after it, as a
+    transition React can pause for the next input, with the last content on
+    screen until it is done. A tab drawn in one go with its pill held the
+    pill still for the 60 to 150ms its rows took to draw.
+  */
+  const canShow = wanted.data !== undefined || wanted.error !== null || heldOut === tab
+  React.useEffect(() => {
+    if (shown !== tab && canShow) React.startTransition(() => setShown(tab))
+  }, [shown, tab, canShow])
+  React.useEffect(() => {
+    if (shown === tab) return
+    const t = window.setTimeout(() => setHeldOut(tab), HOLD_MS)
+    return () => window.clearTimeout(t)
+  }, [shown, tab])
   /* Pull to refresh: the open tab is read again and the spinner waits for it; the other tabs are marked old, read when next opened. */
   const onPullRefresh = React.useCallback(async () => {
     await load(keyFor(tab), loaderFor(tab))
@@ -157,66 +188,38 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     })
   }, [current.loading, tab, keyFor, loaderFor])
 
-  /* ── Each tab keeps its own scroll position ──────────────────────────── */
+  /* ── A tab switch ────────────────────────────────────────────────────── */
   const listRef = React.useRef<HTMLDivElement>(null)
-  const scrolls = React.useRef(new Map<EmailsTab, number>())
   const setTab = (next: EmailsTab) => {
     if (next === tab) return
-    scrolls.current.set(tab, listRef.current?.scrollTop ?? 0)
     setTabState(next)
     writeAddress((p) => p.set("tab", next), "replace")
   }
-  const tabShown = React.useRef(false)
+  /*
+    THE SCROLL IS LEFT WHERE IT IS. The bar scrolls with the page now (it is
+    not sticky), so a tab is only ever pressed with the bar in view, and the
+    content changing under it must not move it: no scroll is placed on a
+    switch. The content is at least a pane tall (--pane-h, below), so a
+    shorter tab never pulls the page up under the finger either.
+
+    A SOFT CROSSFADE. The content that replaces another comes in from 55%
+    opacity over 160ms, never from nothing, so there is no blank frame and
+    no flash of the page's grey between the two; compositor only, and none
+    under reduced motion.
+  */
+  const drawnTab = React.useRef(shown)
   React.useLayoutEffect(() => {
-    const pane = listRef.current
-    if (!pane) return
-    /*
-      NOT ON THE FIRST DRAW. A switch of tab places the scroll; the page's
-      first draw does not. On a return the stage has already put the list
-      back where it was left (components/app/app-stage.tsx), and this ran
-      straight after it with no scroll kept for the tab (the map is new with
-      the page), so a list left below the point where the bar sticks came
-      back pulled up to that point: the page jumped on the way back.
-    */
-    if (!tabShown.current) {
-      tabShown.current = true
-      return
-    }
-    /*
-      THE BAR DOES NOT MOVE. While the bar is still in its place under the
-      announcement, the scroll is left alone and only the content changes.
-      Once it is stuck to the top, the new tab opens where it was left, or
-      at its start, but never above the point where the bar sticks: that
-      would drop the bar back down, and the tabs would jump under the finger.
-      The content is at least a pane tall (min-h-full), so that point can
-      always be reached.
-    */
-    /*
-      Where the bar sticks: where it sits at rest, measured from what holds it
-      still. Not its own offsetTop, which a stuck bar reports where it is
-      stuck. The end of what is just above it, or, when it comes first in
-      its wrapper (the pull to refresh's, under the Try Pro strip), the top
-      of that wrapper's content. It used to read the sibling alone, found
-      none there, took 0, and a switch while scrolled threw the page back to
-      its top with the bar dropping down under the strip.
-    */
-    const bar = pane.querySelector<HTMLElement>("[data-orders-bar]")
-    const above = bar?.previousElementSibling as HTMLElement | null
-    const holder = above ? null : bar?.parentElement ?? null
-    const paneTop = pane.getBoundingClientRect().top - pane.scrollTop
-    const stick = above
-      ? Math.round(above.getBoundingClientRect().bottom - paneTop)
-      : holder
-        ? Math.round(holder.getBoundingClientRect().top - paneTop + (parseFloat(getComputedStyle(holder).paddingTop) || 0))
-        : 0
-    const saved = scrolls.current.get(tab)
-    if (pane.scrollTop >= stick && stick >= 0) pane.scrollTop = Math.max(saved ?? stick, stick)
-  }, [tab])
+    if (drawnTab.current === shown) return
+    drawnTab.current = shown
+    const el = listRef.current?.querySelector<HTMLElement>("[data-tab-content]")
+    if (!el || typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.32,0.72,0,1)" })
+  }, [shown])
 
   /*
     THE PANE'S HEIGHT, MEASURED ONCE. A tab's content is at least a pane
-    tall (emails-home), so the point where the bar sticks can always be
-    reached. A percentage cannot say that through the pull's wrapper, which
+    tall (emails-home), so a short tab never pulls the bar up or down under
+    the finger that chose it. A percentage cannot say that through the pull's wrapper, which
     is as tall as what it holds, so the pane says it as --pane-h.
   */
   React.useLayoutEffect(() => {
@@ -230,14 +233,14 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }, [])
 
   /* ── What the list shows ─────────────────────────────────────────────── */
-  const subscribersData = (tab === "subscribers" ? current.data : peek(keyFor("subscribers"))) as SubscribersData | undefined
-  const messagesData = (tab === "messages" ? current.data : peek(keyFor("messages"))) as MessagesData | undefined
-  const flows = ((tab === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
-  const customerEmails = (tab === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
+  const subscribersData = (shown === "subscribers" ? current.data : peek(keyFor("subscribers"))) as SubscribersData | undefined
+  const messagesData = (shown === "messages" ? current.data : peek(keyFor("messages"))) as MessagesData | undefined
+  const flows = ((shown === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
+  const customerEmails = (shown === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
   const physical = usePhysicalCommerceEnabled()
-  const sentData = (tab === "published" ? current.data : undefined) as SentData | undefined
+  const sentData = (shown === "published" ? current.data : undefined) as SentData | undefined
   const campaigns: CampaignRow[] =
-    tab === "published" ? sentData?.campaigns ?? [] : tab === "scheduled" || tab === "drafts" ? ((current.data as CampaignRow[] | undefined) ?? []) : []
+    shown === "published" ? sentData?.campaigns ?? [] : shown === "scheduled" || shown === "drafts" ? ((current.data as CampaignRow[] | undefined) ?? []) : []
 
   const [search, setSearch] = React.useState("")
 
@@ -344,7 +347,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     const lists = [peek<SentData>(keyFor("published"))?.campaigns, peek<CampaignRow[]>(keyFor("scheduled")), peek<CampaignRow[]>(keyFor("drafts")), campaigns]
     for (const list of lists) {
       const row = list?.find((c) => c.id === id)
-      if (row) return { id, subject: row.subject, status: row.status ?? (tab === "scheduled" ? "scheduled" : tab === "drafts" ? "draft" : "sent"), sent_at: row.sent_at, scheduled_at: row.scheduled_at }
+      if (row) return { id, subject: row.subject, status: row.status ?? (shown === "scheduled" ? "scheduled" : shown === "drafts" ? "draft" : "sent"), sent_at: row.sent_at, scheduled_at: row.scheduled_at }
     }
     const r = peek<{ campaign: { subject: string; status: string } }>(reportKey(id))
     return { id, subject: r?.campaign.subject ?? "", status: r?.campaign.status }
@@ -380,7 +383,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }, [])
 
   const onCampaignIntent = (c: CampaignRow) => {
-    if (tab === "drafts") {
+    if (shown === "drafts") {
       router.prefetch(`/app/emails/edit/${c.id}`)
       prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("not ok")))), 5_000)
     } else {
@@ -473,6 +476,27 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     if (!quiet) onNotice(read ? tt("Marked as read") : tt("Marked as new"))
   }
   const toggleRead = (m: MessageRow) => void setRead(m, !m.read_at)
+  /*
+    A REPLY, SENT FROM THE MESSAGE'S PAGE (app/api/email/messages/[id]/reply).
+    It shows in the thread at once, marked as sending, and the message reads
+    as read; the server's answer puts the kept reply in its place, or takes
+    it away again with the reason when it did not go.
+  */
+  const replyTo = async (m: MessageRow, text: string): Promise<string | null> => {
+    const temp = `pending-${Date.now()}`
+    const at = new Date().toISOString()
+    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: r.read_at ?? at, replies: [...(r.replies ?? []), { id: temp, message: text, created_at: at, pending: true }] } : r)))
+    const res = await fetch(`/api/email/messages/${encodeURIComponent(m.id)}/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => null)
+    const out = res ? ((await res.json().catch(() => ({}))) as { reply?: { id: string; message: string; created_at: string }; error?: string }) : { error: tt("You seem to be offline. Try again.") }
+    if (!res || !res.ok || !out.reply) {
+      writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).filter((x) => x.id !== temp) } : r)))
+      return out.error || tt("Your reply was not sent. Try again.")
+    }
+    const kept = out.reply
+    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).map((x) => (x.id === temp ? kept : x)) } : r)))
+    onNotice(tt("Reply sent to {email}", { email: m.email }))
+    return null
+  }
   const deleteMessage = async (id: string) => {
     const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
@@ -609,13 +633,16 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         {/* Try Pro, from md up only (none on a phone), stays put; what is under it is what a pull moves (components/ui/pull-to-refresh). */}
         <PullToRefresh onRefresh={onPullRefresh}>
         <EmailsHome
-          tab={tab}
+          tab={shown}
+          chosenTab={tab}
+          skeletonAtOnce={heldOut === shown && current.loading}
           onTab={setTab}
           onTabIntent={(t) => prefetch(keyFor(t), loaderFor(t), 30_000)}
           loading={current.loading}
           subscribers={subscribersData?.rows ?? []}
           checkoutBuyersCount={subscribersData?.buyers ?? 0}
           customerEmails={customerEmails ?? null}
+          onCustomerEmails={(d) => write<CustomerEmailsData>(keyFor("customer"), () => d)}
           physical={physical}
           search={search}
           onSearch={setSearch}
@@ -668,6 +695,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
               onBack={onBack}
               onCopy={copyEmail}
               onToggleRead={toggleRead}
+              onReply={replyTo}
               onDelete={(id) => setConfirm({ type: "message", id })}
               onOpenContact={(m) => {
                 if (!m.subscriber_id) return

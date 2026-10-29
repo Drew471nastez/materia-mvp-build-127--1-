@@ -393,7 +393,8 @@ async function main() {
     check("the canvas cart is priced by the checkout's quote (app/api/website-builder/cart-offers)", /function canvasPricing\(installId: string\): CartPricing/.test(canvas) && /pricing: canvasPricing\(installId\)/.test(canvas) && /cartOffers: \(canvasCarts\.get\(installId\)\?\.cart\.length \?\? 0\) > 0/.test(canvas))
     check("  the product page gets product.metafields.storelib.offers, as the live page", /storelib_offers: stock\.offers/.test(canvas) && /m\.productOffers\(admin, productId\)/.test(read("app/api/website-builder/products/route.ts")))
     const route = read("app/api/website-builder/cart-offers/route.ts")
-    check("  the canvas's pricing is the signed in creator's own store, never one the request names", /editorUser\(supabase\)/.test(route) && /\.eq\("user_id", user\.id\)/.test(route) && /creatorId: creator\.id/.test(route) && !/body\.creatorId|body\.shopId/.test(route))
+    /* Changed on purpose (round 42 team): the store is the signed in owner's own, or the one a team member with Website works in (lib/team/website websiteCaller); still never one the request names. */
+    check("  the canvas's pricing is the signed in creator's own store, never one the request names", /websiteCaller\(\)/.test(route) && /creatorId: creator\.id/.test(route) && !/body\.creatorId|body\.shopId/.test(route))
     const { answerInCanvas } = await import("../lib/storelib-theme/compat/canvas-cart")
     const { CompatTheme, wrapCompatTemplate } = await import("../lib/storelib-theme/compat/theme")
     const theme = new CompatTheme({ "layout/theme.storelib": wrapCompatTemplate("<html><body>{{ content_for_layout }}</body></html>") }, {}, { assetUrl: (n) => `/a/${n}` })
@@ -445,7 +446,8 @@ async function main() {
     check("another offer on the same product, and which one wins", w3.some((w) => /Only one applies to it: the one that saves more on the whole cart/.test(w)) && w3.some((w) => /Each item gets one offer: the one that saves more on it/.test(w)), w3)
     check("  an offer that is off or ended competes with nothing", offerWarnings(BREAK({ id: DRAFT_ID }), [BREAK({ active: false }), BREAK({ id: "x", endsAt: "2020-01-01T00:00:00Z" })], products, NOW).length === 0)
     const editor = read("app/app/offers/offer-editor.tsx")
-    check("the editor: a line under the kind picker, the warnings, Try it in a cart", /data-kind-hint/.test(editor) && /data-offer-warnings/.test(editor) && /data-try-cart/.test(editor) && /\/api\/store\/offers\/try/.test(editor))
+    /* Changed on purpose (round 42 offers): the kind's line is drawn in each choice of the kind chooser (offer-fields KindChooser). */
+    check("the editor: a line under the kind picker, the warnings, Try it in a cart", /data-kind-hint/.test(read("app/app/offers/offer-fields.tsx")) && /KindChooser/.test(editor) && /data-offer-warnings/.test(editor) && /data-try-cart/.test(editor) && /\/api\/store\/offers\/try/.test(editor))
     const tryRoute = read("app/api/store/offers/try/route.ts")
     check("  the try route: the caller's own store (team roles too), products read under it, nothing saved", /const c = await shopCaller\("marketing"\)/.test(tryRoute) /* Round 40: a team member reaches offers with Marketing. */ && /\.eq\("creator_id", c\.creatorId\)/.test(tryRoute) && !/saveOffer|\.insert\(|\.update\(/.test(tryRoute))
     check("  the kind explanations name what each does, no sales words", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(editor.match(/const KIND_HINT[\s\S]*?\n\}/)?.[0] ?? "x"))

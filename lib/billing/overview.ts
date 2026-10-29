@@ -16,9 +16,11 @@ import "server-only"
  */
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
-import { readPlanOverride, recordPaidPlan } from "@/lib/billing/plan-override"
+import { readPlanOverride } from "@/lib/billing/plan-override"
+import { readSubscriptionRow, subscriptionReader } from "@/lib/billing/subscription-reader"
+import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
 
 const FREE_PLAN = {
   id: "free",
@@ -56,8 +58,6 @@ const PRO_PLAN = {
 }
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
-const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
-
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()
   if (ts instanceof Date) return ts.toISOString()
@@ -70,21 +70,6 @@ function safeTimestamp(ts: any): string {
   return new Date().toISOString()
 }
 
-// LIVE Stripe Price IDs
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
-
-function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
-  if (!priceId) return "free"
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  // Also check by partial match (in case of price ID variants)
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return "free"
-}
-
-
 export interface BillingOverview {
   plans: unknown[]
   subscription: unknown
@@ -96,7 +81,7 @@ export interface BillingOverview {
 }
 
 /** Null when there is nobody signed in, or no creator to bill. */
-export async function loadBillingOverview(): Promise<BillingOverview | null> {
+export async function loadBillingOverview(store?: { creatorId: string }): Promise<BillingOverview | null> {
 
   const supabase = await createClient()
 
@@ -112,7 +97,10 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
   let invoices: any[] = []
   let paymentMethod: any = null
 
-  const { data: creator } = await createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle()
+  /* Round 42: the store the route checked (the owner's own, or the one a team member with Billing works in: lib/team/money), else the signed in account's own. */
+  const { data: creator } = store
+    ? await createAdminClient().from("creators").select("*").eq("id", store.creatorId).maybeSingle()
+    : await createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle()
 
   if (!creator) return null
 
@@ -128,55 +116,38 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
     console.error("[Billing] Error loading plans from DB:", error)
   }
 
-  let stripeCustomerId: string | null = null
+  /*
+    A READ: NO CUSTOMER IS CREATED HERE AND NOTHING IS WRITTEN. This used to
+    create a Stripe customer, write the plan Stripe answered into creators and
+    subscriptions, and, when the subscription list failed, write the creator
+    back to Free (Step 5). The plan is the webhook's to write
+    (lib/billing/subscription-sync.ts); a customer is made when the creator
+    adds a card or checks out. Stripe failing shows the stored plan.
+  */
+  const stripeCustomerId: string | null = typeof creator.stripe_customer_id === "string" && creator.stripe_customer_id.startsWith("cus_") ? creator.stripe_customer_id : null
+  const admin = createAdminClient()
+  const row = await readSubscriptionRow(admin, creator.id)
+  let subscriptionsRead: SubscriptionsRead | null = null
 
-  // Step 1: Get or create Stripe customer
-  try {
-    stripeCustomerId = await getOrCreateStripeCustomer({
-      creatorId: creator.id,
-      existingCustomerId: creator.stripe_customer_id,
-      email: user.email,
-      userId: user.id,
-      username: creator.username || creator.slug || "creator",
-    })
-  } catch (error) {
-    console.error("[Billing] Error getting Stripe customer:", error)
-  }
-
-  if (stripeCustomerId) {
+  if (stripeCustomerId || row?.stripe_customer_id) {
     /**
      * =========================================================================
      *  FOUR STRIPE REQUESTS, ONE ROUND TRIP OF LATENCY
      * =========================================================================
-     *
-     * These used to run one after another -- subscriptions, then the customer,
-     * then payment methods, then invoices -- each one waiting for the last. The
-     * comments beside them already said "independent of subscription" and
-     * "independent of subscription and payment methods", so the sequencing was
-     * never deliberate; it was just how await reads. On a server component that
-     * blocks the FIRST BYTE of the response, so the page could not begin
-     * streaming until four consecutive Stripe round trips had finished. That is
-     * the billing page taking seconds and sitting on a skeleton to do it.
-     *
-     * They are issued together now and the page waits once for the slowest
-     * rather than for the sum.
-     *
-     * allSettled, not all: one Stripe endpoint failing must not take the other
-     * three down with it. Each result is unwrapped INSIDE the try/catch that
-     * already existed for it, so a rejection is still logged by the same handler
-     * and still leaves the rest of the page renderable -- the failure behaviour
-     * is unchanged, only the waiting is.
+     * Issued together; the page waits once for the slowest rather than for the
+     * sum. allSettled, not all: one Stripe endpoint failing must not take the
+     * other three down with it. The subscriptions come through the shared
+     * reader (lib/billing/subscription-reader.ts), so GET
+     * /api/billing/subscription asked at the same moment shares the one call,
+     * and each call has a deadline.
      */
+    const timeout = { timeout: STRIPE_READ_TIMEOUT_MS }
     const [subsSettled, customerSettled, paymentMethodsSettled, invoicesSettled] =
       await Promise.allSettled([
-        stripe.subscriptions.list({
-          customer: stripeCustomerId,
-          limit: 10,
-          expand: ["data.latest_invoice"],
-        }),
-        stripe.customers.retrieve(stripeCustomerId),
-        stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 }),
-        stripe.invoices.list({ customer: stripeCustomerId, limit: 20 }),
+        subscriptionReader.read([stripeCustomerId, row?.stripe_customer_id]),
+        stripeCustomerId ? stripe.customers.retrieve(stripeCustomerId, {}, timeout) : Promise.reject(new Error("no customer")),
+        stripeCustomerId ? stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 }, timeout) : Promise.reject(new Error("no customer")),
+        stripeCustomerId ? stripe.invoices.list({ customer: stripeCustomerId, limit: 20 }, timeout) : Promise.reject(new Error("no customer")),
       ])
 
     /** Hand the rejection to the caller's own catch, so logging stays where it was. */
@@ -185,204 +156,64 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
       return r.value
     }
 
-    // Step 2: subscription
-    try {
-      const stripeSubs = settled(subsSettled)
-      const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
+    // Step 2: subscription (the reader never throws; a failure is an answer of its own)
+    subscriptionsRead = subsSettled.status === "fulfilled" ? subsSettled.value : { ok: false, reason: "error", message: String(subsSettled.reason) }
+    if (!subscriptionsRead.ok) console.error("[Billing] Stripe subscriptions not read; showing the stored plan:", subscriptionsRead.reason, subscriptionsRead.message)
 
-      if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
-        const currentPriceId = preferredSubscription.items.data[0]?.price?.id
-        const livePlanId = getPlanIdFromPriceId(currentPriceId)
-        currentPlan = plans.find((p: any) => p.id === livePlanId) ?? FREE_PLAN
-
-        // Extract period dates with robust fallback chain (SDK v20 removed current_period_start/end)
-        const sub = preferredSubscription as any
-        let periodStartTs: any = null
-        let periodEndTs: any = null
-
-        // Priority 1: Legacy top-level fields (older API versions still send these)
-        if (sub.current_period_start) periodStartTs = sub.current_period_start
-        if (sub.current_period_end) periodEndTs = sub.current_period_end
-
-        // Priority 2: SDK v20 current_period object
-        if (!periodStartTs && sub.current_period?.start_date) periodStartTs = sub.current_period.start_date
-        if (!periodEndTs && sub.current_period?.end_date) periodEndTs = sub.current_period.end_date
-
-        // Priority 3: latest_invoice period fields (try ALL possible field names)
-        const inv = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
-        if (inv) {
-          if (!periodStartTs && inv.period_start) periodStartTs = inv.period_start
-          if (!periodEndTs && inv.period_end) periodEndTs = inv.period_end
-          // Try new object format: invoice.period.start_date / end_date
-          if (!periodStartTs && inv.period?.start_date) periodStartTs = inv.period.start_date
-          if (!periodEndTs && inv.period?.end_date) periodEndTs = inv.period.end_date
-          // Try: invoice.period.start / end
-          if (!periodStartTs && inv.period?.start) periodStartTs = inv.period.start
-          if (!periodEndTs && inv.period?.end) periodEndTs = inv.period.end
-
-          // Priority 4: invoice line items period
-          if (!periodStartTs || !periodEndTs) {
-            const lineItem = inv.lines?.data?.[0]
-            if (lineItem?.period) {
-              if (!periodStartTs && lineItem.period.start) periodStartTs = lineItem.period.start
-              if (!periodEndTs && lineItem.period.end) periodEndTs = lineItem.period.end
-            }
-          }
-        }
-
-        // Priority 5: Compute from billing_cycle_anchor (use DATE-ONLY comparison)
-        if (!periodEndTs || (periodStartTs && periodEndTs && String(periodStartTs) === String(periodEndTs))) {
-          const anchor = sub.billing_cycle_anchor || sub.start_date
-          if (anchor) {
-            const anchorMs = typeof anchor === "number" ? (anchor > 1e12 ? anchor : anchor * 1000) : new Date(anchor).getTime()
-            const anchorDate = new Date(anchorMs)
-            const now = new Date()
-            // Compare by date only (ignore time) so same-day billing anchor advances correctly
-            const anchorDay = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate())
-            const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            while (anchorDay <= todayDay) {
-              anchorDate.setMonth(anchorDate.getMonth() + 1)
-              anchorDay.setMonth(anchorDay.getMonth() + 1)
-            }
-            periodEndTs = anchorDate.toISOString()
-            if (!periodStartTs) {
-              const startDate = new Date(anchorDate)
-              startDate.setMonth(startDate.getMonth() - 1)
-              periodStartTs = startDate.toISOString()
-            }
-          }
-        }
-
-        console.log("[Billing] Period extraction:", { periodStartTs, periodEndTs, hasInvoice: !!inv })
-
-        subscription = {
-          id: preferredSubscription.id,
-          stripe_subscription_id: preferredSubscription.id,
-          plan_id: livePlanId,
-          pending_plan_id: (preferredSubscription.metadata?.pending_plan_id as string) || null,
-          status: preferredSubscription.status,
-          current_period_start: safeTimestamp(periodStartTs),
-          current_period_end: safeTimestamp(periodEndTs),
-          cancel_at_period_end: preferredSubscription.cancel_at_period_end,
-          subscription_plans: currentPlan,
-        }
-
-        // Sync to DB (non-blocking, don't let DB errors break billing page)
-        try {
-          await createAdminClient()
-            .from("creators")
-            .update({
-              stripe_customer_id: stripeCustomerId,
-              subscription_plan_id: livePlanId,
-              subscription_status: preferredSubscription.status,
-            })
-            .eq("id", creator.id)
-
-          await createAdminClient()
-            .from("subscriptions")
-            .upsert({
-              creator_id: creator.id,
-              stripe_subscription_id: preferredSubscription.id,
-              stripe_customer_id: stripeCustomerId,
-              plan_id: livePlanId,
-              pending_plan_id: null,
-              status: preferredSubscription.status,
-              current_period_start: safeTimestamp(periodStartTs),
-              current_period_end: safeTimestamp(periodEndTs),
-              cancel_at_period_end: preferredSubscription.cancel_at_period_end,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "creator_id" })
-        } catch (syncError) {
-          console.error("[Billing] Error syncing subscription to DB:", syncError)
-        }
-        /* An admin's plan over this one keeps it as the plan clearing returns to (lib/billing/plan-override.ts). */
-        await recordPaidPlan(createAdminClient(), creator.id, livePlanId, preferredSubscription.status)
-      }
-
-      // If no active subscription found, check for a recently canceled one so the UI can show the notice
-      if (!subscription) {
-        const canceledSub = stripeSubs.data.find((s: any) => s.status === "canceled")
-        if (canceledSub) {
-          const canceledPriceId = canceledSub.items.data[0]?.price?.id
-          subscription = {
-            id: canceledSub.id,
-            stripe_subscription_id: canceledSub.id,
-            plan_id: getPlanIdFromPriceId(canceledPriceId),
-            status: "canceled",
-            canceled_at: (canceledSub as any).canceled_at
-              ? safeTimestamp((canceledSub as any).canceled_at)
-              : null,
-            cancel_at_period_end: false,
-            current_period_end: (canceledSub as any).ended_at
-              ? safeTimestamp((canceledSub as any).ended_at)
-              : null,
-          }
-        }
-      }
-    } catch (error) {
-      console.error("[Billing] Error fetching subscriptions from Stripe:", error)
-    }
-
-    // Step 3: Fetch payment methods from Stripe (independent of subscription)
-    try {
-      const customer = settled(customerSettled)
-      if (!(customer as any).deleted) {
-        const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
-          ? customer.invoice_settings.default_payment_method
-          : customer.invoice_settings.default_payment_method?.id || null
-
-        const stripePaymentMethods = settled(paymentMethodsSettled)
-        const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]
-
-        if (defaultPaymentMethod) {
-          paymentMethod = {
-            stripe_payment_method_id: defaultPaymentMethod.id,
-            card_brand: defaultPaymentMethod.card?.brand || "unknown",
-            card_last4: defaultPaymentMethod.card?.last4 || "0000",
-            card_exp_month: defaultPaymentMethod.card?.exp_month || 0,
-            card_exp_year: defaultPaymentMethod.card?.exp_year || 0,
-            is_default: defaultPaymentMethod.id === defaultPaymentMethodId,
-          }
-        }
-      }
-    } catch (error) {
-      console.error("[Billing] Error fetching payment methods from Stripe:", error)
-    }
-
-    // Step 4: Fetch invoices from Stripe (independent of subscription and payment methods)
-    try {
-      const stripeInvoices = settled(invoicesSettled)
-      invoices = stripeInvoices.data.map((inv) => ({
-        id: inv.id,
-        stripe_invoice_id: inv.id,
-        amount_cents: inv.amount_paid || inv.total || 0,
-        status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
-        invoice_pdf_url: inv.invoice_pdf || null,
-        hosted_invoice_url: inv.hosted_invoice_url || null,
-        period_start: inv.period_start ? safeTimestamp(inv.period_start) : null,
-        period_end: inv.period_end ? safeTimestamp(inv.period_end) : null,
-        created_at: inv.created ? safeTimestamp(inv.created) : new Date().toISOString(),
-        description: inv.lines?.data?.[0]?.description || "Subscription",
-      }))
-    } catch (error) {
-      console.error("[Billing] Error fetching invoices from Stripe:", error)
-    }
-
-    // Step 5: If no subscription found, sync free plan to DB
-    if (!subscription) {
-      currentPlan = FREE_PLAN
-      await recordPaidPlan(createAdminClient(), creator.id, "free", "active")
+    // Step 3: payment method (independent of subscription)
+    if (stripeCustomerId) {
       try {
-        await createAdminClient()
-          .from("creators")
-          .update({ subscription_plan_id: "free", subscription_status: "active" })
-          .eq("id", creator.id)
+        const customer = settled(customerSettled) as unknown as import("stripe").Stripe.Customer
+        if (!(customer as any).deleted) {
+          const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
+            ? customer.invoice_settings.default_payment_method
+            : customer.invoice_settings.default_payment_method?.id || null
+
+          const stripePaymentMethods = settled(paymentMethodsSettled)
+          const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]
+
+          if (defaultPaymentMethod) {
+            paymentMethod = {
+              stripe_payment_method_id: defaultPaymentMethod.id,
+              card_brand: defaultPaymentMethod.card?.brand || "unknown",
+              card_last4: defaultPaymentMethod.card?.last4 || "0000",
+              card_exp_month: defaultPaymentMethod.card?.exp_month || 0,
+              card_exp_year: defaultPaymentMethod.card?.exp_year || 0,
+              is_default: defaultPaymentMethod.id === defaultPaymentMethodId,
+            }
+          }
+        }
       } catch (error) {
-        console.error("[Billing] Error syncing free plan to DB:", error)
+        console.error("[Billing] Error fetching payment methods from Stripe:", error)
+      }
+
+      // Step 4: invoices (independent of subscription and payment methods)
+      try {
+        const stripeInvoices = settled(invoicesSettled)
+        invoices = stripeInvoices.data.map((inv) => ({
+          id: inv.id,
+          stripe_invoice_id: inv.id,
+          amount_cents: inv.amount_paid || inv.total || 0,
+          status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
+          invoice_pdf_url: inv.invoice_pdf || null,
+          hosted_invoice_url: inv.hosted_invoice_url || null,
+          period_start: inv.period_start ? safeTimestamp(inv.period_start) : null,
+          period_end: inv.period_end ? safeTimestamp(inv.period_end) : null,
+          created_at: inv.created ? safeTimestamp(inv.created) : new Date().toISOString(),
+          description: inv.lines?.data?.[0]?.description || "Subscription",
+        }))
+      } catch (error) {
+        console.error("[Billing] Error fetching invoices from Stripe:", error)
       }
     }
   }
 
+  /* Stripe's answer when there is one, the stored plan when there is not. Never Free because a read failed. */
+  const view = resolveSubscriptionView({ planId: creator.subscription_plan_id ?? null, status: creator.subscription_status ?? null, row }, subscriptionsRead)
+  currentPlan = (plans as { id?: string }[]).find((p) => p?.id === view.planId) ?? FALLBACK_PLANS.find((p) => p.id === view.planId) ?? FREE_PLAN
+  subscription = view.subscription
+    ? { ...view.subscription, ...(view.subscription.status === "canceled" ? {} : { subscription_plans: currentPlan }) }
+    : null
 
   /*
     A PLAN SET FROM /admin IS THE PLAN. Every check reads it from the
@@ -390,7 +221,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
     the override too and shows the same plan. The subscription, card and
     invoices stay Stripe's, untouched.
   */
-  const override = await readPlanOverride(createAdminClient(), creator.id)
+  const override = await readPlanOverride(admin, creator.id)
   if (override) {
     currentPlan = (plans as { id?: string }[]).find((p) => p?.id === override.planId) ?? FALLBACK_PLANS.find((p) => p.id === override.planId) ?? currentPlan
   }

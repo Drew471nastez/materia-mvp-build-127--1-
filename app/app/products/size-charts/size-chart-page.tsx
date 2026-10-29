@@ -182,10 +182,6 @@ export function SizeChartPage({ creatorId, chart, ready, rules, targets }: { cre
                   <dt className={HINT}>{tt("Sizes")}</dt>
                   <dd className="mt-1 text-[15px] font-medium tabular-nums text-[#1a1a2e] sm:text-[14px]">{sizes}</dd>
                 </div>
-                <div>
-                  <dt className={HINT}>{tt("Measured in")}</dt>
-                  <dd className="mt-1 text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{draft.unit}</dd>
-                </div>
                 {chart ? (
                   <div>
                     <dt className={HINT}>{tt("Products")}</dt>

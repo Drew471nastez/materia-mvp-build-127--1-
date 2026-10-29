@@ -251,7 +251,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /<AppTopCorners \/>/.test(cold)
       && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
   const layout = code("app/app/layout.tsx")
-  check("and both of the layout's gates use it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2)
+  /* Changed on purpose (round 42 reliability): a third gate, over the screen that says the profile or the creator row could not be read; it uses it too. */
+  check("and every one of the layout's gates uses it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 3 && (layout.match(/<NativeAuthGate/g) ?? []).length === 3)
   const dash = code("components/app/dashboard-client.tsx")
   /* "The loading should not be the spinner in the charts loading and the
      tables loading; loading structures or skeleton, light gray shimmering."
@@ -274,7 +275,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Analytics' cards draw their own shapes while they wait (rows, the funnel, a figure) and crossfade into the figures",
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
       /* Changed on purpose: ten, with Referrers and Operating systems (round Z6); eleven with the added reports' own cards, which wait the same way (app/app/analytics/analytics-reports AddedCards). */
-      && (reports.match(/<Body blank=\{/g) ?? []).length === 11
+      /* Changed on purpose (round 42, clicks between pages): twelve, with the website's Clicks between pages card, which waits as rows the same way. */
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 12
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} \/>\} className=\{BODY\} contentClassName="h-full flex flex-col">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was
@@ -300,7 +302,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts")? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts"| label=\{tt\("Loading payouts"\)\})? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady(, canManage)? \}\)\}\s*<\/Suspense>/.test(payoutsPage) /* Changed on purpose (round 42 team): canManage, whether Cash out and the bank are drawn */
       && (/function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage) || /function PayoutsWaiting\(\{ label \}: \{ label: string \}\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label=\{label\}>/.test(payoutsPage) /* its words from the page, in the request's language */)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
@@ -385,7 +387,7 @@ section("Pages drawn over the whole shell")
   const newLayout = code("app/app/products/new/layout.tsx")
   const idLayout = code("app/app/products/[id]/layout.tsx")
   check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
-    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar" phoneOnly>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly>/.test(idLayout))
+    /<PageLayer inset="white">/.test(upgrade) && /* Changed on purpose (round 41): the product editor's layers ask to move. */ /<PageLayer pill inset="bar" phoneOnly moves>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
     /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)
@@ -434,10 +436,11 @@ section("Pages drawn over the whole shell")
   */
   check("where there are no view transitions the layer moves itself, both ways, on transform and on the same numbers",
     /const canViewTransition = \(\) =>\s*typeof \(document as WithViewTransitions\)\.startViewTransition === "function" && !!ReactViewTransition/.test(layer)
-      && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
+      /* Changed on purpose (round 41): the press says whether the layer it opens moves. */
+      && /else if \(layerMotionOn\(LAYER_MOVES \|\| moves\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
       /* Changed on purpose: the way back is played by the layer in every engine now (dropAtCommit), not only where there are no view transitions, and it fades a little as it goes down (LAYER_LEAVE_FADE). */
-      && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
-      && /if \(!markReactMotion\("enter"\)\) riseByHand\(box\.current\)/.test(layer)
+      && /if \(!dropAtCommit\(\)\) markReactMotion\("leave", asked\)/.test(layer)
+      && /if \(!markReactMotion\("enter", asked\)\) riseByHand\(box\.current\)/.test(layer)
       && /\[\{ transform: "translateY\(100%\)" \}, \{ transform: "translateY\(0\)" \}\]\s*: \[\{ transform: "translateY\(0\)", opacity: 1 \}, \{ transform: "translateY\(100%\)", opacity: LAYER_LEAVE_FADE \}\]/.test(layer)
       && /export const LAYER_LEAVE_FADE = 0\.85/.test(layer)
       && /duration: ms, easing: LAYER_MOTION_EASE/.test(layer)

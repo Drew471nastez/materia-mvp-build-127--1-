@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { creatorPagePage } from "@/lib/team/creator-page"
 import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
 import type { Metadata } from "next"
-import { pageUser } from "@/lib/auth/page-user"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { creatorCommunityCards } from "@/lib/communities/server/public"
@@ -19,17 +18,16 @@ export default async function CreatorPageEditor({
   searchParams: Promise<{ pageType?: string; productId?: string }>
 }) {
   const { pageType, productId } = await searchParams
-  const supabase = await createClient()
-
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /* Round 42: the owner's own page, or the store's for a team member with Creator page (lib/team/creator-page). */
+  const page = await creatorPagePage()
+  if (page.kind === "signed_out" || page.kind === "closed") return null
+  if (page.kind === "none") redirect("/onboarding")
+  const supabase = page.db
 
   // Get creator + profile in parallel
   const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug, cover_url, headline, bio, niche_tags, show_total_sales_badge, avatar_url").eq("user_id", user.id).single(),
-    supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).single(),
+    supabase.from("creators").select("id, slug, cover_url, headline, bio, niche_tags, show_total_sales_badge, avatar_url").eq("id", page.creatorId).single(),
+    supabase.from("profiles").select("display_name, avatar_url, username").eq("id", page.profileId).single(),
   ])
 
   if (!creator) {

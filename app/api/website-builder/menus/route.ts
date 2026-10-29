@@ -1,9 +1,8 @@
+import { websiteCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
 
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import { editorUser } from "@/lib/website-builder/owned-install"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { readEditorBody } from "@/lib/website-builder/request-body"
@@ -28,15 +27,11 @@ const NO_STORE = { "Cache-Control": "no-store" }
 /** Twelve menus of links, well under the 256 KB the table allows. */
 const MENUS_BODY = 256 * 1024
 
+/* The owner, or a team member with Website working in the store (lib/team/website). */
 async function creatorOf() {
-  const supabase = await createClient()
-  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-  const { user, status: authStatus, error: authError } = await editorUser(supabase)
-  if (!user) return { error: NextResponse.json({ error: authStatus === 401 ? "Sign in to edit menus." : authError }, { status: authStatus, headers: NO_STORE }) }
-  const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return { error: NextResponse.json({ error: "Creator not found" }, { status: 404, headers: NO_STORE }) }
-  return { admin, userId: user.id, creatorId: (creator as { id: string }).id }
+  const site = await websiteCaller()
+  if (site.error !== null) return { error: NextResponse.json({ error: site.status === 401 ? "Sign in to edit menus." : site.error }, { status: site.status, headers: NO_STORE }) }
+  return { admin: createAdminClient(), userId: site.userId, creatorId: site.creatorId }
 }
 
 export async function GET(req: Request) {

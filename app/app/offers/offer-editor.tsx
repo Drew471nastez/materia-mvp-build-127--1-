@@ -44,19 +44,20 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, offerState, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
 import { amountOf, bodyOf, draftOf, problemsOf, tierOf, type Draft, type Problems } from "./offer-draft"
-import { SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-controls"
+import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../products/new/editor-controls"
 import { LeaveButton } from "../products/new/editor-buttons"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { StatusBadge, iconButton } from "../orders/order-parts"
 import { CouponSaveButton, Tick, quietDanger } from "../coupons/coupon-parts"
 import { BreakPreview, KIND_WORD, OfferPreview, PLACEMENT_WORD, STATE_TONE, STATE_WORD, currencySign, moneyIn, type OfferCollection, type OfferProduct } from "./offer-parts"
-import { BAD, ChoiceGrid, ERR, FIELD, HINT, LABEL, MoneyField, ProductPicker, Radio, TierEditor } from "./offer-fields"
+import { BAD, ChoiceGrid, ERR, FIELD, HINT, KindChooser, LABEL, MoneyField, ProductPicker, Radio, RadioRows, TierEditor } from "./offer-fields"
 import { DRAFT_ID, offerWarnings, type Tried } from "@/lib/offers/try-cart"
 import { sendOffer } from "./offer-api"
 import { newOfferHref, offersReturn } from "./list-return"
@@ -67,6 +68,19 @@ const KIND_HINT: Record<OfferKind, () => string> = {
   checkout: () => tt("One product suggested when the cart has others, at a lower price."),
   quantity_break: () => tt("Buy more of one product, pay less each, or get some free."),
 }
+
+/* The Help Center's guide to each kind (lib/help/offer-articles.ts), linked from the preview. */
+const KIND_HELP: Record<OfferKind, { href: string; label: () => string }> = {
+  quantity_break: { href: "/help/products/quantity-breaks", label: () => tt("How quantity breaks work") },
+  bundle: { href: "/help/products/bundles", label: () => tt("How bundles work") },
+  checkout: { href: "/help/products/upsells", label: () => tt("How upsells work") },
+}
+
+/** "a", "a and b", "a, b and c". */
+const listWords = (words: string[]) => (words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} ${tt("and")} ${words[words.length - 1]}`)
+
+/* The order the kinds are offered in: one product, several, one more. */
+const KIND_ORDER: OfferKind[] = ["quantity_break", "bundle", "checkout"]
 
 /* The coupon editor's card (CLAUDE.md's /app card), its padding from --app-card-x. */
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
@@ -179,6 +193,7 @@ export function OfferEditor({
   settingsReady,
   breaksReady,
   sold = 0,
+  askKind = false,
 }: {
   /** Null for a new offer. */
   offer: Offer | null
@@ -199,6 +214,8 @@ export function OfferEditor({
   breaksReady: boolean
   /** Units it sold in the last 90 days (lib/offers/offers-server soldThrough). */
   sold?: number
+  /** A new offer opened from New offer, with no kind in its address: the page starts on the choice of kind alone. */
+  askKind?: boolean
 }) {
   const router = useRouter()
   /* The currency this offer's amounts were typed in, kept while it is open: a save after the store's currency changed is refused (lib/store/currency-guard), never written over the converted amounts. */
@@ -211,6 +228,10 @@ export function OfferEditor({
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
+  /* Nothing is asked before the kind: the rest of the form comes in once one is picked. */
+  const [kindChosen, setKindChosen] = React.useState(!!offer || !askKind)
+  /* Where it shows, dates and limits: folded under More options until wanted. */
+  const [moreOpen, setMoreOpen] = React.useState(false)
   const busy = saving || deleting
   const paneRef = React.useRef<HTMLDivElement>(null)
   const [ask, confirmSheet] = useConfirm()
@@ -218,6 +239,8 @@ export function OfferEditor({
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const problems = problemsOf(d, currency)
   const shown: Problems = tried ? problems : {}
+  const moreProblem = !!(shown.places || shown.dates || shown.limit)
+  const moreShown = moreOpen || moreProblem
   const sign = currencySign(currency)
   const money = moneyIn(currency)
   /* What to watch for before saving (lib/offers/try-cart.ts offerWarnings): a draft product, a tier that costs more per item, another offer on the same products. */
@@ -235,7 +258,7 @@ export function OfferEditor({
   const state = offer ? offerState(offer, now) : null
 
   const save = async () => {
-    if (busy || !ready) return
+    if (busy || !ready || !kindChosen) return
     setTried(true)
     if (Object.keys(problems).length) {
       /* The first field with something to fix, brought into view. */
@@ -321,6 +344,15 @@ export function OfferEditor({
   const togglePlace = (p: Placement) => set({ placements: d.placements.includes(p) ? d.placements.filter((x) => x !== p) : PLACEMENTS_FOR[d.kind].filter((x) => x === p || d.placements.includes(x)) })
 
   const changeKind = (k: OfferKind) => {
+    setKindChosen(true)
+    if (k === d.kind) {
+      try {
+        window.history.replaceState(window.history.state, "", newOfferHref(k))
+      } catch {
+        /* The page still works on the address it had. */
+      }
+      return
+    }
     /* A name typed by hand stays; the other kind's own default name replaces the default one. */
     const fresh = draftOf(null, k, currency)
     const typed = d.title !== draftOf(null, d.kind, currency).title
@@ -341,9 +373,13 @@ export function OfferEditor({
     ...(physical || d.discountType === "free_shipping" ? [{ value: "free_shipping" as const, label: tt("Free shipping") }] : []),
     { value: "none", label: tt("None") },
   ]
+  /* What More options holds, in one line, while it is folded. */
+  const placesLine = d.placements.length === 0 ? tt("Shown nowhere yet") : tt("Shown on {places}", { places: listWords(d.placements.map((p) => PLACEMENT_WORD[p]().toLowerCase())) })
+  const datesLine = d.startsAt || d.endsAt ? (d.endsAt ? tt("ends {date}", { date: new Date(d.endsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) }) : tt("starts {date}", { date: new Date(d.startsAt).toLocaleDateString(appLocale(), { day: "numeric", month: "short" }) })) : tt("no end date")
+  const moreLine = `${placesLine} · ${datesLine}${d.combinesWithCodes ? "" : ` · ${tt("no codes on top")}`}`
   const heading = offer ? offer.title : tt("New offer")
   const newSettingsUsed = !settingsReady && (d.condition === "collections" || d.placements.length !== PLACEMENTS_FOR[d.kind].length || !!d.startsAt || !!d.endsAt || !!d.maxPerOrder || !d.combinesWithCodes || !!d.minSubtotal || d.discountType === "free_shipping")
-  const canSave = ready && !busy && (offer ? dirty : true)
+  const canSave = ready && !busy && kindChosen && (offer ? dirty : true)
   const saveWord = offer ? tt("Save") : tt("Create")
   const problemCount = Object.keys(shown).length
 
@@ -397,7 +433,7 @@ export function OfferEditor({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
-          <span className="ml-1 shrink-0 text-[14px] text-[#6b7280]">{KIND_WORD[d.kind]()}</span>
+          {offer ? <span className="ml-1 shrink-0 text-[14px] text-[#6b7280]">{KIND_WORD[d.kind]()}</span> : null}
           {state ? (
             <span className="ml-1 shrink-0">
               <StatusBadge tone={STATE_TONE[state]}>{STATE_WORD[state]()}</StatusBadge>
@@ -429,33 +465,32 @@ export function OfferEditor({
           className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:items-start"
         >
           <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
-            {/* ── What kind, and its name ──────────────────────────── */}
+            {/* ── What kind (a new one only): the start of the page ── */}
+            {!offer ? (
+              <section className={CARD} aria-labelledby="offer-kind-title" data-offer-start={kindChosen ? "chosen" : "asking"}>
+                <h2 id="offer-kind-title" className={CARD_TITLE}>
+                  {tt("What do you want to make?")}
+                </h2>
+                <KindChooser
+                  label={tt("Kind of offer")}
+                  value={kindChosen ? d.kind : null}
+                  onChange={changeKind}
+                  options={KIND_ORDER.map((k) => ({ value: k, name: KIND_WORD[k](), line: KIND_HINT[k]() }))}
+                />
+                {!kindChosen ? <p className={HINT}>{tt("Pick one to start. You can change it until you create the offer.")}</p> : null}
+              </section>
+            ) : null}
+
+            {kindChosen ? (
+            <>
+            {/* ── Its name ─────────────────────────────────────────── */}
             <section className={CARD} aria-labelledby="offer-name-title">
-              {!offer ? (
-                <div className="space-y-2">
-                  <Segmented
-                    label={tt("Kind of offer")}
-                    value={d.kind}
-                    /* Three kinds on a phone's width: each as wide as its name, so "Quantity break" is never cut. */
-                    fit="content"
-                    onChange={changeKind}
-                    options={[
-                      { value: "bundle", label: tt("Bundle") },
-                      { value: "checkout", label: tt("Upsell") },
-                      { value: "quantity_break", label: tt("Quantity break") },
-                    ]}
-                  />
-                  <p data-kind-hint={d.kind} className={HINT}>
-                    {KIND_HINT[d.kind]()}
-                  </p>
-                </div>
-              ) : null}
               <div {...(shown.title ? { "data-problem": "" } : {})}>
                 <label id="offer-name-title" htmlFor="offer-title" className={cn(CARD_TITLE, "mb-2 block")}>
                   {tt("Name buyers see")}
                 </label>
                 <input id="offer-title" value={d.title} maxLength={80} autoComplete="off" enterKeyHint="done" onChange={(e) => set({ title: e.target.value })} aria-invalid={!!shown.title} className={cn(FIELD, shown.title && BAD)} />
-                {shown.title ? <p className={ERR}>{shown.title}</p> : <p className={cn(HINT, "mt-1.5")}>{tt("Shown above the offer on your website.")}</p>}
+                {shown.title ? <p className={ERR}>{shown.title}</p> : <p className={cn(HINT, "mt-1.5")}>{d.kind === "quantity_break" ? tt("The heading above the tiers on the product page.") : d.kind === "bundle" ? tt("The heading above the set on each product's page.") : tt("The line above the product you offer.")}</p>}
               </div>
             </section>
 
@@ -478,23 +513,31 @@ export function OfferEditor({
                       ]}
                     />
                   ) : null}
-                  {d.scope === "product" ? (
-                    <ProductPicker products={products} chosen={d.productIds} onPick={(id) => set({ productIds: [id] })} single money={money} name="offer-products" />
-                  ) : (
-                    <ul role="radiogroup" aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
-                      {collections.map((c) => {
-                        const on = d.triggerCollectionIds[0] === c.id
-                        return (
-                          <li key={c.id}>
-                            <button type="button" role="radio" aria-checked={on} data-pick-collection={c.id} onClick={() => set({ triggerCollectionIds: [c.id] })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
-                              <Radio on={on} />
-                              <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
+                  {/* One product or a collection: the two lists cross-fade in one place, and the card eases to the new height. */}
+                  <SwapPanels
+                    active={d.scope}
+                    panels={[
+                      { key: "product", node: <ProductPicker products={products} chosen={d.productIds} onPick={(id) => set({ productIds: [id] })} single money={money} name="offer-products" /> },
+                      {
+                        key: "collection",
+                        node: (
+                          <ul role="radiogroup" aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                            {collections.map((c) => {
+                              const on = d.triggerCollectionIds[0] === c.id
+                              return (
+                                <li key={c.id}>
+                                  <button type="button" role="radio" aria-checked={on} data-pick-collection={c.id} onClick={() => set({ triggerCollectionIds: [c.id] })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
+                                    <Radio on={on} />
+                                    <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
+                                  </button>
+                                </li>
+                              )
+                            })}
+                        </ul>
+                        ),
+                      },
+                    ]}
+                  />
                   {shown.products ? <p className={ERR}>{shown.products}</p> : null}
                 </section>
 
@@ -527,10 +570,9 @@ export function OfferEditor({
                 <h2 id="offer-when" className={CARD_TITLE}>
                   {tt("Show it when the cart has")}
                 </h2>
-                <Segmented
+                <RadioRows
                   label={tt("Show it when the cart has")}
                   value={d.condition}
-                  fit="content"
                   onChange={(condition) => set({ condition })}
                   options={[
                     { value: "any", label: tt("Anything") },
@@ -538,25 +580,32 @@ export function OfferEditor({
                     ...(collections.length || d.condition === "collections" ? [{ value: "collections" as const, label: tt("A collection") }] : []),
                   ]}
                 />
-                {d.condition === "products" ? (
-                  <ProductPicker products={products.filter((p) => !d.productIds.includes(p.id))} chosen={d.triggerIds} onPick={(id) => set({ triggerIds: toggle(d.triggerIds, id) })} money={money} name="offer-triggers" />
-                ) : null}
-                {d.condition === "collections" ? (
-                  <ul aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
-                    {collections.map((c) => {
-                      const on = d.triggerCollectionIds.includes(c.id)
-                      return (
-                        <li key={c.id}>
-                          <button type="button" role="checkbox" aria-checked={on} onClick={() => set({ triggerCollectionIds: toggle(d.triggerCollectionIds, c.id) })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
-                            <Tick on={on} />
-                            <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : null}
-                {d.condition === "any" ? <p className={HINT}>{tt("Any cart without this product in it.")}</p> : null}
+                {/* What the choice asks next, in one place: the hint, the products or the collections, cross-faded, the card easing to its height. */}
+                <SwapPanels
+                  active={d.condition}
+                  panels={[
+                    { key: "any", node: <p className={HINT}>{tt("Any cart without this product in it.")}</p> },
+                    { key: "products", node: <ProductPicker products={products.filter((p) => !d.productIds.includes(p.id))} chosen={d.triggerIds} onPick={(id) => set({ triggerIds: toggle(d.triggerIds, id) })} money={money} name="offer-triggers" /> },
+                    {
+                      key: "collections",
+                      node: (
+                        <ul aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                          {collections.map((c) => {
+                            const on = d.triggerCollectionIds.includes(c.id)
+                            return (
+                              <li key={c.id}>
+                                <button type="button" role="checkbox" aria-checked={on} onClick={() => set({ triggerCollectionIds: toggle(d.triggerCollectionIds, c.id) })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
+                                  <Tick on={on} />
+                                  <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
+                                </button>
+                              </li>
+                            )
+                          })}
+                      </ul>
+                      ),
+                    },
+                  ]}
+                />
                 {shown.triggers ? <p className={ERR}>{shown.triggers}</p> : null}
                 <div>
                   <label htmlFor="offer-minimum" className={LABEL}>
@@ -575,31 +624,63 @@ export function OfferEditor({
                   {tt("Discount")}
                 </h2>
                 <ChoiceGrid label={tt("Discount type")} value={d.discountType} onChange={(t) => set({ discountType: t, amount: t === "percent" ? "10" : t === "fixed" ? amountOf(500, currency) : "" })} options={discountOptions} />
-                {d.discountType === "percent" || d.discountType === "fixed" ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    {d.discountType === "fixed" ? (
-                      <MoneyField id="offer-amount" sign={sign} value={d.amount} onChange={(amount) => set({ amount })} bad={!!shown.amount} className="w-[150px]" />
-                    ) : (
-                      <label className="relative block w-[120px]">
-                        <span className="sr-only">{tt("Percent off")}</span>
-                        <input id="offer-amount" inputMode="numeric" value={d.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!shown.amount} className={cn(FIELD, "pr-8 tabular-nums", shown.amount && BAD)} />
-                        <span aria-hidden className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">%</span>
-                      </label>
-                    )}
-                    <p className={HINT}>{d.kind === "bundle" ? (d.discountType === "fixed" ? tt("Off each complete set.") : tt("Off every product in each complete set.")) : tt("Off the product it offers.")}</p>
-                  </div>
-                ) : (
-                  <p className={HINT}>{d.discountType === "free_shipping" ? (d.kind === "bundle" ? tt("The whole order ships free once the set is in the cart.") : tt("The whole order ships free once it's added.")) : tt("It's suggested at its own price.")}</p>
-                )}
+                {/* An amount to type, or a line that says what happens: one place, cross-faded, so the card never jumps. */}
+                <SwapPanels
+                  active={d.discountType === "percent" || d.discountType === "fixed" ? "amount" : "words"}
+                  panels={[
+                    {
+                      key: "amount",
+                      node: (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          {d.discountType === "fixed" ? (
+                            <MoneyField id="offer-amount" sign={sign} value={d.amount} onChange={(amount) => set({ amount })} bad={!!shown.amount} className="w-[150px]" />
+                          ) : (
+                            <label className="relative block w-[120px]">
+                              <span className="sr-only">{tt("Percent off")}</span>
+                              <input id="offer-amount" inputMode="numeric" value={d.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!shown.amount} className={cn(FIELD, "pr-8 tabular-nums", shown.amount && BAD)} />
+                              <span aria-hidden className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">%</span>
+                            </label>
+                          )}
+                          <p className={HINT}>{d.kind === "bundle" ? (d.discountType === "fixed" ? tt("Off each complete set.") : tt("Off every product in each complete set.")) : tt("Off the product it offers.")}</p>
+                        </div>
+                      ),
+                    },
+                    { key: "words", node: <p className={HINT}>{d.discountType === "free_shipping" ? (d.kind === "bundle" ? tt("The whole order ships free once the set is in the cart.") : tt("The whole order ships free once it's added.")) : tt("It's suggested at its own price.")}</p> },
+                  ]}
+                />
                 {shown.amount ? <p className={ERR}>{shown.amount}</p> : null}
               </section>
             ) : null}
 
+            {/* ── More options: where it shows, dates and limits ──────
+                Folded until wanted, with what is set said in one line, so a
+                new offer is the kind, the name, the products and the discount.
+                Opened by itself when something in it needs fixing. */}
+            <section className={CARD} data-offer-more={moreShown ? "open" : "closed"} aria-labelledby="offer-more-title">
+              <button
+                type="button"
+                aria-expanded={moreShown}
+                aria-controls="offer-more"
+                onClick={() => setMoreOpen(!moreShown)}
+                className="-my-1 flex w-full cursor-pointer items-center gap-3 rounded-lg py-1 text-left outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
+              >
+                <span className="min-w-0 flex-1">
+                  <span id="offer-more-title" className={cn(CARD_TITLE, "block")}>
+                    {tt("More options")}
+                  </span>
+                  <span data-offer-more-line="" className={cn(HINT, "mt-0.5 block")}>
+                    {moreLine}
+                  </span>
+                </span>
+                <ChevronDown aria-hidden className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-[rotate] duration-200 motion-reduce:transition-none", moreShown && "rotate-180")} />
+              </button>
+              {moreShown ? (
+                <div id="offer-more" className="space-y-4 border-t border-[#eef0f2] pt-4">
             {/* ── Where it shows ───────────────────────────────────── */}
-            <section className={CARD} aria-labelledby="offer-places" {...(shown.places ? { "data-problem": "" } : {})}>
-              <h2 id="offer-places" className={CARD_TITLE}>
+            <div className="space-y-3" role="group" aria-labelledby="offer-places" {...(shown.places ? { "data-problem": "" } : {})}>
+              <h3 id="offer-places" className={SUB_TITLE}>
                 {tt("Show it on")}
-              </h2>
+              </h3>
               <div className={cn(SWITCH_GROUP, "divide-y")}>
                 {PLACEMENTS_FOR[d.kind].map((p) => {
                   const on = d.placements.includes(p)
@@ -612,13 +693,13 @@ export function OfferEditor({
                 })}
               </div>
               {shown.places ? <p className={ERR}>{shown.places}</p> : null}
-            </section>
+            </div>
 
             {/* ── Dates and limits ─────────────────────────────────── */}
-            <section className={CARD} aria-labelledby="offer-rules">
-              <h2 id="offer-rules" className={CARD_TITLE}>
+            <div className="space-y-4 border-t border-[#eef0f2] pt-4" role="group" aria-labelledby="offer-rules">
+              <h3 id="offer-rules" className={SUB_TITLE}>
                 {tt("Dates and limits")}
-              </h2>
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2" {...(shown.dates ? { "data-problem": "" } : {})}>
                 <div>
                   <label htmlFor="offer-start" className={LABEL}>
@@ -649,10 +730,16 @@ export function OfferEditor({
               {newSettingsUsed ? (
                 <p className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.")}</p>
               ) : null}
+            </div>
+                </div>
+              ) : null}
             </section>
+            </>
+            ) : null}
           </div>
 
           {/* From lg the side column stays in view while the offer is filled in, so the preview follows the change. */}
+          {kindChosen ? (
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
             {/* ── On or off ────────────────────────────────────────── */}
             <section data-offer-status="" className={CARD} aria-label={tt("Status")}>
@@ -700,6 +787,9 @@ export function OfferEditor({
                 </ul>
               ) : null}
               {Object.keys(problems).length === 0 ? <TryCart offer={asOffer} id={offer?.id ?? null} body={bodyOf(d, currency)} products={products} money={money} /> : null}
+              <a href={KIND_HELP[d.kind].href} data-offer-help={d.kind} className="inline-block text-[13px] font-medium text-[#4b5563] underline decoration-[#d1d5db] underline-offset-[3px] hover:text-[#1a1a2e] hover:decoration-[#9ca3af]">
+                {KIND_HELP[d.kind].label()}
+              </a>
             </section>
 
             {offer ? (
@@ -710,6 +800,7 @@ export function OfferEditor({
               </div>
             ) : null}
           </div>
+          ) : null}
         </form>
       </div>
 

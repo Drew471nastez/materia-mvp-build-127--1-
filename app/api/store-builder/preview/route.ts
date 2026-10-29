@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { creatorPageStore } from "@/lib/team/creator-page"
 
 // GET - Get preview data (draft config) for rendering
 export async function GET(request: Request) {
@@ -22,14 +23,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: creator } = await supabase.from("creators").select("id, user_id").eq("id", creatorId).single()
-
-  if (!creator || creator.user_id !== user.id) {
+  /* The owner's own page, or the store's for a team member with Creator page (round 42, lib/team/creator-page): the store named must be that one. */
+  const page = await creatorPageStore(supabase, user.id)
+  if (page.kind !== "page" || page.creatorId !== creatorId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   // Get draft config for preview
-  const { data: config } = await supabase
+  const { data: config } = await page.db
     .from("store_builder_configs")
     .select("draft_config")
     .eq("creator_id", creatorId)

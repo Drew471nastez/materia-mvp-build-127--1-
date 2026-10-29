@@ -1,7 +1,7 @@
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
-import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { OWNER_KEEPS_SITE } from "@/lib/team/website-words"
+import { websiteInstallCaller } from "@/lib/team/website"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
 import { sanitizeInstallRow, sectionsOfInstallRow } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
@@ -61,41 +61,18 @@ async function creatorCollectionsForBuilder(creatorId: string) {
 }
 
 // ── Auth helper ──────────────────────────────────────────────
+/* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
 async function getCreatorAndInstall(installId: string) {
-  const supabase = await createClient()
-  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-  const { user, status: authStatus, error: authError } = await editorUser(supabase)
-  if (!user) return { error: authError, status: authStatus, supabase, creator: null, install: null }
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle())
-
-  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase, creator: null, install: null }
-
-  if (!creator) return { error: "Creator not found", status: 404, supabase, creator: null, install: null }
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id, creator_id")
-    .eq("id", installId)
-    .eq("creator_id", creator.id)
-    .maybeSingle())
-
-  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase, creator, install: null }
-
-  if (!install) return { error: "Theme not found", status: 404, supabase, creator, install: null }
-
-  return { error: null, status: 200, supabase, creator, install, userId: user.id }
+  const c = await websiteInstallCaller<{ id: string; creator_id: string; name?: string }>(installId, "id, creator_id, name")
+  if (c.error !== null) return { error: c.error, status: c.status, supabase: null, creator: null, install: null, userId: null, ownerUserId: null, isOwner: false }
+  return { error: null, status: 200, supabase: c.supabase, creator: c.creator, install: c.install, userId: c.userId, ownerUserId: c.ownerUserId, isOwner: c.isOwner }
 }
 
 // GET /api/website-builder/themes/[installId]
 // Returns full install data with settings, pages, and username
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, install, creator, userId } = await getCreatorAndInstall(installId)
+  const { error, status, supabase, install, creator, ownerUserId, isOwner } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
 
   /*
@@ -108,7 +85,8 @@ export async function GET(_req: Request, { params }: Params) {
     still comes first.
   */
   const besides = Promise.all([
-    supabase!.from("profiles").select("username").eq("id", userId!).maybeSingle(),
+    /* The store owner's handle, for a team member as for the owner. */
+    supabase!.from("profiles").select("username").eq("id", ownerUserId!).maybeSingle(),
     supabase!.from("creators").select("slug").eq("id", creator!.id).maybeSingle(),
     /* The name the website is at, when its creator gave it one of its own. */
     websiteHandleOf(creator!.id),
@@ -177,7 +155,8 @@ export async function GET(_req: Request, { params }: Params) {
     is signed in, so a row written by an import or by hand must not reach it
     as written. See lib/website-builder/sanitize-sections.ts.
   */
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, storeMenus })
+  /* storeOwner: for a team member, the account whose folder the editor's pictures go into (lib/website-builder/team-upload-owner); null for the owner. */
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, storeMenus, storeOwner: isOwner ? null : ownerUserId })
 }
 
 // PATCH /api/website-builder/themes/[installId]
@@ -213,8 +192,10 @@ export async function PATCH(req: Request, { params }: Params) {
 // Deletes the install. Cannot delete the published/live theme.
 export async function DELETE(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorAndInstall(installId)
+  const { error, status, supabase, isOwner } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
+  /* Deleting a website stays the owner's whatever is given (lib/team/website). */
+  if (!isOwner) return NextResponse.json({ error: OWNER_KEEPS_SITE }, { status: 403 })
 
   // Prevent deleting the live theme
   const { data: install } = await supabase!

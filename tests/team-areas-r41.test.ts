@@ -63,11 +63,12 @@ async function main() {
   console.log("\nWhat is open now")
   {
     check("Products and Store settings are open to the team", OPEN_TO_TEAM.has("products") && OPEN_TO_TEAM.has("settings"))
-    check("the website and the creator page stay closed", !OPEN_TO_TEAM.has("website") && !OPEN_TO_TEAM.has("creator_pages"))
-    check("payouts and billing stay the owner's", !OPEN_TO_TEAM.has("payouts_billing") && !normalizePermissions(["payouts_billing"]).length)
-    check("an invite keeps Products and Store settings, drops the website", same(normalizePermissions(["products", "settings", "website"]), ["products", "settings"]))
-    check("Content editor now gives Products too", same(presetPermissions("content"), ["onepage", "products", "community"]))
-    check("Full access gives Products and Store settings, never money or the team", presetPermissions("full").includes("products") && presetPermissions("full").includes("settings") && !presetPermissions("full").includes("payouts_billing") && !presetPermissions("full").includes("team"))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing opened (tests/team-areas-r42.test.ts). */
+    check("the website and the creator page are open now", OPEN_TO_TEAM.has("website") && OPEN_TO_TEAM.has("creator_pages"))
+    check("payouts and billing stay the owner's", !OPEN_TO_TEAM.has("payouts_billing" as never) && !normalizePermissions(["payouts_billing" as never]).length)
+    check("an invite keeps Products, Store settings and the website", same(normalizePermissions(["products", "settings", "website"]), ["website", "products", "settings"])) // Changed on purpose (round 42 team)
+    check("Content editor now gives Products too", same(presetPermissions("content"), ["website", "onepage", "creator_pages", "products", "community"])) // Changed on purpose (round 42 team)
+    check("Full access gives Products and Store settings, never money or the team", presetPermissions("full").includes("products") && presetPermissions("full").includes("settings") && !presetPermissions("full").includes("payouts_billing" as never) && !presetPermissions("full").includes("team"))
     check("the sidebar shows every Products page to a member who has it", ["/app/products", "/app/products/collections", "/app/inventory", "/app/reviews", "/app/files", "/app/memberships"].every((h) => memberSees(["products"], h)) && !memberSees(["onepage"], "/app/products"))
     check("a member with Products lands on Products", homeFor(["products"]) === "/app/products")
     check("Integrations is the owner's now (Store settings is Store details alone)", areaOfPath("/app/integrations") === "store" && !memberSees(["settings"], "/app/integrations"))
@@ -77,9 +78,11 @@ async function main() {
   console.log("\nStill closed, and why (opening one is a decision)")
   {
     const builderRoutes = ["app/api/website-builder/themes/route.ts", "app/api/website-builder/files/route.ts", "app/api/website-builder/menus/route.ts"].filter((p) => { try { read(p); return true } catch { return false } })
-    check("the website builder's routes find the store by the signed in account (owner only), so it stays closed", builderRoutes.every((p) => /\.eq\("user_id", user\.id\)/.test(read(p))), builderRoutes)
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing opened (tests/team-areas-r42.test.ts). */
+    check("the website builder's routes ask lib/team/website for the store now", builderRoutes.every((p) => /websiteCaller\(\)/.test(read(p)) && !/\.eq\("user_id", user\.id\)/.test(read(p))), builderRoutes)
     check("  and its site files are read and written under row level security alone (lib/sites/projects never imports the admin client)", !/createAdminClient|supabase\/admin/.test(read("lib/sites/projects.ts")))
-    check("the creator page is the owner's account profile, edited in place by that account", /\.from\("profiles"\)\.select\("username, display_name"\)\.eq\("id", user\.id\)/.test(read("app/creator-page/page.tsx")))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing opened (tests/team-areas-r42.test.ts). */
+    check("the creator page is the owner's account profile, read by the store owner's account", /\.from\("profiles"\)\.select\("username, display_name"\)\.eq\("id", page\.profileId\)/.test(read("app/creator-page/page.tsx")))
   }
 
   console.log("\nProducts: uploads into the store's folder")
@@ -178,7 +181,7 @@ async function main() {
     check("the route: the owner, or a member with Store settings, and a member's change checked key by key", /shopCaller\(\["store", "settings"\]\)/.test(route) && /if \(c\.isOwner === false && !memberMaySave\(body\)\) return physicalJson\(\{ error: OWNER_KEEPS_SETTING \}, 403\)/.test(route))
     check("  the suggested email is the store owner's, and the bank statement is renamed by the owner's save only", /getUserById\(c\.ownerUserId \?\? c\.userId\)/.test(route) && /if \("storeName" in body && c\.isOwner !== false\)/.test(route))
     const form = read("components/app/settings-form-new.tsx")
-    check("the page shows a member their own account's sections and Store details", /tab\.group === "account" \|\| teamTabs\.includes\(tab\.id\)/.test(form) && /teamTabs = memberSettingsTabs\(/.test(read("app/app/settings/_server.ts")))
+    check("the page shows a member their own account's sections and Store details", /tab\.group === "account" && !STORE_SIDE_ACCOUNT_TABS\.includes\(tab\.id\)\) \|\| teamTabs\.includes\(tab\.id\)/.test(form) /* Changed on purpose (round 42 team): Plan is the store's for a member, shown with Billing */ && /teamTabs = memberSettingsTabs\(/.test(read("app/app/settings/_server.ts")))
     check("  Store details for a member: no currency, no business details, no shipping origin, and Profile's email left alone", /member \? null : <CurrencyLink \/>/.test(read("components/app/settings/store-details-panel.tsx")) && /member \? null : <Business/.test(read("components/app/settings/store-details-panel.tsx")) && /physical && !member \? <OrdersFrom/.test(read("components/app/settings/store-details-panel.tsx")) && /onSupportEmail=\{teamActing \? undefined :/.test(form))
   }
 

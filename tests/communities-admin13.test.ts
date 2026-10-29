@@ -310,7 +310,7 @@ async function main() {
   check("each card's menu: Open, Edit page, Share, Analytics, Duplicate settings, Archive", ["\"Open\"", "\"Edit page\"", "\"Share\"", "\"Analytics\"", "\"Duplicate settings\"", "\"Archive\"", "\"Bring back\""].every((w) => list.includes(w)) && /ResponsiveActionMenu/.test(list))
   check("and only what this person may do", /r\.can\.edit/.test(list) && /r\.can\.analytics/.test(list) && /r\.can\.duplicate/.test(list) && /r\.can\.archive/.test(list))
   check("MRR on a card only for somebody who may see analytics", /may\(c, "view_analytics"\)/.test(creator))
-  check("archiving asks first; sharing uses the system sheet or copies", /<Confirm/.test(list) && /navigator\.share/.test(list) && /clipboard\.writeText/.test(list))
+  check("archiving asks first; sharing uses the system sheet or copies", /<Confirm/.test(list) && /* Changed on purpose (communities round trip): the share is one helper for the card and the bar. */ /shareCommunity\(/.test(list) && /navigator\.share/.test(code("components/community/creator/share-link.ts")) && /clipboard\.writeText/.test(code("components/community/creator/share-link.ts")))
   const shell = code("components/community/creator/community-shell.tsx")
   check("the editor's sections: Learn and Calendar", /label: "Learn"/.test(shell) && /label: "Calendar"/.test(shell) && !/label: "Classroom"/.test(shell) && !/label: "Events"/.test(shell))
   /* Changed on purpose (round 33): New community is a five step wizard; the step's card is held to 760px beside the 340px preview, in the product editor's frame (phone bar, foot bar from 1024px). */

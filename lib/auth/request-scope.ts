@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
 import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
+import { ServiceUnavailable, classifyServiceError, dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
+import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
 
 /**
  * ===========================================================================
@@ -31,7 +33,14 @@ import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access
  */
 export const currentUserForRequest = cache(async (): Promise<CurrentUser> => {
   const supabase = await createClient()
-  return readCurrentUser(supabase)
+  /* When Supabase Auth does not answer, the token's signature is checked instead (lib/auth/current-user.ts). */
+  const current = await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })
+  /* Logged, never decided on: a degraded answer is one JSON line (lib/net/log.ts) with the request's id. */
+  const degraded = current.verifiedBy === "claims" ? "claims" : !current.user && current.state !== "anonymous" ? "indeterminate" : null
+  if (degraded) {
+    void currentRequestId().then((rid) => console.warn(logLine("auth_degraded", { outcome: degraded, reason: current.reason ?? "unknown", rid })))
+  }
+  return current
 })
 
 export interface RequestProfile {
@@ -48,14 +57,41 @@ export interface RequestProfile {
  * one select. Row-level security still applies: this is the caller's own
  * client, so it can only ever return the caller's own row.
  */
-export const profileForRequest = cache(async (userId: string): Promise<RequestProfile | null> => {
+/*
+  READ ONCE, AND THE FAILURE KEPT (lib/net/service-error.ts). A read that
+  failed used to come back as null, the same as no row, and the /app layout
+  sent a seller whose profile read timed out to /signup/verify. The cached
+  read keeps the failure beside the row: `profileForRequest` still answers
+  null for it (an optional use, a name on a page), and
+  `profileOrThrowForRequest` throws it, for the one caller that decides
+  where somebody belongs from the answer.
+*/
+const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile | null; failure: ServiceUnavailable | null }> => {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url, username, email_verified, is_creator, welcome_completed")
-    .eq("id", userId)
-    .maybeSingle()
-  return (data as RequestProfile | null) ?? null
+  try {
+    const row = dataOrThrow(
+      "profile",
+      await supabase
+        .from("profiles")
+        .select("display_name, avatar_url, username, email_verified, is_creator, welcome_completed")
+        .eq("id", userId)
+        .maybeSingle(),
+    )
+    return { row: (row as RequestProfile | null) ?? null, failure: null }
+  } catch (e) {
+    if (!isServiceUnavailable(e)) throw e
+    logServiceFailure(e)
+    return { row: null, failure: e }
+  }
+})
+
+export const profileForRequest = cache(async (userId: string): Promise<RequestProfile | null> => (await profileRead(userId)).row)
+
+/** The profile, or a ServiceUnavailable thrown when it could not be read (never null for a failure). */
+export const profileOrThrowForRequest = cache(async (userId: string): Promise<RequestProfile | null> => {
+  const { row, failure } = await profileRead(userId)
+  if (failure) throw failure
+  return row
 })
 
 /**
@@ -106,7 +142,26 @@ export interface RequestCreator {
  * the second copy of the question. The service role reads only the three private
  * columns of the row the caller's client returned (SHELL_PRIVATE_CREATOR_COLUMNS).
  */
-export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
+export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => (await creatorRead(userId)).row)
+
+/** The creator row, or a ServiceUnavailable thrown when it could not be read (never null for a failure). */
+export const creatorOrThrowForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
+  const { row, failure } = await creatorRead(userId)
+  if (failure) throw failure
+  return row
+})
+
+const creatorRead = cache(async (userId: string): Promise<{ row: RequestCreator | null; failure: ServiceUnavailable | null }> => {
+  try {
+    return { row: await creatorRow(userId), failure: null }
+  } catch (e) {
+    if (!isServiceUnavailable(e)) throw e
+    logServiceFailure(e)
+    return { row: null, failure: e }
+  }
+})
+
+async function creatorRow(userId: string): Promise<RequestCreator | null> {
   const supabase = await createClient()
   /*
     BOTH HALVES AT ONCE, BY THE SIGNED IN USER'S OWN ID. The private columns
@@ -116,10 +171,15 @@ export const creatorForRequest = cache(async (userId: string): Promise<RequestCr
     exactly as before and filtered by nothing but the signed in user's own
     id; the public half still decides whether there is a creator at all.
   */
-  const [{ data }, { data: privateCols }] = await Promise.all([
+  const [publicHalf, privateHalf] = await Promise.all([
     supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle(),
     createAdminClient().from("creators").select(SHELL_PRIVATE_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle(),
   ])
+  /* The public half decides whether there is a creator: its failure is a failure, not "no store". */
+  const data = dataOrThrow("creator", publicHalf)
+  /* The private half is the plan and Stripe's state: without it the row is drawn as before, and the miss is logged. */
+  if (privateHalf.error) logServiceFailure(new ServiceUnavailable("creator private columns", classifyServiceError(privateHalf.error, privateHalf.status), { status: privateHalf.status }))
+  const privateCols = privateHalf.error ? null : privateHalf.data
   if (!data) return null
   return {
     stripe_onboarding_status: null,
@@ -128,7 +188,7 @@ export const creatorForRequest = cache(async (userId: string): Promise<RequestCr
     ...(data as object),
     ...((privateCols as object | null) ?? {}),
   } as RequestCreator
-})
+}
 
 /**
  * Seller access for the signed in person (lib/account/seller-access.ts), from

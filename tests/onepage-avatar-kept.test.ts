@@ -224,7 +224,8 @@ async function main() {
     check("not without either: the header is the classic one", !heroHeaderShown({ header_layout: "hero" }, { avatar_url: null, avatar_video_url: null }))
     check("never for a classic theme", !heroHeaderShown({ header_layout: "classic" }, { avatar_url: PAGE_UPLOAD }) && !heroHeaderShown(null, { avatar_url: PAGE_UPLOAD }))
     const page = readCode("components/onepage/public-onepage.tsx")
-    check("the page's top padding reads that answer", page.includes('heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) ? "0" : "50px"'))
+    /* Changed on purpose (round 42): a theme's cover picture also starts at the very top (lib/onepage/theme-layout coverImageOf). */
+    check("the page's top padding reads that answer", page.includes('heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : "50px"'))
     check("the header block reads it", page.includes("if (heroHeaderShown(theme as any, profile)) {"))
     check("the social row under it reads it", page.includes("const isHeroLayout = heroHeaderShown(theme as any, profile)"))
     check("nothing reads the raw layout for spacing any more", !/header_layout === "hero" \? "0"/.test(page))

@@ -1,7 +1,7 @@
+import { websiteInstallCaller } from "@/lib/team/website"
+import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse, after } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { announce, websiteAddresses } from "@/lib/seo/announce"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
@@ -27,32 +27,11 @@ function publishStepMissing(error: { code?: string; message?: string }): boolean
 // body: { action: "publish" | "unpublish" | "save_draft" }
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
   const admin = createAdminClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle())
-
-  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-
-  const { data: install, error: installReadErr } = await readTwice(() => supabase
-    .from("store_theme_installs")
-    .select("id, creator_id, status")
-    .eq("id", installId)
-    .eq("creator_id", creator.id)
-    .maybeSingle())
-
-  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
-
-  if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
+  const site = await websiteInstallCaller<{ id: string; creator_id: string; status: string }>(installId, "id, creator_id, status")
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { user, creator, install } = site
 
   /* Publishing, taking down and saving as a draft all come through here: LIMITS.sitePublish. */
   const limited = await rateLimit({
@@ -306,6 +285,8 @@ export async function POST(req: Request, { params }: Params) {
     /* Translate changes automatically: its new and edited words, in a few minutes (lib/markets/translate-queue.ts). */
     translationsChanged(creator.id)
 
+    /* A team member's publish is on the record with their name (lib/team/areas). */
+    await recordTeamAction(site, user.id, "website", "website_published", { install_id: installId, action: "publish" })
     return NextResponse.json({ ok: true, status: "published" })
   }
 
@@ -337,6 +318,7 @@ export async function POST(req: Request, { params }: Params) {
     const announced = creator.id
     after(() => announce(() => websiteAddresses(announced)))
 
+    await recordTeamAction(site, user.id, "website", "website_published", { install_id: installId, action: "unpublish" })
     return NextResponse.json({ ok: true, status: "unpublished" })
   }
 

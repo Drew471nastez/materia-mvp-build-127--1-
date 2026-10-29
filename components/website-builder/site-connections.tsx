@@ -8,8 +8,8 @@
  *
  *   useSiteActivity    reads the brief once when the editor opens (and again
  *                      when Website settings closes), then follows the
- *                      activity log while something is connected and the tab
- *                      is on screen. Nothing is connected, nothing is asked.
+ *                      activity log while the tab is on screen, including
+ *                      writers connected after the editor was opened.
  *   ConnectionButton   the top bar's mark: whichever connection acted last,
  *                      with a dot when it is live and a slow pulse while it
  *                      is working. lib/agent-access/connection-mark.ts decides.
@@ -122,11 +122,11 @@ export function useSiteActivity({
   /** Any value; the brief is read again when it changes. */
   recheck?: unknown
   /** New lines from the log, oldest first. Awaited before the next read. `catchUp`: the tab was away, so this is the pile, applied once. */
-  onEvents: (events: ActivityEvent[], info?: { catchUp: boolean }) => void | Promise<void>
+  onEvents: (events: ActivityEvent[], info?: { catchUp: boolean; isCurrent?: () => boolean }) => void | Promise<void>
   /** The GitHub link changed since the last read (a push taken or refused, a send that failed): read the sync report again. */
   onSyncChanged?: () => void
   /** The log moved but applying it threw: read the theme from the server, the way a refresh would, without leaving the editor. */
-  onStale?: () => void
+  onStale?: () => void | Promise<void>
 }): { brief: ConnectionsBrief | null; following: boolean; settled: boolean } {
   const [brief, setBrief] = useState<ConnectionsBrief | null>(null)
   const [ready, setReady] = useState(false)
@@ -149,6 +149,17 @@ export function useSiteActivity({
   const [missing, setMissing] = useState(false)
   /** Raised to read the brief again while nothing is connected (a connection made in another tab or on another device). */
   const [briefAsk, setBriefAsk] = useState(0)
+
+  useEffect(() => {
+    cursor.current = null
+    floor.current = null
+    seen.current.clear()
+    setMissing(false)
+    syncAt.current = undefined
+    setBrief(null)
+    setReady(false)
+    setSettled(false)
+  }, [installId])
 
   useEffect(() => {
     if (!installId) return
@@ -230,7 +241,9 @@ export function useSiteActivity({
   }, [installId, connected, missing, settled])
 
   useEffect(() => {
-    if (!connected) return
+    // Writers can connect after this editor opened, including Storelib AI.
+    // The activity log remains authoritative even when the initial brief is empty.
+    if (!ready) return
     let stopped = false
     let busy = false
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -248,7 +261,7 @@ export function useSiteActivity({
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
       dueAt = Date.now() + ms
-      timer = stopped ? null : setTimeout(tick, ms)
+      timer = stopped || busy ? null : setTimeout(tick, ms)
     }
     async function tick() {
       timer = null
@@ -284,6 +297,7 @@ export function useSiteActivity({
             { cache: "no-store", signal: AbortSignal.timeout(12_000) },
           )
           const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; late?: ActivityEvent[]; sync_at?: string | null } | null
+          if (stopped) return
           const follow = activityFollowUp(res.status, d)
           /* The table is not there: nothing to follow. Any other failure is asked again, cursor unmoved. */
           if (follow === "stop") {
@@ -302,6 +316,7 @@ export function useSiteActivity({
           pages++
           if (!readMore(batch.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE)) break
         }
+        if (stopped) return
         catchUp = isPile({ pending, slept: away, pagesRead: pages })
         /* Each line once, oldest first: the new ones and any that committed late. */
         const events = mergeLines(late, fresh, seen.current, floor.current)
@@ -309,16 +324,32 @@ export function useSiteActivity({
         if (events.length) {
           arrived = true
           eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
-          /* Taken before applying: a throw or a timeout below still counts them, so none is applied twice. */
-          remember(seen.current, events.map((ev) => ev.id))
           const applying = Date.now()
+          let applyCurrent = true
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
-            const run = (async () => { await onEventsRef.current(events, { catchUp }) })()
+            const run = (async () => { await onEventsRef.current(events, { catchUp, isCurrent: () => !stopped && applyCurrent }) })()
             /* An apply that never answers (a read suspended with the web view) held the loop busy for good: the theme is read again instead. */
-            if ((await withinTime(run, APPLY_CEILING_MS)) === "late") onStaleRef.current?.()
+            if ((await withinTime(run, APPLY_CEILING_MS)) === "late") {
+              applyCurrent = false
+              if (!onStaleRef.current || await withinTime(Promise.resolve(onStaleRef.current()), APPLY_CEILING_MS) === "late") throw new Error()
+            }
           } catch {
-            try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
+            applyCurrent = false
+            // Do not acknowledge changes until an authoritative recovery finished.
+            // Otherwise one failed file read loses the push until a manual refresh.
+            if (!onStaleRef.current) throw new Error()
+            if (await withinTime(Promise.resolve(onStaleRef.current()), APPLY_CEILING_MS) === "late") throw new Error()
+          }
+          if (stopped) return
+          // Late-commit deduplication must not swallow a batch whose recovery failed.
+          remember(seen.current, events.map((ev) => ev.id))
+          if (!connected) {
+            // Discover the writer without rebasing the cursor past its next push.
+            const fresh = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity`, { cache: "no-store", signal: AbortSignal.timeout(12_000) })
+              .then((res) => res.ok ? res.json() : null).catch(() => null)
+            if (stopped) return
+            if (fresh?.connections) setBrief(fresh.connections)
           }
           heldUp = Date.now() - applying >= POLL_ACTIVE_MS
           const last = events[events.length - 1]
@@ -351,7 +382,7 @@ export function useSiteActivity({
       if (retry) delay = POLL_ACTIVE_MS
       /* The lines just applied waited for a scroll to rest: what came in behind them is read now, not a second after the rest. */
       else if (heldUp) delay = HELD_UP_MS
-      schedule(delay)
+      schedule(connected ? delay : POLL_BASE_MS)
     }
     let woke = 0
     const wake = () => {
@@ -364,9 +395,12 @@ export function useSiteActivity({
       }
       if (document.visibilityState !== "visible") return
       const back = hiddenAt > 0 && Date.now() - hiddenAt >= CATCH_UP_AWAY_MS
+      hiddenAt = 0
       if (back) catchUpPending = true
       /* At most once every few seconds: the pointer coming back over the editor is a moment to look, not a stream of reads. A long absence still reads. */
-      if (!back && Date.now() - woke < WAKE_GAP_MS) return
+      // A brief tab switch cleared the timer too. Throttling that return
+      // without queued work stops the channel permanently until a reload.
+      if (!back && Date.now() - woke < WAKE_GAP_MS && (timer !== null || busy)) return
       woke = Date.now()
       lively = Date.now()
       delay = POLL_BASE_MS
@@ -411,7 +445,7 @@ export function useSiteActivity({
     document.documentElement.addEventListener("pointerenter", wake)
     window.addEventListener("pointerdown", stir, true)
     window.addEventListener("keydown", stir, true)
-    schedule(delay)
+    schedule(0)
     return () => {
       stopped = true
       if (timer) clearTimeout(timer)
@@ -424,7 +458,7 @@ export function useSiteActivity({
       window.removeEventListener("pointerdown", stir, true)
       window.removeEventListener("keydown", stir, true)
     }
-  }, [connected, installId])
+  }, [ready, connected, installId])
 
   return { brief, following: connected, settled }
 }

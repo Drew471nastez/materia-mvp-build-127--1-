@@ -37,6 +37,7 @@ import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia } from "@/lib/on
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { openableImage, uploadErrorText, uploadMessage } from "@/lib/onepage/media-upload"
 import { CropUpload } from "@/components/onepage/crop-upload"
+import { SaveError, saveAccountPhoto } from "@/lib/onepage/photo-save"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { videoPoster } from "@/lib/onepage/poster-video"
 import { FilesLibraryChooser, LibraryButton, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
@@ -85,7 +86,7 @@ import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
 import { GradientDirection } from "@/components/onepage/themes/gradient-direction"
 import { WallpaperLibrary } from "@/components/onepage/themes/wallpaper-library"
-import { blockLayoutOf, blockSpacingOf, headerAlignOf, linearGradientValue } from "@/lib/onepage/theme-layout"
+import { blockLayoutOf, blockSpacingOf, coverImageOf, headerAlignOf, linearGradientValue } from "@/lib/onepage/theme-layout"
 
 type DesignSection = "header" | "theme" | "layout" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -1768,13 +1769,9 @@ function HeaderSection() {
     creator page and the app all show the same face (lib/account/avatar-save).
   */
   const saveProfilePhoto = async (url: string) => {
-    if (team) throw new Error(photoIsOwners(team.store))
-    const saved = await fetch("/api/account/avatar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    })
-    if (!saved.ok) throw new Error(tt("profile photo not saved"))
+    if (team) throw new SaveError(photoIsOwners(team.store))
+    /* The route's own reason reaches the sheet when it refuses (lib/onepage/photo-save). */
+    await saveAccountPhoto(url)
     announceAvatar(url)
     updateProfile({ avatar_url: url, avatar_video_url: null })
   }
@@ -1836,6 +1833,8 @@ function HeaderSection() {
                   poster={videoPoster(avatarVideoCrop)}
                   alt={onepage.title}
                   mediaStyle={croppedMediaStyle(avatarVideoCrop) as React.CSSProperties | undefined}
+                  /* Round 42: a still here; the preview beside it is where the video plays, once. */
+                  still
                 />
               ) : onepage.avatar_url ? (
                 <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="w-full h-full object-cover" />
@@ -2351,6 +2350,7 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
   const text = c.text_color || "#111111"
   /* Round 40: a theme can set its header flush left (lib/onepage/theme-layout headerAlignOf). */
   const left = !hero && headerAlignOf(c) === "left"
+  const cover = hero ? null : coverImageOf(c)
   return (
     <button
       type="button"
@@ -2375,7 +2375,9 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         {/* The pattern at the card's scale: the card is a page about 0.42 of a phone's width, so its tile is too. */}
         {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} style={{ backgroundSize: cardPatternSize(pattern, c.pattern_color || "#ffffff90", c.pattern_opacity || "medium") }} /> : null}
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
-        <span className={cn("absolute inset-0 flex flex-col px-[13%]", left ? "items-start" : "items-center", hero ? "pt-[30%]" : "pt-[15%]")}>
+        {/* Round 42: the theme's cover picture across the top, the round photo over its edge, as the page draws it. */}
+        {cover ? <img src={themeThumbSrc(cover)} alt="" aria-hidden draggable={false} loading="eager" decoding="sync" data-theme-cover="" className="absolute inset-x-0 top-0 h-[27%] w-full object-cover" /> : null}
+        <span className={cn("absolute inset-0 flex flex-col px-[13%]", left ? "items-start" : "items-center", hero ? "pt-[30%]" : cover ? "pt-[21%]" : "pt-[15%]")}>
           {/*
             THE AVATAR IS A CIRCLE. It was 22% of the card wide with an
             aspect ratio (and then a spacer) for its height, in a column the
@@ -2389,7 +2391,7 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
             <span
               data-theme-avatar=""
               className="block h-[28px] min-h-[28px] w-[28px] min-w-[28px] flex-none aspect-square overflow-hidden rounded-full"
-              style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}
+              style={cover ? { background: `color-mix(in srgb, ${text} 18%, ${c.background_color || "#ffffff"})`, boxShadow: `0 0 0 2px ${c.background_color || "#ffffff"}` } : { background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }}
             />
           )}
           <span
@@ -2652,7 +2654,9 @@ function ThemeSection() {
         onChange={pickFilter}
         rowAttrs={{ "data-theme-filters": "" }}
         itemAttr="data-theme-filter"
-        className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
+        keepInView
+        scroll={{ wrapClassName: "-mx-4 mb-5 md:mx-0" }}
+        className="flex gap-2 px-4 pb-0.5 scrollbar-hide md:px-0"
         itemClassName="h-10 px-4 text-[13px] sm:h-9"
       />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
@@ -3433,7 +3437,9 @@ function FontPicker({
             items={FONT_CATEGORIES}
             value={family}
             onChange={chooseFamily}
-            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
+            keepInView
+            scroll={{ wrapClassName: "-mx-4" }}
+            className="flex gap-2 px-4 pb-0.5 scrollbar-hide"
             itemClassName="h-9 px-4 text-[13px]"
           />
         ) : null}

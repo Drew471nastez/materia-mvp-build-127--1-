@@ -29,11 +29,16 @@ const ROUTES = "app/api/website-builder/themes/[installId]/"
   }
 
   console.log("\nNot found only when it is not there\n")
+  const areas = read("lib/team/areas.ts")
+  const website = read("lib/team/website.ts")
+  const installHelperOk = /if \(r\.error\) r = await run\(\)/.test(areas) && /if \(r\.error\) return \{ ok: false, status: 503 \}/.test(areas) && areas.indexOf("status: 503 }") < areas.indexOf("status: 404 }", areas.indexOf("if (r.error) r = await run()")) && /found\.status === 503 \? UNREACHABLE : "Theme not found"/.test(website)
   for (const f of ["route.ts", "settings/route.ts", "sections/route.ts", "sections/sync-global/route.ts", "files/route.ts", "publish/route.ts", "backups/route.ts", "backups/[backupId]/restore/route.ts", "sections/code/route.ts", "cover/route.ts", "security/route.ts"]) {
     const src = read(ROUTES + f)
     const guard = src.indexOf("installReadErr) return")
     const missing = src.search(/if \(!install\) return/)
-    check(`${f}: a failed read of the install says so (503), before any "not found"`, /readTwice\(\(\) => supabase/.test(src) && guard > 0 && guard < missing && /UNREACHABLE/.test(src))
+    /* Changed on purpose (round 42 team): the install is read by lib/team/website websiteInstallCaller, which tries a failed read once more and answers 503 before 404 (lib/team/areas storeInstall), for the owner and a member alike. sections/code stays the owner's. */
+    const shared = /websiteInstallCaller/.test(src)
+    check(`${f}: a failed read of the install says so (503), before any "not found"`, shared ? installHelperOk : /readTwice\(\(\) => supabase/.test(src) && guard > 0 && guard < missing && /UNREACHABLE/.test(src))
   }
   let calls = 0
   const flaky = await readTwice(async () => (++calls === 1 ? { data: null, error: { code: "57014" } } : { data: { id: "x" }, error: null }))

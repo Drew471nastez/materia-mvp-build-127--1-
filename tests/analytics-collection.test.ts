@@ -19,7 +19,7 @@ import { FakeSupabase, type Row } from "./fake-supabase"
 import { collect, type CollectDeps, type CollectKind, type CollectOutcome } from "../lib/analytics/collect"
 import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, marksOwner, ownLink, ownReturnPath, readOwnToken, signOwnHandoff, signOwnMarker } from "../lib/analytics/own-marker"
 import { clearPropertyCache } from "../lib/analytics/property"
-import { forgetSent, pageKeyOf, schedulePageView, skipReason, watchOutboundLinks } from "../lib/analytics/page-tracker"
+import { forgetSent, pageKeyOf, schedulePageView, skipReason, watchInternalLinks, watchOutboundLinks } from "../lib/analytics/page-tracker"
 import { ALLOWED_EVENT_TYPES, EVENT, normalizeLinkUrl, normalizePath, splitDays, sumDailyRows } from "../lib/analytics/events"
 import { everything, serialize } from "../lib/consent/consent"
 
@@ -627,6 +627,52 @@ async function main() {
     check("  and with no visit to place it by, it is still counted, with no property", cold.recorded && cold.row?.property_type === null)
     const purchases = db.rows("analytics_events").filter((r) => r.event_type === "purchase")
     check("no purchase and no money is written by collection: orders are the source of truth", purchases.length === 0 && !/amount|revenue|cents/i.test(JSON.stringify(db.rows("analytics_events"))))
+  }
+
+  console.log("\nClicks between pages of the same site (nav_click, part 331)")
+  {
+    forgetSent()
+    clearPropertyCache()
+    const db = world()
+    const tab = fakeWindow("https://ana.storelib.com/")
+    const doc = tab.doc as unknown as { fire: (t: string, e: unknown) => void }
+    watchInternalLinks(tab.win, { creatorId: ANA, ids: () => ({ sessionId: "s1", visitorId: "v1" }) })
+    const anchor = (href: string, words: string, attrs: Record<string, string> = {}) => ({
+      tagName: "A",
+      href,
+      innerText: words,
+      textContent: words,
+      getAttribute: (n: string) => (n === "href" ? href : attrs[n] ?? null),
+      hasAttribute: (n: string) => n in attrs,
+      querySelector: () => null,
+    })
+    const click = (a: ReturnType<typeof anchor>) => doc.fire("click", { button: 0, composedPath: () => [a] })
+    click(anchor("https://ana.storelib.com/shop?sort=new#top", "  Shop\n now "))
+    click(anchor("https://ana.storelib.com/shop", "Shop now"))
+    click(anchor("https://ana.storelib.com/#reviews", "Reviews"))
+    click(anchor("https://instagram.com/ana", "Instagram"))
+    click(anchor("https://ana.storelib.com/files/guide.pdf", "Guide", { download: "" }))
+    click(anchor("https://ana.storelib.com/about", "About", { "aria-label": "About Ana" }))
+    await settle()
+    const sent = tab.sent.filter((x) => x.body.eventType === "nav_click")
+    check("a link to another page of the site is one nav_click with its target and words; the same one twice, the same page, another site and a download are not", sent.length === 2 && sent[0].beacon && sent[0].body.targetHref === "https://ana.storelib.com/shop" && sent[0].body.label === "Shop now" && sent[1].body.label === "About Ana", sent.map((x) => [x.body.targetHref, x.body.label]))
+    const out = await ask(db, { kind: "nav_click", body: sent[0].body, cookies: consent })
+    check("  recorded on the website: the page it was on, the page it led to, the words", out.recorded && out.row?.event_type === "nav_click" && out.row?.property_type === "website" && out.row?.property_id === ANA_SITE && out.row?.path === "/" && out.row?.link_url === "/shop" && out.row?.link_label === "Shop now", out.row)
+    const twice = await ask(db, { kind: "nav_click", body: sent[0].body, cookies: consent })
+    check("  once per visit, page, target and words", twice.reason === "duplicate")
+    const other = await ask(db, { kind: "nav_click", body: { ...sent[0].body, targetHref: "https://bee.storelib.com/shop" }, cookies: consent })
+    check("  a target on another site is not recorded", !other.recorded && other.reason === "invalid", other)
+    const robot = await ask(db, { kind: "nav_click", body: { ...sent[1].body }, ua: "Googlebot/2.1 (+http://www.google.com/bot.html)", cookies: consent })
+    check("  a robot is not recorded", !robot.recorded && robot.reason === "bot")
+    const anon = await ask(db, { kind: "nav_click", body: { ...sent[1].body } })
+    check("  without consent: no ids from the browser, the day's hash instead", anon.recorded && anon.row?.session_id !== "s1" && anon.row?.visitor_id !== "v1" && String(anon.row?.visitor_id ?? "").startsWith("anon"), anon.row)
+    const own = await ask(db, { kind: "nav_click", body: { ...sent[1].body }, cookies: { ...consent, "sb-test-auth-token": "x" } })
+    check("  the creator on their own site is not a visitor", own.reason === "own")
+    const personal = await ask(db, { kind: "nav_click", body: { ...sent[1].body, label: "jane@example.com", targetHref: "https://ana.storelib.com/account" }, cookies: consent })
+    check("  words that look like a visitor's details are not kept", personal.recorded && personal.row?.link_label === undefined && personal.row?.link_url === "/account", personal.row)
+    check("the route takes nav_click", /const EVENTS = \[[^\]]*"nav_click"/.test(read("app/api/track-event/route.ts")))
+    const compat = read("lib/storelib-theme/compat/track-script.ts")
+    check("an imported theme's tracker sends nav_click too, with its target and words, once per page and target", /eventType:'nav_click',creatorId:K\.c,href:location\.href,targetHref:th,label:lb\|\|undefined/.test(compat) && /if\(nv\[k\]\)return;nv\[k\]=1/.test(compat))
   }
 
   console.log("\nA database that has not run part 61")

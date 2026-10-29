@@ -63,7 +63,8 @@ console.log("\nThe app, on every install")
   check("the page reads the kept token, asks for it, and hears every new one", /__storelibFcmToken/.test(client) && /messageHandlers\?\.storelibPush/.test(client) && !/\{ once: true \}/.test(client))
   check("  and sends it for whoever signs in, never twice for the same person and token", /if \(sentAs === key\) return/.test(client) && /if \(knownToken\) void sendToken\(knownToken, platform\)/.test(client))
   check("Android 13's prompt can show: the app declares the permission", /android\.permission\.POST_NOTIFICATIONS/.test(read("android/app/src/main/AndroidManifest.xml")))
-  check("the first launch after an install asks, signed in or not", /if \(permission === "prompt"\) \{\s*const answer = await askPushPermission\(\)/.test(read("components/platform/notifications-ask.tsx")))
+  /* Changed on purpose: never before sign in; Storelib's own sheet, then the phone's prompt (lib/native-permissions-rule.ts). */
+  check("the app asks once signed in, Storelib's sheet first", /if \(!\(await signedIn\(\)\)\) return/.test(read("components/platform/notifications-ask.tsx")) && /askPushPermission\(\)/.test(read("components/platform/notifications-ask.tsx")))
   check("the platform's own pages are never read as a creator handle in app links", ["order-help", "pay", "payouts-sheet", "stripe-done"].every((s) => (WEB_ONLY_SEGMENTS as readonly string[]).includes(s)))
 }
 

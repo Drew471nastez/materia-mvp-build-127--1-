@@ -67,6 +67,12 @@ export interface EmailFrame {
   unsubscribeUrl?: string | null
   /** A 1x1 image that records the open. Left out when opens are not counted, and in tests and previews. */
   openPixelUrl?: string | null
+  /**
+   * The email's own page on storelib.com (lib/email-campaigns/view-online.ts),
+   * linked as "View in browser" above the email for an inbox that draws it
+   * badly. Left out on that page itself, in previews and in tests.
+   */
+  viewOnlineUrl?: string | null
 }
 
 /**
@@ -166,7 +172,7 @@ ${preheader(f.previewText)}
 <tr><td align="center" class="sl-outer" style="padding:32px 16px 40px;">
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;margin:0 auto;">
-${header(brand, picture)}
+${f.viewOnlineUrl ? `<tr><td align="center" class="sl-foot" style="padding:0 16px 14px;font-family:${FONT};font-size:12px;line-height:18px;color:#6b7280;"><a href="${esc(f.viewOnlineUrl)}" target="_blank" style="color:#6b7280;text-decoration:underline;" data-view-online="">View in browser</a></td></tr>\n` : ""}${header(brand, picture)}
 <tr><td class="sl-card" style="background-color:#ffffff;border:1px solid #eceef1;border-radius:12px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td class="sl-pad sl-body" style="padding:40px;font-family:${FONT};font-size:16px;line-height:26px;color:#1f2937;word-break:break-word;">
@@ -197,7 +203,7 @@ ${pixel}
  * lists with dashes, a link's words followed by its address, then the
  * footer the HTML has.
  */
-export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "reason" | "unsubscribeUrl">): string {
+export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "reason" | "unsubscribeUrl" | "viewOnlineUrl">): string {
   const body = f.bodyHtml
     .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/gi, "")
     .replace(/<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, label: string) => {
@@ -224,7 +230,9 @@ export function emailText(f: Pick<EmailFrame, "bodyHtml" | "brand" | "kind" | "r
   if (f.reason) lines.push(f.reason)
   else if (f.kind === "marketing") lines.push(`You are getting this because you joined ${brand.name}'s list.`)
   if (f.kind === "marketing" && f.unsubscribeUrl) lines.push(`Unsubscribe: ${f.unsubscribeUrl}`)
-  return `${text}\n\n--\n${lines.join("\n")}`
+  /* The email's own page first, as the HTML version has it above the email (./view-online.ts). */
+  const view = f.viewOnlineUrl ? `View in browser: ${f.viewOnlineUrl}\n\n` : ""
+  return `${view}${text}\n\n--\n${lines.join("\n")}`
 }
 
 /* ─── Merge fields ───────────────────────────────────────────────────── */

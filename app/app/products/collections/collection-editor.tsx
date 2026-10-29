@@ -21,9 +21,10 @@
  * typed, by the same rules the storefront applies (lib/physical/
  * collections.ts inSmartCollection).
  *
- * A save or a delete goes back to the list, which says so and tints the row
- * (./list-return). The questions (discard the changes, delete it) are the
- * app's confirm, asked on this page: nothing is under it any more.
+ * A save or a delete goes back to the list, which says so, tints the row
+ * and reads its rows again (./list-return). The questions (discard the
+ * changes, delete it) are the app's confirm, asked on this page: nothing is
+ * under it any more.
  */
 
 import * as React from "react"
@@ -31,13 +32,14 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { ThumbScroll } from "@/components/app/thumb-scroll"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { RULE_FIELDS, inSmartCollection, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
 import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS } from "@/lib/products/category-groups"
-import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../new/editor-controls"
+import { FormSwitch, Segmented, SwapPanels } from "../new/editor-controls"
 import { LeaveButton } from "../new/editor-buttons"
 import { useConfirm } from "../new/confirm-sheet"
-import { iconButton } from "../../orders/order-parts"
+import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { CouponSaveButton, Tick } from "../../coupons/coupon-parts"
 import { collectionsReturn } from "./list-return"
 import {
@@ -63,11 +65,13 @@ import { Rich } from "@/lib/i18n/rich"
 /* The coupon editor's fields (../../coupons/coupon-editor.tsx): 16px on a phone so iOS does not zoom, 44px to press. */
 const FIELD =
   "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+/* Spaces in the data URL written as %20: a bare space ends Tailwind's arbitrary value and the chevron never drew. */
 const CHEVRON =
-  "appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8"
+  "appearance-none bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8"
 const SELECT = cn(FIELD, CHEVRON, "cursor-pointer truncate")
 const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
 const HINT = "text-[13px] leading-5 text-[#6b7280]"
+const ERR = "mt-1.5 text-[13px] font-medium leading-5 text-[#b42318]"
 /* The size chart page's cards (../size-charts/size-chart-page.tsx), so the sub pages under Products are one place. */
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
@@ -113,6 +117,7 @@ export function CollectionPage({ collection, products }: { collection: Collectio
   /* A smart collection switched to picking starts from the products its rules catch now. */
   const [picked, setPicked] = React.useState<string[]>(c?.productIds ?? [])
   const [query, setQuery] = React.useState("")
+  const [titleProblem, setTitleProblem] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -141,11 +146,17 @@ export function CollectionPage({ collection, products }: { collection: Collectio
   const save = async () => {
     if (!canSave) return
     if (!body.title) {
-      setError(tt("Give the collection a title."))
+      /* Said under the field, which takes the focus. */
+      setTitleProblem(tt("Give the collection a title."))
       titleRef.current?.focus()
+      titleRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
       return
     }
-    if (kind === "smart" && body.rules.length === 0) return showError(tt("Finish at least one condition: a field, how it compares and a value."))
+    if (kind === "smart" && body.rules.length === 0) {
+      setError(tt("Finish at least one condition: a field, how it compares and a value."))
+      paneRef.current?.querySelector<HTMLElement>("[data-rules-panel]")?.scrollIntoView({ block: "center", behavior: "smooth" })
+      return
+    }
     setSaving(true)
     setError(null)
     const r = await send(c ? `/api/collections/${c.id}` : "/api/collections", c ? "PUT" : "POST", body)
@@ -153,9 +164,10 @@ export function CollectionPage({ collection, products }: { collection: Collectio
       setSaving(false)
       return showError(r.error)
     }
+    /* Nothing to lose now: a back while the list comes in does not ask. */
     setInitial(JSON.stringify(body))
     const id = c?.id ?? r.id ?? r.collections.find((x) => x.title === body.title)?.id ?? null
-    collectionsReturn.leave(router, { id, collections: r.collections, message: tt("{value} saved", { value: body.title }) })
+    collectionsReturn.leave(router, { id, collections: r.collections, message: c ? tt("{value} saved", { value: body.title }) : tt("{value} created", { value: body.title }) })
   }
 
   const leaveMode = c && !dirty ? "back" : "cancel"
@@ -182,6 +194,7 @@ export function CollectionPage({ collection, products }: { collection: Collectio
     })
     if (!yes) return
     setDeleting(true)
+    setError(null)
     const r = await send(`/api/collections/${c.id}`, "DELETE")
     if (!r.ok) {
       setDeleting(false)
@@ -243,34 +256,37 @@ export function CollectionPage({ collection, products }: { collection: Collectio
               <input type="search" enterKeyHint="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search products")} aria-label={tt("Search products")} className={cn(FIELD, "pl-9 [&::-webkit-search-cancel-button]:hidden")} />
             </label>
           ) : null}
-          {/* On a phone the list is part of the sheet's scroll, never a scroll inside a scroll; on a computer it keeps the dialog short. */}
-          <ul aria-label={tt("Products")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb] sm:max-h-[296px] sm:overflow-y-auto sm:overscroll-contain">
-            {shown.map((p) => {
-              const on = pickedSet.has(p.id)
-              return (
-                <li key={p.id} className="[contain-intrinsic-size:auto_56px] [content-visibility:auto]">
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={on}
-                    onClick={() => toggle(p.id)}
-                    className="flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[52px] sm:hover:bg-[#fafafb]"
-                  >
-                    <Tick on={on} />
-                    <ProductThumb src={p.thumbnail_url} title={p.title} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] leading-5 text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
-                      <span className="block truncate text-[13px] leading-[18px] text-[#6b7280] sm:text-[12px]">
-                        {KIND_LABEL[p.type] ? tt(KIND_LABEL[p.type]) : tt("Product")}
-                        {p.status !== "published" ? tt(" · Draft") : ""}
+          {/* The offer picker's box (../../offers/offer-fields.tsx ProductPicker), with the app's own slim bar over its edge. */}
+          <ThumbScroll className="max-h-[336px] overflow-y-auto overscroll-contain rounded-xl border border-[#e5e7eb]">
+            <ul aria-label={tt("Products")} className="divide-y divide-[#eef0f2]">
+              {shown.map((p) => {
+                const on = pickedSet.has(p.id)
+                return (
+                  <li key={p.id} className="[contain-intrinsic-size:auto_56px] [content-visibility:auto]">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      data-pick={p.id}
+                      onClick={() => toggle(p.id)}
+                      className="flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[52px] sm:hover:bg-[#fafafb]"
+                    >
+                      <Tick on={on} />
+                      <ProductThumb src={p.thumbnail_url} title={p.title} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] leading-5 text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
+                        <span className="block truncate text-[13px] leading-[18px] text-[#6b7280] sm:text-[12px]">
+                          {KIND_LABEL[p.type] ? tt(KIND_LABEL[p.type]) : tt("Product")}
+                          {p.status !== "published" ? tt(" · Draft") : ""}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-            {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
-          </ul>
+                    </button>
+                  </li>
+                )
+              })}
+              {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
+            </ul>
+          </ThumbScroll>
           <div className="flex min-h-8 items-center justify-between gap-3">
             <p className={HINT}>{picked.length === 0 ? tt("None picked yet.") : tt("{length} of {length2} picked", { length: picked.length, length2: products.length })}</p>
             {picked.length > 0 ? (
@@ -327,8 +343,9 @@ export function CollectionPage({ collection, products }: { collection: Collectio
   )
 
   const heading = c ? c.title : tt("New collection")
+  const count = kind === "manual" ? picked.length : caught.length
   const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
-  const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(c ? c.productIds.length : 0)
+  const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(count)
   const saveWord = isNew ? tt("Create") : tt("Save")
 
   return (
@@ -356,6 +373,12 @@ export function CollectionPage({ collection, products }: { collection: Collectio
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
+          {/* Where it stands, as the coupon's header says it: the saved state, so it changes on Save, not on the switch. */}
+          {c ? (
+            <span className="ml-1 shrink-0" data-collection-state={c.published ? "published" : "hidden"}>
+              <StatusBadge tone={c.published ? "success" : "neutral"}>{c.published ? tt("Published") : tt("Hidden")}</StatusBadge>
+            </span>
+          ) : null}
         </header>
 
         {error ? (
@@ -371,7 +394,21 @@ export function CollectionPage({ collection, products }: { collection: Collectio
                 <label htmlFor="collection-title" className={LABEL}>
                   {tt("Title")}
                 </label>
-                <input id="collection-title" ref={titleRef} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={tt("New in, Courses, Under $30")} autoComplete="off" className={FIELD} />
+                <input
+                  id="collection-title"
+                  ref={titleRef}
+                  value={title}
+                  maxLength={120}
+                  onChange={(e) => {
+                    setTitle(e.target.value)
+                    if (titleProblem) setTitleProblem(null)
+                  }}
+                  placeholder={tt("New in, Courses, Under $30")}
+                  autoComplete="off"
+                  aria-invalid={!!titleProblem}
+                  className={cn(FIELD, titleProblem && "border-[#f0b4ab] focus:border-[#e3897c]")}
+                />
+                {titleProblem ? <p className={ERR}>{titleProblem}</p> : null}
               </div>
               <div>
                 <label htmlFor="collection-description" className={LABEL}>
@@ -412,20 +449,35 @@ export function CollectionPage({ collection, products }: { collection: Collectio
             </section>
           </div>
 
+          {/* From lg the side column stays in view while the collection is filled in, drawn as the coupon editor's side is (../../coupons/coupon-editor.tsx): a card with its switch, not a settings list. */}
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
-            <div className={SWITCH_GROUP}>
-              <SwitchRow title={tt("Published")} hint={tt("Can be shown on your website")} checked={published} onChange={setPublished} />
-              <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
-                <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
+            {/* ── Shown or not, and in what order ─────────────────────── */}
+            <section data-collection-status="" className={CARD} aria-labelledby="collection-status-title">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 id="collection-status-title" className={CARD_TITLE}>
+                    {tt("Published")}
+                  </h2>
+                  <p className={cn(HINT, "mt-0.5")}>{published ? tt("Its page is on your website, and menus and sections can show it.") : tt("Hidden. Nobody sees it on your website until you turn it on.")}</p>
+                </div>
+                <div className="pt-0.5">
+                  <FormSwitch checked={published} onChange={setPublished} label={tt("Published")} />
+                </div>
+              </div>
+              <div className="border-t border-[#eef0f2] pt-4">
+                <label htmlFor="collection-sort" className={LABEL}>
+                  {tt("Products are shown")}
+                </label>
+                <select id="collection-sort" value={sort} onChange={(e) => setSort(e.target.value)} className={SELECT}>
                   {SORTS.map(([v, label]) => (
                     <option key={v} value={v}>
                       {tt(label)}
                     </option>
                   ))}
                 </select>
-              </label>
-            </div>
+                {sort === "manual" && kind === "manual" ? <p className={cn(HINT, "mt-1.5")}>{tt("In the order you picked them.")}</p> : null}
+              </div>
+            </section>
 
             {c ? (
               <div className="flex justify-start lg:justify-end">

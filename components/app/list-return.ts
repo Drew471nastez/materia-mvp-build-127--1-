@@ -12,10 +12,11 @@ export type { ListReturnBase }
  * ===========================================================================
  *  A LIST AND THE PAGE ONE OF ITS ROWS OPENS
  * ===========================================================================
- * The round trip Coupons makes between its list and a code's own page
- * (app/app/coupons/list-return.ts), for any list in /app whose rows open as
- * sub pages: Upsells and bundles (app/app/offers) and Size charts
- * (app/app/products/size-charts).
+ * The one round trip between a list in /app and the page one of its rows
+ * opens, shared by every commerce list: Coupons (app/app/coupons), Upsells
+ * and bundles (app/app/offers), Collections (app/app/products/collections)
+ * and Size charts (app/app/products/size-charts). Each list makes one with
+ * createListReturn and its own address; nothing here is written twice.
  *
  *   ONE MOVE EACH WAY. On a phone the page rises over the list and drops
  *   back to it (components/app/page-layer moveLayer); from 768px it lands as
@@ -41,12 +42,45 @@ type Router = {
 /** How long after a press from the list the page still counts as opened by it. */
 const PUSH_KEPT_MS = 10_000
 
+type NavigationEntries = { currentEntry?: { index: number } | null; entries?: () => { url: string | null }[] }
+
+/** The Navigation API, where the engine has it (Chromium, Safari 26.2): it can say how far back the list is. */
+function navigationEntries(): NavigationEntries | null {
+  if (typeof window === "undefined") return null
+  const nav = (window as unknown as { navigation?: NavigationEntries }).navigation
+  return nav && nav.currentEntry && typeof nav.entries === "function" ? nav : null
+}
+
+/**
+ * HOW MANY ENTRIES BACK THE LIST IS. A page that moves its own address while it
+ * is open (a community's sections, components/community/creator/community-shell)
+ * is more than one entry after the list that opened it, and one back would land
+ * on its own previous address. With the Navigation API the list's entry is
+ * known by its index and checked by its address; without it, one back, and the
+ * landing is checked instead (leave).
+ */
+export function stepsBackTo(listHref: string, listIndex: number | null): number {
+  const nav = navigationEntries()
+  if (!nav || listIndex === null) return 1
+  const here = nav.currentEntry?.index ?? -1
+  const entry = nav.entries?.()[listIndex]
+  if (!entry?.url || here <= listIndex) return 1
+  try {
+    if (new URL(entry.url).pathname !== listHref) return 1
+  } catch {
+    return 1
+  }
+  return here - listIndex
+}
+
 export function createListReturn<R extends ListReturnBase>(listHref: string) {
   let handoff: R | null = null
   let pushedAt: number | null = null
   let fromList = false
   let pages = 0
   let returnTo: string | null = null
+  /* The list's own entry in the history, where the Navigation API says (stepsBackTo). */
+  let listIndex: number | null = null
 
   if (typeof window !== "undefined") {
     window.addEventListener("popstate", () => {
@@ -61,6 +95,7 @@ export function createListReturn<R extends ListReturnBase>(listHref: string) {
     open(router: Router, href: string) {
       moveLayer("enter", () => {
         pushedAt = Date.now()
+        listIndex = navigationEntries()?.currentEntry?.index ?? null
         router.push(href)
       })
     },
@@ -88,14 +123,27 @@ export function createListReturn<R extends ListReturnBase>(listHref: string) {
       handoff = what
       returnTo = listHref
       const back = fromList
+      const steps = back ? stepsBackTo(listHref, listIndex) : 0
       fromList = false
+      listIndex = null
       const replaceWithList = () => {
         markTraversal()
         router.replace(listHref)
       }
+      /* A back that landed somewhere else (an entry the page added that nothing counted): the list is put up there. */
+      const landedOnList = () => {
+        window.removeEventListener("popstate", landedOnList)
+        window.setTimeout(() => {
+          if (window.location.pathname !== listHref) replaceWithList()
+        }, 0)
+      }
       moveLayer("leave", () => {
-        if (back) backThen(replaceWithList)
-        else replaceWithList()
+        if (!back) return replaceWithList()
+        window.addEventListener("popstate", landedOnList)
+        backThen(() => {
+          window.removeEventListener("popstate", landedOnList)
+          replaceWithList()
+        }, undefined, steps)
       })
     },
 

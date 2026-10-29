@@ -7,6 +7,7 @@ import { loadReceiptByToken } from "@/lib/receipts/load"
 import { isPlausibleToken } from "@/lib/receipts/rules"
 import { withDiscount, withinTime } from "@/lib/receipts/discount"
 import { invoiceForReceipt } from "@/lib/checkout/invoice"
+import { creditNoteNumber, creditNotePath, creditNotesForReceipt } from "@/lib/checkout/credit-note"
 import type { ReceiptViewer } from "@/lib/receipts/view"
 import { getCanonicalSiteUrl, getStoreUrl } from "@/lib/url-helpers"
 import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
@@ -18,6 +19,8 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { CheckoutWords } from "@/app/checkout/parts/words"
+import { creatorTimeZone } from "@/lib/account/time-zone"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 
 export const dynamic = "force-dynamic"
 
@@ -36,15 +39,8 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 }
 
-/** The receipt's language as a tag dates and money are written in: English is en-US, as the receipt always was. */
-function formatLocale(lang: string): string {
-  if (!lang || lang.toLowerCase() === "en") return "en-US"
-  try {
-    return Intl.DateTimeFormat.supportedLocalesOf([lang])[0] ?? "en-US"
-  } catch {
-    return "en-US"
-  }
-}
+/** The receipt's language as a tag dates and money are written in: English is en-US, as the receipt always was (lib/markets/buyer-language.ts buyerMoneyLocale, shared with the emails, the PDF and the slip). */
+const formatLocale = (lang: string): string => buyerMoneyLocale(lang)
 
 export default async function ReceiptPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { token } = await params
@@ -100,8 +96,14 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     browser, and a cookie from another visit could pick the words.
   */
   const channel = buyerChannel({ family: "digital", source: bought?.source, surface: bought?.surface, lang: bought?.lang })
-  const language = bought?.creatorId ? await buyerPageLanguage(bought.creatorId, { channel, named: lang, order: bought.lang }).catch(() => null) : null
-  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={formatLocale(language?.lang ?? "en")} storeHref={storeHref} help={help} account={account} />
+  /* The order's date on the store's clock, as its PDF and its emails write it. */
+  const [language, timeZone] = bought?.creatorId
+    ? await Promise.all([buyerPageLanguage(bought.creatorId, { channel, named: lang, order: bought.lang }).catch(() => null), creatorTimeZone(admin, bought.creatorId).catch(() => null)])
+    : [null, null]
+  /* A refunded order's credit notes, one per refund (lib/checkout/credit-note.ts), issued now for a refund that has none yet. Bounded like the discount above. */
+  const notes = receipt.refundedCents > 0 ? await withinTime(() => creditNotesForReceipt(admin, token), 1500).catch(() => null) : null
+  const creditNotes = (notes?.notes ?? []).map((n) => ({ number: creditNoteNumber(n.seq), href: creditNotePath(token, n.id) }))
+  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={formatLocale(language?.lang ?? "en")} storeHref={storeHref} help={help} account={account} timeZone={timeZone} creditNotes={creditNotes} />
   return language ? <CheckoutWords lang={language.lang} words={language.words}>{view}</CheckoutWords> : view
 }
 

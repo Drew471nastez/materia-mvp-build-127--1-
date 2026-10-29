@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { pageUser } from "@/lib/auth/page-user"
-import { createClient } from "@/lib/supabase/server"
+import { websitePage } from "@/lib/team/website"
 
 /**
  * /app/website-builder/navigation: AN ADDRESS, NOT A PAGE.
@@ -17,9 +17,12 @@ export default async function NavigationAddress() {
   const user = await pageUser("/login?next=/app/website-builder")
   if (user === null) redirect("/app/website-builder")
 
-  const supabase = await createClient()
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) redirect("/app")
+  /* The owner's own store, or the one a team member with Website works in (lib/team/website). */
+  const access = await websitePage()
+  if (access.kind === "closed") redirect("/app/website-builder")
+  if (access.kind === "none") redirect("/app")
+  const supabase = access.db
+  const creator = { id: access.creatorId }
 
   const { data: installs } = await supabase
     .from("store_theme_installs")

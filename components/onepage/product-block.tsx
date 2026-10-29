@@ -146,7 +146,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const [warm, setWarm] = React.useState(false)
   const seen = React.useRef<HTMLSpanElement>(null)
 
-  const layout = productLayoutOf(data)
+  const layout = productLayoutOf(data, theme)
   const plan = productTapPlan(data)
   const back = useOnePageBack()
   /* The final address on storelib.com, with the OnePage to come back to once it is known (see useOnePageBack). */

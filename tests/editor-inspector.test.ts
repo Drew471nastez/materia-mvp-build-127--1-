@@ -142,7 +142,7 @@ async function main() {
   const route = read("app/api/website-builder/themes/[installId]/route.ts")
   const get = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function PATCH"))
   check("the install route reads what does not hang on the row beside it", get.indexOf("const besides = Promise.all([") > 0 && get.indexOf("const besides") < get.indexOf("ensurePolicyPages(") && /besides\.catch\(\(\) => \{\}\)/.test(get))
-  check("  and asks who is signed in once", (get.match(/auth\.getUser\(\)/g) ?? []).length === 0 && /userId: user\.id/.test(route))
+  check("  and asks who is signed in once", (get.match(/auth\.getUser\(\)/g) ?? []).length === 0 && /userId: c\.userId/.test(route)) /* Changed on purpose (round 42 team): who is signed in comes from lib/team/website */
   const workspace = read("components/app/creator-page-workspace.tsx")
   check("the creator page shows its loader only for a slow load", /const loaderShown = useDelayedFlag\(firstLoad, SPINNER_WAIT_MS\)/.test(workspace) && /\{loaderShown && <BuilderLoader/.test(workspace))
   check("  and shows the page once it can paint, not once its last picture is in", /doc\.readyState !== "loading"/.test(workspace) && /every\(\(l\) => !!l\.sheet\)/.test(workspace))

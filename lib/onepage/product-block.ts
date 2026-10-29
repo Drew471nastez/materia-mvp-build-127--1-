@@ -35,16 +35,21 @@
  * `editorProductState`.
  */
 import type { ProductBlockData, ProductBlockStyle, ProductSheetAction, ProductTapAction } from "./types"
+import { themedProductStyle } from "./theme-layout"
 
 export const PRODUCT_TAP_ACTIONS: readonly ProductTapAction[] = ["page", "sheet", "checkout"]
 
 /** Every way the block can be drawn, in the order the editor offers them. */
 export const PRODUCT_LAYOUTS: readonly ProductBlockStyle[] = ["callout", "row", "preview", "side", "tile", "overlay", "minimal", "button"]
 
-/** A stored style this version does not know (or none) is drawn as the callout, as before. */
-export function productLayoutOf(data: Pick<ProductBlockData, "style"> | null | undefined): ProductBlockStyle {
-  const s = data?.style
-  return s && (PRODUCT_LAYOUTS as readonly string[]).includes(s) ? s : "callout"
+/**
+ * A stored style this version does not know (or none) is drawn as the callout, as before. With the page's theme, a
+ * theme that shows products its own way (lib/onepage/theme-layout themedProductStyle) redraws a block left as the
+ * Callout; a layout the person picked stays.
+ */
+export function productLayoutOf(data: Pick<ProductBlockData, "style" | "style_chosen"> | null | undefined, theme?: { product_layout?: unknown } | null): ProductBlockStyle {
+  const s = theme ? themedProductStyle(theme, data) : data?.style
+  return s && (PRODUCT_LAYOUTS as readonly string[]).includes(s) ? (s as ProductBlockStyle) : "callout"
 }
 
 /** Kinds of product that are bought once, as a download or a course: the only ones instant checkout takes. */
@@ -247,8 +252,8 @@ export function pickableProducts<T extends EditorProductRow>(products: readonly 
 type BlockLike = { id: string; type?: string; data?: unknown }
 
 /** A product block drawn as a tile. */
-export function isProductTile(block: BlockLike): boolean {
-  return block.type === "product" && productLayoutOf(block.data as ProductBlockData) === "tile"
+export function isProductTile(block: BlockLike, theme?: { product_layout?: unknown } | null): boolean {
+  return block.type === "product" && productLayoutOf(block.data as ProductBlockData, theme) === "tile"
 }
 
 /**
@@ -256,7 +261,7 @@ export function isProductTile(block: BlockLike): boolean {
  * into rows of two. A tile left alone is a row of one and is drawn full width.
  * Everything else passes through as it was, in the same order.
  */
-export function pairProductTiles<T extends BlockLike>(blocks: readonly T[]): (T | { tiles: T[]; key: string })[] {
+export function pairProductTiles<T extends BlockLike>(blocks: readonly T[], theme?: { product_layout?: unknown } | null): (T | { tiles: T[]; key: string })[] {
   const out: (T | { tiles: T[]; key: string })[] = []
   let run: T[] = []
   const flush = () => {
@@ -267,7 +272,7 @@ export function pairProductTiles<T extends BlockLike>(blocks: readonly T[]): (T 
     run = []
   }
   for (const b of blocks) {
-    if (isProductTile(b)) {
+    if (isProductTile(b, theme)) {
       run.push(b)
       continue
     }

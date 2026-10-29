@@ -254,7 +254,8 @@ export function embedSource(raw: string | null | undefined): EmbedSource | null 
     /* /r/<id>, /embed/<id> or /forms/<id> */
     const id = parts[0] === "r" || parts[0] === "embed" || parts[0] === "forms" ? parts[1] : ""
     if (!id || !SAFE_ID.test(id)) return null
-    return { kind: "tally", embedUrl: `https://tally.so/embed/${id}?alignLeft=1&hideTitle=0&transparentBackground=1`, height: 520 }
+    /* Round 42: dynamicHeight=1 makes Tally say its height (Tally.FormResized), so the form is never scrolled inside its frame. */
+    return { kind: "tally", embedUrl: `https://tally.so/embed/${id}?alignLeft=1&hideTitle=0&transparentBackground=1&dynamicHeight=1`, height: 520, resizes: true }
   }
 
   if (host.endsWith(".substack.com")) {
@@ -358,12 +359,58 @@ export function embedHeightFromMessage(kind: EmbedKind, origin: string, data: un
   const m = msg as Record<string, unknown>
   let h: unknown = null
   if (kind === "instagram" && origin === "https://www.instagram.com" && m.type === "MEASURE") h = (m.details as { height?: unknown } | undefined)?.height
+  if (kind === "tally" && origin === "https://tally.so" && m.event === "Tally.FormResized") h = (m.payload as { height?: unknown } | undefined)?.height
   if (kind === "x" && origin === "https://platform.twitter.com") {
     const e = m["twttr.embed"] as { method?: string; params?: { height?: unknown }[] } | undefined
     if (e?.method === "twttr.private.resize") h = e.params?.[0]?.height
   }
+  return frameHeight(h)
+}
+
+/**
+ * A height a frame said, as whole pixels the frame can hold it in: rounded
+ * UP (round 42). A card 611.4px tall in a 611px frame is 0.4px too tall,
+ * and that is enough for the frame to scroll it, both ways, with scrollbars.
+ */
+function frameHeight(h: unknown): number | null {
   const n = typeof h === "number" ? h : typeof h === "string" ? Number.parseFloat(h) : NaN
-  return Number.isFinite(n) && n > 40 && n < 4000 ? Math.round(n) : null
+  return Number.isFinite(n) && n > 40 && n < 4000 ? Math.ceil(n - 0.01) : null
+}
+
+/**
+ * A Calendly page drawn inline (round 42). Calendly says its height to the
+ * page only when told it is inline and on which host
+ * (`embed_type=Inline&embed_domain=<host>`, what its own widget script
+ * adds), so the page is never scrolled inside its frame. Anything that is
+ * not calendly.com (Cal.com) is left as it is: it keeps its fixed height.
+ */
+export function bookingFrameUrl(url: string, pageHost: string | null | undefined): string {
+  const source = bookingSource(url)
+  const host = (pageHost || "").toLowerCase().replace(/:\d+$/, "")
+  if (!source || source.kind !== "calendly" || !host || !/^[a-z0-9.-]+$/.test(host)) return source?.url ?? url
+  const u = new URL(source.url)
+  u.searchParams.set("embed_type", "Inline")
+  u.searchParams.set("embed_domain", host)
+  return u.toString()
+}
+
+/** How tall a Calendly page says it is (`calendly.page_height`, "1021px"), only from calendly.com. */
+export function bookingHeightFromMessage(origin: string, data: unknown): number | null {
+  if (origin !== "https://calendly.com") return null
+  if (!data || typeof data !== "object") return null
+  const m = data as { event?: unknown; payload?: { height?: unknown } }
+  if (m.event !== "calendly.page_height") return null
+  return frameHeight(m.payload?.height)
+}
+
+/**
+ * TikTok's own player (round 42): the video alone, 9:16, filling its frame.
+ * The old /embed/v2 address is TikTok's whole post card (the video, then the
+ * caption, the sound and a button), taller than any 9:16 box, so it
+ * scrolled inside it.
+ */
+export function tiktokPlayerUrl(id: string, autoplay = true): string {
+  return `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?autoplay=${autoplay ? 1 : 0}&rel=0&music_info=0&description=0`
 }
 
 /**

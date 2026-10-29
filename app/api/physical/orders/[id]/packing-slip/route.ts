@@ -6,6 +6,7 @@ import { packingSlipFilename, renderPackingSlipPdf } from "@/lib/physical/packin
 import { storeIdentity } from "@/lib/store/identity-server"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { getServerTt } from "@/lib/i18n/server"
+import { returnAddressOf } from "@/lib/physical/jobs-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -57,7 +58,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const f = url.searchParams.get("f")
   const loc = url.searchParams.get("loc")
   const shipmentId = isUuid(f) ? f : null
-  const [store, zone, { tt, language }] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt()])
+  /* Where a return goes, printed on the slip as the return email says it: the store's own address when it ships from one. */
+  const [store, zone, { tt, language }, returnAddress] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt(), returnAddressOf(c.db, c.creatorId).catch(() => null)])
   const lines = slipLines(order, { shipmentId, locationId: isUuid(loc) ? loc : null })
   const shipmentIndex = shipmentId ? order.shipments.findIndex((s) => s.id === shipmentId) : -1
   /* A4 or Letter, prices or none: the bar's links are this same page with the one thing changed. */
@@ -73,7 +75,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   const whole = !shipmentId && !isUuid(loc)
   if (url.searchParams.get("format") === "pdf") {
-    const pdf = await renderPackingSlipPdf(order, lines, { name: store?.name || "Storelib", logoUrl: null }, {
+    const pdf = await renderPackingSlipPdf(order, lines, { name: store?.name || "Storelib", logoUrl: null, returnAddress }, {
       tt,
       lang: language,
       timeZone: zone,
@@ -90,7 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
     })
   }
-  const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, {
+  const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null, returnAddress }, {
     tt,
     lang: language,
     timeZone: zone,

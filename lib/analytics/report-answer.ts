@@ -10,10 +10,13 @@ import "server-only"
  * question read from the address (reportQuestion), then everything counted
  * at once (countReportAnswer). lib/analytics/reports.ts has the rules.
  */
-import { buildReports, moneyOf, previousWindow, spansToRead, type ReportWire, type Span, type WindowWire } from "./reports"
+import { REMOVED_PRODUCT, buildReports, moneyOf, periodsOf, previousWindow, spansToRead, type ReportWire, type Span, type WindowWire } from "./reports"
+import { siteClicksOf } from "./site-clicks"
+import { productSalesSeries, rowSeriesOf, storedDimOf, type RowDim, type SeriesMap } from "./row-series"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { withoutTestSales } from "./test-sales"
 import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { ownsProperty, parseProperty, propertyParam } from "./properties"
@@ -27,8 +30,11 @@ import {
   readLegacyOnePage,
   readAudience,
   readDownloads,
+  readNavClicks,
   readOrders,
+  readStoredRowSeries,
   readSubscribers,
+  ratesFrom,
   rpc,
   startingAt,
   withColumns,
@@ -174,7 +180,9 @@ export async function countReportAnswer(
       })
       return readDownloads(admin, inside.map((r) => r.id))
     })
-    for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads]) p.catch(() => {})
+    /* Clicks between pages of the same site (lib/analytics/site-clicks): a seller with a website, for All or a website, no product chosen. */
+    const nav = !q.product && q.properties.websites.length > 0 && (q.selector.type === "all" || q.selector.type === "website") ? readNavClicks(admin, q) : Promise.resolve(null)
+    for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads, nav]) p.catch(() => {})
 
     const base = { window: q.window, previous: q.previous, timeZone: q.timeZone, mainDomain: q.mainDomain, productTitles, selector: q.selector, properties: q.properties, product: q.product, mode: q.mode ?? "all", productTypes }
     if (onFigures) {
@@ -196,15 +204,17 @@ export async function countReportAnswer(
         .catch(() => null))
     }
 
-    const [v, d, l, o, s, labelsById, a, [audNow, audBefore], dl] = await Promise.all([quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads])
+    const [v, d, l, o, s, labelsById, a, [audNow, audBefore], dl, navWire] = await Promise.all([quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads, nav])
     const fromRows = d.counted === "rows"
     const merged: ReportWire = {
       cur: { ...v.wire.cur, ...d.wire.cur, ...(fromRows || !audNow.audience ? {} : audNow.audience) },
       prev: { ...v.wire.prev, ...d.wire.prev, ...(fromRows || !audBefore.audience ? {} : { os: audBefore.audience.os }) },
     }
     const wire = foldLegacy(merged, l.legacy, q)
+    const reports = buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, downloadsByLine: dl })
+    if (navWire) reports.siteClicks = siteClicksOf(navWire, { compared: reports.compared, selector: q.selector, properties: q.properties })
     return {
-      reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, downloadsByLine: dl }),
+      reports,
       allTime: a,
       truncated: v.truncated || d.truncated || l.truncated || o.truncated || audNow.truncated || audBefore.truncated,
       /* Sales in another currency, each converted to the store's at its own day's rate; any no rate could convert are left out and counted. */
@@ -228,8 +238,8 @@ export async function allTimeOf(admin: Admin, creatorId: string) {
   const counted = mixed ? null : await rpc<{ views: number; orders: number; sales_cents: number }>(admin, "analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
   if (counted) return { orders: Number(counted.orders) || 0, salesCents: Number(counted.sales_cents) || 0 }
   const read = await byCreator((scope) =>
-    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, currency", async (columns) =>
-      ownRows(
+    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, currency, source_detail", async (columns) =>
+      withoutTestSales(ownRows(
         (
           await readAll<OrderRow>((after) =>
             startingAt(scopedOrders(admin, columns, scope, creatorId, null), "1970-01-01T00:00:00.000Z", after)
@@ -238,10 +248,40 @@ export async function allTimeOf(admin: Admin, creatorId: string) {
               .limit(PAGE) as unknown as Read<OrderRow>,
           )
         ).rows,
-      ),
+      )),
     ),
   )
-  const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency)).rows
+  /* The day rates through the same client as the orders (report-read ratesFrom), as the period's figures read them. */
+  const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency, { rates: ratesFrom(admin) })).rows
   const sales = groupOrders(rows).filter(isSale)
   return { orders: sales.length, salesCents: sales.reduce((sum, o) => sum + moneyOf(o).net, 0) }
+}
+
+/**
+ * EACH ROW'S OWN LINE, for one report opened (app/api/analytics/rows,
+ * lib/analytics/row-series): the period's buckets, as the chart draws them,
+ * and a line per row of the dimension, keyed as the report's rows are. Only
+ * the one dimension is read: the visits of the period for a breakdown or a
+ * page, its clicks for a link, its orders for a product.
+ */
+export async function countRowSeries(admin: Admin, asked: AskedQuestion, dim: RowDim): Promise<{ dim: RowDim; labels: string[]; series: SeriesMap; truncated: boolean }> {
+  const { q } = asked
+  const { labels } = periodsOf(q.window, null, q.timeZone)
+  if (dim === "product") {
+    const o = await readOrders(admin, [q.window], q.creatorId, q.product, q.window)
+    const series = productSalesSeries({
+      orders: o.rows,
+      window: q.window,
+      timeZone: q.timeZone,
+      selector: q.selector,
+      defaultWebsite: q.properties.defaultWebsite,
+      productTitles: asked.productTitles,
+      productTypes: asked.productTypes,
+      mode: q.mode ?? "all",
+      removedKey: REMOVED_PRODUCT,
+    })
+    return { dim, labels, series, truncated: o.truncated }
+  }
+  const stored = await readStoredRowSeries(admin, q, storedDimOf(dim))
+  return { dim, labels, series: rowSeriesOf(dim, stored.series, q.mainDomain), truncated: stored.truncated }
 }

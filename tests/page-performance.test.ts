@@ -1196,7 +1196,8 @@ check(
     const api = read("app/api/creator-profile/route.ts")
     const missing: string[] = []
 
-    if (!/const viewerIsOwner = !!viewer && viewer\.id === profile\.id/.test(page))
+    /* Changed on purpose (round 42 team): the owner, or a team member with Creator page in this very store, read again from the database (lib/team/server teamStoreIdFor). */
+    if (!/const viewerIsOwner = !!viewer && \(viewer\.id === profile\.id \|\| \(await teamStoreIdFor\(viewer\.id, "creator_pages"\)/.test(page))
       missing.push("the page no longer checks who is looking")
     if (!/if \(!viewerIsOwner\) return null/.test(page))
       missing.push("buildOwnerActions hands the edit control to everyone")
@@ -1226,7 +1227,8 @@ check(
       missing.push("the save route no longer rejects an unauthenticated caller")
     if (/createAdminClient/.test(api))
       missing.push("the save route uses the admin client — it would bypass the RLS that scopes writes to the owner")
-    if (!/\.eq\("id", user\.id\)/.test(api))
+    /* Changed on purpose (round 42 team): by the profile lib/team/creator-page resolved from the session: the owner's own, or the store owner's for a member with Creator page. */
+    if (!/\.eq\("id", page\.profileId\)/.test(api) || !/creatorPageStore\(supabase, user\.id\)/.test(api))
       missing.push("the profile update is not scoped to the signed-in user")
 
     /**

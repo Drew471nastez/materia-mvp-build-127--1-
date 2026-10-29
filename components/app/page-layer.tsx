@@ -122,10 +122,21 @@ const ReactViewTransition = (React as unknown as { ViewTransition?: React.Compon
 */
 const LAYER_MOVES: boolean = false
 
-/* ── Whether a layer moves here: a phone, motion allowed, no drop of our own running ── */
+/*
+  ── EXCEPT THE PRODUCT EDITOR (round 41) ──
+  The owner, on a phone: "Opening Edit product or New product feels direct and glitchy", and going back "must be smooth
+  too". Orders still opens an order by rising from the bottom (app/app/orders/order-motion.ts), so the product editor
+  asks for the same move again: a layer drawn with `moves` carries this attribute, and the list asks for the rise
+  with moveLayer(..., { moves: true }). Every other layer stays as round 23 left it.
+*/
+export const LAYER_MOVES_ATTR = "data-page-layer-moves"
+/** Does this layer on the screen rise and drop? */
+const layerMoves = (layer: Element | null) => LAYER_MOVES || !!layer?.hasAttribute(LAYER_MOVES_ATTR)
+
+/* ── Whether a layer moves here: one that asks to, on a phone, motion allowed ── */
 const REDUCED = "(prefers-reduced-motion: reduce)"
-function layerMotionOn(): boolean {
-  if (!LAYER_MOVES) return false
+function layerMotionOn(moves: boolean = LAYER_MOVES): boolean {
+  if (!moves) return false
   if (typeof window === "undefined" || !window.matchMedia) return false
   return window.matchMedia(LAYER_PHONE).matches && !window.matchMedia(REDUCED).matches
 }
@@ -152,7 +163,8 @@ function subscribeMotion(change: () => void) {
     for (const q of queries) q.removeEventListener?.("change", change)
   }
 }
-const reactMoves = () => layerMotionOn() && !manual
+/* For a layer that moves: a phone, motion allowed, no drop of our own running. */
+const reactMoves = () => layerMotionOn(true) && !manual
 const serverMotion = () => false
 
 /* ── The mark on <html> while a layer moves ─────────────────────────────── */
@@ -500,15 +512,106 @@ function pageStill(): HTMLElement | null {
   return box
 }
 
+/*
+  ===========================================================================
+   THE PAGE A LAYER WAS OPENED FROM, KEPT FOR THE WAY BACK (round 41)
+  ===========================================================================
+  "Going back: the editor holds before dropping." The drop could only start
+  at the commit that brings the list back, and the list has to be drawn
+  first: measured at 390, 120 to 470ms with the editor standing still after
+  Back (up to 970ms with the CPU at a quarter). So the press that opens a
+  layer that moves keeps a copy of the page it was pressed on (not in the
+  document: nothing is laid out or painted for it), with where its
+  scrollers stood. Back to that same address then lays the copy under the
+  editor and drops the editor at once, on the frame after the press, while
+  the real page is drawn under both; the copy goes in the commit that brings
+  that page, which is the page it is a copy of, scrolled where the copy was.
+  Anywhere else, or with no copy, the drop waits for the commit as before.
+*/
+type PageCopy = { parts: Array<{ copy: HTMLElement; rect: DOMRect; scrolls: Array<[number, number]> }>; path: string; box?: HTMLElement | null }
+let pageCopy: PageCopy | null = null
+/** The scroll of every box a copy starts at the top of, in the order STILL_SCROLLERS finds them. */
+function scrollsOf(el: HTMLElement): Array<[number, number]> {
+  return [el, ...Array.from(el.querySelectorAll<HTMLElement>(STILL_SCROLLERS))].map((n) => [n.scrollTop, n.scrollLeft])
+}
+function keepPageCopy() {
+  pageCopy = null
+  if (typeof document === "undefined") return
+  const parts = [
+    ...Array.from(document.querySelectorAll<HTMLElement>("[data-shell-chrome]")),
+    ...Array.from(document.querySelectorAll<HTMLElement>(".app-content-scroll")),
+  ].filter((el) => {
+    const cs = getComputedStyle(el)
+    return cs.visibility !== "hidden" && cs.display !== "none" && el.getClientRects().length > 0
+  })
+  if (parts.length === 0) return
+  /* Coming back, nothing in it is pressed any more: the row's held tint and its spinner are left out of the copy. */
+  const unpressed = (el: HTMLElement) => {
+    const copy = copyFor(el)
+    for (const n of Array.from(copy.querySelectorAll("[data-row-opening],[data-layer-press-spinner]"))) n.remove()
+    for (const n of [copy, ...Array.from(copy.querySelectorAll<HTMLElement>("[data-opening],[data-pressed],[data-layer-press]"))]) {
+      n.removeAttribute("data-opening")
+      n.removeAttribute("data-pressed")
+      n.removeAttribute("data-layer-press")
+    }
+    return copy
+  }
+  pageCopy = { path: window.location.pathname, parts: parts.map((el) => ({ copy: unpressed(el), rect: el.getBoundingClientRect(), scrolls: scrollsOf(el) })) }
+}
+/*
+  LAID OUT AHEAD. Putting the copy in the document and laying it out is a
+  list's worth of style and layout, and in Back's own frame it held the drop
+  for a frame or two (293ms from the press at a quarter of the CPU). So once
+  the layer has risen and the page is quiet, the copy is laid out under the
+  layer, hidden, and Back only uncovers it. It goes when the layer does.
+*/
+const COPY_AHEAD_MS = 400
+
+/**
+ * THE COPY IS OF THE PAGE AS IT WAS. After a save, a status change or a
+ * delete in the layer, the page it goes back to is not that page any more:
+ * the copy would show the edited row's old title, price and status (or a
+ * deleted row) until the real page came. So the layer forgets it, and that
+ * way back is the drop at the commit, over the page as it now is.
+ */
+export function forgetPageCopy() {
+  pageCopy?.box?.remove()
+  pageCopy = null
+}
+function layCopyAhead() {
+  const kept = pageCopy
+  if (!kept || kept.box?.isConnected) return
+  kept.box = showPageCopy(kept)
+  kept.box.style.visibility = "hidden"
+}
+
+/** The kept copy laid out under a dropping layer, where its page stood, scrolled where it was. */
+function showPageCopy(kept: PageCopy): HTMLElement {
+  const box = stillBox(false)
+  box.dataset.layerStill = "page"
+  stillHome().append(box)
+  for (const { copy, rect, scrolls } of kept.parts) {
+    copy.style.cssText += `;position:absolute;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;margin:0`
+    box.append(copy)
+    const boxes = [copy, ...Array.from(copy.querySelectorAll<HTMLElement>(STILL_SCROLLERS))]
+    boxes.forEach((n, i) => {
+      const [top, left] = scrolls[i] ?? [0, 0]
+      if (top) n.scrollTop = top
+      if (left) n.scrollLeft = left
+    })
+  }
+  return box
+}
+
 /** A move of our own, on one element, held until the screen keeps up. Going down it fades a little (LAYER_LEAVE_FADE). */
-function moveByHand(el: HTMLElement, up: boolean, ms: number) {
+function moveByHand(el: HTMLElement, up: boolean, ms: number, hold = true) {
   const a = el.animate(
     up
       ? [{ transform: "translateY(100%)" }, { transform: "translateY(0)" }]
       : [{ transform: "translateY(0)", opacity: 1 }, { transform: "translateY(100%)", opacity: LAYER_LEAVE_FADE }],
     { duration: ms, easing: LAYER_MOTION_EASE, fill: up ? "backwards" : "forwards" },
   )
-  startWhenFramesFlow([a], 2)
+  if (hold) startWhenFramesFlow([a], 2)
   return a
 }
 
@@ -586,7 +689,7 @@ function riseByHand(layer: HTMLElement | null) {
   if (!want) return
   rising = null
   const html = document.documentElement
-  if (!layer || !layerMotionOn() || html.dataset.layerMotion !== "enter") {
+  if (!layer || !layerMotionOn(layerMoves(layer)) || html.dataset.layerMotion !== "enter") {
     endRise(want)
     return
   }
@@ -603,11 +706,11 @@ function riseByHand(layer: HTMLElement | null) {
  * this commit does. True when React is moving the layer for it, so the layer
  * knows not to move itself as well (riseByHand).
  */
-function markReactMotion(kind: "enter" | "leave"): boolean {
+function markReactMotion(kind: "enter" | "leave", wanted: boolean): boolean {
   const html = document.documentElement
   const move = (document as WithViewTransitions).__reactViewTransition
-  /* Only inside a transition React is running for this commit, with the layer moving; a commit with none (a popstate, reduced motion, a wide window, our own way back) marks nothing here. */
-  if (!move || !reactMoves()) return false
+  /* Only inside a transition React is running for this commit, with the layer moving; a commit with none (a popstate, reduced motion, a wide window, our own way back, a layer that does not move) marks nothing here. */
+  if (!move || !wanted || !reactMoves()) return false
   const now = html.dataset.layerMotion as Mark | undefined
   /* Standing in for itself (holdLayerLanding), or already one layer for another in this commit. */
   if (now === "stay" || now === "swap") return true
@@ -667,7 +770,7 @@ function markReactMotion(kind: "enter" | "leave"): boolean {
 export const LAYER_LEAVE_FADE = 0.85
 
 /* A way back that has started and whose commit has not come yet. `sent` once its navigation has gone. */
-type Drop = { cap: number; still: HTMLElement | null; sent: boolean }
+type Drop = { cap: number; still: HTMLElement | null; sent: boolean; under?: HTMLElement | null; move?: Animation | null; moved?: boolean }
 let dropWant: Drop | null = null
 
 /** React draws the layer's own exit again, after a way back of ours. */
@@ -676,10 +779,11 @@ function endManual() {
   for (const change of changes) change()
 }
 
-function dropLayer(navigate: () => void) {
+function dropLayer(navigate: () => void, to?: string) {
   const doc = document as WithViewTransitions
   /* Not while one is on its way or running already (ours, or React's), and only with a layer on the screen to drop. */
-  if (dropWant || dropping || manual || doc.__reactViewTransition || !layerMotionOn() || !document.querySelector("[data-page-layer]")) {
+  const up = document.querySelector("[data-page-layer]")
+  if (dropWant || dropping || manual || doc.__reactViewTransition || !up || !layerMotionOn(layerMoves(up))) {
     navigate()
     return
   }
@@ -697,9 +801,14 @@ function dropLayer(navigate: () => void) {
   want.cap = window.setTimeout(() => {
     if (dropWant !== want) return
     dropWant = null
-    want.still?.remove()
+    /* The early drop is undone: the editor stands where it was. */
+    if (want.under) undoEarly(want)
+    else want.still?.remove()
     endManual()
   }, LAYER_PRESS_KEPT_MS)
+  /* Back to the page the layer was opened from, with its copy kept: the drop starts now (dropEarly). */
+  const kept = pageCopy && to && pageCopy.path === to ? pageCopy : null
+  pageCopy = null
   /*
     The press's own frame is painted first. Then, on the next one, the still
     is built and laid out, hidden, while the live layer stays in front, and
@@ -713,11 +822,69 @@ function dropLayer(navigate: () => void) {
        instead (endLayerMove): this way back is off, and its navigation with it. */
     if (dropWant !== want) return
     const layer = document.querySelector<HTMLElement>("[data-page-layer]")
+    if (layer && kept && layerMotionOn(true)) {
+      /*
+        The page is drawn once the drop has landed, not under it: drawing a
+        list is a long task, and started in the same frame it took the drop's
+        frames (measured at 390: from the press to the first frame of the
+        drop 245 to 525ms, three frames of it seen). Under the copy, the wait
+        for the real page shows nothing.
+      */
+      const move = dropEarly(want, layer, kept)
+      const send = () => {
+        if (dropWant !== want || want.sent) return
+        want.sent = true
+        navigate()
+      }
+      move.finished.then(send, send)
+      return
+    }
     want.still = layer ? layerStill(layer) : null
     if (want.still) want.still.style.visibility = "hidden"
     want.sent = true
     navigate()
   })
+}
+
+/** An early drop whose navigation has not gone: the editor stands where it was again (a press that ends the move, or the cap). */
+function undoEarly(want: Drop) {
+  want.move?.cancel()
+  want.under?.remove()
+  const html = document.documentElement
+  if (html.dataset.layerMotion === "leave") delete html.dataset.layerMotion
+  delete html.dataset.layerHand
+  dropping = false
+  if (handMove === want.move) handMove = null
+}
+
+/*
+  THE DROP AT ONCE: the copy of the page laid under the layer, and the live
+  layer itself on its way down on this frame, before the navigation has
+  even started. Nothing is copied of the editor (a copy of the biggest page
+  in the app and its layout cost the press 120ms): it is still the layer,
+  and nothing navigates until it has landed. It holds its last frame, at
+  the bottom edge, until the commit takes it away. The mark stays on <html>
+  until the page has committed too, so the stage plays no landing over it.
+*/
+function dropEarly(want: Drop, layer: HTMLElement, kept: PageCopy): Animation {
+  const html = document.documentElement
+  if (kept.box?.isConnected) kept.box.style.visibility = ""
+  else kept.box = showPageCopy(kept)
+  want.under = kept.box
+  dropping = true
+  html.dataset.layerMotion = "leave"
+  html.dataset.layerHand = ""
+  setMotionVars(html)
+  /* Nothing renders under it yet (the navigation starts after this), so it is not held for frames to flow. */
+  const move = moveByHand(layer, false, LAYER_LEAVE_MS, false)
+  want.move = move
+  handMove = move
+  const landed = () => {
+    want.moved = true
+    if (handMove === move) handMove = null
+  }
+  move.finished.then(landed, landed)
+  return move
 }
 
 /**
@@ -733,7 +900,29 @@ function dropAtCommit(): boolean {
   window.clearTimeout(want.cap)
   const html = document.documentElement
   const still = want.still
-  if (!still || !still.isConnected || !layerMotionOn()) {
+  if (want.under) {
+    /* Dropped early: the page this commit brings is the one its copy stood for, so the copy goes now. */
+    want.under.remove()
+    const end = () => {
+      dropping = false
+      if (handMove === want.move) handMove = null
+      still?.remove()
+      /* A frame after the commit, so the stage reads the mark and lands nothing over the page. */
+      requestAnimationFrame(() => {
+        if (html.dataset.layerHand !== undefined && html.dataset.layerMotion === "leave") {
+          delete html.dataset.layerMotion
+          delete html.dataset.layerHand
+        }
+        endManual()
+        runAfterMove()
+      })
+    }
+    if (want.moved || !want.move) end()
+    else want.move.finished.then(end, end)
+    return true
+  }
+  /* Only a layer that moves asked for a drop (dropLayer). */
+  if (!still || !still.isConnected || !layerMotionOn(true)) {
     still?.remove()
     endManual()
     return true
@@ -840,7 +1029,9 @@ export function endLayerMove() {
   if (drop && !drop.sent) {
     dropWant = null
     window.clearTimeout(drop.cap)
-    drop.still?.remove()
+    /* Its navigation is never sent; an early drop's copy and still go, and the press that ended it navigates. */
+    if (drop.under) undoEarly(drop)
+    else drop.still?.remove()
     endManual()
   }
   if (playing) {
@@ -1057,15 +1248,22 @@ if (typeof window !== "undefined") listen()
  * the layer raises itself over a still of the page (raiseByHand). "leave":
  * `navigate` runs on the frame after the press, the layer stays live until
  * the commit that takes it away, and a still of it drops from there over the
- * page that commit brought (dropAtCommit), in every engine. `press` is the control
+ * page that commit brought (dropAtCommit), in every engine. `moves` is for a
+ * layer drawn with `moves` (the product editor): only then does the way in
+ * rise. `press` is the control
  * to answer: by default the one under the last pointer press; `false` when
  * the caller draws its own answer (the products list's row, the product
  * editor's Cancel).
  */
-export function moveLayer(motion: "enter" | "leave", navigate: () => void, press?: Element | null | false) {
+export function moveLayer(motion: "enter" | "leave", navigate: () => void, press?: Element | null | false, { moves = false, to }: { moves?: boolean; to?: string } = {}) {
+  /* The page pressed on, before the press is drawn on it, for a way back to it that need not wait (THE PAGE A LAYER WAS OPENED FROM). */
+  if (motion === "enter") {
+    if (layerMotionOn(LAYER_MOVES || moves)) keepPageCopy()
+    else pageCopy = null
+  }
   if (press !== false) holdPress(press ?? recentPress())
-  if (motion === "leave") dropLayer(navigate)
-  else if (layerMotionOn() && !canViewTransition()) raiseByHand(navigate)
+  if (motion === "leave") dropLayer(navigate, to)
+  else if (layerMotionOn(LAYER_MOVES || moves) && !canViewTransition()) raiseByHand(navigate)
   else navigate()
 }
 
@@ -1149,6 +1347,7 @@ export function PageLayer({
   pill = false,
   inset = "page",
   phoneOnly = false,
+  moves: movesAsked = false,
   className,
 }: {
   children: React.ReactNode
@@ -1164,10 +1363,13 @@ export function PageLayer({
   inset?: "page" | "white" | "bar"
   /** A layer below md only; from md an ordinary page inside the shell. */
   phoneOnly?: boolean
+  /** This layer rises from the bottom and drops back down on a phone (the product editor, round 41); the rest are simply there. */
+  moves?: boolean
   className?: string
 }) {
+  const asked = LAYER_MOVES || movesAsked
   /* Whether this layer rises and drops: read on the client only, so the server's HTML is the same for every width. */
-  const moves = useSyncExternalStore(subscribeMotion, reactMoves, serverMotion)
+  const moves = useSyncExternalStore(subscribeMotion, reactMoves, serverMotion) && asked
   /* The box itself, for a rise this file plays on it (riseByHand, where there are no view transitions). */
   const box = React.useRef<HTMLDivElement>(null)
 
@@ -1187,14 +1389,16 @@ export function PageLayer({
     /* The commit a press was waiting for: this layer is on the screen. */
     releasePresses()
     /* React's move at this commit, or, where it cannot make one, ours on this box. */
-    if (!markReactMotion("enter")) riseByHand(box.current)
+    if (!markReactMotion("enter", asked)) riseByHand(box.current)
     /*
       AND WITH NO MOVE, A WHOLE SCREEN LAYER IS SIMPLY THERE (round 23). The stage's landing faded it in from nothing,
       and over the whole screen its first frame was empty: the page gone, the layer not yet drawn. Where it covers the
       screen (a phone, or a layer at every width) it is drawn whole on its first frame, and so is the page it goes back
       to. From 768px a phone only layer is a page in the shell and lands like one.
     */
-    const whole = () => !LAYER_MOVES && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
+    /* Round 41: a layer that moves is whole too whenever this commit plays no move of it (opened from a link, a reload, the browser's back). */
+    const moving = () => html.dataset.layerMotion === "enter" || html.dataset.layerMotion === "leave"
+    const whole = () => !moving() && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
     if (whole()) holdLanding()
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
@@ -1202,20 +1406,35 @@ export function PageLayer({
         if (html.dataset.layerMotion === "stay") delete html.dataset.layerMotion
       })
     }
+    /* The page it was opened from, laid out ahead under it, for a way back that starts at once (THE PAGE A LAYER WAS OPENED FROM). */
+    let ahead = 0
+    const cancelAhead = asked ? afterLayerMove(() => { ahead = window.setTimeout(layCopyAhead, COPY_AHEAD_MS) }) : null
     return () => {
+      cancelAhead?.()
+      window.clearTimeout(ahead)
+      /* Gone without a way back of ours: the copy laid ahead goes, and the copy itself unless another layer that moves stands in for this one in the same commit (a new product's first save). */
+      if (asked && !dropWant) {
+        pageCopy?.box?.remove()
+        if (pageCopy) pageCopy.box = null
+        window.setTimeout(() => {
+          if (!document.querySelector(`[${LAYER_MOVES_ATTR}]`)) pageCopy = null
+        }, 0)
+      }
       release()
-      if (whole()) holdLanding()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
-      if (!dropAtCommit()) markReactMotion("leave")
+      if (!dropAtCommit()) markReactMotion("leave", asked)
+      /* After the drop is decided, so a way back that plays one is not held as well. */
+      if (whole()) holdLanding()
     }
-  }, [phoneOnly])
+  }, [phoneOnly, asked])
 
   const layer = (
     <div
       ref={box}
       data-page-layer={pill ? "pill" : ""}
       data-page-layer-phone={phoneOnly ? "" : undefined}
+      {...{ [LAYER_MOVES_ATTR]: asked ? "" : undefined }}
       {...{ [LAYER_ATTR]: phoneOnly ? "phone-page" : "page" }}
       className={cn(
         phoneOnly

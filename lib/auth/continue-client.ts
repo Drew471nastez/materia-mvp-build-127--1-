@@ -1,5 +1,6 @@
 "use client"
 
+import { goToAuthHref } from "@/lib/auth/session-sync"
 import { createClient } from "@/lib/supabase/client"
 import { readSellerAccess, hasSellerAccess } from "@/lib/account/seller-access"
 import { cacheNativeHome } from "@/lib/native-bridge"
@@ -95,7 +96,8 @@ export async function goOnAfterAuth(carry: Partial<AuthCarry>, session: Tokens):
       new Promise((resolve) => window.setTimeout(resolve, 1500)),
     ]).catch(() => {})
   }
-  window.location.replace(afterAuthUrl(carry, session, native))
+  /* A sync-session address is posted, never navigated to with its tokens (lib/auth/session-sync.ts). */
+  goToAuthHref(afterAuthUrl(carry, session, native), { replace: true })
 }
 
 /**

@@ -208,7 +208,12 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "316", file: "316_onepage_lead_magnets.sql", sha256: "e12ce21392053524798b722562ebb30e4cd9432439149a8f2830a690d6d87727" },
   { part: "319", file: "319_team_store_areas.sql", sha256: "a2ef77929675c44f56b54b1b06fe549c04c7b9126e3b99cfbf1732ea973851f4" },
   { part: "320", file: "320_team_permissions.sql", sha256: "e9804b7c41d653dd2f00d2cd0652e01e39c4da35ce6043c86eb3e63da2053e7c" },
+  { part: "321", file: "321_store_invoice_numbers.sql", sha256: "6398fbb627f85551d0bc06251ef39de14727612fd45c25d9ea7c8a3df746cc61" },
   { part: "323", file: "323_onepage_integrations_more_tools.sql", sha256: "587203ab415208526b9a823367141cbb253c4a8f9b39676bb6cbca5e8870c02c" },
   { part: "324", file: "324_onepage_integration_sends.sql", sha256: "f2685220f8adb7606dde956256f2bb1159042c3a4090eb84dfba52c52723dfa4" },
   { part: "327", file: "327_team_products.sql", sha256: "530216cdacce417d2b693be13ebcc2ea658a32594a306ea8eaedce3fd98237fb" },
+  { part: "328", file: "328_analytics_test_sales_and_refund_reads.sql", sha256: "b103748ef74f967ec4c6ac595f71e243c3c52c570818f0b64746db21d652a5f0" },
+  { part: "329", file: "329_store_credit_notes.sql", sha256: "abf126c22a8973a1a4c918b31bac012fed9d818ed50b042e012e5d57f4b32b7a" },
+  { part: "331", file: "331_analytics_clicks_between_pages_and_row_lines.sql", sha256: "d4e8d4f5f6d05e91c7f1ac9bc23cea08a50910338f02c1d23c1f0871a6c666fc" },
+  { part: "333", file: "333_team_money_areas.sql", sha256: "5c8705d9c89ace4c9ffd487c1b8291cf2c1f1b934b428f48ca61c70407ff62e5" },
 ]

@@ -242,7 +242,8 @@ async function main() {
      */
     const gate = readFileSync(join(root, "components/native-auth-gate.tsx"), "utf8")
     check("recovery is counted", gate.includes("noteRecovery") && gate.includes("MAX_RECOVERIES"))
-    check("counted before navigating, so a reload loop counts itself", /noteRecovery\(\)\s*\n\s*window\.location\.assign/.test(gate))
+    /* Changed on purpose (round net-1028): the navigation is a form post (postSessionSync), tokens out of the address. */
+    check("counted before navigating, so a reload loop counts itself", /noteRecovery\(\)\s*\n\s*postSessionSync\(/.test(gate))
     check("and cleared when a layout finally renders", /clearRecoveries\(\)/.test(gate))
     check(
       "a slow read with a session on the device does not go to /login",

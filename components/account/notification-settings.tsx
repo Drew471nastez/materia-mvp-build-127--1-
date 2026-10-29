@@ -229,6 +229,7 @@ function NotificationCards({ initial }: { initial: Loaded }) {
         <div className="divide-y divide-[#f0f1f3]">
           <PushSwitchRow initial={initial.enabled} onValue={onValue} onTurnedOn={phone.askIfNeeded} />
           {phone.inApp ? <PhoneRow phone={phone} on={on} /> : <BrowserRow on={on} devices={initial.devices} />}
+          <TestPushRow />
         </div>
       </section>
 
@@ -778,6 +779,48 @@ function PhoneRow({ phone, on }: { phone: Phone; on: boolean }) {
       control={
         <button type="button" onClick={phone.ask} disabled={phone.asking} className={INK} data-phone-allow="">
           {phone.asking ? "Asking" : "Allow"}
+        </button>
+      }
+    />
+  )
+}
+
+/**
+ * Send a test notification: one push to this account's own phones and
+ * browsers, and the exact result under the button (lib/push/test-client.ts):
+ * nothing registered, sent to N, or the provider's own error. Sales go to
+ * the same devices whatever the switch above says, so this is always here.
+ */
+function TestPushRow() {
+  const [sending, setSending] = useState(false)
+  const [line, setLine] = useState<{ ok: boolean; phone: string | null; message: string } | null>(null)
+  const send = useCallback(() => {
+    if (sending) return
+    setSending(true)
+    setLine(null)
+    void import("@/lib/push/test-client")
+      .then((m) => m.sendTestNotification())
+      .then(setLine, () => setLine({ ok: false, phone: null, message: "Could not send the test. Try again." }))
+      .finally(() => setSending(false))
+  }, [sending])
+  return (
+    <PrivacyRow
+      id="push-test"
+      title="Test notification"
+      detail={
+        <>
+          Sends one to every phone and browser signed in to this account.
+          {line ? (
+            <span className={cn("mt-1.5 block", line.ok ? "text-[#15803d]" : "text-[#b42318]")} role="status" data-push-test-result={line.ok ? "ok" : "failed"}>
+              {line.phone ? <span className="block text-[#374151]">{line.phone}</span> : null}
+              {line.message}
+            </span>
+          ) : null}
+        </>
+      }
+      control={
+        <button type="button" onClick={send} disabled={sending} className={QUIET_BUTTON} data-push-test="">
+          {sending ? "Sending" : "Send test"}
         </button>
       }
     />

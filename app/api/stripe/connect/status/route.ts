@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { moneyCaller } from "@/lib/team/money"
 import { readCreatorStripe, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
 import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
 
@@ -31,15 +30,10 @@ import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
  * here names an account or repeats Stripe's words.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Sign in to see your payments." }, { status: 401 })
-
-  /* The signed in person's own creator row, found by their id: never an account named by the browser. */
-  const { data: creator } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator profile not found." }, { status: 404 })
+  /* The owner's own store, or the one a team member who may see its payouts works in (round 42, lib/team/money): never an account named by the browser. */
+  const who = await moneyCaller("payouts", "view", { noStore: "Creator profile not found." })
+  if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Sign in to see your payments." }, { status: 401 }) : who.response
+  const creator = { id: who.creatorId }
 
   try {
     const synced = await syncStripeAccountFull(creator.id, "creator")

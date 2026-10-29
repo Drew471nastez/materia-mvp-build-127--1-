@@ -39,6 +39,7 @@ import type { MediaCrop } from "@/lib/onepage/media-crop"
 import { UploadError, cropImageBlob, uploadMessage, uploadOnePageMedia, type MediaUploadResult } from "@/lib/onepage/media-upload"
 import { captureVideoPoster } from "@/lib/onepage/capture-poster"
 import { withPoster } from "@/lib/onepage/poster-video"
+import { SaveError } from "@/lib/onepage/photo-save"
 import { MediaCropper } from "./media-cropper"
 import { UploadProgress, useMediaUpload } from "./upload-progress"
 
@@ -96,8 +97,13 @@ export function CropUpload({ kind, src, file, aspect, shape = "rect", initial, p
       const poster = frame ? await upPoster(await frame, prefix) : null
       await onSaved(result, kind === "video" ? withPoster(crop, poster) : crop)
     } catch (err) {
-      /* A picture that would not draw is an UploadError with its own words; anything else failed after the upload. */
-      up.fail(err instanceof UploadError ? uploadMessage(err) : tt("The file went up, but it did not save. Try again."))
+      /*
+        A picture that would not draw is an UploadError with its own words. A
+        save that was refused after the upload is a SaveError with the
+        reason (lib/onepage/photo-save): the route's answer, or no answer at
+        all. Only what has no words of its own is the general line.
+      */
+      up.fail(err instanceof UploadError ? uploadMessage(err) : err instanceof SaveError ? err.message : tt("The file went up, but it did not save. Try again."))
     } finally {
       setSaving(false)
       setWriting(false)

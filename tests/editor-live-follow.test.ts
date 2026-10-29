@@ -194,7 +194,7 @@ function wiring() {
   check("the native app back to the front, and going to the back", /App\.addListener\("appStateChange"/.test(hook) && /const offNative = onNativeAppState\(/.test(hook) && /offNative\(\)/.test(hook))
   check("a timer that slept is an absence", /const away = slept\(dueAt, Date\.now\(\), CATCH_UP_AWAY_MS\)/.test(hook) && /dueAt = Date\.now\(\) \+ ms/.test(hook))
   check("a full page reads on in the same pass", /while \(after !== null && pages < CATCH_UP_PAGES\)/.test(hook) && /if \(!readMore\(batch\.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE\)\) break/.test(hook))
-  check("the apply has a ceiling", /withinTime\(run, APPLY_CEILING_MS\)\) === "late"\) onStaleRef\.current\?\.\(\)/.test(hook))
+  check("the apply has a ceiling", /withinTime\(run, APPLY_CEILING_MS\)\) === "late"/.test(hook))
   check("the cursor through nextCursor", /cursor\.current = nextCursor\(cursor\.current, after, retry, fresh\.length\)/.test(hook))
   check("nothing connected: the brief is asked again", /setBriefAsk\(\(n\) => n \+ 1\)/.test(hook) && /\[installId, recheck, briefAsk\]/.test(hook) && /if \(!installId \|\| connected \|\| missing \|\| !settled\) return/.test(hook))
   check("the restored page paints, and the browser has a moment, before the pile lands", /requestIdleCallback\(finish, \{ timeout: 800 \}\)/.test(hook) && /if \(catchUp\) await afterPaint\(\)/.test(hook))
@@ -222,7 +222,7 @@ function wiring() {
   check("each file read", (texts.match(/signal: AbortSignal\.timeout\(PUSH_READ_MS\)/g) ?? []).length === 2, texts.length)
   check("the theme's sources", /files\?sources=1`, \{ cache: "no-store", signal: AbortSignal\.timeout\(PUSH_READ_MS\) \}/.test(editor))
   const load = editor.slice(editor.indexOf("const loadData = useCallback"), editor.indexOf("const loadData = useCallback") + 2400)
-  check("a refused draft read still lands the push's files and lines", /if \(!res\.ok\) \{[\s\S]*?const alongside = afterQuietLoad\.current[\s\S]*?if \(alongside\) startTransition\(alongside\)[\s\S]*?return\s*\}/.test(load))
+  check("a refused draft read still lands the push's files and lines", /if \(!res\.ok\) \{[\s\S]*?const alongside = afterQuietLoad\.current[\s\S]*?if \(alongside\) startTransition\(alongside\)[\s\S]*?return false\s*\}/.test(load))
 
   console.log("\nA Storelib AI run whose stream dropped")
   const chat = read("components/website-builder/theme-chat.tsx")
@@ -232,8 +232,9 @@ function wiring() {
 
   console.log("\nOnePage never spins for ever")
   const gate = read("components/native-auth-gate.tsx")
-  check("the trip through sync-session has an end, and that end is Try again", /window\.location\.assign\(syncUrl\)\s*\/\*[^*]*\*\/\s*window\.setTimeout\(\(\) => \{\s*if \(!cancelled\) setStuck\(true\)\s*\}, SYNC_NAVIGATION_MS\)/.test(gate) && /SYNC_NAVIGATION_MS = 12_000/.test(gate) && /Try again/.test(gate))
-  check("  bounded per tab, so it is never a reload loop", /MAX_RECOVERIES = 2/.test(gate) && /noteRecovery\(\)\s*window\.location\.assign\(syncUrl\)/.test(gate))
+  /* Changed on purpose (round net-1028): the trip is a same origin form post (postSessionSync), so the tokens are never in an address Vercel logs. */
+  check("the trip through sync-session has an end, and that end is Try again", /postSessionSync\(session, currentPath\)\s*\/\*[^*]*\*\/\s*window\.setTimeout\(\(\) => \{\s*if \(!cancelled\) setStuck\(true\)[\s\S]{0,80}\}, SYNC_NAVIGATION_MS\)/.test(gate) && /SYNC_NAVIGATION_MS = 12_000/.test(gate) && /Try again/.test(gate))
+  check("  bounded per tab, so it is never a reload loop", /MAX_RECOVERIES = 2/.test(gate) && /noteRecovery\(\)\s*postSessionSync\(session, currentPath\)/.test(gate))
   const stage = read("components/app/app-stage.tsx")
   check("a press loaded as a document that never finishes gives way", /window\.location\.assign\(nav\.href as string\)[\s\S]{0,900}?timers\.push\(window\.setTimeout\(\(\) => \{\s*if \(getAppNavigation\(\) !== nav\) return\s*try \{ window\.stop\(\) \}[\s\S]{0,300}?\}, DOCUMENT_LOAD_CAP_MS\)\)/.test(stage) && /DOCUMENT_LOAD_CAP_MS = 15_000/.test(stage))
   const page = read("app/app/onepage/page.tsx")

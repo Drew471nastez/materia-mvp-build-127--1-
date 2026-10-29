@@ -170,3 +170,52 @@ export function fontPairOf(theme: { font_family?: unknown; title_font?: unknown 
   const title = family(theme?.title_font) || body
   return FONT_PAIRS.find((p) => family(p.body) === body && family(p.title) === title)?.id ?? null
 }
+
+/* ─── How a theme shows products, and a cover picture (round 42) ─────── */
+
+/**
+ * The owner: "Themes should differ in layout style too, not just colours:
+ * some with an image hero, some that display product blocks differently
+ * (product cards/grid vs list rows)". Two more things a theme can set, read
+ * from the same saved theme, so nothing new is stored and no SQL is needed:
+ *
+ *   product_layout   "grid": a product block drawn as a tile, two to a row
+ *                    (the Tile layout, paired by pairProductTiles); "rows":
+ *                    a product block drawn as a list row (the Row layout).
+ *                    Missing (every page before) is each block's own.
+ *   cover_image_url  a wide picture across the top of the page, the round
+ *                    photo set over its lower edge (the classic header).
+ *                    Missing is no cover, as before.
+ *
+ * WHAT A PERSON CHOSE STAYS. A product block starts as the Callout, so a
+ * theme's product_layout redraws a Callout (or a block with no layout at
+ * all) and nothing else; a layout picked in the block's own Layout list is
+ * marked `style_chosen` and always wins, Callout included.
+ */
+export type ThemeProductLayout = "own" | "grid" | "rows"
+
+type ProductThemeLike = { product_layout?: unknown } | null | undefined
+
+export function themeProductLayoutOf(theme: ProductThemeLike): ThemeProductLayout {
+  const v = theme?.product_layout
+  return v === "grid" || v === "rows" ? v : "own"
+}
+
+/** The block's style as the page draws it under this theme: the theme's, unless the block's own was picked. */
+export function themedProductStyle(theme: ProductThemeLike, data: { style?: unknown; style_chosen?: unknown } | null | undefined): string | null {
+  const own = typeof data?.style === "string" ? data.style : null
+  const kind = themeProductLayoutOf(theme)
+  if (kind === "own" || data?.style_chosen === true) return own
+  if (own !== null && own !== "callout") return own
+  return kind === "grid" ? "tile" : "row"
+}
+
+type CoverThemeLike = { cover_image_url?: unknown; header_layout?: unknown } | null | undefined
+
+/** The cover picture's address, when the theme has one and the header is the classic one (a Hero is already a picture). */
+export function coverImageOf(theme: CoverThemeLike): string | null {
+  const v = theme?.cover_image_url
+  if (typeof v !== "string" || !/^https:\/\/[^\s"'<>()]+$/.test(v.trim())) return null
+  if (theme?.header_layout === "hero") return null
+  return v.trim()
+}

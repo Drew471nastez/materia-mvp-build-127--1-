@@ -45,6 +45,8 @@
  */
 
 import React, {
+  createContext,
+  useContext,
   forwardRef,
   useState,
   useEffect,
@@ -55,6 +57,15 @@ import React, {
   type ButtonHTMLAttributes,
 } from "react";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
+
+/*
+  WHETHER THIS PERSON MAY CHANGE THE STORE'S PAYOUTS (round 42). The owner
+  always; a team member only with Change payouts (lib/team/money). Without
+  it the page shows the balance, the payouts and the bank on file, and none
+  of Cash out, Update bank or Use a different account. Only ever hides: the
+  routes refuse those for them anyway.
+*/
+const PayoutsManage = createContext(true);
 import { formatCurrency } from "@/lib/markets/money";
 import { createPortal } from "react-dom";
 import {
@@ -1220,6 +1231,7 @@ function BalanceDetails({
   cashingOut: boolean;
   onCashOut: () => void;
 }) {
+  const canManage = useContext(PayoutsManage);
   const body = (
     <div className="px-5 pb-2 pt-3">
       <div className="rounded-xl border border-[#eceef1] px-3 py-2">
@@ -1264,13 +1276,15 @@ function BalanceDetails({
                 .{" "}
               </>
             ) : null}
-            <button
-              type="button"
-              onClick={onUpdateBank}
-              className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
-            >
-              {bank ? tt("Update bank") : tt("Add a bank account")}
-            </button>
+            {canManage ? (
+              <button
+                type="button"
+                onClick={onUpdateBank}
+                className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
+              >
+                {bank ? tt("Update bank") : tt("Add a bank account")}
+              </button>
+            ) : null}
           </p>
         )}
       </div>
@@ -1281,7 +1295,7 @@ function BalanceDetails({
       <button type="button" className={SHEET_SECONDARY} onClick={onClose}>
         {tt("Close")}
       </button>
-      {payoutsEnabled ? (
+      {payoutsEnabled && canManage ? (
         <button type="button" className={SHEET_CASH_OUT} onClick={onCashOut} disabled={cashingOut} aria-disabled={!canCashOut || undefined}>
           {cashingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {cashingOut ? tt("Cashing out") : canCashOut ? tt("Cash out {value}", { value: fmt(available, currency) }) : tt("Cash out")}
@@ -2782,6 +2796,7 @@ function PayoutMethodCard({
   available: number;
   pending: number;
 }) {
+  const canManage = useContext(PayoutsManage);
   const [data, setData] = useState<PayoutMethodData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -2898,7 +2913,7 @@ function PayoutMethodCard({
           </div>
         </div>
         {/* The press says so at once: the panel it opens has to be fetched first. */}
-        <button
+        {canManage ? <button
           type="button"
           onClick={() => onManage()}
           disabled={loading || opening}
@@ -2908,7 +2923,7 @@ function PayoutMethodCard({
         >
           {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           {opening ? tt("Opening") : needsBank ? tt("Add bank") : tt("Update bank")}
-        </button>
+        </button> : null}
       </div>
 
       {/*
@@ -2919,7 +2934,7 @@ function PayoutMethodCard({
         before it happens, and the server refuses while money is still in
         the account (lib/payments/stripe/connect disconnectStripeAccount).
       */}
-      {!loading && data ? (
+      {!loading && data && canManage ? (
         <div className="flex items-center justify-between gap-3 border-t border-[#f1f2f4] bg-[#fafafb] px-4 py-2.5">
           <p className="min-w-0 text-[12px] leading-5 text-[#6b7280]">{tt("Selling under a different name or business?")}</p>
           <button
@@ -3207,6 +3222,8 @@ function PayoutsHistoryList({
 
 interface PayoutsClientProps {
   paymentsReady: boolean;
+  /** Round 42: false for a team member with Payouts but not Change payouts. */
+  canManage?: boolean;
   creator: Creator;
   initialData: {
     /** The currency Stripe holds the balance in (lib/payments/display-currency pickBalance). */
@@ -3259,6 +3276,7 @@ function usePageSlot(selector: string): HTMLElement | null | undefined {
 
 export function PayoutsClient({
   paymentsReady,
+  canManage = true,
   creator,
   initialData,
   initialOrders = [],
@@ -3290,10 +3308,12 @@ export function PayoutsClient({
   /* The press is waiting for the panel to appear: the button it came from says so. */
   const [opening, setOpening] = useState(false);
   const openAccountPanel = useCallback((mode?: "setup") => {
+    /* A team member without Change payouts never opens the account form (round 42). */
+    if (!canManage) return;
     setOpenAs(mode ?? null);
     setOpening(true);
     setManageRequest((n) => n + 1);
-  }, []);
+  }, [canManage]);
   /* The account was let go: the page is a setup page again, so it is read afresh from the server. */
   const onDisconnected = useCallback(() => {
     forgetOverview();
@@ -3581,7 +3601,7 @@ export function PayoutsClient({
         }
         items={exportItems}
       />
-      {payoutsEnabled ? (
+      {payoutsEnabled && canManage ? (
         <Press
           look={LOOK_CASH_OUT}
           onClick={onCashOut}
@@ -3747,6 +3767,7 @@ export function PayoutsClient({
   const to = Math.min((recentPage + 1) * PAGE_SIZE, listLength);
 
   return (
+    <PayoutsManage.Provider value={canManage}>
     <PullToRefresh onRefresh={onPullRefresh}>
     <div className="space-y-4 pt-2" data-payouts="">
       {/* Where the page has no bar to hold them, the actions lead the page. */}
@@ -4055,5 +4076,6 @@ export function PayoutsClient({
       />
     </div>
     </PullToRefresh>
+    </PayoutsManage.Provider>
   );
 }

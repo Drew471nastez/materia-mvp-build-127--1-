@@ -23,10 +23,12 @@ import "server-only"
 import { unconvertedIncluded } from "./unconverted-count"
 import { refundedOrderIds, withRefundHistory } from "./refund-history-server"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { withoutTestSales } from "./test-sales"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
 import { isBotAgent, parseUserAgent } from "./user-agent"
@@ -50,6 +52,8 @@ import {
   type ViewRow,
   type WindowWire,
 } from "./reports"
+import { navWireFromRows, type NavClickRow, type NavWire } from "./site-clicks"
+import { storedRowSeries, type SeriesMap, type StoredDim } from "./row-series"
 
 export type Admin = ReturnType<typeof createAdminClient>
 
@@ -473,6 +477,13 @@ export function readOrders(
   /** The period the figures add up: the "could not be converted" count is of its sales only (lib/analytics/unconverted-count). */
   counted?: Span,
 ): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
+  /*
+    Side by side with the orders themselves, the two reads that do not need
+    them: the refunds the ledger dates inside the periods, and the store's
+    currency. They were each a round trip after the orders had come back.
+  */
+  const ledger = refundedOrderIds(admin, creatorId, spans)
+  const storeCurrency = readStoreCurrency(admin, creatorId)
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
       const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
@@ -481,13 +492,14 @@ export function readOrders(
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
-      const own = ownRows(read.rows)
-      const ledgerRefunded = await refundedOrderIds(admin, creatorId, spans)
+      /* An admin's test sale is not a buyer's order (lib/analytics/test-sales). */
+      const own = withoutTestSales(ownRows(read.rows))
+      const ledgerRefunded = await ledger
       const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)), ledgerRefunded)
       /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates), before the money is converted. */
-      const dated = await withRefundHistory(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow))
+      const dated = await withRefundHistory(admin, creatorId, [...own, ...withoutTestSales(ownRows(earlier))].map(asOrdersPageRow))
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
-      const inStore = await inStoreCurrency(admin, creatorId, dated, undefined, { rates: ratesFrom(admin) })
+      const inStore = await inStoreCurrency(admin, creatorId, dated, (await storeCurrency).currency, { rates: ratesFrom(admin) })
       const unconverted = inStore.unconverted > 0 ? unconvertedIncluded(inStore.left, counted ?? spans[spans.length - 1]) : 0
       return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted } }
     }),
@@ -618,4 +630,90 @@ export async function readDownloads(admin: Admin, lineIds: string[]): Promise<Re
     console.warn("[analytics] downloads not read:", (error as Error).message)
     return null
   }
+}
+
+/* ─── Clicks between pages, and each row's own line ───────────────────── */
+
+const NAV_COLUMNS = "id, event_type, session_id, visitor_id, property_type, property_id, path, link_url, link_label, created_at"
+
+/**
+ * CLICKS BETWEEN PAGES OF THE SAME SITE in both periods (lib/analytics/
+ * site-clicks): counted by analytics_nav_clicks (part 331) when it is there,
+ * else from the nav_click rows, by the same rules. Null when neither can be
+ * read: the card then says nothing rather than zero.
+ */
+export async function readNavClicks(admin: Admin, q: CountQuestion): Promise<NavWire | null> {
+  const counted = await rpc<NavWire>(admin, "analytics_nav_clicks", {
+    p_creator_id: q.creatorId,
+    p_property_type: q.selector.type === "all" ? null : q.selector.type,
+    p_property_id: q.selector.type === "website" ? q.selector.id : null,
+    p_default_website: q.properties.defaultWebsite,
+    p_cur_start: new Date(q.window.start).toISOString(),
+    p_cur_end: new Date(q.window.end).toISOString(),
+    p_prev_start: q.previous ? new Date(q.previous.start).toISOString() : null,
+    p_prev_end: q.previous ? new Date(q.previous.end).toISOString() : null,
+  })
+  if (counted) return { cur: Number(counted.cur) || 0, prev: Number(counted.prev) || 0, rows: counted.rows ?? [] }
+  try {
+    const read = await withColumns(NAV_COLUMNS, (columns) =>
+      readSpans<NavClickRow & { id: string }>(spansToRead(q.window, q.previous), (start, end, after) =>
+        startingAt(admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).eq("event_type", "nav_click").lt("created_at", end), start, after)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(PAGE) as unknown as Read<NavClickRow & { id: string }>,
+      ),
+    )
+    return navWireFromRows({ rows: read.rows, window: q.window, previous: q.previous, selector: q.selector, defaultWebsite: q.properties.defaultWebsite })
+  } catch (error) {
+    console.warn("[analytics] clicks between pages not read:", (error as Error).message)
+    return null
+  }
+}
+
+/**
+ * ONE DIMENSION'S STORED KEYS, A LINE EACH, for the period alone
+ * (lib/analytics/row-series): counted by analytics_row_series (part 331)
+ * when it is there, else from the rows of the period (and the day before it,
+ * where a visit running into it began), by the same rules.
+ */
+export async function readStoredRowSeries(admin: Admin, q: CountQuestion, dim: StoredDim): Promise<{ series: SeriesMap; truncated: boolean }> {
+  const { starts } = periodsOf(q.window, null, q.timeZone)
+  const counted = await rpc<SeriesMap>(admin, "analytics_row_series", {
+    ...selectorArgs(q),
+    p_start: new Date(q.window.start).toISOString(),
+    p_end: new Date(q.window.end).toISOString(),
+    p_starts: starts.map((s) => new Date(s).toISOString()),
+    p_dim: dim,
+  })
+  if (counted) return { series: counted, truncated: false }
+  const clicks = dim === "link" || dim === "nav"
+  if (clicks && q.product) return { series: {}, truncated: false }
+  const spans = [{ start: clicks || dim === "page" ? q.window.start : q.window.start - DAY, end: q.window.end }]
+  const read = clicks
+    ? await withColumns(dim === "nav" ? NAV_COLUMNS : STEP_COLUMNS, (columns) =>
+        readSpans<StepRow & { id: string }>(spans, (start, end, after) =>
+          startingAt(admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).eq("event_type", dim === "nav" ? "nav_click" : "link_click").lt("created_at", end), start, after)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .limit(PAGE) as unknown as Read<StepRow & { id: string }>,
+        ),
+      )
+    : await withColumns(VIEW_COLUMNS, (columns) =>
+        readSpans<ViewRow & { id: string }>(spans, (start, end, after) => {
+          let r = admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).eq("event_type", "view").lt("created_at", end)
+          if (q.product) r = r.eq("product_id", q.product)
+          return startingAt(r, start, after).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(PAGE) as unknown as Read<ViewRow & { id: string }>
+        }),
+      )
+  const series = storedRowSeries({
+    views: clicks ? [] : (read.rows as ViewRow[]),
+    steps: clicks ? (read.rows as StepRow[]) : [],
+    window: q.window,
+    timeZone: q.timeZone,
+    selector: q.selector,
+    defaultWebsite: q.properties.defaultWebsite,
+    product: q.product,
+    dim,
+  })
+  return { series, truncated: read.truncated }
 }

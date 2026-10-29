@@ -63,7 +63,8 @@ function main() {
       ["x", "https://twitter.com/a/status/1234567890123?s=20", "https://platform.twitter.com/embed/Tweet.html?id=1234567890123&dnt=true"],
       ["typeform", "https://acme.typeform.com/to/abc123", "https://acme.typeform.com/to/abc123?typeform-embed=embed-widget"],
       ["googleforms", "https://docs.google.com/forms/d/e/1FAIpQLSf3/viewform?usp=sf_link", "https://docs.google.com/forms/d/e/1FAIpQLSf3/viewform?embedded=true"],
-      ["tally", "https://tally.so/r/wMDxQr", "https://tally.so/embed/wMDxQr?alignLeft=1&hideTitle=0&transparentBackground=1"],
+      /* Changed on purpose (round 42): dynamicHeight=1, so Tally says its height and the form never scrolls inside its frame. */
+      ["tally", "https://tally.so/r/wMDxQr", "https://tally.so/embed/wMDxQr?alignLeft=1&hideTitle=0&transparentBackground=1&dynamicHeight=1"],
       ["substack", "https://mara.substack.com/p/hello", "https://mara.substack.com/embed"],
       ["podcasts", "https://podcasts.apple.com/us/podcast/the-daily/id1200361736?i=1000650000000", "https://embed.podcasts.apple.com/us/podcast/the-daily/id1200361736?i=1000650000000"],
       ["twitch", "https://www.twitch.tv/Shroud", "https://player.twitch.tv/?channel=shroud&autoplay=false"],
@@ -173,7 +174,7 @@ function main() {
     const close = tab.slice(tab.indexOf("const closeSocialSheet = () => {"), tab.indexOf("const closeThumbnailSheet"))
     check("the close does not empty the sheet on the frame it starts: what was typed is cleared after it has gone", /React\.startTransition\(\(\) => setShowSocialModal\(false\)\)/.test(close) && /window\.setTimeout\(\(\) => \{\n\s*if \(socialOpenRef\.current\) return/.test(close) && close.indexOf("setSelectedSocial(null)") > close.indexOf("window.setTimeout"))
     check("Cancel is the sheet's own close on a phone (the slide first)", /data-social-cancel=""\n\s*data-sheet-close=\{isMobileModalViewport \? "" : undefined\}/.test(tab) && /\{tt\("Cancel"\)\}/.test(tab))
-    check("one height for the list and the field, whose top the keyboard never moves", /const SOCIAL_SHEET_HEIGHT = "calc\(\(var\(--vv-h, 100dvh\) \+ var\(--kb-inset, 0px\)\) \* 0\.75 - var\(--kb-inset, 0px\)\)"/.test(tab) && /sheet=\{\{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT \}\}/.test(tab))
+    check("one height for the list and the field, whose top the keyboard never moves", /const SOCIAL_SHEET_HEIGHT = "calc\(\(var\(--vv-h, 100dvh\) \+ var\(--kb-inset, 0px\)\) \* 0\.75 - var\(--kb-inset, 0px\)\)"/.test(tab) && /* Changed on purpose (round 42): the list keeps that height; a platform's field is as tall as it is. */ /sheet=\{\{ keepMounted: true, height: selectedSocial \? undefined : SOCIAL_SHEET_HEIGHT, className: SOCIAL_SHEET_GLIDE \}\}/.test(tab))
     check("and KeyboardGuard leaves its field where it is", /data-social-sheet="" data-keyboard-own=""/.test(tab))
   }
 

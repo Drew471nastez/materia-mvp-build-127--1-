@@ -17,6 +17,7 @@ import { tierOf, type TierDraft } from "./offer-draft"
 import { Tick } from "../coupons/coupon-parts"
 import { ProductThumb } from "../products/collections/collection-parts"
 import { tierWords, type OfferProduct } from "./offer-parts"
+import { ThumbScroll } from "@/components/app/thumb-scroll"
 
 export const FIELD =
   "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
@@ -25,6 +26,17 @@ export const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
 export const HINT = "text-[13px] leading-5 text-[#6b7280]"
 export const ERR = "mt-1.5 text-[13px] font-medium leading-5 text-[#b42318]"
 export const SECTION_TITLE = "text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]"
+/** A select drawn as the fields are, with one quiet chevron: never the platform's own grey box. */
+export const SELECT = cn(
+  FIELD,
+  "cursor-pointer appearance-none truncate pr-9",
+  "bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat",
+)
+
+/** iOS's curve and the segmented control's time (../products/new/editor-controls.tsx Segmented). */
+const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const SLIDE_MS = 200
+const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
 export function MoneyField({ id, sign, value, onChange, bad, placeholder, className }: { id: string; sign: string; value: string; onChange: (v: string) => void; bad?: boolean; placeholder?: string; className?: string }) {
   const wide = sign.length > 1
@@ -53,7 +65,9 @@ export function ProductPicker({ products, chosen, onPick, single = false, money,
           <input type="search" enterKeyHint="search" data-no-autofocus="" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt("Search products")} aria-label={tt("Search products")} className={cn(FIELD, "pl-9 [&::-webkit-search-cancel-button]:hidden")} />
         </label>
       ) : null}
-      <ul role={single ? "radiogroup" : "group"} aria-label={tt("Products")} className="max-h-[336px] divide-y divide-[#eef0f2] overflow-y-auto overscroll-contain rounded-xl border border-[#e5e7eb]">
+      {/* The app's own slim bar over the list's edge (components/app/thumb-scroll), not the platform's grey column. */}
+      <ThumbScroll className="max-h-[336px] overflow-y-auto overscroll-contain rounded-xl border border-[#e5e7eb]">
+      <ul role={single ? "radiogroup" : "group"} aria-label={tt("Products")} className="divide-y divide-[#eef0f2]">
         {shown.map((p) => {
           const on = chosen.includes(p.id)
           const blocked = !on && full
@@ -83,6 +97,7 @@ export function ProductPicker({ products, chosen, onPick, single = false, money,
         })}
         {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
       </ul>
+      </ThumbScroll>
     </div>
   )
 }
@@ -136,7 +151,7 @@ export function TierEditor({ tiers, onChange, problems, problem, sign, money, cu
                 </label>
                 <label className="block min-w-0">
                   <span className={LABEL}>{tt("Discount")}</span>
-                  <select value={t.discountType} onChange={(e) => setTier(i, { discountType: e.target.value as TierDiscountType, value: e.target.value === "percent" ? "10" : e.target.value === "amount" ? "" : "" })} className={cn(FIELD, "cursor-pointer appearance-auto pr-2")}>
+                  <select value={t.discountType} onChange={(e) => setTier(i, { discountType: e.target.value as TierDiscountType, value: e.target.value === "percent" ? "10" : "" })} className={SELECT}>
                     <option value="none">{tt("None")}</option>
                     <option value="percent">{tt("Percent off")}</option>
                     <option value="amount">{tt("Amount off")}</option>
@@ -183,7 +198,7 @@ export function TierEditor({ tiers, onChange, problems, problem, sign, money, cu
 export function Radio({ on }: { on: boolean }) {
   return (
     <span aria-hidden className={cn("flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border transition-colors duration-100 sm:h-[18px] sm:w-[18px]", on ? "border-[#111113] bg-[#111113]" : "border-[#c7cad1] bg-white")}>
-      {on ? <span className="h-[7px] w-[7px] rounded-full bg-white" /> : null}
+      <span className={cn("h-[7px] w-[7px] rounded-full bg-white transition-[scale] duration-150 ease-out motion-reduce:transition-none", on ? "scale-100" : "scale-0")} />
     </span>
   )
 }
@@ -194,14 +209,134 @@ export function Radio({ on }: { on: boolean }) {
  * Two rows of two there, one track from 640px, drawn as the app's segmented
  * control is (app/app/products/new/editor-controls.tsx Segmented): the
  * chosen one lifted onto white. A radio group, so the arrow keys move it.
+ *
+ * THE WHITE SLIDES, as the segmented control's does: one piece under the
+ * labels, moved from the old choice to the new one in 200ms on iOS's curve,
+ * across and down the two rows alike, by translate alone. At rest it is
+ * never scaled.
  */
 export function ChoiceGrid<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (next: T) => void; label: string }) {
+  const trackRef = React.useRef<HTMLDivElement>(null)
+  const thumbRef = React.useRef<HTMLSpanElement>(null)
+  const at = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const place = React.useCallback(
+    (animate: boolean) => {
+      const track = trackRef.current
+      const thumb = thumbRef.current
+      if (!track || !thumb) return
+      const button = track.querySelector<HTMLElement>(`[data-value="${CSS.escape(value)}"]`)
+      if (!button) return
+      const next = { x: button.offsetLeft, y: button.offsetTop, w: button.offsetWidth, h: button.offsetHeight }
+      let prev = at.current
+      const sliding = typeof thumb.getAnimations === "function" ? thumb.getAnimations() : []
+      if (sliding.length && prev) {
+        const m = new DOMMatrixReadOnly(getComputedStyle(thumb).transform)
+        prev = { x: m.e, y: m.f, w: thumb.offsetWidth * m.a, h: thumb.offsetHeight * m.d }
+        for (const a of sliding) a.cancel()
+      }
+      at.current = next
+      thumb.style.width = `${next.w}px`
+      thumb.style.height = `${next.h}px`
+      thumb.style.transform = `translate3d(${next.x}px, ${next.y}px, 0)`
+      track.setAttribute("data-ready", "")
+      if (!animate || !prev || (prev.x === next.x && prev.y === next.y && prev.w === next.w) || reducedMotion() || typeof thumb.animate !== "function") return
+      thumb.animate(
+        [{ transform: `translate3d(${prev.x}px, ${prev.y}px, 0) scale(${prev.w / next.w}, ${prev.h / next.h})` }, { transform: `translate3d(${next.x}px, ${next.y}px, 0) scale(1, 1)` }],
+        { duration: SLIDE_MS, easing: EASE },
+      )
+    },
+    [value],
+  )
+  const placed = React.useRef(false)
+  React.useLayoutEffect(() => {
+    place(placed.current)
+    placed.current = true
+  }, [place])
+  const placeRef = React.useRef(place)
+  React.useEffect(() => {
+    placeRef.current = place
+  }, [place])
+  /* Two rows become one track at 640px: the white follows without a slide. */
+  React.useEffect(() => {
+    const track = trackRef.current
+    if (!track || typeof ResizeObserver === "undefined") return
+    let first = true
+    const ro = new ResizeObserver(() => {
+      if (first) return void (first = false)
+      placeRef.current(false)
+    })
+    ro.observe(track)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={trackRef}
+      role="radiogroup"
+      aria-label={label}
+      data-choice-grid=""
+      className={cn(
+        "relative grid gap-0.5 rounded-[10px] bg-[#eceef1] p-0.5 sm:flex",
+        options.length > 3 ? "grid-cols-2" : "grid-flow-col",
+        /* Before the white is placed (the server's frame), the chosen one draws its own. */
+        "[&:not([data-ready])>[aria-checked=true]]:bg-white [&:not([data-ready])>[aria-checked=true]]:shadow-[0_1px_2px_rgba(17,24,39,0.12)]",
+      )}
+      onKeyDown={(e) => {
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return
+        e.preventDefault()
+        const i = options.findIndex((o) => o.value === value)
+        const forward = e.key === "ArrowRight" || e.key === "ArrowDown"
+        const next = options[(i + (forward ? 1 : options.length - 1)) % options.length]
+        onChange(next.value)
+        ;(e.currentTarget.querySelector(`[data-value="${next.value}"]`) as HTMLElement | null)?.focus()
+      }}
+    >
+      <span
+        ref={thumbRef}
+        aria-hidden
+        data-choice-thumb=""
+        className="pointer-events-none absolute left-0 top-0 h-0 w-0 origin-top-left rounded-lg bg-white opacity-0 shadow-[0_1px_2px_rgba(17,24,39,0.12),0_0_0_0.5px_rgba(17,24,39,0.06)] sm:rounded-md [[data-ready]>&]:opacity-100"
+      />
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-value={o.value}
+            tabIndex={on ? 0 : -1}
+            onClick={() => {
+              if (!on) onChange(o.value)
+            }}
+            className={cn(
+              "relative h-10 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * A FEW CHOICES WHOSE NAMES ARE LONG, one under another with a round mark:
+ * "Anything", "Certain products", "A collection" were cut to "Anythi…" side
+ * by side at 390px. Rows of 44px on a phone, 36px from 640px, no box around
+ * them, so the picker that follows a choice is the only box. A radio group,
+ * so the arrow keys move it.
+ */
+export function RadioRows<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (next: T) => void; label: string }) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      data-choice-grid=""
-      className={cn("grid gap-0.5 rounded-[10px] bg-[#eceef1] p-0.5 sm:flex", options.length > 3 ? "grid-cols-2" : "grid-flow-col")}
+      data-radio-rows=""
+      className="-my-1 flex flex-col"
       onKeyDown={(e) => {
         if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return
         e.preventDefault()
@@ -225,12 +360,122 @@ export function ChoiceGrid<T extends string>({ value, options, onChange, label }
             onClick={() => {
               if (!on) onChange(o.value)
             }}
+            className="group -mx-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-left text-[15px] text-[#1a1a2e] outline-none [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-9 sm:text-[14px] sm:hover:bg-[#fafafb]"
+          >
+            <Radio on={on} />
+            <span className="min-w-0 flex-1 truncate">{o.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── What kind of offer ──────────────────────────────────────────────── */
+
+type KindValue = "quantity_break" | "bundle" | "checkout"
+
+/** A grey block in a kind's small drawing: a product's picture, a line of words, a price. */
+const Block = ({ className }: { className: string }) => <span aria-hidden className={cn("block shrink-0 rounded-[4px] bg-[#dfe2e6]", className)} />
+
+/**
+ * EACH KIND, DRAWN SMALL. Not a picture of a real offer (the Preview on the
+ * right is that, once products are picked): the shape a buyer will meet,
+ * so the three can be told apart before a word is read. Tiers stacked with
+ * one marked; two products and a plus; a cart line and one more to add.
+ */
+function KindDrawing({ kind, on }: { kind: KindValue; on: boolean }) {
+  const ink = on ? "bg-[#1a1a2e]" : "bg-[#9ca3af]"
+  if (kind === "quantity_break")
+    return (
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={cn("flex h-[14px] items-center gap-1.5 rounded-[5px] border bg-white px-1.5", i === 1 ? (on ? "border-[#1a1a2e]" : "border-[#9ca3af]") : "border-[#e3e5e8]")}>
+            <Block className={cn("h-[4px]", i === 0 ? "w-5" : i === 1 ? "w-8" : "w-7")} />
+            {i === 1 ? <span className={cn("ml-auto h-[6px] w-3 rounded-full", ink)} /> : <Block className="ml-auto h-[4px] w-3" />}
+          </span>
+        ))}
+      </span>
+    )
+  if (kind === "bundle")
+    return (
+      <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1.5">
+        <span className="flex items-center justify-center gap-1">
+          <Block className="h-[22px] w-[22px]" />
+          <span className="text-[11px] font-semibold leading-none text-[#9ca3af]">+</span>
+          <Block className="h-[22px] w-[22px]" />
+        </span>
+        <span className={cn("block h-[9px] w-full rounded-[4px]", ink)} />
+      </span>
+    )
+  return (
+    <span aria-hidden className="mx-auto flex w-full max-w-[132px] flex-col gap-1">
+      <span className="flex h-[16px] items-center gap-1.5">
+        <Block className="h-[14px] w-[14px]" />
+        <Block className="h-[4px] w-10" />
+      </span>
+      <span className="flex h-[18px] items-center gap-1.5 rounded-[5px] border border-dashed border-[#c7cad1] bg-white px-1">
+        <Block className="h-[12px] w-[12px]" />
+        <Block className="h-[4px] w-6" />
+        <span className={cn("ml-auto h-[8px] w-4 rounded-[3px]", ink)} />
+      </span>
+    </span>
+  )
+}
+
+/**
+ * THE START OF A NEW OFFER: the three kinds side by side from 640px, one
+ * under another on a phone, each with its name, what it does in one line and
+ * its small drawing. A radio group underneath, so the arrow keys move it and
+ * a screen reader reads it as one choice. `value` null is nothing chosen yet.
+ */
+export function KindChooser({ label, value, onChange, options }: { label: string; value: KindValue | null; onChange: (k: KindValue) => void; options: { value: KindValue; name: string; line: string }[] }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      data-kind-chooser=""
+      className="grid gap-2 sm:grid-cols-3"
+      onKeyDown={(e) => {
+        if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) return
+        e.preventDefault()
+        const i = options.findIndex((o) => o.value === value)
+        const forward = e.key === "ArrowRight" || e.key === "ArrowDown"
+        const next = i < 0 ? options[0] : options[(i + (forward ? 1 : options.length - 1)) % options.length]
+        onChange(next.value)
+        ;(e.currentTarget.querySelector(`[data-kind="${next.value}"]`) as HTMLElement | null)?.focus()
+      }}
+    >
+      {options.map((o, n) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-kind={o.value}
+            tabIndex={on || (value === null && n === 0) ? 0 : -1}
+            onClick={() => onChange(o.value)}
             className={cn(
-              "h-10 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-[background-color,box-shadow,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:flex-auto sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
-              on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12),0_0_0_0.5px_rgba(17,24,39,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+              "flex min-h-[76px] cursor-pointer items-center gap-3 rounded-xl border bg-white p-3 text-left outline-none transition-[border-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.10)] sm:flex-col sm:items-stretch sm:gap-2.5",
+              on ? "border-[#1a1a2e] shadow-[inset_0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:border-[#c9ccd3]",
             )}
           >
-            {o.label}
+            <span className={cn("flex h-[56px] w-[72px] shrink-0 items-center rounded-lg px-2.5 transition-colors duration-150 sm:h-[64px] sm:w-full sm:px-4", on ? "bg-[#eef0f3]" : "bg-[#f6f7f8]")}>
+              <KindDrawing kind={o.value} on={on} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="text-[15px] font-semibold leading-5 text-[#1a1a2e] sm:text-[14px]">{o.name}</span>
+                <span className="ml-auto sm:hidden">
+                  <Radio on={on} />
+                </span>
+              </span>
+              <span data-kind-hint={o.value} className="mt-0.5 block text-[13px] leading-[18px] text-[#6b7280]">
+                {o.line}
+              </span>
+            </span>
           </button>
         )
       })}

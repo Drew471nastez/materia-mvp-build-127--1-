@@ -104,6 +104,7 @@ export type OrderAction =
   | { kind: "refund"; line: OrderRow; amountCents: number; reason: string }
   | { kind: "resend" }
   | { kind: "invoice" }
+  | { kind: "credit-note" }
   | { kind: "email"; email: string }
 
 export interface OrderDetailProps {
@@ -271,6 +272,10 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       ? [{ label: tt("Resend receipt"), icon: <Send className="h-4 w-4" />, onClick: () => void run("resend", { kind: "resend" }) }]
       : []),
     { label: tt("Download invoice"), icon: <Download className="h-4 w-4" />, onClick: () => void run("invoice", { kind: "invoice" }) },
+    /* The latest refund's credit note, the one the buyer was sent (lib/checkout/credit-note.ts). */
+    ...(order.lines.some((l) => l.status === "refunded")
+      ? [{ label: tt("Download credit note"), icon: <Download className="h-4 w-4" />, onClick: () => void run("credit-note", { kind: "credit-note" }) }]
+      : []),
     { label: tt("Change customer email"), icon: <Mail className="h-4 w-4" />, onClick: () => fromMenu("email") },
     ...(firstReceipt
       ? [{ label: tt("View receipt"), icon: <ExternalLink className="h-4 w-4" />, href: `/receipt/${firstReceipt}`, target: "_blank" as const, separatorBefore: true }]

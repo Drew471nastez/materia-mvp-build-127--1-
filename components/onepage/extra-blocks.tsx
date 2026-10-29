@@ -55,7 +55,7 @@ import { DateTimeField } from "@/components/onepage/date-time-field"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
 import { storelibBlockRow } from "@/components/onepage/storelib-blocks"
 import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
-import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, type EmbedKind } from "@/lib/onepage/creator-blocks"
+import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, tiktokPlayerUrl, type EmbedKind } from "@/lib/onepage/creator-blocks"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import type {
   ContactFormBlockData,
@@ -312,7 +312,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
       ? `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1`
       : source.kind === "vimeo"
         ? `https://player.vimeo.com/video/${source.id}?autoplay=1`
-        : `https://www.tiktok.com/embed/v2/${source.id}`
+        : tiktokPlayerUrl(source.id)
   const poster = source.kind === "youtube" ? `https://i.ytimg.com/vi/${source.id}/hqdefault.jpg` : null
   return (
     <div data-onepage-video="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>

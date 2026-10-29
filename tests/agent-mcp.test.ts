@@ -210,7 +210,8 @@ async function main() {
   check("every page write is sanitised", /const sections = sanitizeSections\(checked\.state\.sections\)/.test(projectSrc))
   check("page tools refuse until the builder can hear them", /if \(!\(await logReady\(db\)\)\) return bad\(NOT_READY, 503\)/.test(projectSrc))
   const focusRoute = read("app/api/website-builder/themes/[installId]/focus/route.ts")
-  check("the builder's focus is written only for the creator's own install", /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(focusRoute) && focusRoute.indexOf("creator_id") < focusRoute.indexOf("theme_editor_focus\")"))
+  /* Changed on purpose (round 42 team): the install is checked to be the store's by lib/team/website, before the focus is written. */
+  check("the builder's focus is written only for the creator's own install", /websiteInstallCaller\(installId\)/.test(focusRoute) && focusRoute.indexOf("websiteInstallCaller(installId)") < focusRoute.indexOf("theme_editor_focus\")"))
   const sql = read("supabase/sql/RUN_AGENT_MCP.sql")
   check("creators only read the focus table", /enable row level security/.test(sql) && /revoke insert, update, delete on public\.theme_editor_focus from anon, authenticated/.test(sql))
 

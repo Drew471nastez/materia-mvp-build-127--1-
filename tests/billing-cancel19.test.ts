@@ -58,7 +58,7 @@ console.log("\nResume plan")
   const resume = code(RESUME)
   check("it undoes the cancel in Stripe, nothing charged", /cancel_at_period_end: false/.test(resume) && !/proration|invoices\.create|checkout/.test(resume))
   check("only a subscription that is still running", /RUNNING\.has\(live\.status\)/.test(resume) && /status: 409/.test(resume))
-  check("it signs the user in and finds their own subscription", /auth\.getUser\(\)/.test(resume) && /\.eq\("creator_id", creator\.id\)/.test(resume))
+  check("it signs the user in and finds their own subscription", /moneyCaller\("billing", "manage"\)/.test(resume) && /\.eq\("creator_id", creator\.id\)/.test(resume) /* Changed on purpose (round 42 team): signed in through lib/team/money, which asks auth.getUser() */)
   check("the cancellation row is marked resumed, the reason kept", /resumed_at: new Date\(\)\.toISOString\(\)/.test(resume) && /\.is\("resumed_at", null\)/.test(resume))
 }
 
@@ -104,9 +104,12 @@ console.log("\nSQL part 128")
 console.log("\nThe end of a cancelled plan is the webhook's")
 {
   const hook = code("app/api/stripe/webhook/route.ts")
-  const deleted = hook.slice(hook.indexOf('event.type === "customer.subscription.deleted"'))
-  check("customer.subscription.deleted moves the creator to Free", /subscription_plan_id: "free"/.test(deleted.slice(0, 2500)) && /status: "canceled"/.test(deleted.slice(0, 2500)))
-  check("customer.subscription.updated keeps cancel_at_period_end in step", /cancel_at_period_end: subscription\.cancel_at_period_end/.test(hook))
+  /* Changed on purpose (billing fail closed): the three subscription events share one sync, lib/billing/subscription-sync.ts,
+     which writes Free only when Stripe answered and nothing is paying, and the row's status and cancel_at_period_end from
+     Stripe's subscription now. tests/billing-fail-closed.test.ts runs it. */
+  const sync = code("lib/billing/subscription-sync.ts")
+  check("customer.subscription.deleted moves the creator to Free", /event\.type === "customer\.subscription\.deleted"[\s\S]{0,400}syncFromSubscriptionEvent\(/.test(hook) && /if \(creator\.subscription_plan_id !== "free"\) update\.subscription_plan_id = "free"/.test(sync) && /status: sub\.status/.test(sync))
+  check("customer.subscription.updated keeps cancel_at_period_end in step", /cancel_at_period_end: sub\.cancel_at_period_end === true/.test(sync))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -672,6 +672,36 @@ function footerHtml(sender: EmailSender, f: EmailFooter | undefined): string {
   return parts.join("\n")
 }
 
+/** Where the footer starts in every email this file draws: the store's own footer line goes in here (withOwnFrame). */
+const FOOT_MARK = "<!--e-foot-->"
+
+/**
+ * THE STORE'S OWN PREHEADER AND FOOTER LINE ON AN EMAIL ALREADY DRAWN (round
+ * 28, the owner: "every customer email fully editable"). Every customer email
+ * is an emailDocument, so the two parts a store can write around the
+ * template's own (lib/emails/customer-custom.ts ResolvedCopy) are put in
+ * here, once, for all of them, instead of in each of twenty templates: the
+ * inbox's preview line replaces the one the template wrote, and the line of
+ * the store's own opens the footer, escaped, a newline a line break. The
+ * text part gets the line too. Anything not given leaves the email as it
+ * was, byte for byte.
+ */
+export function withOwnFrame<T extends { html: string; text: string }>(mail: T, own: { preheader?: string; footer?: string } | null | undefined): T {
+  if (!own || (!own.preheader && !own.footer)) return mail
+  let html = mail.html
+  let text = mail.text
+  if (own.preheader) {
+    const pre = preheader(own.preheader)
+    html = /<div class="e-preheader"[^>]*>[\s\S]*?<\/div>/.test(html) ? html.replace(/<div class="e-preheader"[^>]*>[\s\S]*?<\/div>/, () => pre) : html.replace(/(<body[^>]*>)/, (m) => `${m}\n${pre}`)
+  }
+  if (own.footer && html.includes(FOOT_MARK)) {
+    const lineHtml = esc(own.footer).replace(/\n/g, "<br>")
+    html = html.replace(FOOT_MARK, () => `${FOOT_MARK}\n<p class="e-foot" style="${P(13, 20, K.muted, "margin:0 0 8px 0;")}" data-own-footer="">${lineHtml}</p>`)
+    text = `${text.replace(/\s+$/, "")}\n\n${own.footer}`
+  }
+  return { ...mail, html, text }
+}
+
 /** The whole email as one HTML document. */
 export function emailDocument(input: EmailDocumentInput): string {
   const theme = emailTheme(input.sender)
@@ -707,6 +737,7 @@ ${rows}
 </td></tr>
 <tr><td style="padding:16px 0 0 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;"><tr><td class="e-line" style="border-top:1px solid ${K.line};padding:24px 0 0 0;">
+${FOOT_MARK}
 ${foot}
 </td></tr></table>
 </td></tr>

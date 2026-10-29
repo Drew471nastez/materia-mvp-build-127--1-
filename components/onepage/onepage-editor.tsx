@@ -2,6 +2,9 @@
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
+import { PosterVideo } from "./poster-video"
+import { videoPoster } from "@/lib/onepage/poster-video"
+import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
@@ -60,6 +63,7 @@ import { SaveNotification, ToastSpot } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
+import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 import { OnePageTeamProvider, useOnePageTeam, useTeamProductsStore, type OnePageTeam } from "@/lib/onepage/team-context"
 
 /* React 19.2's <Activity>. The installed types are 19.0's, which do not name it yet; the runtime has it. */
@@ -113,6 +117,9 @@ const TAB_FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
  * on opacity alone, and its icon and word cross from grey to white with it.
  */
 const TAB_SELECT_MS = 140
+/* The phone bar's icon and word: white on the chosen button's ink, grey on the others. */
+const PHONE_TAB_INK_ON = "#ffffff"
+const PHONE_TAB_INK_OFF = "#4b5563"
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -332,15 +339,22 @@ function ShareOnePage({
     <div className="space-y-3" data-share-onepage="">
       <div className="rounded-2xl p-5 text-center" style={{ background: bg }}>
         {onepage.avatar_video_url ? (
-          <video
-            src={onepage.avatar_video_url}
-            poster={onePageImageSrc(onepage.avatar_url, 64) || undefined}
-            className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
+          /*
+            Round 42: the sheet is built ahead and kept on a phone, so an
+            autoplaying video here played the whole time, hidden, beside the
+            preview's own. It plays only while the sheet is open, from its
+            first frame (components/onepage/poster-video).
+          */
+          <span className="relative mx-auto mb-2 block h-14 w-14 overflow-hidden rounded-full" data-share-avatar="">
+            <PosterVideo
+              src={onepage.avatar_video_url}
+              poster={videoPoster(onepage.avatar_video_crop)}
+              fallback={onePageImageSrc(onepage.avatar_url, 64) || null}
+              alt={onepage.title || ""}
+              mediaStyle={croppedMediaStyle(onepage.avatar_video_crop) as ReactModule.CSSProperties | undefined}
+              still={!open}
+            />
+          </span>
         ) : onepage.avatar_url ? (
           <img
             src={onePageImageSrc(onepage.avatar_url, 64)}
@@ -804,14 +818,9 @@ function EditorLayout() {
       })
       .catch(() => {})
 
-    fetch("/api/billing/subscription")
-      .then((res) => res.json())
-      .then((data) => {
-        // API returns { subscription: { plan_id }, currentPlan: { id } }
-        const plan = (data.subscription?.plan_id || data.currentPlan?.id) as "free" | "growth" | "pro" | undefined
-        setUserPlan(plan || "free")
-      })
-      .catch(() => setUserPlan("free"))
+    /* Shared with Settings and the billing tab (lib/billing/plan-client.ts). currentPlan first: it is the plan in force
+       (an admin's override included), where a cancelled subscription's plan_id is the plan that ended. */
+    void fetchBillingSubscription().then((data) => setUserPlan((plan) => planIdOf(data) ?? plan ?? "free"))
   }, [team])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
@@ -1213,9 +1222,8 @@ function EditorLayout() {
       const on = button.getAttribute("data-tab") === id
       const fill = button.querySelector<HTMLElement>("[data-tab-fill]")
       if (fill) fill.style.opacity = on ? "1" : "0"
-      button.querySelectorAll<HTMLElement>("[data-tab-face]").forEach((face) => {
-        face.style.opacity = (face.getAttribute("data-tab-face") === "on") === on ? "1" : "0"
-      })
+      const ink = button.querySelector<HTMLElement>("[data-tab-ink]")
+      if (ink) ink.style.color = on ? PHONE_TAB_INK_ON : PHONE_TAB_INK_OFF
     }
   }, [])
   const phonePress = usePillPress(phoneShow, activeTab)
@@ -1719,8 +1727,24 @@ function EditorLayout() {
         THE CHOSEN ONE CHANGES IN PLACE. "No slide-in slide effect." A dark
         pill used to travel from the last tab to the next on transform. Now
         each button has its own dark fill, and a tap crossfades it (opacity,
-        TAB_SELECT_MS) while the icon and word crossfade from grey to white
-        (TabFace). Nothing moves sideways. Reduced motion swaps at once.
+        TAB_SELECT_MS) while the icon and word turn from grey to white. Nothing
+        moves sideways. Reduced motion swaps at once.
+
+        THE ICONS NO LONGER JUMP AS THEY CHANGE (round 42). "The icons
+        jump/bounce weirdly on touch when switching." Each button drew its
+        icon and word twice (TabFace), one over the other, and a switch faded
+        one copy out and the other in. A fading element is lifted onto a
+        layer of its own for the length of the fade and dropped back when it
+        ends (measured: 9 layers in the bar at rest, 11 during every switch),
+        and at 83.5px a button every icon sits on a half pixel, so it was
+        drawn snapped one way on its layer and the other way off it: a half
+        pixel hop as the fade began and again as it ended, on the two buttons
+        under the thumb. Now there is one icon and one word, whose colour
+        turns (a repaint where it is), the dark fill keeps its own layer for
+        good (will-change), and the word's line is a whole 15px so the column
+        inside the 54px button starts on a whole pixel.
+        scripts/check-onepage-editor-r42.mjs: the layers in the bar stay the
+        same number through a switch, and no icon or word moves.
 
         NOTHING BUMPS UNDER THE THUMB (round 11). "When I switch, it bumps the
         icons, bumps the links, glitches [...] especially on hover with the
@@ -1771,15 +1795,18 @@ function EditorLayout() {
                   <span
                     aria-hidden
                     data-tab-fill=""
-                    className="pointer-events-none absolute -inset-px z-[1] rounded-[12px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25),0_4px_12px_rgba(16,24,40,0.14)] transition-opacity ease-out motion-reduce:transition-none"
+                    className="pointer-events-none absolute -inset-px z-[1] rounded-[12px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25),0_4px_12px_rgba(16,24,40,0.14)] transition-opacity ease-out will-change-[opacity] motion-reduce:transition-none"
                     style={{ opacity: on ? 1 : 0, transitionDuration: `${TAB_SELECT_MS}ms` }}
                   />
-                  <TabFace on={on} onClass="text-white" offClass="text-[#4b5563]" className="w-full grid-cols-[minmax(0,1fr)]">
-                    <span className="flex min-w-0 max-w-full flex-col items-center gap-[5px]">
-                      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
-                      <span className="block max-w-full truncate text-center leading-[1.3]" data-tab-word="">{tab.label}</span>
-                    </span>
-                  </TabFace>
+                  {/* One icon and one word, whose colour turns (a repaint where they are): never a second copy fading over the first. */}
+                  <span
+                    data-tab-ink=""
+                    className="relative z-[2] flex w-full min-w-0 max-w-full flex-col items-center gap-[5px] transition-[color] ease-out motion-reduce:transition-none"
+                    style={{ color: on ? PHONE_TAB_INK_ON : PHONE_TAB_INK_OFF, transitionDuration: `${TAB_SELECT_MS}ms` }}
+                  >
+                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
+                    <span className="block h-[15px] max-w-full truncate text-center leading-[15px]" data-tab-word="">{tab.label}</span>
+                  </span>
                 </button>
               )
             })}

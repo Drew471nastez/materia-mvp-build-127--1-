@@ -46,12 +46,15 @@ export interface RowEmail {
 }
 
 /** One email: its name, when it goes, what it sent; the whole row opens it, a switch at the end where it has one. */
-export function EmailRow({ email, bare, edited, sent, note, control, onOpen }: { email: RowEmail; bare: boolean; edited: boolean; sent: string | null; note?: string | null; control?: React.ReactNode; onOpen: () => void }) {
+export function EmailRow({ email, bare, edited, sent, note, control, onOpen, onIntent }: { email: RowEmail; bare: boolean; edited: boolean; sent: string | null; note?: string | null; control?: React.ReactNode; onOpen: () => void; /** A pointer arriving, a finger landing, a focus: what the row opens can be read ahead. */ onIntent?: () => void }) {
   return (
     <li className="flex items-center">
       <button
         type="button"
         onClick={onOpen}
+        onPointerEnter={onIntent}
+        onPointerDown={onIntent}
+        onFocus={onIntent}
         className={cn("flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-3 text-left outline-none transition-colors duration-100 hover:bg-[#fafafa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]", bare ? "pl-4 sm:pl-5" : "pl-3.5", control ? "pr-2" : bare ? "pr-4 sm:pr-5" : "pr-3.5")}
         data-customer-email={email.id}
       >
@@ -135,17 +138,33 @@ function innerOf(html: string): string {
  * screen (the Preview pane while Edit is showing) is brought up to date when
  * it comes back.
  */
-export function PreviewFrame({ title, html, paused = false }: { title: string; html: string; paused?: boolean }) {
+/* The height each email's frame last measured, so it opens at that height the next time and the column does not jump when it is measured. */
+const heightsKept = new Map<string, number>()
+
+export function PreviewFrame({ title, html, paused = false, heightKey, onDrawn }: { title: string; html: string; paused?: boolean; /** Which email this is: its last measured height is where the frame opens. */ heightKey?: string; /** Told once the email is in the frame's document, for the time from a click to a preview. */ onDrawn?: () => void }) {
   const ref = React.useRef<HTMLIFrameElement>(null)
   const drawn = React.useRef<string | null>(null)
-  const [height, setHeight] = React.useState(640)
+  const [height, setHeight] = React.useState(() => (heightKey ? heightsKept.get(heightKey) : undefined) ?? 640)
+  const keyRef = React.useRef(heightKey)
+  keyRef.current = heightKey
+  const drawnRef = React.useRef(onDrawn)
+  drawnRef.current = onDrawn
 
   const measure = React.useCallback(() => {
     const doc = ref.current?.contentDocument
     if (!doc?.documentElement) return
     const h = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0)
-    if (h > 0) setHeight(Math.min(8000, Math.max(320, Math.ceil(h))))
+    if (h <= 0) return
+    const next = Math.min(8000, Math.max(320, Math.ceil(h)))
+    if (keyRef.current) heightsKept.set(keyRef.current, next)
+    setHeight(next)
   }, [])
+
+  /* Another email in the same frame: its own last height at once, before it is measured. */
+  React.useLayoutEffect(() => {
+    const h = heightKey ? heightsKept.get(heightKey) : undefined
+    if (h) setHeight(h)
+  }, [heightKey])
 
   const draw = React.useCallback(
     (force = false) => {
@@ -154,6 +173,7 @@ export function PreviewFrame({ title, html, paused = false }: { title: string; h
       drawn.current = html
       doc.documentElement.innerHTML = innerOf(html)
       measure()
+      if (html) drawnRef.current?.()
       doc.querySelectorAll("img").forEach((img) => {
         if (!img.complete) img.addEventListener("load", measure, { once: true })
       })

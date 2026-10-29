@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { websitePage } from "@/lib/team/website"
 import { ThemeMarketplaceClient } from "./themes-client"
-import { pageUser } from "@/lib/auth/page-user"
 import { getServerTt } from "@/lib/i18n/server"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,14 +19,12 @@ export async function generateMetadata(): Promise<Metadata> {
  * many slots are used; the catalogue itself is code.
  */
 export default async function ThemeMarketplacePage() {
-  const supabase = await createClient()
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
-
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) redirect("/app")
+  /* The owner's own store, or the one a team member with Website works in (lib/team/website). */
+  const access = await websitePage()
+  if (access.kind === "closed") return null
+  if (access.kind === "none") redirect("/app")
+  const supabase = access.db
+  const creator = { id: access.creatorId }
 
   const { data: installs } = await supabase.from("store_theme_installs").select("id, name, theme_id, status").eq("creator_id", creator.id)
 

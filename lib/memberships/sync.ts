@@ -265,12 +265,13 @@ export async function membershipVoice(admin: Db, row: MembershipRow, name: Membe
   const shop = (identity?.fromName || look?.creatorName || "").trim()
   const picture = senderPicture({ photoUrl: look?.avatarUrl, logoUrl: look?.logoUrl })
   /* The store's words are written in its website's language; a membership's email is English, so they go on it only when that is English too (lib/emails/buyer-channel.ts ownWordsApply). */
-  const copy = language?.own === false ? undefined : (saved as Record<string, { subject?: string; heading?: string; body?: string; button?: string } | undefined>)[STORE_EMAIL_ID[name]]
+  const { pickCopy } = await import("@/lib/emails/customer-custom")
+  const copy = pickCopy((saved as Record<string, import("@/lib/emails/customer-custom").EmailCopy | undefined>)[STORE_EMAIL_ID[name]], language)
   return {
     ...(shop && shop !== "Storelib" ? { storeName: shop, brandName: shop, brandKind: "creator", brandPicture: picture?.kind === "photo" ? "avatar" : "mark" } : {}),
     ...(picture?.url ? { brandLogoUrl: picture.url } : {}),
     ...(identity?.replyTo && !/@storelib\.com$/i.test(identity.replyTo) ? { brandReplyTo: identity.replyTo } : {}),
-    ...(copy ? { tplMode: "body", ...(copy.subject ? { tplSubject: copy.subject } : {}), ...(copy.heading ? { tplHeading: copy.heading } : {}), ...(typeof copy.body === "string" ? (copy.body.trim() ? { tplIntro: copy.body } : { tplDropIntro: true }) : {}), ...(copy.button ? { tplButton: copy.button } : {}) } : {}),
+    ...(copy ? { tplMode: "body", ...(copy.subject ? { tplSubject: copy.subject } : {}), ...(copy.heading ? { tplHeading: copy.heading } : {}), ...(typeof copy.body === "string" ? (copy.body.trim() ? { tplIntro: copy.body } : { tplDropIntro: true }) : {}), ...(copy.button ? { tplButton: copy.button } : {}), ...(copy.preheader ? { tplPreheader: copy.preheader } : {}), ...(copy.footer ? { tplFooter: copy.footer } : {}) } : {}),
   }
 }
 

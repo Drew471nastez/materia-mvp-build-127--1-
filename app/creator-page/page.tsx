@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 
-import { createClient } from "@/lib/supabase/server"
-import { pageUser } from "@/lib/auth/page-user"
+import { creatorPagePage } from "@/lib/team/creator-page"
 import { CreatorPageWorkspace } from "@/components/app/creator-page-workspace"
 
 export const metadata: Metadata = { title: "Creator page - Storelib" }
@@ -43,15 +42,15 @@ export const dynamic = "force-dynamic"
  * a laptop window that is not maximised is the same situation.
  */
 export default async function CreatorPageWorkspaceRoute() {
-  const supabase = await createClient()
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /* Round 42: the owner's own page, or the store's for a team member with Creator page (lib/team/creator-page); the layout has already said no to anyone else. */
+  const page = await creatorPagePage()
+  if (page.kind === "signed_out" || page.kind === "closed") return null
+  if (page.kind === "none") redirect("/onboarding")
+  const supabase = page.db
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug, store_published").eq("user_id", user.id).single(),
-    supabase.from("profiles").select("username, display_name").eq("id", user.id).single(),
+    supabase.from("creators").select("id, slug, store_published").eq("id", page.creatorId).single(),
+    supabase.from("profiles").select("username, display_name").eq("id", page.profileId).single(),
   ])
 
   if (!creator) redirect("/onboarding")

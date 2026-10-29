@@ -224,6 +224,20 @@ export async function POST(request: Request) {
       }
     }
 
+    /* The refund's credit note in the store's invoice sequence (lib/checkout/credit-note.ts): issued by the ledger step above, or here for a cash refund. Linked from the buyer's email. */
+    let creditNote: { number: string; url: string } | null = null
+    if (admin) {
+      try {
+        const [{ creditNoteForRefund }, { creditNoteLink }] = await Promise.all([import("@/lib/checkout/credit-note"), import("@/lib/stripe/refund-sync")])
+        /* A note is in the currency that was refunded; with none recorded there is nothing honest to print, so none is issued. */
+        const noteCurrency = refund.currency || order.currency || null
+        const issued = noteCurrency ? await creditNoteForRefund(admin, { orderId, creatorId: creator.id, refundKey: refund.id, currency: String(noteCurrency), cents: refundAmountCents }) : null
+        creditNote = issued ? creditNoteLink(issued.first, issued.note) : null
+      } catch (noteErr) {
+        console.error("[Refund] credit note not issued:", noteErr instanceof Error ? noteErr.message : noteErr)
+      }
+    }
+
     // Send refund notification emails
     try {
       const { sendRefundEmails, resolveCreatorIdentity } = await import("@/lib/email")
@@ -273,6 +287,7 @@ export async function POST(request: Request) {
         storeName,
         orderDate: order.created_at || order.order_date,
         sellerAvatarUrl,
+        creditNote,
       })
     } catch (emailErr) {
       console.error("[Refund] Email notification failed:", emailErr)

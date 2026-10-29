@@ -54,6 +54,7 @@ import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCo
 import { percentText } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { ReportFill, ReportTabs } from "./analytics-reports"
+import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailRow, type DetailView } from "./report-detail"
 
 type Point = { t: number; total: number; orders: number; aov: number }
 interface Answer {
@@ -90,12 +91,15 @@ const channelName = (c: ChannelRow) => (CHANNEL_NAME[c.key] ? CHANNEL_NAME[c.key
 const ACCENT = "#8b5cf6"
 const CHANNEL_ROWS = 5
 
-function Card({ title, help, children, className, card, tabs }: { title: string; help: string; children: React.ReactNode; className?: string; card: string; tabs?: React.ReactNode }) {
+function Card({ title, help, children, className, card, tabs, detail }: { title: string; help: string; children: React.ReactNode; className?: string; card: string; tabs?: React.ReactNode; detail?: string }) {
   return (
     <section data-card={card} className={cn("flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]", className)}>
       <header className="flex min-h-[52px] flex-col justify-center gap-2.5 px-5 pt-4">
-        <div className="min-w-0">
-          <HelpLabel as="h3" label={title} description={help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
+        <div className="flex min-h-6 min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <HelpLabel as="h3" label={title} description={help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
+          </div>
+          {detail ? <ViewReport id={detail} /> : null}
         </div>
         {tabs ? <div className="orders-strip -mx-1 overflow-x-auto px-1">{tabs}</div> : null}
       </header>
@@ -173,11 +177,14 @@ export interface CommerceReportsProps {
   viewer?: string | null
   /** The page's minute: asks the same question again. */
   refresh?: number
+  /** The period and what it is compared with, as the page names them, under an opened report's title. */
+  rangeText?: string
+  againstText?: string | null
 }
 
 type Metric = "total" | "aov" | "orders"
 
-export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, showKinds = false, viewer = null, refresh = 0 }: CommerceReportsProps) {
+export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, showKinds = false, viewer = null, refresh = 0, rangeText, againstText = null }: CommerceReportsProps) {
   const currency = useStoreCurrency()
   const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency, kind })
   const question = commerceQuestionOf(key)
@@ -267,11 +274,118 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const metricFormat = React.useCallback((n: number) => (metric === "orders" ? Math.round(n).toLocaleString(appLocale()) : money(n)), [metric, money])
   const head = b && p ? (metric === "aov" ? { now: b.aov, before: p.aov, text: b.orders ? money(b.aov) : "–" } : metric === "orders" ? { now: b.orders, before: p.orders, text: b.orders.toLocaleString(appLocale()) } : { now: b.total, before: p.total, text: money(b.total) }) : null
 
+  /* ── Each card, opened (./report-detail): its own panel, drawn from this answer. ── */
+  const [detailOpen, setDetailOpen] = React.useState(false)
+  const [detailId, setDetailId] = React.useState<string | null>(null)
+  const [detailMetric, setDetailMetric] = React.useState<Metric>("total")
+  const openDetail = React.useCallback(
+    (id: string) => {
+      setDetailId(id)
+      setDetailMetric(id === "aov" ? "aov" : metric)
+      setDetailOpen(true)
+    },
+    [metric],
+  )
+  const detailView = React.useMemo<DetailView | null>(() => {
+    if (!detailId || !data || !b || !p) return null
+    const count = (n: number) => Math.round(n).toLocaleString(appLocale())
+    if (detailId === "sales-over-time" || detailId === "aov") {
+      const m = detailMetric
+      const pick = (pt: Point) => (m === "aov" ? pt.aov : m === "orders" ? pt.orders : pt.total)
+      const fmt = m === "orders" ? count : money
+      const labels = data.series.map((pt) => bucketLabel(pt.t, grain, zone))
+      const now = m === "aov" ? b.aov : m === "orders" ? b.orders : b.total
+      const before = m === "aov" ? p.aov : m === "orders" ? p.orders : p.total
+      const name = m === "aov" ? tt("Average order value") : m === "orders" ? tt("Orders") : tt("Total sales")
+      return {
+        title: m === "aov" ? tt("Average order value over time") : m === "orders" ? tt("Orders over time") : tt("Total sales over time"),
+        tabs: <ReportTabs label={tt("Sales over time")} value={m} onChange={setDetailMetric} options={[{ value: "total", label: tt("Total sales") }, { value: "aov", label: tt("Average order value") }, { value: "orders", label: tt("Orders") }]} />,
+        figure: { value: m === "aov" && !b.orders ? "–" : fmt(now), now, before, beforeText: fmt(before) },
+        chart: { labels, current: data.series.map(pick), previous: compared ? data.previousSeries.map(pick) : [], format: fmt, integer: m === "orders", label: name },
+        sections: [{ title: tt("Over time"), format: fmt, rows: data.series.map((pt, i) => ({ key: `${i}`, label: labels[i], value: pick(pt), previous: compared && data.previousSeries[i] ? pick(data.previousSeries[i]) : compared ? 0 : undefined })) }],
+      }
+    }
+    if (detailId === "sales-by-channel") {
+      return {
+        title: tt("Total sales by channel"),
+        figure: { value: money(b.total), now: b.total, before: p.total, beforeText: money(p.total) },
+        sections: [{ title: tt("Channels"), format: money, bars: true, valueLabel: tt("Sales"), empty: tt("No sales in this period."), rows: (data.channels ?? []).map((c) => ({ key: c.key, label: channelName(c), value: c.total, note: tt("{count, plural, one {# order} other {# orders}}", { count: c.orders }) })) }],
+        help: tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own."),
+      }
+    }
+    if (detailId === "returning") {
+      return {
+        title: tt("Returning customer rate"),
+        figure: { value: b.customers ? percentText(b.returningRate) : "–", now: b.customers ? b.returningRate : null, before: p.customers ? p.returningRate : null, beforeText: p.customers ? percentText(p.returningRate) : undefined },
+        sections: [
+          {
+            title: tt("Customers"),
+            format: count,
+            rows: [
+              { key: "customers", label: tt("Customers"), value: b.customers, previous: p.customers },
+              { key: "returning", label: tt("Returning customers"), value: b.returningCustomers, previous: p.returningCustomers },
+              { key: "new", label: tt("New customers"), value: b.customers - b.returningCustomers, previous: p.customers - p.returningCustomers },
+              { key: "orders", label: tt("Orders"), value: b.orders, previous: p.orders },
+            ],
+          },
+        ],
+        help: tt("Customers who had ordered before, or ordered twice in this period, out of every customer who ordered in it."),
+      }
+    }
+    if (detailId === "shipping") {
+      return {
+        title: tt("Shipping"),
+        sections: [
+          {
+            title: tt("This period's physical orders"),
+            format: count,
+            rows: [
+              { key: "fulfilled", label: tt("Fulfilled"), value: rate?.rate ?? 0, text: rate && rate.rate !== null ? percentText(rate.rate) : "–", previous: rateBefore?.rate ?? undefined, previousText: rateBefore && rateBefore.rate !== null ? percentText(rateBefore.rate) : "–" },
+              { key: "sent", label: tt("Sent"), value: rate?.fulfilled ?? 0, previous: rateBefore?.fulfilled },
+              { key: "parcels", label: tt("Parcels shipped"), value: data.fulfillment.shipped, previous: data.fulfillmentBefore?.shipped },
+              { key: "wait", label: tt("Time to ship"), value: hours ?? 0, text: waitText ?? "–", invert: true, previous: data.fulfillmentBefore?.hours ?? undefined, previousText: data.fulfillmentBefore?.hours == null ? "–" : undefined },
+              { key: "charged", label: tt("Shipping charged"), value: (kinds ? kinds.physical.shipping : b.shipping) || 0, text: money((kinds ? kinds.physical.shipping : b.shipping) || 0), previous: p.shipping, previousText: money(p.shipping) },
+            ],
+          },
+        ],
+        help: tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid."),
+      }
+    }
+    if (detailId === "sales-breakdown") {
+      const line = (bd: SalesBreakdown, before: SalesBreakdown | null): DetailRow[] =>
+        rows.map((r) => ({ key: r.key, label: r.label, value: bd[r.key] as number, previous: before ? (before[r.key] as number) : undefined, strong: r.strong, invert: r.invert, text: signed(bd[r.key] as number, r.sign), previousText: before ? signed(before[r.key] as number, r.sign) : undefined }))
+      return {
+        title: tt("Sales breakdown"),
+        figure: { value: money(b.total), now: b.total, before: p.total, beforeText: money(p.total) },
+        sections: [
+          { title: kinds ? tt("Total") : tt("Sales breakdown"), format: money, rows: line(b, p) },
+          ...(kinds ? [{ title: tt("Digital"), format: money, rows: line(kinds.digital, null) }, { title: tt("Physical"), format: money, rows: line(kinds.physical, null) }] : []),
+        ],
+        help: tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales."),
+      }
+    }
+    return null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailId, detailMetric, data, b, p, compared, money, grain, zone, kinds, showShipping])
+  const detailTitle = detailView?.title ?? ""
+  const range = rangeText ? (againstText ? tt("{range} compared with {against}", { range: rangeText, against: againstText }) : rangeText) : null
+
+  /*
+    THE LAYOUT, BALANCED (round 41, the owner: "the report cards leave a big empty area on the right"). From 1024px
+    three columns: sales over time takes two and the height of two rows, with Average order value and the Returning
+    customer rate one above the other beside it, so the short figures fill the column the chart leaves; then the
+    channels beside the breakdown (one column and two), and Shipping the whole width. The short figures used to stack
+    under the chart with the half beside them empty, and the channels sat in a tall card of their own across from the
+    chart. Below 1024px every card is the full width, one under the other.
+  */
   return (
-    <div aria-busy={state.loading} className={cn("grid grid-cols-1 gap-3 transition-opacity duration-300 lg:grid-cols-2", soft ? "opacity-60" : "opacity-100")} data-commerce-reports="">
+    <OpenDetailContext.Provider value={openDetail}>
+    <div aria-busy={state.loading} className={cn("grid grid-cols-1 gap-4 transition-opacity duration-200 lg:grid-cols-3", soft ? "opacity-60 delay-150" : "opacity-100")} data-commerce-reports="">
 
       <Card
         card="sales-over-time"
+        detail="sales-over-time"
+        className="lg:col-span-2 lg:row-span-2"
         title={metric === "aov" ? tt("Average order value over time") : metric === "orders" ? tt("Orders over time") : tt("Total sales over time")}
         help={tt("This period against the one before it, at the same points. Point at a day to read it.")}
         tabs={
@@ -309,8 +423,28 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         <Legend compared={compare !== null} />
       </Card>
 
-      <Card card="sales-by-channel" title={tt("Total sales by channel")} help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
-        <div className="h-[200px]">
+      {/*
+        The two figures, each a card of its own beside the chart: the name and its way in on top, the number and
+        its change under it. They share the chart's height between them from 1024px, and are short rows under it
+        on a phone.
+      */}
+      {figures.map((f) => (
+        <section key={f.key} data-card={f.key} className="flex min-h-[96px] min-w-0 flex-col justify-between gap-3 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex min-h-6 items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <HelpLabel as="h3" label={f.title} description={f.help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
+            </div>
+            <ViewReport id={f.key} />
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+            <span className="flex h-8 items-center whitespace-nowrap text-[26px] font-bold leading-8 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>
+            <span className="h-[18px] whitespace-nowrap">{f.delta}</span>
+          </div>
+        </section>
+      ))}
+
+      <Card card="sales-by-channel" title={tt("Total sales by channel")} detail="sales-by-channel" help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
+        <div className="min-h-[150px]">
           {!data ? (
             <div aria-hidden className="space-y-3">
               {[0.9, 0.55, 0.3].map((w, i) => (
@@ -324,7 +458,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
               ))}
             </div>
           ) : channels.length === 0 ? (
-            <p className="flex h-full items-center justify-center text-center text-[13px] text-[#6b7280]">{tt("No sales in this period.")}</p>
+            <p className="flex h-full min-h-[150px] items-center justify-center text-center text-[13px] text-[#6b7280]">{tt("No sales in this period.")}</p>
           ) : (
             <div className="space-y-3">
               {channels.map((c) => (
@@ -344,64 +478,12 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
       </Card>
 
       {/*
-        The figures, one under the other beside the channels: the name on the left, never cut, and the number on
-        the right with its change under it. Three tiles side by side squeezed the names ("Returning customer rate")
-        and the numbers ("22 min") on a laptop, so they stack at every width.
-      */}
-      <div className="grid grid-cols-1 content-start gap-3">
-        {figures.map((f) => (
-          <section key={f.key} data-card={f.key} className="flex min-h-[76px] min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <HelpLabel as="h3" label={f.title} description={f.help} className="min-w-0 text-[13.5px] font-medium leading-5 text-[#4b5563]" />
-            <div className="flex shrink-0 flex-col items-end gap-0.5">
-              <span className="flex h-7 items-center whitespace-nowrap text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>
-              <span className="h-[18px] whitespace-nowrap">{f.delta}</span>
-            </div>
-          </section>
-        ))}
-      </div>
-
-      {shipping && b ? (
-        /*
-          SHIPPING, A SECTION OF ITS OWN, only for a period with a physical order: how many went out, how
-          long they waited and what buyers paid for delivery. Three figures in one card, side by side from
-          sm up and one under the other on a phone.
-        */
-        <Card card="shipping" title={tt("Shipping")} help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-2">
-          <dl className="grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
-              <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>
-              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{rate && rate.rate !== null ? percentText(rate.rate) : "–"}</span>
-                <span className="inline-flex items-center gap-2 text-[12px] tabular-nums text-[#6b7280]">
-                  {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
-                  {rate && rate.orders ? tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }) : null}
-                </span>
-              </dd>
-            </div>
-            <div data-shipping="wait" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:px-5 sm:py-0">
-              <dt className="text-[13px] text-[#4b5563]">{tt("Time to ship")}</dt>
-              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{waitText ?? "–"}</span>
-                <span className="text-[12px] tabular-nums text-[#6b7280]">{data?.fulfillment.shipped ? tt("{count, plural, one {# parcel} other {# parcels}}", { count: data.fulfillment.shipped }) : tt("None shipped yet")}</span>
-              </dd>
-            </div>
-            <div data-shipping="charged" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pl-5">
-              <dt className="text-[13px] text-[#4b5563]">{tt("Shipping charged")}</dt>
-              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
-                <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{count, plural, one {# physical order} other {# physical orders}}", { count: physicalOrders })}</span>
-              </dd>
-            </div>
-          </dl>
-        </Card>
-      ) : null}
-      {/*
         THE BREAKDOWN LAST, AND SHORT (round 23, the owner: "the total sales breakdown seems too complicated, too much
         text, and should not be the first"). Sales over time leads, as Shopify's analytics does; the breakdown follows
         the figures, with only the lines that hold money in either period (gross, net and total always), and no
         change column: the change is the chart's.
       */}
-      <Card card="sales-breakdown" title={tt("Sales breakdown")} help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
+      <Card card="sales-breakdown" title={tt("Sales breakdown")} detail="sales-breakdown" help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
         {kinds ? (
           /* The columns' names, over the amounts they head. */
           <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
@@ -431,12 +513,69 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           ))}
         </div>
       </Card>
+      {shipping && b ? (
+        /*
+          SHIPPING, A SECTION OF ITS OWN, only for a period with a physical order: how many went out, how
+          long they waited and what buyers paid for delivery. Three figures in one card, side by side from
+          sm up and one under the other on a phone.
+        */
+        <Card card="shipping" title={tt("Shipping")} detail="shipping" help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-3">
+          <dl className="grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{rate && rate.rate !== null ? percentText(rate.rate) : "–"}</span>
+                <span className="inline-flex items-center gap-2 text-[12px] tabular-nums text-[#6b7280]">
+                  {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
+                  {rate && rate.orders ? tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }) : null}
+                </span>
+              </dd>
+            </div>
+            <div data-shipping="wait" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:px-5 sm:py-0">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Time to ship")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{waitText ?? "–"}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280]">{data?.fulfillment.shipped ? tt("{count, plural, one {# parcel} other {# parcels}}", { count: data.fulfillment.shipped }) : tt("None shipped yet")}</span>
+              </dd>
+            </div>
+            <div data-shipping="charged" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pl-5">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Shipping charged")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{count, plural, one {# physical order} other {# physical orders}}", { count: physicalOrders })}</span>
+              </dd>
+            </div>
+          </dl>
+        </Card>
+      ) : null}
       {data?.truncated ? (
-        <p data-commerce-truncated="" className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.")}</p>
+        <p data-commerce-truncated="" className="text-[12px] text-[#6b7280] lg:col-span-3">{tt("This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.")}</p>
       ) : null}
       {data?.placeUnknown ? (
-        <p className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("Orders do not record their page on this store yet, so the sales reports count every page.")}</p>
+        <p className="text-[12px] text-[#6b7280] lg:col-span-3">{tt("Orders do not record their page on this store yet, so the sales reports count every page.")}</p>
       ) : null}
     </div>
+      <DetailPanel open={detailOpen} onClose={() => setDetailOpen(false)} title={detailTitle} sub={range} panelKey={detailId ?? undefined}>
+        <div data-detail-id={detailId ?? undefined} className={cn("transition-opacity duration-200", soft ? "opacity-60 delay-150" : "opacity-100")}>
+          {detailView ? <DetailBody view={detailView} compared={compared} /> : null}
+        </div>
+      </DetailPanel>
+    </OpenDetailContext.Provider>
   )
+}
+
+/**
+ * READ AHEAD (round 41): the sales reports for a question about to be asked
+ * (a pointer resting on Digital), fetched now and kept (lib/analytics/
+ * commerce-cache), so the tap draws them from memory. Joins one on its way.
+ */
+export function prefetchCommerce(q: { start: number; end: number; compare: { start: number; end: number } | null; product: string; property: string; timeZone: string; currency?: string; kind?: string }, viewer: string | null) {
+  try {
+    const key = commerceKey(q)
+    const known = keptCommerce(key, viewer)
+    if (known && Date.now() - known.at < COMMERCE_FRESH_MS) return
+    askCommerce(key, viewer).catch(() => {})
+  } catch {
+    /* a read ahead that fails is a tap that asks for itself */
+  }
 }

@@ -280,7 +280,7 @@ async function main() {
     // Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar): read again in place (quiet), not the whole editor loaded again.
     check("an open builder reads the page again when a push changed it, unless it has unsaved edits",
       /if \(ev\.detail\?\.replaced\)/.test(editor) && /page === null \|\| page === currentPageRef\.current \|\| page === "home"\) \{\s*replacedHere = true/.test(editor) &&
-        /if \(replacedHere\) \{\s*if \(!isDirtyRef\.current && !savingRef\.current && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\{ quiet: true \}\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
+        /if \(replacedHere\) \{\s*if \(!isDirtyRef\.current && !savingRef\.current && !publishing\) \{\s*clearHistory\(\)\s*if \(await loadData\(\{ quiet: true \}\) === false\) throw/.test(editor) && /Your unsaved edit is kept/.test(editor))
 
     /* ─────────────────────────────────────────────────────────────────── */
     console.log("\nNever in a circle")

@@ -18,7 +18,8 @@
  * Pure: no database, no mailer.
  */
 import { et, inEmailLanguage } from "@/lib/emails/words"
-import { itemsText, resolveCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { itemsText, pickCopy, resolveCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { withOwnFrame } from "@/lib/emails/layout"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "./email"
 
 export interface ReceiptLanguage {
@@ -55,14 +56,14 @@ function word(v: string | null | undefined): string | null | undefined {
 }
 
 /** "October 10, 2026", "10 octobre 2026": the day it was bought, in the email's language, as the English one always read. */
-function dayIn(iso: string | null | undefined, lang: string | null | undefined): string | null {
+function dayIn(iso: string | null | undefined, lang: string | null | undefined, timeZone?: string | null): string | null {
   if (!iso) return null
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return null
   try {
-    return new Intl.DateTimeFormat(lang && lang !== "en" ? [lang, "en-US"] : "en-US", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(at)
+    return new Intl.DateTimeFormat(lang && lang !== "en" ? [lang, "en-US"] : "en-US", { day: "numeric", month: "long", year: "numeric", timeZone: timeZone || "UTC" }).format(at)
   } catch {
-    return null
+    return timeZone ? dayIn(iso, lang, null) : null
   }
 }
 
@@ -71,7 +72,8 @@ export function buildReceiptEmail(input: ReceiptEmailModel, language: ReceiptLan
   const say = <T,>(build: () => T): T => inEmailLanguage(language?.lang, language?.words, build)
   const firstTitle = model.items[0]?.title ?? ""
   let subject = say(() => {
-    const day = dayIn(model.dateIso, language?.lang)
+    /* The store's day (its time zone), as its invoice PDF and order emails write it. */
+    const day = dayIn(model.dateIso, language?.lang, model.timeZone)
     if (day) model.dateText = day
     model.buttonLabel = word(model.buttonLabel) ?? model.buttonLabel
     model.totalText = word(model.totalText) ?? model.totalText
@@ -79,9 +81,8 @@ export function buildReceiptEmail(input: ReceiptEmailModel, language: ReceiptLan
     model.items = model.items.map((i) => ({ ...i, note: word(i.note) ?? null, amountText: word(i.amountText) ?? i.amountText }))
     return model.items.length > 1 ? et("Your receipt from {shop}: {count} items", { shop: safeText(model.sellerName), count: model.items.length }) : et("Your receipt for {title}", { title: safeText(firstTitle) })
   })
-  /* The store's own words are in its website's language: a buyer in another gets the standard ones in theirs. */
-  const own = !language || language.own
-  const copy = own && saved ? resolveCopy(saved, { customer_name: model.firstName, order_number: model.orderNumber, shop_name: model.sellerName, items: itemsText(model.items.map((i) => i.title)) }) : undefined
+  /* The store's own words in the buyer's language: the main ones in the website's, a language's own where written, else the standard ones in theirs (pickCopy). */
+  const copy = saved ? resolveCopy(pickCopy(saved, language), { customer_name: model.firstName, order_number: model.orderNumber, shop_name: model.sellerName, items: itemsText(model.items.map((i) => i.title)) }) : undefined
   if (copy) {
     if (copy.heading) model.heading = copy.heading
     if (copy.introHtml !== undefined) {
@@ -91,5 +92,6 @@ export function buildReceiptEmail(input: ReceiptEmailModel, language: ReceiptLan
     if (copy.button) model.buttonLabel = copy.button
     if (copy.subject) subject = copy.subject
   }
-  return { subject, html: say(() => buyerReceiptEmailHtml(model)), text: say(() => buyerReceiptEmailText(model)), model }
+  const framed = withOwnFrame({ html: say(() => buyerReceiptEmailHtml(model)), text: say(() => buyerReceiptEmailText(model)) }, copy)
+  return { subject, html: framed.html, text: framed.text, model }
 }

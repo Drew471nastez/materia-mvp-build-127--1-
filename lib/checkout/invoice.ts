@@ -13,12 +13,24 @@ import "server-only"
  * payment: no tax line the checkout never charged, no reverse charge note
  * for a tax that was never worked out, no figure that is not the order's.
  *
- * ONE NUMBER, FOREVER. "SL-20260923-1A2B3C4D" is the day the order was
- * written and its id, both fixed in the database the moment the order
- * exists. The PDF emailed after paying, the one downloaded from the
- * receipt a year later and the one drawn by a webhook retry therefore all
- * carry the same number, with nothing stored and nothing to race over. A
+ * ONE NUMBER, FOREVER, AND IN SEQUENCE. An invoice in the EU must carry a
+ * number that is unique and follows on from the store's previous one. The
+ * first time an order's PDF is drawn, SQL part 321
+ * (storelib_invoice_number) gives it the store's next number under a lock,
+ * kept with the moment it was issued, so the PDF emailed after paying, the
+ * one downloaded from the receipt a year later, the seller's copy and the
+ * one drawn by a webhook retry all carry "000153". An order from before part
+ * 321 ran, or any order while it has not, keeps "SL-20260923-1A2B3C4D": the
+ * day the order was written and its id, fixed the moment it exists. A
  * basket's number is its first line's.
+ *
+ * Dates are written in the store's time zone (Settings › Account), as its
+ * order emails are: an order paid at 00:30 in Bucharest is that day's.
+ *
+ * An order that ships (lib/physical, a commerce checkout) is drawn from its
+ * checkout: each line at its unit price and quantity, the buyer's
+ * personalization under it, the offers and the code, shipping as its own
+ * row, the tax and where it was sent.
  *
  * Where each value comes from:
  *   the order rows     amounts, the card, the date, the products and options,
@@ -46,10 +58,17 @@ import { splitSavings } from "@/lib/receipts/discount"
 import { offersOfSnapshot } from "@/lib/offers/snapshot"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
-import { includedTaxLabel, percentText } from "@/lib/tax/rules"
-import { formatCurrency } from "@/lib/markets/money"
+import { percentText } from "@/lib/tax/rules"
+import { creatorTimeZone } from "@/lib/account/time-zone"
+import { addressLines as shipAddressLines } from "@/lib/physical/address"
+import { buyerProperties, lineProperties } from "@/lib/physical/cart-link"
+import { formatMinor } from "@/lib/markets/money"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
+import { checkoutT } from "@/lib/markets/checkout-words"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
+import { emailImageSrc } from "@/lib/email-campaigns/sender"
 
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface InvoiceLine {
   description: string
@@ -64,7 +83,12 @@ export interface InvoiceData {
   number: string
   /** "invoice" when a company is billed, "receipt" otherwise. */
   kind: "invoice" | "receipt"
+  /** When the number was given (SQL part 321); the order's date for a number from before it. */
   issuedAt: Date
+  /** When the order was placed. */
+  orderedAt?: Date
+  /** The store's time zone, every date is written in it; UTC when the store has none. */
+  timeZone?: string | null
   status: "paid" | "refunded" | "partially_refunded" | "disputed"
   currency: string
   /**
@@ -72,7 +96,16 @@ export interface InvoiceData {
    * store filled in its business details (SQL part 153) the legal name, the
    * address and the tax number an invoice must carry.
    */
-  seller: { name: string; email: string | null; url: string | null; legalName?: string | null; address?: string[]; taxId?: string | null; taxIdLabel?: string | null }
+  seller: { name: string; email: string | null; url: string | null; legalName?: string | null; address?: string[]; taxId?: string | null; taxIdLabel?: string | null; logoUrl?: string | null }
+  /**
+   * The order's language (lib/markets/buyer-language.ts, the rule its emails
+   * and receipt follow) and the checkout's words in it (Translate › Checkout,
+   * Storelib's curated dictionaries): every label of the PDF is said in it,
+   * and its money and dates are written its way ("214,00 lei"). English
+   * without them.
+   */
+  lang?: string
+  words?: Record<string, string>
   buyer: { name: string; email: string; business: BusinessDetails | null }
   /** Every line of the payment: one for a checkout, one per product for a basket. */
   lines: InvoiceLine[]
@@ -84,6 +117,12 @@ export interface InvoiceData {
   /** The store's offers inside `discountCents`, each by the name the checkout showed it with; the rest is the code's. */
   savings?: { label: string; cents: number }[]
   tipCents: number
+  /** Delivery after a free shipping code, for an order that ships; its own row between the discounts and the tax. */
+  shippingCents?: number
+  /** How it was sent ("Standard"), from the checkout. */
+  shippingMethod?: string | null
+  /** Where it was sent, as address lines; absent for a download or a pickup. */
+  shipTo?: string[]
   /** Settings › Taxes: the tax in the total, added on top or included in the price. */
   taxCents?: number
   taxIncluded?: boolean
@@ -92,14 +131,129 @@ export interface InvoiceData {
   taxLabel?: string | null
   totalCents: number
   payment: string
+  /** How it was paid, as the order keeps it, so the PDF says it in its language ("Visa terminat în 4242"). */
+  paymentFacts?: { method: string | null; brand: string | null; last4: string | null }
   reference: string | null
   orderId: string
 }
 
-/** "SL-20260923-1A2B3C4D": the day the order was written and the order it is for. */
+/** "SL-20260923-1A2B3C4D": the day the order was written and the order it is for. The number of an order from before SQL part 321. */
 export function invoiceNumber(orderId: string, at: Date | string): string {
   const day = new Date(at).toISOString().slice(0, 10).replace(/-/g, "")
   return `SL-${day}-${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`
+}
+
+/** The store's own sequence (SQL part 321): 153 is "000153". */
+export function sequentialNumber(seq: number): string {
+  return String(Math.max(1, Math.floor(seq))).padStart(6, "0")
+}
+
+/**
+ * The store's next number for this order, or the one it already has, with
+ * when it was issued (SQL part 321). Null before the part has run, for an
+ * order from before it, and whenever the database cannot answer: the PDF
+ * then carries invoiceNumber's, as it always did.
+ */
+export async function sequenceFor(admin: Db, orderId: string, creatorId: string | null): Promise<{ seq: number; issuedAt: Date } | null> {
+  if (!creatorId || typeof admin.rpc !== "function") return null
+  try {
+    const { data, error } = await admin.rpc("storelib_invoice_number", { p_order: orderId, p_creator: creatorId })
+    if (error || !data) return null
+    const row = (typeof data === "string" ? JSON.parse(data) : data) as { seq?: unknown; issued_at?: unknown }
+    const seq = Number(row.seq)
+    const at = new Date(String(row.issued_at ?? ""))
+    if (!Number.isInteger(seq) || seq <= 0) return null
+    return { seq, issuedAt: Number.isNaN(at.getTime()) ? new Date() : at }
+  } catch {
+    return null
+  }
+}
+
+/** A line's option and the buyer's own words on it ("Size M · Engraving: Ana"), a theme's own notes ("_…") left out. */
+export function lineDetail(variant: string | null | undefined, properties: unknown): string | null {
+  const said = buyerProperties(lineProperties(properties)).map(([k, v]) => `${k}: ${v.replace(/\s*\n\s*/g, " / ")}`)
+  return [variant || null, ...said].filter(Boolean).join(" · ") || null
+}
+
+/** What a commerce checkout (lib/physical) holds that the invoice reads. */
+export interface ShippedCheckout {
+  shipping_cents?: number | null
+  shipping_discount_cents?: number | null
+  tax_cents?: number | null
+  total_cents?: number | null
+  refunded_cents?: number | null
+  coupon_code?: string | null
+  shipping_address?: Record<string, unknown> | null
+  shipping_rate?: { name?: string | null; tax_included?: boolean | null; tax_label?: string | null; kind?: string | null } | null
+  delivery_method?: string | null
+}
+
+export interface ShippedParts {
+  lines: InvoiceLine[]
+  discountCents: number
+  savings: { label: string; cents: number }[]
+  discountCode: string | null
+  shippingCents: number
+  shippingMethod: string | null
+  shipTo: string[]
+  taxCents: number
+  taxIncluded: boolean
+  taxLabel: string | null
+  refundedCents: number
+}
+
+/**
+ * An order that ships, as its invoice lists it: each row's snapshot (the
+ * unit price, the quantity, what the offers and the code took, the buyer's
+ * words) and the checkout's shipping, tax and address. Null when the figures
+ * do not add up to what was charged, and the rows are then listed as charged.
+ * Pure.
+ */
+export function shippedParts(rows: OrderRow[], co: ShippedCheckout | null): ShippedParts | null {
+  const charged = rows.reduce((n, r) => n + Math.max(0, Number(r.amount_cents) || 0), 0)
+  const priced = rows.map((r) => {
+    const snap = (r.product_snapshot ?? {}) as Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    const unit = Number(snap.unit_cents ?? r.unit_price_cents)
+    if (!Number.isFinite(unit) || unit < 0) return null
+    const quantity = Math.max(1, Math.round(Number(r.quantity ?? snap.quantity) || 1))
+    const off = Math.max(0, Math.round(Number(snap.discount_cents) || 0))
+    return {
+      line: { description: String(snap.title || r.product?.title || "Item"), detail: lineDetail(r.variant_name ?? snap.variant_name, snap.properties), quantity, unitCents: unit, amountCents: unit * quantity },
+      off,
+      offers: offersOfSnapshot(snap.offers) ?? [],
+      tax: Math.max(0, Math.round(Number(snap.tax_cents) || 0)),
+      taxIncluded: snap.tax_included === true,
+      taxLabel: typeof snap.tax_label === "string" ? snap.tax_label.trim() : "",
+      shipping: Math.max(0, Math.round(Number(r.shipping_cents) || 0)),
+    }
+  })
+  if (priced.some((p) => p === null)) return null
+  const ok = priced as NonNullable<(typeof priced)[number]>[]
+  const subtotal = ok.reduce((n, p) => n + p.line.amountCents, 0)
+  const discount = ok.reduce((n, p) => n + p.off, 0)
+  const shipping = co ? Math.max(0, (Number(co.shipping_cents) || 0) - (Number(co.shipping_discount_cents) || 0)) : ok.reduce((n, p) => n + p.shipping, 0)
+  const taxIncluded = co ? co.shipping_rate?.tax_included === true : ok.some((p) => p.tax > 0) && ok.filter((p) => p.tax > 0).every((p) => p.taxIncluded)
+  const tax = co ? Math.max(0, Number(co.tax_cents) || 0) : ok.reduce((n, p) => n + p.tax, 0)
+  if (subtotal - discount + shipping + (taxIncluded ? 0 : tax) !== charged) return null
+  const savings = splitSavings(discount, ok.flatMap((p) => p.offers.map((o) => ({ label: o.title, cents: o.savedCents })))).rows
+  const offered = savings.reduce((n, s) => n + s.cents, 0)
+  const code = typeof co?.coupon_code === "string" && co.coupon_code.trim() && discount > offered ? co.coupon_code.trim().slice(0, 40) : null
+  const label = (typeof co?.shipping_rate?.tax_label === "string" && co.shipping_rate.tax_label.trim()) || ok.find((p) => p.taxLabel)?.taxLabel || null
+  const pickup = co?.delivery_method === "pickup"
+  return {
+    lines: ok.map((p) => p.line),
+    discountCents: discount,
+    savings,
+    discountCode: code,
+    shippingCents: shipping,
+    shippingMethod: pickup ? null : (typeof co?.shipping_rate?.name === "string" && co.shipping_rate.name.trim()) || null,
+    /* The parcel's name and address; its phone is the courier's business, not the invoice's. */
+    shipTo: pickup || !co?.shipping_address ? [] : shipAddressLines({ ...co.shipping_address, phone: null } as never),
+    taxCents: tax,
+    taxIncluded,
+    taxLabel: tax > 0 ? label : null,
+    refundedCents: Math.max(0, Math.min(charged, Number(co?.refunded_cents) || 0)),
+  }
 }
 
 const BRANDS: Record<string, string> = {
@@ -153,8 +307,13 @@ export interface OrderRow {
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
   business_details?: unknown
-  /** The line's snapshot: its offers by name (lib/offers/snapshot.ts), written when the order was. */
-  product_snapshot?: { offers?: unknown } | null
+  /** The line's snapshot: its offers by name (lib/offers/snapshot.ts), written when the order was; for a line that ships also its unit price, discount, tax and the buyer's words. */
+  product_snapshot?: { offers?: unknown; [key: string]: unknown } | null
+  /** An order that ships: its checkout (lib/physical), and the line's quantity, unit price and share of delivery. */
+  checkout_id?: string | null
+  quantity?: number | null
+  unit_price_cents?: number | null
+  shipping_cents?: number | null
   product: { title: string | null; creator_id: string | null } | null
 }
 
@@ -200,6 +359,26 @@ export interface InvoiceContext {
   /** The company, when the caller already has it. */
   business?: BusinessDetails | null
   discountCode?: string | null
+  /** The order's language and its words, when the caller already has them; otherwise read as the receipt page reads them. */
+  language?: { lang: string; words: Record<string, string> } | null
+}
+
+/** The order's language as its receipt and emails choose it, with the checkout's words in it; null (English) when it cannot be read in time. */
+async function orderLanguage(creatorId: string | null, row: OrderRow, origin: Record<string, unknown> | null): Promise<{ lang: string; words: Record<string, string> } | null> {
+  if (!creatorId) return null
+  const detail = ((row as { source_detail?: unknown }).source_detail ?? null) as Record<string, unknown> | null
+  const lang = origin ? origin.lang : detail?.lang
+  const channel = origin
+    ? buyerChannel({ family: "physical", surface: origin.surface, lang: origin.lang })
+    : buyerChannel({ family: "digital", source: (row as { source?: unknown }).source, surface: detail?.surface, lang: detail?.lang })
+  try {
+    const { buyerPageLanguage } = await import("@/lib/markets/checkout-language")
+    const { withinTime } = await import("@/lib/receipts/discount")
+    const got = await withinTime(() => buyerPageLanguage(creatorId, { channel, order: typeof lang === "string" ? lang : null }), 1500)
+    return got ? { lang: got.lang, words: got.words } : null
+  } catch {
+    return null
+  }
 }
 
 export async function invoiceForOrder(admin: Db, order: OrderRow, context: InvoiceContext = {}): Promise<InvoiceData | null> {
@@ -221,7 +400,20 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const businessKnown = context.business !== undefined
   let business = businessKnown ? (context.business ?? null) : businessFromFields(first.business_details)
   let discountCode = context.discountCode ?? null
-  if (isBasket) {
+  /* An order that ships: its checkout holds the shipping, the tax and the address, and its rows the lines as priced. */
+  let shipped: ShippedParts | null = null
+  const checkoutId = rows.find((r) => r.checkout_id)?.checkout_id ?? null
+  let co: ShippedCheckout | null = null
+  if (checkoutId) {
+    try {
+      const { data } = await admin.from("commerce_checkouts").select("*").eq("id", checkoutId).maybeSingle()
+      co = (data ?? null) as ShippedCheckout | null
+    } catch {
+      co = null
+    }
+    shipped = shippedParts(rows, co)
+  }
+  if (isBasket && !shipped) {
     if ((!items || (!business && !businessKnown)) && first.stripe_session_id?.startsWith("cs_")) {
       try {
         const session = await stripe.checkout.sessions.retrieve(first.stripe_session_id)
@@ -268,9 +460,15 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
   /* The tax's own words: the payment's for one product, the rows' for a basket (one label when they agree), else the rate. */
   const rowLabels = [...new Set(rows.filter((r) => rowTax(r) > 0).map((r) => (typeof r.tax_label === "string" ? r.tax_label.trim() : "")).filter(Boolean))]
-  const taxLabel = (!isBasket ? (meta.tax_label || "").trim() || (singleFromRow ? rowLabels[0] ?? "" : "") : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
+  let taxLabel = (!isBasket ? (meta.tax_label || "").trim() || (singleFromRow ? rowLabels[0] ?? "" : "") : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
   const addedTax = taxIncluded ? 0 : taxCents
-  if (!isBasket) {
+  if (shipped) {
+    lines = shipped.lines
+    discount = shipped.discountCents
+    savings = shipped.savings
+    discountCode = shipped.discountCode
+    taxLabel = shipped.taxLabel || taxLabel
+  } else if (!isBasket) {
     const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)
     const recordedBase = Number(meta.base_price_cents)
     /* The price before the code, as the checkout recorded it, when it adds
@@ -280,7 +478,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     const base = adds ? recordedBase : total - tip - addedTax
     discount = adds ? recordedDiscount : 0
     discountCode = discount > 0 ? discountCode ?? (meta.coupon_code || null) : null
-    lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: first.variant_name || null, quantity: 1, unitCents: base, amountCents: base }]
+    lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: lineDetail(first.variant_name, first.product_snapshot?.properties), quantity: 1, unitCents: base, amountCents: base }]
   } else {
     /* Each row with the line it was priced as: its quantity, its unit price and what a code took off it. */
     const left = [...(items ?? [])]
@@ -299,7 +497,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
         offers: fits && item ? ((offersOfSnapshot(r.product_snapshot?.offers) ?? (item.offers ?? []).map((o) => ({ title: o.title, savedCents: o.savedCents }))) as { title: string; savedCents: number }[]) : [],
         line: {
           description: r.product?.title || "Digital product",
-          detail: r.variant_name || null,
+          detail: lineDetail(r.variant_name, r.product_snapshot?.properties),
           quantity: fits ? quantity : 1,
           unitCents: fits && item ? item.priceCents : charged,
           amountCents: fits ? gross : charged,
@@ -315,16 +513,21 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     if (savings.reduce((n, s) => n + s.cents, 0) >= discount) discountCode = null
   }
   const subtotal = lines.reduce((n, l) => n + l.amountCents, 0)
+  /* The shipped order's tax is its checkout's (its rows keep it in their snapshots, never in orders.tax_cents). */
+  const finalTax = shipped ? shipped.taxCents : taxCents
+  const finalTaxIncluded = shipped ? shipped.taxIncluded : taxIncluded
 
-  const refunded = rows.reduce((n, r) => {
+  /* What went back: each refunded row's, and for an order that ships its checkout's own count, which a partial refund of one item is kept in. */
+  const rowsRefunded = rows.reduce((n, r) => {
     if (r.status !== "refunded") return n
     const charged = Math.max(0, Number(r.amount_cents) || 0)
     const recorded = Number(r.refund_amount_cents) || 0
     return n + (recorded > 0 ? Math.min(recorded, charged) : charged)
   }, 0)
+  const refunded = Math.min(total, Math.max(rowsRefunded, shipped?.refundedCents ?? 0))
   const status: InvoiceData["status"] = rows.some((r) => r.status === "disputed")
     ? "disputed"
-    : rows.every((r) => fullyRefunded(r))
+    : rows.every((r) => fullyRefunded(r)) || (refunded > 0 && refunded >= total)
       ? "refunded"
       : refunded > 0
         ? "partially_refunded"
@@ -368,11 +571,23 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       /* The seller as read above. */
     }
 
-  const issuedAt = new Date(first.created_at)
+  /* The store's next number the first time this order is drawn, the same one ever after (SQL part 321); and the store's clock. */
+  const orderedAt = new Date(first.created_at)
+  /* The store's one logo, as its receipt and emails carry it (lib/store/identity-server.ts). */
+  const [sequence, timeZone, language, identity] = await Promise.all([
+    sequenceFor(admin, first.id, creatorId),
+    creatorId ? creatorTimeZone(admin as never, creatorId).catch(() => null) : Promise.resolve(null),
+    context.language !== undefined ? Promise.resolve(context.language) : orderLanguage(creatorId, first, ((co as { origin?: unknown } | null)?.origin ?? null) as Record<string, unknown> | null),
+    creatorId ? import("@/lib/store/identity-server").then((m) => m.storeIdentity(admin, creatorId, { logoOnly: true })).catch(() => null) : Promise.resolve(null),
+  ])
+  if (identity?.logoUrl) seller.logoUrl = identity.logoUrl
   return {
-    number: invoiceNumber(first.id, issuedAt),
+    number: sequence ? sequentialNumber(sequence.seq) : invoiceNumber(first.id, orderedAt),
     kind: business ? "invoice" : "receipt",
-    issuedAt,
+    issuedAt: sequence?.issuedAt ?? orderedAt,
+    orderedAt,
+    timeZone: timeZone ?? null,
+    ...(language && language.lang ? { lang: language.lang, words: language.words } : {}),
     status,
     currency: String(first.currency || "usd").toUpperCase(),
     seller,
@@ -388,12 +603,14 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     discountCode,
     ...(savings.length ? { savings } : {}),
     tipCents: tip,
-    taxCents,
-    taxIncluded,
+    ...(shipped ? { shippingCents: shipped.shippingCents, shippingMethod: shipped.shippingMethod, ...(shipped.shipTo.length ? { shipTo: shipped.shipTo } : {}) } : {}),
+    taxCents: finalTax,
+    taxIncluded: finalTaxIncluded,
     taxRateBps,
-    taxLabel: taxCents > 0 ? taxLabel : null,
+    taxLabel: finalTax > 0 ? taxLabel : null,
     totalCents: total,
     payment: paymentLabel(first),
+    paymentFacts: { method: first.payment_method || null, brand: first.card_brand || null, last4: first.card_last4 || null },
     reference: first.stripe_payment_intent_id ?? first.provider_payment_id ?? null,
     orderId: first.id,
   }
@@ -424,11 +641,19 @@ export function latin1(text: string): string {
   return text.normalize("NFKD").replace(/[^\u0000-ÿ]/g, "")
 }
 
-export function moneyText(cents: number, currency = "USD"): string {
-  return formatCurrency((cents || 0) / 100, currency || "USD", "en-US")
+/** An amount in minor units in the currency's own decimals (¥2,500 is 2500), written the language's way: "$49.00", "214,00 lei". */
+export function moneyText(cents: number, currency = "USD", locale = "en-US"): string {
+  return formatMinor(cents || 0, (currency || "USD").toUpperCase(), locale)
 }
 
-const dateText = (d: Date) => new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)
+/** "October 28, 2026" on the store's clock (UTC when it has none or names one this runtime does not know), "28 octombrie 2026" in Romanian. */
+export function invoiceDateText(d: Date, timeZone?: string | null, locale = "en-US"): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { year: "numeric", month: "long", day: "numeric", timeZone: timeZone || "UTC" }).format(d)
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)
+  }
+}
 
 /**
  * The PDF. `trace`, when given, is handed every piece of text as it is
@@ -440,7 +665,10 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   const pdfkit = await import("pdfkit")
   const PDFDocument = (pdfkit.default || pdfkit) as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  const title = inv.kind === "invoice" ? "Invoice" : "Receipt"
+  /* Every label in the order's language, through the checkout's words (Translate › Checkout, Storelib's dictionaries); English without them. */
+  const ct = checkoutT(inv.lang || "en", inv.words ?? {})
+  const locale = buyerMoneyLocale(inv.lang)
+  const title = inv.kind === "invoice" ? ct("Invoice") : ct("Receipt")
   const doc = new PDFDocument({
     size: "A4",
     margins: { top: 56, bottom: 56, left: 56, right: 56 },
@@ -465,7 +693,17 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
     doc.text(s, x, y, options)
     return doc.y as number
   }
-  const money = (cents: number) => moneyText(cents, inv.currency)
+  const money = (cents: number) => moneyText(cents, inv.currency, locale)
+  const dateText = (d: Date) => invoiceDateText(d, inv.timeZone, locale)
+  /* A tax number's name ("VAT number", "CUI") as the checkout's company form says it. */
+  const taxIdName = (label: string | null | undefined) => ct(label || "Tax ID")
+  const paymentText = (() => {
+    const p = inv.paymentFacts
+    if (p?.brand && p.last4) return ct("{brand} ending {last4}", { brand: BRANDS[p.brand] ?? p.brand.charAt(0).toUpperCase() + p.brand.slice(1), last4: p.last4 })
+    return inv.payment === "Card" ? ct("Card") : inv.payment
+  })()
+  /* The store's own logo beside its name, as on its receipt and emails: a PNG or JPEG, fetched in time or left out. */
+  const logo = await logoBytes(inv.seller.logoUrl)
 
   const left = 56
   const right = doc.page.width - 56
@@ -475,28 +713,42 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   /* ── Header: what this is, and whose ─────────────────────────────── */
   doc.font(BOLD).fontSize(22).fillColor(INK)
   put(title, left, 52, { width: width / 2, lineBreak: false })
+  let nameTop = 54
+  if (logo) {
+    try {
+      /* 32pt square at the right edge, corners rounded as the receipt's logo, the store's name under it. */
+      doc.save()
+      doc.roundedRect(right - 32, 46, 32, 32, 7).clip()
+      doc.image(logo, right - 32, 46, { fit: [32, 32], align: "center", valign: "center" })
+      doc.restore()
+      nameTop = 84
+    } catch {
+      nameTop = 54
+    }
+  }
   doc.font(BOLD).fontSize(11).fillColor(INK)
-  put(inv.seller.name, left + width / 2, 54, { width: width / 2, align: "right" })
+  put(inv.seller.name, left + width / 2, nameTop, { width: width / 2, align: "right" })
   doc.font(REG).fontSize(9).fillColor(MUTED)
-  put("Sold through Storelib", left + width / 2, doc.y + 2, { width: width / 2, align: "right" })
+  put(ct("Sold through Storelib"), left + width / 2, doc.y + 2, { width: width / 2, align: "right" })
 
   const STATUS: Record<InvoiceData["status"], [string, string]> = {
-    paid: ["Paid", "#067647"],
-    refunded: ["Refunded", "#b42318"],
-    partially_refunded: ["Partially refunded", "#b54708"],
-    disputed: ["Disputed", "#b42318"],
+    paid: [ct("Paid"), "#067647"],
+    refunded: [ct("Refunded"), "#b42318"],
+    partially_refunded: [ct("Partially refunded"), "#b54708"],
+    disputed: [ct("Disputed"), "#b42318"],
   }
 
   /* ── The facts ───────────────────────────────────────────────────── */
-  let y = 104
+  let y = logo ? 124 : 104
   const facts: [string, string, string?][] = [
-    [`${title} number`, inv.number],
-    ["Date of issue", dateText(inv.issuedAt)],
-    ["Order date", dateText(inv.issuedAt)],
-    ["Order", inv.orderId.replace(/-/g, "").slice(0, 8).toUpperCase()],
-    ["Payment", inv.payment],
-    ...(inv.reference ? ([["Payment reference", inv.reference]] as [string, string][]) : []),
-    ["Status", STATUS[inv.status][0], STATUS[inv.status][1]],
+    [inv.kind === "invoice" ? ct("Invoice number") : ct("Receipt number"), inv.number],
+    [ct("Date of issue"), dateText(inv.issuedAt)],
+    [ct("Order date"), dateText(inv.orderedAt ?? inv.issuedAt)],
+    ...(inv.shippingMethod ? ([[ct("Shipping method"), inv.shippingMethod]] as [string, string][]) : []),
+    [ct("Order"), inv.orderId.replace(/-/g, "").slice(0, 8).toUpperCase()],
+    [ct("Payment"), paymentText],
+    ...(inv.reference ? ([[ct("Payment reference"), inv.reference]] as [string, string][]) : []),
+    [ct("Status"), STATUS[inv.status][0], STATUS[inv.status][1]],
   ]
   for (const [k, v, color] of facts) {
     doc.font(REG).fontSize(9.5).fillColor(MUTED)
@@ -521,36 +773,40 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
     return yy
   }
   const b = inv.buyer.business
-  const taxLabel = b ? taxIdFor(b.country).label : "Tax ID"
+  const taxLabel = taxIdName(b ? taxIdFor(b.country).label : null)
   const billLines = b
     ? [
         ...(b.taxId ? [`${taxLabel} ${b.taxId}`] : []),
         ...addressLines(b, countryName),
-        ...(inv.buyer.name ? [`Attn: ${inv.buyer.name}`] : []),
+        ...(inv.buyer.name ? [ct("Attn: {name}", { name: inv.buyer.name })] : []),
         inv.buyer.email,
       ]
     : inv.buyer.name
       ? [inv.buyer.email]
       : []
-  const billEnd = block(left, b ? "Billed to" : "Paid by", b ? b.company : inv.buyer.name || inv.buyer.email, billLines.filter(Boolean))
+  const billEnd = block(left, b ? ct("Billed to") : ct("Paid by"), b ? b.company : inv.buyer.name || inv.buyer.email, billLines.filter(Boolean))
   /* The seller as the law asks for it: the legal name, the store's name it trades as, the address and the tax number, then how to reach it. */
   const legalName = inv.seller.legalName && inv.seller.legalName !== inv.seller.name ? inv.seller.legalName : null
   const sellerLines = [
-    ...(legalName ? [`Trading as ${inv.seller.name}`] : []),
+    ...(legalName ? [ct("Trading as {store}", { store: inv.seller.name })] : []),
     ...(inv.seller.address ?? []),
-    ...(inv.seller.taxId ? [`${inv.seller.taxIdLabel || "Tax ID"} ${inv.seller.taxId}`] : []),
+    ...(inv.seller.taxId ? [`${taxIdName(inv.seller.taxIdLabel)} ${inv.seller.taxId}`] : []),
     inv.seller.email,
     inv.seller.url,
   ].filter(Boolean) as string[]
-  const fromEnd = block(left + col + 32, "Sold by", legalName ?? inv.seller.name, sellerLines)
+  const fromEnd = block(left + col + 32, ct("Sold by"), legalName ?? inv.seller.name, sellerLines)
   y = Math.max(fromEnd, billEnd) + 26
+  /* Where it was sent, for an order that ships: the name on the parcel, then the address. */
+  if (inv.shipTo?.length) {
+    y = block(left, ct("Shipped to"), inv.shipTo[0], inv.shipTo.slice(1)) + 26
+  }
 
   /* ── The headline figure ─────────────────────────────────────────── */
   doc.font(BOLD).fontSize(15).fillColor(INK)
   put(
     inv.status === "refunded"
-      ? `${money(inv.totalCents)} ${inv.currency} refunded`
-      : `${money(inv.totalCents)} ${inv.currency} paid on ${dateText(inv.issuedAt)}`,
+      ? ct("{amount} {currency} refunded", { amount: money(inv.totalCents), currency: inv.currency })
+      : ct("{amount} {currency} paid on {date}", { amount: money(inv.totalCents), currency: inv.currency, date: dateText(inv.orderedAt ?? inv.issuedAt) }),
     left,
     y,
     { width },
@@ -563,10 +819,10 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   const cAmt = left + width * 0.83
   const header = () => {
     doc.font(REG).fontSize(9).fillColor(MUTED)
-    put("Description", left, y, { width: cQty - left - 8 })
-    put("Qty", cQty, y, { width: cUnit - cQty - 8, align: "right" })
-    put("Unit price", cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
-    put("Amount", cAmt, y, { width: right - cAmt, align: "right" })
+    put(ct("Description"), left, y, { width: cQty - left - 8 })
+    put(ct("Qty"), cQty, y, { width: cUnit - cQty - 8, align: "right" })
+    put(ct("Unit price"), cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
+    put(ct("Amount"), cAmt, y, { width: right - cAmt, align: "right" })
     y += 16
     doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
     y += 10
@@ -605,28 +861,36 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
     put(value, cAmt - 60, y, { width: right - cAmt + 60, align: "right" })
     y += strong ? 20 : 17
   }
-  row("Subtotal", money(inv.subtotalCents))
+  row(ct("Subtotal"), money(inv.subtotalCents))
   /* Each offer by its own name, then the code's part: an offer is never named by the code. */
   const split = splitSavings(inv.discountCents, inv.savings)
   for (const s of split.rows) row(s.label, `−${money(s.cents)}`)
-  if (split.rest > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(split.rest)}`)
-  if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
-  /* Named as the checkout named it: "VAT 19%". */
-  const taxName = inv.taxLabel || (inv.taxRateBps ? `Tax ${percentText(inv.taxRateBps)}` : "Tax")
+  if (split.rest > 0) row(inv.discountCode ? ct("Discount ({code})", { code: inv.discountCode }) : ct("Discount"), `−${money(split.rest)}`)
+  if (inv.shippingCents !== undefined && (inv.shippingCents > 0 || inv.shippingMethod)) row(ct("Shipping"), inv.shippingCents > 0 ? money(inv.shippingCents) : ct("Free"))
+  if (inv.tipCents > 0) row(ct("Tip"), money(inv.tipCents))
+  /* Named as the checkout named it: "VAT 19%"; one Storelib named ("Tax 19%", "Tax") in the PDF's language. */
+  const named = (inv.taxLabel || "").trim()
+  const rate = inv.taxRateBps ? ` ${percentText(inv.taxRateBps)}` : ""
+  const taxName = !named || /^tax$/i.test(named) ? `${ct("Tax")}${named ? "" : rate}` : /^tax\b/i.test(named) ? `${ct("Tax")}${named.slice(3)}` : named
   if (inv.taxCents && !inv.taxIncluded) row(taxName, money(inv.taxCents))
   y += 2
   doc.moveTo(tLabel, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
-  row("Total", money(inv.totalCents), true)
-  if (inv.taxCents && inv.taxIncluded) row(includedTaxLabel(taxName), money(inv.taxCents))
-  row("Amount paid", `${money(inv.totalCents)} ${inv.currency}`, true)
-  if (inv.refundedCents > 0) row("Refunded", `−${money(inv.refundedCents)} ${inv.currency}`, true)
+  row(ct("Total"), money(inv.totalCents), true)
+  /* "Including VAT 19%", the receipt page's words (lib/tax/rules includedTaxLabel). */
+  if (inv.taxCents && inv.taxIncluded) row(!named || /^tax$/i.test(named) ? (rate ? ct("Including tax{rate}", { rate }) : ct("Including tax")) : /^tax\b/i.test(named) ? ct("Including tax{rate}", { rate: named.slice(3) }) : ct("Including {tax}", { tax: named }), money(inv.taxCents))
+  row(ct("Amount paid"), `${money(inv.totalCents)} ${inv.currency}`, true)
+  if (inv.refundedCents > 0) row(ct("Refunded"), `−${money(inv.refundedCents)} ${inv.currency}`, true)
 
   /* ── The small print, at the foot of the last page ───────────────── */
-  const footer =
-    `${title} for a completed payment. Sold by ${inv.seller.name} through Storelib (storelib.com). ` +
-    `Amounts are in ${inv.currency === "USD" ? "US dollars" : inv.currency}.` +
-    (inv.seller.email ? ` Questions about this purchase: ${inv.seller.email}.` : "")
+  const footer = [
+    inv.kind === "invoice" ? ct("Invoice for a completed payment.") : ct("Receipt for a completed payment."),
+    ct("Sold by {store} through Storelib (storelib.com).", { store: inv.seller.name }),
+    ct("Amounts are in {currency}.", { currency: inv.currency === "USD" ? ct("US dollars") : inv.currency }),
+    inv.seller.email ? ct("Questions about this purchase: {email}.", { email: inv.seller.email }) : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
   /* Inside the bottom margin, which pdfkit would otherwise answer with a new page. */
   doc.page.margins.bottom = 0
   doc.moveTo(left, doc.page.height - 56 - 44).lineTo(right, doc.page.height - 56 - 44).lineWidth(0.75).strokeColor(RULE).stroke()
@@ -635,6 +899,27 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
 
   doc.end()
   return done
+}
+
+/**
+ * The store's logo as bytes pdfkit draws: through the inbox image endpoint
+ * (lib/email-campaigns/sender emailImageSrc), which answers a PNG or a JPEG
+ * at the size asked, never a WebP or SVG. Checked by its first bytes; slow,
+ * missing or anything else, the PDF goes without it.
+ */
+async function logoBytes(url: string | null | undefined): Promise<Buffer | null> {
+  const src = url ? emailImageSrc(url, 96) : null
+  if (!src) return null
+  try {
+    const res = await fetch(src, { signal: AbortSignal.timeout(2500) })
+    if (!res.ok) return null
+    const bytes = Buffer.from(await res.arrayBuffer())
+    const png = bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    return png || jpeg ? bytes : null
+  } catch {
+    return null
+  }
 }
 
 export function invoiceFilename(inv: Pick<InvoiceData, "number"> & Partial<Pick<InvoiceData, "kind">>): string {

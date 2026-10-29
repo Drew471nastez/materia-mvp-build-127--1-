@@ -45,23 +45,102 @@ export type SettingsPanelKey = keyof typeof LOADERS
 const loaded = new Map<SettingsPanelKey, ComponentType<AnyProps>>()
 const loading = new Map<SettingsPanelKey, Promise<ComponentType<AnyProps>>>()
 
+/*
+  A SECTION'S CODE IS WAITED FOR, BUT NOT FOR EVER. "I click on something and
+  it doesn't load it": a chunk request that is taken and never answered (a
+  phone on a stalled connection, a captive network) left the import pending,
+  and the press waited on it (settings-form-new swaps a section in only once
+  its code is here), so the pill lit and the section before stayed, with
+  nothing to say why. scripts/check-settings-switch.mjs SWITCH_ONLY=hang
+  measured it: still the section before after 15s. Turbopack's chunk loader
+  has no deadline of its own.
+
+  Past CODE_WAIT_MS the wait rejects with SettingsCodeTimeout, which the
+  section's own boundary reads as "taking too long", with Try again. The
+  import itself is not cancelled (nothing can cancel one): if it lands later
+  the section is kept (`loaded`) and the next press draws it at once.
+*/
+export const CODE_WAIT_MS = 8_000
+
+export class SettingsCodeTimeout extends Error {
+  constructor(key: string) {
+    super(`settings section ${key} code took longer than ${CODE_WAIT_MS / 1000}s`) // i18n-ignore: for the log
+    this.name = "SettingsCodeTimeout"
+  }
+}
+
+function within<T>(p: Promise<T>, key: SettingsPanelKey): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new SettingsCodeTimeout(key)), CODE_WAIT_MS)
+    p.then(
+      (v) => {
+        window.clearTimeout(t)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(t)
+        reject(e)
+      },
+    )
+  })
+}
+
+function importCode(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
+  const p = LOADERS[key]() as Promise<ComponentType<AnyProps>>
+  /* Landing after its deadline still counts: the next press finds it here. */
+  p.then((c) => loaded.set(key, c), () => undefined)
+  return p
+}
+
+/** Once more after a moment: a phone that dropped the connection for a second gets the section rather than its failure. */
+function fetchCode(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
+  return within(
+    importCode(key).catch(() => new Promise<ComponentType<AnyProps>>((resolve, reject) => window.setTimeout(() => importCode(key).then(resolve, reject), 400))),
+    key,
+  )
+}
+
+/*
+  A chunk that still fails (a deploy renamed it, and this tab is from before)
+  rejects, and the section that draws it throws where it is drawn: caught by
+  the section's own boundary (components/app/settings/section-boundary.tsx),
+  never by the /app error boundary that reloaded the whole page for it.
+*/
 function load(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
   let p = loading.get(key)
   if (!p) {
-    p = (LOADERS[key]() as Promise<ComponentType<AnyProps>>).then(
+    p = fetchCode(key).then(
       (c) => {
         loaded.set(key, c)
         return c
       },
       (e) => {
-        /* A chunk that failed (a dropped connection) is asked again next time. */
-        loading.delete(key)
+        /*
+          A chunk that failed is asked again next time, but not by the swap
+          that follows straight after the failure: that one is handed this same
+          failed answer, so the section's boundary says so at once instead of
+          the press waiting through a second fetch of a file that is gone.
+        */
+        failed.add(key)
+        window.setTimeout(() => {
+          if (loading.get(key) === p) loading.delete(key)
+        }, FAILED_KEPT_MS)
         throw e
       },
     )
+    /* Nobody may be waiting on a preload: its failure is the section's to report, not an unhandled rejection. */
+    p.catch(() => undefined)
     loading.set(key, p)
   }
   return p
+}
+const FAILED_KEPT_MS = 3000
+const failed = new Set<SettingsPanelKey>()
+
+/** A section's Try again (components/app/settings/section-boundary.tsx): every failed section is asked for afresh, at once. */
+export function forgetFailedSettingsPanels(): void {
+  for (const key of failed) if (!loaded.has(key)) loading.delete(key)
+  failed.clear()
 }
 
 /** The settings tab ids whose section is one of these chunks. Returns are two sections (shipping's and the reasons). */
@@ -97,9 +176,25 @@ export function settingsPanelReady(tab: string): boolean {
 }
 
 /** Every section's code, one after another so none of them competes with what the person is doing. */
+/*
+  AT IDLE, AND ALL OF THEM, THE FIRST TIME SETTINGS OPENS. The native apps keep
+  one web view for days, across many deploys; a section whose code was never
+  fetched before the next deploy can no longer be fetched once that deploy's
+  skew window has passed. Every chunk is asked for while the browser has
+  nothing else to do (at most a second's wait each), and once here it stays
+  for the life of the tab (`loaded`), so a later deploy strands none of them.
+*/
+const idle = () =>
+  new Promise<void>((resolve) => {
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(() => resolve(), { timeout: 1000 })
+    else window.setTimeout(resolve, 50)
+  })
+
 export function preloadSettingsPanels(): void {
-  const keys = (Object.keys(LOADERS) as SettingsPanelKey[]).filter((k) => !loading.has(k))
-  void keys.reduce<Promise<unknown>>((chain, k) => chain.then(() => load(k).catch(() => null)), Promise.resolve())
+  const keys = (Object.keys(LOADERS) as SettingsPanelKey[]).filter((k) => !loading.has(k) && !loaded.has(k))
+  /* Each step ends by CODE_WAIT_MS at the latest (fetchCode): one stalled chunk never holds back the ones after it. */
+  void keys.reduce<Promise<unknown>>((chain, k) => chain.then(idle).then(() => (loaded.has(k) ? null : load(k).catch(() => null))), Promise.resolve())
 }
 
 function lazyPanel<P extends object>(key: SettingsPanelKey): ComponentType<P> {

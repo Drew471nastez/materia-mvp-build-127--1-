@@ -7,7 +7,8 @@ import "server-only"
  * a database without the column included, and every email goes out with its
  * default words, never not at all.
  */
-import { readCopy, readSavedCopy, type CustomerEmailsCopy } from "./customer-custom"
+import { COMMUNITY_EXTRAS_KEY } from "./community-words"
+import { isCopyLanguage, readCopy, readSavedCopy, withWords, type CustomerEmailsCopy } from "./customer-custom"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -32,17 +33,25 @@ export async function customerEmailCopyReady(db: Db, creatorId: string): Promise
   return !(error && MISSING.has(error.code))
 }
 
-/** One email's words saved (or put back to the default with `copy: null`); the whole set back. */
-export async function saveCustomerEmailCopy(db: Db, creatorId: string, id: unknown, input: unknown): Promise<{ ok: true; copy: CustomerEmailsCopy } | { ok: false; error: string; status: number }> {
+/**
+ * One email's words saved (or put back to the default with `copy: null`);
+ * the whole set back. `lang` is one of the website's other languages: the
+ * words for buyers who read it in that one, the main words left as they are.
+ */
+export async function saveCustomerEmailCopy(db: Db, creatorId: string, id: unknown, input: unknown, lang: unknown = null): Promise<{ ok: true; copy: CustomerEmailsCopy } | { ok: false; error: string; status: number }> {
   if (typeof id !== "string") return { ok: false, error: "That email can't be changed.", status: 400 }
+  if (lang !== null && lang !== undefined && !isCopyLanguage(lang)) return { ok: false, error: "That language can't be saved.", status: 400 }
   const read = input === null ? ({ ok: true, copy: null } as const) : readCopy(id, input)
   if (read.ok === false) return { ok: false, error: read.error, status: 400 }
   const { data, error } = await db.from("store_settings").select("customer_emails").eq("creator_id", creatorId).maybeSingle()
   if (error) return { ok: false, error: MISSING.has(error.code) ? EMAILS_NEED_PART : "That could not be saved. Try again in a moment.", status: MISSING.has(error.code) ? 409 : 500 }
   const next = readSavedCopy(data?.customer_emails)
-  if (read.copy) next[id] = read.copy
+  const merged = withWords(next[id], read.copy, typeof lang === "string" ? lang : null)
+  if (merged) next[id] = merged
   else delete next[id]
-  const { error: saveError } = await db.from("store_settings").upsert({ creator_id: creatorId, customer_emails: next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  /* A community's preview text and footer note live beside these words (lib/emails/community-words.ts COMMUNITY_EXTRAS_KEY): kept as they are. */
+  const extras = data?.customer_emails && typeof data.customer_emails === "object" ? (data.customer_emails as Record<string, unknown>)[COMMUNITY_EXTRAS_KEY] : undefined
+  const { error: saveError } = await db.from("store_settings").upsert({ creator_id: creatorId, customer_emails: extras ? { ...next, [COMMUNITY_EXTRAS_KEY]: extras } : next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
   if (saveError) return { ok: false, error: MISSING.has(saveError.code) ? EMAILS_NEED_PART : "That could not be saved. Try again in a moment.", status: MISSING.has(saveError.code) ? 409 : 500 }
   return { ok: true, copy: next }
 }

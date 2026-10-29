@@ -436,7 +436,8 @@ async function main() {
   check("the /app layout reads the switch and hands it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/app/layout.tsx")))
   check("search does not offer Community while it is off", !matchPages("community").some((p) => p.href === "/app/community"))
   check("and offers it while it is on", matchPages("community", 5, { communities: true })[0]?.href === "/app/community")
-  check("the header search passes the switch", /matchPages\(q, 5, \{ communities \}\)/.test(code("components/app/app-search.tsx")))
+  /* Changed on purpose (round 42): the search now offers six places and passes the physical commerce switch beside this one. */
+  check("the header search passes the switch", /matchPages\(q, \d+, \{ communities, physical \}\)/.test(code("components/app/app-search.tsx")))
 
   /* ── Client modules ──────────────────────────────────────────────────── */
   console.log("\nclient")

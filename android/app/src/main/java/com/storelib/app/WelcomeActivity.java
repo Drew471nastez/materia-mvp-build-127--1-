@@ -153,6 +153,11 @@ public class WelcomeActivity extends AppCompatActivity {
 
     private void openMain(String targetUrl) {
         Intent intent = new Intent(this, MainActivity.class);
+        // A tap on a push opens the launcher (this activity) with the push's
+        // data in the extras. Carried on, so MainActivity's push plugin sees
+        // the tap and the page opens the sale (lib/push/tap.ts).
+        Bundle tapped = getIntent() != null ? getIntent().getExtras() : null;
+        if (tapped != null) intent.putExtras(tapped);
         intent.putExtra(MainActivity.EXTRA_TARGET_URL, targetUrl);
         startActivity(intent);
         finish();                       // remove from back stack

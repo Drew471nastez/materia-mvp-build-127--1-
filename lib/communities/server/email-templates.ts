@@ -40,7 +40,10 @@ import {
   KINDS_BEFORE_301,
   isCommunityWordKind,
   noCommunityWords,
+  readCommunityExtras,
   readCommunityWords,
+  withCommunityExtras,
+  type CommunityExtras,
   type CommunityWordKind,
   type CommunityWords,
 } from "@/lib/emails/community-words"
@@ -85,7 +88,7 @@ export type EmailWords = CommunityWords
 /** Words as a caller may hand them: a row saved before part 301 has no button. */
 export type WordsIn = Omit<CommunityWords, "button"> & { button?: string }
 
-export const WORD_LIMITS = { subject: 120, heading: 120, intro: 600, button: 40 } as const
+export const WORD_LIMITS = { subject: 120, preheader: 150, heading: 120, intro: 600, button: 40, footer: 300 } as const
 
 export function isEditableEmail(v: unknown): v is EditableEmail {
   return isCommunityWordKind(v)
@@ -120,23 +123,86 @@ async function readRows(db: Db, communityId: string, kind?: string): Promise<{ d
   return { data: null, error: first.error }
 }
 
+/* ── The preview text and the footer note (round 28): in the owner's store_settings.customer_emails, by community and kind ── */
+
+const ownerKept = new Map<string, { at: number; creatorId: string | null }>()
+async function ownerOf(db: Db, communityId: string): Promise<string | null> {
+  const hit = ownerKept.get(communityId)
+  if (hit && Date.now() - hit.at < WORDS_TTL_MS) return hit.creatorId
+  let creatorId: string | null = null
+  try {
+    const { data } = await db.from("communities").select("creator_id").eq("id", communityId).maybeSingle()
+    creatorId = typeof data?.creator_id === "string" ? data.creator_id : null
+  } catch {
+    creatorId = null
+  }
+  ownerKept.set(communityId, { at: Date.now(), creatorId })
+  return creatorId
+}
+
+/** The stored customer_emails object of the community's owner; null when it cannot be read (the extras are simply not there). */
+async function storedEmailWords(db: Db, creatorId: string): Promise<{ ok: boolean; raw: unknown }> {
+  try {
+    const { data, error } = await db.from("store_settings").select("customer_emails").eq("creator_id", creatorId).maybeSingle()
+    if (error) return { ok: false, raw: null }
+    return { ok: true, raw: data?.customer_emails ?? null }
+  } catch {
+    return { ok: false, raw: null }
+  }
+}
+
+/** Every kind's preview text and footer note for one community. Fails open: none. */
+export async function communityExtras(db: Db, communityId: string): Promise<Partial<Record<EditableEmail, CommunityExtras>>> {
+  const creatorId = await ownerOf(db, communityId)
+  if (!creatorId) return {}
+  const got = await storedEmailWords(db, creatorId)
+  return got.ok ? readCommunityExtras(got.raw, communityId) : {}
+}
+
+async function saveCommunityExtras(db: Db, communityId: string, kind: EditableEmail, extras: CommunityExtras): Promise<{ ok: true } | { error: string; status: number }> {
+  const creatorId = await ownerOf(db, communityId)
+  if (!creatorId) return { error: "Could not save that. Try again.", status: 500 }
+  const got = await storedEmailWords(db, creatorId)
+  if (!got.ok) return { error: "Saving the preview text and footer note needs SQL part 129 in Supabase first.", status: 503 }
+  const next = withCommunityExtras(got.raw, communityId, kind, extras)
+  const { error } = await db.from("store_settings").upsert({ creator_id: creatorId, customer_emails: next, updated_at: nowIso() }, { onConflict: "creator_id" })
+  if (error) {
+    console.error(`[communities] email extras save: ${reasonOf(error)}`)
+    return { error: "Could not save that. Try again.", status: 500 }
+  }
+  return { ok: true }
+}
+
+const withExtras = (w: EmailWords | null, e: CommunityExtras | undefined): EmailWords | null => {
+  if (!e || (!e.preheader && !e.footer)) return w
+  return { ...(w ?? { ...EMPTY_COMMUNITY_WORDS }), ...(e.preheader ? { preheader: e.preheader } : {}), ...(e.footer ? { footer: e.footer } : {}) }
+}
+
 /** Every kind's words for one community. ready false: the table is not there yet (part 217 not run). */
 export async function loadEmailWords(db: Db, communityId: string): Promise<{ ready: boolean; words: Partial<Record<EditableEmail, EmailWords>> }> {
-  const { data, error } = await readRows(db, communityId)
+  const [{ data, error }, extras] = await Promise.all([readRows(db, communityId), communityExtras(db, communityId).catch(() => ({}) as Partial<Record<EditableEmail, CommunityExtras>>)])
   if (error) {
     if (!missing(error)) console.error(`[communities] email words read: ${reasonOf(error)}`)
     return { ready: false, words: {} }
   }
   const words: Partial<Record<EditableEmail, EmailWords>> = {}
   for (const r of data ?? []) if (isEditableEmail(r.kind)) words[r.kind] = asWords(r)
+  for (const [kind, e] of Object.entries(extras) as Array<[EditableEmail, CommunityExtras]>) {
+    const w = withExtras(words[kind] ?? null, e)
+    if (w) words[kind] = w
+  }
   return { ready: true, words }
 }
 
 /** Saves one kind's words; all empty puts Storelib's words back (the row goes). */
 export async function saveEmailWords(db: Db, communityId: string, kind: EditableEmail, words: EmailWords, userId: string): Promise<{ ok: true } | { error: string; status: number }> {
+  /* The preview text and the footer note first, beside the store's words; then the four parts in their own table. */
+  const extrasSaved = await saveCommunityExtras(db, communityId, kind, { preheader: words.preheader || "", footer: words.footer || "" })
+  if ("error" in extrasSaved && (words.preheader || words.footer)) return extrasSaved
   const row: Record<string, unknown> = { community_id: communityId, kind, subject: words.subject || null, heading: words.heading || null, intro: words.intro || null, button: words.button || null, updated_by: userId, updated_at: nowIso() }
   const write = (r: Record<string, unknown>) => db.from("community_email_templates").upsert(r, { onConflict: "community_id,kind" })
-  let done = emptyWords(words) ? await db.from("community_email_templates").delete().eq("community_id", communityId).eq("kind", kind) : await write(row)
+  const fourEmpty = !words.subject && !words.heading && !words.intro && !words.button
+  let done = fourEmpty ? await db.from("community_email_templates").delete().eq("community_id", communityId).eq("kind", kind) : await write(row)
   /* The button's column comes with part 301. Before it, the welcome, an approved request and an invite still save their other words (there is no button to keep). */
   if (done.error && !words.button && KINDS_BEFORE_301.includes(kind) && (done.error.code === "42703" || done.error.code === "PGRST204")) {
     const { button: _none, ...older } = row
@@ -166,8 +232,9 @@ export async function emailWordsFor(db: Db, communityId: string, kind: string): 
   if (hit && Date.now() - hit.at < WORDS_TTL_MS) return hit.words
   let words: EmailWords | null = null
   try {
-    const { data, error } = await readRows(db, communityId, kind)
+    const [{ data, error }, extras] = await Promise.all([readRows(db, communityId, kind), communityExtras(db, communityId).catch(() => ({}) as Partial<Record<EditableEmail, CommunityExtras>>)])
     if (!error && data && data[0]) words = asWords(data[0])
+    words = withExtras(words, extras[kind])
   } catch {
     /* Storelib's words */
   }
@@ -183,6 +250,8 @@ export function wordsPayload(words: WordsIn | null): Record<string, string> {
     ...(words.heading ? { tplHeading: words.heading } : {}),
     ...(words.intro ? { tplIntro: words.intro } : {}),
     ...(words.button ? { tplButton: words.button } : {}),
+    ...(words.preheader ? { tplPreheader: words.preheader } : {}),
+    ...(words.footer ? { tplFooter: words.footer } : {}),
   }
 }
 

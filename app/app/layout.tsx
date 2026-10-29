@@ -3,7 +3,9 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
-import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, profileOrThrowForRequest } from "@/lib/auth/request-scope"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { ServiceUnavailable } from "@/components/app/service-unavailable"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { LiveStoreCurrency } from "@/lib/store/currency-context"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
@@ -165,9 +167,17 @@ export default async function AppLayout({
   })
   /* A redirect below leaves it unawaited: never an unhandled rejection. */
   setupRead.catch(() => {})
-  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = await Promise.all([
-    profileForRequest(user.id),
-    creatorForRequest(user.id),
+  /*
+    A READ THAT FAILED IS NOT "NO ROW" (lib/net/service-error.ts). The profile and the creator row decide where
+    somebody belongs: a profile read that timed out used to read as an unverified email and sent a seller to
+    /signup/verify, a creator read that failed sent them to /sell. Now a failure of either is said as one
+    (components/app/service-unavailable.tsx, Try again in place, once by itself), and no gate below is decided
+    from it. Everything else here keeps falling back as it did: those rows only decorate the shell.
+  */
+  /* The reads the shell's gates are decided from, together, in one round. The profile and the creator row throw a ServiceUnavailable when they could not be read. */
+  const shellReads = Promise.all([
+    profileOrThrowForRequest(user.id),
+    creatorOrThrowForRequest(user.id),
     supabase
       .from("onepages")
       .select("id, avatar_url, published, draft_blocks, bio")
@@ -181,6 +191,21 @@ export default async function AppLayout({
     /* The stores they are on as a team member, for the account menu's switcher. */
     teamStoresForRequest(user.id),
   ])
+  let critical: Awaited<typeof shellReads>
+  try {
+    critical = await shellReads
+  } catch (e) {
+    if (!isServiceUnavailable(e)) throw e
+    return (
+      <>
+        {arrival}
+        <NativeAuthGate loadingFallback={<AppColdStart />}>
+          <ServiceUnavailable />
+        </NativeAuthGate>
+      </>
+    )
+  }
+  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = critical
   const profile = gateCheck
   /*
     A TEAM MEMBER'S DASHBOARD IS THE STORE'S. The chrome (its name, its

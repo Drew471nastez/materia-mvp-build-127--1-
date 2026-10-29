@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { creatorPageStore } from "@/lib/team/creator-page"
+import { NO_ACCESS } from "@/lib/team/server"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset, Section } from "@/lib/store-builder/types"
 
@@ -29,7 +31,12 @@ export async function POST(request: Request) {
   }
 
   // Get creator
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+  /* Round 42: the owner's own page, or the store's for a team member with Creator page (lib/team/creator-page). */
+  const page = await creatorPageStore(supabase, user.id)
+  if (page.kind === "denied") return NextResponse.json({ error: NO_ACCESS }, { status: 403 })
+  if (page.kind === "unreachable") return NextResponse.json({ error: "Storelib could not reach your store just now. Try again in a moment." }, { status: 503 })
+  const db = page.db
+  const creator = page.creatorId ? { id: page.creatorId } : null
 
   if (!creator) {
     return NextResponse.json({ error: "Creator not found" }, { status: 404 })
@@ -165,7 +172,7 @@ export async function POST(request: Request) {
 
   try {
     // Fetch ALL product-specific configs for this creator
-    const { data: productConfigs, error: fetchError } = await supabase
+    const { data: productConfigs, error: fetchError } = await db
       .from("product_page_configs")
       .select("id, product_id, draft_config, published_config")
       .eq("creator_id", creator.id)
@@ -207,7 +214,7 @@ export async function POST(request: Request) {
       }
 
       // Save the updated configs
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from("product_page_configs")
         .update({
           draft_config: updatedDraftConfig,

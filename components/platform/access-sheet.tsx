@@ -19,7 +19,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { BellOff, CameraOff, ImageOff, MicOff } from "lucide-react"
+import { Bell, BellOff, Camera, CameraOff, ImageOff, MicOff } from "lucide-react"
 import {
   ACCESS_SHEET_EVENT,
   inNativeApp,
@@ -36,6 +36,8 @@ import {
 import { shouldHoldPicker, takesMedia } from "@/lib/native-permissions-rule"
 
 const ICONS: Record<AccessKind, typeof BellOff> = { camera: CameraOff, photos: ImageOff, microphone: MicOff, notifications: BellOff }
+/* Before the phone was asked: the thing itself, not its "off" mark (components/platform/notifications-ask.tsx). */
+const ASK_ICONS: Partial<Record<AccessKind, typeof BellOff>> = { camera: Camera, photos: Camera, notifications: Bell }
 
 interface ViewProps {
   request: AccessRequest
@@ -48,11 +50,13 @@ interface ViewProps {
   /** The main button's own data attribute. */
   primaryData?: Record<string, string>
   laterData?: Record<string, string>
+  /** Asking before the phone's own prompt, rather than saying something is off. */
+  asking?: boolean
 }
 
 /** The sheet as drawn. NotificationsAsk draws it too, so the two never drift apart. */
-export function AccessSheetView({ request, closing, onPrimary, onSecondary, onLater, data, primaryData, laterData }: ViewProps) {
-  const Icon = ICONS[request.kind]
+export function AccessSheetView({ request, closing, onPrimary, onSecondary, onLater, data, primaryData, laterData, asking }: ViewProps) {
+  const Icon = (asking ? ASK_ICONS[request.kind] : undefined) ?? ICONS[request.kind]
   return (
     <div className="fixed inset-0 z-[220] flex items-end justify-center" role="dialog" aria-modal="true" aria-labelledby="access-sheet-title" {...data}>
       <div

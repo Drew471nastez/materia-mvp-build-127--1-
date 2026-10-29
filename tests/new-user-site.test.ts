@@ -139,7 +139,8 @@ async function main() {
     check("  its card says Customize and opens the editor", />\s*Customize\s*</.test(client) && /onClick=\{\(\) => go\(editorHref\(username, starter\.id\)\)\}/.test(client))
     check("  and Publish asks first, through the same question as every Publish", /onClick=\{\(\) => setPublishing\(starter\)\}/.test(client) && /data-control="publish"/.test(client))
     check("an empty library offers the default theme in one press", /data-live-empty="first"/.test(client) && /addListing\(explore\[0\]\)/.test(client))
-    check("the only website cannot be removed, since an empty library gets it back", /else if \(installs\.length > 1\) \{/.test(client))
+    /* Changed on purpose (round 42, team member hiding): Remove is also kept from a team member, so the guard reads `installs.length > 1 && !teamMember`. The only website is still never removable. */
+    check("the only website cannot be removed, since an empty library gets it back", /else if \(installs\.length > 1(?: && !teamMember)?\) \{/.test(client))
     check("no banned words in the new copy", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(
       (client.match(/data-starter-card[\s\S]*?data-live-empty="first"[\s\S]*?<\/div>/) ?? [""])[0]))
   }
