@@ -88,7 +88,8 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   const previewCode = preview.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const library = readFileSync("components/website-builder/editor/section-library.tsx", "utf8")
   check("the library draws an imported theme's cards with its own engine", /compat=\{!!compatInstallId\}/.test(library) && /<CompatGridWrap/.test(library))
-  check("the native preview queue is not asked for an imported theme's sections", /if \(!compatInstallId\) requestPreviews\(jobs, true\)/.test(library) && /if \(!compatInstallId\) requestPreviews\(jobs\)/.test(library))
+  /* Changed on purpose (push lag): a closed library warmed again asks only for the first REWARM_FIRST cards still to be drawn. */
+  check("the native preview queue is not asked for an imported theme's sections", /if \(!compatInstallId\) requestPreviews\(jobs, true\)/.test(library) && /if \(!compatInstallId\) requestPreviews\(again \? jobs\.filter\(\(j\) => !MARKUP\.has\(j\.key\)\)\.slice\(0, REWARM_FIRST\) : jobs\)/.test(library))
   check("the cards' frame runs no script", /sandbox="allow-same-origin"/.test(preview) && !/allow-scripts/.test(previewCode) && /scripts: false/.test(preview))
   check("what a theme reveals on scroll is shown in the card", /\.scroll-trigger/.test(preview) && /opacity:1!important/.test(preview))
   check("the frame's scale survives the touch rule that flattens transforms", /data-keep-transform/.test(preview))

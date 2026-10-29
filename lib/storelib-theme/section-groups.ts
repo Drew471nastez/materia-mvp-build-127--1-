@@ -386,13 +386,18 @@ export function repairChrome<T extends GroupedSection>(list: readonly T[], kindO
 
 // ── A kind for every type, from the files a site has ────────────────────────
 
-const kindCache = new Map<string, SectionKind | null>()
+/*
+  By type, then the text it was worked out from (push lag, round 2): the
+  key used to be the type and the whole file joined into a new string on
+  every ask, so every ask copied and hashed the file again, for every
+  section of a store theme on every render that asked.
+*/
+const kindCache = new Map<string, { source: string; kind: SectionKind | null }>()
 
 /** A section file's kind, by its schema and its markup. Cached by the text. */
 export function kindOfSource(source: string, type: string): SectionKind | null {
-  const key = `${type}\0${source}`
-  const hit = kindCache.get(key)
-  if (hit !== undefined) return hit
+  const hit = kindCache.get(type)
+  if (hit && hit.source === source) return hit.kind
   let kind: SectionKind | null = null
   const parsed = parseStorelib(source, `sections/${type}.storelib`)
   if (parsed.ok) {
@@ -405,7 +410,7 @@ export function kindOfSource(source: string, type: string): SectionKind | null {
     kind = kindOf(schema, { type, template: parsed.value.template.text })
   }
   if (kindCache.size > 2000) kindCache.clear()
-  kindCache.set(key, kind)
+  kindCache.set(type, { source, kind })
   return kind
 }
 

@@ -109,7 +109,8 @@ console.log("\nC2  AN IMPORTED THEME'S CANVAS FOLLOWS A THEME SETTING UNDER A FI
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
   check("the canvas draws with the live theme", /const settings = useLiveTheme\(props\.theme/.test(canvas))
   check("during a gesture the page is drawn newest first, at most once a frame and no sooner than the last draw took", /if \(isLive\(\)\) \{ scheduleRedraw\(run\); return \}/.test(canvas) && /r\.nextAt = performance\.now\(\) \+ cost/.test(canvas) && /const next = r\.run\s*r\.run = null/.test(canvas))
-  check("outside a slider gesture, queued drawing is dropped and canvas scrolling finishes first", /cancelRedraw\(\)[\s\S]{0,400}whenCanvasRests\(\)\.then/.test(canvas) && /if \(!cancelled\) runRedraw\(run\)/.test(canvas))
+  /* Changed on purpose (push lag): a change of the theme's files is drawn and compared ahead in tasks of their own (prepareDraw) between the scroll rest and the redraw. */
+  check("outside a slider gesture, queued drawing is dropped and canvas scrolling finishes first", /cancelRedraw\(\)[\s\S]{0,1200}whenCanvasRests\(\)\.then/.test(canvas) && /if \(fromFiles\) await prepareDraw\(\(\) => cancelled\)\s*if \(!cancelled\) runRedraw\(run\)/.test(canvas))
 }
 
 console.log("\nC3  THE PAGE'S OWN CHANGES DO NOT KEEP THE OUTLINES BUSY")

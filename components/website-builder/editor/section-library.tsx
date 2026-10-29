@@ -936,6 +936,12 @@ const EAGER_CARDS = 3
 const WARM_AFTER_MS = 1800
 /** And again after the look changed (an Ask Storelib run, a colour slider), once it has stood this long. */
 const REWARM_AFTER_MS = 10_000
+/**
+ * And then only the first of the cards still to be drawn, in the order they are seen (push lag, round 2): a push of two hundred
+ * section files asked for two hundred previews laid out in the closed library, about 1.2s of layout at a quarter speed. The rest
+ * are drawn when the library is opened, nearest first, as a library opened before its previews were drawn always was.
+ */
+export const REWARM_FIRST = 12
 /** How long the library's entrance takes before anything heavy is asked of the page (the panel's 280ms, less a frame). */
 const OPEN_SETTLE_MS = 260
 
@@ -952,10 +958,10 @@ const APP_EMBEDS = "app-embeds"
 const COMPAT_RENDER_WIDTH = 1200
 
 /** The compat engine's theme for the cards, built once, only for an imported theme. */
-function CompatGridWrap({ installId, sources, settings, children }: { installId: string | null; sources: Record<string, string>; settings: Record<string, unknown> | undefined; children: ReactNode }) {
+function CompatGridWrap({ installId, sources, settings, live, children }: { installId: string | null; sources: Record<string, string>; settings: Record<string, unknown> | undefined; live: boolean; children: ReactNode }) {
   if (!installId) return <>{children}</>
   return (
-    <CompatPreviewProvider installId={installId} sources={sources} settings={settings}>
+    <CompatPreviewProvider installId={installId} sources={sources} settings={settings} live={live}>
       {children}
     </CompatPreviewProvider>
   )
@@ -1184,8 +1190,9 @@ export const SectionLibrary = memo(function SectionLibrary({
     /* A small device draws the previews when Add section is opened, not while the canvas is being scrolled. */
     if (editorSpares()) return
     const t = window.setTimeout(() => {
+      const again = warmed.current
       warmed.current = true
-      if (!compatInstallId) requestPreviews(jobs)
+      if (!compatInstallId) requestPreviews(again ? jobs.filter((j) => !MARKUP.has(j.key)).slice(0, REWARM_FIRST) : jobs)
       idle(() => setBuilt(true))
     }, warmed.current ? REWARM_AFTER_MS : WARM_AFTER_MS)
     return () => window.clearTimeout(t)
@@ -1521,7 +1528,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   )
 
   const grid = built ? (
-    <CompatGridWrap installId={compatInstallId} sources={sources} settings={theme as Record<string, unknown> | undefined}>
+    <CompatGridWrap installId={compatInstallId} sources={sources} settings={theme as Record<string, unknown> | undefined} live={open}>
       <div ref={gridRef} data-library-grid="" className="relative flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
         {/* An imported theme's sections, every one in one document over the cards (compat-section-preview.tsx). */}
         {compatInstallId ? <CompatPreviewSheet renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} open={open} layoutKey={`${filterKey}:${cardWidth}`} /> : null}

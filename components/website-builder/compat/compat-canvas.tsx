@@ -53,7 +53,7 @@ import type { CartOffers } from "@/lib/storelib-theme/compat/objects"
 import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { overrideCss } from "@/lib/storelib-theme/compat/overrides"
 import { drawLayoutStyles, drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
-import { isCompatSource, splitCompatFile, type CompatPage, type CompatTheme } from "@/lib/storelib-theme/compat/theme"
+import { compatMarkupOf, isCompatSource, type CompatPage, type CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { layoutPathIn, onlyInCss, probeValues, sameButStyles, settingAt, settingUses, styleEdits, type SettingUses } from "@/lib/storelib-theme/compat/theme-css"
 import { cutBetween, editBetween, fillTemplate, learning, oneChange, placeEdits, placesOf, templateCut, withLeaf, type LeafPath, type LiveTemplate, type Place } from "@/lib/storelib-theme/compat/live-draw"
 import type { CollectionLike, MenuLinkLike, SiteI18n } from "@/lib/storelib-theme/compat/objects"
@@ -368,6 +368,12 @@ export function assetVersionIn(files: Record<string, string>, name: string): str
   }
   return v
 }
+/** The next task: what input is waiting runs first (scheduler.yield where the browser has it). */
+export function nextTask(): Promise<void> {
+  const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler
+  if (s?.yield) return s.yield()
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
 /** The same script file at another version (`?v=` moved): the theme's code changed under the page. */
 export function scriptFileChanged(from: readonly string[], to: readonly string[]): boolean {
   const base = (src: string) => src.replace(/[?&]v=[^&#]*/, "")
@@ -388,7 +394,7 @@ const usesOf = (rows: object, theme: CompatTheme, page: CompatPage, list: readon
   if (byPage.has(key)) return byPage.get(key) ?? null
   const layout = layoutPathIn(theme.files, theme.templateLayout(page.template, page.suffix))
   const template = theme.files[`templates/${name}.liquid`] !== undefined ? `templates/${name}.liquid` : undefined
-  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), { template, sections }) : null
+  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? compatMarkupOf(s) : s), { template, sections }) : null
   byPage.set(key, uses)
   return uses
 }
@@ -858,8 +864,143 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const frontWindow = () => { const f = front(); return f ? frames.current.get(f.n)?.contentWindow ?? null : null }
 
   /* A page loaded behind the one on screen. */
-  const loadBehind = (html: string, key: string, list: StoredSection[]) => {
-    const slot: Slot = { n: ++counter.current, key, page: `${pageKey}|${productId ?? ""}`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: !!accountPath }
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A PUSH'S PAGE IS DRAWN IN ONE TASK AND COMPARED IN ANOTHER (push lag, round 2)
+    ═══════════════════════════════════════════════════════════════════════
+    When the theme's files change, the page is drawn by Liquid and parsed to
+    be compared with the one on screen. On a store theme's long page (Dawn,
+    36 sections, scripts/check-editor-push-lag.mjs BIG_THEME_ZIP) each was
+    about 200ms at a quarter speed, and together they were one task: a wheel
+    turned in it waited for both. Now the drawing is one task and the parse
+    the next, and a scroll that starts between them is waited out, so
+    nothing a finger does waits behind more than one of them. drawAndPatch
+    then finds both ready (preparedHtml, shapeFor) for the same sections,
+    theme and page, and draws nothing again.
+  */
+  const drawnFor = useRef<{ theme: unknown; files: number; replace: number }>({ theme: null, files: 0, replace: 0 })
+  const prepared = useRef<{ list: StoredSection[]; theme: unknown; page: CompatPage; inspect: boolean; html: string; shape: DocShape | null } | null>(null)
+  const prepareDraw = async (gone: () => boolean) => {
+    prepared.current = null
+    if (!compatTheme || accountPath || (props.filesVersion ?? 0) !== loadedVersion.current) return
+    const list = sectionsRef.current
+    let html: string
+    try {
+      html = draw(list)
+    } catch {
+      return
+    }
+    const p = { list, theme: compatTheme, page, inspect: !!inspecting.current, html, shape: null as DocShape | null }
+    prepared.current = p
+    await nextTask()
+    await whenCanvasRests()
+    if (gone() || prepared.current !== p) return
+    p.shape = docShape(html)
+    await nextTask()
+    await whenCanvasRests()
+  }
+  /** The page drawn ahead for these sections, when nothing it was drawn with has changed since. */
+  const preparedHtml = (list: StoredSection[]): string | null => {
+    const p = prepared.current
+    if (!p || p.list !== list || p.theme !== compatTheme || p.page !== page || p.inspect !== !!inspecting.current || accountPath) return null
+    return p.html
+  }
+  /** The shape of a drawing, from the parse done ahead when it is this drawing; each parse is handed out once, since the caller may change it. */
+  const shapeFor = (html: string): DocShape => {
+    const p = prepared.current
+    if (p && p.html === html && p.shape) {
+      const s = p.shape
+      p.shape = null
+      return s
+    }
+    return docShape(html)
+  }
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SAVED SECTION FILE DRAWS ITS OWN SECTIONS, NOT THE PAGE (push lag, round 2)
+    ═══════════════════════════════════════════════════════════════════════
+    An agent saving one section file (Storelib AI, MCP, the agent API) drew
+    the whole page by Liquid and parsed it to find what differed: on a
+    store theme's long page about 400ms of the main thread at a quarter
+    speed, for every file. When nothing changed but section files, and the
+    theme's stylesheet and script bundles are the same with them, only the
+    sections of those types on the page are drawn, alone, and swapped in
+    place: the way a section's own setting is (syncSlot). Anything else (a
+    snippet, the layout, an asset, a setting, the page's sections, a
+    product page, a page still loading or one behind it, many sections at
+    once, a page worn by edits) is drawn whole as before.
+  */
+  const drawnRows = useRef<Record<string, string> | null>(null)
+  /* Files saved while a page was loading behind: drawn into it once it is in front. */
+  const behindStale = useRef(false)
+  const syncFileChange = (): boolean => {
+    const was = drawnWith.current
+    const slot = front()
+    const before = drawnRows.current
+    const now = rowsRef.current
+    const win = frontWindow()
+    if (!compatTheme || !was || !slot || !before || !now || !win || was.theme === compatTheme) return false
+    if (slot.key !== docKey || !slot.ready || slotsRef.current[1] || accountPath || isLive() || stale.current) return false
+    /* A fresh document asked for (theme code, a page rewritten whole, a pile of files) is drawn whole, behind. */
+    if ((props.filesVersion ?? 0) !== loadedVersion.current || (props.replaceDocument ?? 0) > appliedReplace.current) return false
+    const list = sectionsRef.current
+    if (was.list !== list || was.page !== page || page.product || (settingsOfTheme.get(compatTheme) ?? drawSettingsRef.current) !== was.settings) return false
+    /* Which files changed: only section files, the same set of files. */
+    const types = new Set<string>()
+    let count = 0
+    for (const k in now) {
+      count++
+      if (before[k] === now[k]) continue
+      const m = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(k)
+      if (!m || before[k] === undefined) return false
+      types.add(m[1])
+    }
+    if (count !== Object.keys(before).length || types.size === 0) return false
+    const theme = was.theme as CompatTheme
+    if (theme.stylesheetBundle() !== compatTheme.stylesheetBundle() || theme.javascriptBundle() !== compatTheme.javascriptBundle()) return false
+    const drawnType = (s: StoredSection) => compatTheme.typeOf(s.type)
+    const mine = list.filter((s) => types.has(drawnType(s)) || types.has(s.type))
+    const order = slot.shape.order.length
+    if (mine.length >= MASSIVE_SWAP_MIN && mine.length * 2 >= order) return false
+    if ((slot.swapped ?? 0) + mine.length >= WORN_SWAPS) return false
+    let ctx: ReturnType<typeof pageContextFor>
+    try {
+      ctx = pageContextFor(compatTheme, page, list)
+    } catch {
+      return false
+    }
+    const drawn: { id: string; html: string; prev: string | undefined }[] = []
+    for (const s of mine) {
+      const group = s.group === "header" || s.group === "footer" ? s.group : undefined
+      try {
+        drawn.push({ id: s.id, html: canvasInsets(drawSection(compatTheme, ctx, s, sectionIndexIn(list, s), group).html), prev: slot.shape.sections.get(s.id) })
+      } catch {
+        return false
+      }
+    }
+    for (const d of drawn) {
+      if (d.prev !== d.html) {
+        win.postMessage({ storelib: 1, type: "section", id: d.id, html: d.html, prev: d.prev }, "*")
+        ;(slot.sent ??= new Set()).add(d.id)
+      }
+      slot.shape.sections.set(d.id, d.html)
+      slot.realHtml?.set(d.id, d.html)
+      slot.liveShown?.delete(d.id)
+      slot.liveFill?.delete(d.id)
+    }
+    slot.swapped = (slot.swapped ?? 0) + drawn.length
+    /* The whole page as drawn is not known now: a value under a finger is drawn whole the next time. */
+    slot.lastHtml = null
+    slot.stamp = stampRef.current
+    drawnWith.current = { ...was, theme: compatTheme }
+    drawnRows.current = now
+    /* Counted where a probe can read it (scripts/check-editor-section-file-sync.mjs): the page was not drawn for this. */
+    try { performance.mark("sl-section-file-sync") } catch { /* no User Timing: nothing to count */ }
+    return true
+  }
+  /* `shape`: this drawing's, when the caller has just parsed it and will not use it again (a second parse of a long page was 60ms at a quarter speed). */
+  const loadBehind = (html: string, key: string, list: StoredSection[], shape?: DocShape) => {
+    const slot: Slot = { n: ++counter.current, key, page: `${pageKey}|${productId ?? ""}`, html, shape: shape ?? shapeFor(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: !!accountPath }
     setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
     /* One that never says it has loaded (a stalled script of the theme's, a message missed) still comes forward. */
     window.setTimeout(() => promote(slot.n), BEHIND_CAP_MS)
@@ -1026,8 +1167,31 @@ export function CompatCanvas(props: CompatCanvasProps) {
     // Drawing Liquid and parsing a whole document are main-thread work. The
     // file request may finish after the editor's own scroll-rest check.
     let cancelled = false
-    void whenCanvasRests().then(() => {
+    /* The theme's files changed (a push, an agent, Storelib AI): drawn and compared in tasks of their own (prepareDraw), not in one. */
+    const fromFiles = drawnFor.current.theme !== compatTheme || drawnFor.current.files !== (props.filesVersion ?? 0) || drawnFor.current.replace !== (props.replaceDocument ?? 0)
+    drawnFor.current = { theme: compatTheme, files: props.filesVersion ?? 0, replace: props.replaceDocument ?? 0 }
+    void whenCanvasRests().then(async () => {
+      if (cancelled) return
+      /* One saved section file: its own sections drawn and swapped, the page not drawn (syncFileChange). */
+      if (fromFiles && syncFileChange()) return
+      /*
+        A PAGE BEHIND THE ONE ON SCREEN (a stylesheet an agent saved, say),
+        loading, or loaded and waiting for a scroll to rest before it comes
+        forward, is not drawn again for each file saved meanwhile (push lag,
+        round 2): every save threw it away and loaded another, so on a store
+        theme the page behind never came forward while an agent kept
+        writing. The files saved meanwhile are drawn into it once it has come
+        forward (behindStale, below). A fresh document asked for again still
+        is one.
+      */
+      if (fromFiles && slotsRef.current[1] && (props.replaceDocument ?? 0) <= appliedReplace.current && (props.filesVersion ?? 0) === loadedVersion.current) {
+        behindStale.current = true
+        return
+      }
+      if (fromFiles) await prepareDraw(() => cancelled)
       if (!cancelled) runRedraw(run)
+      /* What was drawn ahead is let go once used, or not: it is a whole page of text. */
+      prepared.current = null
     })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1071,7 +1235,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
-      html = draw(list)
+      html = preparedHtml(list) ?? draw(list)
     } catch (e) {
       console.error("[compat-canvas] the page could not be drawn", e)
       /* With nothing on screen yet, that is said, with Try again; otherwise the page on screen stays. */
@@ -1084,6 +1248,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* What the page on screen is now drawn with: a theme value under a finger is written from here (applyLiveTheme). */
     const settingsBefore = drawnWith.current?.settings
     drawnWith.current = { settings: settingsOfTheme.get(compatTheme) ?? drawSettingsRef.current, theme: compatTheme, page, list }
+    drawnRows.current = rowsRef.current
     /* Said to the theme's code once the page has it (storelib:settings-change), on the same page only: another page is loaded with its settings. */
     const shownNow = front()
     const tell = (win: Window | null, live: boolean) => { if (win && settingsBefore && shownNow?.key === docKey) tellSettings(win, settingsBefore, drawnWith.current!.settings, live) }
@@ -1127,7 +1292,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         return
       }
     }
-    const next = docShape(html)
+    const next = shapeFor(html)
     const plan = now.key === docKey ? planPatch(now.shape, next) : null
     const win = frontWindow()
     /*
@@ -1143,7 +1308,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     if (!plan || !win) {
-      loadBehind(html, docKey, list)
+      loadBehind(html, docKey, list, next)
       return
     }
     /*
@@ -1176,7 +1341,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       window.clearTimeout(scriptsTimer.current)
       /* Said to the page on screen too: a theme that applies the value itself (storelib:settings-change) shows it in this frame, before the page behind comes forward. */
       tell(win, false)
-      loadBehind(html, docKey, list)
+      loadBehind(html, docKey, list, next)
       return
     }
     /*
@@ -1204,7 +1369,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     */
     const massive = plan.swaps.length >= MASSIVE_SWAP_MIN && plan.swaps.length * 2 >= next.order.length
     if (massive && !isLive()) {
-      loadBehind(html, docKey, list)
+      loadBehind(html, docKey, list, next)
       return
     }
     now.swapped = (now.swapped ?? 0) + plan.swaps.length
@@ -2080,6 +2245,20 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const frontPage = slots[0]?.page ?? null
   const frontN = slots[0]?.n ?? 0
   useEffect(() => { if (frontPage) onPageShown.current?.(frontPage) }, [frontPage, frontN])
+  /* The page that loaded behind is in front: the files saved while it loaded are drawn into it now (behindStale, above). */
+  useEffect(() => {
+    if (!behindStale.current || !frontN) return
+    let gone = false
+    void whenCanvasRests().then(() => {
+      if (gone || !behindStale.current) return
+      /* Another page loading behind this one comes forward too, and takes them then. */
+      if (slotsRef.current[1]) return
+      behindStale.current = false
+      if (!syncFileChange()) drawAndPatchRef.current()
+    })
+    return () => { gone = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frontN])
   /*
     THE PAGE IN FRONT IS TOLD WHEN IT CAN BE SEEN: the first page as the
     loader comes off it, a page that came forward as it does. Its first
@@ -2590,22 +2769,30 @@ export function docShape(html: string): DocShape {
   const headLayout = Array.from(doc.head.children)
     .filter((el) => el.tagName === "SCRIPT" || el.hasAttribute("data-sl-d"))
     .map((el) => (el.tagName === "SCRIPT" ? markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "").outerHTML : el.outerHTML))
+  /* What is read from the whole document first: the body is changed in place below, the document being this function's own. */
+  const scripts = Array.from(doc.querySelectorAll("script:not([src])"))
+    .filter((el) => !el.closest(".shopify-section[data-section-id]") && !ownScript(el))
+    .map((el) => `${el.getAttribute("type") ?? ""}|${el.textContent ?? ""}`)
+  const srcs = Array.from(doc.querySelectorAll("script[src]")).map((el) => el.getAttribute("src") ?? "")
+  const htmlAttrs = attrsOf(doc.documentElement)
+  const bodyAttrs = attrsOf(doc.body)
   const laid = doc.body.cloneNode(true) as HTMLElement
   laid.querySelectorAll(".shopify-section[data-section-id]").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SECTION, el.getAttribute("data-section-id") ?? "")))
   laid.querySelectorAll("script").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "")))
   laid.querySelectorAll("noscript").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_NOSCRIPT, "")))
-  const body = doc.body.cloneNode(true) as HTMLElement
+  /*
+    The skeleton from the parsed body itself, not a second deep copy of it
+    (push lag, round 2): on a long page of a store theme the two copies were
+    a fifth of what comparing a drawing cost.
+  */
+  const body = doc.body
   body.querySelectorAll(".shopify-section[data-section-id], script").forEach((el) => el.remove())
   const bodyStyles: string[] = []
   body.querySelectorAll("style").forEach((el) => {
     bodyStyles.push(el.textContent ?? "")
     el.remove()
   })
-  const scripts = Array.from(doc.querySelectorAll("script:not([src])"))
-    .filter((el) => !el.closest(".shopify-section[data-section-id]") && !ownScript(el))
-    .map((el) => `${el.getAttribute("type") ?? ""}|${el.textContent ?? ""}`)
-  const srcs = Array.from(doc.querySelectorAll("script[src]")).map((el) => el.getAttribute("src") ?? "")
-  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts, srcs }
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs, bodyAttrs, skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts, srcs }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
