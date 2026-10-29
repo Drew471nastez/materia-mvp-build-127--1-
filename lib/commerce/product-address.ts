@@ -18,10 +18,13 @@
  *
  *   the creator's own product          the page
  *   their product under an old slug    308 to /<handle>/<current slug>
+ *   a creator with no such product     404, on storelib.com and on their
+ *                                      own domain alike: never somebody
+ *                                      else's product under their name
  *   a handle that was renamed          308 to /<new handle>/<slug>
- *   a product of somebody else's       307 to its canonical address (not
- *                                      permanent: the creator in the path
- *                                      may make one with that slug later)
+ *   a handle nobody has, and the slug  307 to that product's canonical
+ *   is somebody's product              address (an old link; not
+ *                                      permanent, the handle may be taken)
  *   nothing                            404
  */
 
@@ -38,7 +41,7 @@ export interface ProductAddressFacts {
   found: { slug: string; viaHistory: boolean } | null
   /** The handle's new name when nobody has it and somebody changed away from it. */
   renamedTo: string | null
-  /** The canonical address of the product another creator sells under this slug, or null. */
+  /** When nobody has the handle: the canonical address of the product sold under this slug, or null. */
   elsewhere: string | null
 }
 
@@ -50,7 +53,9 @@ export function productAddressStep(f: ProductAddressFacts): ProductAddressStep {
     if (f.found.viaHistory) return { kind: "redirect", to: at(f.owner.handle, f.found.slug), permanent: true }
     return { kind: "page", owner: f.owner.creatorId }
   }
-  if (!f.owner && f.renamedTo) return { kind: "redirect", to: at(f.renamedTo, f.slug), permanent: true }
+  /* A creator the handle names and no such product of theirs: a 404, never somebody else's product under their name or on their domain. */
+  if (f.owner) return { kind: "missing" }
+  if (f.renamedTo) return { kind: "redirect", to: at(f.renamedTo, f.slug), permanent: true }
   if (f.elsewhere) return { kind: "redirect", to: f.elsewhere, permanent: false }
   return { kind: "missing" }
 }

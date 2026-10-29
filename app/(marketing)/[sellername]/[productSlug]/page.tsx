@@ -26,8 +26,9 @@
  * THE HANDLE COUNTS (round 44). It was thrown away and the slug looked up
  * alone: any first segment drew the product, a creator's domain drew
  * another creator's, and two creators with the same slug were a 404 for
- * both. The handle now names whose product it is, and an address that
- * names the wrong creator goes to the right one (lib/commerce/product-address.ts).
+ * both. The handle now names whose product it is; a creator's address
+ * with no such product of theirs is a 404, and an old link under a handle
+ * nobody has goes to where the product is (lib/commerce/product-address.ts).
  */
 import type { Metadata } from "next"
 import { cache } from "react"
@@ -98,8 +99,9 @@ const addressOf = cache(async (handle: string, slug: string): Promise<ProductAdd
   const owner = creator?.id && profile?.username ? { creatorId: creator.id as string, handle: profile.username as string } : null
   const mine = owner ? await loadProductBySlug(slug, owner.creatorId) : null
   const found = mine?.product?.slug ? { slug: mine.product.slug as string, viaHistory: mine.viaHistory } : null
-  if (owner && found) return productAddressStep({ slug, owner, found, renamedTo: null, elsewhere: null })
-  /* Nobody has the handle: a renamed account first, then wherever the slug is sold. */
+  /* The handle is a creator's: their product, or a 404. */
+  if (owner) return productAddressStep({ slug, owner, found, renamedTo: null, elsewhere: null })
+  /* Nobody sells under the handle: a renamed account first, then wherever the slug is sold. */
   const renamedTo = profile ? null : await renamedHandle(handle)
   return productAddressStep({ slug, owner, found, renamedTo, elsewhere: renamedTo ? null : await canonicalElsewhere(slug) })
 })
@@ -122,7 +124,8 @@ export default async function SellerProductPage({ params, searchParams }: PagePr
     redirect(step.to)
   }
   if (step.kind !== "page") notFound()
+  const { slug } = at
   const owner = step.owner
   /* The same frame /p/<slug> has (its layout): the store's currency and the marketplace's dollar quote on the Buy links. */
-  return ProductPageFrame({ slug: at.slug, owner, children: await ProductPage({ params: Promise.resolve({ slug: at.slug, owner }), searchParams } as never) })
+  return ProductPageFrame({ slug, children: await ProductPage({ params: Promise.resolve({ slug, owner }), searchParams } as never), owner })
 }

@@ -10,7 +10,8 @@
  *      addresses as there are words), a creator's own domain drew another
  *      creator's product, and two creators with the same slug (a slug is
  *      unique per creator) were a 404 for both, at the addresses the sitemap
- *      lists. An address naming the wrong creator now goes to the right one.
+ *      lists. A creator's address with no such product of theirs is a 404;
+ *      an old link under a handle nobody has goes to the product.
  *   2. A creator page domain's sitemap lists only pages of that domain: never
  *      a product that ships (its address redirects to the store's website)
  *      or one that sells a community tier (it redirects to the community).
@@ -115,10 +116,11 @@ async function main() {
     const renamed = productAddressStep({ slug: "ebook", owner: null, found: null, renamedTo: "ana", elsewhere: "https://storelib.com/someoneelse/ebook" })
     check("a handle that was renamed: a 308 to the new handle, before any guess", renamed.kind === "redirect" && renamed.permanent && renamed.to === "/ana/ebook", renamed)
     const someoneElse = productAddressStep({ slug: "ebook", owner, found: null, renamedTo: null, elsewhere: "https://storelib.com/bob/ebook" })
-    check("another creator's product under this handle: never drawn here, a temporary redirect to where it is canonical",
-      someoneElse.kind === "redirect" && !someoneElse.permanent && someoneElse.to === "https://storelib.com/bob/ebook", someoneElse)
-    const onDomain = productAddressStep({ slug: "ebook", owner, found: null, renamedTo: null, elsewhere: getProductShareUrl("bob", "ebook", "shop.bob.com") })
-    check("  on a creator's own domain too: Bob's product leaves Ana's domain for Bob's canonical", onDomain.kind === "redirect" && onDomain.to === "https://shop.bob.com/ebook", onDomain)
+    check("another creator's product under Ana's handle (or on Ana's domain, which the proxy reads as /anaprints/<slug>): a 404, never Bob's product under her name",
+      someoneElse.kind === "missing", someoneElse)
+    const oldLink = productAddressStep({ slug: "ebook", owner: null, found: null, renamedTo: null, elsewhere: getProductShareUrl("bob", "ebook", "shop.bob.com") })
+    check("  a handle nobody has and somebody's product: a temporary redirect to its own canonical, its creator page domain included",
+      oldLink.kind === "redirect" && !oldLink.permanent && oldLink.to === "https://shop.bob.com/ebook", oldLink)
     check("nothing anywhere: a real 404", productAddressStep({ slug: "nope", owner, found: null, renamedTo: null, elsewhere: null }).kind === "missing")
     check("  and for a handle nobody has", productAddressStep({ slug: "nope", owner: null, found: null, renamedTo: null, elsewhere: null }).kind === "missing")
 
@@ -129,13 +131,14 @@ async function main() {
       /await loadProfileByUsername\(handle\)/.test(door) && /await loadCreatorForUser\(profile\.id\)/.test(door) && /await loadProductBySlug\(slug, owner\.creatorId\)/.test(door))
     check("  the page, its metadata and its frame read the owner's product",
       /productMetadata\(\{ params: Promise\.resolve\(\{ slug: at\.slug, owner: step\.owner \}\)/.test(door) &&
-        /ProductPageFrame\(\{ slug: at\.slug, owner, children: await ProductPage\(\{ params: Promise\.resolve\(\{ slug: at\.slug, owner \}\)/.test(door))
+        /ProductPageFrame\(\{ slug, children: await ProductPage\(\{ params: Promise\.resolve\(\{ slug, owner \}\), searchParams \} as never\), owner \}\)/.test(door))
     check("  a redirect is a redirect and a miss is notFound(), never a 200 page that says not found",
       /if \(step\.permanent\) permanentRedirect\(step\.to\)\s*\n\s*redirect\(step\.to\)/.test(door) && /if \(step\.kind !== "page"\) notFound\(\)/.test(door))
     check("  and the metadata of anything else says noindex",
       /if \(step\.kind !== "page"\) return \{ title: "Product Not Found", robots: \{ index: false, follow: false \} \}/.test(door))
     check("  where it lives elsewhere is the product's own canonical, its creator page's domain included",
       /getProductShareUrl\(profile\?\.username \|\| "", product\.slug, await primaryHostFor\(product\.creator_id, "creator_page"\)\)/.test(door))
+    check("  and is asked only when no creator has the handle", /if \(owner\) return productAddressStep\(\{ slug, owner, found, renamedTo: null, elsewhere: null \}\)/.test(door))
 
     const loader = code("lib/commerce/product-page-data.ts")
     const cacheFile = code("lib/commerce/product-page-cache.ts")
@@ -216,7 +219,7 @@ async function main() {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
     check("the community's page and About say noindex for it", [page, about].every((s) => /\.\.\.\(\(await banned\) \? \{ indexable: false \} : \{\}\)/.test(s)))
-    check("  and the page's structured data follows its metadata (waiting to be deleted, or banned)", /communityJsonLd\(load\.data\.community, communityIndexable\(load\.community\) && !deleting && !banned, origin\)/.test(page))
+    check("  and the page's structured data follows its metadata (waiting to be deleted, or banned)", /const unlisted = Promise\.all\(\[communityDeleting\(load\.community\.id\), ownerBanned\(load\.community\.creator_id\)\]\)/.test(page) && /const hidden = await unlisted/.test(page) && /\{jsonLd && !hidden \? <script type="application\/ld\+json"/.test(page))
     check("a private post is never more than the generic card", !indexablePost(post({ community: { ...post().community, visibility: "private" } })) && !publicPost(post({ community: { ...post().community, visibility: "private" } })))
     check("  nor a post in a members-only space", !publicPost(post({ space: { name: "Inner", view_access: { tierIds: ["t1"] }, archived_at: null } })))
     check("  nor a draft post", !publicPost(post({ post: { ...post().post, status: "draft" } })))

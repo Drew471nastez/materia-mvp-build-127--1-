@@ -135,12 +135,14 @@ export default async function CommunityPage({
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
-  const [extras, askWhy, origin, deleting, banned] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id), communityDeleting(load.community.id), ownerBanned(load.community.creator_id)])
-  /* Round 44: by the metadata's own rule, so a page that says noindex (waiting to be deleted, or its creator banned) claims nothing in structured data either. */
-  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community) && !deleting && !banned, origin)
+  /* Round 44: by the metadata's own rule, so a page that says noindex (waiting to be deleted, or its creator banned) claims nothing in structured data either. Started beside the reads below. */
+  const unlisted = Promise.all([communityDeleting(load.community.id), ownerBanned(load.community.creator_id)]).then(([deleting, banned]) => deleting || banned)
+  const [extras, askWhy, origin] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
+  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), origin)
+  const hidden = await unlisted
   return (
     <>
-      {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}
+      {jsonLd && !hidden ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}
       <CommunitySalesPage data={{ ...load.data, extras, askWhy }} />
     </>
   )
