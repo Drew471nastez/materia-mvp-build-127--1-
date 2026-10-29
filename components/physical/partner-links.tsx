@@ -65,7 +65,7 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
     void api<{ rows: LinkRow[] }>(base).then((r) => {
       if (!live) return
       if (r.ok) setRows(r.data.rows)
-      else setError(r.error)
+      else setError(("error" in r ? r.error : ""))
     })
     return () => {
       live = false
@@ -76,7 +76,7 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
     setBusy(true)
     const r = await api<{ rows: LinkRow[] }>(base, { method: "PUT", body })
     setBusy(false)
-    if (!r.ok) return r.error
+    if (!r.ok) return ("error" in r ? r.error : "")
     setRows(r.data.rows)
     setEditing(null)
     return null
@@ -87,7 +87,7 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
     setError(null)
     const r = await api<{ rows: LinkRow[] }>(base, { method: "POST", body })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     setRows(r.data.rows)
   }
 
@@ -198,7 +198,7 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
     setOpen(null)
     const r = await api<{ variants: CjVariant[]; products: CjProduct[] }>(`/api/physical/integrations/cj_dropshipping/search?q=${encodeURIComponent(q.trim())}`)
     setSearching(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     setFound(r.data)
   }
   const openProduct = async (pid: string) => {
@@ -206,7 +206,7 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
     const r = await api<{ variants: CjVariant[] }>(`/api/physical/integrations/cj_dropshipping/search?pid=${encodeURIComponent(pid)}`)
     if (!r.ok) {
       setOpen(null)
-      return setError(r.error)
+      return setError(("error" in r ? r.error : ""))
     }
     setOpen({ pid, variants: r.data.variants })
   }

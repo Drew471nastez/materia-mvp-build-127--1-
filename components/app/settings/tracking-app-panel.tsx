@@ -40,7 +40,7 @@ export function TrackingAppPanel({ preferred = "aftership", onChanged }: { prefe
 
   React.useEffect(() => {
     void api<{ tracking: View }>("/api/store/tracking-app").then((r) => {
-      if (!r.ok) return setError(r.error)
+      if (!r.ok) return setError(("error" in r ? r.error : ""))
       setView(r.data.tracking)
       onChanged?.(!!r.data.tracking.own)
     })
@@ -52,7 +52,7 @@ export function TrackingAppPanel({ preferred = "aftership", onChanged }: { prefe
     setError(null)
     const r = await api<{ tracking: View }>("/api/store/tracking-app", { method: "PUT", body })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     setView(r.data.tracking)
     setKey("")
     setSecret("")

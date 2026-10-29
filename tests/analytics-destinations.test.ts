@@ -111,7 +111,7 @@ function built(over: Partial<BuildInput> & Pick<BuildInput, "tool">): ProviderRe
   const secret = over.tool === "webhook" ? { url: "https://hooks.example.com/storelib", secret: "whsec_test_secret" } : { key: over.tool === "ga4" ? "ga-secret-1234567890" : over.tool === "meta" ? "EAABtoken" : "phc_key" }
   const config = over.tool === "ga4" ? { measurement_id: "G-ABC1234" } : over.tool === "meta" ? { pixel_id: "123456789012345" } : over.tool === "posthog" ? { host: "https://eu.i.posthog.com" } : {}
   const b = buildRequest({ event: "purchase", eventKey: "purchase:ord-1", facts: FACTS, person: null, config, secret, storeId: STORE, now: NOW, ...over })
-  return b.ok ? b.request : b.skip
+  return "skip" in b ? b.skip : b.request
 }
 
 async function main() {

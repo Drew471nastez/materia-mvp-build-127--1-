@@ -176,8 +176,8 @@ export async function saveDestination(db: Db, creatorId: string, body: Record<st
       .insert({ destination_id: existing.id, creator_id: creatorId, event_name: "test", event_key: key, subject_ref: null, facts: t.ok ? t.facts : testFacts(now), person: null, status: "queued", attempts: 1, next_attempt_at: nowIso, created_at: nowIso, updated_at: nowIso })
       .select("id")
       .maybeSingle()
-    if (logged?.id) await finish(db, logged.id, 99, t.ok ? { status: "sent", code: 200 } : { status: "failed", code: null, error: t.error }, now)
-    return t.ok ? { ok: true } : { ok: false, error: t.error, status: 400 }
+    if (logged?.id) await finish(db, logged.id, 99, t.ok ? { status: "sent", code: 200 } : { status: "failed", code: null, error: "error" in t ? t.error : "" }, now)
+    return t.ok ? { ok: true } : { ok: false, error: "error" in t ? t.error : "", status: 400 }
   }
 
   if (body.step !== "connect") return { ok: false, error: "Bad request.", status: 400 }

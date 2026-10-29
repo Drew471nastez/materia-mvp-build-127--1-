@@ -185,7 +185,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
     setDone(null)
     const r = await api<{ status: number }>(`/api/physical/integrations/${provider.id}/test`, { method: "POST", body: {} })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     setDone(tt("Sent. Your address answered {status}.", { status: r.data.status }))
   }
 
@@ -195,7 +195,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
     setDone(null)
     const r = await api<{ integrations: IntegrationState[] }>(`/api/physical/integrations/${provider.id}`, { method: "PUT", body })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     onSaved(r.data.integrations)
     setSecret("")
     setKey("")
@@ -402,7 +402,7 @@ function GelatoChoices({ state, busy, save }: { state: IntegrationState; busy: b
     void api<{ methods: { uid: string; name: string; hasTracking: boolean }[] }>("/api/physical/integrations/gelato/shipment-methods").then((r) => {
       if (!live) return
       if (r.ok) setMethods(r.data.methods)
-      else setError(r.error)
+      else setError(("error" in r ? r.error : ""))
     })
     return () => {
       live = false

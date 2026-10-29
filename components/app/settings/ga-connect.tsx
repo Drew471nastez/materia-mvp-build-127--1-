@@ -117,7 +117,7 @@ export function GaConnect({ value, ready, onSaved }: { value: string | null; rea
     async (id: string) => {
       setCheck({ state: "running" })
       const r = await runCheck(id)
-      if (!r.ok) return setCheck({ state: "failed", reason: r.reason })
+      if (!r.ok) return setCheck({ state: "failed", reason: ("reason" in r ? r.reason : "timeout") })
       setCheck({ state: "passed", sent: r.sent })
       const kept = await api<{ ga: GaStatusView }>("/api/store/ga-check", { method: "POST", body: { id } })
       if (kept.ok) setGa(kept.data.ga)
@@ -130,14 +130,14 @@ export function GaConnect({ value, ready, onSaved }: { value: string | null; rea
     let id: string | null = null
     if (next !== null) {
       const found = readGaInput(next)
-      if (!found.ok) return setError(found.error)
+      if (!found.ok) return setError(("error" in found ? found.error : ""))
       id = found.id
       setTyped(id)
     }
     setBusy(true)
     const r = await api<{ tracking: Tracking }>("/api/store/integrations", { method: "PUT", body: { id: "ga4", value: id } })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     onSaved(r.data.tracking)
     setGa(id ? { id, seenAt: null, checkedAt: null, ready: ga?.ready ?? true } : null)
     setCheck({ state: "idle" })

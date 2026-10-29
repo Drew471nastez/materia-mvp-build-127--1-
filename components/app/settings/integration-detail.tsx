@@ -299,7 +299,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /** One request from the header, and what it changes on the page. */
   const send = async (call: ActionCall): Promise<string | null> => {
     const r = await api<{ tracking?: Tracking; marketing?: MarketingState[]; integrations?: IntegrationState[] }>(call.path, { method: call.method, body: call.body })
-    if (!r.ok) return r.error
+    if (!r.ok) return ("error" in r ? r.error : "")
     if (call.path === "/api/store/reviews-app") onApp("storelib_reviews", call.body.enabled === true)
     else if (call.path === "/api/store/tracking-app") onApp("courier_tracking", false)
     else if (call.path === "/api/store/integrations" && r.data.tracking) onTracking(r.data.tracking)
@@ -936,7 +936,7 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
     setSaved(false)
     const r = await api<{ tracking: Tracking }>("/api/store/integrations", { method: "PUT", body: { id: item.trackerId, value: next } })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     onSaved(r.data.tracking)
     setSaved(true)
   }
@@ -983,7 +983,7 @@ function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }
     const r = await api("/api/store/integrations/request", { method: "POST", body: { name: item.name, integrationId: item.id } })
     if (!r.ok) {
       setState("idle")
-      return setError(r.error)
+      return setError(("error" in r ? r.error : ""))
     }
     setState("sent")
   }

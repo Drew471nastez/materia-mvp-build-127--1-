@@ -343,7 +343,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       if (r.ok) {
         setTracking(r.data.tracking)
         setTrackingReady(r.data.ready)
-      } else setError(r.error)
+      } else setError(("error" in r ? r.error : ""))
     })
   }, [])
   React.useEffect(() => {
@@ -1114,7 +1114,7 @@ function RequestForm({ open, onClose }: { open: boolean; onClose: () => void }) 
     setError(null)
     const r = await api("/api/store/integrations/request", { method: "POST", body: { name, note } })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
     setSent(true)
   }
   return (

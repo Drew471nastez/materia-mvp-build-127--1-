@@ -137,7 +137,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
     const r = await api<{ marketing: MarketingState[]; lists: { id: string; name: string }[] | null; account: string | null }>(MARKETING_PATH, { method: "POST", body: { provider, ...body } })
     setBusy(null)
     if (!r.ok) {
-      setError(r.error)
+      setError(("error" in r ? r.error : ""))
       return null
     }
     take(r.data.marketing)
