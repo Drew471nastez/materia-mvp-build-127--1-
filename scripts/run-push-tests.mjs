@@ -511,6 +511,8 @@ const SUITES = [
   "tests/github-publish-sync.test.ts",
   /* The whole theme reaches an empty repository (README.md first, every file read back), a branch is protected only when GitHub says so, a file push protection refuses is set apart, a send out of time finishes on the next. */
   "tests/github-complete-sync.test.ts",
+  /* The stylesheet is compiled before next build, so the build fits Vercel's 8 GB Standard machine; the shipped CSS is the same. */
+  "tests/build-css-precompiled.test.ts",
   /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
   "tests/github-format-z4.test.ts",
   /* Round repo-1022: Storelib's own Theme settings (Hover and focus, the built-in groups) in the repository both ways, the theme's placement winning in the builder, the store's menus, push results as a comment, a git note and the status's Details; everything the builder shows is in the export; Add block lists what the schema allows, and MCP adds the same blocks. */
