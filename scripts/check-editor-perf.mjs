@@ -182,6 +182,21 @@
  *   live edits (PART=live)            every budget kept, desktop and phone
  *   memory, the stream                +0.7MB heap, DOM and listeners flat, both
  *
+ * Then the section walk (HOOKS=1 says which editor state changed on each of
+ * its renders): a pick rendered the editor three times, the pick said at
+ * once, the panel in its transition, the tree opening after it. The pick is
+ * a store now, read where it is drawn (lib/website-builder/pick-store.ts),
+ * and the tree opens in the panel's transition. The editor is one tooltip
+ * provider (not one per tooltip) and the toolbar's buttons are memoized.
+ * Every panel list's ::after is its wheel pane (no markup per list). Three
+ * alternating runs each at 4x, HEAD then this:
+ *
+ *                                     before            after
+ *   4 picks: editor renders           11                4
+ *            component renders        6,871 to 6,898    2,838 to 2,865
+ *            blocking                 444 / 582 / 1,084ms   255 / 339 / 412ms
+ *            longest task             174 to 498ms      119 to 183ms
+ *
  *   node scripts/check-editor-perf.mjs
  *   npx tsx scripts/check-editor-perf.mjs    (an imported theme needs tsx: its converter is TypeScript)
  *   PART=interactions|scroll|live|smooth|load  some parts only (comma separated; all but smooth by default)
