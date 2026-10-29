@@ -476,7 +476,7 @@ export async function productsSitemap(chunk: number, of?: number, admin: Admin =
         .from("products")
         .select("id, slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
         .eq("status", "published")
-        /* Physical products are the creator's own website's, never the marketplace's (lib/seo/creator-domain lists them there). */
+        /* Physical products sell on the creator's own website, never the marketplace (their pages redirect there, so they are listed by none of these files). */
         .neq("type", "physical")
       if (skipCommunity) q = q.is("community_id", null)
       return page(q) as PromiseLike<Rows<ProductRow>>
