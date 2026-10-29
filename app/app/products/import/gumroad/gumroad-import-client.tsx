@@ -387,7 +387,7 @@ function ProductRow({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{draft?.title || p.title}</p>
-          <p className={cn(MUTED, "truncate")}>
+          <p className={cn(MUTED, !p.unsupported && "truncate")}>
             {p.unsupported
               ? unsupportedText(p)
               : p.importedProductId
@@ -442,7 +442,7 @@ function ProductRow({
             {p.notes.includes("currency") ? null : <p className={cn(MUTED, "mt-1")}>{tt("On Gumroad: {price}", { price: gumroadPriceLabel(p) })}</p>}
           </div>
           {p.variants.length ? (
-            <fieldset>
+            <fieldset className="min-w-0">
               <legend className={LABEL}>{tt("Options")}</legend>
               <ul className="space-y-2">
                 {p.variants.map((v, i) => (

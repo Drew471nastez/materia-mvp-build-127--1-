@@ -59,7 +59,7 @@ console.log("\nThe open editor takes a push in one pass")
 
   console.log("\nA push lets go of what it replaced (push lag)")
   const sheet = read("components/website-builder/compat/compat-section-preview.tsx")
-  check("the library's old sheet lets go of its frame's document when a newer sheet takes the frame", /release\(\): void \{\s*this\.doc = null\s*this\.proto = null\s*this\.frame = null\s*this\.grid = null\s*this\.wrappers\.clear\(\)/.test(sheet) && /useEffect\(\(\) => \{\s*if \(!sheet\) return\s*return \(\) => sheet\.release\(\)\s*\}, \[sheet\]\)/.test(sheet))
+  check("the library's old sheet lets go of its frame's document when a newer sheet takes the frame", /* Changed on purpose (round 45: the cards' watcher goes first) */ /release\(\): void \{\s*this\.watcher\?\.disconnect\(\)\s*this\.watcher = null\s*this\.doc = null\s*this\.proto = null\s*this\.frame = null\s*this\.grid = null\s*this\.wrappers\.clear\(\)/.test(sheet) && /useEffect\(\(\) => \{\s*if \(!sheet\) return\s*return \(\) => sheet\.release\(\)\s*\}, \[sheet\]\)/.test(sheet))
   check("a push still being written is applied once, when it is in", /holdForPush\(/.test(read("components/website-builder/site-connections.tsx")) && /export const PUSH_QUIET_MS = 2_000/.test(read("lib/website-builder/live-follow.ts")) && /export const PUSH_HOLD_CAP_MS = 10_000/.test(read("lib/website-builder/live-follow.ts")))
   check("the same sync report read again draws nothing again", /setStatus\(\(prev\) => \(JSON\.stringify\(prev\) === JSON\.stringify\(next\) \? prev : next\)\)/.test(read("components/website-builder/github-sync-notice.tsx")))
   console.log("\nOne saved file is cheap on a store theme (push lag, round 2)")

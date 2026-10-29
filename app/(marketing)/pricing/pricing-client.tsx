@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useState, useSyncExternalStore } from "react"
+import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
@@ -8,7 +8,6 @@ import { SplitFeaturesSection } from "@/components/marketing/split-features-sect
 import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { CtaSection } from "@/components/marketing/cta-section"
-import { CompareStrip } from "@/components/alternatives/compare-strip"
 import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
@@ -30,7 +29,8 @@ function readUpgradeQuery(): { source?: string; returnTo?: string } {
   return { source: q.get("source") ?? undefined, returnTo }
 }
 
-export function PricingPageClient() {
+/** `compare` is the "Compare Storelib" line, rendered on the server (components/alternatives/compare-strip) so its list stays out of this bundle. */
+export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
   /*
     WHO IS SIGNED IN, AFTER HYDRATION. The server render is the signed out
     page; the header checks the session on mount and keeps this record in
@@ -122,7 +122,7 @@ export function PricingPageClient() {
       />
 
       {/* COMPARE STORELIB: a line of links to each comparison (lib/alternatives). */}
-      <CompareStrip />
+      {compare}
 
       {/* FEATURE BADGES - Launch in minutes, Cancel anytime, No coding, Get paid directly */}
       <FeaturesBadgesSection />

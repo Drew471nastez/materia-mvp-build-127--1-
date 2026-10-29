@@ -77,7 +77,7 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   {
     const sheet = sheetDocument(theme, page as never, files, 1200, 800)
     check("its body is empty: nothing of the layout is drawn over the cards", /<body\b[^>]*><\/body>/.test(sheet.html), sheet.html.slice(sheet.html.indexOf("<body"), sheet.html.indexOf("<body") + 200))
-    check("  it is see-through, and each section is cut and kept to its card", sheet.html.includes("background:transparent!important") && /body>\[data-sl-pv\]\{position:absolute!important/.test(sheet.html) && /contain:layout paint style!important/.test(sheet.html))
+    check("  it is see-through, and each section is cut and kept to its card", sheet.html.includes("background:transparent!important") && /* Changed on purpose (round 45: the card's box is <sl-card>, the library's own, in the first cascade layer) */ /body>sl-card\[data-sl-card\]\{display:block!important;position:absolute!important/.test(sheet.html) && /overflow:clip!important;contain:strict!important;isolation:isolate!important/.test(sheet.html) && sheet.html.indexOf("@layer storelib-card;") < sheet.html.search(/<link|<style(?! data-storelib-layer)/))
     check("  it has no script", !/<script\b/i.test(sheet.html))
     const one = sectionMarkup(theme, page as never, previewSectionFor("hello", 0, { type: "hello", name: "Hello", fields: [], presets: [{ name: "Hello", settings: {}, blocks: [{ type: "line", settings: {} } as never] }] } as never), files, 1200, 800)
     check("  a section's own markup is the theme's, with its words", one.includes("Welcome to our store") && one.includes("Share something about your brand") && !/<script\b/i.test(one), one.slice(0, 200))
@@ -102,7 +102,7 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   check("  the list it lies over is its positioning parent", /data-library-grid="" className="relative /.test(library))
   check("  each section is put over its card's box, read in the same frame the cards are laid out in", /queueMicrotask\(/.test(preview) && /sheet\?\.requestSync\(\)/.test(preview) && /new ResizeObserver\(\(\) => sheet\.sync\(\)\)/.test(preview))
   check("  a frame's blank first page is never mistaken for its document", /doc\.URL !== "about:srcdoc"/.test(preview))
-  check("  a section away from the screen costs nothing to put the next one in", /content-visibility:auto/.test(preview) && /containIntrinsicSize/.test(preview))
+  check("  a section away from the screen costs nothing to put the next one in", /* Changed on purpose (round 45: its box is its card's size whatever it holds, contain: strict, so no intrinsic size is needed) */ /content-visibility:auto/.test(preview) && /box\.setAttribute\("data-measured", ""\)/.test(preview))
   check("  sections are drawn ahead only while nobody is using the editor, and an open list nearest the screen first", /INPUT_QUIET_MS - \(performance\.now\(\) - lastInput\)/.test(preview) && /\(view\.top - r\.bottom\) \* 3/.test(preview) && /FRAME_BUDGET_MS = 8/.test(preview))
   check("  a picture fades in once, after its images are decoded and its stylesheets are in", /i\.decode\(\)/.test(preview) && /links\.map\(loaded\)/.test(preview) && /data-instant/.test(preview) && /prefers-reduced-motion:reduce/.test(preview))
   check("  the card does not rise from under its picture on hover", /!phone && !compat && "group-hover:-translate-y-px"/.test(library))
