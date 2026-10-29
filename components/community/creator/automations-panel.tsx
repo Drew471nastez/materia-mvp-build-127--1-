@@ -206,11 +206,18 @@ export function AutomationsPanel({ head }: { head: Pick<CommunityHead, "id" | "n
   React.useEffect(() => {
     void load()
   }, [load])
-  /* While something is going out, the counts follow it. */
+  /* While something is going out, the counts follow it: not while the tab is hidden, and once more the moment it comes back. */
   React.useEffect(() => {
     if (!d?.automations.some((a) => a.pending > 0 || a.status === "sending")) return
-    const t = window.setInterval(() => void load(), 15_000)
-    return () => window.clearInterval(t)
+    const again = () => {
+      if (document.visibilityState === "visible") void load()
+    }
+    const t = window.setInterval(again, 15_000)
+    document.addEventListener("visibilitychange", again)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener("visibilitychange", again)
+    }
   }, [d, load])
 
   if (failed) return <Notice>{tt("Automated messages did not load. Refresh the page.")}</Notice>
