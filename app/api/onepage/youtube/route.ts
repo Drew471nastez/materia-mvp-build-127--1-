@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { deadlineFetch } from "@/lib/net/deadline"
+
+/* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
+const EMBED_FETCH_MS = 8_000
+const embedFetch = (url: string, init: RequestInit = {}) => deadlineFetch(url, init, { ms: EMBED_FETCH_MS })
 
 // Helper to extract channel ID or username from YouTube URL
 function extractYouTubeChannelInfo(url: string): { type: 'channel' | 'user' | 'custom' | 'video', id: string } | null {
@@ -60,7 +65,7 @@ async function resolveChannelId(info: { type: string, id: string }): Promise<str
   }
 
   try {
-    const response = await fetch(channelUrl, {
+    const response = await embedFetch(channelUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
@@ -92,7 +97,7 @@ async function resolveChannelId(info: { type: string, id: string }): Promise<str
 async function fetchLatestVideo(channelId: string): Promise<{ videoId: string, title: string, thumbnailUrl: string } | null> {
   try {
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
-    const response = await fetch(rssUrl)
+    const response = await embedFetch(rssUrl)
 
     if (!response.ok) return null
 

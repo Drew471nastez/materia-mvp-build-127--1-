@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { deadlineFetch } from "@/lib/net/deadline"
+
+/* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
+const EMBED_FETCH_MS = 8_000
+const embedFetch = (url: string, init: RequestInit = {}) => deadlineFetch(url, init, { ms: EMBED_FETCH_MS })
 
 // Extract Apple Music entity info from URL
 function extractAppleMusicInfo(url: string): { type: 'song' | 'album' | 'artist' | 'playlist', id: string, country: string } | null {
@@ -73,7 +78,7 @@ async function fetchAppleMusicMetadata(appleMusicUrl: string): Promise<{
 
   try {
     // First try odesli.co API for better metadata
-    const odesliResponse = await fetch(
+    const odesliResponse = await embedFetch(
       `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(appleMusicUrl)}&userCountry=US`,
       { headers: { 'Accept': 'application/json' } }
     )
@@ -105,7 +110,7 @@ async function fetchAppleMusicMetadata(appleMusicUrl: string): Promise<{
   // Fallback: Scrape Apple Music page directly
   if (!thumbnailUrl || !title) {
     try {
-      const pageResponse = await fetch(appleMusicUrl, {
+      const pageResponse = await embedFetch(appleMusicUrl, {
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }

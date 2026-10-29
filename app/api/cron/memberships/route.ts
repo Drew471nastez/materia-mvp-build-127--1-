@@ -42,5 +42,5 @@ async function runJob(request: Request) {
 }
 
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/memberships", request, () => runJob(request))
+  return recordCronRun("/api/cron/memberships", request, () => runJob(request), { maxDurationS: maxDuration })
 }

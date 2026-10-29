@@ -108,3 +108,41 @@ export function stoppedSentence(workDone: boolean, reason: "budget" | "turns" | 
     ? "I stopped here to keep this run's cost in check. Press Continue and I will carry on from this point."
     : "I read through the page but stopped before changing anything, to keep this run's cost in check. Press Continue and I will pick up from here."
 }
+
+/**
+ * ===========================================================================
+ *  THE LOOP'S DEADLINE, COUNTED FROM WHEN THE REQUEST ARRIVED
+ * ===========================================================================
+ * The route used to start its 285 second clock inside the stream, after the
+ * sign in, the install, the conversation, the memory, the question and the
+ * pictures had been read and written: each a Supabase call with a deadline
+ * of up to 30 seconds (lib/net/deadline.ts), and the pictures an upload of
+ * up to 120. Vercel counts from the request. A slow start therefore moved
+ * the loop's end past 300 seconds, and the function was killed in the code
+ * commit, the memory notes or the closing message that come after the loop:
+ * the 300 second timeouts in the log, with the transcript left without an
+ * answer.
+ *
+ * Now the loop ends `TAIL_RESERVE_MS` before the platform would, measured
+ * from the request's own start, which leaves time for every write after it.
+ * Never less than `MIN_LOOP_MS`, so a run always gets a turn in.
+ */
+export const TAIL_RESERVE_MS = 45_000
+export const MIN_LOOP_MS = 10_000
+
+export function loopDeadlineMs({
+  requestStartedAt,
+  now = Date.now(),
+  maxDurationS,
+  wallClockMs = AGENT_LIMITS.wallClockMs,
+  reserveMs = TAIL_RESERVE_MS,
+}: {
+  requestStartedAt: number
+  now?: number
+  maxDurationS: number
+  wallClockMs?: number
+  reserveMs?: number
+}): number {
+  const endsAt = requestStartedAt + Math.min(wallClockMs, maxDurationS * 1000 - reserveMs)
+  return Math.max(MIN_LOOP_MS, endsAt - now)
+}

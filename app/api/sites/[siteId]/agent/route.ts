@@ -35,6 +35,8 @@ export const maxDuration = 300
 const MAX_PROMPT = 4_000
 
 export async function POST(request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
+  /* The platform's 300 seconds count from here (lib/sites/agent/run.ts deadlineAt). */
+  const requestStartedAt = Date.now()
   const { siteId } = await context.params
 
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           provider: resolved.provider,
           pickModel: (fileCount) => modelFor(resolved.id, chooseTier(prompt, fileCount)),
           esbuild,
+          requestStartedAt,
           /**
            * NOT `request.signal`. The client's connection is not permission
            * to keep working — Stop is an explicit act, and it travels through

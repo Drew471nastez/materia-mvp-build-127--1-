@@ -92,8 +92,9 @@ console.log("\nThe Mailgun webhook trusts only a signed delivery")
 console.log("\nA long AI edit ends before the platform ends it")
 {
   const route = strip(read("app/api/website-builder/themes/[installId]/agent/route.ts"))
-  check("the loop stops fifteen seconds before maxDuration, keeping what it did",
-    /const deadline = AbortSignal\.timeout\(\(maxDuration - 15\) \* 1000\)/.test(route) && /signal: eitherSignal\(request\.signal, deadline\)/.test(route))
+  /* Changed on purpose (rel-jobs): the deadline is counted from the request's start with room for the writes after the loop (lib/website-builder/agent/limits.ts loopDeadlineMs), not fifteen seconds from the stream's start. */
+  check("the loop stops before maxDuration, counted from the request, keeping what it did",
+    /const deadline = AbortSignal\.timeout\(loopDeadlineMs\(\{ requestStartedAt, maxDurationS: maxDuration \}\)\)/.test(route) && /signal: eitherSignal\(request\.signal, deadline\)/.test(route))
   check("and says it ran out of time rather than failing silently", /deadline\.aborted && !request\.signal\.aborted/.test(route))
 }
 

@@ -138,8 +138,33 @@ async function tellOwner(source: string, where: string, message: string, context
  * Runs one scheduled job and writes down that it ran (public.cron_runs,
  * run-now part 68): when, whether it worked, what it answered. A failure is
  * reported like any other error. The job's own answer is returned unchanged.
+ *
+ * ONE RUN OF A JOB AT A TIME. Vercel can deliver the same cron more than
+ * once, and a job that runs as long as its interval meets its own next run.
+ * Two runs of a sweep side by side each take the same rows, send the same
+ * email and pay for the same AI twice. The run's own row is the lease: after
+ * writing it, a run looks for an earlier row of the same job that has not
+ * finished and started within the job's maxDuration (plus a margin). If
+ * there is one, this run writes itself down as skipped and does nothing.
+ * Two rows written in the same instant are ordered by their ids, so exactly
+ * one of them goes ahead. A run the platform killed never finishes its row,
+ * and stops counting once its maxDuration is up, so nothing is held for
+ * longer than one run could take. Before part 68, or when the database does
+ * not answer in time, the job runs as it always did.
  */
-export async function recordCronRun(job: string, request: Request, run: () => Promise<Response>): Promise<Response> {
+export const CRON_LEASE_MARGIN_MS = 30_000
+
+/** Whether an earlier, unfinished run of the same job still holds it. Pure, so the rule has a test. */
+export function heldByEarlierRun(rows: { id: number; started_at: string; finished_at: string | null }[], mine: number, leaseMs: number, now = Date.now()): boolean {
+  return rows.some((r) => r.id < mine && r.finished_at === null && now - Date.parse(r.started_at) < leaseMs)
+}
+
+export async function recordCronRun(
+  job: string,
+  request: Request,
+  run: () => Promise<Response>,
+  { maxDurationS = 300 }: { maxDurationS?: number } = {},
+): Promise<Response> {
   /* Only a caller holding the cron secret is a run: anybody else is answered 401 by the job and leaves no record. */
   const secret = process.env.CRON_SECRET
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return run()
@@ -157,6 +182,30 @@ export async function recordCronRun(job: string, request: Request, run: () => Pr
       if (res.ok) id = ((await res.json()) as Array<{ id: number }>)[0]?.id ?? null
     } catch {
       /* Before part 68, or the database slow: the job still runs. */
+    }
+  }
+  const leaseMs = maxDurationS * 1000 + CRON_LEASE_MARGIN_MS
+  if (url && headers && id !== null) {
+    try {
+      const since = new Date(Date.now() - leaseMs).toISOString()
+      const res = await fetch(
+        `${url}/rest/v1/cron_runs?select=id,started_at,finished_at&job=eq.${encodeURIComponent(job)}&id=lt.${id}&finished_at=is.null&started_at=gte.${encodeURIComponent(since)}&limit=1`,
+        { headers, signal: AbortSignal.timeout(3000) },
+      )
+      const rows = res.ok ? ((await res.json()) as { id: number; started_at: string; finished_at: string | null }[]) : []
+      if (heldByEarlierRun(rows, id, leaseMs)) {
+        const detail = JSON.stringify({ skipped: true, reason: "an earlier run of this job is still going", heldBy: rows[0]?.id ?? null })
+        await fetch(`${url}/rest/v1/cron_runs?id=eq.${id}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ finished_at: new Date().toISOString(), ok: true, status: 200, detail }),
+          signal: AbortSignal.timeout(3000),
+        }).catch(() => undefined)
+        console.info(JSON.stringify({ evt: "cron_skipped_overlap", job, run: id, heldBy: rows[0]?.id ?? null }))
+        return new Response(detail, { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } })
+      }
+    } catch {
+      /* Could not tell: the job runs, as before part 68. */
     }
   }
   const finish = async (ok: boolean, status: number, detail: string) => {

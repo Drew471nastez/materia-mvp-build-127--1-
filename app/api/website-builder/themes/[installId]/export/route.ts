@@ -47,6 +47,8 @@ type Params = { params: Promise<{ installId: string }> }
 
 /** A site with no cover yet is photographed before it is packaged: a browser launch and two page loads. */
 export const maxDuration = 60
+/** How long into the request media may still be fetched, leaving the rest of maxDuration to build and send the ZIP. */
+const MEDIA_WINDOW_MS = 40_000
 
 /** The storage uploads are served from, asked even where it is not public (localhost in development). */
 const STORAGE_ORIGINS: string[] = (() => {
@@ -101,6 +103,16 @@ async function packagedCover(userId: string, installId: string): Promise<{ ref: 
 // GET /api/website-builder/themes/[installId]/export
 // Streams a .storelib-export zip back to the browser.
 export async function GET(_req: Request, { params }: Params) {
+  /*
+    THE PICTURES AND VIDEOS STOP IN TIME TO ZIP. They are fetched one at a
+    time, each allowed 20 seconds, inside a function that lives 60: three
+    slow files and the platform ended the export with nothing at all. Past
+    MEDIA_WINDOW_MS from the request's start the rest are left out, counted
+    in X-Storelib-Media-Skipped like a file too big to carry, and the export
+    still arrives.
+  */
+  const mediaUntil = Date.now() + MEDIA_WINDOW_MS
+  const mediaWait = () => Math.max(0, Math.min(20_000, mediaUntil - Date.now()))
   const { installId } = await params
   const supabase = await createClient()
 
@@ -156,8 +168,9 @@ export async function GET(_req: Request, { params }: Params) {
     for (const [path, body] of Object.entries(out.files)) zip.file(path, body)
     let missing = 0
     for (const [name, url] of Object.entries(out.media)) {
+      if (mediaWait() < 1_000) { missing++; continue }
       try {
-        const res = await fetchPublic(url, { maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000, trustOrigins: STORAGE_ORIGINS })
+        const res = await fetchPublic(url, { maxBytes: 15 * 1024 * 1024, timeoutMs: mediaWait(), trustOrigins: STORAGE_ORIGINS })
         if (!res.ok) { missing++; continue }
         zip.file(`assets/${name}`, new Uint8Array(await res.arrayBuffer()))
       } catch {
@@ -225,6 +238,7 @@ export async function GET(_req: Request, { params }: Params) {
   for (const url of Array.from(urls).sort()) {
     const type = mediaTypeFor(url)
     if (!type) continue
+    if (mediaWait() < 1_000) { skipped.push(url); continue }
     try {
       /*
         Only a public address, checked as it is connected to and at every
@@ -232,7 +246,7 @@ export async function GET(_req: Request, { params }: Params) {
         can hold any address at all, and what comes back goes into the
         download. See lib/api/public-fetch.ts.
       */
-      const res = await fetchPublic(url, { maxBytes: MAX_BYTES[type.kind], timeoutMs: 20_000, trustOrigins: STORAGE_ORIGINS })
+      const res = await fetchPublic(url, { maxBytes: MAX_BYTES[type.kind], timeoutMs: mediaWait(), trustOrigins: STORAGE_ORIGINS })
       if (!res.ok) { skipped.push(url); continue }
 
       /**

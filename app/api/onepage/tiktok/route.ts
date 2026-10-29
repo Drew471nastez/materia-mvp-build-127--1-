@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { deadlineFetch } from "@/lib/net/deadline"
+
+/* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
+const EMBED_FETCH_MS = 8_000
+const embedFetch = (url: string, init: RequestInit = {}) => deadlineFetch(url, init, { ms: EMBED_FETCH_MS })
 
 // Extract TikTok video info from URL
 function extractTikTokInfo(url: string): { videoId: string | null, username: string | null } {
@@ -51,7 +56,7 @@ async function fetchTikTokMetadata(url: string): Promise<{
 
   try {
     // Use TikTok oEmbed API
-    const oembedResponse = await fetch(
+    const oembedResponse = await embedFetch(
       `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`,
       { headers: { 'Accept': 'application/json' } }
     )
@@ -88,7 +93,7 @@ async function fetchTikTokMetadata(url: string): Promise<{
   // Fallback: Try to scrape the page for og:image if no thumbnail
   if (!thumbnailUrl) {
     try {
-      const pageResponse = await fetch(url, {
+      const pageResponse = await embedFetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         },

@@ -44,7 +44,7 @@ import {
   type SchemaWords,
 } from "@/lib/storelib-theme/compat/schema-sync"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
-import { agentRateLimit } from "@/lib/sites/rate-limit"
+import { agentRateLimit, themeAgentLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
@@ -66,7 +66,7 @@ import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
 import { importedSectionWrite } from "@/lib/website-builder/agent/imported-write"
-import { AGENT_LIMITS } from "@/lib/website-builder/agent/limits"
+import { AGENT_LIMITS, loopDeadlineMs } from "@/lib/website-builder/agent/limits"
 import { storeCurrencyOf } from "@/lib/store/currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
@@ -188,6 +188,8 @@ const BodySchema = z.object({
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
+  /* Vercel's 300 seconds count from here, so the loop's deadline does too (loopDeadlineMs). */
+  const requestStartedAt = Date.now()
   const { installId } = await context.params
 
   const supabase = await createClient()
@@ -235,6 +237,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    */
   const limited = await agentRateLimit((creator as { id: string }).id)
   if (limited) return NextResponse.json({ error: limited }, { status: 429 })
+  /* This editor's own runs, counted from its own rows: the limit above counts the code agent's (lib/sites/rate-limit.ts themeAgentLimit). */
+  const busy = await themeAgentLimit((creator as { id: string }).id)
+  if (busy) return NextResponse.json({ error: busy }, { status: 429 })
 
   /* Tidied first (lib/website-builder/agent/request-shape.ts): one odd value in the page never refuses the run. */
   const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
@@ -638,11 +643,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * STOP BEFORE THE PLATFORM STOPS US. At maxDuration the function is
          * killed mid-stream: no closing message, nothing written to the
          * transcript, and a creator watching a spinner that never resolves
-         * (the production log shows it). Ending the loop fifteen seconds
-         * early lets it finish the way a cancel does: work already applied
-         * is kept and summarised, and the answer arrives.
+         * (the production log shows it). Ending the loop early lets it
+         * finish the way a cancel does: work already applied is kept and
+         * summarised, and the answer arrives. Counted from the request's
+         * start with room for the commit and the closing writes after the
+         * loop (lib/website-builder/agent/limits.ts loopDeadlineMs); it was
+         * fifteen seconds from the stream's start, which a slow start spent.
          */
-        const deadline = AbortSignal.timeout(Math.min(AGENT_LIMITS.wallClockMs, (maxDuration - 15) * 1000))
+        const deadline = AbortSignal.timeout(loopDeadlineMs({ requestStartedAt, maxDurationS: maxDuration }))
         /**
          * THE RUN'S LOG, for whoever debugs it: the intent, the plan, every
          * tool call, what the checks found and what was repaired, the model

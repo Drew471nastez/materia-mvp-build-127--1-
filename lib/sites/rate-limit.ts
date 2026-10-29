@@ -92,3 +92,71 @@ export async function publishRateLimit(siteId: string): Promise<string | null> {
   }
   return null
 }
+
+/*
+ * ===========================================================================
+ *  THE WEBSITE BUILDER'S STORELIB AI, COUNTED FROM ITS OWN ROWS
+ * ===========================================================================
+ * The theme agent (app/api/website-builder/themes/[installId]/agent) called
+ * agentRateLimit, which counts site_agent_runs: the CODE agent's table. The
+ * theme agent never writes there, so its limit counted nothing, and one
+ * creator (a script, a stuck retry, five tabs) could hold any number of 300
+ * second runs at once on Storelib's AI key and the shared function pool.
+ *
+ * Every theme agent run, and every Code a section run, writes its question
+ * to theme_chat_messages before the model is reached and its answer when it
+ * is over (lib/website-builder/agent/chat.ts). So the count is over rows that
+ * already exist, by the (install_id, created_at) index they already have:
+ *
+ *   per minute and per hour   questions asked, as for the code agent
+ *   at once                   questions in the last run's length without an
+ *                             answer yet. A run that died without answering
+ *                             stops counting when its 300 seconds are up.
+ *
+ * A count that cannot be read lets the run go: a limit is protection, and a
+ * database blip must not be the reason a creator cannot edit.
+ */
+export const THEME_AGENT_LIMITS: RateWindow[] = [
+  { limit: 8, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
+  { limit: 120, seconds: 3600, message: "That is a lot of edits in an hour. Try again shortly." },
+]
+/** Runs one creator may have going at the same time, across all their websites. */
+export const THEME_AGENT_AT_ONCE = 3
+/** How long a run can be going: the route's maxDuration. */
+export const THEME_AGENT_RUN_SECONDS = 300
+export const THEME_AGENT_BUSY = `Storelib AI is already making ${THEME_AGENT_AT_ONCE} changes for you. Wait for one to finish.`
+
+/** The verdict from the last hour's rows, newest first or in any order. Pure, so it has a test. */
+export function themeAgentVerdict(rows: { role: string; created_at: string }[], now: number = Date.now()): string | null {
+  const age = (r: { created_at: string }) => (now - Date.parse(r.created_at)) / 1000
+  const asked = rows.filter((r) => r.role === "user")
+  for (const window of THEME_AGENT_LIMITS) {
+    if (asked.filter((r) => age(r) <= window.seconds).length >= window.limit) return window.message
+  }
+  const recent = (role: string) => rows.filter((r) => r.role === role && age(r) <= THEME_AGENT_RUN_SECONDS).length
+  if (recent("user") - recent("assistant") >= THEME_AGENT_AT_ONCE) return THEME_AGENT_BUSY
+  return null
+}
+
+type LimitDb = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Null when the run may start, otherwise what to tell the creator. */
+export async function themeAgentLimit(creatorId: string, db?: LimitDb): Promise<string | null> {
+  try {
+    const admin = db ?? (createAdminClient() as unknown as LimitDb)
+    const { data: installs, error } = await admin.from("store_theme_installs").select("id").eq("creator_id", creatorId).limit(200)
+    if (error || !Array.isArray(installs) || installs.length === 0) return null
+    const since = new Date(Date.now() - 3600_000).toISOString()
+    const { data: rows, error: readError } = await admin
+      .from("theme_chat_messages")
+      .select("role, created_at")
+      .in("install_id", (installs as { id: string }[]).map((i) => i.id))
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(500)
+    if (readError || !Array.isArray(rows)) return null
+    return themeAgentVerdict(rows as { role: string; created_at: string }[])
+  } catch {
+    return null
+  }
+}

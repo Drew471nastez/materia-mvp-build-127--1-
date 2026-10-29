@@ -182,6 +182,7 @@ function once(url: URL, opts: PublicFetchOptions, trusted: boolean): Promise<Ans
         })
         res.on("error", reject)
         res.on("end", () => {
+          done()
           const headers = new Headers()
           for (const [name, value] of Object.entries(res.headers)) {
             if (typeof value === "string") headers.set(name, value)
@@ -192,7 +193,21 @@ function once(url: URL, opts: PublicFetchOptions, trusted: boolean): Promise<Ans
         })
       },
     )
-    request.setTimeout(opts.timeoutMs ?? 20_000, () => request.destroy(new Error("timed out")))
+    /*
+      FOR THE WHOLE OF ONE REQUEST, as the option says. setTimeout on the
+      request is the socket's idle time only: a server that sends a byte
+      every few seconds never trips it and held the export to the platform's
+      limit. So the whole exchange has a deadline of its own as well.
+    */
+    const ms = opts.timeoutMs ?? 20_000
+    const total = setTimeout(() => {
+      reject(new Error("timed out"))
+      request.destroy(new Error("timed out"))
+    }, ms)
+    ;(total as unknown as { unref?: () => void }).unref?.()
+    const done = () => clearTimeout(total)
+    request.on("close", done)
+    request.setTimeout(ms, () => request.destroy(new Error("timed out")))
     request.on("error", reject)
   })
 }

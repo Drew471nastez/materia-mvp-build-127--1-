@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { deadlineFetch } from "@/lib/net/deadline"
+
+/* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
+const EMBED_FETCH_MS = 8_000
+const embedFetch = (url: string, init: RequestInit = {}) => deadlineFetch(url, init, { ms: EMBED_FETCH_MS })
 
 // Extract Spotify entity info from URL
 function extractSpotifyInfo(url: string): { type: 'track' | 'album' | 'artist' | 'playlist', id: string } | null {
@@ -43,7 +48,7 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
 
   try {
     // First try odesli.co (song.link) API - it's the best for finding cross-platform links
-    const odesliResponse = await fetch(
+    const odesliResponse = await embedFetch(
       `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(spotifyUrl)}&userCountry=US`,
       { headers: { 'Accept': 'application/json' } }
     )
@@ -95,7 +100,7 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
   let type: 'track' | 'album' | 'artist' | 'playlist' | null = null
 
   try {
-    const oembedResponse = await fetch(
+    const oembedResponse = await embedFetch(
       `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`
     )
 

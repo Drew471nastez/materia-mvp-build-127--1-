@@ -29,7 +29,17 @@ import { DOMAIN_EVENTS, type DomainEvent } from "./types"
 /** The events a store's analytics tools hear (lib/analytics/destinations/forward-server FORWARDED). */
 const FORWARDED_EVENTS = new Set(["order.created", "order.refunded", "membership.started"])
 
-export type EmitInput =Omit<DomainEvent, "occurredAt" | "id"> & { occurredAt?: string }
+/** The current request's id, or null outside a request (a cron's after(), a script, a test). Never throws, never waits long. */
+async function requestCorrelationId(): Promise<string | null> {
+  try {
+    const { currentRequestId } = await import("@/lib/net/log")
+    return await currentRequestId()
+  } catch {
+    return null
+  }
+}
+
+export type EmitInput = Omit<DomainEvent, "occurredAt" | "id"> & { occurredAt?: string }
 
 /** `fresh` is true only for the call that recorded the event: the same key again answers ok without it. */
 export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore; soon?: boolean } = {}): Promise<{ ok: boolean; eventId?: string; fresh?: boolean }> {
@@ -48,7 +58,8 @@ export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore;
       ...event,
       payload: event.payload ?? {},
       occurredAt: event.occurredAt ?? new Date().toISOString(),
-      correlationId: event.correlationId ?? randomUUID(),
+      /* The request that raised it, when there is one (lib/net/request-id.ts): its log lines and the jobs this event starts share one id. */
+      correlationId: event.correlationId ?? (await requestCorrelationId()) ?? randomUUID(),
     })
     if (result.status === "unavailable") return { ok: false }
     if (result.status === "inserted") notifyLog("info", "event recorded", { event: event.name, eventId: result.id, correlationId: event.correlationId })
