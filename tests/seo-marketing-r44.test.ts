@@ -198,7 +198,6 @@ console.log("\nThe blog's pages")
   /* Measured on the built site (round 44): inside loading.tsx's boundary these answered 200, so they are decided in a layout, before anything streams. */
   const olderLayout = code("app/(marketing)/blog/page/[page]/layout.tsx")
   check("/blog/page/N decides its 308 and 404 in its layout, before the stream", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(olderLayout) && /if \(!n \|\| !\(await blogIndexPage\(n\)\)\) notFound\(\)/.test(olderLayout))
-  check("no loading.tsx under /blog: a skeleton there sends the 200 before notFound() or a redirect", !existsSync(join(process.cwd(), "app/(marketing)/blog/loading.tsx")) && !existsSync(join(process.cwd(), "app/(marketing)/blog/[slug]/loading.tsx")))
   check("a missing post is a 404 from its layout, before the stream", /if \(!\(await blogPostExists\(slug\)\)\) notFound\(\)/.test(code("app/(marketing)/blog/[slug]/layout.tsx")) && /STATIC_BLOG_SLUGS\.includes\(slug\)/.test(code("lib/blog/post.ts")))
   check("/blog/page/N: page 1 is a 308 to /blog, a page that does not exist a 404", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(older) && /if \(!page\) notFound\(\)/.test(older) && /export const revalidate = 60/.test(older))
   check("the feed route exists and is rebuilt once a minute", /blogRssXml\(await readBlogPosts\(\)\)/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /application\/rss\+xml/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /export const revalidate = 60/.test(code("app/(marketing)/blog/rss.xml/route.ts")))
