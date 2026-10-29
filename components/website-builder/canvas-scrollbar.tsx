@@ -42,7 +42,7 @@ const HIDE_AFTER_MS = 900
 type Geometry = { top: number; height: number; track: number }
 
 /* The name the canvas's scroll is published under for its thumb (globals.css, wb-canvas-thumb). */
-const TIMELINE = "--wb-canvas-scroll"
+const TIMELINE = "--wb-canvas-timeline"
 /** Whether this browser can drive the thumb from the scroll itself: a scroll-driven animation, and a timeline seen outside the scroller. */
 export function scrollDrivenThumb(): boolean {
   return typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("animation-timeline", TIMELINE) && CSS.supports("timeline-scope", TIMELINE)

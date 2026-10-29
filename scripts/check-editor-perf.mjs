@@ -131,6 +131,57 @@
  * moved the same way in every pair) are claimed. Two alternating pairs at 4x,
  * one at 6x; scratchpad numbers in the commit's report.
  *
+ * Round 44: "stutters and lags badly when scrolling the canvas, scrolling the
+ * section settings sidebar and switching between sections, worse when pushes
+ * arrive; smooth on low spec devices." PART=smooth (below) adds the sidebar's
+ * wheel, a walk of four sections and ten agent edits landing under a canvas
+ * that keeps moving, with the layout's own sidebar scrollbar mounted. The
+ * Storelib theme's wheel was not script: no commits, handlers about 200ms.
+ * It was the browser drawing a frame every frame, and three things asked for
+ * it (TRACE=scroll, each taken away alone and together):
+ *
+ *   the canvas's thumb moved by `top`, then the sidebar's by transform, each
+ *     scrolled frame: a repaint, and every repaint layerizes the whole
+ *     editor (about 1s of a three second wheel at 4x). Both now ride the
+ *     scroll itself, a scroll-driven animation, where the browser can
+ *   hover under a wheel standing still: the page moves under it, so every
+ *     frame was a hit test, over and out events, a restyle and a repaint.
+ *     A clear pane takes the pointer over the canvas and the sidebar's lists
+ *     while the wheel moves them (lib/website-builder/wheel-hold.ts); a
+ *     press during it is handed to what is under the pointer
+ *   the logo marquee, off screen, asked for a main thread frame sixty times
+ *     a second: paused while its section is off screen (holdLoops)
+ *
+ * Switching pointer-events on the content itself instead of a pane restyled
+ * the whole page twice a gesture and was worse than nothing (style 1.6s);
+ * a `> *` rule on the canvas's attribute did the same. Selecting a section
+ * read every select's width in a layout effect, one layout of the editor per
+ * select (choice-control.tsx, 425ms of a four section walk at 4x): it reads
+ * the observer's width now; the walk's long tasks did not move measurably,
+ * its React work (about 1,800 renders a pick) is left.
+ *
+ * HEAD and this round's files alone (another agent's work held out), same
+ * machine, back to back (it was shared, so times moved; layouts, layerize
+ * and hit test totals are the robust ones):
+ *
+ *                                     before            after
+ *   canvas wheel, 4x  dropped         37 to 56%         16 to 30%
+ *                     long tasks      4 to 23           1 to 6
+ *                     style / layout  663-822 / 126-196ms  257-277 / 4-5ms
+ *                     paint           628-837ms         309-324ms
+ *   canvas wheel, 6x  dropped         55 to 65%         34 to 46%
+ *                     style / layout  1,127-1,213 / 98-298ms  350-475 / 0-16ms
+ *   sidebar wheel     dropped 4x      19 to 23%         2%
+ *                     dropped 6x      37 to 54%         10%
+ *                     6x trace        layerize 1,688ms, hit tests 848ms, 641 events
+ *                                     -> 547ms, 156ms, 240 events
+ *   ten edits under   dropped 4x      38 to 57%         8%
+ *   a moving canvas   dropped 6x      65 to 78%         26%
+ *                     long tasks 6x   23 to 30          6
+ *   phone fling, imported theme       0 to 1%, 7 to 10% unchanged
+ *   live edits (PART=live)            every budget kept, desktop and phone
+ *   memory, the stream                +0.7MB heap, DOM and listeners flat, both
+ *
  *   node scripts/check-editor-perf.mjs
  *   npx tsx scripts/check-editor-perf.mjs    (an imported theme needs tsx: its converter is TypeScript)
  *   PART=interactions|scroll|live|smooth|load  some parts only (comma separated; all but smooth by default)
@@ -1194,11 +1245,11 @@ async function smoothScenario({ device, bundle, css, cpu }) {
         return { id, selected }
       }, at)
       out.clickAfterWheel.heldWhenPressed = wheeling
-      /* And once the wheel rests, the pointer not moved: hover is the page's again (the section's ring), not the pane's. */
+      /* And once the wheel rests, the pointer not moved: hover is the page's again (a section, or the add line between two), not the pane's. */
       for (let k = 0; k < 12; k++) { await ed.page.mouse.wheel({ deltaY: -100 }); await sleep(16) }
       await sleep(700)
-      out.hoverAfterRest = await ed.js(() => { const h = [...document.querySelectorAll(":hover")].pop(); return { inSection: !!(h && h.closest("[data-section-box]")), pane: !!(h && h.hasAttribute("data-wb-wheel-shield")), held: document.getElementById("wb-preview-root").hasAttribute("data-wb-wheeling") } })
-      console.log(`  smooth  ${device.padEnd(7)} click     straight after the wheel (held: ${wheeling}): ${out.clickAfterWheel.selected ? "selected" : "NOT SELECTED"} ${out.clickAfterWheel.id}; hover once it rests: ${out.hoverAfterRest.inSection ? "on the section" : out.hoverAfterRest.pane ? "ON THE PANE" : "elsewhere"}${out.hoverAfterRest.held ? " (STILL HELD)" : ""}`)
+      out.hoverAfterRest = await ed.js(() => { const h = [...document.querySelectorAll(":hover")].pop(); return { inSection: !!(h && h.closest("[data-section-box]")), pane: !!(h && h.hasAttribute("data-wb-wheel-shield")), held: document.getElementById("wb-preview-root").hasAttribute("data-wb-wheeling"), what: h ? `${h.tagName}.${String(h.className).slice(0, 40)}` : null, inCanvas: !!(h && h.closest("#wb-preview-root")) } })
+      console.log(`  smooth  ${device.padEnd(7)} click     straight after the wheel (held: ${wheeling}): ${out.clickAfterWheel.selected ? "selected" : "NOT SELECTED"} ${out.clickAfterWheel.id}; hover once it rests: ${out.hoverAfterRest.pane ? "ON THE PANE" : out.hoverAfterRest.inSection ? "on the section" : out.hoverAfterRest.inCanvas ? `on the page (${out.hoverAfterRest.what})` : "elsewhere"}${out.hoverAfterRest.held ? " (STILL HELD)" : ""}`)
       await settleQuiet(ed)
 
       /* THE THUMB where the scroll puts it, at the top, the middle and the end (scroll driven or written, canvas-scrollbar.tsx), against the same sums (scroll-rest.ts thumbFor). */
@@ -1246,7 +1297,7 @@ async function smoothScenario({ device, bundle, css, cpu }) {
         await clickSection(t)
         await ed.page.waitForFunction(() => (document.querySelector("[data-wb-sidebar-scroll]")?.querySelectorAll("input, textarea, button[role=switch]").length ?? 0) > 3, { timeout: 20000, polling: 200 }).catch(() => {})
         await settleQuiet(ed)
-        side = await ed.js(() => { const s = [...document.querySelectorAll("[data-wb-sidebar-scroll], [data-sheet-scroll]")].filter((e) => e.getClientRects().length && !e.closest("#wb-preview-root")).sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]; if (!s) return null; const r = s.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), room: s.scrollHeight - s.clientHeight, fields: s.querySelectorAll("input, textarea, button").length, which: s.hasAttribute("data-wb-sidebar-scroll") ? "settings" : "sections list" } })
+        side = await ed.js(() => { const s = [...document.querySelectorAll("[data-wb-sidebar-scroll], [data-sheet-scroll]")].filter((e) => e.getClientRects().length && !e.closest("#wb-preview-root")).sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]; if (!s) return null; const r = s.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), room: s.scrollHeight - s.clientHeight, fields: s.querySelectorAll("input, textarea, button").length, which: s.hasAttribute("data-wb-sidebar-scroll") ? "settings column" : "panel list (data-sheet-scroll)" } })
         if (side && side.room > 300) { side.section = t; break }
       }
       if (side) {
@@ -1257,6 +1308,19 @@ async function smoothScenario({ device, bundle, css, cpu }) {
         for (const dir of [1, -1, 1]) { for (let k = 0; k < 30; k++) { await ed.page.mouse.wheel({ deltaY: 80 * dir }); await sleep(16) } await sleep(150) }
         out.sidebar = await ed.js(() => window.__sw.stop())
         if (tracing) out.sidebar.trace = await endTrace()
+        /* A press straight after the sidebar's wheel, the mouse not moved: it reaches what is under the pointer, not the list or its pane (wheel-hold.ts). */
+        await ed.js(() => { window.__lastClick = null; window.addEventListener("click", (e) => { window.__lastClick = e.target }, { capture: true, once: true }) })
+        for (let k = 0; k < 6; k++) { await ed.page.mouse.wheel({ deltaY: 80 }); await sleep(16) }
+        const listHeld = await ed.js(() => !!document.querySelector("[data-wb-list-wheeling]"))
+        await ed.page.mouse.down()
+        await ed.page.mouse.up()
+        await sleep(300)
+        out.sidebar.press = await ed.js((p) => {
+          const t = window.__lastClick
+          const list = [...document.querySelectorAll("[data-wb-sidebar-scroll], [data-sheet-scroll]")].filter((e) => e.getClientRects().length && !e.closest("#wb-preview-root")).sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]
+          return { reached: !!t && t !== list && !(t.hasAttribute && t.hasAttribute("data-wb-wheel-shield")) && !!list && list.contains(t), target: t ? `${t.tagName}.${String(t.className).slice(0, 30)}` : null }
+        }, side)
+        out.sidebar.press.held = listHeld
         /* The sidebar's thumb where its scroll puts it (slim-scroll-rail.tsx, scroll driven or written), part way down. */
         await ed.page.mouse.wheel({ deltaY: -400 })
         await sleep(500)
@@ -1268,7 +1332,7 @@ async function smoothScenario({ device, bundle, css, cpu }) {
           return { top: Math.round(r.top), want: Math.round(box.top + (s.scrollTop / room) * (box.height - r.height)), scrollTop: Math.round(s.scrollTop), driven: t.hasAttribute("data-scroll-driven") }
         })
         out.sidebar.room = side.room
-        line("sidebar", out.sidebar, `; ${side.which} with ${side.section ?? "?"} open, ${side.room}px to scroll, ${side.fields} controls; thumb ${out.sidebar.thumb ? `${out.sidebar.thumb.top}px (want ${out.sidebar.thumb.want}) at ${out.sidebar.thumb.scrollTop}, ${out.sidebar.thumb.driven ? "driven by the scroll" : "written"}` : "none"}`)
+        line("sidebar", out.sidebar, `; ${side.which} with ${side.section ?? "?"} open, ${side.room}px to scroll, ${side.fields} controls; thumb ${out.sidebar.thumb ? `${out.sidebar.thumb.top}px (want ${out.sidebar.thumb.want}) at ${out.sidebar.thumb.scrollTop}, ${out.sidebar.thumb.driven ? "driven by the scroll" : "written"}` : "none"}; a press straight after the wheel (held: ${out.sidebar.press.held}) ${out.sidebar.press.reached ? "reached" : "DID NOT REACH"} ${out.sidebar.press.target}`)
       }
       await settleQuiet(ed)
     }
@@ -1383,9 +1447,10 @@ function budgets(all, cpu) {
   for (const [dev, sm] of Object.entries(all.smooth ?? {})) {
     if (!sm) continue
     if (sm.clickAfterWheel) want(sm.clickAfterWheel.selected, `smooth ${dev}: a click straight after the wheel selects the section under the pointer`, sm.clickAfterWheel)
-    if (sm.hoverAfterRest) want(sm.hoverAfterRest.inSection && !sm.hoverAfterRest.held, `smooth ${dev}: once the wheel rests the section under a still pointer is hovered again`, sm.hoverAfterRest)
+    if (sm.hoverAfterRest) want(sm.hoverAfterRest.inCanvas && !sm.hoverAfterRest.pane && !sm.hoverAfterRest.held, `smooth ${dev}: once the wheel rests what is under a still pointer is hovered again, not the pane`, sm.hoverAfterRest)
     if (sm.thumb) want(sm.thumb.every((t) => t && Math.abs(t.top - t.want) <= 2), `smooth ${dev}: the canvas's thumb is where the scroll puts it`, sm.thumb)
     if (sm.sidebar) want(sm.sidebar.p95 <= 34 * k, `smooth ${dev}: sidebar wheel frames p95 under ${Math.round(34 * k)}ms`, sm.sidebar.p95)
+    if (sm.sidebar?.press) want(sm.sidebar.press.reached, `smooth ${dev}: a press straight after the sidebar's wheel reaches what is under the pointer`, sm.sidebar.press)
     if (sm.sidebar?.thumb) want(Math.abs(sm.sidebar.thumb.top - sm.sidebar.thumb.want) <= 2, `smooth ${dev}: the sidebar's thumb is where its scroll puts it`, sm.sidebar.thumb)
     if (sm.stream) {
       want(sm.stream.landed, `smooth ${dev}: ten edits under a moving canvas all land`, sm.stream.lastAfterWheel)

@@ -8211,7 +8211,7 @@ html[data-canvas-swap]::view-transition-new(root) {
 }
 [data-canvas-scrollbar][data-scroll-driven] {
   animation: wb-canvas-thumb linear both;
-  animation-timeline: --wb-canvas-scroll;
+  animation-timeline: --wb-canvas-timeline;
 }
 /* The sidebar's thumb, the same way (components/website-builder/editor/slim-scroll-rail.tsx): the scroller under it publishes its scroll, the thumb travels between its two ends. */
 @keyframes wb-slim-thumb {

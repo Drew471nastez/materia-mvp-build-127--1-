@@ -3,11 +3,17 @@
  * a slow device. What scripts/check-editor-perf.mjs PART=scroll,smooth measured
  * and what was changed for it:
  *
- *   the canvas's scrollbar thumb is moved by a transform (a new `top` every
- *     frame was a repaint of the card, and every repaint layerized the page)
- *   a clear pane takes the pointer over the canvas while the wheel moves
- *     it (lib/website-builder/wheel-hold.ts), so hover does not restyle and
- *     repaint a frame, and a press during the hold reaches what is under it
+ *   the canvas's and the sidebar's scrollbar thumbs are moved by the scroll
+ *     itself (a scroll-driven animation), or by a transform: a new `top`
+ *     every frame was a repaint, and every repaint layerized the editor
+ *   a clear pane takes the pointer over the canvas, and over the sidebar's
+ *     lists, while the wheel moves them (lib/website-builder/wheel-hold.ts),
+ *     so hover does not restyle and repaint a frame, and a press during the
+ *     hold reaches what is under it
+ *   an endless animation in a section off screen is paused
+ *     (on-screen-sections.ts holdLoops)
+ *   a select setting reads its width from its ResizeObserver, not in a
+ *     layout effect (choice-control.tsx: a layout of the editor per select)
  *
  * The hold is driven here with a small stand-in for the DOM: the wheel, the
  * canvas's scroll, a real mouse move, a press, its mousedown and its click.
@@ -213,7 +219,7 @@ function sources() {
   const css = read("app/globals.css")
   check("a wheeled list is covered by its pane, under an attribute of its own", /\.wb-list-shield \{[^}]*position: sticky;[^}]*bottom: 0;[^}]*height: 0;[^}]*pointer-events: none;/.test(css) && /\.wb-slim-scroll\[data-wb-list-wheeling\] > \.wb-list-shield::after \{\s*pointer-events: auto;/.test(css))
   check("  no hold switches pointer-events on content itself (that restyled the whole page, or the whole list, each hold)", !/\[data-wb(-list)?-wheeling\][^{,]*> \*/.test(css))
-  check("  the sections list and the settings each end with a pane", (read("app/website-builder/editor/[installId]/page.tsx").match(/<div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" \/>/g) ?? []).length === 2)
+  check("  the sections list, a section's settings and the settings column each end with a pane", (read("app/website-builder/editor/[installId]/page.tsx").match(/<div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" \/>/g) ?? []).length === 3)
   const rail = read("components/website-builder/editor/slim-scroll-rail.tsx")
   check("the sidebar's lists hold hover under the wheel, the section library's own list left alone", /holdHoverWhileWheeling\(`\$\{SELECTOR\}:not\(\[data-library-scroll\]\)`, \{ attribute: WHEEL_LIST_HOLD_ATTRIBUTE \}\)/.test(rail) && /letGo\(\)/.test(rail))
   check("the sidebar's thumb is moved by the list's own scroll where the browser can", /scroll-timeline/.test(rail) && /data-scroll-driven/.test(rail) && /@keyframes wb-slim-thumb/.test(css) && /animation-timeline: --wb-slim-scroll;/.test(css))
@@ -223,6 +229,13 @@ function sources() {
   check("the pane is the canvas scroller's last child, on a computer", /\{!isMobileView && <div aria-hidden data-wb-wheel-shield="" className="wb-wheel-shield" \/>\}\s*<\/div>\s*\{!isMobileView && <CanvasScrollbar targetId="wb-preview-root" \/>\}/.test(editor))
   const hold = read("lib/website-builder/wheel-hold.ts")
   check("the wheel and the scroll it listens to are passive", /"wheel", onWheel, \{ capture: true, passive: true \}/.test(hold) && /"scroll", onScroll, \{ capture: true, passive: true \}/.test(hold))
+  const onScreen = read("lib/website-builder/on-screen-sections.ts")
+  check("an endless animation of a section off screen is paused, and played when it comes back", /holdLoops\(e\.target, e\.isIntersecting\)/.test(onScreen) && /iterations === Infinity/.test(onScreen) && /a\.pause\(\)/.test(onScreen) && /a\.play\(\)/.test(onScreen))
+  const choice = read("components/website-builder/editor/controls/choice-control.tsx")
+  const effect = choice.slice(choice.indexOf("React.useLayoutEffect(() => {"), choice.indexOf("return shape"))
+  check("a select reads its width from its observer, not in its layout effect", /entries\[entries\.length - 1\]\.contentRect\.width/.test(effect) && !/^\s*decide\(\)\s*$/m.test(effect) && /flushSync\(\(\) => setShape\(next\)\)/.test(effect))
+  const probe = read("scripts/check-editor-perf.mjs")
+  check("the probe measures the sidebar, a section switch and a push stream under a moving canvas", /async function smoothScenario/.test(probe) && /PART\.includes\("smooth"\)/.test(probe) && /window\.PROBE_RAIL=true/.test(probe))
   check("this suite runs with the others", read("scripts/run-push-tests.mjs").includes('"tests/editor-smooth-r44.test.ts"'))
 }
 

@@ -8928,6 +8928,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </button>
               </div>
             ) : null}
+            {/* Takes the pointer over the settings while the wheel moves them (wheel-hold.ts). Last, and no room. */}
+            <div aria-hidden data-wb-wheel-shield="" className="wb-list-shield" />
           </div>
 
           {/* ── The section's actions, pinned under its settings ──
