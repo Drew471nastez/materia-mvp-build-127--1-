@@ -76,24 +76,29 @@ function withSafeDescription(product: any): any {
   return { ...product, description: sanitizeDescription(product.description) }
 }
 
-export const loadProductBySlug = cache(async (slug: string): Promise<ProductLookup> => {
+/**
+ * `owner` is the creator the address names (storelib.com/<handle>/<slug>,
+ * app/(marketing)/[sellername]/[productSlug]): the slug is looked up among
+ * that creator's products only, because a slug is unique per creator and
+ * not across Storelib. Without one (/p/<slug>) the oldest product with the
+ * slug, never "no row" because two creators chose the same word.
+ */
+export const loadProductBySlug = cache(async (slug: string, owner?: string | null): Promise<ProductLookup> => {
   /*
     THE SHARED COPY FIRST. A published product is the same row for every
     visitor, so it is fetched once and kept for a minute rather than queried
     per request. product-page-cache.ts explains the two caches and why the
     fallback below is not optional.
   */
-  const shared = await cachedProductBySlug(slug)
+  const shared = await cachedProductBySlug(slug, owner)
   if (shared) return { product: withSafeDescription(shared), viaHistory: false }
 
   const supabase = await createClient()
 
-  const { data: current } = await supabase
-    .from("products")
-    .select(PRODUCT_SELECT)
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle()
+  let currentQuery = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
+  if (owner) currentQuery = currentQuery.eq("creator_id", owner)
+  const { data: currentRows } = await currentQuery.order("created_at", { ascending: true }).limit(1)
+  const current = Array.isArray(currentRows) ? currentRows[0] : null
 
   if (current) return { product: withSafeDescription(current), viaHistory: false }
 
@@ -105,14 +110,19 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
     round trip on the rare path is cheaper than a clever query that can fail
     on the common one.
   */
-  const { data: history } = await supabase
+  /* Several products may once have had this slug, one per creator: the owner's, else the most recent move. */
+  const { data: moves } = await supabase
     .from("product_slug_history")
-    .select("product_id, products!inner (id, status)")
+    .select("product_id, products!inner (id, status, creator_id)")
     .eq("old_slug", slug)
-    .maybeSingle()
+    .order("created_at", { ascending: false })
+    .limit(10)
 
-  const historic = history?.products as { id?: string; status?: string } | undefined
-  if (!history?.product_id || historic?.status !== "published") {
+  const history = ((moves ?? []) as { product_id?: string; products?: unknown }[]).find((h) => {
+    const p = (Array.isArray(h.products) ? h.products[0] : h.products) as { status?: string; creator_id?: string } | undefined
+    return !!h.product_id && p?.status === "published" && (!owner || p.creator_id === owner)
+  })
+  if (!history?.product_id) {
     return { product: null, viaHistory: false }
   }
 
