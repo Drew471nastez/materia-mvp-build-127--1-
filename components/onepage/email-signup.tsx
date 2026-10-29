@@ -180,7 +180,7 @@ export function EmailSignupView({
     return (
       <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
         <div className="flex items-center gap-3">
-          {image ? <img src={image} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <Face avatar={avatar} ink={ink} size={40} />}
+          {image ? <img src={image} alt={headline} className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <Face avatar={avatar} ink={ink} size={40} />}
           <div className="min-w-0 flex-1">
             {headline ? (
               <p className="truncate text-[15px] font-semibold leading-snug" style={{ color: ink }}>

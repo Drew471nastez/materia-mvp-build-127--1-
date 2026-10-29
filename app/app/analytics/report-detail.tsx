@@ -122,7 +122,7 @@ export function ViewReport({ id, tab, className, label }: { id: string; tab?: st
           aria-label={name}
           onClick={() => open(id, tab)}
           className={cn(
-            "-my-1 -mr-1.5 grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-[background-color,color,transform] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)] active:scale-95 active:bg-[#e9eaed] motion-reduce:transition-none",
+            "-my-1 -mr-1.5 grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-[background-color,color,scale] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)] active:scale-95 active:bg-[#e9eaed] motion-reduce:transition-none",
             /* A finger gets the full 44px around the 32px square. */
             "relative before:absolute before:-inset-1.5 before:content-[''] sm:before:hidden",
             className,

@@ -221,7 +221,7 @@ async function main() {
     check("  held two minutes for the thank you page", jobs.every((j) => j.next_attempt_at === new Date(NOW + 120_000).toISOString()))
     check("  no person kept without consent", jobs.every((j) => JSON.stringify(j.person) === JSON.stringify({ consent: { analytics: false, marketing: false } })))
 
-    const n = await noteBrowser(db, STORE, "ord-1", PERSON)
+    const n = await noteBrowser(db, STORE, "ord-1", PERSON, NOW)
     const metaJob = jobs.find((j) => j.destination_id === "d-meta")!
     check("the thank you page's consent arrives: each row takes what its tool may have", n === 4 && metaJob.person.emailHash === sha("jane.doe@gmail.com") && !jobs.find((j) => j.destination_id === "d-ph")!.person.emailHash)
 

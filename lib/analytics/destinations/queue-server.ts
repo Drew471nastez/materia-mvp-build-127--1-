@@ -216,7 +216,7 @@ export async function enqueue(db: Db, input: EnqueueInput): Promise<EnqueueResul
  * still held (HOLD_MS): each is given what this tool may have of the
  * person, by the consent the buyer's browser carries, and sent.
  */
-export async function noteBrowser(db: Db, creatorId: string, ref: string, person: PersonInput): Promise<number> {
+export async function noteBrowser(db: Db, creatorId: string, ref: string, person: PersonInput, now: number = Date.now()): Promise<number> {
   try {
     const { data, error } = await db.from("analytics_forward_jobs").select("id, destination_id, event_name, person, status").eq("creator_id", creatorId).eq("subject_ref", ref).eq("status", "queued").limit(20)
     if (error || !Array.isArray(data) || data.length === 0) return 0
@@ -226,7 +226,7 @@ export async function noteBrowser(db: Db, creatorId: string, ref: string, person
       const dest = c.rows.find((r) => r.id === job.destination_id)
       if (!dest) continue
       const p = personFor(dest.provider as DestinationId, person, job.event_name)
-      await db.from("analytics_forward_jobs").update({ person: p, next_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", job.id).eq("status", "queued")
+      await db.from("analytics_forward_jobs").update({ person: p, next_attempt_at: new Date(now).toISOString(), updated_at: new Date(now).toISOString() }).eq("id", job.id).eq("status", "queued")
       n++
     }
     return n

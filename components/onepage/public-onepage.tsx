@@ -4781,7 +4781,7 @@ function PublicBlockRenderer({
         Each of the five layouts now asks for this form in one row or
         stacked, and the Bold card for its button in the card's text colour.
       */
-      const renderEmailForm = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
+      const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
         const pageInk = theme.text_color || "#111113"
         /*
@@ -4793,7 +4793,6 @@ function PublicBlockRenderer({
           const done = emailSubmitted && downloadLink
           return (
             <>
-              {emailExtras}
               <form
                 onSubmit={handleSubmit}
                 className="flex h-[52px] items-center gap-1.5 rounded-full bg-white py-1.5 pl-4 pr-1.5 transition-shadow duration-150 focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.14)]"
@@ -4820,7 +4819,7 @@ function PublicBlockRenderer({
                   <span className="truncate">{done ? "Download" : isSubmitting ? "..." : buttonText}</span>
                   {avatar?.src ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatar.src} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[0_0_0_2px_#fff]" data-email-connect-face="" />
+                    <img src={avatar.src} alt={avatar.name || ""} className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[0_0_0_2px_#fff]" data-email-connect-face="" />
                   ) : (
                     <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[13px] font-semibold text-[#111113]" data-email-connect-face="">
                       {(avatar?.name || "").trim().charAt(0).toUpperCase() || "@"}
@@ -4836,7 +4835,6 @@ function PublicBlockRenderer({
           const done = emailSubmitted && downloadLink
           return (
             <>
-              {emailExtras}
               <form onSubmit={handleSubmit} className="flex items-center gap-3 border-b-[1.5px] transition-[border-color] duration-150" style={{ borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)`, color: pageInk }} data-email-form="line">
                 <input
                   type="email"
@@ -4874,7 +4872,6 @@ function PublicBlockRenderer({
         )
         return (
           <>
-            {emailExtras}
             <form onSubmit={handleSubmit} className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
               <input
                 type="email"
@@ -4900,6 +4897,13 @@ function PublicBlockRenderer({
           </>
         )
       }
+      /* Every shape (row, stacked, Connect's pill, Letter's line) gets the name field and the hidden field from here, once. */
+      const renderEmailForm = (options: EmailSignupFormOptions) => (
+        <>
+          {emailExtras}
+          {renderEmailFields(options)}
+        </>
+      )
 
       return (
         <EmailSignupView
