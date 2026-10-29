@@ -37,6 +37,8 @@ import "server-only"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { isStripeNotFound } from "@/lib/billing/subscription-state"
 import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { feePercentFor, type BillingInterval } from "./state"
@@ -109,14 +111,24 @@ export async function buyerCustomer(admin: Db, buyer: { email: string; name: str
     try {
       const c = await stripe.customers.retrieve(known)
       if (!(c as Stripe.DeletedCustomer).deleted) return known
-    } catch {
-      /* made with other keys, or deleted: a new one below */
+    } catch (error) {
+      /*
+        Only a customer Stripe says is not there (made with other keys) is
+        replaced. A timeout or an outage says nothing about it, and a new
+        customer then would split the buyer's card and history: thrown, so the
+        checkout answers that it could not start and the buyer tries again.
+      */
+      if (!isStripeNotFound(error)) throw error
     }
   }
-  const made = await stripe.customers.create({
+  const params: Stripe.CustomerCreateParams = {
     email: buyer.email,
     name: buyer.name || undefined,
     metadata: { kind: "membership_buyer", user_id: buyer.userId || "" },
+  }
+  /* Two taps on Join, or a retried request, make one customer (10 minutes). */
+  const made = await stripe.customers.create(params, {
+    idempotencyKey: stripeIdempotencyKey("membership-buyer", [buyer.email, known ?? "none"], params, { windowMs: 10 * 60_000 }),
   })
   return made.id
 }
@@ -161,7 +173,10 @@ export async function createSubscription(p: {
   if (p.paymentMethodId) params.default_payment_method = p.paymentMethodId
   if (p.automaticTax) params.automatic_tax = { enabled: true }
   else if (p.taxRateIds?.length) params.default_tax_rates = p.taxRateIds
-  const subscription = await stripe.subscriptions.create(params, { idempotencyKey: p.idempotencyKey })
+  /* `p.idempotencyKey` names who and what; the key Stripe gets adds the exact params and a one minute window
+     (lib/stripe/resilience stripeIdempotencyKey), so a repeat of the same request is the same subscription and a
+     changed one (another card, another price, another name) is never refused as a reused key. */
+  const subscription = await stripe.subscriptions.create(params, { idempotencyKey: stripeIdempotencyKey("membership-subscription", [p.idempotencyKey], params) })
   return { subscription, intent: intentOf(subscription) }
 }
 

@@ -8,8 +8,11 @@ import "server-only"
  * Stripe once. It never writes.
  *
  * Per instance: two serverless instances each ask once. The cache is short
- * so a change made in Stripe shows within half a minute, and the routes that
- * change a subscription call `invalidateBillingRead` for their customer.
+ * so a change made in Stripe shows within half a minute; the billing tab reads
+ * with `fresh` right after the creator changes something, which replaces the
+ * cached answer, and the webhook calls `invalidateBillingRead` for the
+ * customer it synced (which also forgets the last answer kept for the
+ * staleness window).
  */
 import { stripe } from "@/lib/stripe"
 import {
@@ -69,6 +72,16 @@ export async function loadSubscriptionView(db: Db, creator: CreatorBillingRow, o
     console.warn("[Billing read] Stripe did not answer; serving the stored plan", { creatorId: creator.id, reason: read.reason, message: read.message })
   }
   const view = resolveSubscriptionView(dbBilling, read)
+  if (read.ok && read.stale) {
+    console.warn("[Billing read] Stripe did not answer; serving its last answer for this customer", { creatorId: creator.id })
+  }
+  if (view.storedExpired) {
+    console.error("[Billing read] Stripe did not answer and the stored paid plan is past its period; plan kept, run the reconciliation", {
+      creatorId: creator.id,
+      stored: creator.subscription_plan_id,
+      periodEnd: row?.current_period_end ?? null,
+    })
+  }
   if (view.drift) {
     console.warn("[Billing read] Stripe and the stored plan differ; left for the webhook and reconciliation", {
       creatorId: creator.id,

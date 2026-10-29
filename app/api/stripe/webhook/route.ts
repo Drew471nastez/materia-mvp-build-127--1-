@@ -1161,20 +1161,40 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
 
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({
-          status: "past_due",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_subscription_id", subscriptionId)
+      /*
+        THE STATUS STRIPE HAS NOW, NOT THE ONE THIS EVENT CARRIED. A failed
+        attempt's event can arrive after the retry that paid, and writing
+        past_due blindly then left a paid plan marked past due. The plan sync
+        (lib/billing/subscription-sync.ts) lists the creator's subscriptions
+        and writes what is true. Stripe not answering falls back to past_due,
+        and only over active or trialing: past_due keeps the plan's features,
+        so neither path takes anything away.
+      */
+      try {
+        const customer = typeof invoice.customer === "string" ? invoice.customer : (invoice.customer as { id?: string } | null)?.id ?? null
+        const synced = await syncFromSubscriptionEvent(subscriptionSyncDeps(), { id: subscriptionId, status: "past_due", customer: customer ?? "", metadata: {} })
+        if (synced) {
+          invalidateBillingRead(synced.creator.stripe_customer_id)
+          for (const c of synced.plan.customersRead) invalidateBillingRead(c)
+        }
+        console.log("[Invoice] Plan synced after a failed payment:", synced?.plan.status ?? "no creator")
+      } catch (syncError) {
+        console.warn("[Invoice] Stripe not read after a failed payment; marking past_due over active only:", syncError instanceof Error ? syncError.message : syncError)
+        await supabaseAdmin
+          .from("subscriptions")
+          .update({
+            status: "past_due",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_subscription_id", subscriptionId)
+          .in("status", ["active", "trialing"])
 
-      await supabaseAdmin
-        .from("creators")
-        .update({ subscription_status: "past_due" })
-        .eq("id", subscription.creator_id)
-
-      console.log("[Invoice] Subscription set to past_due")
+        await supabaseAdmin
+          .from("creators")
+          .update({ subscription_status: "past_due" })
+          .eq("id", subscription.creator_id)
+          .in("subscription_status", ["active", "trialing"])
+      }
 
       /* Each attempt Stripe makes is its own event; the key is the invoice and the attempt. */
       await raiseForCreator(subscription.creator_id, {

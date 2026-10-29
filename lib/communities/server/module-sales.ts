@@ -27,6 +27,7 @@ import { type Db } from "./db"
 import { findProgram, ownedPrograms, programViewer, type ProgramRow } from "./learn"
 import { pushCommunitySale } from "@/lib/orders/sale-events"
 import type { CheckoutDeps, CheckoutStart, GrantAnswer, StripeSessions } from "./learn-checkout"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 export const MODULE_SESSION_KIND = "community_module"
 /** A module's price: $1 to $10,000, or none (not sold on its own). */
@@ -147,9 +148,9 @@ export async function startModuleCheckout(db: Db, deps: CheckoutDeps, a: { commu
     return refuse(400, "currency", "This currency is not available for checkout yet.")
   }
   try {
-    const session = await deps.stripe.checkout.sessions.create(
-      moduleCheckoutParams({ module: { id: mod.id, title: mod.title, priceCents: mod.priceCents }, program, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee }),
-    )
+    const params = moduleCheckoutParams({ module: { id: mod.id, title: mod.title, priceCents: mod.priceCents }, program, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee })
+    /* A double tap on Buy inside a minute opens the same payment form, not a second one (lib/stripe/resilience). */
+    const session = await deps.stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey("community-module", [community.id, mod.id, viewer.userId], params) })
     if (!session.client_secret) return refuse(502, "stripe", "The payment form did not load. Nothing was charged. Try again.")
     return { ok: true, clientSecret: session.client_secret, sessionId: session.id, amountCents: mod.priceCents, currency: deps.chargeCurrency }
   } catch (e) {

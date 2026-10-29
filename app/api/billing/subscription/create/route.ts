@@ -4,6 +4,9 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { readSubscriptionRow, subscriptionReader } from "@/lib/billing/subscription-reader"
+import { alreadyPayingVerdict } from "@/lib/billing/subscription-state"
 
 // LIVE Stripe Price IDs
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
@@ -50,6 +53,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
+    /*
+      NEVER A SECOND SUBSCRIPTION. A creator already paying changes plan
+      (/api/billing/subscription/change); a checkout here would bill them
+      twice. The upgrade screens only offer this to someone not paying, but a
+      screen drawn while Stripe was down, a second tab or a double tap can
+      still send it. Stripe is asked fresh; when it cannot be asked and the
+      stored row says they pay, nothing is started.
+    */
+    const storedRow = await readSubscriptionRow(createAdminClient(), creator.id)
+    const customers = [creator.stripe_customer_id, storedRow?.stripe_customer_id]
+    const hasCustomer = customers.some((c) => typeof c === "string" && c.startsWith("cus_"))
+    const verdict = alreadyPayingVerdict(storedRow, hasCustomer ? await subscriptionReader.read(customers, { fresh: true }) : null)
+    if (verdict === "paying") {
+      return NextResponse.json({ error: "You already have a paid plan. Change it from Billing.", code: "already_subscribed" }, { status: 409 })
+    }
+    if (verdict === "unknown") {
+      return NextResponse.json({ error: "We couldn't check your current plan with Stripe. Nothing was charged. Try again in a minute.", code: "billing_unavailable" }, { status: 503 })
+    }
+
     // Validate or create Stripe customer (handles test→live key migration)
     const stripeCustomerId = await getOrCreateStripeCustomer({
       creatorId: creator.id,
@@ -65,7 +87,7 @@ export async function POST(request: Request) {
     const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
 
     // Always create a Stripe Checkout Session directly — let Stripe handle plan selection
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const sessionParams = {
       customer: stripeCustomerId,
       mode: "subscription",
       payment_method_types: ["card"],
@@ -88,6 +110,10 @@ export async function POST(request: Request) {
           plan_id: planId,
         },
       },
+    } satisfies Parameters<typeof stripe.checkout.sessions.create>[0]
+    /* A double tap, or a retry of a request whose answer was lost, opens the same Checkout rather than a second one (10 minutes). */
+    const checkoutSession = await stripe.checkout.sessions.create(sessionParams, {
+      idempotencyKey: stripeIdempotencyKey("plan-checkout", [creator.id, planId], sessionParams, { windowMs: 10 * 60_000 }),
     })
 
     /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */

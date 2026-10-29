@@ -36,6 +36,22 @@ export const STRIPE_READ_TIMEOUT_MS = 5_000
 export const SUBSCRIPTION_CACHE_TTL_MS = 30_000
 /** How long a failed read is reused, so an outage is not asked again by every request. */
 export const SUBSCRIPTION_FAILURE_TTL_MS = 5_000
+/**
+ * THE STALENESS WINDOW. When Stripe cannot be asked, the last answer it did
+ * give for the customer is served (marked stale) for this long. Past it, or
+ * with none, the database's plan (written by the webhook) is served instead.
+ * Neither is ever Free because a read failed. A webhook for the customer
+ * forgets the last answer (`invalidate`), so a real change is never hidden
+ * behind it.
+ */
+export const SUBSCRIPTION_STALE_IF_ERROR_MS = 15 * 60_000
+/**
+ * How far past its paid period a stored paying row may be before a read that
+ * had to fall back to it says so (`storedExpired`). The plan is still served:
+ * an error never downgrades. It is the sign that webhooks were missed and the
+ * reconciliation (scripts/reconcile-creator-plans.ts) should run.
+ */
+export const STORED_PLAN_GRACE_MS = 7 * 24 * 60 * 60_000
 const CACHE_MAX_ENTRIES = 2_000
 
 // LIVE Stripe Price IDs (the same defaults the checkout and change routes use)
@@ -143,7 +159,8 @@ function failureReason(error: unknown): "timeout" | "unreachable" | "error" {
 // ---------------------------------------------------------------------------
 
 export type SubscriptionsRead =
-  | { ok: true; customers: string[]; subscriptions: StripeSubLike[] }
+  /** `stale`: Stripe could not be asked just now; this is its last answer, inside SUBSCRIPTION_STALE_IF_ERROR_MS. */
+  | { ok: true; customers: string[]; subscriptions: StripeSubLike[]; stale?: boolean }
   | { ok: false; reason: "timeout" | "unreachable" | "error"; message: string }
 
 /** What reading one customer from Stripe needs: the list call, with Stripe's per request options. */
@@ -153,7 +170,7 @@ export type ListSubscriptions = (
 ) => Promise<{ data: StripeSubLike[] }>
 
 type OneCustomerRead =
-  | { ok: true; subscriptions: StripeSubLike[] }
+  | { ok: true; subscriptions: StripeSubLike[]; stale?: boolean }
   | { ok: false; reason: "timeout" | "unreachable" | "error"; message: string }
 
 async function readOneCustomer(list: ListSubscriptions, customerId: string, timeoutMs: number): Promise<OneCustomerRead> {
@@ -191,14 +208,18 @@ export function createSubscriptionReader(opts: {
   list: ListSubscriptions
   ttlMs?: number
   failureTtlMs?: number
+  staleIfErrorMs?: number
   timeoutMs?: number
   now?: () => number
 }): SubscriptionReader {
   const ttl = opts.ttlMs ?? SUBSCRIPTION_CACHE_TTL_MS
   const failureTtl = opts.failureTtlMs ?? SUBSCRIPTION_FAILURE_TTL_MS
+  const staleIfError = opts.staleIfErrorMs ?? SUBSCRIPTION_STALE_IF_ERROR_MS
   const timeoutMs = opts.timeoutMs ?? STRIPE_READ_TIMEOUT_MS
   const now = opts.now ?? (() => Date.now())
   const cache = new Map<string, CacheEntry>()
+  /* The last answer Stripe actually gave per customer, for the staleness window. */
+  const lastGood = new Map<string, { at: number; subscriptions: StripeSubLike[] }>()
   const inFlight = new Map<string, Promise<OneCustomerRead>>()
   let calls = 0
 
@@ -209,13 +230,26 @@ export function createSubscriptionReader(opts: {
     if (flying) return flying
     calls++
     const p = readOneCustomer(opts.list, customerId, timeoutMs)
-      .then((value) => {
+      .then((read) => {
+        let value: OneCustomerRead = read
+        if (read.ok) {
+          if (lastGood.size >= CACHE_MAX_ENTRIES && !lastGood.has(customerId)) {
+            const oldest = lastGood.keys().next().value
+            if (oldest !== undefined) lastGood.delete(oldest)
+          }
+          lastGood.delete(customerId)
+          lastGood.set(customerId, { at: now(), subscriptions: read.subscriptions })
+        } else {
+          const good = lastGood.get(customerId)
+          if (good && now() - good.at < staleIfError) value = { ok: true, subscriptions: good.subscriptions, stale: true }
+        }
         if (cache.size >= CACHE_MAX_ENTRIES) {
           const oldest = cache.keys().next().value
           if (oldest !== undefined) cache.delete(oldest)
         }
         cache.delete(customerId)
-        cache.set(customerId, { at: now(), value })
+        /* A stale answer is kept only as long as a failure would be, so Stripe is asked again soon. */
+        cache.set(customerId, { at: value.ok && value.stale ? now() - ttl + failureTtl : now(), value })
         return value
       })
       .finally(() => inFlight.delete(customerId))
@@ -234,11 +268,17 @@ export function createSubscriptionReader(opts: {
       if (failed && !subscriptions.some((s) => ENTITLED_STATUSES.has(s.status))) {
         return { ok: false, reason: failed.reason, message: failed.message }
       }
-      return { ok: true, customers: ids, subscriptions }
+      const stale = !!failed || results.some((r) => r.ok && r.stale === true)
+      return stale ? { ok: true, customers: ids, subscriptions, stale: true } : { ok: true, customers: ids, subscriptions }
     },
     invalidate(customerId) {
-      if (customerId) cache.delete(customerId)
-      else cache.clear()
+      if (customerId) {
+        cache.delete(customerId)
+        lastGood.delete(customerId)
+      } else {
+        cache.clear()
+        lastGood.clear()
+      }
     },
     get calls() {
       return calls
@@ -337,9 +377,15 @@ export interface SubscriptionView {
   stale: boolean
   /** Stripe and the database disagree. Nothing is written here; the reconciliation fixes it. */
   drift: boolean
+  /**
+   * Stale and served from a stored paying row whose period ended more than
+   * STORED_PLAN_GRACE_MS ago. The plan is still served (an error never
+   * downgrades); this is for the log and the reconciliation.
+   */
+  storedExpired?: boolean
 }
 
-function fromDatabase(db: DbBilling, stale: boolean): SubscriptionView {
+function fromDatabase(db: DbBilling, stale: boolean, now: number = Date.now()): SubscriptionView {
   const planId: ResolvedPlanId = isPaidPlan(db.planId) ? db.planId : "free"
   const row = db.row
   let subscription: SubscriptionJson | null = null
@@ -369,17 +415,30 @@ function fromDatabase(db: DbBilling, stale: boolean): SubscriptionView {
     }
   }
   const status = subscription?.status ?? (planId === "free" ? "inactive" : db.status || "active")
-  return { planId, status, subscription, source: "database", stale, drift: false }
+  const end = row?.current_period_end ? Date.parse(row.current_period_end) : NaN
+  const storedExpired = stale && planId !== "free" && Number.isFinite(end) && now - end > STORED_PLAN_GRACE_MS
+  return { planId, status, subscription, source: "database", stale, drift: false, ...(storedExpired ? { storedExpired: true } : {}) }
 }
 
 /**
  * Stripe's answer when there is one; the database's when Stripe was not
  * asked (null) or could not answer. Never "free" because a read failed.
  */
-export function resolveSubscriptionView(db: DbBilling, stripe: SubscriptionsRead | null): SubscriptionView {
-  if (!stripe) return fromDatabase(db, false)
-  if (!stripe.ok) return fromDatabase(db, true)
+export function resolveSubscriptionView(db: DbBilling, stripe: SubscriptionsRead | null, now: number = Date.now()): SubscriptionView {
+  if (!stripe) return fromDatabase(db, false, now)
+  if (!stripe.ok) return fromDatabase(db, true, now)
+  const view = resolveFromStripe(db, stripe)
+  if (!stripe.stale) return view
+  /*
+    A stale answer (the last one Stripe gave, inside the window) never moves a
+    paying creator to Free: if it says nothing is paying while the database
+    says they pay, the database's plan is shown.
+  */
+  if (view.planId === "free" && isPaidPlan(db.planId)) return fromDatabase(db, true, now)
+  return { ...view, stale: true }
+}
 
+function resolveFromStripe(db: DbBilling, stripe: Extract<SubscriptionsRead, { ok: true }>): SubscriptionView {
   const preferred = preferredSubscription(stripe.subscriptions)
   if (preferred && ENTITLED_STATUSES.has(preferred.status)) {
     const known = paidPlanFromSubscription(preferred)
@@ -430,4 +489,29 @@ export function resolveSubscriptionView(db: DbBilling, stripe: SubscriptionsRead
     stale: false,
     drift: isPaidPlan(db.planId),
   }
+}
+
+/**
+ * Whether a creator may start a plan checkout (/api/billing/subscription/create):
+ *  - "paying": Stripe says a subscription is paying (or, when Stripe cannot
+ *    be asked, the stored row says so). A second checkout would bill twice.
+ *  - "unknown": Stripe cannot be asked and the stored row says they pay.
+ *    Nothing is started.
+ *  - "clear": nothing is paying.
+ * A stale answer (Stripe's last one) is not enough to say "clear" over a
+ * stored paying row.
+ */
+export function alreadyPayingVerdict(
+  row: { stripe_subscription_id: string | null; status: string | null } | null,
+  stripe: SubscriptionsRead | null,
+): "paying" | "unknown" | "clear" {
+  const storedPaying = !!row?.stripe_subscription_id && !!row.status && ENTITLED_STATUSES.has(row.status)
+  if (stripe && stripe.ok) {
+    if (stripe.subscriptions.some((s) => ENTITLED_STATUSES.has(s.status))) return "paying"
+    if (stripe.stale && storedPaying) return "unknown"
+    return "clear"
+  }
+  if (stripe && !stripe.ok) return storedPaying ? "unknown" : "clear"
+  /* No customer to ask: only the stored row. */
+  return storedPaying ? "unknown" : "clear"
 }

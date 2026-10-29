@@ -44,6 +44,7 @@ import { missing, reasonOf, type Db } from "./db"
 import { audit } from "./audit"
 import { effectivePrice, itemAccess, type LibraryItemRow, type ProductFacts } from "./library"
 import type { PlatformFee, StripeSessions } from "./learn-checkout"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 export const LIBRARY_SESSION_KIND = "community_library"
 
@@ -258,7 +259,9 @@ export async function startLibraryCheckout(db: Db, deps: LibraryCheckoutDeps, a:
     now: new Date().toISOString(),
   })
   try {
-    const session = await deps.stripe.checkout.sessions.create(libraryCheckoutParams({ row: access.row, product, community, buyer: a.buyer, destination: account, currency, chargeCents, fee, intentMetadata }))
+    const params = libraryCheckoutParams({ row: access.row, product, community, buyer: a.buyer, destination: account, currency, chargeCents, fee, intentMetadata })
+    /* A double tap on Buy inside a minute opens the same payment form, not a second one (lib/stripe/resilience). */
+    const session = await deps.stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey("community-library", [community.id, product.id, viewer.userId], params) })
     if (!session.client_secret) throw new Error("no client secret")
     return { ok: true, clientSecret: session.client_secret, sessionId: session.id, amountCents: chargeCents, currency }
   } catch (e) {

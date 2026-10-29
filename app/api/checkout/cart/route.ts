@@ -38,6 +38,7 @@ import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 export const runtime = "nodejs"
 
@@ -507,7 +508,8 @@ async function handlePOST(request: Request) {
     /* Each refusal below takes away the one part Stripe named and asks again, at most once per part. */
     for (let attempt = 0; attempt < 4 && !session; attempt++) {
       try {
-        session = await stripe.checkout.sessions.create(params)
+        /* Keyed on the exact params: a repeat inside a minute is the same form, and each refusal's changed params below are a new key (lib/stripe/resilience). */
+        session = await stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey("cart-session", [], params) })
       } catch (e) {
         const message = String((e as Error)?.message || "") + " " + String((e as { param?: string })?.param || "")
         /* The statement's part refused (lib/payments/platform-descriptor): the basket sells with Storelib's own line. */

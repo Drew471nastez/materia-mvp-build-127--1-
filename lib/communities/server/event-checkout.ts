@@ -42,6 +42,7 @@ import type { Viewer } from "./context"
 import { type Db } from "./db"
 import { claimHoldSession, holdSeat, payTicket, pricingOf, readPricedEvent, readTicketRow, releaseTicket, ticketsReady } from "./event-tickets"
 import type { CheckoutDeps, CheckoutStart, PlatformFee, StripeSessions } from "./learn-checkout"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 
 export type { CheckoutDeps, CheckoutStart, PlatformFee, StripeSessions }
 
@@ -198,9 +199,9 @@ export async function startEventCheckout(db: Db, deps: CheckoutDeps, a: { commun
     return refuse(500, "failed", "The ticket could not be held. Nothing was charged. Try again.")
   }
   try {
-    const session = await deps.stripe.checkout.sessions.create(
-      eventCheckoutParams({ event, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee }),
-    )
+    const params = eventCheckoutParams({ event, community, buyer: { userId: viewer.userId, email: a.email }, creatorId: community.creator_id, destination: account, currency: deps.chargeCurrency, fee })
+    /* A double tap on Buy inside a minute opens the same payment form, not a second one (lib/stripe/resilience). */
+    const session = await deps.stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey("community-event", [community.id, event.id, viewer.userId], params) })
     if (!session.client_secret) {
       await releaseTicket(db, { ticketId: held.ticketId, status: "cancelled", reason: "the payment form did not load" })
       return refuse(502, "stripe", "The payment form did not load. Nothing was charged. Try again.")

@@ -2,6 +2,7 @@ import "server-only"
 import Stripe from "stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkStripeCustomer, resolveStripeCustomer, type CustomerCheck, type CustomerDeps } from "@/lib/billing/stripe-customer"
+import { breakerTransport, StripeCircuitBreaker, STRIPE_MAX_NETWORK_RETRIES, STRIPE_TIMEOUT_MS, type Transport } from "@/lib/stripe/resilience"
 
 /*
   MADE ON FIRST USE, NOT WHEN THE FILE LOADS. A build reads every route to collect its page data, and a Preview environment
@@ -9,8 +10,27 @@ import { checkStripeCustomer, resolveStripeCustomer, type CustomerCheck, type Cu
   where the key is set, behaves exactly as before: the first call makes the client and every call after uses it.
 */
 let client: Stripe | null = null
+/*
+  ONE BREAKER PER SERVER INSTANCE, kept on globalThis so a dev reload does not
+  forget an outage it is in the middle of (lib/stripe/resilience.ts). Each
+  attempt is bounded (STRIPE_TIMEOUT_MS, a call's own `timeout` wins), retried
+  with the SDK's capped, jittered backoff, and refused at once while Stripe is
+  known to be down.
+*/
+const g = globalThis as unknown as { __storelibStripeBreaker?: StripeCircuitBreaker }
+export const stripeBreaker: StripeCircuitBreaker = (g.__storelibStripeBreaker ??= new StripeCircuitBreaker({
+  onChange(from, to, snap) {
+    const line = `[stripe] breaker ${from} -> ${to}`
+    if (to === "open") console.error(line, { failures: snap.consecutiveFailures, cooldownMs: snap.cooldownMs })
+    else console.warn(line)
+  },
+}))
 function stripeClient(): Stripe {
-  client ??= new Stripe(process.env.STRIPE_SECRET_KEY as string)
+  client ??= new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+    timeout: STRIPE_TIMEOUT_MS,
+    maxNetworkRetries: STRIPE_MAX_NETWORK_RETRIES,
+    httpClient: breakerTransport(Stripe.createNodeHttpClient() as unknown as Transport, stripeBreaker) as unknown as Stripe.HttpClient,
+  })
   return client
 }
 export const stripe: Stripe = new Proxy({} as Stripe, {
