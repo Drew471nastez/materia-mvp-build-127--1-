@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announceAddresses, communityAddresses } from "@/lib/seo/announce-pages"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -24,5 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (typeof body.archived !== "boolean") return NextResponse.json({ error: "archived is true or false" }, { status: 400, headers: noStore })
   const done = await setArchived(gate.ctx.admin, { community: gate.community, actorId: gate.ctx.userId, archived: body.archived })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+  /* Archived, a public community leaves the index; tell the engines after the answer (lib/seo/announce-pages.ts). */
+  const slug = gate.community.slug
+  after(() => announceAddresses(communityAddresses(slug)))
   return NextResponse.json({ status: done.community.status }, { headers: noStore })
 }

@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announceAddresses, communityAddresses } from "@/lib/seo/announce-pages"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -49,6 +50,9 @@ export async function PATCH(request: Request, { params }: Params) {
     if (typeof body.publish !== "boolean") return NextResponse.json({ error: "publish is true or false" }, { status: 400, headers: noStore })
     const done = await setPublished(db, { community: gate.community, actorId: gate.ctx.userId, publish: body.publish })
     if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+    /* Published or taken back to a draft: its page appeared or went. Told after the answer (lib/seo/announce-pages.ts). */
+    const slug = done.community.slug
+    after(() => announceAddresses(communityAddresses(slug)))
     return NextResponse.json({ status: done.community.status }, { headers: noStore })
   }
   if (body.roles !== undefined) {
@@ -69,5 +73,10 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   const done = await updateSettings(db, { community: gate.community, role: gate.role, perms: gate.viewer.perms, actorId: gate.ctx.userId, creatorId: gate.ctx.creatorId, body })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
+  /* A live community's page changed (a new slug: the old address too, which now redirects). A draft has no page to tell anybody about. */
+  if (done.community.status === "published" || gate.community.status === "published") {
+    const slugs = [gate.community.slug, done.community.slug]
+    after(() => announceAddresses(communityAddresses(...slugs)))
+  }
   return NextResponse.json({ ok: true, slug: done.community.slug, status: done.community.status }, { headers: noStore })
 }
