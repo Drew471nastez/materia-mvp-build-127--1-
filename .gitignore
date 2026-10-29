@@ -115,3 +115,4 @@ tsconfig.*.generated.json
 
 # Local single-test bundles (esbuild output), never committed
 .tmp-test/
+.*-shots/
