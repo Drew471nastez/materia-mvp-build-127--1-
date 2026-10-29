@@ -20,8 +20,13 @@ import "server-only"
  *                               property in Search Console, which covers
  *                               every subdomain)
  *
- * Each N is SITEMAP_CHUNK addresses, so the index grows by a file per ten
- * thousand pages and never by a slower file. A built site's own host
+ *   /sitemap/communities-N.xml  every published public community
+ *
+ * Each N is a slice of about SITEMAP_CHUNK rows, named N-of-M since round
+ * 44 (products-3-of-16.xml): the Mth part of the id space, read by id and
+ * never by offset (lib/seo/indexing.ts chunkIdRange, readKeyset below), so
+ * the index grows by a file per ten thousand pages and never by a slower
+ * file, at five million pages as at five thousand. A built site's own host
  * (<name>.storelib.com or its connected domain) serves its own
  * /robots.txt and /sitemap.xml from siteSitemap below. A creator page on a
  * live domain of its own is canonical there, so neither it nor its products
@@ -57,9 +62,14 @@ import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { missingColumnError } from "@/lib/communities/listing"
-import { sitemapCommunities, sitemapCommunityCount } from "@/lib/communities/server/public"
+import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
 import {
-  SITEMAP_CHUNK,
+  SITEMAP_MAX_BYTES,
+  SITEMAP_MAX_URLS,
+  chunkFileName,
+  chunkIdRange,
+  sitemapChunks,
+  urlsetXml,
   builtSiteIndexable,
   creatorIndexable,
   lastmodOf,
@@ -136,6 +146,76 @@ export async function readRange<T>(query: (a: number, b: number) => PromiseLike<
   return rows
 }
 
+/** A file's slice of a table's ids (lib/seo/indexing.ts chunkIdRange). A null end is open. */
+export type IdRange = { lo: string | null; hi: string | null }
+/** Every id: for a read already narrowed some other way, such as a batch of creators. */
+export const EVERY_ID: IdRange = { lo: null, hi: null }
+
+/**
+ * EVERY ROW OF A QUERY WHOSE ID IS IN `range`, A THOUSAND AT A TIME, BY ID
+ * (round 44). `query` is handed `page`, which adds the range, the order and
+ * the limit to the query it is given; each request asks for the rows after
+ * the last id the one before it saw. The database seeks its index straight
+ * to them, where an offset of a million first walks a million rows, and a
+ * row added or deleted while the file is read cannot shift the rest.
+ *
+ * Only an empty page ends it. A short one is not trusted as the end: a
+ * PostgREST that answers fewer than a thousand rows to a request (a lower
+ * `max_rows`) would otherwise have cut every file at its first page. At
+ * `max` rows (the protocol's 50,000) it stops and says so in the log.
+ * Exported so a test can drive it.
+ */
+export async function readKeyset<T extends { id: string }>(
+  query: (page: (q: any) => any) => PromiseLike<Rows<T>>,
+  range: IdRange,
+  what: string,
+  max: number = SITEMAP_MAX_URLS,
+): Promise<T[]> {
+  const rows: T[] = []
+  let after: string | null = null
+  for (;;) {
+    const cursor: string | null = after
+    const page = (q: any) => {
+      let next = cursor ? q.gt("id", cursor) : range.lo ? q.gte("id", range.lo) : q
+      if (range.hi) next = next.lt("id", range.hi)
+      return next.order("id", { ascending: true }).limit(PAGE)
+    }
+    const data = await rowsOf(() => query(page), what)
+    if (data.length === 0) return rows
+    rows.push(...data)
+    if (rows.length >= max) {
+      console.error(`[sitemap] ${what}: ${max} rows in one file, the rest of its slice is not listed`)
+      return rows.slice(0, max)
+    }
+    const last = data[data.length - 1]?.id
+    /* An id that does not move forward would ask for the same page for ever. */
+    if (!last || (cursor !== null && last <= cursor)) return rows
+    after = last
+  }
+}
+
+/**
+ * The slice a file name asks for. A name from before round 44
+ * (products-3.xml) carries no slice count, so it is counted now, the way the
+ * index counts.
+ */
+async function sliceOf(chunk: number, of: number | undefined, count: () => Promise<number>): Promise<IdRange> {
+  return chunkIdRange(chunk, of ?? sitemapChunks(await count()))
+}
+
+/**
+ * The file for these entries, inside the protocol's 50 MB. Ten pictures to
+ * each of 50,000 products would pass it, so past it the same addresses are
+ * written without their pictures (Google finds those on the pages) and the
+ * log says so. A file over the limit is one Google refuses whole.
+ */
+export function urlsetWithinLimit(entries: SitemapEntry[]): string {
+  const xml = urlsetXml(entries)
+  if (Buffer.byteLength(xml, "utf8") <= SITEMAP_MAX_BYTES) return xml
+  console.error(`[sitemap] ${entries.length} addresses came to ${Buffer.byteLength(xml, "utf8")} bytes; written without pictures`)
+  return urlsetXml(entries.map((e) => ({ url: e.url, lastModified: e.lastModified })))
+}
+
 /**
  * `work` over the ids, IDS_PER_QUERY at a time and four queries in flight at
  * once, so a chunk of ten thousand creators is not a hundred round trips in a
@@ -197,27 +277,38 @@ const published = (q: any) => q.eq("status", "published")
 
 /* ── The index ─────────────────────────────────────────────────────────── */
 
-export async function sitemapIndex(): Promise<SitemapEntry[]> {
-  const admin = createAdminClient()
+export async function sitemapIndex(admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
   const [products, creators, websites] = await Promise.all([
     countOf(admin, "products", published, "products"),
     countOf(admin, "creators", (q) => q, "creators"),
     countOf(admin, "store_theme_installs", published, "websites"),
   ])
-  const chunks = (n: number) => Math.max(1, Math.ceil(n / SITEMAP_CHUNK))
-  const entries: SitemapEntry[] = [{ url: `${BASE}/sitemap/pages.xml` }]
-  for (let i = 0; i < chunks(products); i++) entries.push({ url: `${BASE}/sitemap/products-${i}.xml` })
-  for (let i = 0; i < chunks(creators); i++) entries.push({ url: `${BASE}/sitemap/creators-${i}.xml` })
-  for (let i = 0; i < chunks(websites); i++) entries.push({ url: `${BASE}/sitemap/websites-${i}.xml` })
+  const entries: SitemapEntry[] = [{ url: `${BASE}/sitemap/pages.xml` }, ...chunkEntries(BASE, "products", products), ...chunkEntries(BASE, "creators", creators), ...chunkEntries(BASE, "websites", websites)]
   /*
     COMMUNITIES, while they are switched on and there are some to list: the
-    published public ones (lib/communities/server/public.ts). Counted softly,
-    because before part 81 there is no table and that is a normal state, not
-    a failed read.
+    published public ones (lib/communities/server/public.ts). Before part 81
+    there is no table, a normal state that counts as none; a count that
+    failed is a 503 like any other, never an index without them.
   */
-  const communities = (await communitiesEnabled()) ? await sitemapCommunityCount(admin) : 0
-  if (communities > 0) for (let i = 0; i < chunks(communities); i++) entries.push({ url: `${BASE}/sitemap/communities-${i}.xml` })
+  const communities = (await communitiesEnabled()) ? await communityCount(admin) : 0
+  if (communities > 0) entries.push(...chunkEntries(BASE, "communities", communities))
   return entries
+}
+
+/** One index entry per slice: `<origin>/sitemap/products-3-of-16.xml` (lib/seo/indexing.ts chunkIdRange). */
+function chunkEntries(origin: string, kind: string, rows: number): SitemapEntry[] {
+  const of = sitemapChunks(rows)
+  return Array.from({ length: of }, (_, i) => ({ url: `${origin}/sitemap/${chunkFileName(kind, i, of)}` }))
+}
+
+/** The listable communities, counted; 0 before part 81, a SitemapReadFailed when the count fails. */
+async function communityCount(admin: Admin): Promise<number> {
+  const n = await sitemapCommunityCount(admin)
+  if (n === null) {
+    console.error("[sitemap] communities count failed")
+    throw new SitemapReadFailed("communities")
+  }
+  return n
 }
 
 /**
@@ -227,13 +318,18 @@ export async function sitemapIndex(): Promise<SitemapEntry[]> {
  */
 export function parseSitemapName(
   name: string,
-): { kind: "pages" } | { kind: "onepages-index" } | { kind: "products" | "creators" | "websites" | "onepages" | "communities"; chunk: number } | null {
+): { kind: "pages" } | { kind: "onepages-index" } | { kind: "products" | "creators" | "websites" | "onepages" | "communities"; chunk: number; of?: number } | null {
   const bare = name.replace(/\.xml$/, "")
   if (bare === "pages") return { kind: "pages" }
   if (bare === "onepages") return { kind: "onepages-index" }
-  const m = /^(products|creators|websites|onepages|communities)-(\d{1,6})$/.exec(bare)
+  /* `products-3-of-16` since round 44; `products-3` from an index read before it still answers. */
+  const m = /^(products|creators|websites|onepages|communities)-(\d{1,6})(?:-of-(\d{1,6}))?$/.exec(bare)
   if (!m) return null
-  return { kind: m[1] as "products" | "creators" | "websites" | "onepages" | "communities", chunk: Number(m[2]) }
+  const kind = m[1] as "products" | "creators" | "websites" | "onepages" | "communities"
+  const chunk = Number(m[2])
+  if (m[3] === undefined) return { kind, chunk }
+  const of = Number(m[3])
+  return of >= 1 && chunk < of ? { kind, chunk, of } : null
 }
 
 /* ── Communities ───────────────────────────────────────────────────────── */
@@ -243,10 +339,20 @@ export function parseSitemapName(
  * with the cover as their picture. Empty while communities are switched off
  * (their pages are 404s then) and before part 81.
  */
-export async function communitiesSitemap(chunk: number): Promise<SitemapEntry[]> {
+export async function communitiesSitemap(chunk: number, of?: number, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
   if (!(await communitiesEnabled())) return []
-  const admin = createAdminClient()
-  const [rows, banned] = await Promise.all([sitemapCommunities(chunk * SITEMAP_CHUNK, SITEMAP_CHUNK, admin), bannedCreatorIds(admin)])
+  const range = await sliceOf(chunk, of, () => communityCount(admin))
+  /*
+    Round 44: the whole slice, by id. This was one request for ten thousand
+    rows, which PostgREST answers with its first thousand, and one URL naming
+    all of them for the own-domain check, which a gateway refuses (and the
+    check, read softly, then left nothing out).
+  */
+  const read = async () => {
+    const found = await readKeyset<SitemapCommunityRow>((page) => page(sitemapCommunityQuery(admin)), range, "communities")
+    return sitemapCommunitiesListed(admin, found)
+  }
+  const [rows, banned] = await Promise.all([read(), bannedCreatorIds(admin)])
   /* Round 41: a banned creator's community is not listed, as their pages are not. */
   return rows.filter((r) => !r.creator_id || !banned.has(r.creator_id)).map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
 }
@@ -333,6 +439,7 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
 /* ── Products ──────────────────────────────────────────────────────────── */
 
 type ProductRow = {
+  id: string
   slug: string
   status?: string | null
   updated_at: string | null
@@ -354,28 +461,29 @@ const userIdOf = (row: ProductRow): string | null => {
  * be sent somewhere else). The creator comes back with the product in one
  * query, and the handle from profiles.
  */
-export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
-  const admin = createAdminClient()
+export async function productsSitemap(chunk: number, of?: number, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
   /*
     A product that sells a community tier answers with a redirect to its
     community, which has its own file: it is left out here once the column
     exists (lib/communities/listing). Asked once, softly, for the chunk.
   */
-  const probe = await admin.from("products").select("community_id").limit(1)
+  const [probe, range] = await Promise.all([
+    admin.from("products").select("community_id").limit(1),
+    sliceOf(chunk, of, () => countOf(admin, "products", published, "products")),
+  ])
   const skipCommunity = !(probe.error && missingColumnError(probe.error))
-  const rows = await readRange<ProductRow>(
-    (a, b) => {
+  const rows = await readKeyset<ProductRow>(
+    (page) => {
       let q = admin
         .from("products")
-        .select("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
+        .select("id, slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
         .eq("status", "published")
         /* Physical products are the creator's own website's, never the marketplace's (lib/seo/creator-domain lists them there). */
         .neq("type", "physical")
       if (skipCommunity) q = q.is("community_id", null)
-      return q.order("id", { ascending: true }).range(a, b) as unknown as PromiseLike<Rows<ProductRow>>
+      return page(q) as PromiseLike<Rows<ProductRow>>
     },
-    chunk * SITEMAP_CHUNK,
-    SITEMAP_CHUNK,
+    range,
     "products",
   )
   const [usernameByUserId, banned, ownDomain, spam] = await Promise.all([
@@ -418,8 +526,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
  * creatorIndexable, the one app/(marketing)/u/[username] reads for its
  * robots tag. A creator page's date is its newest published product's.
  */
-export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
-  return (await creatorChunk(chunk)).creators
+export async function creatorsSitemap(chunk: number, of?: number, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
+  return (await creatorChunk(chunk, of, admin)).creators
 }
 
 /**
@@ -431,16 +539,14 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
  * storelib.com's own files do not list a OnePage: its address is on another
  * host, and storelib.me/sitemap.xml names these (app/sitemap/[name], proxy.ts).
  */
-export async function onePagesSitemap(chunk: number): Promise<SitemapEntry[]> {
-  return (await creatorChunk(chunk)).onePages
+export async function onePagesSitemap(chunk: number, of?: number, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
+  return (await creatorChunk(chunk, of, admin)).onePages
 }
 
-/** How many onepages-N.xml files storelib.me's index names: one per chunk of creators, as creators-N.xml. */
-export async function onePagesSitemapIndex(origin: string): Promise<SitemapEntry[]> {
-  const admin = createAdminClient()
+/** How many onepages-N-of-M.xml files storelib.me's index names: one per slice of creators, as creators-N-of-M.xml. */
+export async function onePagesSitemapIndex(origin: string, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
   const creators = await countOf(admin, "creators", (q) => q, "creators")
-  const chunks = Math.max(1, Math.ceil(creators / SITEMAP_CHUNK))
-  return Array.from({ length: chunks }, (_, i) => ({ url: `${origin}/sitemap/onepages-${i}.xml` }))
+  return chunkEntries(origin, "onepages", creators)
 }
 
 /** The rows of one chunk, for a test to drive the rule without a database. */
@@ -483,29 +589,28 @@ export function creatorChunkEntries(rows: CreatorChunkRows, onePageAddress: (han
   return { creators, onePages }
 }
 
-async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; onePages: SitemapEntry[] }> {
-  const admin = createAdminClient()
-  const creators = await readRange<{ id: string; user_id: string | null; cover_url?: string | null }>(
-    (a, b) => admin.from("creators").select("id, user_id, cover_url").order("id", { ascending: true }).range(a, b),
-    chunk * SITEMAP_CHUNK,
-    SITEMAP_CHUNK,
+async function creatorChunk(chunk: number, of: number | undefined, admin: Admin): Promise<{ creators: SitemapEntry[]; onePages: SitemapEntry[] }> {
+  const range = await sliceOf(chunk, of, () => countOf(admin, "creators", (q) => q, "creators"))
+  const creators = await readKeyset<{ id: string; user_id: string | null; cover_url?: string | null }>(
+    (page) => page(admin.from("creators").select("id, user_id, cover_url")),
+    range,
     "creators",
   )
   const products = new Map<string, { n: number; at: string | null }>()
   const ids = creators.map((c) => c.id)
   const batches = await eachBatch(ids, (batch) =>
-    readRange<{ creator_id: string; updated_at: string | null }>(
-      (a, b) =>
-        admin
-          .from("products")
-          .select("creator_id, updated_at")
-          .in("creator_id", batch)
-          .eq("status", "published")
-          .order("id", { ascending: true })
-          .range(a, b),
-      0,
-      1_000_000,
+    readKeyset<{ id: string; creator_id: string; updated_at: string | null }>(
+      (page) =>
+        page(
+          admin
+            .from("products")
+            .select("id, creator_id, updated_at")
+            .in("creator_id", batch)
+            .eq("status", "published"),
+        ),
+      EVERY_ID,
       "creator products",
+      Number.MAX_SAFE_INTEGER,
     ),
   )
   for (const p of batches.flat()) {
@@ -529,18 +634,18 @@ async function publishedOnePages(admin: Admin, creatorIds: string[]): Promise<Ma
   const found = await eachBatch(
     creatorIds,
     (batch) =>
-      readRange<{ creator_id: string | null; seller_id: string | null; updated_at: string | null } & OnePagePresenceRow>(
-        (a, b) =>
-          admin
-            .from("onepages")
-            .select("creator_id, seller_id, updated_at, bio, social_links, published_blocks, draft_blocks, published_profile, published_social_links")
-            .eq("status", "published")
-            .or(`creator_id.in.(${batch.join(",")}),seller_id.in.(${batch.join(",")})`)
-            .order("id", { ascending: true })
-            .range(a, b),
-        0,
-        1_000_000,
+      readKeyset<{ id: string; creator_id: string | null; seller_id: string | null; updated_at: string | null } & OnePagePresenceRow>(
+        (page) =>
+          page(
+            admin
+              .from("onepages")
+              .select("id, creator_id, seller_id, updated_at, bio, social_links, published_blocks, draft_blocks, published_profile, published_social_links")
+              .eq("status", "published")
+              .or(`creator_id.in.(${batch.join(",")}),seller_id.in.(${batch.join(",")})`),
+          ),
+        EVERY_ID,
         "onepages",
+        Number.MAX_SAFE_INTEGER,
       ),
     IDS_PER_QUERY / 2,
   )
@@ -642,15 +747,20 @@ async function activeDomains(admin: Admin, creatorIds: string[]): Promise<Map<st
  */
 async function websiteNames(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
-  try {
-    const found = await eachBatch(creatorIds, async (batch) => {
-      const { data, error } = await admin.from("website_addresses").select("creator_id, handle").in("creator_id", batch)
-      return error ? [] : ((data ?? []) as { creator_id: string; handle: string | null }[])
-    })
-    for (const w of found.flat()) if (w.handle) out.set(w.creator_id, w.handle)
-  } catch {
+  const found = await eachBatch(creatorIds, async (batch) => {
+    const query = () => admin.from("website_addresses").select("creator_id, handle").in("creator_id", batch)
+    const first = await query()
+    if (!first.error) return (first.data ?? []) as { creator_id: string; handle: string | null }[]
     /* No table yet: usernames it is. */
-  }
+    if (isMissingTable(first.error)) return []
+    /*
+      Round 44: any other failure is a failed read. Read softly, a blip
+      listed every renamed site at its old name, the address that is not its
+      canonical, for the hour the file is held.
+    */
+    return rowsOf<{ creator_id: string; handle: string | null }>(query, "website names")
+  })
+  for (const w of found.flat()) if (w.handle) out.set(w.creator_id, w.handle)
   return out
 }
 
@@ -660,18 +770,17 @@ async function websiteNames(admin: Admin, creatorIds: string[]): Promise<Map<str
  * and a storelib.com sitemap cannot speak for another domain, so those are
  * left to the domain's own /sitemap.xml.
  */
-export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
-  const admin = createAdminClient()
-  const installs = await readRange<InstallRow>(
-    (a, b) =>
-      admin
-        .from("store_theme_installs")
-        .select("*, store_theme_settings(settings)")
-        .eq("status", "published")
-        .order("id", { ascending: true })
-        .range(a, b) as unknown as PromiseLike<Rows<InstallRow>>,
-    chunk * SITEMAP_CHUNK,
-    SITEMAP_CHUNK,
+export async function websitesSitemap(chunk: number, of?: number, admin: Admin = createAdminClient()): Promise<SitemapEntry[]> {
+  const range = await sliceOf(chunk, of, () => countOf(admin, "store_theme_installs", published, "websites"))
+  const installs = await readKeyset<InstallRow>(
+    (page) =>
+      page(
+        admin
+          .from("store_theme_installs")
+          .select("*, store_theme_settings(settings)")
+          .eq("status", "published"),
+      ) as PromiseLike<Rows<InstallRow>>,
+    range,
     "websites",
   )
   const [banned, spam] = await Promise.all([bannedCreatorIds(admin), confirmedSpamUserIds(admin)])

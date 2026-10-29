@@ -257,7 +257,10 @@ async function main() {
     const noDomains = fakeDb({ communities: rows }, { failWith: { custom_domains: { code: "42P01", message: "missing" }, community_deletions: { code: "42P01", message: "missing" } } })
     check("before parts 185 and 202 (no domains or deletions table) nothing fails", (await sitemapCommunities(0, 100, noDomains as never)).length === 5)
     const pub = code("lib/communities/server/public.ts")
-    check("the count asks the same question", /select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("status", "published"\)\s*\.eq\("visibility", "public"\)\s*\.neq\("access", "invite_only"\)\s*\.eq\("platform_hidden", false\)\s*\.is\("deleted_at", null\)\s*\.is\("suspended_at", null\)/.test(pub))
+    /* Changed on purpose (round 44): the rows, the keyset read and the count share one filter, listedCommunities. */
+    check("the count asks the same question",
+      /const listedCommunities = \(q: any\) =>\s*q\.eq\("status", "published"\)\.eq\("visibility", "public"\)\.neq\("access", "invite_only"\)\.eq\("platform_hidden", false\)\.is\("deleted_at", null\)\.is\("suspended_at", null\)/.test(pub) &&
+        /listedCommunities\(db\.from\("communities"\)\.select\("id", \{ count: "exact", head: true \}\)\)/.test(pub) && /listedCommunities\(db\.from\("communities"\)\.select\("id, creator_id, slug, updated_at, cover_url"\)\)/.test(pub))
     const site = communitySitemap("club.example.com")
     check("a community's domain lists its root only (About names the root as canonical)", /<loc>https:\/\/club\.example\.com\/<\/loc>/.test(site) && !/\/about/.test(site))
   }

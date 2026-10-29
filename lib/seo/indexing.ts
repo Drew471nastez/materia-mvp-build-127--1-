@@ -41,6 +41,52 @@ import { servingHost } from "@/lib/custom-domains/hostname"
 /** Addresses per sitemap file. The protocol allows 50,000; smaller files are read faster. */
 export const SITEMAP_CHUNK = 10_000
 
+/** What the protocol allows one file: 50,000 addresses and 50 MB (52,428,800 bytes) uncompressed. */
+export const SITEMAP_MAX_URLS = 50_000
+export const SITEMAP_MAX_BYTES = 50 * 1024 * 1024
+
+/**
+ * ===========================================================================
+ *  A CHUNK IS A SLICE OF THE ID SPACE, NOT AN OFFSET (round 44)
+ * ===========================================================================
+ * products-3-of-16.xml is every published product whose id falls in the
+ * fourth sixteenth of the UUID space. The ids are random (gen_random_uuid),
+ * so each slice holds count / 16 rows give or take a percent, and a slice is
+ * read by seeking the primary key to its first id, then a thousand rows at a
+ * time after the last id seen.
+ *
+ * It used to be rows 30,000 to 39,999 by offset. An offset makes the
+ * database walk every row before it (the last file of five million products
+ * read five million rows to serve ten thousand), and every product deleted
+ * or added shifted every later file by one, so a product could be in no
+ * file, or in two, depending on when each was last cached.
+ *
+ * The slice count is in the name, so a file never has to agree with a count
+ * taken at another moment. The index names a new set when the count moves
+ * past a multiple of SITEMAP_CHUNK; a name from an older index still answers
+ * its slice of the same rows.
+ */
+export function sitemapChunks(rows: number): number {
+  return Math.max(1, Math.ceil(Math.max(0, rows) / SITEMAP_CHUNK))
+}
+
+const UUID_TAIL = "-0000-0000-0000-000000000000"
+/** The first id of slice k of n, or null at either end of the space. */
+function sliceStart(k: number, of: number): string | null {
+  if (k <= 0 || k >= of) return null
+  return Math.floor((k * 2 ** 32) / of).toString(16).padStart(8, "0") + UUID_TAIL
+}
+
+/** Slice `chunk` of `of`: ids from `lo` (inclusive) to `hi` (exclusive); null is the open end. */
+export function chunkIdRange(chunk: number, of: number): { lo: string | null; hi: string | null } {
+  return { lo: sliceStart(chunk, of), hi: sliceStart(chunk + 1, of) }
+}
+
+/** A file's name in an index: `products-3-of-16.xml`. */
+export function chunkFileName(kind: string, chunk: number, of: number): string {
+  return `${kind}-${chunk}-of-${of}.xml`
+}
+
 export interface SitemapEntry {
   url: string
   /** ISO time. Left out when nothing real is known. */
@@ -62,6 +108,40 @@ export const MAX_IMAGES_PER_URL = 10
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }
 /** The one escaping every sitemap uses, storelib.com's and each website's (lib/website-builder/site-seo.ts). */
 export const xmlEscape = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c])
+
+const percent = (c: string) => {
+  try {
+    return encodeURIComponent(c)
+  } catch {
+    /* A lone half of a surrogate pair: the replacement character, encoded. */
+    return "%EF%BF%BD"
+  }
+}
+/* Outside printable ASCII, the characters RFC 3986 never allows bare, and a `%` that starts no escape. */
+const encodeLoose = (s: string) => s.replace(/%(?![0-9A-Fa-f]{2})|[^\x21-\x7E]|["<>\\^`{|}]/gu, percent)
+
+/**
+ * An address as a sitemap must carry it (round 44): RFC 3986, so a slug in
+ * another alphabet, a space or a stray `%` is percent encoded, and a host in
+ * another alphabet is written in punycode. A sitemap naming
+ * storelib.com/maría/café is one Search Console reports as invalid. What is
+ * already encoded stays as it is, so this can run on an address twice. The
+ * XML escaping (`&` as `&amp;`) comes after it, in entryXml.
+ */
+export function sitemapLoc(url: string): string {
+  const raw = url.trim()
+  const m = /^(https?:\/\/)([^/?#]*)([\s\S]*)$/i.exec(raw)
+  if (!m) return encodeLoose(raw)
+  let host = m[2]
+  if (/[^\x21-\x7E]/.test(host)) {
+    try {
+      host = new URL(`${m[1]}${host}/`).host
+    } catch {
+      host = encodeLoose(host)
+    }
+  }
+  return `${m[1]}${host}${encodeLoose(m[3])}`
+}
 
 /**
  * The picture addresses a sitemap may name: absolute http(s), not a video or
@@ -101,13 +181,18 @@ function entryXml(tag: "url" | "sitemap", e: SitemapEntry): string {
   const mod = lastmodOf(e.lastModified)
   /* Pictures belong to a page, never to an entry of the index. */
   const images = tag === "url" ? sitemapImages(e.images) : []
-  const pictures = images.map((loc) => `<image:image><image:loc>${xmlEscape(loc)}</image:loc></image:image>`).join("")
-  return `<${tag}><loc>${xmlEscape(e.url)}</loc>${mod ? `<lastmod>${mod}</lastmod>` : ""}${pictures}</${tag}>`
+  const pictures = images.map((loc) => `<image:image><image:loc>${xmlEscape(sitemapLoc(loc))}</image:loc></image:image>`).join("")
+  return `<${tag}><loc>${xmlEscape(sitemapLoc(e.url))}</loc>${mod ? `<lastmod>${mod}</lastmod>` : ""}${pictures}</${tag}>`
 }
 
 export function urlsetXml(entries: SitemapEntry[]): string {
   const seen = new Set<string>()
-  const rows = entries.filter((e) => (seen.has(e.url) ? false : (seen.add(e.url), true))).map((e) => entryXml("url", e))
+  /* Once per address as it is written, so café and caf%C3%A9 are one entry. */
+  const once = (url: string) => {
+    const loc = sitemapLoc(url)
+    return seen.has(loc) ? false : (seen.add(loc), true)
+  }
+  const rows = entries.filter((e) => once(e.url)).map((e) => entryXml("url", e))
   /* The image namespace, as each website's own sitemap declares it. */
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${rows.join("\n")}\n</urlset>\n`
 }
@@ -159,6 +244,9 @@ const PRIVATE_ROUTES = [
   "sites",
   "store",
   "store-builder",
+  /* Round 44: Stripe's return step and a team invite's join page. Both say noindex as well. */
+  "stripe-done",
+  "team",
   "unsubscribe",
   "upgrade",
   "w",
@@ -166,12 +254,15 @@ const PRIVATE_ROUTES = [
 ]
 
 /**
- * Each route twice: the route itself (`$` ends the match) and everything
- * under it. A bare `Disallow: /library` is a PREFIX, and would also have
- * hidden a creator called "libraryofsound" at storelib.com/libraryofsound.
+ * Each route three times: the route itself (`$` ends the match), the route
+ * with a query, and everything under it. A bare `Disallow: /library` is a
+ * PREFIX, and would also have hidden a creator called "libraryofsound" at
+ * storelib.com/libraryofsound. Round 44: the query form, because
+ * `/checkout$` does not match /checkout?product=… and `/checkout/` does not
+ * either, so a checkout or an unsubscribe link with its token was open.
  */
 export const PLATFORM_DISALLOW = [
-  ...PRIVATE_ROUTES.flatMap((r) => [`/${r}$`, `/${r}/`]),
+  ...PRIVATE_ROUTES.flatMap((r) => [`/${r}$`, `/${r}?`, `/${r}/`]),
   "/explore?sort=",
   "/explore?q=",
 ]
@@ -188,6 +279,17 @@ export const SITE_DISALLOW = [
   "/api/", "/preview/", "/search$", "/search?", "/search/", "/cart$", "/cart?", "/cart/",
   "/account$", "/account?", "/account/", "/wishlist$", "/wishlist?", "/wishlist/",
 ]
+
+/**
+ * What a built site's robots.txt opens again under SITE_DISALLOW's `/api/`
+ * (round 44): an imported theme's stylesheets, scripts and pictures, served
+ * at /api/site-theme/assets/<install>/<version>/<name>
+ * (lib/storelib-theme/compat/asset-version.ts). A crawler that may not fetch
+ * a page's CSS and JS draws it unstyled, and judges it on that. The longer
+ * rule wins in Google's and Bing's reading of robots.txt, so the rest of
+ * /api/ stays closed.
+ */
+export const SITE_ALLOW = ["/api/site-theme/assets/"]
 
 /**
  * The platform's own pages, as a connected domain answers them. proxy.ts
