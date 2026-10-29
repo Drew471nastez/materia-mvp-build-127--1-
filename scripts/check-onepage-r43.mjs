@@ -60,7 +60,7 @@ async function open(w, path) {
   p.errors = errors
   return p
 }
-const click = (p, sel) => p.evaluate((s) => { const el = document.querySelector(s); el?.click(); return !!el }, sel)
+const click = (p, sel) => p.evaluate((s) => { const el = (window.__R || document).querySelector(s) ?? document.querySelector(s); el?.click(); return !!el }, sel)
 
 /* ── SHEET ─────────────────────────────────────────────────────────────── */
 for (const theme of ["default", "midnight"]) {
@@ -69,25 +69,27 @@ for (const theme of ["default", "midnight"]) {
     const p = await open(w, `?sheet&theme=${theme}`)
     await click(p, '[data-product-block][data-product-tap="sheet"]')
     await sleep(1100)
+    /* A sheet seen once stays built (keepMounted): every read is inside the tee's own. */
+    await p.evaluate(() => { window.__R = document.querySelector('[data-product-sheet="p-tee"]') })
     const g = await p.evaluate(() => {
-      const gal = document.querySelector("[data-product-sheet-gallery]")
-      const cap = document.querySelector("[data-product-sheet-dots] > div")
+      const gal = (window.__R || document).querySelector("[data-product-sheet-gallery]")
+      const cap = (window.__R || document).querySelector("[data-product-sheet-dots] > div")
       return {
         count: Number(gal?.getAttribute("data-count") || 0),
-        thumbs: document.querySelectorAll("[data-product-sheet-thumbs] button").length,
+        thumbs: (window.__R || document).querySelectorAll("[data-product-sheet-thumbs] button").length,
         capsule: cap ? getComputedStyle(cap).backgroundColor : null,
-        dot: (() => { const d = document.querySelector("[data-product-sheet-dots] span"); return d ? Math.round(d.getBoundingClientRect().height) : 0 })(),
-        arrows: !!document.querySelector("[data-product-sheet-next]"),
-        columns: !!document.querySelector("[data-product-sheet-columns]"),
-        width: Math.round(document.querySelector("[data-product-sheet]")?.getBoundingClientRect().width || 0),
-        label: document.querySelector("[data-product-sheet-label]")?.textContent,
-        was: document.querySelector("[data-product-sheet-was]")?.textContent,
-        sale: document.querySelector("[data-product-sheet-sale]")?.textContent,
-        swatches: [...document.querySelectorAll("[data-product-sheet-value][data-swatch]")].map((e) => `${e.getAttribute("data-product-sheet-value")}:${e.getAttribute("data-swatch")}`),
-        pills: [...document.querySelectorAll('[data-product-sheet-option="Size"] [data-product-sheet-value]')].map((e) => e.getAttribute("data-product-sheet-value")),
-        personal: !!document.querySelector('[data-personalization-field="f1name"]'),
-        surface: getComputedStyle(document.querySelector("[data-product-sheet-actions]")).backgroundColor,
-        titleFont: getComputedStyle(document.querySelector("[data-product-sheet] h2 span, [data-product-sheet] [id] span") || document.body).fontFamily,
+        dot: (() => { const d = (window.__R || document).querySelector("[data-product-sheet-dots] span"); return d ? Math.round(d.getBoundingClientRect().height) : 0 })(),
+        arrows: !!(window.__R || document).querySelector("[data-product-sheet-next]"),
+        columns: !!(window.__R || document).querySelector("[data-product-sheet-columns]"),
+        width: Math.round(document.querySelector('[data-product-sheet="p-tee"]')?.getBoundingClientRect().width || 0),
+        label: (window.__R || document).querySelector("[data-product-sheet-label]")?.textContent,
+        was: (window.__R || document).querySelector("[data-product-sheet-was]")?.textContent,
+        sale: (window.__R || document).querySelector("[data-product-sheet-sale]")?.textContent,
+        swatches: [...(window.__R || document).querySelectorAll("[data-product-sheet-value][data-swatch]")].map((e) => `${e.getAttribute("data-product-sheet-value")}:${e.getAttribute("data-swatch")}`),
+        pills: [...(window.__R || document).querySelectorAll('[data-product-sheet-option="Size"] [data-product-sheet-value]')].map((e) => e.getAttribute("data-product-sheet-value")),
+        personal: !!(window.__R || document).querySelector('[data-personalization-field="f1name"]'),
+        surface: getComputedStyle((window.__R || document).querySelector("[data-product-sheet-actions]")).backgroundColor,
+        titleFont: getComputedStyle((window.__R || document).querySelector("h2 span") || document.body).fontFamily,
       }
     })
     expect(g.count === 5 && g.thumbs === 5, "five pictures (three of the product, two variants' own), five thumbnails", { count: g.count, thumbs: g.thumbs })
@@ -104,13 +106,13 @@ for (const theme of ["default", "midnight"]) {
     if (w === 1280) {
       await click(p, "[data-product-sheet-next]")
     } else {
-      await p.evaluate(() => { const s = document.querySelector("[data-product-sheet-gallery] .snap-x"); s.scrollTo({ left: s.clientWidth, behavior: "auto" }) })
+      await p.evaluate(() => { const s = (window.__R || document).querySelector("[data-product-sheet-gallery] .snap-x"); s.scrollTo({ left: s.clientWidth, behavior: "auto" }) })
     }
     await sleep(700)
     const step = await p.evaluate(() => {
-      const s = document.querySelector("[data-product-sheet-gallery] .snap-x")
-      const dots = [...document.querySelectorAll("[data-product-sheet-dots] span")].map((d) => Math.round(d.getBoundingClientRect().width))
-      return { at: Math.round(s.scrollLeft / s.clientWidth), dots, current: [...document.querySelectorAll("[data-product-sheet-thumbs] button")].findIndex((b) => b.getAttribute("aria-current") === "true") }
+      const s = (window.__R || document).querySelector("[data-product-sheet-gallery] .snap-x")
+      const dots = [...(window.__R || document).querySelectorAll("[data-product-sheet-dots] span")].map((d) => Math.round(d.getBoundingClientRect().width))
+      return { at: Math.round(s.scrollLeft / s.clientWidth), dots, current: [...(window.__R || document).querySelectorAll("[data-product-sheet-thumbs] button")].findIndex((b) => b.getAttribute("aria-current") === "true") }
     })
     expect(step.at === 1 && step.dots[1] === 16 && step.current === 1, w === 1280 ? "Next goes to the second picture; its dot and thumbnail follow" : "a swipe goes to the second picture; its dot and thumbnail follow", step)
 
@@ -118,23 +120,23 @@ for (const theme of ["default", "midnight"]) {
     await click(p, '[data-product-sheet-value="Sand"]')
     await sleep(800)
     const sand = await p.evaluate(() => {
-      const s = document.querySelector("[data-product-sheet-gallery] .snap-x")
-      return { at: Math.round(s.scrollLeft / s.clientWidth), mOut: document.querySelector('[data-product-sheet-option="Size"] [data-product-sheet-value="M"]')?.hasAttribute("data-unavailable") }
+      const s = (window.__R || document).querySelector("[data-product-sheet-gallery] .snap-x")
+      return { at: Math.round(s.scrollLeft / s.clientWidth), mOut: (window.__R || document).querySelector('[data-product-sheet-option="Size"] [data-product-sheet-value="M"]')?.hasAttribute("data-unavailable") }
     })
     expect(sand.at === 3 && sand.mOut, "Sand shows Sand's picture, and M (sold out in Sand) is crossed out", sand)
     await click(p, '[data-product-sheet-value="XL"]')
     await sleep(200)
-    expect((await p.evaluate(() => document.querySelector("[data-product-sheet-label]")?.textContent)) === "Check out · €49.00", "XL's own price on the button")
+    expect((await p.evaluate(() => (window.__R || document).querySelector("[data-product-sheet-label]")?.textContent)) === "Check out · €49.00", "XL's own price on the button")
 
     /* The size guide slides open. */
     await click(p, "[data-product-sheet-size-guide]")
     const heights = []
     for (let i = 0; i < 6; i++) {
-      heights.push(await p.evaluate(() => Math.round(document.querySelector("[data-product-sheet-size-chart]").getBoundingClientRect().height)))
+      heights.push(await p.evaluate(() => Math.round((window.__R || document).querySelector("[data-product-sheet-size-chart]").getBoundingClientRect().height)))
       await sleep(60)
     }
     await sleep(400)
-    const full = await p.evaluate(() => Math.round(document.querySelector("[data-product-sheet-size-chart]").getBoundingClientRect().height))
+    const full = await p.evaluate(() => Math.round((window.__R || document).querySelector("[data-product-sheet-size-chart]").getBoundingClientRect().height))
     expect(full > 150 && heights.some((h) => h > 0 && h < full), "the size guide slides open, frame by frame", { heights, full })
     if (w === 1280 && theme === "default") await p.screenshot({ path: join(SHOTS, `sheet-${theme}-${w}-size-guide.png`) })
     if (w === 390 && theme === "midnight") await p.screenshot({ path: join(SHOTS, `sheet-${theme}-${w}.png`) })
@@ -145,10 +147,11 @@ for (const theme of ["default", "midnight"]) {
     const q = await open(w, `?sheet&theme=${theme}`)
     await click(q, '[data-product-block="row"]')
     await sleep(1000)
-    const before = await q.evaluate(() => document.querySelector("[data-product-sheet-label]")?.textContent)
+    await q.evaluate(() => { window.__R = document.querySelector('[data-product-sheet="p-pack"]') })
+    const before = await q.evaluate(() => (window.__R || document).querySelector("[data-product-sheet-label]")?.textContent)
     await click(q, '[data-product-sheet-value="Commercial"]')
     await sleep(200)
-    const after = await q.evaluate(() => ({ label: document.querySelector("[data-product-sheet-label]")?.textContent, price: document.querySelector("[data-product-sheet-price] span")?.textContent }))
+    const after = await q.evaluate(() => ({ label: (window.__R || document).querySelector("[data-product-sheet-label]")?.textContent, price: (window.__R || document).querySelector("[data-product-sheet-price] span")?.textContent }))
     expect(before === "Choose an option" && after.label === "Buy now" && after.price === "€79.00", "two licences: the buyer picks, and the price follows", { before, after })
     await q.close()
   }

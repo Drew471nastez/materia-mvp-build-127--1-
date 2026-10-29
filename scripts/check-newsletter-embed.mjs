@@ -114,7 +114,7 @@ createServer(async (req, res) => {
   if (req.method === "POST") { const raw = await read(req); const ct = String(req.headers["content-type"] ?? ""); if (ct.includes("multipart")) { const fd = await new Response(raw, { headers: { "content-type": ct } }).formData(); body = {}; fd.forEach((v, k) => { (body as any)[k] = String(v) }) } else body = Object.fromEntries(new URLSearchParams(raw)) }
   const ajax = String(req.headers["x-requested-with"] ?? "") === "XMLHttpRequest"
   const site = siteFor(req)
-  const r = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cart: [], ajax, submit: async (kind, payload) => { posts.push({ route: kind, body: payload }); return { ok: true, status: 200 } } })
+  const r = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cart: [], ajax, /* the canvas's route has nothing to send with, as the editor's preview has none (app/api/site-theme/site) */ ...(site.designMode ? {} : { submit: async (kind, payload) => { posts.push({ route: kind, body: payload }); return { ok: true, status: 200 } } }) })
   res.statusCode = r.status
   for (const [k, v] of Object.entries(r.headers ?? {})) res.setHeader(k, v as string)
   res.setHeader("content-type", r.type)
