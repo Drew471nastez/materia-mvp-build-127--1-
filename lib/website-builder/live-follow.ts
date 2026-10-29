@@ -148,3 +148,42 @@ export function remember(seen: Set<number>, ids: number[], max: number = SEEN_MA
   seen.clear()
   for (const id of keep) seen.add(id)
 }
+
+/*
+  A PUSH IS WRITTEN ONE FILE AT A TIME (lib/github-sync/sync.ts applyFiles:
+  a row per saved file, then the link's time once the push is in). A push of
+  two hundred files trickles into the log over seconds, and the editor read
+  it about once a second: each read applied the slice that had arrived, so
+  one push was six full reads of the theme, six redraws of every section,
+  and up to five fresh canvas documents, one after another, while the person
+  scrolled. That was the ten seconds of stutter.
+
+  So the rows of a push that is still being written are held, and the pile
+  is applied once: when the link's time moves (the push is in), when no new
+  row has come for PUSH_QUIET_MS, or at the latest PUSH_HOLD_CAP_MS after the
+  first, so a very long push still shows as it goes. An agent's own edits are
+  not held: each is one change somebody is waiting to see.
+*/
+
+/** Nothing new from a push for this long, and it is taken as finished. */
+export const PUSH_QUIET_MS = 2_000
+/** The longest the rows of one push wait to be applied together. */
+export const PUSH_HOLD_CAP_MS = 10_000
+/** How soon the log is read again while a push is held. */
+export const PUSH_HOLD_TICK_MS = 500
+
+/** Whether rows read so far should wait for the rest of their push before they are applied. */
+export function holdForPush(input: {
+  /** Some of the rows held are a GitHub push's. */
+  fromPush: boolean
+  /** The link's time moved since the first row was held: the push is in. */
+  syncMoved: boolean
+  /** When the first row was held, and when the last new one came. */
+  heldSince: number
+  grewAt: number
+  now: number
+}): boolean {
+  if (!input.fromPush || input.syncMoved) return false
+  if (input.now - input.heldSince >= PUSH_HOLD_CAP_MS) return false
+  return input.now - input.grewAt < PUSH_QUIET_MS
+}
