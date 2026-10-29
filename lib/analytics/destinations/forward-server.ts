@@ -330,7 +330,7 @@ export async function noteThanks(db: Db, creatorId: string, ref: string, email: 
     const who = await visitorPerson({ email })
     if (!who) return
     afterResponse(async () => {
-      if ((await noteBrowser(db, creatorId, ref, who)) > 0) await drain(db, { creatorId, limit: 20, budgetMs: 15_000, transport })
+      if ((await noteBrowser(db, creatorId, ref, who)) > 0) await drain(db, { creatorId, limit: 20, budgetMs: 15_000 })
     })
   } catch {
     /* the cron sends it as it is */
