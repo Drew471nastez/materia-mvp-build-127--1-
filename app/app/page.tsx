@@ -70,6 +70,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = "force-dynamic"
 
+/** How long Home waits for its banner's sales news before drawing without it. */
+const HOME_EXTRA_MS = 2_500
+const NO_BANNER_ROWS: Awaited<ReturnType<typeof creatorSalesRows>> = { recent: [], earliest: [] }
+
 export default async function AppDashboard() {
   const adminSupabase = createAdminClient()
 
@@ -160,7 +164,8 @@ export default async function AppDashboard() {
          counts, each 0 on a database without its table. */
       readChallengeCounts(adminSupabase, creator.id),
       /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
-      creatorSalesRows(adminSupabase, creator.id, now),
+      /* With a ceiling of its own (HOME_EXTRA_MS): the banner's news is the one read here Home can be drawn without, and it is several reads one after another. Past it, no news, and the rest of Home is not held. */
+      within(creatorSalesRows(adminSupabase, creator.id, now), HOME_EXTRA_MS, NO_BANNER_ROWS),
       /* What the store's orders need now (lib/physical/action-reminders): in the first paint, so the lines never push Home down; null past 2s, and the browser asks for them then. */
       within(commerceActionCounts(adminSupabase, creator.id, now), 2_000, null),
     ])

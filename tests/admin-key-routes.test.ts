@@ -50,6 +50,8 @@ const PROOFS: [string, RegExp][] = [
      `current.user`, which is null in both. */
   ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
+  /* Changed on purpose (round rel-auth): lib/auth/route-user routeUser() is getUser() with a ceiling and one retry, a 401 only for Auth's nobody and a 503 when it did not answer; the route acts only on `who.user`. */
+  ["a signed-in session, fresh and classified", /await routeUser\(\)[\s\S]*who\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],

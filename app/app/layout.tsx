@@ -22,6 +22,7 @@ import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { PlanWatch } from "@/components/app/plan-watch"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
+import { within } from "@/lib/website-builder/load-guard"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -36,6 +37,9 @@ import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
  * for the page somebody links to anyway.
  */
 export const metadata: Metadata = { robots: { index: false, follow: false } }
+
+/** How long the shell waits for what only decorates it (the account menu's other businesses) before drawing without it. */
+const SHELL_EXTRA_MS = 2_500
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -185,7 +189,8 @@ export default async function AppLayout({
       .maybeSingle(),
     /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
        shell draws no later; an error reads as this business alone, as it always was. */
-    listBusinesses(user.id).catch(() => []),
+    /* With a ceiling of its own (SHELL_EXTRA_MS): up to three reads one after another for a menu, and the shell waited on the slowest of them. Past it, this business alone, as on an error. */
+    within(listBusinesses(user.id), SHELL_EXTRA_MS, []),
     /* Working in a store they were invited to (lib/team): read from the database again on every request. */
     teamStoreForRequest(user.id).catch(() => null),
     /* The stores they are on as a team member, for the account menu's switcher. */

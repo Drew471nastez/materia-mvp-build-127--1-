@@ -4,7 +4,8 @@ import { cache } from "react"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, creatorForRequest, type RequestCreator } from "@/lib/auth/request-scope"
+import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, creatorForRequest, currentUserForRequest, type RequestCreator } from "@/lib/auth/request-scope"
+import { shouldSendToLogin } from "@/lib/auth/current-user"
 import { sendEmail } from "@/lib/mail"
 import { emailImageSrc } from "@/lib/email-campaigns/sender"
 import { teamInviteEmail } from "./invite-email"
@@ -649,11 +650,17 @@ export function viewerKey(userId: string, actingIn: string | null): string {
 }
 
 export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | NextResponse> {
-  const { createClient } = await import("@/lib/supabase/server")
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
-  if (!user) return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
+  /*
+    WHO IS ASKING, WITH A CEILING AND THREE ANSWERS (lib/auth/route-user). This read getUser() and only its
+    `user`, so Supabase Auth timing out came back as 401 "Sign in again" and the screen said a signed in person's
+    session had ended. Now: a user, a 401 only when Auth said nobody, and a 503 with Try again when it did not
+    answer. Nothing is allowed on that last answer; it is refused with a true reason.
+  */
+  const { routeUser, authUnavailableResponse } = await import("@/lib/auth/route-user")
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  if (who.kind !== "user") return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
+  const user = who.user
   const db = createAdminClient()
   const found = await creatorFor(db, user.id, area)
   if (found.kind === "denied") return NextResponse.json({ error: NO_ACCESS }, { status: 403, headers: { "Cache-Control": "no-store" } })
@@ -773,11 +780,17 @@ export async function onATeam(db: Db, userId: string): Promise<boolean> {
 export async function noStorePage(path: string): Promise<null> {
   /* Asked for here, not at the top: the rest of this file is read by suites outside Next, where navigation's client half cannot load. */
   const redirect: (url: string) => never = (await import("next/navigation")).redirect
-  const { createClient } = await import("@/lib/supabase/server")
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
-  if (!user) redirect("/sell")
+  /*
+    THE REQUEST'S ONE ANSWER, NOT A SECOND getUser (lib/auth/request-scope). This asked Supabase Auth again after
+    the layout and the page had, and read only `user`: Auth slow for a moment sent a seller with a store to /sell.
+    Could not tell: nothing here, and the /app layout's gate recovers the session in the browser (lib/auth/page-user).
+  */
+  const current = await currentUserForRequest()
+  if (!current.user) {
+    if (shouldSendToLogin(current)) redirect("/sell")
+    return null
+  }
+  const user = current.user
   const db = createAdminClient()
   const acting = await actingStore(db, user.id).catch(() => null)
   if (acting) return null

@@ -8,7 +8,9 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
-import { createSite, currentCreatorId } from "@/lib/sites/projects"
+import { createSite } from "@/lib/sites/projects"
+import { creatorIdOf } from "@/lib/creators/current"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { blankProject } from "@/lib/sites/starter"
 
@@ -18,7 +20,10 @@ export const runtime = "nodejs"
 const MAX_PROMPT = 2000
 
 export async function POST(request: NextRequest) {
-  const creatorId = await currentCreatorId()
+  /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) {
     return NextResponse.json({ error: "Only creators can build sites." }, { status: 403 })
   }
