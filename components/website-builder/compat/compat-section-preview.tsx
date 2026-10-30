@@ -504,6 +504,9 @@ class PreviewSheet {
   private remeasure = new Set<string>()
   private remeasureQueued = false
   private document_: { html: string; main: string } | null = null
+  private onFonts: (() => void) | null = null
+  /** The frame's scale and height as last written. */
+  private frameAt = ""
 
   constructor(
     readonly theme: CompatTheme,
@@ -527,11 +530,23 @@ class PreviewSheet {
    * it attaches to the frame as it would to a frame that reloaded.
    */
   release(): void {
+    if (this.doc && this.onFonts) this.doc.fonts?.removeEventListener?.("loadingdone", this.onFonts)
+    this.onFonts = null
+    this.frameAt = ""
     this.doc = null
     this.proto = null
     this.frame = null
     this.grid = null
     this.wrappers.clear()
+  }
+
+  /** Whether the frame's document is still this sheet's: a newer sheet may have taken it over (attach). */
+  private owns(): boolean {
+    if (this.doc && docOwner.get(this.doc) !== this) {
+      this.release()
+      return false
+    }
+    return !!this.doc
   }
 
   /** The frame's whole document, built once. */
@@ -578,7 +593,11 @@ class PreviewSheet {
     this.cards.set(key, entry)
     this.schedule()
     return () => {
-      if (this.cards.get(key) === entry) this.cards.delete(key)
+      if (this.cards.get(key) !== entry) return
+      this.cards.delete(key)
+      /* Its card is gone: its section goes with it now, not at the next sync. */
+      const w = this.wrappers.get(key)
+      if (w) w.hidden = true
     }
   }
 
@@ -590,7 +609,27 @@ class PreviewSheet {
     this.grid = frame.parentElement
     const doc = frame.contentDocument
     /* Not the blank page a new frame holds before its own document has loaded. */
-    if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    if (!doc?.body || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    if (doc === this.doc && docOwner.get(doc) === this) return
+    /*
+      ONE SHEET PAINTS IN A DOCUMENT. A push gives the theme new files, so a
+      new sheet, and when only a section changed its document is the old one
+      to the letter: React leaves the frame alone, and the new sheet attached
+      to the document the old one had filled. The old sheet's sections stayed
+      in it, put where their cards were before the push and never moved
+      again: a strip of another section in the gap between two cards, a
+      picture over the wrong card, a card's section twice. The document is
+      taken over now, and what another sheet put in it is taken out.
+    */
+    const source = docSource.get(doc)
+    if (source === undefined) docSource.set(doc, frame.getAttribute("srcdoc") ?? "")
+    /* The old document of a frame about to load this sheet's own: its load attaches. */
+    else if (source !== this.srcDoc) return
+    const before = docOwner.get(doc)
+    if (before && before !== this) before.release()
+    if (before !== this) for (const w of Array.from(doc.querySelectorAll("body>[data-sl-pv]"))) w.remove()
+    docOwner.set(doc, this)
+    if (this.doc && this.doc !== doc && this.onFonts) this.doc.fonts?.removeEventListener?.("loadingdone", this.onFonts)
     this.doc = doc
     this.wrappers.clear()
     for (const [k, st] of this.states) if (st.state === "shown") this.states.set(k, { ...st, state: "waiting" })
@@ -603,7 +642,9 @@ class PreviewSheet {
     }
     /* The page's own background under each section, as on the page: read with the frame's see-through rule off. */
     const own = doc.querySelector<HTMLStyleElement>("style[data-storelib-sheet]")
-    if (own?.sheet) {
+    /* Once a document: a sheet taking over a document another one filled finds it said already. */
+    if (own?.sheet && !own.hasAttribute("data-page-background")) {
+      own.setAttribute("data-page-background", "")
       own.sheet.disabled = true
       const v = doc.defaultView
       const b = v?.getComputedStyle(doc.body)
@@ -615,10 +656,11 @@ class PreviewSheet {
       own.appendChild(doc.createTextNode(`\nbody>[data-sl-pv]{background-color:${color};background-image:${image}}`))
     }
     /* A font that lands later changes heights: each drawn card is measured again then. */
-    doc.fonts?.addEventListener?.("loadingdone", () => {
+    this.onFonts = () => {
       for (const k of this.wrappers.keys()) this.remeasure.add(k)
       this.queueRemeasure()
-    })
+    }
+    doc.fonts?.addEventListener?.("loadingdone", this.onFonts)
     this.sync()
     this.schedule()
   }
@@ -630,8 +672,8 @@ class PreviewSheet {
    */
   setOpen(open: boolean) {
     this.open = open
-    if (!open || !this.doc) return
-    for (const img of Array.from(this.doc.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
+    if (!open || !this.owns()) return
+    for (const img of Array.from(this.doc!.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
       img.setAttribute("fetchpriority", "low")
       img.loading = "eager"
     }
@@ -666,7 +708,7 @@ class PreviewSheet {
   }
 
   schedule() {
-    if (this.scheduled || !this.doc || typeof window === "undefined") return
+    if (this.scheduled || typeof window === "undefined" || !this.owns()) return
     if (!this.hasPending()) return
     this.scheduled = true
     watchInput()
@@ -689,7 +731,7 @@ class PreviewSheet {
 
   private run(budget: number) {
     this.scheduled = false
-    if (!this.doc) return
+    if (!this.owns()) return
     const t0 = performance.now()
     let put = 0
     for (const key of this.pending()) {
@@ -849,11 +891,21 @@ class PreviewSheet {
   sync() {
     const frame = this.frame
     const grid = this.grid
-    if (!frame || !grid || !this.doc || !frame.isConnected) return
+    if (!frame || !grid || !frame.isConnected || !this.owns()) return
     const g = grid.getBoundingClientRect()
-    /* A transform over the library (the dialog's entrance) scales what is read; the cards' own offsets do not have it. */
-    const zoom = grid.offsetWidth > 0 ? g.width / grid.offsetWidth : 1
+    /*
+      A transform over the library (the dialog's entrance) scales what is
+      read; dividing by it gives the layout's own distances, the same in
+      every frame of the entrance. Its layout width as laid out, not
+      offsetWidth, which is rounded: a list at 657.5px read as 658 put a
+      card two thousand pixels down the list a pixel and more off.
+    */
+    const laidOut = parseFloat(grid.ownerDocument.defaultView?.getComputedStyle(grid).width ?? "") || grid.offsetWidth
+    const zoom = laidOut > 0 && g.width > 0 ? g.width / laidOut : 1
     if (!(zoom > 0)) return
+    /* Nothing scrolls the frame's own page (an autofocus in a section could): its top is the list's top. */
+    const page = this.doc!.scrollingElement
+    if (page && (page.scrollTop || page.scrollLeft)) page.scrollTo(0, 0)
     let scale = 0
     for (const [key, w] of this.wrappers) {
       const card = this.cards.get(key)
@@ -868,7 +920,8 @@ class PreviewSheet {
         w.hidden = true
         continue
       }
-      const s = box.clientWidth / this.renderWidth
+      /* The box as laid out, unrounded (clientWidth and clientHeight are whole pixels): the section is scaled to exactly its card. */
+      const s = r.width / zoom / this.renderWidth
       if (!(s > 0)) continue
       scale = s
       w.hidden = false
@@ -880,10 +933,11 @@ class PreviewSheet {
         floor, the section sits in the middle of it, as the library's own
         cards do; otherwise at the top.
       */
-      const cardH = box.clientHeight / s
+      const cardH = r.height / zoom / s
       const natural = st.height ?? cardH
       const pad = natural * s < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
-      const pos = `${(r.top - g.top) / zoom / s}|${(r.left - g.left) / zoom / s}|${cardH}|${CARD_RADIUS / s}|${pad}`
+      /* To a hundredth of the frame's pixel: what a running transform adds in float noise is not a move, and is not written. */
+      const pos = `${hundredths((r.top - g.top) / zoom / s)}|${hundredths((r.left - g.left) / zoom / s)}|${hundredths(cardH)}|${hundredths(CARD_RADIUS / s)}|${hundredths(pad)}`
       if (placedAt.get(w) !== pos) {
         placedAt.set(w, pos)
         const [top, left, max, radius] = pos.split("|")
@@ -907,8 +961,13 @@ class PreviewSheet {
       scale = first ? first.box.clientWidth / this.renderWidth : 0
     }
     if (scale > 0) {
-      frame.style.transform = `scale(${scale})`
-      frame.style.height = `${Math.ceil(grid.offsetHeight / scale)}px`
+      /* As tall as the list, unrounded, so the last card's section is never cut at the frame's foot. Written when it changed. */
+      const at = `${scale}|${Math.ceil(g.height / zoom / scale)}`
+      if (this.frameAt !== at || !frame.style.transform) {
+        this.frameAt = at
+        frame.style.transform = `scale(${scale})`
+        frame.style.height = `${at.split("|")[1]}px`
+      }
     }
   }
 
@@ -1054,6 +1113,10 @@ function somethingToSee(root: HTMLElement): boolean {
 
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
+const hundredths = (v: number) => Math.round(v * 100) / 100
+/** Which sheet a frame's document is filled by, and the srcdoc it was loaded from (PreviewSheet.attach). */
+const docOwner = new WeakMap<Document, PreviewSheet>()
+const docSource = new WeakMap<Document, string>()
 
 const sheets = new WeakMap<CompatTheme, Map<number, PreviewSheet>>()
 function sheetFor(ctx: CompatPreviewValue, renderWidth: number): PreviewSheet | null {
@@ -1088,13 +1151,44 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     if (!sheet) return
     return () => sheet.release()
   }, [sheet])
-  /* The list's width changes every card's size: put each section over its card again. */
+  /*
+    ANYTHING THAT MOVES A CARD PUTS ITS SECTION OVER IT AGAIN. Only the
+    list's own size was watched, and a card only asked when it rendered
+    itself. A card moves without either: the one above it grows while
+    another shrinks by as much (the list the same height), a name wraps
+    again when a font lands, a held card lets its height go. The sections
+    stayed where their cards had been: pictures off their cards, a strip of
+    one in the gap between two, one cut short. Every card in the list is
+    watched (a category hiding one is a size change too), and so is the
+    list for the cards that come and go. An observer only calls when a size
+    changed, and sync() writes only what moved: nothing runs while nothing
+    moves.
+  */
   useEffect(() => {
     const grid = frame.current?.parentElement
     if (!sheet || !grid || typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver(() => sheet.sync())
     ro.observe(grid)
-    return () => ro.disconnect()
+    const watch = () => {
+      for (const el of Array.from(grid.children)) if (el.tagName !== "IFRAME") ro.observe(el)
+    }
+    watch()
+    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver((list) => {
+      for (const m of list) for (const n of Array.from(m.removedNodes)) if (n.nodeType === 1) ro.unobserve(n as Element)
+      watch()
+      sheet.requestSync()
+    })
+    mo?.observe(grid, { childList: true })
+    /* The editor's own fonts landing: the cards' names wrap again, which the observer sees; this is for one that moves a card without resizing any. */
+    const fonts = document.fonts
+    const settled = () => sheet.requestSync()
+    fonts?.addEventListener?.("loadingdone", settled)
+    fonts?.ready?.then(settled, () => {})
+    return () => {
+      ro.disconnect()
+      mo?.disconnect()
+      fonts?.removeEventListener?.("loadingdone", settled)
+    }
   }, [sheet])
   if (!sheet) return null
   return (
