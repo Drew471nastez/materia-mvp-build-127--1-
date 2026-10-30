@@ -209,7 +209,9 @@ async function main() {
   check("  listed in the README and the check after", /252_theme_marketplace_and_plan_overrides\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p252_theme_marketplace_and_plan_overrides/.test(read("supabase/sql/run-now/99_check_after.sql")))
   check("  nothing in it touches Stripe", !/stripe_subscription_id|stripe_customer_id/.test(sql))
   for (const f of ["lib/billing/overview.ts", "app/api/billing/subscription/route.ts", "app/app/settings/billing/upgrade/page.tsx"]) {
-    check(`the reader that asks Stripe asks for the override too: ${f}`, /readPlanOverride\(/.test(code(f)))
+    /* Changed on purpose: the overview reads the override through the per request read (lib/billing/request-reads billingPlanOverrideFor), which calls readPlanOverride. */
+    const asks = /readPlanOverride\(/.test(code(f)) || (/billingPlanOverrideFor\(/.test(code(f)) && /readPlanOverride\(/.test(code("lib/billing/request-reads.ts")))
+    check(`the reader that asks Stripe asks for the override too: ${f}`, asks)
   }
   const planRoute = code("app/api/admin/creators/plan/route.ts")
   check("each change is written to the audit log with the plan before and after", /recordAdminAction\(admin, \{\s*action: plan === null \? "plan_override_cleared" : "plan_override_set"/.test(planRoute) && /detail: \{ from: result\.from, to:/.test(planRoute))

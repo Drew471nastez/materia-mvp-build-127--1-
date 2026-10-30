@@ -18,8 +18,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
-import { readPlanOverride } from "@/lib/billing/plan-override"
-import { readSubscriptionRow, subscriptionReader } from "@/lib/billing/subscription-reader"
+import { subscriptionReader } from "@/lib/billing/subscription-reader"
+import { billingCreatorFor, billingPlanOverrideFor, billingSubscriptionRowFor } from "@/lib/billing/request-reads"
 import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
 
 const FREE_PLAN = {
@@ -87,36 +87,52 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
 
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return null
-
   let plans = FALLBACK_PLANS
   let subscription: any = null
   let currentPlan: any = FREE_PLAN
   let invoices: any[] = []
   let paymentMethod: any = null
 
-  /* Round 42: the store the route checked (the owner's own, or the one a team member with Billing works in: lib/team/money), else the signed in account's own. */
-  const { data: creator } = store
-    ? await createAdminClient().from("creators").select("*").eq("id", store.creatorId).maybeSingle()
-    : await createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle()
+  /*
+    Round 42: the store the route checked (the owner's own, or the one a team
+    member with Billing works in: lib/team/money). That route already asked
+    who is signed in, so it is not asked again; the creator, its stored
+    subscription row and its override are read together, once per request
+    (lib/billing/request-reads). With no store given, the signed in account's
+    own.
+  */
+  let creatorId = store?.creatorId ?? null
+  if (!creatorId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return null
+    const { data: own } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
+    creatorId = (own as { id?: string } | null)?.id ?? null
+    if (!creatorId) return null
+  }
+
+  const [creator, row, override, dbPlans] = await Promise.all([
+    billingCreatorFor(creatorId),
+    billingSubscriptionRowFor(creatorId),
+    billingPlanOverrideFor(creatorId),
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("subscription_plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price_cents", { ascending: true })
+        return data
+      } catch (error) {
+        console.error("[Billing] Error loading plans from DB:", error)
+        return null
+      }
+    })(),
+  ])
 
   if (!creator) return null
-
-  try {
-    const { data: dbPlans } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("is_active", true)
-      .order("price_cents", { ascending: true })
-
-    if (dbPlans?.length) plans = dbPlans
-  } catch (error) {
-    console.error("[Billing] Error loading plans from DB:", error)
-  }
+  if (dbPlans?.length) plans = dbPlans
 
   /*
     A READ: NO CUSTOMER IS CREATED HERE AND NOTHING IS WRITTEN. This used to
@@ -127,8 +143,6 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
     adds a card or checks out. Stripe failing shows the stored plan.
   */
   const stripeCustomerId: string | null = typeof creator.stripe_customer_id === "string" && creator.stripe_customer_id.startsWith("cus_") ? creator.stripe_customer_id : null
-  const admin = createAdminClient()
-  const row = await readSubscriptionRow(admin, creator.id)
   let subscriptionsRead: SubscriptionsRead | null = null
 
   if (stripeCustomerId || row?.stripe_customer_id) {
@@ -223,7 +237,6 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
     the override too and shows the same plan. The subscription, card and
     invoices stay Stripe's, untouched.
   */
-  const override = await readPlanOverride(admin, creator.id)
   if (override) {
     currentPlan = (plans as { id?: string }[]).find((p) => p?.id === override.planId) ?? FALLBACK_PLANS.find((p) => p.id === override.planId) ?? currentPlan
   }

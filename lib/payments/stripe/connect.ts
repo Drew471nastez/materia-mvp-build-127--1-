@@ -782,7 +782,11 @@ export async function upsertRepresentative(
 ): Promise<Stripe.Person> {
   const found = await representativeOf(accountId)
   const params = { ...person, relationship: { representative: true, executive: true, ...relationship } }
-  return found ? stripe.accounts.updatePerson(accountId, found.id, params) : stripe.accounts.createPerson(accountId, params as Stripe.AccountCreatePersonParams)
+  if (found) return stripe.accounts.updatePerson(accountId, found.id, params)
+  /* A retried save adds one representative, not two (10 minutes). */
+  return stripe.accounts.createPerson(accountId, params as Stripe.AccountCreatePersonParams, {
+    idempotencyKey: stripeIdempotencyKey("connect-representative", [accountId], params, { windowMs: 10 * 60_000 }),
+  })
 }
 
 export async function representativeOf(accountId: string): Promise<Stripe.Person | null> {

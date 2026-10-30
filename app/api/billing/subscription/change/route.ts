@@ -3,6 +3,7 @@ import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { stripeIdentityKey } from "@/lib/stripe/resilience"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
 
@@ -376,10 +377,24 @@ export async function POST(request: Request) {
         ) as any
       }
 
-      // Create a fresh schedule from the current subscription
-      const schedule = await stripe.subscriptionSchedules.create({
-        from_subscription: stripeSubscription.id,
+      /*
+        Create a fresh schedule from the current subscription, keyed by what it
+        is: this subscription, the schedule released above (if any) and the
+        plan it moves to. A retry of the same downgrade gets the same schedule
+        instead of Stripe refusing a second one. A key that hands back a
+        schedule already released or canceled (a downgrade undone and asked
+        again within Stripe's 24 hours) is followed by a key naming that
+        schedule, so the new request makes a new one.
+      */
+      const scheduleParams = { from_subscription: stripeSubscription.id as string }
+      let schedule = await stripe.subscriptionSchedules.create(scheduleParams, {
+        idempotencyKey: stripeIdentityKey("plan-downgrade-schedule", [stripeSubscription.id, existingScheduleId ?? "none", newPlanId], scheduleParams),
       })
+      for (let i = 0; i < 3 && (schedule.status === "released" || schedule.status === "canceled" || schedule.status === "completed"); i++) {
+        schedule = await stripe.subscriptionSchedules.create(scheduleParams, {
+          idempotencyKey: stripeIdentityKey("plan-downgrade-schedule", [stripeSubscription.id, existingScheduleId ?? "none", newPlanId, `after-${schedule.id}`], scheduleParams),
+        })
+      }
 
       // Use Stripe's own phase dates (most reliable - avoids any period extraction issues)
       const currentPhase = schedule.phases?.[0]

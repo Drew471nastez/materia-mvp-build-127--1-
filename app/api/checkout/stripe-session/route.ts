@@ -39,6 +39,7 @@ import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/co
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { trustedRequestOrigin } from "@/lib/billing/return-url"
 
 /**
  * POST /api/checkout/stripe-session
@@ -345,7 +346,8 @@ async function handlePOST(request: Request) {
       card path, so the same webhook makes the order.
     */
     if (body.walletSheet === true) {
-      const originHost = new URL(request.url).origin
+      /* Stripe's page comes back to Storelib's own origin only (lib/billing/return-url), never a host the request merely claims. */
+      const originHost = trustedRequestOrigin(request.url)
       const walletParams: Stripe.Checkout.SessionCreateParams = {
         mode: "payment",
         customer_email: email,

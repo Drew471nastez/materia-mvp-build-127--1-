@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe"
 import { emit } from "@/lib/notify/outbox"
 import { ledgerCurrency, toLedger } from "@/lib/payments/ledger-currency"
 import { formatMinor } from "@/lib/markets/money"
+import { cashoutIdempotencyKey } from "@/lib/stripe/resilience"
 
 /**
  * POST /api/stripe/cashout
@@ -15,7 +16,7 @@ import { formatMinor } from "@/lib/markets/money"
  *
  * - Enforces min cashout
  * - Prevents double cashout (no concurrent in-transit)
- * - Uses idempotency key
+ * - Keys the payout by what it is (account, last cashout, amount), never the time
  * - Updates platform ledger: available → in_transit
  *
  * TWO KINDS OF NUMBER, NEVER MIXED. The wallet (seller_ledger, ledger_events)
@@ -216,38 +217,63 @@ export async function POST(request: Request) {
     const payoutCurrency = selectedEntry.currency
     const payoutAmountNative = selectedEntry.amount
 
-    // Create Stripe payout with idempotency
-    const idempotencyKey = `cashout_${creator.id}_${Date.now()}`
-
-    let stripePayout
-    try {
-      stripePayout = await stripe.payouts.create(
-        {
-          amount: payoutAmountNative,
-          currency: payoutCurrency,
-          description: "Storelib cashout",
-          metadata: {
-            creator_id: creator.id,
-            platform: "storelib",
-            /* What the wallet moved to in transit, in its own currency's minor units. */
-            ledger_available_minor: String(ledger.available_amount),
-            ledger_currency: ledgerCurrency(),
-          },
-        },
-        {
-          stripeAccount: stripeAccountId,
-          idempotencyKey,
-        },
-      )
-    } catch (stripeErr: any) {
-      // Rollback ledger: move funds back from in_transit to available
-      await adminSupabase
+    const rollback = () =>
+      adminSupabase
         .from("seller_ledger")
         .update({
           available_amount: cashoutWalletMinor,
           in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutWalletMinor),
         })
         .eq("creator_id", creator.id)
+
+    /*
+      The payout's key is the payout itself, never the clock (lib/stripe/resilience
+      cashoutIdempotencyKey): this account, its last recorded cashout, and this
+      amount. A press whose answer was lost (the payout made, the ledger rolled
+      back below) and pressed again gets the same payout back instead of a
+      second one. The last cashout is read here; unread, nothing is paid.
+    */
+    const { data: lastCashout, error: lastCashoutErr } = await adminSupabase
+      .from("ledger_events")
+      .select("id")
+      .eq("creator_id", creator.id)
+      .eq("event_type", "cashout_initiated")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastCashoutErr) {
+      await rollback()
+      return NextResponse.json({ error: "Your balance is being updated. Try again in a few minutes." }, { status: 503 })
+    }
+
+    const payoutParams = {
+      amount: payoutAmountNative,
+      currency: payoutCurrency,
+      description: "Storelib cashout",
+      metadata: {
+        creator_id: creator.id,
+        platform: "storelib",
+        /* What the wallet moved to in transit, in its own currency's minor units. */
+        ledger_available_minor: String(cashoutWalletMinor),
+        ledger_currency: ledgerCurrency(),
+      },
+    }
+    const idempotencyKey = cashoutIdempotencyKey({
+      creatorId: creator.id,
+      accountId: stripeAccountId,
+      lastCashoutEventId: (lastCashout as { id?: string } | null)?.id ?? null,
+      walletMinor: cashoutWalletMinor,
+      params: payoutParams,
+    })
+
+    let stripePayout
+    try {
+      stripePayout = await stripe.payouts.create(payoutParams, { stripeAccount: stripeAccountId, idempotencyKey })
+    } catch (stripeErr: any) {
+      // Rollback ledger: move funds back from in_transit to available. If Stripe
+      // did make the payout and only the answer was lost, the next press sends
+      // the same key and gets that payout back.
+      await rollback()
       console.error("[Cashout] Stripe payout failed, ledger rolled back:", stripeErr)
       throw stripeErr
     }

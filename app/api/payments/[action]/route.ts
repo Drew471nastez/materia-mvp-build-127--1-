@@ -39,6 +39,7 @@ import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
 import { signSheetLink } from "@/lib/payments/stripe/app-sheet-link"
 import { startHostedSetup, startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
+import { trustedRequestOrigin } from "@/lib/billing/return-url"
 import {
   componentAuth,
   describe,
@@ -239,6 +240,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
  * configured site URL, which on a preview deployment testing the sandbox is
  * still storelib.com and would drop them on production.
  */
+/* Where Connect sends them back to: the origin the request came in on only when it is Storelib's own, else the platform (lib/billing/return-url). */
 function originOf(request: NextRequest): string {
-  return request.nextUrl.origin.replace(/\/+$/, "")
+  return trustedRequestOrigin(request.nextUrl.toString()).replace(/\/+$/, "")
 }

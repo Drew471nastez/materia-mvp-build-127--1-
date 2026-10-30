@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { loadBillingOverview } from "@/lib/billing/overview"
 import { moneyCaller } from "@/lib/team/money"
+import { withBillingRequest } from "@/lib/billing/request-reads"
 
 /**
  * GET /api/billing/overview
@@ -23,7 +24,8 @@ export async function GET() {
   const who = await moneyCaller("billing", "view")
   if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Not signed in" }, { status: 401 }) : who.response
   const canManage = who.isOwner || !!who.acting?.permissions.includes("billing_manage")
-  const overview = await loadBillingOverview({ creatorId: who.creatorId })
+  /* The creator, its subscription row and its override are read once for this request and dropped with it (lib/billing/request-reads). */
+  const overview = await withBillingRequest(() => loadBillingOverview({ creatorId: who.creatorId }))
   if (!overview) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
   /* canManage: whether the tab shows the buttons that change the plan; the change routes ask again. */
   return NextResponse.json({ ...overview, canManage }, {

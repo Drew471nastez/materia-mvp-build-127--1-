@@ -8,6 +8,7 @@ import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 import { readSubscriptionRow, subscriptionReader } from "@/lib/billing/subscription-reader"
 import { alreadyPayingVerdict } from "@/lib/billing/subscription-state"
+import { trustedReturnUrl } from "@/lib/billing/return-url"
 
 // LIVE Stripe Price IDs
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
@@ -84,8 +85,9 @@ export async function POST(request: Request) {
 
     const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
-    const successUrl = customSuccessUrl || `${appUrl}/app/settings/billing?success=1`
-    const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
+    /* Where Stripe sends them after paying or backing out: a page the request names only when it is on Storelib (lib/billing/return-url), never an open redirect. */
+    const successUrl = trustedReturnUrl(customSuccessUrl) ?? `${appUrl}/app/settings/billing?success=1`
+    const cancelUrl = trustedReturnUrl(customCancelUrl) ?? `${appUrl}/app/settings/billing?canceled=1`
 
     // Always create a Stripe Checkout Session directly — let Stripe handle plan selection
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
