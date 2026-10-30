@@ -92,7 +92,7 @@ import { writeFileSync } from "node:fs"
 
 process.env.PROBE_CSS = process.env.PROBE_CSS ?? "source"
 const { bundle, css } = await import("./editor-probe-harness.mjs")
-const { importedTheme, openEditor, sleep } = await import("./canvas-probe-kit.mjs")
+const { importedTheme, openEditor, sleep, withMarkup } = await import("./canvas-probe-kit.mjs")
 
 const CPU = Number(process.env.CPU ?? 1)
 const GAP = Number(process.env.GAP ?? 40)
@@ -355,7 +355,7 @@ const GLOBALS = `window.PROBE_ACTIVITY={events:[{id:1000,agent_name:"GitHub · a
 function pushFiles(stamp, n, who = "GitHub · ada") {
   const paths = [...SNIPPET_PATHS.slice(0, Math.max(0, n - SECTION_PATHS.length - 1)), ...SECTION_PATHS.slice(0, Math.min(SECTION_PATHS.length, n - 1))]
   const sources = {}
-  for (const p of paths) sources[p] = compat.sources[p].replace("</template>", `<i data-push="${stamp}"></i></template>`)
+  for (const p of paths) sources[p] = withMarkup(compat.sources[p], `<i data-push="${stamp}"></i>`)
   const files = { [CSS_PATH]: `${compat.files[CSS_PATH]}\n:root{--push-${stamp}:1}` }
   const rows = [...paths, CSS_PATH].map((path) => ({ agent_name: who, path, action: "updated" }))
   return { patch: { sources, files }, rows }
@@ -478,7 +478,7 @@ if (WANT.includes("agentminute")) await importedScenario("agentminute", async (e
   const writing = (async () => {
     while (Date.now() - t0 < Number(process.env.AGENT_MS ?? 60_000)) {
       const p = PAGE_SECTION_PATHS[k % PAGE_SECTION_PATHS.length]
-      const text = compat.sources[p].replace("</template>", `<i data-push="g${k}"></i></template>`)
+      const text = withMarkup(compat.sources[p], `<i data-push="g${k}"></i>`)
       const css = `${compat.files[CSS_PATH]}\n:root{--push-g${k}:1}`
       /* The stylesheet only when its row is written too: a read of it may come after the next save, and must find what that row says. */
       await putPatch(ed, { sources: { [p]: text }, files: k % 8 === 7 ? { [CSS_PATH]: css } : {} })

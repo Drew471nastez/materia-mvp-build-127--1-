@@ -972,6 +972,8 @@ const SUITES = [
   "tests/wb-stability-r13.test.ts",
   /* A push from GitHub or a coding agent redraws the sections it changed, and an imported theme's page once, instead of reloading the editor on every poll. */
   "tests/editor-incoming-push.test.ts",
+  /* A section a push changed keeps its card in Add a section, imported theme; the probes push files the server would keep (scripts/check-library-push-cards.mjs). */
+  "tests/library-push-cards.test.ts",
   /* The canvas scroll moves its chrome from the scroll offset, and a push waits until the gesture rests. */
   "tests/editor-scroll-rest.test.ts",
   /* A push reaches an open editor without a reload: a sleep with no visibilitychange is an absence, a full page reads on and the pile lands once, an apply has a ceiling, online, pageshow and the app's return wake it; the session recovery and a stalled OnePage load end in something to press. */
