@@ -106,6 +106,33 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   check("  sections are drawn ahead only while nobody is using the editor, and an open list nearest the screen first", /INPUT_QUIET_MS - \(performance\.now\(\) - lastInput\)/.test(preview) && /\(view\.top - r\.bottom\) \* 3/.test(preview) && /FRAME_BUDGET_MS = 8/.test(preview))
   check("  a picture fades in once, after its images are decoded and its stylesheets are in", /i\.decode\(\)/.test(preview) && /links\.map\(loaded\)/.test(preview) && /data-instant/.test(preview) && /prefers-reduced-motion:reduce/.test(preview))
   check("  the card does not rise from under its picture on hover", /!phone && !compat && "group-hover:-translate-y-px"/.test(library))
+
+  /*
+    "Sometimes the cover previews of the preview cards get bugged": pictures
+    off their cards, a strip of another section between two cards, one cut
+    short. Measured in a browser by scripts/check-library-preview-placement.mjs
+    (before, on Materia: 52 placement errors on a computer, 118 and 24351px
+    painted between cards on a phone; after: none); these hold the pieces
+    in place.
+  */
+  console.log("\nEvery picture stays over its own card\n")
+  check("every card in the list is watched for a size change, not only the list", /new ResizeObserver\(\(\) => sheet\.sync\(\)\)/.test(previewCode) && /for \(const el of Array\.from\(grid\.children\)\) if \(el\.tagName !== "IFRAME"\) ro\.observe\(el\)/.test(previewCode))
+  check("  cards that come and go are watched as they come, and let go as they go", /new MutationObserver\(/.test(previewCode) && /mo\?\.observe\(grid, \{ childList: true \}\)/.test(previewCode) && /ro\.unobserve\(n as Element\)/.test(previewCode))
+  check("  the editor's fonts landing puts them over their cards again", /fonts\?\.addEventListener\?\.\("loadingdone", settled\)/.test(previewCode) && /fonts\?\.ready\?\.then\(settled/.test(previewCode))
+  check("  every observer is let go with the sheet", /ro\.disconnect\(\)/.test(previewCode) && /mo\?\.disconnect\(\)/.test(previewCode) && /removeEventListener\?\.\("loadingdone", settled\)/.test(previewCode))
+  check("  no polling loop: nothing runs while nothing moves", !/setInterval\(/.test(previewCode) && !/requestAnimationFrame\(function loop|const loop = \(\) => \{[^}]*requestAnimationFrame\(loop\)/.test(previewCode))
+  check("positions are the layout's own, unrounded, under any transform", /getComputedStyle\(grid\)\.width/.test(previewCode) && /const s = r\.width \/ zoom \/ this\.renderWidth/.test(previewCode) && /const cardH = r\.height \/ zoom \/ s/.test(previewCode) && !/box\.clientWidth \/ this\.renderWidth\n\s*if \(!\(s > 0\)\) continue/.test(previewCode))
+  check("  written only when a place changed, to a hundredth of a pixel", /if \(placedAt\.get\(w\) !== pos\)/.test(previewCode) && /hundredths\(\(r\.top - g\.top\) \/ zoom \/ s\)/.test(previewCode) && /if \(this\.frameAt !== at/.test(previewCode))
+  check("  the frame is as tall as the list, unrounded, so no card is cut at its foot", /Math\.ceil\(g\.height \/ zoom \/ scale\)/.test(previewCode) && !/grid\.offsetHeight \/ scale/.test(previewCode))
+  check("  each section is cut at its card's foot: its height is the card's, its overflow hidden", /w\.style\.maxHeight = `\$\{max\}px`/.test(previewCode) && /w\.style\.minHeight = `\$\{max\}px`/.test(previewCode) && /body>\[data-sl-pv\]\{position:absolute!important[^"]*overflow:hidden!important/.test(preview))
+  check("  the frame's own page never scrolls away from the list's top", /page\.scrollTo\(0, 0\)/.test(previewCode))
+  check("a card that goes takes its section with it at once", /this\.cards\.delete\(key\)\s*const w = this\.wrappers\.get\(key\)\s*if \(w\) w\.hidden = true/.test(previewCode))
+  check("one sheet paints in a document: a new sheet takes the frame's document over and takes the old one's sections out", /docOwner\.set\(doc, this\)/.test(previewCode) && /before\.release\(\)/.test(previewCode) && /querySelectorAll\("body>\[data-sl-pv\]"\)\)\) w\.remove\(\)/.test(previewCode))
+  check("  an old document about to be replaced by this sheet's own is not filled", /else if \(source !== this\.srcDoc\) return/.test(previewCode))
+  check("  a sheet whose document was taken over does nothing more in it", /private owns\(\): boolean/.test(previewCode) && (previewCode.match(/this\.owns\(\)/g) ?? []).length >= 4)
+  check("  and keeps no listener on it (push lag: an old sheet held alive by the document)", /removeEventListener\?\.\("loadingdone", this\.onFonts\)/.test(previewCode))
+  check("the push lag work is kept: release, CLOSED_ADOPT_MS, idle scheduling", /release\(\): void/.test(previewCode) && /CLOSED_ADOPT_MS = 10_000/.test(previewCode) && /requestIdleCallback/.test(previewCode) && /return \(\) => sheet\.release\(\)/.test(previewCode))
+
   const route = readFileSync("app/api/website-builder/themes/[installId]/files/route.ts", "utf8")
   check("the editor is sent the schema words as well as the words", route.includes(String.raw`\.default(\.schema)?\.json$`))
 
