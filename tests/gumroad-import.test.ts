@@ -218,13 +218,13 @@ async function main() {
   const status = (code: number, body: unknown = { success: false, message: "The access token is invalid" }) =>
     (async () => new Response(JSON.stringify(body), { status: code })) as unknown as typeof fetch
   const bad = await fetchGumroadProducts(TOKEN, { fetchImpl: status(401) })
-  check("401: the token was not accepted", !bad.ok && bad.error === "bad_token")
+  check("401: the token was not accepted", !bad.ok && "error" in bad && bad.error === "bad_token")
   const down = await fetchGumroadProducts(TOKEN, { fetchImpl: status(503) })
-  check("5xx: Gumroad is down", !down.ok && down.error === "gumroad_down")
+  check("5xx: Gumroad is down", !down.ok && "error" in down && down.error === "gumroad_down")
   const thrown = await fetchGumroadProducts(TOKEN, { fetchImpl: (async () => { throw new Error(`boom ${TOKEN}`) }) as unknown as typeof fetch })
-  check("a network error is Gumroad down, and its message is not passed on", !thrown.ok && thrown.error === "gumroad_down" && !JSON.stringify(thrown).includes(TOKEN))
+  check("a network error is Gumroad down, and its message is not passed on", !thrown.ok && "error" in thrown && thrown.error === "gumroad_down" && !JSON.stringify(thrown).includes(TOKEN))
   const junk = await fetchGumroadProducts(TOKEN, { fetchImpl: (async () => new Response("<html>", { status: 200 })) as unknown as typeof fetch })
-  check("an answer that is not Gumroad's JSON", !junk.ok && junk.error === "gumroad_refused")
+  check("an answer that is not Gumroad's JSON", !junk.ok && "error" in junk && junk.error === "gumroad_refused")
   let loops = 0
   const loop = await fetchGumroadProducts(TOKEN, { fetchImpl: (async () => (loops++, new Response(JSON.stringify({ success: true, products: [product()], next_page_key: "same" })))) as unknown as typeof fetch })
   check("a page key that repeats stops", loop.ok && loops === 2)
@@ -232,7 +232,7 @@ async function main() {
   check("at most the page limit, and it says so", capped.ok && capped.products.length === 2 && capped.truncated)
   let asked = false
   const shape = await fetchGumroadProducts("not a token", { fetchImpl: (async () => ((asked = true), new Response("{}"))) as unknown as typeof fetch })
-  check("a token with spaces is refused before any request", !shape.ok && shape.error === "bad_token" && !asked)
+  check("a token with spaces is refused before any request", !shape.ok && "error" in shape && shape.error === "bad_token" && !asked)
   check("token shape", looksLikeToken(TOKEN) && !looksLikeToken("short") && !looksLikeToken("a b".repeat(10)))
   console.error = orig.error
   console.warn = orig.warn
