@@ -339,8 +339,9 @@ function sheetRules(width: number): string {
     "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important}",
     `@layer ${CARD_LAYER}{`,
     `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important}`,
-    /* The theme's <main>, at the box's top left, as tall as what it holds (a theme's floor for its <main>, often a whole window, is not the section's). */
-    `${card}>[data-sl-pv]{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;box-sizing:border-box!important}`,
+    /* Layout containment includes child margins and floats in the natural height,
+       instead of measuring a short box with its content spilling below it. */
+    `${card}>[data-sl-pv]{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;box-sizing:border-box!important;contain:layout style!important}`,
     `${card}[data-placed]{visibility:visible!important}`,
     /* Measured: a section away from the screen is neither styled, laid out nor painted again until it nears it, so putting in the next one costs that one alone. */
     `${card}[data-measured]{content-visibility:auto!important}`,
@@ -572,6 +573,10 @@ class PreviewSheet {
   private remeasure = new Set<string>()
   private remeasureQueued = false
   private document_: { html: string; main: string } | null = null
+  private readonly fontsLoaded = () => {
+    for (const k of this.wrappers.keys()) this.remeasure.add(k)
+    this.queueRemeasure()
+  }
 
   constructor(
     readonly theme: CompatTheme,
@@ -598,6 +603,12 @@ class PreviewSheet {
   release(): void {
     this.watcher?.disconnect()
     this.watcher = null
+    /* A section-only update can keep exactly the same srcDoc, so React
+       reuses this document for the next sheet. Forgetting the map alone
+       left its old pictures painted underneath the replacement cards. */
+    for (const inner of this.wrappers.values()) frameOf(inner).remove()
+    this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
+    this.remeasure.clear()
     this.doc = null
     this.proto = null
     this.frame = null
@@ -691,6 +702,7 @@ class PreviewSheet {
     const doc = frame.contentDocument
     /* Not the blank page a new frame holds before its own document has loaded. */
     if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
     this.wrappers.clear()
     for (const [k, st] of this.states) if (st.state === "shown") this.states.set(k, { ...st, state: "waiting" })
@@ -715,10 +727,7 @@ class PreviewSheet {
       own.appendChild(doc.createTextNode(`\nbody>${CARD_TAG}[data-sl-card]{background-color:${color};background-image:${image}}`))
     }
     /* A font that lands later changes heights: each drawn card is measured again then. */
-    doc.fonts?.addEventListener?.("loadingdone", () => {
-      for (const k of this.wrappers.keys()) this.remeasure.add(k)
-      this.queueRemeasure()
-    })
+    doc.fonts?.addEventListener?.("loadingdone", this.fontsLoaded)
     this.sync()
     this.schedule()
   }
@@ -895,9 +904,11 @@ class PreviewSheet {
       on a page; only a section whose box is empty (everything in it
       positioned) falls back to what it holds.
     */
-    const own = w.offsetHeight
-    const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const root = w.querySelector<HTMLElement>(".shopify-section") ?? w
+    /* Negative section margins can make the containing flow shorter than
+       the section's own box. They must not shrink its preview crop. */
+    const own = Math.max(w.offsetHeight, root.offsetHeight)
+    const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const shows = h > 8 && somethingToSee(root)
     if (shows) this.blank.delete(key)
     else this.blank.add(key)
@@ -952,28 +963,37 @@ class PreviewSheet {
     const frame = this.frame
     const grid = this.grid
     if (!frame || !grid || !this.doc || !frame.isConnected) return
-    const g = grid.getBoundingClientRect()
-    /* A transform over the library (the dialog's entrance) scales what is read; the cards' own offsets do not have it. */
-    const zoom = grid.offsetWidth > 0 ? g.width / grid.offsetWidth : 1
-    if (!(zoom > 0)) return
-    let scale = 0
-    for (const [key, inner] of this.wrappers) {
-      const w = frameOf(inner)
-      const card = this.cards.get(key)
-      const box = card?.box
+    /* Read the host boxes together before writing to the preview document.
+       offsetWidth rounds fractional CSS pixels; treating that rounding as a
+       dialog transform made the error accumulate down a long list. */
+    const targets = [...this.wrappers].map(([key, inner]) => {
+      const box = this.cards.get(key)?.box
       const st = this.stateOf(key)
-      if (!box || !box.isConnected || st.state === "named") {
+      const rect = box?.isConnected && st.state !== "named" ? box.getBoundingClientRect() : null
+      return { key, inner, box, st, rect }
+    })
+    const first = targets.find((t) => t.rect && t.rect.width > 0 && t.box)
+    if (!first?.box) {
+      for (const { inner } of targets) frameOf(inner).hidden = true
+      return
+    }
+    const width = Number.parseFloat(getComputedStyle(first.box).width)
+    const scale = width / this.renderWidth
+    if (!(scale > 0)) return
+    frame.style.transform = `scale(${scale})`
+    frame.style.height = `${Math.ceil(grid.getBoundingClientRect().height / first.rect!.width * this.renderWidth)}px`
+    /* The frame supplies the exact origin and scale, including the dialog's
+       entrance transform and browser zoom. Never reconstruct them from an
+       integer offsetWidth. */
+    const surface = frame.getBoundingClientRect()
+    const paintedScale = surface.width / this.renderWidth
+    if (!(paintedScale > 0)) return
+    for (const { key, inner, box, st, rect: r } of targets) {
+      const w = frameOf(inner)
+      if (!box || !r || !(r.width > 0) || !(r.height > 0)) {
         w.hidden = true
         continue
       }
-      const r = box.getBoundingClientRect()
-      const s = box.clientWidth / this.renderWidth
-      /* Not laid out (a hidden category), or nowhere to be put: put away, never left where its card was. */
-      if ((r.width === 0 && r.height === 0) || !(s > 0)) {
-        w.hidden = true
-        continue
-      }
-      scale = s
       w.hidden = false
       /* Written only when it moved: the same values again would still ask the frame to look. */
       /*
@@ -983,10 +1003,10 @@ class PreviewSheet {
         floor, the section sits in the middle of it, as the library's own
         cards do; otherwise at the top.
       */
-      const cardH = box.clientHeight / s
+      const cardH = r.height / paintedScale
       const natural = st.height ?? cardH
-      const pad = natural * s < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
-      const pos = `${(r.top - g.top) / zoom / s}|${(r.left - g.left) / zoom / s}|${cardH}|${CARD_RADIUS / s}|${pad}`
+      const pad = natural * scale < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
+      const pos = `${(r.top - surface.top) / paintedScale}|${(r.left - surface.left) / paintedScale}|${cardH}|${CARD_RADIUS / scale}|${pad}`
       if (placedAt.get(w) !== pos) {
         placedAt.set(w, pos)
         const [top, left, height, radius] = pos.split("|")
@@ -1004,14 +1024,6 @@ class PreviewSheet {
         /* Named for a moment (its pictures had not come yet) and back: shown again. */
         this.setState(key, { state: "shown" })
       }
-    }
-    if (!scale) {
-      const first = [...this.cards.values()].find((c) => c.box.isConnected && c.box.clientWidth > 0)
-      scale = first ? first.box.clientWidth / this.renderWidth : 0
-    }
-    if (scale > 0) {
-      frame.style.transform = `scale(${scale})`
-      frame.style.height = `${Math.ceil(grid.offsetHeight / scale)}px`
     }
   }
 
@@ -1191,9 +1203,11 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     sheet.sync()
     sheet.schedule()
   }, [sheet, open, layoutKey])
-  /* A sheet given up for a newer one (or the library gone) lets go of the frame's document (PreviewSheet.release). */
-  useEffect(() => {
+  /* Remove the previous sheet's pictures before paint, even when its srcDoc
+     is unchanged. Reattach here too for effect cleanup/setup replay. */
+  useLayoutEffect(() => {
     if (!sheet) return
+    if (frame.current) sheet.attach(frame.current)
     return () => sheet.release()
   }, [sheet])
   /* The list's width changes every card's size: put each section over its card again. */
@@ -1288,6 +1302,10 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       setKept({ h: wanted, w: width, mem: fromMemory })
       return
     }
+    /* A replacement sheet has not measured this section yet. Keep the
+       existing card instead of expanding it back to a placeholder, which
+       moved the list and then left that extra height held until reopening. */
+    if (!named && drawnHeight === null) return
     if (kept.h === wanted) {
       if (kept.mem && !fromMemory) setKept({ h: wanted, w: width, mem: false })
       return
@@ -1301,7 +1319,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     return () => {
       held.delete(take)
     }
-  }, [wanted, width, kept, fromMemory])
+  }, [wanted, width, kept, fromMemory, named, drawnHeight])
   /* Its section goes where the card now is, in the same frame. */
   useLayoutEffect(() => {
     sheet?.requestSync()

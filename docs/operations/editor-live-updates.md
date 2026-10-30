@@ -10,6 +10,8 @@ A GitHub push is written to the log one row per saved file, and the link's `sync
 
 The library's section sheet for an imported theme lets go of its frame's document when a newer sheet replaces it (`PreviewSheet.release`). Before, React's previous ref callback kept the old sheet, and its document, alive: two more documents after every push.
 
+Section-only changes can leave the library iframe's `srcDoc` unchanged. The outgoing sheet removes its own card elements before paint, so reusing that document cannot leave old previews behind or duplicate them after each update. Font listeners are released with the sheet. Card positions use the iframe's actual painted origin and scale rather than rounded layout widths; section measurements include child margins, and a replacement sheet keeps existing card heights while awaiting its measurements.
+
 On an imported theme, an agent's saved section file (Storelib AI, MCP, the agent API) draws only the sections of that type on the page and swaps them in place (`syncFileChange` in `compat-canvas.tsx`), the same way a section setting is applied. It does this only when nothing else changed: not a snippet, layout, asset, setting or the page's sections, and not the theme's stylesheet or script bundles. It also needs a page that is not a product page, not loading behind, not asking for a fresh document, not having most of its sections swapped at once, and not worn by many swaps. Any of those draws the whole page as before. While a page loads behind the one on screen, files saved meanwhile are not each a new page behind: they are drawn into it once it comes forward (`behindStale`). A change to the theme's files is drawn in one task and parsed in the next (`prepareDraw`). The editor waits out a scroll between them. A closed library takes such changes 10s after the last one (`CLOSED_ADOPT_MS`), and an open library takes them at once. After the first warm-up, a closed Storelib library draws again only the first 12 cards still to draw (`REWARM_FIRST`). It draws the rest when opened.
 
 `scripts/big-theme-kit.mjs` builds the store-size fixture these were measured on, from a Shopify theme zip (`BIG_THEME_ZIP`; Dawn made 156 sections with a 39 section home page). Each probe below takes it the same way.
@@ -19,6 +21,9 @@ Regression checks (no live account, GitHub, or AI credentials required):
 ```sh
 node scripts/check-editor-activity-channel.mjs
 node scripts/check-editor-theme-reads.mjs
+# Actual imported preview components: fractional widths, filtering, title resize,
+# dialog scaling, reopening, and three section-only updates in the same document.
+CHROMIUM=/path/to/chromium node scripts/check-section-preview-layout.mjs
 # Uses the repository's existing real-editor harness and imported theme fixture.
 # Set CHROMIUM to an installed Chromium binary, as for the other editor probes.
 pnpm dlx tsx@4.20.6 scripts/check-editor-push-scroll.mjs

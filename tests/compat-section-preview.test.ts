@@ -93,7 +93,7 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   check("the cards' frame runs no script", /sandbox="allow-same-origin"/.test(preview) && !/allow-scripts/.test(previewCode) && /scripts: false/.test(preview))
   check("what a theme reveals on scroll is shown in the card", /\.scroll-trigger/.test(preview) && /opacity:1!important/.test(preview))
   check("the frame's scale survives the touch rule that flattens transforms", /data-keep-transform/.test(preview))
-  check("a section is measured by its own content, not by a window or a floor", /* Changed on purpose (round AJ: its own box, not what spills out of it, so a header is not as tall as its hidden drawer) */ /const own = w\.offsetHeight/.test(preview) && /const h = Math\.ceil\(own > 8 \? own : w\.scrollHeight\)/.test(preview) && /w\.style\.minHeight = "0px"/.test(preview))
+  check("a section is measured by its own content, not by a window or a floor", /* Changed on purpose (round AJ: its own box, not what spills out of it, so a header is not as tall as its hidden drawer) */ /const own = Math\.max\(w\.offsetHeight, root\.offsetHeight\)/.test(preview) && /const h = Math\.ceil\(own > 8 \? own : w\.scrollHeight\)/.test(preview) && /w\.style\.minHeight = "0px"/.test(preview))
   check("a section with nothing to show is named, not blank", /state: shows \? .+ : "named" \}\)/.test(preview))
 
   console.log("\nOne document for every card, not a frame per card\n")
