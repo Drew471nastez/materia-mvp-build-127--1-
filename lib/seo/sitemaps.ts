@@ -771,6 +771,27 @@ async function websiteNames(admin: Admin, creatorIds: string[]): Promise<Map<str
 }
 
 /**
+ * creator id of every website behind a password (Website settings ›
+ * Password, site_access): each of its addresses answers with the password
+ * page, which says noindex, and its own sitemap lists nothing
+ * (lib/website-builder/site-seo-data.ts siteSeo). Round 45: this file still
+ * listed its front page. Soft like the names above: no table (part 92 not
+ * run) is no passwords; any other failure is a failed read, so a blip never
+ * lists a locked site for the hour the file is held.
+ */
+async function lockedWebsites(admin: Admin, creatorIds: string[]): Promise<Set<string>> {
+  const found = await eachBatch(creatorIds, async (batch) => {
+    const query = () => admin.from("site_access").select("creator_id, password_enabled, password_hash").in("creator_id", batch).eq("password_enabled", true)
+    const first = await query()
+    if (!first.error) return (first.data ?? []) as { creator_id: string; password_hash: string | null }[]
+    if (isMissingTable(first.error)) return []
+    return rowsOf<{ creator_id: string; password_hash: string | null }>(query, "website passwords")
+  })
+  /* A password switched on with none set asks nobody for one (readSiteAccess). */
+  return new Set(found.flat().filter((r) => typeof r.password_hash === "string" && r.password_hash !== "").map((r) => r.creator_id))
+}
+
+/**
  * The front page of every published website that allows indexing, at its
  * storelib.com subdomain. A site with a connected domain is canonical THERE,
  * and a storelib.com sitemap cannot speak for another domain, so those are
@@ -802,14 +823,16 @@ export async function websitesSitemap(chunk: number, of?: number, admin: Admin =
     rowsOf<{ id: string; user_id: string }>(() => admin.from("creators").select("id, user_id").in("id", batch), "website creators"),
   )
   const userOf = new Map(creators.flat().map((c) => [c.id, c.user_id]))
-  const [names, domains, chosen] = await Promise.all([
+  const [names, domains, chosen, locked] = await Promise.all([
     usernames(admin, [...userOf.values()]),
     activeDomains(admin, creatorIds),
     websiteNames(admin, creatorIds),
+    lockedWebsites(admin, creatorIds),
   ])
   const main = getMainDomain()
   const entries: SitemapEntry[] = []
   for (const i of open) {
+    if (locked.has(i.creator_id)) continue
     /* The name the site was given, else its creator's username: the host it is canonical at. */
     const handle = chosen.get(i.creator_id) ?? names.get(userOf.get(i.creator_id) ?? "")
     /* The site's own rule, word for word: its switch, and not a farm's handle (siteSeo reads the same). */
