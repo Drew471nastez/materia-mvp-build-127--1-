@@ -195,6 +195,8 @@ function main() {
     "app/api/invoice/route.ts",
     "app/(marketing)/page.tsx",
     "app/(marketing)/blog/[slug]/page.tsx",
+    /* Round 45: the blog's structured data (BlogPosting's publisher) moved here from the post page. */
+    "lib/blog/structured-data.ts",
     /* Changed on purpose: a3e63b12 (checkout previews follow the product) gives /checkout's share card the logo's address when the product has no picture: metadata, not a page drawing it. */
     "lib/checkout/share-meta.ts",
   ])
@@ -287,7 +289,8 @@ function main() {
   check("the Organization JSON-LD names the logo by its absolute address", /"@type": "Organization"[\s\S]{0,200}"logo": storelibLogoUrl\(\)/.test(home))
   check(
     "a blog post's publisher logo is the logo too, not a favicon.ico that does not exist",
-    /publisher: \{ "@type": "Organization"[^}]*logo: \{ "@type": "ImageObject", url: storelibLogoUrl\(\)/.test(read("app/(marketing)/blog/[slug]/page.tsx")),
+    /* Round 45: the blog's structured data has one writer, lib/blog/structured-data storelibPublisher. */
+    /logo: \{ "@type": "ImageObject", url: storelibLogoUrl\(\)/.test(read("lib/blog/structured-data.ts")) && /publisher: storelibPublisher\(\)/.test(read("lib/blog/structured-data.ts")),
   )
   const blocked = PLATFORM_DISALLOW.filter((rule) => {
     const path = STORELIB_LOGO_PNG

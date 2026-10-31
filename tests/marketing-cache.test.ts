@@ -69,7 +69,7 @@ check("returnTo is decoded once more, as the server did, and a bad escape does n
 check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/bento-grid.tsx")))
 
 console.log("\nThe blog is rebuilt at most once a minute")
-for (const p of ["app/(marketing)/blog/page.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/explore/categories/[category]/page.tsx"]) {
+for (const p of ["app/(marketing)/blog/page.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/category/[slug]/page.tsx"]) {
   const src = code(p)
   check(`${p}: revalidate 60, not force-dynamic`, /export const revalidate = 60/.test(src) && !/force-dynamic/.test(src))
   check(`${p}: posts from the admin client, which reads no cookie`, !/from "@\/lib\/supabase\/server"/.test(src) && !/next\/headers/.test(src))
