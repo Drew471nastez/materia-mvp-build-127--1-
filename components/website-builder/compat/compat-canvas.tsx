@@ -1998,11 +1998,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
   useEffect(() => {
     const onReveal = (e: Event) => {
-      const id = (e as CustomEvent<{ id?: string }>).detail?.id
+      const detail = (e as CustomEvent<{ id?: string; since?: number }>).detail
+      const id = detail?.id
       if (!id) return
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id }, "*")
+      /* `since`: not if the person has moved the page themselves since then (the end of a run they scrolled away during). */
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id, ...(typeof detail?.since === "number" ? { since: detail.since } : {}) }, "*")
     }
     window.addEventListener(REVEAL_EVENT, onReveal)
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)
@@ -2070,13 +2072,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
     the scroll runs on. The same section moving is now written straight onto
     its box; only a section coming, going or changing is a render.
   */
-  const ghostNow = useRef<typeof ghost>(null)
+  const ghostNow = useRef<(NonNullable<typeof ghost> & { moving?: boolean }) | null>(null)
   const ghostEl = useRef<HTMLDivElement | null>(null)
   const ghostTold = useRef(0)
   const placeGhost = (el: HTMLDivElement | null) => {
     ghostEl.current = el
     const g = ghostNow.current
-    if (el && g) { el.style.top = `${g.top}px`; el.style.left = `${g.left}px`; el.style.width = `${g.width}px`; el.style.height = `${g.height}px` }
+    if (el && g) {
+      /* Moving (the page scrolls): out of the way, so the toolbar steps aside until the section stands still. */
+      el.style.display = g.moving ? "none" : ""
+      if (!g.moving) { el.style.top = `${g.top}px`; el.style.left = `${g.left}px`; el.style.width = `${g.width}px`; el.style.height = `${g.height}px` }
+    }
   }
   const onSelect = useRef(props.onSelect)
   onSelect.current = props.onSelect
@@ -2403,15 +2409,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
         const html = typeof id === "string" ? slot.shape.sections.get(id) : undefined
         if (typeof id === "string" && typeof html === "string") win.postMessage({ storelib: 1, type: "section", id, html }, "*")
       } else if (m.type === "box" && isFront) {
-        const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
-        const next = typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null
+        const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number; moving?: boolean }
         const was = ghostNow.current
-        if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height) return
+        /* Moving: where it last stood is kept, and the box set aside (placeGhost). */
+        const next: typeof ghostNow.current = typeof b.id === "string" ? (b.moving === true ? (was && was.id === b.id ? { ...was, moving: true } : null) : { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 }) : null
+        if (b.moving === true && !next) return
+        if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height && !!was.moving === !!next.moving) return
         ghostNow.current = next
         if (was && next && was.id === next.id && ghostEl.current) {
           placeGhost(ghostEl.current)
           /* The toolbar and the rest measure on the canvas's scroll event, once a frame however many boxes came in it. */
-          if ((was.top !== next.top || was.left !== next.left || was.width !== next.width) && !ghostTold.current) {
+          if ((was.top !== next.top || was.left !== next.left || was.width !== next.width || !!was.moving !== !!next.moving) && !ghostTold.current) {
             ghostTold.current = requestAnimationFrame(() => { ghostTold.current = 0; document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll")) })
           }
         } else setGhost(next)
