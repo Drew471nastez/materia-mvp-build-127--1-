@@ -31,6 +31,7 @@ export async function GET() {
     if (!stripeAccountId) {
       return NextResponse.json({
         bankAccount: null,
+        bankUnknown: false,
         payoutSchedule: null,
         payoutsEnabled: false,
         detailsSubmitted: false,
@@ -38,16 +39,29 @@ export async function GET() {
       })
     }
 
-    // Fetch account info and external bank accounts in parallel
+    /*
+      Account info and the bank, in parallel. A bank list Stripe did not
+      give is not "no bank" (PAY-5): the account's own copy of its external
+      accounts is used when it has one, and otherwise the answer says
+      bankUnknown, so the page says it could not check rather than asking
+      the creator to add a bank in the middle of an outage.
+    */
     const [account, externalAccounts] = await Promise.all([
       stripe.accounts.retrieve(stripeAccountId),
-      stripe.accounts.listExternalAccounts(stripeAccountId, {
-        object: "bank_account",
-        limit: 1,
-      }).catch(() => ({ data: [] })),
+      stripe.accounts
+        .listExternalAccounts(stripeAccountId, {
+          object: "bank_account",
+          limit: 1,
+        })
+        .catch((e: unknown) => {
+          console.warn("[Payout Method] bank list unavailable:", e instanceof Error ? e.message : e)
+          return null
+        }),
     ])
 
-    const bankRaw = externalAccounts.data[0] as any | undefined
+    const embedded = ((account as any).external_accounts?.data ?? []).find((x: any) => x?.object === "bank_account")
+    const bankRaw = (externalAccounts ? externalAccounts.data[0] : embedded) as any | undefined
+    const bankUnknown = !externalAccounts && !embedded
 
     const bankAccount = bankRaw
       ? {
@@ -85,6 +99,8 @@ export async function GET() {
 
     return NextResponse.json({
       bankAccount,
+      /* True only when Stripe could not say whether there is a bank: bankAccount null then means "unknown", not "none". */
+      bankUnknown,
       // Always report manual — that's the Storelib model
       payoutSchedule: {
         interval: "manual",

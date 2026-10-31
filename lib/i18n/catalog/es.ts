@@ -5,6 +5,7 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "We couldn't check your bank account right now": "No pudimos comprobar tu cuenta bancaria ahora mismo",
  "1 draft added": "1 borrador añadido",
  "Access token": "Token de acceso",
  "Already in your store": "Ya está en tu tienda",
