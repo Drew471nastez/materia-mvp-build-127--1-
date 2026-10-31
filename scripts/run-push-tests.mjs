@@ -1094,6 +1094,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* Reliability (commerce): money paths under a failing Stripe or database, through the real routes (tests/_journey): a confirm that failed is never "nothing was charged" and Pay again reuses the same intent; a payout whose wallet step failed is retried by Stripe, and posted once; a library entry whose write failed is retried by the sweep; webhook database errors answer 500, and an early invoice is kept; a Connect PermissionError disconnects nobody while the platform key fails its own check; the payouts page makes one read, kept half a minute per person, and keeps what it showed when Stripe is unavailable; the plan sync reads every page of subscriptions; a hung database call ends at the shared deadline instead of holding a webhook. */
   "tests/rel-commerce.test.ts",
+  /* Reliability (commerce, wave 2): the memberships job never cancels a trial whose buyer saved a card or one Stripe has as paid (PAY-8). */
+  "tests/rel-commerce2.test.ts",
   /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
   "tests/e2e-personalization.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
