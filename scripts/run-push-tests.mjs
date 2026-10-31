@@ -339,6 +339,8 @@ const SUITES = [
   "tests/marketing-weight.test.ts",
   "tests/product-cache-scope.test.ts",
   "tests/icon-weight.test.ts",
+  /* Round 46: what every marketing page carries before it can answer a tap (supabase-js, every screen's words, the lightbox, the phone's search screen, the language list), fetched when used. */
+  "tests/shell-weight-r46.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/jsx-comments.test.ts",
