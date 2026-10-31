@@ -983,6 +983,8 @@ const SUITES = [
   "tests/editor-live-follow.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */
   "tests/wb-scroll-r14.test.ts",
+  /* Round 14 (INCOMING): changes from Storelib AI, an agent or a push taken in without freezing the editor, on the owner's real Materia (scripts/check-wb-incoming-r14.mjs) */
+  "tests/wb-incoming-r14.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
