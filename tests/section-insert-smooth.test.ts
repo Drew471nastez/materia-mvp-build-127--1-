@@ -105,7 +105,7 @@ console.log("\nThe builder's side")
   check("a section added from the library is announced as arriving",/window\.dispatchEvent\(new CustomEvent\(REVEAL_EVENT, \{ detail: \{ id: newSection\.id, arrival: true \} \}\)\)/.test(editor))
   const lib = read("components/website-builder/editor/section-library.tsx")
   check("on a computer the dialog starts closing on its own element, and stops taking clicks", /layer\.setAttribute\("data-state", "closed"\)\s*layer\.setAttribute\("inert", ""\)/.test(lib))
-  check("  the editor is drawn once for the close and the add, on the next frame", /requestAnimationFrame\(\(\) => \{\s*onOpenChange\(false\)\s*onAddSection\(type, presetIndex\)\s*\}\)/.test(lib))
+  check("  the editor is drawn once for the close and the add, just after that frame", /requestAnimationFrame\(\(\) => setTimeout\(\(\) => \{\s*onOpenChange\(false\)\s*onAddSection\(type, presetIndex\)\s*\}, 0\)\)/.test(lib))
   check("  a phone's sheet closes as before", /onOpenChange\(false\)\s*requestAnimationFrame\(\(\) => onAddSection\(type, presetIndex\)\)/.test(lib))
 }
 

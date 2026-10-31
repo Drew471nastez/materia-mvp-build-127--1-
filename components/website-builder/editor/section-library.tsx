@@ -1709,7 +1709,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     element instead (its exit is opacity and transform, run by the
     compositor once that frame is drawn, and the dialog stops taking clicks
     with it, so a second click cannot add twice), and the editor hears of the
-    close and the add together, in one render, on the next frame. A phone's
+    close and the add together, in one render, just after that frame. A phone's
     sheet closes as before: its movement belongs to the sheet.
   */
   const handleAdd = useCallback((type: string, presetIndex = 0) => {
@@ -1718,10 +1718,11 @@ export const SectionLibrary = memo(function SectionLibrary({
     if (layer) {
       layer.setAttribute("data-state", "closed")
       layer.setAttribute("inert", "")
-      requestAnimationFrame(() => {
+      /* In a task after that frame, so the editor's render cannot hold the frame the exit starts in. */
+      requestAnimationFrame(() => setTimeout(() => {
         onOpenChange(false)
         onAddSection(type, presetIndex)
-      })
+      }, 0))
       return
     }
     onOpenChange(false)
