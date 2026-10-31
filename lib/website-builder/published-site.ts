@@ -38,6 +38,7 @@
  * such site" for an hour because somebody guessed their address early.
  */
 import { LastGood, keyedAs } from "./last-good"
+import { keepShared, sharedCopy } from "./shared-copy"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { forVisitors } from "@/lib/website-builder/visitor-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
@@ -683,12 +684,23 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
  */
 const lastGood = new LastGood<ShopLookup>(500)
 
+/*
+  AND THE COPY EVERY SERVER CAN READ (EVD-1, ./shared-copy.ts): a server that
+  never served the site (a new deploy, a scale-out) has nothing in memory.
+  Kept per creator and name, under the site's and the shop's tags, so a
+  publish, a take down or a product change drops it with the live data; and
+  only ever served instead of an error, never instead of "no such site".
+*/
+const SHARED_SITE = "published-site:v1"
+const sharedTags = (creatorId: string) => [creatorSiteTag(creatorId), creatorShopTag(creatorId)]
+
 const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
   try {
     const found = await resolveSiteFresh(lower)
     if (found.kind === "site") {
       lastGood.remember(lower, found)
+      await keepShared(SHARED_SITE, [found.site.creatorId, lower], sharedTags(found.site.creatorId), found)
     }
     return found
   } catch (e) {
@@ -696,6 +708,14 @@ const resolveSite = cache(async function resolveSite(name: string): Promise<Shop
     if (held) {
       logEvent("warn", "site_last_good_served", { msg: "[published-site] served the last good copy", site: lower, reason: e instanceof Error ? e.message : String(e) })
       return held
+    }
+    /* Whose site it is, from the held name (served stale when its read fails); no name, no copy. */
+    const match = await creatorByName(lower).catch(() => null)
+    const kept = match ? await sharedCopy<ShopLookup>(SHARED_SITE, [match.creatorId, lower], sharedTags(match.creatorId)) : undefined
+    if (kept && kept.kind === "site" && kept.site.creatorId === match?.creatorId) {
+      lastGood.remember(lower, kept)
+      console.error(`[published-site] served the copy every server kept of ${lower}:`, e instanceof Error ? e.message : e)
+      return kept
     }
     throw e
   }

@@ -20,7 +20,8 @@ import { imagesOnPage, siteSameAs } from "./site-seo"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { unstable_cache } from "next/cache"
-import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
+import { SiteReadError, isSiteReadError, siteRead } from "@/lib/website-builder/site-read"
+import { keepSharedFiles, sharedFiles } from "./shared-copy"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productDescriptions, withDescriptions } from "@/lib/website-builder/product-descriptions"
 import { productExtras, withExtras } from "@/lib/website-builder/product-extras"
@@ -190,12 +191,36 @@ const rowsHeld = new Map<string, Record<string, string>>()
   next page tries again.
 */
 const rowsReading = new Map<string, Promise<Record<string, string>>>()
-function liveFiles(admin: Admin, installId: string, key: string): Promise<Record<string, string>> {
+function liveFiles(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
   const going = rowsReading.get(key)
   if (going) return going
-  const p = installFiles(admin, installId, false).finally(() => rowsReading.delete(key))
+  const p = liveFilesKept(admin, installId, key, tags).finally(() => rowsReading.delete(key))
   rowsReading.set(key, p)
   return p
+}
+
+/*
+  THE FILES EVERY SERVER CAN READ (EVD-1, ./shared-copy.ts). A theme drawn
+  from its rows (no release) was held only in this server's memory, so a
+  new server read every file from the database, and when that read failed
+  its visitors got "One moment". The files read are kept in the data cache,
+  in parts, under the install and its publish, tagged with the site (a
+  publish or a take down drops them), and a read that failed draws from
+  them. Published files only: a preview reads the drafts and never comes here.
+*/
+const SHARED_FILES = "compat-files:v1"
+async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
+  try {
+    const files = await installFiles(admin, installId, false)
+    await keepSharedFiles(SHARED_FILES, [key], tags, files)
+    return files
+  } catch (e) {
+    if (!isSiteReadError(e)) throw e
+    const kept = await sharedFiles(SHARED_FILES, [key], tags)
+    if (!kept) throw e
+    console.error(`[compat-site] drew the files every server kept for ${installId}:`, e.message)
+    return kept
+  }
 }
 
 const collectionsOf = (creatorId: string) =>
@@ -383,7 +408,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* Held on this server by what they were read from: the release's id, or the publish when they come from the rows. */
   const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
   let rows = draft ? null : rowsHeld.get(heldKey) ?? null
-  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey)
+  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
@@ -409,7 +434,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue (its own, else its collection's or category's: lib/size-charts/storefront.ts). */
   const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
   const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
-    (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
+    (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null, "compat-pages:v1")).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
     draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),

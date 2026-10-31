@@ -234,7 +234,7 @@ console.log("\nOne page view is one page (the country flags that brought Storeli
     check("  a real file, an API, Next, media and a page opened as a page go through", !pageAskedAsSubresource("image", "/community/x/share.png") && !pageAskedAsSubresource("image", "/api/site-theme/assets/a/b/c") && !pageAskedAsSubresource("image", "/_next/image") && !pageAskedAsSubresource("image", "/media/x") && !pageAskedAsSubresource("document", "/DJ") && !pageAskedAsSubresource(null, "/DJ") && !pageAskedAsSubresource("empty", "/cart"))
     check("  checked first in the proxy, before any site is looked up", read("proxy.ts").indexOf("pageAskedAsSubresource(request.headers.get") < read("proxy.ts").indexOf("const bareHost = host.split"))
     const site = read("lib/website-builder/compat-site.ts")
-    check("pages arriving together wait on one read of the theme's files", /const rowsReading = new Map/.test(site) && /liveFiles\(admin, row\.id, rowsKey\)/.test(site) && /finally\(\(\) => rowsReading\.delete\(key\)\)/.test(site))
+    check("pages arriving together wait on one read of the theme's files", /const rowsReading = new Map/.test(site) && /liveFiles\(admin, row\.id, rowsKey, siteTags\)/.test(site) && /finally\(\(\) => rowsReading\.delete\(key\)\)/.test(site))
   }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

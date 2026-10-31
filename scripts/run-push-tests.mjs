@@ -67,6 +67,8 @@ const SUITES = [
   "tests/rel-sites.test.ts",
   /* Round rel-obs: the request id on error rows and their log lines (onRequestError, crons, webhooks), informational lines at their real level, the load test refuses production, /api/health bounded. */
   "tests/rel-obs.test.ts",
+  /* Round rel-sites2: published sites while the database is slow, on Next's real data cache. EVD-1: a server that never served a site (a new deploy, a scale-out) serves it from the copy every server can read when every read fails, and a Publish or a take down drops that copy. EVD-2: a gateway's HTML error page or a JSON body cut short is asked again and then a short 503 error, never data or the page as a message. EVD-3: robots.txt, sitemaps, the manifest, the icon, theme assets and the cover read no session through the real proxy (no Supabase Auth call), /app still does. EVD-5: the static /500 and /404 pages are added to every server trace after next build (scripts/trace-error-pages.mjs). */
+  "tests/rel-sites2.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
