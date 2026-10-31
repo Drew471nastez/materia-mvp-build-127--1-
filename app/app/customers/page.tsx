@@ -17,6 +17,25 @@ import { formatMinor } from "@/lib/markets/money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { withOrderCurrency } from "@/lib/store/currency-at-read"
 import { customerSpent, type SpentRow } from "@/lib/customers/spent"
+import { readCreatorOrders } from "@/lib/analytics/creator-orders"
+import { KEYSET_PAGE, keysetFrom, readByKeyset } from "@/lib/analytics/keyset"
+
+/* What this page reads off an order: the list's last order, the counts and what each customer spent. */
+const CUSTOMER_ORDER_COLUMNS = "id, created_at, buyer_email, amount_cents, currency, status, refund_amount_cents, provider, product_id, product:products(id, title, type)"
+type CustomerOrder = {
+  id: string
+  created_at: string
+  buyer_email: string | null
+  amount_cents: number | null
+  currency: string | null
+  status: string | null
+  refund_amount_cents: number | null
+  provider: string | null
+  product_id: string | null
+  product: { id: string; title: string | null; type: string | null } | null
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CustomerRow = { id: string; created_at: string; email: string; [k: string]: any }
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -44,29 +63,36 @@ export default async function CustomersPage() {
   const creator = { id: access.creatorId }
 
   /*
-    FOUR TRIPS, WHERE THERE WERE FIVE. The customers and the orders both
-    need only the creator's id, so the customers are read while the product
-    ids for the orders are: they were asked one after the other. The same
-    queries, on the service role as before, scoped by this creator.
+    EVERY CUSTOMER AND EVERY ORDER (round rel-db). Both were one unpaged read,
+    which stops at 1,000 rows without a word: past its thousandth order a
+    store showed wrong totals, past its thousandth customer a short list. The
+    orders were also asked for by a list of every product id in the address,
+    which a large catalog made too long for the server. Now both are read a
+    page at a time, the orders by their own creator (readCreatorOrders), all
+    side by side, on the service role as before, scoped by this creator.
   */
-  const readOrders = async () => {
-    const { data: products } = await admin.from("products").select("id").eq("creator_id", creator.id)
-    return admin
-      .from("orders")
-      .select(`
-      *,
-      product:products(id, title, type)
-    `)
-      .in("product_id", products?.map((p) => p.id) || [])
-      .order("created_at", { ascending: false })
-  }
-  const [{ data: customers }, { data: readRows }, { currency: storeCurrency }] = await Promise.all([
-    admin
-      .from("customers")
-      .select("*")
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: false }),
-    readOrders(),
+  const orderRows = readCreatorOrders<CustomerOrder>(admin, creator.id, CUSTOMER_ORDER_COLUMNS).then(
+    (r) => r.rows.reverse(),
+    (error) => {
+      console.error("[customers] orders not read:", (error as Error).message)
+      return [] as CustomerOrder[]
+    },
+  )
+  const customerRows = readByKeyset<CustomerRow>((after) =>
+    keysetFrom(admin.from("customers").select("*").eq("creator_id", creator.id), "1970-01-01T00:00:00.000Z", after)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(KEYSET_PAGE),
+  ).then(
+    (r) => r.rows.reverse(),
+    (error) => {
+      console.error("[customers] customers not read:", (error as Error).message)
+      return null
+    },
+  )
+  const [customers, readRows, { currency: storeCurrency }] = await Promise.all([
+    customerRows,
+    orderRows,
     /* A customer's total is in what the store sells in: a lei store's customers spent lei (lib/store/selling-currency). */
     readStoreCurrency(admin, creator.id),
   ])
@@ -92,9 +118,18 @@ export default async function CustomersPage() {
   }
 
   /* By address whatever its case: the customer row is kept in lower case, an order keeps the address as it was typed (a corrected one too), so "Ana@x.com" read as no orders. */
-  const sameEmail = (a: unknown, b: unknown) => typeof a === "string" && typeof b === "string" && a.trim().toLowerCase() === b.trim().toLowerCase()
+  /* One pass over the orders, newest first within each address (was a filter of every order per customer). */
+  const emailKey = (a: unknown) => (typeof a === "string" ? a.trim().toLowerCase() : "")
+  const ordersByEmail = new Map<string, CustomerOrder[]>()
+  for (const o of allOrders) {
+    const k = emailKey(o.buyer_email)
+    if (!k) continue
+    const list = ordersByEmail.get(k)
+    if (list) list.push(o)
+    else ordersByEmail.set(k, [o])
+  }
   const getCustomerOrders = (email: string) => {
-    return allOrders?.filter((o) => sameEmail(o.buyer_email, email)) || []
+    return ordersByEmail.get(emailKey(email)) ?? []
   }
 
   /*
@@ -105,7 +140,7 @@ export default async function CustomersPage() {
     at its own day's ECB rate (lib/money/report-currency) and added up here;
     an order no rate converts is left out rather than counted at a guess.
   */
-  const inStore = await inStoreCurrency(admin, creator.id, allOrders as Array<{ created_at: string; currency?: string | null; amount_cents?: number | null; refund_amount_cents?: number | null; buyer_email?: string | null; status?: string | null }>, storeCurrency)
+  const inStore = await inStoreCurrency(admin, creator.id, allOrders as Array<{ created_at: string; currency?: string | null; amount_cents?: number | null; refund_amount_cents?: number | null; buyer_email?: string | null; status?: string | null }>, storeCurrency, { noFetch: true })
   const mixed = inStore.converted > 0 || inStore.unconverted > 0
   /* Less what was refunded (lib/customers/spent): the kept total never had a refund taken off it. */
   const spentOf = customerSpent(inStore.rows as SpentRow[], mixed)

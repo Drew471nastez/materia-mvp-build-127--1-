@@ -60,6 +60,44 @@ export const ownRows = <T,>(rows: T[]): T[] => rows.map((row) => {
 
 
 /**
+ * EVERY ORDER OF THE CREATOR (or of a period, or of some statuses), a page at
+ * a time by keyset, by the order's own creator: never `.in("product_id",
+ * <every product>)`, whose address outgrows a server's limit with a large
+ * catalog, and never one unpaged read, which stops at 1,000 rows without a
+ * word. `columns` must include `id` and `created_at` (the keyset). Oldest
+ * first; `truncated` says `ceiling` was reached.
+ */
+export async function readCreatorOrders<T extends { created_at: string; id?: string | number }>(
+  admin: Admin,
+  creatorId: string,
+  columns: string,
+  opts: { since?: string; statuses?: string[]; ceiling?: number } = {},
+): Promise<{ rows: T[]; truncated: boolean }> {
+  return byCreator(async (scope) => {
+    const read = await readByKeyset<T>((after) => {
+      let q = scopedOrders(admin, columns, scope, creatorId, null)
+      if (opts.statuses) q = q.in("status", opts.statuses)
+      return keysetFrom(q, opts.since ?? "1970-01-01T00:00:00.000Z", after)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(KEYSET_PAGE)
+    }, opts.ceiling)
+    return { rows: ownRows(read.rows), truncated: read.truncated }
+  })
+}
+
+/** The creator's latest `limit` orders, newest first, by the order's own creator (one read, no product id list). */
+export async function latestCreatorOrders<T>(admin: Admin, creatorId: string, columns: string, opts: { statuses?: string[]; limit?: number } = {}): Promise<T[]> {
+  return byCreator(async (scope) => {
+    let q = scopedOrders(admin, columns, scope, creatorId, null)
+    if (opts.statuses) q = q.in("status", opts.statuses)
+    const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(opts.limit ?? KEYSET_PAGE)
+    if (error) throw new Error(error.message)
+    return ownRows((data ?? []) as T[])
+  })
+}
+
+/**
  * EVERY SALE THE CREATOR HAS MADE, AND WHAT THEY MADE, counted by the rule
  * every figure uses (one payment is one sale; failed, pending and disputed
  * payments are not; money less refunds). Home's "Make your first sale" and

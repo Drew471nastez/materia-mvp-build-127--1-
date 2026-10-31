@@ -12,6 +12,8 @@ import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { readCode } from "./_source"
 import { inStoreCurrency } from "../lib/money/report-currency-server"
+import { latestCreatorOrders, readCreatorOrders } from "../lib/analytics/creator-orders"
+import { taxYearsInUsd } from "../lib/money/payout-figures"
 import { AnalyticsUnavailable, countVisits, isAnalyticsUnavailable, readAll, readAudience, readNavClicks, type Admin, type CountQuestion } from "../lib/analytics/report-read"
 
 let passed = 0
@@ -81,6 +83,7 @@ async function run() {
 
   await analytics()
   await homeTotals()
+  await pastAThousand()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
@@ -212,6 +215,62 @@ async function homeTotals() {
   check("  past the ceiling a first sale still counts", /salesTotals \?\? \{ sales: Math\.max\(bannerSales\.count, bannerSales\.first \? 1 : 0\)/.test(home))
   check("  and no milestone is counted from 30 days of rows", /salesTotals \? counted : \{ \.\.\.counted, milestone: null \}/.test(home))
   check("creatorSalesTotals passes noFetch through", /inStoreCurrency\(admin, creatorId, rows, storeCurrency, \{ noFetch: opts\.noFetch \}\)/.test(readCode("lib/analytics/creator-orders.ts")))
+}
+
+/** A database that answers each read of a table with the next page from `pages`, recording every call. */
+function pagedAdmin(pages: Record<string, unknown[][]>) {
+  const calls: Array<{ table: string; method: string; args: unknown[] }> = []
+  const served: Record<string, number> = {}
+  const query = (table: string): unknown => {
+    const q: Record<string, unknown> = {}
+    return new Proxy(q, {
+      get(_t, prop) {
+        if (prop === "then")
+          return (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => {
+            const i = served[table] ?? 0
+            served[table] = i + 1
+            const list = pages[table] ?? []
+            return Promise.resolve({ data: list[i] ?? [], error: null }).then(ok, bad)
+          }
+        return (...args: unknown[]) => {
+          calls.push({ table, method: String(prop), args })
+          return query(table)
+        }
+      },
+    })
+  }
+  return { admin: { from: (t: string) => query(t) } as unknown as Admin, calls, served }
+}
+
+async function pastAThousand() {
+  console.log("\n4. Customers, Payouts and the tax year past 1,000 rows")
+  const year = 2026
+  const row = (i: number) => ({ id: `o${String(i).padStart(5, "0")}`, created_at: new Date(Date.UTC(year, 0, 1) + i * 60_000).toISOString(), amount_cents: 100, status: "completed", currency: "usd" })
+  const first = Array.from({ length: 1000 }, (_, i) => row(i))
+  const second = Array.from({ length: 500 }, (_, i) => row(1000 + i))
+  {
+    const { admin, calls, served } = pagedAdmin({ orders: [first, second] })
+    const read = await readCreatorOrders<ReturnType<typeof row>>(admin, "c1", "id, amount_cents, created_at, status, currency", { statuses: ["completed", "refunded", "disputed"], since: `${year - 1}-01-01T00:00:00Z` })
+    check("1,500 orders are read in two pages, all of them", read.rows.length === 1500 && served.orders === 2 && !read.truncated, { rows: read.rows.length, pages: served.orders })
+    check("  by the order's own creator, never a product id list", calls.some((c) => c.method === "eq" && c.args[0] === "creator_id" && c.args[1] === "c1") && !calls.some((c) => c.method === "in" && c.args[0] === "product_id"), calls.filter((c) => c.method === "in" || c.method === "eq"))
+    check("  the second page starts past the first page's last row (keyset)", calls.some((c) => c.method === "or" && String(c.args[0]).includes(first[999].id)))
+    const tax = await taxYearsInUsd(admin, "c1", read.rows, year)
+    check("the 1099-K year adds every one of them (1,500 sales, $1,500.00)", tax.currentYear.transactionCount === 1500 && tax.currentYear.grossCents === 150_000, tax.currentYear)
+  }
+  {
+    const { admin, calls } = pagedAdmin({ orders: [first.slice(0, 3)] })
+    const latest = await latestCreatorOrders(admin, "c1", "*", { statuses: ["completed"], limit: 1000 })
+    check("the Payouts list is the latest orders by creator, newest first, with an explicit limit", latest.length === 3 && calls.some((c) => c.method === "order" && c.args[0] === "created_at" && (c.args[1] as { ascending: boolean }).ascending === false) && calls.some((c) => c.method === "limit" && c.args[0] === 1000) && !calls.some((c) => c.method === "in" && c.args[0] === "product_id"))
+  }
+  const customers = readCode("app/app/customers/page.tsx")
+  check("Customers reads its orders by creator, a page at a time", /readCreatorOrders<CustomerOrder>\(admin, creator\.id, CUSTOMER_ORDER_COLUMNS\)/.test(customers) && !/\.in\("product_id"/.test(customers))
+  check("  and every customer, a page at a time", /readByKeyset<CustomerRow>\(/.test(customers) && /\.from\("customers"\)/.test(customers) && /\.limit\(KEYSET_PAGE\)/.test(customers))
+  check("  newest first, as the list showed them", (customers.match(/r\.rows\.reverse\(\)/g) ?? []).length === 2)
+  check("  each customer's orders from one pass, not a filter per customer", /ordersByEmail\.get\(emailKey\(email\)\)/.test(customers) && !/allOrders\?\.filter/.test(customers))
+  check("  never an ECB download from the render", /storeCurrency, \{ noFetch: true \}\)/.test(customers))
+  const payouts = readCode("app/app/payouts/page.tsx")
+  check("Payouts: no product id list, no unpaged tax or dispute read", !/\.in\("product_id"/.test(payouts) && /readCreatorOrders<[^>]+>\(adminSupabase, creator\.id, "id, amount_cents, created_at, status, currency"/.test(payouts) && /statuses: \["disputed"\]/.test(payouts))
+  check("  the products by a Map, with only the columns the list draws", /productById\.get\(order\.product_id\)/.test(payouts) && !/products\.find\(/.test(payouts) && /\.from\("products"\)\.select\("id, title, thumbnail_url, type"\)/.test(payouts))
 }
 
 run().catch((e) => {

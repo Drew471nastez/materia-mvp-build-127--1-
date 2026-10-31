@@ -214,24 +214,26 @@ section("Payouts: its questions asked together")
     !/balanceTransactions/.test(src) && !/getMarketExchangeRate/.test(src) && /pickBalance\(balance, account\.default_currency\)/.test(src))
   check("the ledger row is read once, with every column the page uses",
     (src.match(/\.from\("seller_ledger"\)/g) ?? []).length === 1 && /\.select\("available_amount, pending_amount, negative_balance"\)/.test(src))
-  const second = batchAfter(src, /const productIds = /)
-  check("with the products: the orders, the tax year's orders and the disputed orders",
-    (second.match(/\.from\("orders"\)/g) ?? []).length === 3 && /\.gte\("created_at"/.test(second) && /\.eq\("status", "disputed"\)/.test(second))
+  /* Changed on purpose (round rel-db): by the order's own creator, every row a page at a time, not by a product id list stopping at 1,000. */
+  const second = batchAfter(src, /const productById = /)
+  check("with the creator: the orders, the tax year's orders and the disputed orders",
+    /latestCreatorOrders</.test(second) && (second.match(/readCreatorOrders</g) ?? []).length === 2 && /since: `\$\{previousYear\}-01-01T00:00:00Z`/.test(second) && /statuses: \["disputed"\]/.test(second))
   /* The owner, October 2026: accurate figures, no made up ones. A balance Stripe did not answer is not the creator's all time order total. */
   check("a Stripe failure shows nothing rather than the orders' own figures",
     /stripeRead && !stripeRead\.ok/.test(src) && /\[Payouts\] Stripe balance not read:/.test(src)
       && !/orderPendingUsd|orderNetUsd|totalEarnings/.test(src) && !/stripePendingBalance = Math\.round/.test(src))
   check("and a failed tax or ledger read is nothing, not a failed page",
-    (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
+    (src.match(/\.then\(\(r\) => \(\{ data: r\.rows \}\), \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
   check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",
-    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("id", access\.creatorId\)/.test(src) && /teamPageStore\("payouts"\)/.test(src) /* Changed on purpose (round 42 team): the store from teamPageStore, the owner's or the one a member with Payouts works in */ && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
+    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("id", access\.creatorId\)/.test(src) && /teamPageStore\("payouts"\)/.test(src) /* Changed on purpose (round 42 team): the store from teamPageStore, the owner's or the one a member with Payouts works in */ && /* Changed on purpose (round rel-db): the orders by their own creator */ !/\.in\("product_id"/.test(src) && (src.match(/(read|latest)CreatorOrders<[^>]*>\(adminSupabase, creator\.id/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
 }
 
 section("Customers, Coupons, Analytics, Orders")
 {
   const customers = code("app/app/customers/page.tsx")
-  const batch = batchAfter(customers, /const readOrders/)
-  check("Customers reads its customers while the orders' product ids come back", /\.from\("customers"\)/.test(batch) && /readOrders\(\)/.test(batch))
+  /* Changed on purpose (round rel-db): both read a page at a time, the orders by their own creator, side by side. */
+  const batch = batchAfter(customers, /const customerRows/)
+  check("Customers reads its customers and its orders side by side", /customerRows/.test(batch) && /orderRows/.test(batch) && /readStoreCurrency\(admin, creator\.id\)/.test(batch))
   /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
   check("its creator row is the layout's (teamPageStore reads the same per request cache)", /teamPageStore\("customers"\)/.test(customers) && /const own = await creatorForRequest\(user\.id\)/.test(code("lib/team/server.ts")))
   check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/app/coupons/load-coupons.ts")))
