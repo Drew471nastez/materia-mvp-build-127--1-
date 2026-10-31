@@ -107,7 +107,7 @@ async function main() {
     check("the arrival note sends it for a new account only", /if \(note\.arrival === "new"\) recordSignupTouches\(\)/.test(code("components/auth/arrival-note.tsx")))
     const browser = code("lib/attribution/browser.ts")
     check("Storelib's scope is kept apart, only on storelib.com, with its own arrival", /PLATFORM_SCOPE = "s:storelib"/.test(browser) && /platformHost\(window\.location\.hostname\)\) return/.test(browser) && /platformArrived/.test(browser))
-    check("  stored only with analytics consent, like every touch", /if \(!hasConsent\("analytics"\)\) return\s*const kept = readStore\(now\)\s*kept\[PLATFORM_SCOPE\]/.test(browser))
+    check("  stored only with analytics consent, like every touch", /if \(!hasConsent\("analytics"\)\) return(?: touch)?\s*const kept = readStore\(now\)\s*kept\[PLATFORM_SCOPE\]/.test(browser))
     check("the capture is mounted once, in the root layout, and never in /admin or a frame", /<CapturePlatformTouch \/>/.test(read("app/layout.tsx")) && /window\.self !== window\.top/.test(read("components/attribution/capture-platform-touch.tsx")) && /startsWith\("\/admin\/"\)/.test(read("components/attribution/capture-platform-touch.tsx")))
     check("no new third party script", !/<script[^>]*src=/.test(read("components/attribution/capture-platform-touch.tsx")) && !/https?:\/\//.test(code("lib/attribution/signup-browser.ts")))
   }
@@ -334,7 +334,7 @@ async function main() {
     check("no email or address column", !/email|ip_address|user_agent/i.test(sql.split("\n").slice(1).join("\n")))
     check("the function is the service role's alone, and waits for 342", /REVOKE ALL ON FUNCTION public\.seo_coverage_groups\(\) FROM PUBLIC, anon, authenticated/.test(sql) && /to_regclass\('public\.seo_index_status'\) IS NULL/.test(sql))
     check("the migration is the same SQL", read("supabase/migrations/20271103_account_attribution.sql") === sql)
-    check("99_check_after has p346", /as p346_account_attribution;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("99_check_after has p346", /as p346_account_attribution[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("the README lists it", read("supabase/sql/run-now/README.md").includes("| `346_account_attribution.sql` |"))
     check("the parts list has it", read("lib/admin/sql-parts.generated.ts").includes('part: "346", file: "346_account_attribution.sql"'))
     check("without part 346 the code carries on: the route, the admin view and the console", /does not exist\|could not find\|42P01\|PGRST205/.test(read("app/api/auth/signup-attribution/route.ts")) && /missingTable\(list\.error\)/.test(read("lib/admin/views/platform.ts")) && /missingTable: true/.test(read("lib/admin/seo/crawl.ts")) && /basis: "sample"/.test(read("lib/admin/seo/insights.ts")))
