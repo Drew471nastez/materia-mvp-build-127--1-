@@ -137,7 +137,7 @@ export async function fulfilPaymentIntent(
      * handed the receipt, which is the key to the download.
      */
     clientSecret?: string | null
-    /** Where the slow, non-critical follow-ups go (see FollowUpOptions.defer). */
+    /** Where the slow, non-critical follow-ups go (see Defer below). */
     defer?: Defer
   },
 ): Promise<Fulfilment> {
