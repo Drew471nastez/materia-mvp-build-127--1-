@@ -56,8 +56,17 @@ export interface Block {
   anchor?: string
   /** callout: "note" | "tip" | "warning". */
   tone?: "note" | "tip" | "warning"
-  /** cta: heading, a short line, and the button's words. */
+  /**
+   * cta: heading, a short line, and the button's words.
+   * youtube (optional): the video's own title, the VideoObject's name; the caption or the post's title when missing.
+   */
   title?: string
+  /**
+   * youtube (optional): the day the video went up on YouTube, "YYYY-MM-DD" or a full ISO time.
+   * The public article prints a VideoObject only when this is set: Google requires uploadDate,
+   * and the article never asks YouTube for it while rendering (lib/blog/structured-data).
+   */
+  uploadDate?: string
   body?: string
   label?: string
   /** embed: which provider the url is from. Only these are drawn; anything else shows as a link. */
