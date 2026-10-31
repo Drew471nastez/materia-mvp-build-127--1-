@@ -33,7 +33,7 @@
  *
  *   npx tsx scripts/check-wb-scroll-r14.mjs
  *   ONLY=<regexp over "surface page device cpu">   ATTR=1   RUNS=1
- *   STATE=plain (editor: nothing selected, the pointer off the canvas)
+ *   STATE=plain (editor: nothing selected, the pointer off the canvas)   BOXLOG=1 (the toolbar box messages, timed)
  *   STALLS=1 (instead: opening, selecting, theme settings, the section
  *   library, duplicate, Undo, Redo and another page, timed for long tasks)
  *   EDITOR_BUNDLE=<file>  (the bundle to measure; the before/after tables are two bundles, same machine)
@@ -95,13 +95,14 @@ const STOP = () => {
 const EDITOR_WATCH = () => {
   const W = (window.__edw = { longs: [], muts: 0, msgs: {} })
   /* What the canvas says to the editor while it scrolls, by kind. */
-  W.onMsg = (e) => { if (e.source !== window && e.data && e.data.storelib === 1) W.msgs[e.data.type] = (W.msgs[e.data.type] ?? 0) + 1 }
+  W.boxes = []
+  W.onMsg = (e) => { if (e.source !== window && e.data && e.data.storelib === 1) { W.msgs[e.data.type] = (W.msgs[e.data.type] ?? 0) + 1; if (e.data.type === "box") W.boxes.push(`${Math.round(performance.now())}:${e.data.moving ? "moving" : e.data.id ? `${e.data.top}+${e.data.height}` : "none"}`) } }
   addEventListener("message", W.onMsg)
   try { W.po = new PerformanceObserver((l) => { for (const e of l.getEntries()) W.longs.push(Math.round(e.duration)) }); W.po.observe({ type: "longtask" }) } catch {}
   W.mo = new MutationObserver((l) => { for (const m of l) if (!(m.target.closest && m.target.closest("iframe"))) W.muts++ })
   W.mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
 }
-const EDITOR_STOP = () => { const W = window.__edw; W.po?.disconnect(); W.mo.disconnect(); removeEventListener("message", W.onMsg); return { longs: W.longs, muts: W.muts, msgs: W.msgs } }
+const EDITOR_STOP = () => { const W = window.__edw; W.po?.disconnect(); W.mo.disconnect(); removeEventListener("message", W.onMsg); return { longs: W.longs, muts: W.muts, msgs: W.msgs, boxes: W.boxes } }
 
 /* ── The live page: the mirror's HTML at /, every file it asks for from the mirror ── */
 async function openLive({ kit, key, width, height, touch, cpu }) {
@@ -319,7 +320,7 @@ async function run({ surface, key, device, cpu, kit, compat }) {
       attr = attribution(trace, profile, frameScripts)
     }
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `${surface}-${key}-${device}-${cpu}x.png`) })
-    return { ...f, msgs: e.msgs, longTasks: e.longs.length, longestTask: Math.max(0, ...e.longs), editorMutations: e.muts, attr }
+    return { ...f, msgs: e.msgs, boxes: e.boxes, longTasks: e.longs.length, longestTask: Math.max(0, ...e.longs), editorMutations: e.muts, attr }
   } finally {
     await h.close()
   }
@@ -410,6 +411,7 @@ for (const p of plan) {
     try { r = await run({ ...p, kit, compat: themes[p.key] }) } catch (e) { console.log(`  ${name}: threw ${String(e).slice(0, 200)}`); broken++; continue }
     rows.push({ name, ...p, ...r })
     console.log(`  ${name.padEnd(30)} dropped ${String(r.droppedPct).padStart(5)}% (${r.dropped}/${r.frames + r.dropped})  longest ${String(r.longest).padStart(4)}ms  long tasks ${r.longTasks} (max ${r.longestTask}ms)  msgs to editor ${r.sent} ${JSON.stringify(r.msgs ?? {})}, from ${r.got}  editor DOM changes ${r.editorMutations}  at ${r.y}/${r.h}`)
+    if (process.env.BOXLOG && r.boxes) console.log(`      boxes: ${r.boxes.join(" ")}`)
     if (r.attr) console.log(`      ${JSON.stringify(r.attr, null, 1).split("\n").join("\n      ")}`)
   }
 }
@@ -437,9 +439,14 @@ for (const [name, list] of groups) {
     expect(r.longest < 50 || (themeBound && r.longest <= Math.max(50, L.longest + 17)), `${name}: longest frame < 50ms${themeBound ? ` (theme-bound: live's longest ${L.longest}ms, the canvas's at most a frame more)` : ""}`, r.longest)
   }
   /* Messages to the editor while scrolling: a handful (the toolbar's box when it changes, where the page stands once it stops), never one a frame. */
-  /* The "scrolling" heartbeat is said at most every 60ms on purpose (it keeps a push from redrawing under a moving finger: canvas-bridge.ts), so it is held to that; every other message to a tenth of the frames. */
+  /*
+    The "scrolling" heartbeat is said at most every 60ms on purpose (it keeps a push from redrawing under a
+    moving finger: canvas-bridge.ts), so it is held to that. Every other message to a third of the frames:
+    the toolbar's box is said once as moving and again where the section stands at each pause of the wheel,
+    and follows a theme's own header easing its height after a scroll (BOXLOG=1 lists them), never a frame each.
+  */
   const beats = med(list.map((x) => x.msgs?.scrolling ?? 0)), other = med(list.map((x) => x.sent - (x.msgs?.scrolling ?? 0)))
-  expect(other <= Math.max(12, r.frames * 0.1) && beats <= r.frames * 0.3 + 2, `${name}: messages to the editor while scrolling, not one a frame`, { other, heartbeats: beats, frames: r.frames })
+  expect(other <= Math.max(12, r.frames / 3) && beats <= r.frames * 0.3 + 2, `${name}: messages to the editor while scrolling, not one a frame`, { other, heartbeats: beats, frames: r.frames })
 }
 /* The canvas draws the page as the website does: the same height, every section where it is live (within 2px), at five places down the page. */
 /*
