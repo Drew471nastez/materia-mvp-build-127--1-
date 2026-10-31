@@ -9,6 +9,8 @@
  * tests/developer-hub.test.ts fails when a page of the hub is missing here.
  */
 import { DEV_PAGES, FRAMEWORK_NAME, HUB_NAME, SITE_ORIGIN, devPath } from "./pages"
+import { OFFERED_PLANS } from "@/lib/billing/plans"
+import { getFeeDescription } from "@/lib/billing/fee-calculator"
 
 export function llmsTxt(): string {
   const link = (slug: string) => `${SITE_ORIGIN}${devPath(slug)}`
@@ -19,7 +21,7 @@ export function llmsTxt(): string {
   return [
     `# ${HUB_NAME}`,
     "",
-    `> Storelib is a platform where creators sell digital products and build their own website. Every section of every Storelib website is written in the ${FRAMEWORK_NAME}: one .storelib file per section, holding a <template>, a scoped <style>, an optional <script> and a JSON <schema>. These pages are its complete reference.`,
+    `> Storelib is a platform where creators sell digital products, courses, memberships and physical products, from a creator page, a OnePage (a link in bio page), their own website and communities, with payments through Stripe. Every section of every Storelib website is written in the ${FRAMEWORK_NAME}: one .storelib file per section, holding a <template>, a scoped <style>, an optional <script> and a JSON <schema>. These pages are its complete reference.`,
     "",
     "Before writing a section, read the AI guide. Two facts matter more than any other: the template language is not Vue, React or JSX, and a section's script runs in a sandbox against a copy of its own markup, so it can toggle classes, styles and text but cannot add elements, measure layout or reach the page.",
     "",
@@ -76,6 +78,14 @@ export function llmsTxt(): string {
     */
     "## Storelib",
     "",
+    /*
+      Round 45: the plans as plain facts, written from lib/billing/plans.ts
+      and the fee table, so this file cannot quote a price the pricing page
+      does not.
+    */
+    planFacts(),
+    "",
+    `- [Features](${SITE_ORIGIN}/features): what a creator can do with Storelib.`,
     `- [Pricing](${SITE_ORIGIN}/pricing): the Free and Pro plans and the fee on each sale.`,
     `- [Help Center](https://help.storelib.com): step by step guides for selling on Storelib: products, shipping, orders and payouts, websites, email and billing.`,
     `- [FAQ](${SITE_ORIGIN}/faq): short answers about getting started, selling, payments and pricing.`,
@@ -89,4 +99,10 @@ export function llmsTxt(): string {
     `- [Everything in one file](${SITE_ORIGIN}/llms-full.txt): every page above as plain markdown, with every reference table filled in.`,
     "",
   ].join("\n")
+}
+
+/** One line: each plan on sale, its monthly price and Storelib's fee per sale. Stripe's processing fee is on top on every plan. */
+export function planFacts(): string {
+  const plans = OFFERED_PLANS.map((p) => `${p.name}: ${p.priceCents === 0 ? "no monthly fee" : `${p.price} a month`}, ${getFeeDescription(p.id)}`)
+  return `Plans, in US dollars: ${plans.join("; ")}. Stripe's payment processing fee applies on every plan.`
 }
