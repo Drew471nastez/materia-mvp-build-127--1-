@@ -78,7 +78,7 @@ import { CreatorBadges } from "@/components/storefront/creator-badges"
 import { creatorBadges } from "@/lib/creators/badges"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
-import { getStoreUrl, getProductShareUrl } from "@/lib/url-helpers"
+import { getStoreUrl, getProductShareUrl, getProductInternalPath } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SmartLink } from "@/components/smart-link"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
@@ -758,8 +758,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       description: p.description,
       /* A membership's card says "/month" (lib/pricing/list-price). */
       type: (p as { type?: string | null }).type ?? undefined,
-      /* A free community has no product to link through: its card goes to the community (product-page-cache). */
-      href: cardLink(p),
+      /*
+        A free community has no product to link through: its card goes to the community (product-page-cache).
+        Every other card links the product's canonical address, /<handle>/<slug>, as the creator page's cards
+        do (round 45). It linked /p/<slug>, a second address of the same page, so the links between a
+        creator's products all pointed at a copy and none at the page search engines index.
+      */
+      href: cardLink(p) ?? (p.slug && creatorProfile?.username ? getProductInternalPath(p.slug, creatorProfile.username) : undefined),
       /*
         Each card in its own price's currency: the page's on the marketplace
         in dollars (converted above, a dollar plan as it is), else the
