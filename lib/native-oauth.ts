@@ -29,7 +29,11 @@
  *     storelib://auth/callback
  */
 
-import { createClient } from "@/lib/supabase/client"
+/*
+  The Supabase client is imported where a native path uses it, not here (round 46): the root layout warms this file's
+  chunk on every Storelib page (components/platform/app-only.tsx), and every function that reads the client returns at
+  once outside the app, so the web fetched and ran supabase-js for nothing.
+*/
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { completeNativeSession } from "@/lib/auth/native-session"
@@ -433,6 +437,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
+    const { createClient } = await import("@/lib/supabase/client")
     const supabase = createClient()
     const { data, error: exchangeErr } =
       await supabase.auth.exchangeCodeForSession(code)
@@ -552,7 +557,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     }
 
     isSetUp = true
-    const { App } = await import("@capacitor/app")
+    const [{ App }, { createClient }] = await Promise.all([import("@capacitor/app"), import("@/lib/supabase/client")])
     const supabase = createClient()
 
     // ── Register appUrlOpen listener ────────────────────────────────────
