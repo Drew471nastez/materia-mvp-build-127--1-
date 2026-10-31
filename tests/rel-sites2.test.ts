@@ -159,10 +159,13 @@ function loadShared(file: string) {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
 let restCalls = 0
-function failingDatabase() {
+const GATEWAY_PAGE = `<!DOCTYPE html>\n<html><head><title>supabase.co | 522: Connection timed out</title></head><body><h1>Connection timed out</h1></body></html>`
+const gatewayPage = (status = 522) => new Response(GATEWAY_PAGE, { status, headers: { "content-type": "text/html; charset=UTF-8" } })
+function failingDatabase(mode = process.env.SITES2_FAIL ?? "timeout") {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
     if (url.pathname.startsWith("/rest/v1/")) restCalls++
+    if (mode === "html") return gatewayPage()
     return json(500, { code: "57014", message: "canceling statement due to statement timeout", details: null, hint: null })
   }) as typeof fetch
 }
@@ -239,9 +242,9 @@ async function freshServer() {
   console.log(`RESULT ${JSON.stringify({ maya: { status: maya.status, body: maya.body.slice(0, 20000) }, leo, leoIsr, restCalls })}`)
 }
 
-function runFresh(cache: string, deploy: string): { maya: { status: number; body: string }; leo: string; leoIsr: string; restCalls: number } {
+function runFresh(cache: string, deploy: string, fail = "timeout"): { maya: { status: number; body: string }; leo: string; leoIsr: string; restCalls: number } {
   const out = execFileSync(process.execPath, [...process.execArgv, process.argv[1]], {
-    env: { ...process.env, SITES2_ROLE: "fresh", SITES2_CACHE: cache, SITES2_DEPLOY: deploy },
+    env: { ...process.env, SITES2_ROLE: "fresh", SITES2_CACHE: cache, SITES2_DEPLOY: deploy, SITES2_FAIL: fail },
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
@@ -327,6 +330,9 @@ async function freshServerServes() {
   check("Leo's Storelib theme site is read from the copy every server kept", fresh.leo === leo, fresh.leo)
   check("  on an ISR revalidation of /w/leo too", fresh.leoIsr === leo, fresh.leoIsr)
 
+  const viaGateway = runFresh(cache, "2", "html")
+  check("the same with Supabase's gateway answering its HTML error page to every read (EVD-2): Maya 200, Leo from the copy", viaGateway.maya.status === 200 && viaGateway.leo === leo, [viaGateway.maya.status, viaGateway.leo])
+
   const { creatorSiteTag } = await import("@/lib/website-builder/published-site")
   const { SITE, OTHER } = await import("../scripts/speed18/fixture")
   const purged = join(dir, "purged.json")
@@ -334,6 +340,78 @@ async function freshServerServes() {
   const after = runFresh(purged, "2")
   check("after a Publish or a take down (the site's tag expired) nothing old is served: Maya gets the 503 that tries again", after.maya.status === 503 && after.maya.body.includes("One moment"), after.maya.status)
   check("  and Leo's site read throws (the page's error, retried), never the old copy", after.leo.startsWith("threw:"), after.leo)
+}
+
+/* ── EVD-2 ───────────────────────────────────────────────────────────────── */
+
+async function gatewayAnswers() {
+  console.log("\nEVD-2. A gateway's HTML error page or a body cut short is a failed read (asked again), never data")
+  const { isCutShort, isGatewayPage, GATEWAY_PAGE_CODE, CUT_SHORT_CODE } = await import("@/lib/storage/media-url")
+  check("a 522 HTML page is a gateway page; PostgREST's own JSON error is not; a 404 page is handed back as it came", isGatewayPage(522, "text/html", GATEWAY_PAGE) && isGatewayPage(503, "", "  <!doctype html>") && !isGatewayPage(500, "application/json", '{"code":"57014"}') && !isGatewayPage(404, "text/html", GATEWAY_PAGE) && !isGatewayPage(200, "text/html", GATEWAY_PAGE))
+  check("JSON that stops part way is cut short; whole JSON is not", isCutShort('[{"path":"a","content":"x') && isCutShort('[{"a":1},{"b":2}') && isCutShort('{"a":[1,2]') && !isCutShort('[{"a":1}]\n') && !isCutShort('{"a":1}') && !isCutShort("") && !isCutShort("null"))
+
+  const { installFiles } = await import("@/lib/website-builder/compat-site")
+  const { siteRead, isSiteReadError } = await import("@/lib/website-builder/site-read")
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const rows = [{ path: "shopify/layout/theme.liquid", content: "<html>{{ content_for_layout }}</html>" }]
+  const whole = JSON.stringify(rows)
+  const script = (answers: (() => Response)[]) => {
+    let n = 0
+    globalThis.fetch = (async () => answers[Math.min(n++, answers.length - 1)]()) as typeof fetch
+    return () => n
+  }
+  const ok = () => json(200, rows)
+
+  let calls = script([() => gatewayPage(522), () => gatewayPage(503), ok])
+  const files = await installFiles(createAdminClient(), "i-1", false)
+  check("theme files: a 522 page, then a 503 page, then the rows: the rows (asked again, like a 502)", files["shopify/layout/theme.liquid"] === rows[0].content && calls() === 3, calls())
+
+  calls = script([() => gatewayPage(522)])
+  let thrown: unknown = null
+  try {
+    await installFiles(createAdminClient(), "i-1", false)
+  } catch (e) {
+    thrown = e
+  }
+  const message = thrown instanceof Error ? thrown.message : String(thrown)
+  check("theme files: the gateway's page every time is a SiteReadError (last good copy, else One moment), asked three times", isSiteReadError(thrown) && calls() === 3, [message, calls()])
+  check("  its message is short and says what happened, not the page", !message.includes("<!DOCTYPE") && /error page \(HTTP 522\)/.test(message), message)
+
+  calls = script([() => new Response(whole.slice(0, whole.length - 12), { status: 200, headers: { "content-type": "application/json" } }), ok])
+  const again = await installFiles(createAdminClient(), "i-1", false)
+  check("theme files: a body cut short, then the whole one: the rows", again["shopify/layout/theme.liquid"] === rows[0].content && calls() === 2, calls())
+
+  calls = script([() => new Response(whole.slice(0, 30), { status: 200, headers: { "content-type": "application/json" } })])
+  thrown = null
+  try {
+    await installFiles(createAdminClient(), "i-1", false)
+  } catch (e) {
+    thrown = e
+  }
+  check("theme files: cut short every time is a SiteReadError, never a parse error or a half theme", isSiteReadError(thrown) && /cut short/.test(thrown instanceof Error ? thrown.message : "") && calls() === 3, thrown instanceof Error ? thrown.message : thrown)
+
+  calls = script([() => gatewayPage(524)])
+  thrown = null
+  try {
+    await siteRead("pages", (signal) => createAdminClient().from("store_theme_pages").select("page_key").eq("install_id", "i-1").abortSignal(signal))
+  } catch (e) {
+    thrown = e
+  }
+  check("a site read (pages) answered by the gateway's page throws SiteReadError", isSiteReadError(thrown), thrown instanceof Error ? thrown.message : thrown)
+
+  calls = script([() => gatewayPage(522)])
+  const write = await createAdminClient().from("store_theme_pages").update({ sections: [] }).eq("id", "p-1")
+  check("a write answered by the gateway's page is never asked again", calls() === 1 && !!write.error, calls())
+
+  let reads = 0
+  globalThis.fetch = (async () => {
+    reads++
+    return json(200, { a: 1 })
+  }) as typeof fetch
+  const { data } = await createAdminClient().from("profiles").select("id").eq("id", "x").maybeSingle()
+  check("an ordinary answer is read once and handed over as it was", reads === 1 && (data as { a?: number } | null)?.a === 1)
+  void GATEWAY_PAGE_CODE
+  void CUT_SHORT_CODE
 }
 
 function codeChecks() {
@@ -370,6 +448,7 @@ async function run() {
     await sharedCopies()
     await freshServerServes()
     codeChecks()
+    await gatewayAnswers()
   } finally {
     globalThis.fetch = realFetch
     console.error = realError
