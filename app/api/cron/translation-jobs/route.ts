@@ -12,7 +12,7 @@ export const maxDuration = 300
 const RUN_WINDOW_MS = 270_000
 
 /**
- * CRON, every three minutes, two things side by side:
+ * CRON, every five minutes (vercel.json), two things side by side:
  *
  *   Translate with AI in the background (lib/markets/translation-jobs.ts):
  *   carries on every job a run let go of or was cut off from. A run that ran
@@ -24,6 +24,15 @@ const RUN_WINDOW_MS = 270_000
  *   ago, translated and live, so a publish is in every language in minutes.
  *
  * Behind the cron secret, like every cron.
+ *
+ * The chained POST is not wrapped in recordCronRun's lease, on purpose: its
+ * work runs in after(), past the answer, so a cron_runs row would finish
+ * before the work did and hold nothing; and being skipped behind the
+ * scheduled run would only delay the job. Two runs at once are safe without
+ * it: continueJobs takes each job under its own lease
+ * (lib/markets/translation-jobs.ts), and runChangedStores, which only the
+ * scheduled GET runs, claims each store under a lease (auto-translate.ts
+ * claimStore).
  */
 async function run(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")

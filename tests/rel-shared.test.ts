@@ -12,6 +12,7 @@
  *   crons and webhooks                                    no bare supabase-js client without a deadline
  *   rollup-daily, storage-cleanup with a failed step      answer 500, so the run is recorded failed and alerted
  *   a browser push service that never answers             the send ends at its timeout
+ *   translation-jobs                                      its comment says its real schedule
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -440,6 +441,16 @@ async function main() {
     const took = Date.now() - t0
     ;(https as { request: unknown }).request = realRequest
     check("a push service that never answers fails the send at the timeout, not at the function's limit", outcome.startsWith("failed") && took < 2_000, { outcome, took })
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\ntranslation-jobs: the comment matches the schedule, and two runs at once are covered by leases (item 8)")
+  {
+    const vercel = JSON.parse(readFileSync(join(process.cwd(), "vercel.json"), "utf8")) as { crons: { path: string; schedule: string }[] }
+    const schedule = vercel.crons.find((c) => c.path === "/api/cron/translation-jobs")?.schedule
+    const src = readFileSync(join(process.cwd(), "app/api/cron/translation-jobs/route.ts"), "utf8")
+    check("vercel.json runs it every five minutes and the route's comment says so (it said three)", schedule === "*/5 * * * *" && /every five minutes/.test(src) && !/every three minutes/.test(src), schedule)
+    check("each job and each changed store is taken under its own lease", /const lease = await claimStore\(db, s, Date\.now\(\)\)\s*if \(!lease\) continue/.test(code("lib/markets/auto-translate.ts")) && /lease_until/.test(code("lib/markets/translation-jobs.ts")))
   }
 
   clearInterval(keepAlive)
