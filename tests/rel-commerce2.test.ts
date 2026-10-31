@@ -13,6 +13,10 @@
  *      are written; the fee read, receipt PDF, emails and notifications run
  *      after the answer, once each under their journal keys, and a step that
  *      failed there is left for the sweep (PAY-12)
+ *   3  the legacy checkout.session.completed product path: no checkout made
+ *      today reaches it (every session creator is read), and if an old
+ *      session does, its payment is read through latest_charge, so the order
+ *      keeps its transfer and card (PAY-11)
  */
 import "./_journey/env"
 import { Journey } from "./_journey/harness"
@@ -22,6 +26,8 @@ import { abandonedCheckout } from "../lib/memberships/state"
 import { instantOrderBody } from "../lib/onepage/product-block"
 import { fulfilPaymentIntent } from "../lib/checkout/fulfil-payment"
 import { unfinishedFollowups } from "../lib/checkout/followups"
+import { readFileSync, readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
 
 let passed = 0
 let failed = 0
@@ -216,6 +222,53 @@ async function main() {
 
     s.charges.retrieve = realCharge
     j.net.mailDelayMs = 0
+  }
+
+
+  /* ── 3. PAY-11 ─────────────────────────────────────────────────────── */
+  section("3. The legacy Checkout Session product path (PAY-11)")
+  {
+    /* Reachability: every Checkout Session this code makes, and what each puts on the session's own metadata. */
+    const walk = (d: string): string[] => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? (f === "node_modules" || f.startsWith(".") ? [] : walk(p)) : /\.(ts|tsx)$/.test(f) ? [p] : [] })
+    const makers = [...walk(join(process.cwd(), "app")), ...walk(join(process.cwd(), "lib"))].filter((f) => /checkout\.sessions\.create\(/.test(readFileSync(f, "utf8"))).map((f) => f.slice(process.cwd().length + 1)).sort()
+    const known = ["app/api/billing/subscription/create/route.ts", "app/api/checkout/cart/route.ts", "app/api/checkout/stripe-session/route.ts", "lib/communities/server/event-checkout.ts", "lib/communities/server/learn-checkout.ts", "lib/communities/server/library-checkout.ts", "lib/communities/server/module-sales.ts", "lib/physical/checkout-server.ts"]
+    check("the Checkout Session makers are the eight known ones (a new one must be checked against the legacy path)", JSON.stringify(makers) === JSON.stringify(known), makers)
+    const wallet = readFileSync(join(process.cwd(), "app/api/checkout/stripe-session/route.ts"), "utf8")
+    const walletParams = wallet.slice(wallet.indexOf("const walletParams"), wallet.indexOf("checkout.sessions.create(walletParams"))
+    check("  the wallet session carries the product only on its PaymentIntent (payment_intent_data.metadata), not on the session", /payment_intent_data: \{[\s\S]*metadata,/.test(walletParams) && !/^\s{8}metadata[,:]/m.test(walletParams), walletParams.slice(0, 200))
+    const onSession = (f: string) => { const t = readFileSync(join(process.cwd(), f), "utf8"); return /product_id:/.test(t.slice(t.indexOf("metadata"), t.indexOf("metadata") + 600)) }
+    check("  the plan and community sessions put no product_id on their session metadata (baskets and physical orders are taken by their own marks above it)", ["app/api/billing/subscription/create/route.ts", "lib/communities/server/event-checkout.ts", "lib/communities/server/learn-checkout.ts", "lib/communities/server/module-sales.ts"].every((f) => !onSession(f)))
+
+    /* An old session reaching the path anyway. Stripe refuses an expand of `charges` (removed in API 2022-11-15), as the fake now does. */
+    const seller = await j.signUp("legacy@example.com", { name: "Lee Legacy" })
+    await j.call("POST /api/onboarding/finalize", { as: seller, body: { role: "creator", creatorSlug: "lee" } })
+    await j.call("POST /api/payments/start", { as: seller, body: { agree: true, kind: "individual", country: "US" } })
+    const creator = j.rows("creators").find((r) => r.user_id === seller.id)!
+    const acct = creator.stripe_account_id as string
+    j.world.activate(acct)
+    const [prod] = j.db.insert("products", { creator_id: creator.id, type: "digital", title: "Old Pack", slug: "old-pack", description: "<p>Old</p>", status: "published", archived: false, price_cents: 1000, thumbnail_url: "https://cdn.example.com/p.jpg", pay_what_you_want: false }, {})
+    const pi = await s.paymentIntents.create({ amount: 1000, currency: "usd", application_fee_amount: 150, transfer_data: { destination: acct }, metadata: {} })
+    const paid = j.world.payIntent(pi.id, { brand: "mastercard", last4: "5555" })
+    const realRetrieve = s.paymentIntents.retrieve
+    const asked: string[][] = []
+    s.paymentIntents.retrieve = async (id: string, params?: Obj, ...rest: unknown[]) => {
+      asked.push(params?.expand ?? [])
+      if ((params?.expand ?? []).includes("charges")) throw Object.assign(new Error("This property cannot be expanded (charges)."), { type: "StripeInvalidRequestError", statusCode: 400 })
+      return realRetrieve(id, params, ...rest)
+    }
+    const warned: string[] = []
+    const realWarn = console.warn
+    console.warn = (...a: unknown[]) => { warned.push(a.map(String).join(" ")); realWarn(...a) }
+    const session = { id: "cs_legacy_test1", object: "checkout.session", mode: "payment", payment_status: "paid", status: "complete", payment_intent: pi.id, amount_total: 1000, currency: "usd", customer_details: { email: "oldbuyer@example.com" }, metadata: { product_id: prod.id, creator_id: creator.id, platform_fee_cents: "150", receipt_token: "rt_legacy_test1", buyer_email: "oldbuyer@example.com" } }
+    const hook = await j.webhook("checkout.session.completed", session, { id: "evt_legacy1" })
+    console.warn = realWarn
+    s.paymentIntents.retrieve = realRetrieve
+    const order = j.rows("orders").find((o) => o.stripe_session_id === "cs_legacy_test1")
+    const transfer = paid.charge?.transfer as string
+    check("an old product session is still made into its order (200)", hook.status === 200 && !!order, { status: hook.status, body: hook.json })
+    check("  its payment read through latest_charge, never `charges`", asked.length > 0 && asked.every((e) => !e.includes("charges")) && asked.some((e) => e.includes("latest_charge")), asked)
+    check("  the order keeps the transfer and the card (they were empty when the expand failed)", order?.transfer_id === transfer && order?.card_brand === "mastercard" && order?.card_last4 === "5555" && order?.application_fee_cents === 150, { transfer_id: order?.transfer_id, transfer, card: order?.card_last4 })
+    check("  and the path says it was reached", warned.some((w) => /legacy product Checkout Session reached/.test(w) && w.includes("cs_legacy_test1")), warned)
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)

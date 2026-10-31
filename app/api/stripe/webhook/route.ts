@@ -9,7 +9,7 @@ import { createHash } from "node:crypto"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { attributionFromMetadata, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
-import { fulfilPaymentIntent, isCheckoutIntent, recordCustomer } from "@/lib/checkout/fulfil-payment"
+import { fulfilPaymentIntent, isCheckoutIntent, paymentFacts, recordCustomer } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { fulfilCartPayment, fulfilCartSession, isCartIntent, isCartSession } from "@/lib/checkout/fulfil-cart-session"
@@ -538,38 +538,35 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     let cardLast4: string | null = null
     let paypalEmail: string | null = null
 
+    /*
+      A LEGACY SESSION (PAY-11). No checkout made today puts a product on a
+      Checkout Session's own metadata: the card and wallet checkouts carry it
+      on the PaymentIntent (payment_intent.succeeded makes the order through
+      lib/checkout/fulfil-payment), and baskets, physical orders and the
+      community sheets are taken above. So reaching here means a session made
+      by old code; it is kept for that, and logged so it can be seen.
+      Its payment is read the way Stripe has it since 2022-11-15:
+      `latest_charge` (with its transfer), never `charges`, whose expand
+      Stripe refuses and whose error left the transfer and card empty.
+    */
+    console.warn("[Webhook] legacy product Checkout Session reached:", session.id)
     try {
       if (session.payment_intent) {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
-          expand: ["charges", "transfer", "payment_method"],
-        }) as any
+        const paymentIntent = await stripe.paymentIntents.retrieve(typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent.id, {
+          expand: ["latest_charge", "latest_charge.transfer"],
+        })
 
         if (paymentIntent.application_fee_amount) {
           applicationFeeAmount = paymentIntent.application_fee_amount
         }
 
-        if (paymentIntent.transfer) {
-          transferId = typeof paymentIntent.transfer === "string" ? paymentIntent.transfer : paymentIntent.transfer.id
-        }
-
-        if (paymentIntent.charges?.data?.[0]) {
-          destinationPaymentId = (paymentIntent.charges.data[0].destination_payment as string) || null
-
-          const charge = paymentIntent.charges.data[0]
-          if (charge.payment_method_details) {
-            const pmDetails = charge.payment_method_details
-            if (pmDetails.card) {
-              paymentMethod = "card"
-              cardBrand = pmDetails.card.brand || null
-              cardLast4 = pmDetails.card.last4 || null
-            } else if (pmDetails.paypal) {
-              paymentMethod = "paypal"
-              paypalEmail = (pmDetails.paypal as any).payer_email || null
-            } else if (pmDetails.type) {
-              paymentMethod = pmDetails.type
-            }
-          }
-        }
+        const facts = paymentFacts(paymentIntent)
+        transferId = facts.transferId
+        destinationPaymentId = facts.destinationPaymentId
+        paymentMethod = facts.paymentMethod
+        cardBrand = facts.cardBrand
+        cardLast4 = facts.cardLast4
+        paypalEmail = facts.paypalEmail
       }
     } catch (error) {
       console.error("[Webhook] Failed to retrieve payment intent details:", error)
