@@ -90,3 +90,43 @@ export function parseChapter(line: string): { seconds: number; title: string } |
   const seconds = (m[1] ? Number(m[1]) * 3600 : 0) + Number(m[2]) * 60 + Number(m[3])
   return { seconds, title: m[4].trim() }
 }
+
+/* ─── The public article's view of an embed (round 45, blogpublic) ───── */
+
+/**
+ * How the public article draws an embed block: YouTube as its click to play
+ * player (no YouTube script until a press), anything else as a lazy frame at
+ * embedFrameSrc's address with the shape that provider's player needs. Null:
+ * draw the block as a plain link.
+ */
+export type BlogEmbed =
+  | { kind: "youtube"; videoId: string }
+  | { kind: "frame"; provider: Exclude<EmbedProvider, "youtube">; src: string; title: string; /** width / height */ ratio?: number; /** px */ height?: number }
+
+export function embedProviderName(p: EmbedProvider): string {
+  return EMBED_PROVIDERS[p].label
+}
+
+/** The YouTube id in an address; kept under the name the article used first. */
+export const youtubeIdFromUrl = (raw: string | null | undefined): string | null => (raw && /^https?:/i.test(raw.trim()) ? youtubeIdFrom(raw) : null)
+
+const SHAPES: Record<Exclude<EmbedProvider, "youtube">, { title: string; ratio?: number; height?: number }> = {
+  vimeo: { title: "Vimeo video", ratio: 16 / 9 },
+  loom: { title: "Loom video", ratio: 16 / 9 },
+  x: { title: "Post on X", height: 560 },
+  spotify: { title: "Spotify player", height: 352 },
+  figma: { title: "Figma file", ratio: 16 / 10 },
+  codepen: { title: "CodePen demo", height: 420 },
+}
+
+export function blogEmbed(block: Pick<Block, "url" | "provider">): BlogEmbed | null {
+  const src = embedFrameSrc(block)
+  if (!src || !block.provider) return null
+  if (block.provider === "youtube") {
+    const videoId = youtubeIdFrom(block.url)
+    return videoId ? { kind: "youtube", videoId } : null
+  }
+  const shape = SHAPES[block.provider]
+  const height = block.provider === "spotify" && /\/embed\/(track|episode)\//.test(src) ? 152 : shape.height
+  return { kind: "frame", provider: block.provider, src, title: shape.title, ...(shape.ratio ? { ratio: shape.ratio } : {}), ...(height ? { height } : {}) }
+}

@@ -214,6 +214,9 @@ const DIRECTIVES: [string, string[]][] = [
     "https://bandcamp.com",
     "https://widget.deezer.com",
     "https://calendar.google.com",
+    /* The blog's embed block (lib/blog/embed.ts): a Figma file and a CodePen demo. */
+    "https://www.figma.com",
+    "https://codepen.io",
   ]],
 
   /* pdf.js runs its parser in a worker made from a blob. */

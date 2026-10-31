@@ -51,7 +51,6 @@ import { siteSeo } from "@/lib/website-builder/site-seo-data"
 import { bannedCreatorIds, confirmedSpamUserIds } from "./bans"
 import { onePageRowListable, type OnePagePresenceRow } from "@/lib/onepage/page-presence"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
@@ -66,6 +65,8 @@ import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
 import { blogSitemapEntries } from "@/lib/blog/listing"
+import { categorySlugOf, withBlogCategoryPages } from "@/lib/blog/article"
+import { readBlogCategories } from "@/lib/blog/categories"
 import { blogSlugsNotInSitemap } from "@/lib/blog/read"
 import { liveDateFilter } from "@/lib/blog/schedule"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
@@ -509,7 +510,9 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     with real dates. It listed every category, empty ones included, and gave
     the four code-written posts one date between them.
   */
-  routes.push(...blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug))
+  /* Round 45: a category lives at /blog/category/<slug> (the old address is a 308), with its older pages listed once it has them. */
+  const blogCategories = await readBlogCategories()
+  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, blogCategories.map((c) => c.name), (name) => categorySlugOf(name, blogCategories)), posts, blogCategories))
   return routes
 }
 
