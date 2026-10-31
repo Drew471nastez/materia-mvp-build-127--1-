@@ -315,7 +315,7 @@ export function productJsonLd(p: {
     "@type": "Product",
     name: p.name,
     url: p.url,
-    ...(p.inLanguage ? { inLanguage: p.inLanguage } : {}),
+    /* p.inLanguage is not printed: schema.org's Product has no inLanguage (a CreativeWork property). The page's <html lang> carries it. */
     ...(plain(p.description) ? { description: plain(p.description, 5000) } : {}),
     ...(p.images.length ? { image: p.images.slice(0, 10) } : {}),
     brand: { "@type": "Brand", name: p.seller },

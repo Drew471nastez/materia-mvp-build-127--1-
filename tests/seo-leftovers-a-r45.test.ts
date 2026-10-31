@@ -162,11 +162,11 @@ async function main() {
   }
 
   /* ------------------------------------------------------------------ */
-  console.log("\n4. A product's JSON-LD says the page's language\n")
+  console.log("\n4. A product's JSON-LD carries no inLanguage (schema.org Product has none); the page's <html lang> does\n")
   {
     const base = { url: "https://s.test/products/a", name: "A", images: [], priceCents: 100, inStock: true, seller: "S" }
-    check("a website product says the language it is drawn in", (productJsonLd({ ...base, inLanguage: "ro" }) as Record<string, unknown>).inLanguage === "ro")
-    check("  and leaves it out when that is not known", !("inLanguage" in productJsonLd(base)))
+    /* Changed on purpose (round 45, lead): Product has no inLanguage in schema.org, so it is never printed. */
+    check("a website product prints no inLanguage, even when the page's language is known", !("inLanguage" in productJsonLd({ ...base, inLanguage: "ro" })) && !("inLanguage" in productJsonLd(base)))
     const saved = { saved: true, defaultLanguage: "es", others: ["fr", "pt-BR"] }
     check("with Markets saved: the address's language, else the default", websitePageLanguage(saved, "fr", null) === "fr" && websitePageLanguage(saved, "pt-br", null) === "pt-BR" && websitePageLanguage(saved, null, { site_language: "de" }) === "es" && websitePageLanguage(saved, "it", null) === "es")
     check("without: Website settings' language, or nothing", websitePageLanguage({ saved: false, defaultLanguage: "en", others: [] }, null, { site_language: "de" }) === "de" && websitePageLanguage(null, null, {}) === undefined)
@@ -174,7 +174,7 @@ async function main() {
     const site = code("app/(site)/w/[username]/products/[slug]/page.tsx")
     check("the website product page passes that language to its JSON-LD", /const language = websitePageLanguage\(langs, locale,/.test(site) && /language \}\),/.test(site) && /inLanguage: site\.language/.test(code("components/website-builder/theme/render-product.tsx")))
     const store = code("app/(marketing)/p/[slug]/page.tsx")
-    check("storelib.com's product page says the <html lang> the layout prints", /inLanguage: STORELIB_PAGE_LANG,/.test(store) && !/inLanguage: "en"/.test(store) && /<html lang=\{STORELIB_PAGE_LANG\}/.test(code("app/layout.tsx")) && STORELIB_PAGE_LANG === "en")
+    check("storelib.com's product page prints no inLanguage on its Product; the layout's <html lang> says it", !/inLanguage:/.test(store) && /<html lang=\{STORELIB_PAGE_LANG\}/.test(code("app/layout.tsx")) && STORELIB_PAGE_LANG === "en")
   }
 
   /* ------------------------------------------------------------------ */
@@ -183,6 +183,9 @@ async function main() {
     check("a not found page clears the layout's robots", NOT_FOUND_METADATA.robots === null)
     /* Next's own merge, as it builds a 404's head: the root layout's metadata, then the not-found file's. */
     const req = createRequire(join(process.cwd(), "package.json"))
+    /* Next's metadata module requires `server-only`, which throws outside a bundler. The push suite's loader empties it for imports, not for require, so it is emptied here too. */
+    const serverOnly = createRequire(req.resolve("next/dist/lib/metadata/resolve-metadata.js")).resolve("server-only")
+    req.cache[serverOnly] = { id: serverOnly, filename: serverOnly, loaded: true, exports: {} } as unknown as NodeModule
     const { accumulateMetadata } = req("next/dist/lib/metadata/resolve-metadata.js") as { accumulateMetadata: (route: string, items: unknown[], pathname: string, ctx: unknown) => Promise<{ robots: unknown }> }
     const rootRobots = { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } }
     const ctx = { trailingSlash: false, isStaticMetadataRouteFile: false }
