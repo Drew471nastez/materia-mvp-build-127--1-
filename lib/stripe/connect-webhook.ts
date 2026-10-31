@@ -5,12 +5,13 @@ import type Stripe from "stripe"
 import { readCreatorStripe, syncStripeAccount, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
 import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
 import { stripe } from "@/lib/stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { emit } from "@/lib/notify/outbox"
 import { readableRequirements } from "@/lib/notify/conditions"
 import { createHash } from "node:crypto"
 
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+/* The shared admin client: every database call with the request deadline of lib/net/deadline.ts, never undici's 300s. */
+const supabaseAdmin = createAdminClient()
 
 function connectedAccountId(event: Stripe.Event): string | null {
   if (typeof event.account === "string" && event.account.startsWith("acct_")) return event.account

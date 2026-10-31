@@ -3,7 +3,7 @@ import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateReceiptToken } from "@/lib/security"
 import { createHash } from "node:crypto"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
@@ -37,8 +37,19 @@ import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
 import { recordPaidPlan } from "@/lib/billing/plan-override"
 
 export const runtime = "nodejs"
+/*
+  A CEILING ON ONE DELIVERY. Stripe stops waiting long before this and sends the event again (the claim answers a
+  second delivery 409 while the first runs); without it a hung call could hold the function for the platform's
+  default. Fulfilment's follow-up journal finishes anything cut off (lib/checkout/followups).
+*/
+export const maxDuration = 60
 
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+/*
+  The shared admin client, so every database call here has the request deadline and the read retries of
+  lib/net/deadline.ts (auth 10s, read 20s, write 30s, rpc 60s). A raw createClient used Node's bare fetch, whose
+  only limit is undici's 300s: one hung request held the webhook until the platform killed it.
+*/
+const supabaseAdmin = createAdminClient()
 
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()

@@ -54,9 +54,10 @@ export class MemoryDb {
    * Database blips for reliability suites (tests/rel-commerce.test.ts): the next `times` requests to `table` (a
    * table, or an rpc's name) with `method` (any when absent) answer this error, as a timeout or an outage would.
    */
-  faults: { table: string; method?: string; times: number; code: string; status: number }[] = []
-  failNext(table: string, opts: { method?: string; times?: number; code?: string; status?: number } = {}) {
-    this.faults.push({ table, method: opts.method?.toUpperCase(), times: opts.times ?? 1, code: opts.code ?? "57014", status: opts.status ?? 500 })
+  faults: { table: string; method?: string; times: number; code: string; status: number; hang?: boolean }[] = []
+  /** `hang`: the request is accepted and never answered (it ends only when its caller aborts it, as a deadline does). */
+  failNext(table: string, opts: { method?: string; times?: number; code?: string; status?: number; hang?: boolean } = {}) {
+    this.faults.push({ table, method: opts.method?.toUpperCase(), times: opts.times ?? 1, code: opts.code ?? "57014", status: opts.status ?? 500, hang: opts.hang })
   }
   /** Generated columns: computed on every read. */
   generated: Record<string, (r: Row) => Record<string, unknown>> = {
@@ -359,6 +360,13 @@ export class MemoryDb {
       const fault = this.faults.find((f) => f.times > 0 && f.table === target && (!f.method || f.method === method))
       if (fault) {
         fault.times--
+        if (fault.hang) {
+          return new Promise<Response>((_, reject) => {
+            const gone = () => reject(req.signal.reason ?? new DOMException("aborted", "AbortError"))
+            if (req.signal.aborted) gone()
+            else req.signal.addEventListener("abort", gone, { once: true })
+          })
+        }
         return json({ code: fault.code, message: `canceling statement due to statement timeout (injected on ${target})`, details: null, hint: null }, fault.status)
       }
     }

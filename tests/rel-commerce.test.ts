@@ -21,6 +21,8 @@
  *      person, and a part Stripe did not give is "unavailable", never an
  *      empty list (MEDIUM-4/5)
  *   7  the plan sync reads every page of a customer's subscriptions (LOW-10)
+ *   8  a database call that never answers ends at the shared client's
+ *      deadline, so it cannot hold a Stripe webhook (database audit F1)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -33,6 +35,7 @@ import { confirmOutcomeUnknown, intentKey, nextPress, paidIntentInError, stripeJ
 import { accountGoneFromPlatform, resetPlatformKeyCheck } from "../lib/payments/stripe/connect"
 import { forgetPayoutsRead, payoutsReadKey, readPayoutsKept } from "../lib/payments/payouts-read-cache"
 import { planCreatorSync, stripeListForSync, SYNC_MAX_PAGES } from "../lib/billing/subscription-sync"
+import { SUPABASE_DEADLINE_MS } from "../lib/net/deadline"
 
 let passed = 0
 let failed = 0
@@ -455,6 +458,33 @@ async function main() {
       threw = true
     }
     check(`  a list longer than ${SYNC_MAX_PAGES} pages is an error, never a partial answer`, threw)
+  }
+
+  /* ── 8. Webhook database deadline (database audit F1/F11) ─────────── */
+  section("8. A hung database call cannot hold a Stripe webhook: the shared client's deadline, and a ceiling")
+  {
+    const readMs = SUPABASE_DEADLINE_MS.read
+    SUPABASE_DEADLINE_MS.read = 300
+    const within = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<"timeout">((r) => setTimeout(() => r("timeout"), ms))])
+    j.db.failNext("creators", { method: "GET", hang: true, times: 3 })
+    let t0 = Date.now()
+    const h1 = await within(j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct, id: "evt_hung1" }), 5_000)
+    const took1 = Date.now() - t0
+    j.db.faults.length = 0
+    check("Connect webhook: a creator read that never answers ends at the read deadline with 500 (Stripe retries)", h1 !== "timeout" && h1.status === 500 && took1 < 5_000, { result: h1 === "timeout" ? h1 : h1.status, took1 })
+    j.db.failNext("subscriptions", { method: "GET", hang: true, times: 3 })
+    t0 = Date.now()
+    const h2 = await within(j.webhook("invoice.paid", planInvoice("in_hung1", "sub_plan1"), { id: "evt_hung2" }), 5_000)
+    const took2 = Date.now() - t0
+    j.db.faults.length = 0
+    check("platform webhook: a subscriptions read that never answers ends at the read deadline with 500", h2 !== "timeout" && h2.status === 500 && took2 < 5_000, { result: h2 === "timeout" ? h2 : h2.status, took2 })
+    SUPABASE_DEADLINE_MS.read = readMs
+    for (const f of ["app/api/stripe/webhook/route.ts", "app/api/stripe/webhook/connect/route.ts", "lib/stripe/connect-webhook.ts"]) {
+      const src = code(f)
+      check(`${f}: the shared admin client, no raw supabase-js client`, /createAdminClient\(\)/.test(src) && !/from "@supabase\/supabase-js"/.test(src))
+    }
+    for (const f of ["app/api/stripe/webhook/route.ts", "app/api/stripe/webhook/connect/route.ts"]) check(`${f}: maxDuration 60`, /export const maxDuration = 60\b/.test(code(f)))
+    j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/\/api\/stripe\/webhook/.test(x.route) || x.status !== 500))
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
