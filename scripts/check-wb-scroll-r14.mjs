@@ -437,7 +437,9 @@ for (const [name, list] of groups) {
     expect(r.longest < 50 || (themeBound && r.longest <= Math.max(50, L.longest + 17)), `${name}: longest frame < 50ms${themeBound ? ` (theme-bound: live's longest ${L.longest}ms, the canvas's at most a frame more)` : ""}`, r.longest)
   }
   /* Messages to the editor while scrolling: a handful (the toolbar's box when it changes, where the page stands once it stops), never one a frame. */
-  expect(r.sent <= Math.max(12, r.frames * 0.1), `${name}: messages to the editor while scrolling, not one a frame`, { sent: r.sent, frames: r.frames })
+  /* The "scrolling" heartbeat is said at most every 60ms on purpose (it keeps a push from redrawing under a moving finger: canvas-bridge.ts), so it is held to that; every other message to a tenth of the frames. */
+  const beats = med(list.map((x) => x.msgs?.scrolling ?? 0)), other = med(list.map((x) => x.sent - (x.msgs?.scrolling ?? 0)))
+  expect(other <= Math.max(12, r.frames * 0.1) && beats <= r.frames * 0.3 + 2, `${name}: messages to the editor while scrolling, not one a frame`, { other, heartbeats: beats, frames: r.frames })
 }
 /* The canvas draws the page as the website does: the same height, every section where it is live (within 2px), at five places down the page. */
 /*
