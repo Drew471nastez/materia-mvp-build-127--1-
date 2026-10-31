@@ -61,7 +61,16 @@ export async function GET(request: Request) {
   const go = (target: string) => NextResponse.redirect(new URL(target, url.origin), { status: 303 })
 
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  /*
+    WHEN SUPABASE AUTH DOES NOT ANSWER, the access token's signature is
+    checked against Supabase's public keys instead (lib/auth/current-user.ts
+    fallbackClaims, as lib/auth/request-scope.ts and route-user do), so a
+    signed in person is sent on to where they were going rather than to the
+    login form. This route only decides a redirect; every page it sends to
+    checks again, and the guest order attach below asks Auth itself and
+    attaches nothing when it cannot (lib/orders/attach-guest-orders.ts).
+  */
+  const current = await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })
   const user = current.user
 
   /* A team invite opened before signing in, when nothing else said where to go (lib/team/invite-links.ts). Read once a person is in. */
