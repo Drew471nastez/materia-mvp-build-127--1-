@@ -168,8 +168,10 @@ async function main() {
     check("  a line written over the sales limit is never granted on a resume", /soldOut: row\?\.refund_reason === SOLD_OUT_REASON/.test(read("lib/checkout/fulfil-cart-item.ts")))
     const physical = read("lib/physical/checkout-server.ts")
     check("things that ship: the same, keyed by the checkout", /beginFollowups\(db, order\.id, \{ kind: "physical", ref: c\.checkoutId/.test(physical) && /resumeFollowups\(db, String\(row\.id\)/.test(physical) && /onceForOrder\(db, basket, \{/.test(physical))
-    check("  and its library entry reads any row too", /const \{ data: has \} = await q\.limit\(1\)/.test(physical) && !/const \{ data: has \} = await q\.maybeSingle\(\)/.test(physical))
-    check("the cart line's library entry reads any row", /const \{ data: existing \} = await q\.limit\(1\)/.test(read("lib/checkout/fulfil-cart-item.ts")))
+    /* Changed on purpose (rel-commerce MEDIUM-3): the three library entries share lib/checkout/entitlement-grant, which reads any row and throws on a failed read or write. */
+    const grantCode = read("lib/checkout/entitlement-grant.ts")
+    check("  and its library entry reads any row too", /ensureEntitlement\(db, \{ buyerId: co\.buyer_id/.test(physical) && /const \{ data: owned, error: readError \} = await q\.limit\(1\)/.test(grantCode) && !/await q\.maybeSingle\(\)/.test(grantCode))
+    check("the cart line's library entry reads any row", /ensureEntitlement\(ctx\.admin, /.test(read("lib/checkout/fulfil-cart-item.ts")))
     const cron = read("app/api/cron/physical/route.ts")
     check("the ten minute sweep finishes unfinished orders, physical commerce on or off", cron.indexOf("runFollowupSweep(db") > 0 && cron.indexOf("runFollowupSweep(db") < cron.indexOf("isPhysicalCommerceEnabled()"))
     const sql = read("supabase/sql/run-now/300_order_followups.sql")

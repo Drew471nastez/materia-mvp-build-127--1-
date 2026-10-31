@@ -80,6 +80,7 @@ import { phoneForStorage } from "@/lib/account/phone"
 import { formatMinor } from "@/lib/markets/money"
 import { checkoutMarket } from "@/lib/markets/checkout-market-server"
 import { convertOrder, offersInMarket } from "@/lib/markets/checkout-charge"
+import { ensureEntitlement } from "@/lib/checkout/entitlement-grant"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -1156,13 +1157,8 @@ export async function completeCheckout(
     if (fl.soldOut) continue
     /* A download in the same cart is the buyer's to keep, as in any basket. */
     if (l.type !== "physical" && co.buyer_id) {
-      await f.idempotent("entitlement", async () => {
-        let q = db.from("entitlements").select("id").eq("buyer_id", co.buyer_id).eq("product_id", l.product_id)
-        q = l.variant_id ? q.eq("variant_id", l.variant_id) : q.is("variant_id", null)
-        /* Any row is enough: two copies made maybeSingle() error, read as none, and insert a third. */
-        const { data: has } = await q.limit(1)
-        if (!(Array.isArray(has) && has.length > 0)) await db.from("entitlements").insert({ buyer_id: co.buyer_id, creator_id: co.creator_id, product_id: l.product_id, variant_id: l.variant_id, community_access: false })
-      })
+      /* Throws on a failed read or insert, so the step is recorded failed and the sweep runs it again (lib/checkout/entitlement-grant). */
+      await f.idempotent("entitlement", () => ensureEntitlement(db, { buyerId: co.buyer_id, creatorId: co.creator_id, productId: l.product_id, variantId: l.variant_id ?? null }))
     }
     await f.once("sales count", async () => {
       await db.rpc("increment_product_sales", { p_product_id: l.product_id })

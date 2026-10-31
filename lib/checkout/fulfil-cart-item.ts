@@ -30,6 +30,7 @@ import { lineTotalCents, type PackedOffer } from "./cart-items"
 import { claimSale, releaseSale } from "./sales-limit"
 import { SOLD_OUT_REASON, markSoldOut } from "./sold-out-refund"
 import type { Followups } from "./followups"
+import { ensureEntitlement } from "./entitlement-grant"
 
 export interface FulfilLineInput {
   productId: string
@@ -237,24 +238,8 @@ export async function cartLineFollowups(ctx: FulfilContext, f: Followups, line: 
 
 async function cartEntitlement(ctx: FulfilContext, line: { orderId: string; productId: string; variantId: string | null }): Promise<void> {
   if (ctx.buyerId) {
-    let q = ctx.admin
-      .from("entitlements")
-      .select("id")
-      .eq("buyer_id", ctx.buyerId)
-      .eq("product_id", line.productId)
-    q = line.variantId ? q.eq("variant_id", line.variantId) : q.is("variant_id", null)
-    /* Any row is enough: two copies of the same entitlement made maybeSingle() error, read as none, and insert a third. */
-    const { data: existing } = await q.limit(1)
-
-    if (!(Array.isArray(existing) && existing.length > 0)) {
-      await ctx.admin.from("entitlements").insert({
-        buyer_id: ctx.buyerId,
-        creator_id: ctx.creatorId,
-        product_id: line.productId,
-        variant_id: line.variantId,
-        community_access: false,
-      })
-    }
+    /* Throws when the entry could not be read or written: the follow-up is recorded failed and the sweep runs it again (lib/checkout/entitlement-grant). */
+    await ensureEntitlement(ctx.admin, { buyerId: ctx.buyerId, creatorId: ctx.creatorId, productId: line.productId, variantId: line.variantId })
   }
 }
 

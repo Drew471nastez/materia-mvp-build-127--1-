@@ -48,6 +48,7 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
 import { markSoldOut, owesSoldOutRefund, refundOverLimit } from "./sold-out-refund"
 import { beginFollowups, resumeFollowups, type Followups } from "./followups"
+import { ensureEntitlement } from "./entitlement-grant"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -577,19 +578,8 @@ async function grant(
     }
   }
   if (!buyerId) return
-  let q = admin.from("entitlements").select("id").eq("buyer_id", buyerId).eq("product_id", g.productId)
-  q = g.variantId ? q.eq("variant_id", g.variantId) : q.is("variant_id", null)
-  /* Any row is enough: two copies of the same entitlement made maybeSingle() error, read as none, and insert a third. */
-  const { data: owned } = await q.limit(1)
-  if (!(Array.isArray(owned) && owned.length > 0)) {
-    await admin.from("entitlements").insert({
-      buyer_id: buyerId,
-      creator_id: g.creatorId,
-      product_id: g.productId,
-      variant_id: g.variantId,
-      community_access: false,
-    })
-  }
+  /* Throws when the entry could not be read or written, so the follow-up is recorded failed and the sweep runs it again (lib/checkout/entitlement-grant). */
+  await ensureEntitlement(admin, { buyerId, creatorId: g.creatorId, productId: g.productId, variantId: g.variantId })
   /* A product that opens a community (a tier sold once, or a course that grants one) lets the buyer in. Never throws. */
   try {
     await communityAccessAfterEntitlement(admin, { userId: buyerId, productId: g.productId, orderId: g.orderId, granted: true })

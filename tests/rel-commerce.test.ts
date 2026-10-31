@@ -10,6 +10,8 @@
  *      still cannot say, and the same intent confirmed again charges once
  *   2  a payout's wallet step that failed answers 500 and leaves the event
  *      open, so Stripe sends it again, and the replay posts once (HIGH-2)
+ *   3  a library entry whose write failed is a failed follow-up, and the
+ *      sweep writes it once (MEDIUM-3)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -235,6 +237,28 @@ async function main() {
   const g4 = await platformDeliver("payout.paid", payoutObj("po_eur1", "paid", 700, "xts"), "evt_platformcurrency1")
   check("platform route: a payout no rate converts is still left alone and closed (200), as before", g4.status === 200 && !!eventRow("evt_platformcurrency1")?.processed_at, { status: g4.status })
   j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/\/api\/stripe\/webhook/.test(x.route) || x.status !== 500))
+
+  /* ── 3. MEDIUM-3 ───────────────────────────────────────────────────── */
+  section("3. A library entry that could not be written is retried by the sweep (MEDIUM-3)")
+  const buyer = await j.signUp("lib@example.com", { name: "Lia Library" })
+  const bought = await j.call("POST /api/checkout/stripe-session", { as: buyer, headers: fromNewAddress(), body: instantOrderBody({ productId: pack, email: "lib@example.com", name: "Lia Library" }, false) })
+  check("a signed in buyer's PaymentIntent", bought.status === 200 && /^pi_/.test(String(bought.json?.paymentIntentId)), { status: bought.status, body: bought.json })
+  j.world.payIntent(bought.json?.paymentIntentId)
+  j.db.failNext("entitlements", { method: "POST" })
+  const paidPage = await j.call("POST /api/checkout/confirm-payment", { as: buyer, headers: fromNewAddress(), body: { paymentIntentId: bought.json?.paymentIntentId, clientSecret: bought.json?.clientSecret } })
+  const libOrder = j.rows("orders").find((o) => o.stripe_payment_intent_id === bought.json?.paymentIntentId)
+  const owns = () => j.rows("entitlements").filter((e) => e.buyer_id === buyer.id && e.product_id === pack).length
+  const step = (name: string) => j.rows("order_followups").find((r) => r.order_id === libOrder?.id && r.step === name)
+  check("paid: the order and its receipt, as always", paidPage.status === 200 && !!libOrder && typeof paidPage.json?.receiptToken === "string", { status: paidPage.status, body: paidPage.json })
+  check("  the library entry's write failed: no entry, and the step is recorded failed (not done)", owns() === 0 && step("entitlement")?.state === "failed", step("entitlement"))
+  check("  the order is left unfinished for the sweep", step("begun")?.state !== "done", step("begun"))
+  /* Past the in-flight window, as the ten minute sweep finds it. */
+  const begun = step("begun")
+  if (begun) begun.updated_at = new Date(Date.now() - 5 * 60_000).toISOString()
+  await j.cron()
+  check("the sweep wrote the entry, once, and recorded the step done", owns() === 1 && step("entitlement")?.state === "done", { owns: owns(), step: step("entitlement") })
+  await j.cron()
+  check("  a later sweep or retry adds no second entry", owns() === 1, { owns: owns() })
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with an unexpected server error", j.serverErrors.length === 0, j.serverErrors)
