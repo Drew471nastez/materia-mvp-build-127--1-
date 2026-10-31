@@ -85,6 +85,7 @@ import {
   type SitemapEntry,
 } from "./indexing"
 import { imagesOnly } from "@/lib/media/video"
+import { openSpaceIds, publicPostEntries, type SitemapPostRow, type SitemapSpaceRow } from "./community-posts-sitemap"
 
 
 /** A /help/... path at the Help Center's own address. */
@@ -354,11 +355,67 @@ export async function communitiesSitemap(chunk: number, of?: number, admin: Admi
   */
   const read = async () => {
     const found = await readKeyset<SitemapCommunityRow>((page) => page(sitemapCommunityQuery(admin)), range, "communities")
-    return sitemapCommunitiesListed(admin, found)
+    /* The ids, for the posts below: the listing answers by slug. */
+    const idOf = new Map(found.map((f) => [f.slug, f.id]))
+    return (await sitemapCommunitiesListed(admin, found)).map((r) => ({ ...r, id: idOf.get(r.slug) ?? null }))
   }
   const [rows, banned] = await Promise.all([read(), bannedCreatorIds(admin)])
   /* Round 41: a banned creator's community is not listed, as their pages are not. */
-  return rows.filter((r) => !r.creator_id || !banned.has(r.creator_id)).map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
+  const listed = rows.filter((r) => !r.creator_id || !banned.has(r.creator_id))
+  const communities = listed.map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
+  /* Round 45: and each listed community's public posts, which had indexable pages nothing named (./community-posts-sitemap.ts). */
+  const posts = await communityPostEntries(
+    admin,
+    listed.flatMap((r) => (r.id ? [{ id: r.id, slug: r.slug }] : [])),
+    SITEMAP_MAX_URLS - communities.length,
+  )
+  return [...communities, ...posts]
+}
+
+/**
+ * The public posts of these communities, read by the rule in
+ * ./community-posts-sitemap.ts: the open spaces first, then only the posts
+ * in one of them or in none, so a members only post is never read here.
+ * Soft before the feed tables exist (no posts); any other failed read
+ * fails the file, as a community read does.
+ */
+async function communityPostEntries(admin: Admin, communities: { id: string; slug: string }[], room: number): Promise<SitemapEntry[]> {
+  if (communities.length === 0 || room <= 0) return []
+  const missing = (e: { code?: string; message?: string } | null) => !!e && (isMissingTable(e) || isMissingColumn(e))
+  const out: SitemapEntry[] = []
+  for (let i = 0; i < communities.length && out.length < room; i += IDS_PER_QUERY) {
+    const batch = communities.slice(i, i + IDS_PER_QUERY)
+    const ids = batch.map((c) => c.id)
+    const spaces = await admin.from("community_spaces").select("id, community_id, view_access, archived_at").in("community_id", ids)
+    if (missing(spaces.error)) return out
+    if (spaces.error) throw new SitemapReadFailed("community spaces")
+    const spaceRows = (spaces.data ?? []) as SitemapSpaceRow[]
+    const open = [...openSpaceIds(spaceRows)]
+    let posts: SitemapPostRow[]
+    try {
+      posts = await readKeyset<SitemapPostRow>(
+        (page) => {
+          const q = admin
+            .from("community_feed_posts")
+            .select("id, community_id, space_id, title, body_text, status, deleted_at, created_at, edited_at")
+            .in("community_id", ids)
+            .eq("status", "published")
+            .is("deleted_at", null)
+          return page(open.length ? q.or(`space_id.is.null,space_id.in.(${open.join(",")})`) : q.is("space_id", null))
+        },
+        EVERY_ID,
+        "community posts",
+        room - out.length,
+      )
+    } catch (e) {
+      /* A database without the feed (or its columns) has no posts to list; rowsOf has already said which read failed. */
+      const probe = await admin.from("community_feed_posts").select("id").limit(1)
+      if (missing(probe.error)) return out
+      throw e
+    }
+    out.push(...publicPostEntries(batch, spaceRows, posts))
+  }
+  return out.slice(0, Math.max(0, room))
 }
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
