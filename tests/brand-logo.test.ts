@@ -197,6 +197,8 @@ function main() {
     "app/(marketing)/blog/[slug]/page.tsx",
     /* Changed on purpose: a3e63b12 (checkout previews follow the product) gives /checkout's share card the logo's address when the product has no picture: metadata, not a page drawing it. */
     "lib/checkout/share-meta.ts",
+    /* Changed on purpose (round 45): Storelib's Organization JSON-LD moved here from the home page (lib/seo/structured-data storelibOrganizationJsonLd). */
+    "lib/seo/structured-data.ts",
   ])
   const reaching = code.filter((f) => !ALLOWED.has(f) && NAMES_ASSET.test(read(f)))
   check("no other file names the logo's picture", reaching.length === 0, reaching.join(", "))
@@ -284,7 +286,8 @@ function main() {
   )
 
   const home = read("app/(marketing)/page.tsx")
-  check("the Organization JSON-LD names the logo by its absolute address", /"@type": "Organization"[\s\S]{0,200}"logo": storelibLogoUrl\(\)/.test(home))
+  /* Changed on purpose (round 45): the home page prints Storelib's graph from lib/seo/structured-data.ts. */
+  check("the Organization JSON-LD names the logo by its absolute address", /jsonLdScript\(storelibHomeJsonLd\(\)\)/.test(home) && /"@type": "Organization"[\s\S]{0,200}logo: storelibLogoUrl\(\)/.test(read("lib/seo/structured-data.ts")))
   check(
     "a blog post's publisher logo is the logo too, not a favicon.ico that does not exist",
     /publisher: \{ "@type": "Organization"[^}]*logo: \{ "@type": "ImageObject", url: storelibLogoUrl\(\)/.test(read("app/(marketing)/blog/[slug]/page.tsx")),

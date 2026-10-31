@@ -5,6 +5,8 @@ import { listingBySlug } from "@/lib/themes/marketplace-server"
 import { LISTING_SLUG_RE, listingPath } from "@/lib/themes/marketplace-shared"
 import { ThemeDetail } from "./theme-detail"
 import { pageMetadata } from "@/lib/seo/page-metadata"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibBreadcrumbJsonLd, storelibGraph } from "@/lib/seo/structured-data"
 
 /** Held at the edge like the list, and dropped with it when the admin saves. */
 export const revalidate = 300
@@ -29,5 +31,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ThemePage({ params }: { params: Promise<{ slug: string }> }) {
   const listing = await find((await params).slug)
   if (!listing) notFound()
-  return <ThemeDetail listing={listing} />
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibGraph(storelibBreadcrumbJsonLd([{ name: "Themes", path: "/themes" }, { name: listing.name, path: listingPath(listing.slug) }]))) }} />
+      <ThemeDetail listing={listing} />
+    </>
+  )
 }

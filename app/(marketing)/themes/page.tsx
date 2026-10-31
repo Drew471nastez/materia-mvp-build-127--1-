@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 
 import { pageMetadata } from "@/lib/seo/page-metadata"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibBreadcrumbJsonLd, storelibGraph } from "@/lib/seo/structured-data"
 import { publishedListings } from "@/lib/themes/marketplace-server"
 import { builtinListings } from "@/lib/themes/marketplace-shared"
 import { ThemesMarketplace } from "./themes-marketplace"
@@ -22,5 +24,10 @@ export const metadata: Metadata = pageMetadata({
 
 export default async function ThemesPage() {
   const listings = await publishedListings().catch(() => builtinListings())
-  return <ThemesMarketplace listings={listings} />
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibGraph(storelibBreadcrumbJsonLd([{ name: "Themes", path: "/themes" }]))) }} />
+      <ThemesMarketplace listings={listings} />
+    </>
+  )
 }
