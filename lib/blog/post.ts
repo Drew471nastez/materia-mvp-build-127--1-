@@ -2,7 +2,7 @@ import "server-only"
 import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Block } from "./blocks"
-import { STATIC_BLOG_SLUGS } from "./listing"
+import { BLOG_LIST_COLUMNS, STATIC_BLOG_SLUGS, type BlogAuthorWithPosts, type BlogPost } from "./listing"
 import { followBlogRedirect } from "./redirects"
 import { normalizeBlocks } from "./editor-model"
 import { liveDateFilter } from "./schedule"
@@ -89,16 +89,96 @@ export interface BlogAuthorProfile {
   bio: string
   avatar_url: string | null
   links: { label: string; url: string }[]
+  updated_at?: string | null
+}
+
+const AUTHOR_COLUMNS = "id, slug, name, role, bio, avatar_url, links"
+
+function authorRow(data: Record<string, unknown>): BlogAuthorProfile {
+  return { ...(data as unknown as BlogAuthorProfile), links: Array.isArray(data.links) ? (data.links as BlogAuthorProfile["links"]).filter((l) => l && typeof l.url === "string") : [] }
 }
 
 /** The author profile a post names (blog_posts.author_id, SQL part 345), or null: then the post's byline text is the author. */
 export const readBlogAuthor = cache(async (authorId: string | null | undefined): Promise<BlogAuthorProfile | null> => {
   if (!authorId) return null
   try {
-    const { data, error } = await createAdminClient().from("blog_authors").select("id, slug, name, role, bio, avatar_url, links").eq("id", authorId).maybeSingle()
+    const { data, error } = await createAdminClient().from("blog_authors").select(AUTHOR_COLUMNS).eq("id", authorId).maybeSingle()
     if (error || !data) return null
-    return { ...(data as BlogAuthorProfile), links: Array.isArray(data.links) ? (data.links as BlogAuthorProfile["links"]) : [] }
+    return authorRow(data)
   } catch {
     return null
   }
 })
+
+/**
+ * ===========================================================================
+ *  AUTHOR PAGES: /blog/author/<slug>
+ * ===========================================================================
+ * An author's profile by the slug in its address, or null: an unknown slug,
+ * or no blog_authors table yet (SQL part 345 not run), and the page is a
+ * 404. A slug is checked before it is asked for, so nothing odd reaches
+ * the query.
+ */
+export const readBlogAuthorBySlug = cache(async (slug: string): Promise<BlogAuthorProfile | null> => {
+  if (!/^[a-z0-9]([a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)) return null
+  try {
+    const { data, error } = await createAdminClient().from("blog_authors").select(`${AUTHOR_COLUMNS}, updated_at`).eq("slug", slug).maybeSingle()
+    if (error || !data) return null
+    return authorRow(data)
+  } catch {
+    return null
+  }
+})
+
+/**
+ * An author's LIVE posts, newest first: published and their date reached
+ * (lib/blog/schedule liveDateFilter), so a scheduled post appears on the
+ * author page at its hour, as on the index. Nothing on a failed read.
+ */
+export const readBlogAuthorPosts = cache(async (authorId: string): Promise<BlogPost[]> => {
+  try {
+    const { data, error } = await createAdminClient()
+      .from("blog_posts")
+      .select(BLOG_LIST_COLUMNS)
+      .eq("is_published", true)
+      .or(liveDateFilter())
+      .eq("author_id", authorId)
+      .order("published_at", { ascending: false })
+      .range(0, 999)
+    return error ? [] : ((data ?? []) as unknown as BlogPost[])
+  } catch {
+    return []
+  }
+})
+
+/**
+ * Every author with the dates of their live posts: the authors index and
+ * the sitemap (lib/seo/sitemaps.ts, lib/blog/listing blogAuthorSitemapEntries)
+ * list only the ones that have a post. Asked on its own, so before part 345
+ * runs (no blog_authors, no author_id) it is an empty list and the sitemap
+ * is as it was. `skip` is the slugs the sitemap leaves out (noindex or
+ * canonical elsewhere), so an author whose only post is one of those is
+ * not listed either. null when the tables are not there (or the read
+ * failed): the authors index is then a 404, and the sitemap has no authors.
+ */
+export async function readBlogAuthorsWithPosts(skip: ReadonlySet<string> = new Set()): Promise<Array<BlogAuthorProfile & BlogAuthorWithPosts> | null> {
+  try {
+    const admin = createAdminClient()
+    const [authors, posts] = await Promise.all([
+      admin.from("blog_authors").select(AUTHOR_COLUMNS).order("name").range(0, 499),
+      admin.from("blog_posts").select("slug, author_id, published_at, updated_at").eq("is_published", true).or(liveDateFilter()).not("author_id", "is", null).range(0, 9999),
+    ])
+    if (authors.error || posts.error) return null
+    const byAuthor = new Map<string, BlogAuthorWithPosts["posts"]>()
+    for (const p of (posts.data ?? []) as Array<{ slug: string; author_id: string; published_at: string | null; updated_at: string | null }>) {
+      if (skip.has(p.slug)) continue
+      byAuthor.set(p.author_id, [...(byAuthor.get(p.author_id) ?? []), { published_at: p.published_at, updated_at: p.updated_at }])
+    }
+    return (authors.data ?? []).map((a) => {
+      const row = authorRow(a)
+      return { ...row, posts: byAuthor.get(row.id) ?? [] }
+    })
+  } catch {
+    return null
+  }
+}

@@ -14,10 +14,11 @@ export function blogJson(data: unknown, status = 200): NextResponse {
   return NextResponse.json(data, { status, headers: ADMIN_BLOG_HEADERS })
 }
 
-/** The public pages a change to these posts shows on: the index, the feed, the categories, and each post's own address (old and new). */
+/** The public pages a change to these posts shows on: the index, the feed, the categories, the author pages, and each post's own address (old and new). */
 export function revalidateBlogPages(...slugs: Array<string | null | undefined>) {
   revalidatePath("/blog")
   revalidatePath("/blog/rss.xml")
   revalidatePath("/blog/category", "layout")
+  revalidatePath("/blog/author", "layout")
   for (const s of new Set(slugs.filter(Boolean) as string[])) revalidatePath(`/blog/${s}`)
 }

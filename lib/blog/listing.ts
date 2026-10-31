@@ -147,7 +147,13 @@ export function blogRssXml(posts: BlogPost[]): string {
  * code-written slugs is that post's edited copy and its date wins. An
  * unpublished or deleted post is not in `rows`, so it is not here.
  */
-export function blogSitemapEntries(rows: Array<Pick<BlogPost, "slug" | "published_at" | "updated_at"> & { category?: string | null }>, categories: readonly string[], categorySlug: (c: string) => string): Array<{ url: string; lastModified: string | null }> {
+export function blogSitemapEntries(
+  rows: Array<Pick<BlogPost, "slug" | "published_at" | "updated_at"> & { category?: string | null }>,
+  categories: readonly string[],
+  categorySlug: (c: string) => string,
+  /** The authors and their live posts (lib/blog/post readBlogAuthorsForSitemap); an author with none is noindex and left out. */
+  authors: readonly BlogAuthorWithPosts[] = [],
+): Array<{ url: string; lastModified: string | null }> {
   const posts = mergeBlogPosts(rows.map((r) => ({ id: r.slug, title: "", excerpt: "", read_time: "", cover_image_url: null, ...r, category: r.category ?? "" })))
   const out: Array<{ url: string; lastModified: string | null }> = []
   const newest = newestBlogChange(posts)
@@ -159,6 +165,41 @@ export function blogSitemapEntries(rows: Array<Pick<BlogPost, "slug" | "publishe
     if (inIt.length) out.push({ url: `${BLOG_URL}/category/${categorySlug(category)}`, lastModified: newestBlogChange(inIt) })
   }
   for (const p of posts) out.push({ url: `${BLOG_URL}/${p.slug}`, lastModified: newestBlogChange([p]) })
+  out.push(...blogAuthorSitemapEntries(authors))
+  return out
+}
+
+/* ── Author pages: /blog/author/<slug> ─────────────────────────────────── */
+
+/** An author (blog_authors, SQL part 345) and the dates of their live posts. */
+export interface BlogAuthorWithPosts {
+  slug: string
+  posts: Array<Pick<BlogPost, "published_at"> & { updated_at?: string | null }>
+}
+
+export const BLOG_AUTHOR_BASE = "/blog/author"
+
+/** `/blog/author/<slug>` for page 1, `/blog/author/<slug>/page/N` after it. */
+export function blogAuthorPath(slug: string, page = 1): string {
+  return page <= 1 ? `${BLOG_AUTHOR_BASE}/${slug}` : `${BLOG_AUTHOR_BASE}/${slug}/page/${page}`
+}
+
+/**
+ * The author pages in the sitemap: the authors index once one author has a
+ * live post, and each such author's pages, dated by their newest post. An
+ * author with no live post has a noindex page, so it is not listed.
+ */
+export function blogAuthorSitemapEntries(authors: readonly BlogAuthorWithPosts[]): Array<{ url: string; lastModified: string | null }> {
+  const withPosts = authors.filter((a) => a.slug && a.posts.length > 0)
+  if (!withPosts.length) return []
+  const all = withPosts.flatMap((a) => a.posts)
+  const out: Array<{ url: string; lastModified: string | null }> = [{ url: `${BLOG_ORIGIN}${BLOG_AUTHOR_BASE}`, lastModified: newestBlogChange(all as BlogPost[]) }]
+  for (const a of withPosts) {
+    const sorted = [...a.posts].sort((x, y) => time(y.published_at) - time(x.published_at)) as BlogPost[]
+    for (let page = 1; page <= blogPageCount(sorted.length); page++) {
+      out.push({ url: `${BLOG_ORIGIN}${blogAuthorPath(a.slug, page)}`, lastModified: newestBlogChange(sorted.slice((page - 1) * BLOG_PAGE_SIZE, page * BLOG_PAGE_SIZE)) })
+    }
+  }
   return out
 }
 

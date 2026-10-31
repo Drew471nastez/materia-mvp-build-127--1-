@@ -12,8 +12,11 @@
  *                   jobTitle), and Storelib the Organization when it is a
  *                   team byline ("Storelib Team"). The blog_authors row
  *                   wins when the post has one (name, role, its links as
- *                   sameAs). A Person's url only when an author page
- *                   exists; none does yet.
+ *                   sameAs), and the Person's url is its author page
+ *                   (/blog/author/<slug>).
+ *   ProfilePage     on an author page, its mainEntity the Person: name,
+ *                   jobTitle, description, image, url, sameAs (the
+ *                   profile's https links). Google's ProfilePage type.
  *   BreadcrumbList  on an article, a category and the index.
  *   VideoObject     per YouTube block, only with Google's required fields:
  *                   name (the block's title, its caption, or the post's
@@ -83,7 +86,7 @@ export interface BlogPostingInput {
 export function blogPostingJsonLd(input: BlogPostingInput) {
   const images = [...new Set(input.images.filter((u): u is string => typeof u === "string" && /^https:\/\//i.test(u) && !/\.svg(?:[?#]|$)/i.test(u)))]
   const author = input.profile?.name ? { ...authorOf(input.profile.name), role: input.profile.role?.trim() || null } : authorOf(input.byline)
-  const sameAs = (input.profile?.links ?? []).map((l) => l.url).filter((u) => /^https:\/\//i.test(u))
+  const sameAs = authorSameAs(input.profile?.links)
   const published = isoDate(input.published)
   const modified = isoDate(input.modified) ?? published
   return {
@@ -160,5 +163,52 @@ export function blogJsonLd(posts: BlogListItem[], opts: { url: string; descripti
         ...(image ? { image } : {}),
       }
     }),
+  }
+}
+
+export interface BlogAuthorJsonLdInput {
+  /** The author page, a path on storelib.com. */
+  path: string
+  name: string
+  role?: string | null
+  bio?: string | null
+  avatarUrl?: string | null
+  links?: { url: string }[]
+  /** blog_authors.updated_at: when the profile last changed. */
+  modified?: string | null
+  /** A team byline ("Storelib Team"): the page is about Storelib the Organization, not a Person. */
+  organization?: boolean
+}
+
+/** The https links of an author, each once: what `sameAs` names. */
+export function authorSameAs(links: { url: string }[] | null | undefined): string[] {
+  return [...new Set((links ?? []).map((l) => (typeof l?.url === "string" ? l.url.trim() : "")).filter((u) => /^https:\/\/[^\s/]+\.[^\s]+$/i.test(u)))].slice(0, 10)
+}
+
+/** An author page: a ProfilePage whose main entity is the Person who writes. */
+export function blogAuthorJsonLd(input: BlogAuthorJsonLdInput) {
+  const url = abs(input.path)
+  const sameAs = authorSameAs(input.links)
+  const image = input.avatarUrl && /^https:\/\//i.test(input.avatarUrl) && !/\.svg(?:[?#]|$)/i.test(input.avatarUrl) ? input.avatarUrl : input.avatarUrl?.startsWith("/") && !/\.svg/i.test(input.avatarUrl) ? abs(input.avatarUrl) : null
+  const modified = isoDate(input.modified)
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    url,
+    name: `${input.name} | Storelib Blog`,
+    ...(modified ? { dateModified: modified } : {}),
+    isPartOf: { "@type": "Blog", name: "Storelib Blog", url: `${BLOG_SD_ORIGIN}/blog` },
+    mainEntity: input.organization
+      ? { ...storelibPublisher(), ...(input.bio?.trim() ? { description: input.bio.trim() } : {}) }
+      : {
+          "@type": "Person",
+          "@id": `${url}#person`,
+          name: input.name,
+          url,
+          ...(input.role?.trim() ? { jobTitle: input.role.trim() } : {}),
+          ...(input.bio?.trim() ? { description: input.bio.trim() } : {}),
+          ...(image ? { image } : {}),
+          ...(sameAs.length ? { sameAs } : {}),
+        },
   }
 }

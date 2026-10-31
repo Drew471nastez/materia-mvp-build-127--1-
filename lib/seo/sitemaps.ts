@@ -69,6 +69,7 @@ import { categorySlugOf, withBlogCategoryPages } from "@/lib/blog/article"
 import { readBlogCategories } from "@/lib/blog/categories"
 import { blogSlugsNotInSitemap } from "@/lib/blog/read"
 import { liveDateFilter } from "@/lib/blog/schedule"
+import { readBlogAuthorsWithPosts } from "@/lib/blog/post"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
@@ -512,7 +513,9 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
   */
   /* Round 45: a category lives at /blog/category/<slug> (the old address is a 308), with its older pages listed once it has them. */
   const blogCategories = await readBlogCategories()
-  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, blogCategories.map((c) => c.name), (name) => categorySlugOf(name, blogCategories)), posts, blogCategories))
+  /* Round 45: the author pages (/blog/author/<slug>) of authors with a live post in this sitemap; none before SQL part 345 runs. */
+  const blogAuthors = (await readBlogAuthorsWithPosts(unlisted)) ?? []
+  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, blogCategories.map((c) => c.name), (name) => categorySlugOf(name, blogCategories), blogAuthors), posts, blogCategories))
   return routes
 }
 
