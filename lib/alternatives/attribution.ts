@@ -54,7 +54,16 @@ export function incomingTags(search: string): Partial<Record<CarriedParam, strin
 
 /** The sign up address for a button on a comparison page, with whatever the visit arrived with. */
 export function signupHref(slug: string | null | undefined, search = ""): string {
-  const src = comparisonSource(slug)
+  return signupHrefFor(comparisonSource(slug), search)
+}
+
+/**
+ * The same address for any Storelib marketing page, named by its own source
+ * (`sell-digital-products` on /sell/digital-products, lib/marketing/use-cases
+ * useCaseSource). The signup page reads it back with readSignupSource.
+ */
+export function signupHrefFor(source: string, search = ""): string {
+  const src = SLUG.test(source) ? source : "alternatives"
   const tags = incomingTags(search)
   const q = new URLSearchParams({ intent: "sell", src, ref: tags.ref ?? src })
   for (const k of CARRIED_PARAMS) if (k !== "ref" && tags[k]) q.set(k, tags[k] as string)

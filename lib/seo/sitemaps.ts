@@ -57,6 +57,8 @@ import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { ALTERNATIVES, HUB_PATH, alternativePath } from "@/lib/alternatives"
+import { USE_CASES, useCasePath, useCaseOn } from "@/lib/marketing/use-cases"
+import { alternativesFlags } from "@/lib/alternatives/flags"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, helpImages } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -363,6 +365,12 @@ export async function communitiesSitemap(chunk: number, of?: number, admin: Admi
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
 
+/** The /sell pages that are on: the same switches their route reads (lib/alternatives/flags). */
+async function useCasesListed() {
+  const flags = await alternativesFlags()
+  return USE_CASES.filter((u) => useCaseOn(u, flags))
+}
+
 /**
  * The platform's own pages. They carry no lastmod: nothing records when a
  * marketing page last changed, and "today" on every request would be a lie
@@ -391,6 +399,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     */
     { url: `${BASE}${HUB_PATH}`, lastModified: newestOf(...ALTERNATIVES.map((c) => c.updated)) },
     ...ALTERNATIVES.map((c) => ({ url: `${BASE}${alternativePath(c.slug)}`, lastModified: c.updated })),
+    /* Round 45: the /sell/<use case> pages (lib/marketing/use-cases), from the list their route is built from; a page behind a switch only while it is on. */
+    ...(await useCasesListed()).map((u) => ({ url: `${BASE}${useCasePath(u.slug)}`, lastModified: u.updated })),
     /* Round 44: the theme marketplace, and the two legal documents with the date each says it last changed. */
     { url: `${BASE}/themes` },
     ...Object.values(LEGAL_DOCS).map((d) => ({ url: `${BASE}${d.href}`, lastModified: d.updated })),

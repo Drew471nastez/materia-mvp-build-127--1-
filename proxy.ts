@@ -1994,10 +1994,11 @@ async function routeRequest(request: NextRequest) {
   // Everything here lands on /native-start, which resolves the session and sends
   // a seller to /app, a buyer to /library, and a stranger to /welcome.
   const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog", "/alternatives"]
+  /* And the /sell/<use case> pages, which are marketing pages; never /sell itself, the seller onboarding the app opens. */
   const isCapacitor = (request.headers.get("user-agent") || "").includes("Capacitor")
   if (
     isCapacitor &&
-    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)))
+    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) || pathname.startsWith("/sell/"))
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/native-start"
