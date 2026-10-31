@@ -40,6 +40,7 @@
  */
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { keyedAs } from "./last-good"
 import { blobGroups, buildManifest, filesOf, readManifest, releaseList, RELEASES_KEPT, rollbackFailure, sha256Hex, type ReleaseListItem, type ReleaseManifest, type ReleasePage, type RollbackFailure } from "./site-releases"
 
 type DbError = { code?: string; message?: string } | null
@@ -107,7 +108,8 @@ export async function readLivePointer(db: Db, creatorId: string): Promise<LivePo
 export async function livePointer(creatorId: string, tags: string[]): Promise<LivePointer | null> {
   if (releasesKnownMissing()) return null
   try {
-    return await unstable_cache(() => readLivePointer(createAdminClient(), creatorId), ["site-live-release", creatorId], { tags, revalidate: POINTER_HOLD_S })()
+    /* Named to outlive a deploy (./last-good.ts keyedAs): a cold server reads the pointer every server kept, served stale when the read fails, instead of falling back to the rows (EVD-1). */
+    return await unstable_cache(keyedAs("site-live-release:v1", () => readLivePointer(createAdminClient(), creatorId)), ["site-live-release", creatorId], { tags, revalidate: POINTER_HOLD_S })()
   } catch (e) {
     console.error("[site-releases] the live release could not be read, drawing from the rows:", e instanceof Error ? e.message : e)
     return null
@@ -129,7 +131,8 @@ export async function releaseManifest(releaseId: string): Promise<ReleaseManifes
   const hit = manifestsHeld.get(releaseId)
   if (hit) return hit
   try {
-    const m = await unstable_cache(() => readReleaseManifest(createAdminClient(), releaseId), ["site-release", releaseId], { revalidate: false })()
+    /* A release never changes, so its entry is named to outlive a deploy (./last-good.ts keyedAs, EVD-1). */
+    const m = await unstable_cache(keyedAs("site-release:v1", () => readReleaseManifest(createAdminClient(), releaseId)), ["site-release", releaseId], { revalidate: false })()
     if (m) {
       if (manifestsHeld.size >= MANIFESTS_MAX) manifestsHeld.delete(manifestsHeld.keys().next().value as string)
       manifestsHeld.set(releaseId, m)
@@ -174,7 +177,8 @@ export async function releaseFiles(manifest: ReleaseManifest): Promise<Record<st
     /* A few groups at a time: a large theme is up to 256 of them. */
     for (let i = 0; i < groups.length; i += 8) {
       const read = await Promise.all(groups.slice(i, i + 8).map((g) =>
-        unstable_cache(() => readBlobs(createAdminClient(), g.shas), ["theme-blobs", g.key], { revalidate: false })(),
+        /* Named by what they hold (their sha256s) and by a fixed label, not the function's minified text, so a deploy does not send every server back to the database for every theme (EVD-1). */
+        unstable_cache(keyedAs("theme-blobs:v1", () => readBlobs(createAdminClient(), g.shas)), ["theme-blobs", g.key], { revalidate: false })(),
       ))
       for (const part of read) for (const [sha, text] of Object.entries(part)) blobs.set(sha, text)
     }
