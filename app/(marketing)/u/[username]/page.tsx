@@ -9,6 +9,7 @@ import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadAccountEmail, loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
 import { SiteReadError } from "@/lib/website-builder/site-read"
+import { exactIlike } from "@/lib/onepage/username"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -418,7 +419,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const { data: historyRecord, error: historyError } = await adminSupabase
       .from("username_history")
       .select("new_username")
-      .ilike("old_username", username)
+      /* Literally: `_` and `%` in an address are not wildcards (exactIlike). */
+      .ilike("old_username", exactIlike(username))
       .order("changed_at", { ascending: false })
       .limit(1)
       .maybeSingle()

@@ -21,18 +21,20 @@
  * way came back as an error and a 404 for both. The exact name is now found.
  */
 import { readPublicRow, readPublicRowStrict } from "@/lib/security/public-rows"
+/* `_` and `%` taken literally: as an ILIKE pattern, /a_b found another creator's axb, and /% any profile at all. */
+import { exactIlike } from "@/lib/onepage/username"
 
 type Client = Parameters<typeof readPublicRow>[0]
 
 export async function publicProfileByName<T = any>(client: Client, username: string): Promise<T | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const exact = await readPublicRow<T>(client, "profiles", (q) => q.eq("username", username))
   if (exact) return exact
-  return readPublicRow<T>(client, "profiles", (q) => q.ilike("username", username))
+  return readPublicRow<T>(client, "profiles", (q) => q.ilike("username", exactIlike(username)))
 }
 
 /** The same lookup, bounded, THROWING when a read failed (lib/security/public-rows readPublicRowStrict): for pages where null is a 404 or a redirect. */
 export async function publicProfileByNameStrict<T = any>(client: Client, username: string): Promise<T | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const exact = await readPublicRowStrict<T>(client, "profiles", (q) => q.eq("username", username))
   if (exact) return exact
-  return readPublicRowStrict<T>(client, "profiles", (q) => q.ilike("username", username))
+  return readPublicRowStrict<T>(client, "profiles", (q) => q.ilike("username", exactIlike(username)))
 }

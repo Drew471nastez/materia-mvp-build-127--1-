@@ -15,6 +15,7 @@
  *   AI spend limits                   a count that cannot be read refuses the run (503, Try again), never unlimited
  *   Draft theme assets                the unpublished file only with the install's signed pass; published files untouched
  *   Theme sites' last good copy       kept by use, not by arrival; held name/install entries named to outlive a deploy
+ *   Creator lookup by name            `_` and `%` taken literally, never as wildcards
  *
  * Every true "missing" answer stays what it was.
  */
@@ -568,6 +569,27 @@ async function lastGoodCopies() {
   check("both last good maps keep by use", /new LastGood<ShopLookup>\(500\)/.test(published) && /new LastGood<SiteData>\(200\)/.test(compat) && !/lastGood(Site)?\.keys\(\)\.next\(\)/.test(published + compat))
 }
 
+async function literalNames() {
+  console.log("\nH. A creator's name is matched literally (LOW-1)")
+  const { publicProfileByName, publicProfileByNameStrict } = await import("@/lib/profile/profile-by-name")
+  const patterns: string[] = []
+  const client = {
+    from: () => {
+      const q: Record<string, unknown> = {}
+      q.select = () => q
+      q.abortSignal = () => q
+      q.eq = () => q
+      q.ilike = (_c: string, v: string) => ((patterns.push(v)), q)
+      q.maybeSingle = async () => ({ data: null, error: null })
+      return q
+    },
+  }
+  await publicProfileByName(client as never, "a_b")
+  await publicProfileByNameStrict(client as never, "50%")
+  check("the any-case read sends the name escaped (a\\_b, 50\\%), so /a_b is never axb and /% never anybody", JSON.stringify(patterns) === JSON.stringify(["a\\_b", "50\\%"]), patterns)
+  check("  and a renamed name's history is read literally too", /\.ilike\("old_username", exactIlike\(username\)\)/.test(read("app/(marketing)/u/[username]/page.tsx")))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -580,6 +602,7 @@ async function run() {
     await aiLimits()
     await draftAssets()
     await lastGoodCopies()
+    await literalNames()
   } finally {
     globalThis.fetch = realFetch
   }
