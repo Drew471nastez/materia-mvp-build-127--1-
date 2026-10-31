@@ -118,8 +118,8 @@ async function inBrowser() {
       ${section("bar", `<div style="height:300px">Bar section<div style="position:fixed;bottom:0;left:0;right:0;height:40px;background:#111"></div></div>`)}
       ${section("tail", `<div style="height:600px">Tail</div>`)}
       <script>
-        window.__msgs = [];
-        addEventListener("message", function (e) { if (e.data && e.data.storelib === 1) window.__msgs.push(e.data.type) });
+        window.__msgs = []; window.__boxes = [];
+        addEventListener("message", function (e) { if (e.data && e.data.storelib === 1) { window.__msgs.push(e.data.type); if (e.data.type === "box") window.__boxes.push(e.data) } });
         window.__slInspect = true;
         ${CANVAS_BRIDGE}
       </script></body></html>`)
@@ -135,7 +135,7 @@ async function inBrowser() {
     check("the selected section's outline is drawn, from inside the shadow root", layer.host && layer.inShadow && layer.light === 0 && layer.display === "block", layer)
     /* Twenty scrolls, a frame apart. */
     const beganScroll = Date.now()
-    await page.evaluate(() => { (window as unknown as { __msgs: string[] }).__msgs.length = 0 })
+    await page.evaluate(() => { (window as unknown as { __msgs: string[] }).__msgs.length = 0; (window as unknown as { __boxes: unknown[] }).__boxes.length = 0 })
     for (let i = 1; i <= 20; i++) { await page.evaluate((y) => scrollTo(0, y), i * 10); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null)))) }
     const during = await page.evaluate(() => {
       const box = document.querySelector("[data-sl-box=layer]")!.shadowRoot!.querySelector<HTMLElement>("[data-sl-box=section]")!
@@ -146,6 +146,9 @@ async function inBrowser() {
     const msgs = await page.evaluate(() => (window as unknown as { __msgs: string[] }).__msgs.slice())
     const count = (t: string) => msgs.filter((m) => m === t).length
     check("  twenty scroll frames: one final offset and bounded heartbeats, never a message each frame", count("scrolled") === 1 && count("scrolling") > 1 && count("scrolling") < 20 && count("scrolling") <= Math.ceil((Date.now() - beganScroll) / 60) + 1, msgs)
+    const boxes = await page.evaluate(() => (window as unknown as { __boxes: { moving?: boolean; top?: number }[] }).__boxes.slice())
+    check("  the toolbar's box: said once as moving while the page scrolls, and where it stands once it stops", boxes.length === 2 && boxes[0].moving === true && typeof boxes[1].top === "number" && !boxes[1].moving, boxes)
+    check("  the editor sets its box aside while it moves (the toolbar steps aside), with no render", /el\.style\.display = g\.moving \? "none" : ""/.test(canvas) && /b\.moving === true \? \(was && was\.id === b\.id \? \{ \.\.\.was, moving: true \} : null\)/.test(canvas))
     /* A write to a box costs what a write to nothing costs, whatever the theme's rules. */
     const cost = await page.evaluate(() => {
       const box = document.querySelector("[data-sl-box=layer]")!.shadowRoot!.querySelector<HTMLElement>("[data-sl-box=hover]")!
