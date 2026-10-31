@@ -61,7 +61,8 @@ console.log("\nAn account that is gone does not keep selling")
 check("Storelib disconnected from Stripe's side is let go at once", /account\.application\.deauthorized/.test(webhook) && /releaseConnectedAccount\(creator\.id as string, acctId, "creator_disconnect"\)/.test(webhook))
 check("letting an account go clears the cached yes with it", /releaseConnectedAccount[\s\S]*?can_accept_payments: false/.test(connect))
 check("  and the masked bank it described", /releaseConnectedAccount[\s\S]*?payout_destination: null/.test(connect))
-check("a Stripe blip is never read as gone", /if \(!accountIsGone\(read\.error\)\) throw read\.error/.test(connect))
+/* Changed on purpose (rel-commerce MEDIUM-7): the release also waits for the platform key's own check (accountGoneFromPlatform). */
+check("a Stripe blip is never read as gone", /if \(!\(await accountGoneFromPlatform\(read\.error\)\)\) throw read\.error/.test(connect))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

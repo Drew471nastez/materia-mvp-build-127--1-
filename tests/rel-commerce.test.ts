@@ -15,6 +15,8 @@
  *   4  a webhook's database error answers 500 rather than "nothing to do",
  *      and an invoice that arrives before its subscription row is kept for
  *      the creator its customer names (MEDIUM-6)
+ *   5  a Connect PermissionError releases nobody unless the platform key
+ *      itself passes a bounded check (MEDIUM-7)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -24,6 +26,7 @@ import { Journey } from "./_journey/harness"
 import { instantOrderBody } from "../lib/onepage/product-block"
 import { CHECKING_MESSAGE, rereadIntent, settledFrom } from "../lib/checkout/confirm-outcome"
 import { confirmOutcomeUnknown, intentKey, nextPress, paidIntentInError, stripeJsOutcomeUnknown } from "../lib/checkout/pay-retry"
+import { accountGoneFromPlatform, resetPlatformKeyCheck } from "../lib/payments/stripe/connect"
 
 let passed = 0
 let failed = 0
@@ -304,6 +307,63 @@ async function main() {
   const a2 = await j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct, id: "evt_accountupdated1" })
   check("  the next delivery is handled", a2.status === 200 && !!eventRow("evt_accountupdated1")?.processed_at, { status: a2.status })
   j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/\/api\/stripe\/webhook/.test(x.route) || x.status !== 500))
+
+  /* ── 5. MEDIUM-7 ───────────────────────────────────────────────────── */
+  section("5. A PermissionError disconnects nobody unless the platform key itself works (MEDIUM-7)")
+  const permErr = () => new Stripe.errors.StripePermissionError({ message: "The provided key does not have access to account 'acct_x' (or that account does not exist).", type: "invalid_request_error" } as any)
+  let platformOk = false
+  let probes = 0
+  s.accounts.retrieveCurrent = async () => {
+    probes++
+    if (!platformOk) throw permErr()
+    return { id: "acct_platform", object: "account" }
+  }
+  s.accounts.list = async () => {
+    if (!platformOk) throw permErr()
+    return { object: "list", data: [], has_more: false }
+  }
+  resetPlatformKeyCheck()
+  check("platform key failing its own check: a PermissionError is NOT \"account gone\"", (await accountGoneFromPlatform(permErr())) === false)
+  resetPlatformKeyCheck()
+  platformOk = true
+  check("platform key working: a PermissionError on one account is that account gone", (await accountGoneFromPlatform(permErr())) === true)
+  const before = probes
+  await accountGoneFromPlatform(permErr())
+  check("  the platform's verdict is kept a minute (no probe per request)", probes === before, { probes, before })
+  const missing = Object.assign(new Stripe.errors.StripeInvalidRequestError({ message: "No such account", type: "invalid_request_error", code: "resource_missing" } as any), { statusCode: 404 })
+  resetPlatformKeyCheck()
+  platformOk = false
+  check("a missing account is still gone, without asking the platform", (await accountGoneFromPlatform(missing)) === true && probes === before)
+  check("a timeout is never gone", (await accountGoneFromPlatform(connErr())) === false)
+  resetPlatformKeyCheck()
+  platformOk = true
+  process.env.STRIPE_AUTO_RELEASE = "off"
+  check("STRIPE_AUTO_RELEASE=off: a PermissionError releases nobody", (await accountGoneFromPlatform(permErr())) === false)
+  delete process.env.STRIPE_AUTO_RELEASE
+
+  /* Through checkout: Stripe refuses the destination, and the account read answers a PermissionError. */
+  const realCreate = s.paymentIntents.create
+  const realAcctRetrieve = s.accounts.retrieve
+  s.paymentIntents.create = async () => {
+    throw Object.assign(new Stripe.errors.StripeInvalidRequestError({ message: "No such destination: 'acct_x'", type: "invalid_request_error", param: "transfer_data[destination]" } as any), { param: "transfer_data[destination]" })
+  }
+  s.accounts.retrieve = async (id?: string, ...rest: unknown[]) => (id === acct ? Promise.reject(permErr()) : realAcctRetrieve(id, ...rest))
+  resetPlatformKeyCheck()
+  platformOk = false
+  const gone1 = await j.call("POST /api/checkout/stripe-session", { headers: fromNewAddress(), body: instantOrderBody({ productId: pack, email: "kim@example.com", name: "Kim" }, false) })
+  check("checkout during a platform-wide permission failure: the shop stays connected", j.rows("creators").find((r) => r.id === creatorId)?.stripe_account_id === acct && gone1.status !== 409, { status: gone1.status, body: gone1.json })
+  resetPlatformKeyCheck()
+  platformOk = true
+  const gone2 = await j.call("POST /api/checkout/stripe-session", { headers: fromNewAddress(), body: instantOrderBody({ productId: pack, email: "kim@example.com", name: "Kim" }, false) })
+  check("  with the platform key proven to work, that one account is released (409), as before", gone2.status === 409 && !j.rows("creators").find((r) => r.id === creatorId)?.stripe_account_id, { status: gone2.status, body: gone2.json })
+  s.paymentIntents.create = realCreate
+  s.accounts.retrieve = realAcctRetrieve
+  delete s.accounts.retrieveCurrent
+  delete s.accounts.list
+  j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/stripe-session/.test(x.route)))
+  const connectSrc = code("lib/payments/stripe/connect.ts")
+  check("every automatic release on the payments page goes through the platform check", !/\baccountIsGone\((error|read\.error)\)/.test(connectSrc.replace(/export function accountIsGone[\s\S]*?\n\}/, "").replace(/if \(!accountIsGone\(error\)\) return false/, "")))
+  for (const route of ["app/api/checkout/cart/route.ts", "app/api/checkout/site/route.ts", "app/api/checkout/stripe-session/route.ts"]) check(`${route} releases only through accountGoneFromPlatform`, /accountGoneFromPlatform\(/.test(code(route)) && !/accountIsGone\(/.test(code(route)))
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with an unexpected server error", j.serverErrors.length === 0, j.serverErrors)
