@@ -1570,6 +1570,8 @@ export function ExplorePageClient({
             */}
           </div>
 
+          {/* The grid's own heading, for a screen reader and a browser agent: the cards' h3 titles sit under it, not straight under the page's h1. */}
+          <h2 className="sr-only">{communities ? "Communities" : "Products"}</h2>
           {/* Products Grid - 3 per row; in communities mode, the communities the server finds for the same choices. */}
           {communities ? (
             <ExploreCommunitiesResults

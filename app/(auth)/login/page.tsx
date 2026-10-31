@@ -810,9 +810,15 @@ function LoginFormContent() {
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
+              {/* Named for a screen reader and a browser agent; the placeholder says the same to the eye. */}
+              <label htmlFor="email" className="sr-only">
+                Email
+              </label>
               <Input
                 id="email"
                 type="email"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "auth-error" : undefined}
                 placeholder="Email"
                 required
                 value={email}
@@ -827,8 +833,13 @@ function LoginFormContent() {
             {showPasswordField && (
               <div className="space-y-2">
                 <div className="relative">
+                  <label htmlFor="password" className="sr-only">
+                    Password
+                  </label>
                   <Input
                     id="password"
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? "auth-error" : undefined}
                     type={showPassword ? "text" : "password"}
                     placeholder="Password"
                     required
@@ -842,6 +853,8 @@ function LoginFormContent() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
                     tabIndex={-1}
+                    aria-label="Show password"
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -849,7 +862,11 @@ function LoginFormContent() {
               </div>
             )}
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <p id="auth-error" role="alert" className="text-sm text-red-500">
+                {error}
+              </p>
+            )}
 
             {googleOnlyEmail && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">

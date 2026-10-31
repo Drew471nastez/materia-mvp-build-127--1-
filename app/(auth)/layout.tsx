@@ -42,9 +42,10 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
+    /* The main landmark of every sign in step: a screen reader or a browser agent goes straight to the form. */
+    <main className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
       <HtmlClass name="with-page-auth" />
       {children}
-    </div>
+    </main>
   )
 }

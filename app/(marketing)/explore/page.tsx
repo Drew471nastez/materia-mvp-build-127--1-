@@ -359,7 +359,7 @@ export default async function ExplorePage({
     scripts/check-ground.mjs, which reads the colour from this line.
   */
   return (
-    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* A community opened from here: this page goes out under the community's bar as it comes in (round 31). */}
       <LeaveCopy surface=".explore-ground" />
       {/* JSON-LD structured data */}
@@ -379,10 +379,7 @@ export default async function ExplorePage({
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
       <ExplorePullRefresh>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
-        {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
-        <h1 className="sr-only">
-          Discover Digital Products - Productivity, Design, AI & More | Storelib
-        </h1>
+        {/* The page's one h1 is the hero's (components/explore/explore-hero), the sentence a screen reader reads; a second one here made two. */}
 
         {/* Main content */}
         <ExplorePageClient
@@ -409,6 +406,6 @@ export default async function ExplorePage({
         </Suspense>
       </div>
       </ExplorePullRefresh>
-    </main>
+    </div>
   )
 }

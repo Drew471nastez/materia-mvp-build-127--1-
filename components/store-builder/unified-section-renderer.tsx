@@ -1233,7 +1233,7 @@ function UnifiedAboutSection({
               "flex-shrink-0 w-full md:w-64",
               isMobile && "!w-full"
             )}>
-              <h4
+              <h3
                 className={cn(
                   "font-semibold text-base md:text-lg",
                   isMobile && "!text-base"
@@ -1241,7 +1241,7 @@ function UnifiedAboutSection({
                 style={{ color: textColor || undefined }}
               >
                 Accepted payment methods
-              </h4>
+              </h3>
             </div>
             <div className="flex-1 w-full">
               {/* The card brands are drawn in their own colours, on their own white chips, in either look (data-keep-bright, round 30). */}
@@ -1287,12 +1287,12 @@ function UnifiedAboutSection({
             className="w-full h-px mb-6"
             style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
           />
-          <h4
+          <h3
             className="font-semibold text-base mb-2"
             style={{ color: textColor || undefined }}
           >
             Returns & exchanges
-          </h4>
+          </h3>
           <p
             className="text-sm"
             style={{ color: textColor ? `${textColor}cc` : "#374151" }}
@@ -1346,7 +1346,7 @@ export function ProductAboutSection({
             "flex-shrink-0 w-full md:w-64",
             isMobile && "!w-full"
           )}>
-            <h4
+            <h3
               className={cn(
                 "font-semibold text-base md:text-lg",
                 isMobile && "!text-base"
@@ -1354,7 +1354,7 @@ export function ProductAboutSection({
               style={{ color: paint(textColor, "ink") || undefined }}
             >
               Accepted payment methods
-            </h4>
+            </h3>
           </div>
           <div className="flex-1 w-full">
             <div className="flex flex-wrap items-center -space-x-1" data-keep-bright="">
@@ -1398,12 +1398,12 @@ export function ProductAboutSection({
             className="w-full h-px mb-6"
             style={{ backgroundColor: textColor ? tint(paint(textColor, "ink"), "20") : paint("#e5e7eb", "line") }}
           />
-          <h4
+          <h3
             className="font-semibold text-base mb-2"
             style={{ color: paint(textColor, "ink") || undefined }}
           >
             Returns & exchanges
-          </h4>
+          </h3>
           <p
             className="text-sm"
             style={{ color: textColor ? tint(paint(textColor, "ink"), "cc") : paint("#374151", "ink") }}
@@ -3974,12 +3974,12 @@ export function UnifiedProductPage({
                         className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                         style={{ borderColor: cardBorderColor }}
                       >
-                        <h3
+                        <h2
                           className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
                         >
                           What&apos;s included
-                        </h3>
+                        </h2>
                         <ul className="mt-3 space-y-2">
                           {whatsIncluded.map((item, idx) => (
                             <li
@@ -4281,12 +4281,12 @@ export function UnifiedProductPage({
                       className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                       style={{ borderColor: cardBorderColor }}
                     >
-                      <h3
+                      <h2
                         className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
                       >
                         What&apos;s included
-                      </h3>
+                      </h2>
                       <ul className="mt-3 space-y-2">
                         {whatsIncluded.map((item, idx) => (
                           <li
@@ -4565,12 +4565,12 @@ export function UnifiedProductPage({
                     className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                     style={{ borderColor: cardBorderColor }}
                   >
-                    <h3
+                    <h2
                       className={cn("font-semibold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
                     >
                       What&apos;s included
-                    </h3>
+                    </h2>
                     <ul className="mt-3 space-y-2">
                       {whatsIncluded.map((item, idx) => (
                         <li
