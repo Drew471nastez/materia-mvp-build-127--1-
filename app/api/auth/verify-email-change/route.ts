@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { accountErrorKind } from "@/lib/auth/account-errors"
 import { MAX_CODE_ATTEMPTS, codeMatches, wrongCodeMessage } from "@/lib/account/codes"
+import { VERIFIED_EMAIL_KEY } from "@/lib/auth/verified-email"
 
 export const runtime = "nodejs"
 
@@ -77,6 +78,8 @@ export async function POST(request: Request) {
     const { error: updateError } = await adminSupabase.auth.admin.updateUserById(user.id, {
       email: pending.new_email,
       email_confirm: true,
+      /* Both codes read: the new address is the proven one now (lib/auth/verified-email.ts). */
+      app_metadata: { [VERIFIED_EMAIL_KEY]: String(pending.new_email).trim().toLowerCase() },
     })
     if (updateError) {
       const kind = accountErrorKind(updateError)

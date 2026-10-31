@@ -39,6 +39,18 @@ const SUITES = [
   "tests/net-resilience.test.ts",
   /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
   "tests/auth-reliability.test.ts",
+  /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
+  "tests/auth-email-code.test.ts",
+  /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
+  "tests/auth-refresh-outage.test.ts",
+  /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
+  "tests/auth-sync-session-get.test.ts",
+  /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */
+  "tests/device-code-guard.test.ts",
+  /* Round rel-security (F2): the admin login is limited per caller address and warns loudly while its fallback credential is in use (the owner's fallback is kept). */
+  "tests/admin-login-limit.test.ts",
+  /* Round rel-security (F8): /auth/continue checks the token signature when Auth does not answer, so a signed in person is not sent to the login form during an outage. */
+  "tests/auth-continue-outage.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",

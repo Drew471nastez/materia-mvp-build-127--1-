@@ -15,6 +15,7 @@ import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 import { onATeam } from "@/lib/team/server"
 import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
+import { normalisedEmail, providerVerifiedEmails, stampVerifiedEmail, stampedVerifiedEmail } from "@/lib/auth/verified-email"
 import { ARRIVAL_COOKIE, arrivalCookieOptions, arrivalOf } from "@/lib/auth/arrival"
 
 /** How long a sign in waits for its guest orders to join the account, as at /auth/continue. */
@@ -193,6 +194,19 @@ export async function GET(request: Request) {
     reason), and bounded, so a slow database never holds a sign in.
   */
   if (data.user.email_confirmed_at) {
+    /*
+      The address Google or Apple vouches for is recorded as the proven one
+      when it is the account's own (lib/auth/verified-email.ts); the attach
+      below joins orders only for a proven current address.
+    */
+    const vouched = normalisedEmail(data.user.email)
+    if (vouched && stampedVerifiedEmail(data.user) !== vouched && providerVerifiedEmails(data.user).includes(vouched)) {
+      /* Once per account and address, bounded like the attach. */
+      await Promise.race([
+        stampVerifiedEmail(admin, data.user.id, vouched),
+        new Promise((resolve) => setTimeout(resolve, ATTACH_WAIT_MS)),
+      ]).catch(() => null)
+    }
     await Promise.race([
       attachGuestOrdersByEmail(admin, { id: data.user.id, email: data.user.email }),
       new Promise((resolve) => setTimeout(resolve, ATTACH_WAIT_MS)),

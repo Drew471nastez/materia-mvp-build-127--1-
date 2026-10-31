@@ -151,7 +151,19 @@ async function main() {
       ],
       entitlements: [] as any[],
     }
-    const db = fakeDb(tables as any)
+    /*
+      Changed on purpose (round rel-security): an attach also asks Supabase Auth
+      that the account's CURRENT address is the one it proved (lib/auth/
+      verified-email.ts), so the fake has the auth users too. tests/auth-email-code
+      covers an account whose address changed after it was proven.
+    */
+    const authUsers: Record<string, any> = {
+      "u-verified": { id: "u-verified", email: "ghita@example.com", app_metadata: { verified_email: "ghita@example.com" }, identities: [] },
+      "u-unverified": { id: "u-unverified", email: "squatter@example.com", app_metadata: {}, identities: [] },
+    }
+    const db = Object.assign(fakeDb(tables as any), {
+      auth: { admin: { getUserById: async (id: string) => ({ data: { user: authUsers[id] ?? null }, error: authUsers[id] ? null : { message: "not found" } }) } },
+    })
     const { attached } = await attachGuestOrdersByEmail(db as any, { id: "u-verified", email: "Ghita@Example.com" })
     check("every guest order of that exact address is attached", attached.sort().join() === [ORDER_A, ORDER_B].sort().join(), attached)
     check("  never another account's order", tables.orders.find((o) => o.id === ORDER_C)!.buyer_id === "u-someone-else")

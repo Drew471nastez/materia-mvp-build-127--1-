@@ -34,8 +34,26 @@ import "server-only"
  * (lib/receipts/rules canDeliver), the same as /api/purchases/claim.
  */
 import { canDeliver } from "@/lib/receipts/rules"
+import { authUserById, currentEmailIsVerified, normalisedEmail } from "@/lib/auth/verified-email"
 
-type Db = { from: (table: string) => any }
+/*
+  THE PROVEN ADDRESS MUST BE THE CURRENT ONE (lib/auth/verified-email.ts).
+  `email_verified` on the profile says an address was proven once; an
+  account could then change its sign in email to somebody else's and collect
+  their guest orders. Both functions below read the auth user from Supabase
+  Auth itself and join orders only when its current address is the proven
+  one. A client that cannot read auth users (a test's plain table fake) joins
+  nothing, which is the safe side.
+*/
+type Db = { from: (table: string) => any; auth?: { admin?: any } }
+
+async function provenAccount(admin: Db, userId: string, email: string): Promise<boolean> {
+  if (!admin.auth?.admin?.getUserById) return false
+  const authUser = await authUserById(admin as never, userId)
+  if (!authUser) return false
+  if (normalisedEmail(authUser.email) !== email) return false
+  return currentEmailIsVerified(admin, authUser)
+}
 
 /** How many guest orders one sign in attaches: far above anyone's real history, a bound on one request's work. */
 export const ATTACH_LIMIT = 200
@@ -53,7 +71,8 @@ export async function verifiedAccountForEmail(admin: Db, email: unknown): Promis
   try {
     const { data, error } = await admin.from("profiles").select("id, email, email_verified").eq("email", e).maybeSingle()
     if (error || !data?.id) return null
-    return data.email_verified === true ? String(data.id) : null
+    if (data.email_verified !== true) return null
+    return (await provenAccount(admin, String(data.id), e)) ? String(data.id) : null
   } catch {
     return null
   }
@@ -109,6 +128,7 @@ export async function attachGuestOrdersByEmail(admin: Db, user: { id: string; em
   const email = normaliseEmail(user.email)
   if (!email || !user.id) return { attached: [] }
   try {
+    if (!(await provenAccount(admin, user.id, email))) return { attached: [] }
     const { data, error } = await admin
       .from("orders")
       .select("*, product:products(creator_id)")

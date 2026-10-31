@@ -201,7 +201,8 @@ export async function createBusinessAccount(caller: { id: string; email: string 
     password: randomBytes(32).toString("base64url"),
     email_confirm: true,
     user_metadata: { display_name: "" },
-    app_metadata: { business_owner: ownerId },
+    /* The owner proved this address is theirs (lib/auth/verified-email.ts). */
+    app_metadata: { business_owner: ownerId, verified_email: email.trim().toLowerCase() },
   })
   if (createError || !created.user) {
     console.error("[businesses] create account failed:", createError?.message)
