@@ -1,3 +1,5 @@
+import type { Metadata } from "next"
+import { NOT_FOUND_METADATA } from "@/lib/seo/not-found-metadata"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -16,6 +18,9 @@ import { getMainDomain } from "@/lib/url-helpers"
  * page below when the site's own cannot be drawn. Neither mentions Storelib
  * or offers to take the visitor off the site they were on.
  */
+/* One robots tag on a 404, and it says noindex: lib/seo/not-found-metadata.ts. */
+export const metadata: Metadata = NOT_FOUND_METADATA
+
 export default function NotFound() {
   return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound fallback={<PlainSiteNotFound />} />} />
 }
