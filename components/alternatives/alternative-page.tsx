@@ -268,7 +268,7 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                 <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{MOVING_TITLES[k]}</h3>
                 <p className={`mt-2 ${BODY}`}>{c.moving[k]}</p>
                 <ul className="mt-3 space-y-1.5 text-[14px]">
-                  {MOVING_HELP[k].map(helpLink).filter((h) => !!h).map((h) => (
+                  {MOVING_HELP[k].map(helpLink).filter(<T,>(h: T): h is NonNullable<T> => !!h).map((h) => (
                     <li key={h.href}>
                       <a href={h.href} className="text-[#1a1a2e] underline decoration-[#c7cbd1] underline-offset-2 hover:decoration-[#1a1a2e]">{h.title}</a>
                     </li>

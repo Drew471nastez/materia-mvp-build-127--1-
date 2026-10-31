@@ -116,7 +116,7 @@ export async function listAdminPosts(supabase: Supa, full: boolean): Promise<{ r
     return {
       id: String(r.id),
       slug: String(r.slug ?? ""),
-      title: (r.is_published && draft?.title) || String(r.title ?? ""),
+      title: String((r.is_published && draft?.title) || r.title || ""),
       category: String(r.category ?? ""),
       author: String(r.author_name ?? "") || DEFAULT_BYLINE,
       author_id: (r.author_id as string) ?? null,

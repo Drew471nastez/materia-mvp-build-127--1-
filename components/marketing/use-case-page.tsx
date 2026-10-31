@@ -27,10 +27,10 @@ const DOT = "relative pl-4 before:absolute before:left-0 before:top-[0.7em] befo
 export function UseCasePage({ u, flags }: { u: UseCase; flags: Flags }) {
   const path = useCasePath(u.slug)
   const source = useCaseSource(u.slug)
-  const facts = u.facts.map((id) => ALL_FACTS.find((f) => f.id === id)).filter((f) => !!f)
-  const limits = u.limits.map((id) => LIMITATIONS.find((f) => f.id === id)).filter((f) => !!f)
-  const help = u.help.map(helpLink).filter((h) => !!h)
-  const comparisons = u.alternatives.map((s) => getAlternative(s)).filter((c) => !!c)
+  const facts = u.facts.map((id) => ALL_FACTS.find((f) => f.id === id)).filter(<T,>(f: T): f is NonNullable<T> => !!f)
+  const limits = u.limits.map((id) => LIMITATIONS.find((f) => f.id === id)).filter(<T,>(f: T): f is NonNullable<T> => !!f)
+  const help = u.help.map(helpLink).filter(<T,>(h: T): h is NonNullable<T> => !!h)
+  const comparisons = u.alternatives.map((s) => getAlternative(s)).filter(<T,>(c: T): c is NonNullable<T> => !!c)
   const others = USE_CASES.filter((x) => x.slug !== u.slug && useCaseOn(x, flags))
 
   return (
