@@ -225,6 +225,15 @@ const audience: AudiencePayload = {
   visitors30: 402_118,
   sources: ["direct", "search", "social", "referral", "email"].map((n, i) => ({ name: n, views: 500_000 - i * 90_000, visitors: 200_000 - i * 30_000 })),
   countries: ["Romania", "United States", "United Kingdom", "Germany", "Moldova"].map((n, i) => ({ code: n.slice(0, 2).toUpperCase(), name: n, views: 300_000 - i * 40_000, orders: 900 - i * 100, gross: 4_000_000 - i * 500_000 })),
+  ai: {
+    rows: [
+      { key: "chatgpt", label: "ChatGPT", views: 4_210, visitors: 3_002, signups: 41, paidPlan: 6, hasSale: 9 },
+      { key: "perplexity", label: "Perplexity", views: 812, visitors: 655, signups: 7, paidPlan: 1, hasSale: 2 },
+      { key: "copilot", label: "Copilot", views: 230, visitors: 201, signups: 2, paidPlan: 0, hasSale: 0 },
+      { key: "gemini", label: "Gemini", views: 118, visitors: 97, signups: 0, paidPlan: 0, hasSale: 0 },
+    ],
+    views: 5_370, visitors: 3_955, signups: 50, paidPlan: 7, hasSale: 11, signupsAll: 1_204,
+  },
 }
 
 const people: PeoplePayload = {

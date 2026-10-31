@@ -231,6 +231,16 @@ export type AudiencePayload = Base & {
   visitors30: Figure
   sources: { name: string; views: number; visitors: number }[] | null
   countries: { code: string; name: string; views: number; orders: number; gross: number }[] | null
+  /** Visits, Storelib sign ups and paid stores by AI assistant, where the source is known (lib/attribution/ai-funnel). */
+  ai: {
+    rows: { key: string; label: string; views: number; visitors: number; signups: number; paidPlan: number; hasSale: number }[]
+    views: number
+    visitors: number
+    signups: number
+    paidPlan: number
+    hasSale: number
+    signupsAll: number | null
+  } | null
 }
 
 /* ── People ───────────────────────────────────────────────────────────── */
