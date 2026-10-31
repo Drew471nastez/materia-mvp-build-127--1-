@@ -33,7 +33,7 @@ import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
-import { heroImage, jsonLdScript, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
+import { heroImage, jsonLdScript, pageQuery, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
 import { pageSeoOf } from "@/lib/website-builder/page-seo"
 import { builtSiteIndexable, websiteIndexable } from "@/lib/seo/indexing"
 import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
@@ -69,7 +69,13 @@ export async function siteMetadata(
    * What the page is, when its key does not say: a collection's name, the
    * words searched for, the cart, page 2 of a list (lib/website-builder/tab-title.ts).
    */
-  tab?: { page?: TabPage; pageNumber?: number; path?: string },
+  tab?: {
+    page?: TabPage
+    pageNumber?: number
+    path?: string
+    /** Page N of a list, asked for by ?page=N alone: its own canonical, in every language (lib/website-builder/site-seo.ts canonicalPageOf). */
+    canonicalPage?: number
+  },
 ): Promise<Metadata> {
   /* "andrew~fr": the website in French (lib/markets/site-name.ts). */
   const { name: username, locale, market } = splitSiteName(segment)
@@ -184,9 +190,12 @@ export async function siteMetadata(
   /* A page with an address of its own under its key (/collections/summer under "collections") is its own canonical, not the index's. */
   const ownPath = tab?.path ?? new URL(pageUrl(origin, pageKey)).pathname
   /* Both held by now: the localizer read the language list. */
-  const [languages, langs] = await Promise.all([languageAlternates(creator.creatorId, origin, ownPath), siteLanguages(creator.creatorId)])
+  const [unpaged, langs] = await Promise.all([languageAlternates(creator.creatorId, origin, ownPath), siteLanguages(creator.creatorId)])
   const pageLocale = locale && langs.others.find((l) => l.toLowerCase() === locale) ? langs.others.find((l) => l.toLowerCase() === locale)! : null
-  const url = pageLocale ? `${origin}${localizedPath(ownPath, pageLocale, langs.defaultLanguage)}` : tab?.path ? `${origin}${tab.path}` : pageUrl(origin, pageKey)
+  /* Page 2 of a list names itself, and each language names its own page 2 (round 45). */
+  const paged = pageQuery(tab?.canonicalPage ?? 1)
+  const languages = unpaged && paged ? Object.fromEntries(Object.entries(unpaged).map(([l, href]) => [l, `${href}${paged}`])) : unpaged
+  const url = `${pageLocale ? `${origin}${localizedPath(ownPath, pageLocale, langs.defaultLanguage)}` : tab?.path ? `${origin}${tab.path}` : pageUrl(origin, pageKey)}${paged}`
 
   /*
     A SHARE CARD WITH A PICTURE. og:image came only from the share image in

@@ -116,6 +116,12 @@ export interface SiteLinkOptions {
    * template, titled from its name, where the theme has one. Off where an
    * address arrives (./site.ts): an address nobody linked to stays a 404,
    * so a mistyped one is never a page.
+   *
+   * Off, a product the shop does not have stays a 404 as well (round 45). It
+   * went to the whole shop, so a deleted or unpublished product's address
+   * answered with a redirect to /collections/all: a soft 404 to a search
+   * engine, which kept the dead address and showed the shop for it. A link
+   * drawn on a page still goes to the shop (pageFallback on).
    */
   pageFallback?: boolean
 }
@@ -158,13 +164,13 @@ export function siteLink(raw: string, facts: LinkFacts, opts: SiteLinkOptions = 
       /* Storelib's shop is /products (lib/website-builder/live-links.ts SHOP_PATH): here it is the shop's collection, without a redirect on the way. */
       if (!second) return shopAll()
       const p = productPath(second, facts)
-      return p ? keep(p) : shopAll()
+      return p ? keep(p) : pageFallback ? shopAll() : keep(path)
     }
     case "collections": {
       if (!second) return hasPage("collections") ? keep("/collections") : shopAll()
       if (third === "products" && fourth) {
         const p = productPath(fourth, facts)
-        return p ? keep(p) : shopAll()
+        return p ? keep(p) : pageFallback ? shopAll() : keep(path)
       }
       if (third) return keep(path)
       const c = collectionPath(second, facts)

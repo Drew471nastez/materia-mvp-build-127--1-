@@ -104,6 +104,17 @@ import type { SizeChart } from "@/lib/size-charts/model"
  *     the default language's page while its hreflang named itself. Each
  *     language is its own canonical, as on a Storelib theme.
  */
+/**
+ * `?page=N` on the canonical of a list's page past the first (round 45), as
+ * Shopify's canonical_url carries it: a collection's page 2 shows products
+ * page 1 does not. A sort or a filter in the address still names page 1 of
+ * the clean list (lib/website-builder/tab-title.ts canonicalPageOf).
+ */
+const PAGED_TEMPLATES = new Set(["collection", "list-collections", "blog"])
+export function pagedCanonical(page: { template: string; query?: Record<string, string> }): string {
+  return PAGED_TEMPLATES.has(page.template) ? pageQuery(canonicalPageOf(page.query)) : ""
+}
+
 export function canonicalPath(path: string, i18n?: SiteI18n): string {
   const own = path.replace(/^\/collections\/[^/]+(?=\/products\/[^/]+\/?$)/, "")
   const root = localeRoot(i18n)
@@ -122,6 +133,7 @@ import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
 import type { CompiledSection, SectionInstanceData } from "../types"
 import { themeVars } from "@/lib/website-builder/theme-css"
+import { canonicalPageOf, pageQuery } from "@/lib/website-builder/tab-title"
 import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
 
@@ -861,7 +873,7 @@ export class CompatTheme {
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
       /* The website's own address, as its built pages name it, whatever host this page was reached at. */
-      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}` : page.path,
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}${pagedCanonical(page)}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,

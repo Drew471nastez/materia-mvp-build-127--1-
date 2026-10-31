@@ -57,9 +57,22 @@ export function pageUrl(origin: string, pageKey: string): string {
   return pageKey === "home" ? `${origin}/` : `${origin}/${pageKey}`
 }
 
+/**
+ * THE SHOP'S OWN ADDRESS (round 45). A Storelib theme draws it at /products.
+ * An imported theme shows the whole shop at /collections/all, as Shopify
+ * does, and /products is a redirect there (lib/storelib-theme/compat/site.ts),
+ * so a sitemap naming /products listed a redirect and left the page out.
+ */
+export function shopUrl(origin: string, opts: { imported?: boolean } = {}): string {
+  return opts.imported ? `${origin}/collections/all` : pageUrl(origin, "products")
+}
+
 export function productUrl(origin: string, slug: string): string {
   return `${origin}/products/${encodeURIComponent(slug)}`
 }
+
+/* Page 2 of a list as its own canonical: lib/website-builder/tab-title.ts canonicalPageOf (round 45), beside the page number its title says. */
+export { canonicalPageOf, pageQuery } from "./tab-title"
 
 /** Whether the creator lets search engines list the site: Website Settings › SEO. */
 export function siteIsIndexable(settings: Record<string, unknown>): boolean {
@@ -83,7 +96,8 @@ export const TEMPLATE_PAGE_KEYS = new Set(["collection", "page", "article", "blo
 
 /** The pages a sitemap lists, in a stable order: home, then the rest by name. */
 export function listedPageKeys(pageKeys: string[], opts: { imported?: boolean } = {}): string[] {
-  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && TEMPLATE_PAGE_KEYS.has(k)))
+  /* An imported theme's "products" is not a page at /products, which redirects to the shop (shopUrl). */
+  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && (TEMPLATE_PAGE_KEYS.has(k) || k === "products")))
   return [...(keys.includes("home") ? ["home"] : []), ...keys.filter((k) => k !== "home").sort()]
 }
 
