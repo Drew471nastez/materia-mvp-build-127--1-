@@ -11,6 +11,7 @@
  *   OnePages (storelib.me/<name>)     a failed or slow lookup serves the last answer or throws, never "missing"
  *   AI site publish                   a switch that did not take puts the live version back
  *   AI site address                   a check that failed is "taken" (fail closed), never "free"
+ *   Theme publish                     a cancelled publish (57014, PGRST002) is asked once more; two minutes, stated
  *
  * Every true "missing" answer stays what it was.
  */
@@ -442,6 +443,34 @@ async function slugCheck() {
   check("publishSite answers the check's failure with Try again, not a 500", /if \(!\(e instanceof SlugCheckFailed\)\) throw e/.test(read("lib/sites/publish.ts")) && /return \{ ok: false, error: SLUG_CHECK_FAILED \}/.test(read("lib/sites/publish.ts")))
 }
 
+async function themePublish() {
+  console.log("\nE2. A theme publish the database cancelled is asked once more (MEDIUM-1 b, c)")
+  const { publishWithOneRetry } = await import("@/lib/website-builder/publish-retry")
+  const scripted = (answers: Array<{ data: unknown; error: { code?: string; message?: string } | null }>) => {
+    let n = 0
+    return { call: async () => answers[Math.min(n++, answers.length - 1)], count: () => n }
+  }
+  {
+    const s1 = scripted([{ data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } }, { data: { files: [] }, error: null }])
+    const r = await publishWithOneRetry(s1.call)
+    check("a statement timeout is asked once more, and the second answer is the publish's", !r.error && s1.count() === 2)
+  }
+  {
+    const s2 = scripted([{ data: null, error: { code: "PGRST002", message: "schema cache" } }, { data: null, error: { code: "PGRST002" } }])
+    const r = await publishWithOneRetry(s2.call)
+    check("  once only: a second failure is the answer", r.error?.code === "PGRST002" && s2.count() === 2)
+  }
+  {
+    const s3 = scripted([{ data: null, error: { code: "P0002", message: "not this creator's" } }])
+    await publishWithOneRetry(s3.call)
+    const s4 = scripted([{ data: null, error: { code: "", message: "fetch failed" } }])
+    await publishWithOneRetry(s4.call)
+    check("  a refusal, or an answer lost on the way (it may have taken), is never repeated", s3.count() === 1 && s4.count() === 1)
+  }
+  const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
+  check("the publish route asks through it, and states its two minutes", /publishWithOneRetry\(\s*\(\) =>\s*admin\.rpc\("publish_theme_install"/.test(route) && /^export const maxDuration = 120$/m.test(route))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -450,6 +479,7 @@ async function run() {
     await onePages()
     await aiSitePublish()
     await slugCheck()
+    await themePublish()
   } finally {
     globalThis.fetch = realFetch
   }
