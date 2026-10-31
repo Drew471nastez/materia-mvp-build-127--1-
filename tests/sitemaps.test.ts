@@ -384,7 +384,7 @@ async function bansAndOneRule() {
     /creatorIndexable\(\{ publishedProducts, handle, spamState \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
       /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(marketing)/p/[slug]/page.tsx")))
   const announce = code("lib/seo/announce.ts")
-  check("and nothing of theirs is announced", /if \(isBanned\(c\)\) return null/.test(announce) && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))
+  check("and nothing of theirs is announced", /* Changed on purpose (round 45 leftovers): except the ban's own announcement, so engines drop the pages (bannedCreatorAddresses). */ /if \(isBanned\(c\) && !evenIfBanned\) return null/.test(announce) && (announce.match(/handleOfCreator\([^)]*, true\)/g) ?? []).length === 1 && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))
 }
 
 batchingAndPaging().then(bansAndOneRule).then(() => {

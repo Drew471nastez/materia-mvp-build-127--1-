@@ -8,6 +8,8 @@ import { manageLimit } from "@/lib/communities/server/creator"
 import { CONTENT_ACTIONS, CONTENT_TARGETS, actOnContent, contentActionNeeds } from "@/lib/communities/server/moderation"
 import { isOneOf } from "@/lib/communities/types"
 import { announceModeration } from "@/lib/communities/server/realtime"
+import { announceAddresses } from "@/lib/seo/announce-pages"
+import { publicPostAddresses, seenByModeration } from "@/lib/seo/announce-posts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -37,6 +39,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (gate instanceof NextResponse) return gate
   const limited = await manageLimit(gate.viewer.userId as string)
   if (limited) return limited
+  /* Round 45 leftovers: where a public post was, read before a moderator removes or moves it, so search engines look again and drop it (lib/seo/announce-posts.ts). */
+  const postId = seenByModeration(body.targetType, body.action) ? String(body.targetId ?? "") : null
+  const before = postId ? await publicPostAddresses(gate.community.id, postId) : []
   const done = await actOnContent(db, {
     community: gate.community,
     actor: { userId: gate.viewer.userId as string, role: gate.viewer.role!, perms: gate.viewer.perms ?? null },
@@ -49,5 +54,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   const { targetType, action } = body
   after(() => announceModeration(db, gate.community.id, { type: targetType, id: String(body.targetId ?? ""), action }).catch(() => false))
+  if (postId) after(async () => announceAddresses([...new Set([...before, ...(await publicPostAddresses(gate.community.id, postId))])]))
   return NextResponse.json({ status: done.status }, { headers: noStore })
 }
