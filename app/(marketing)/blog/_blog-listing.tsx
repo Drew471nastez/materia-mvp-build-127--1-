@@ -1,178 +1,176 @@
 import Link from "next/link"
-import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
+import type { ReactNode } from "react"
+import { STORELIB_CATEGORIES } from "@/lib/blog-categories"
 import { blogPagePath, type BlogPost } from "@/lib/blog/listing"
+import { blogCategoryPath } from "@/lib/blog/article"
+import { PostCard, PostCover, shortDate } from "./_components/post-card"
 
 export type { BlogPost }
 
-function fmtDate(dateStr: string | null) {
-  if (!dateStr) return ""
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-}
-
+/**
+ * THE BLOG'S LISTS: the index (/blog, /blog/page/N) and a category
+ * (/blog/category/<slug>, /page/N). A title and its line, the categories as
+ * a row of plain links (the current one underlined), the newest post drawn
+ * large on the index's first page, then the rest three to a row, each a real
+ * <a href>. Pages are real links too, numbered, with rel prev and next: no
+ * infinite scroll, so a crawler that runs no script reaches every post.
+ */
 export default function BlogListing({
   posts,
   activeCategory,
   title,
   subtitle,
   pagination,
+  pagePath = blogPagePath,
+  featured = false,
 }: {
   posts: BlogPost[]
   activeCategory: string | null
   title: string
   subtitle: string
-  /** The index's page and how many there are (lib/blog/listing blogPage). */
+  /** This list's page and how many there are (lib/blog/listing blogPage). */
   pagination?: { page: number; pages: number }
+  /** The address of page N of this list. */
+  pagePath?: (page: number) => string
+  /** Draw the first post large (the index's first page). */
+  featured?: boolean
 }) {
+  const [lead, ...rest] = featured ? posts : [null, ...posts]
   return (
-    <div className="min-h-screen bg-white">
-      {/* Title area — subtle fade-up on load */}
-      <div
-        className="max-w-7xl mx-auto px-6 lg:px-10 pt-14 pb-10 blog-fade-up"
-        style={{ animationDelay: "0ms" }}
-      >
-        <h1 className="text-[46px] sm:text-[58px] font-semibold text-neutral-900 tracking-tight mb-3">
-          {title}
-        </h1>
-        <p className="text-neutral-500 text-base max-w-xs leading-relaxed">{subtitle}</p>
-      </div>
-
-      {/* Mobile: category pills row */}
-      <div
-        className="lg:hidden max-w-7xl mx-auto px-6 pb-6 overflow-x-auto blog-fade-up"
-        style={{ animationDelay: "60ms" }}
-      >
-        <div className="flex gap-2 whitespace-nowrap min-w-0">
-          <Link
-            href="/blog"
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${!activeCategory ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600 hover:border-neutral-400"}`}
-          >
-            All
-          </Link>
-          {STORELIB_CATEGORIES.map(cat => (
-            <Link
-              key={cat}
-              href={`/blog/explore/categories/${categoryToSlug(cat)}`}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${activeCategory === cat ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600 hover:border-neutral-400"}`}
-            >
-              {cat}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Desktop: sidebar + grid */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 pb-24">
-        <div className="flex gap-0">
-          {/* Category sidebar — desktop only, shifted down ~10% */}
-          <aside
-            className="hidden lg:block w-52 xl:w-60 flex-shrink-0 border-r border-neutral-200 pr-8 mr-12 sticky self-start blog-fade-up"
-            style={{ top: "calc(5rem + 2.4rem)", animationDelay: "80ms" }}
-          >
-            <nav className="flex flex-col gap-5">
-              <Link
-                href="/blog"
-                className={`text-[17px] font-medium transition-colors ${!activeCategory ? "text-neutral-900 underline underline-offset-4 decoration-1" : "text-neutral-600 hover:text-neutral-900"}`}
-              >
-                All
-              </Link>
-              {STORELIB_CATEGORIES.map(cat => (
-                <Link
-                  key={cat}
-                  href={`/blog/explore/categories/${categoryToSlug(cat)}`}
-                  className={`text-[17px] font-medium transition-colors ${activeCategory === cat ? "text-neutral-900 underline underline-offset-4 decoration-1" : "text-neutral-600 hover:text-neutral-900"}`}
-                >
-                  {cat}
-                </Link>
-              ))}
+    <div className="bg-white">
+      <div className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-10 sm:px-6 sm:pt-14 lg:px-8">
+        <header className="max-w-[760px]">
+          {activeCategory ? (
+            <nav aria-label="Breadcrumb" className="mb-6 text-[14px] text-[#6b7280]">
+              <ol className="flex items-center gap-2">
+                <li>
+                  <Link href="/blog" className="hover:text-[#1a1a2e]">
+                    Blog
+                  </Link>
+                </li>
+                <li aria-hidden className="text-[#c4c7cd]">
+                  /
+                </li>
+                <li aria-current="page" className="text-[#1a1a2e]">
+                  {activeCategory}
+                </li>
+              </ol>
             </nav>
-          </aside>
+          ) : null}
+          <h1 className="text-[44px] font-semibold leading-[1.02] tracking-[-0.04em] text-[#1a1a2e] sm:text-[64px]">{title}</h1>
+          <p className="mt-4 max-w-[56ch] text-[17px] leading-relaxed text-[#4b5563] sm:text-[19px]">{subtitle}</p>
+        </header>
 
-          {/* Post grid */}
-          <main className="flex-1 min-w-0">
-            {posts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-neutral-400 blog-fade-up" style={{ animationDelay: "100ms" }}>
-                <p className="text-lg font-medium">No articles yet in this category.</p>
-                <p className="text-sm mt-1">Check back soon.</p>
-              </div>
+        <nav aria-label="Blog categories" className="-mx-4 mt-10 overflow-x-auto border-b border-[#e5e7eb] px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" data-blog-categories="">
+          <ul className="flex min-w-max gap-6 sm:gap-7">
+            <li>
+              <CategoryLink href="/blog" active={!activeCategory}>
+                All
+              </CategoryLink>
+            </li>
+            {STORELIB_CATEGORIES.map((cat) => (
+              <li key={cat}>
+                <CategoryLink href={blogCategoryPath(cat)} active={activeCategory === cat}>
+                  {cat}
+                </CategoryLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {posts.length === 0 ? (
+          <div className="py-24 text-center">
+            <p className="text-[18px] font-medium text-[#1a1a2e]">No articles in {activeCategory ?? "the blog"} yet.</p>
+            <p className="mt-2 text-[15px] text-[#6b7280]">
+              <Link href="/blog" className="underline underline-offset-[3px]">
+                Read the latest articles
+              </Link>
+            </p>
+          </div>
+        ) : null}
+
+        {lead ? (
+          <article className="group relative mt-10 grid gap-6 sm:mt-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-12" data-blog-featured="">
+            <PostCover post={lead} priority ratio="aspect-[16/10]" sizes="(min-width: 1240px) 680px, (min-width: 1024px) 56vw, 100vw" />
+            <div>
+              <p className="text-[13px] text-[#6b7280]">
+                {lead.category ? <span className="font-medium text-[#6d28d9]">{lead.category}</span> : null}
+                {lead.category && lead.published_at ? <span aria-hidden className="mx-1.5 text-[#c4c7cd]">/</span> : null}
+                {lead.published_at ? <time dateTime={lead.published_at}>{shortDate(lead.published_at)}</time> : null}
+              </p>
+              <h2 className="mt-3 text-balance text-[28px] font-semibold leading-[1.12] tracking-[-0.028em] text-[#1a1a2e] sm:text-[38px]">
+                <Link href={`/blog/${lead.slug}`} className="decoration-[#1a1a2e]/30 decoration-1 underline-offset-[5px] after:absolute after:inset-0 group-hover:underline">
+                  {lead.title}
+                </Link>
+              </h2>
+              {lead.excerpt ? <p className="mt-4 text-[17px] leading-relaxed text-[#4b5563]">{lead.excerpt}</p> : null}
+              <p aria-hidden className="mt-6 text-[15px] font-medium text-[#1a1a2e]">
+                Read article <span>&rarr;</span>
+              </p>
+            </div>
+          </article>
+        ) : null}
+
+        {rest.length > 0 ? (
+          <section aria-labelledby="blog-list-title" className={lead ? "mt-16 border-t border-[#e5e7eb] pt-12 sm:mt-20" : "mt-10 sm:mt-12"}>
+            <h2 id="blog-list-title" className={lead ? "text-[22px] font-semibold tracking-[-0.02em] text-[#1a1a2e]" : "sr-only"}>
+              {activeCategory ? `Articles in ${activeCategory}` : lead ? "More articles" : "Articles"}
+            </h2>
+            <div className={`grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 ${lead ? "mt-8" : ""}`}>
+              {rest.map((post) => (post ? <PostCard key={post.id} post={post} headingLevel="h3" /> : null))}
+            </div>
+          </section>
+        ) : null}
+
+        {/*
+          OLDER AND NEWER POSTS AS REAL LINKS. Without them the index
+          stopped at its newest fifty, and a crawler that runs no script
+          never saw a link to the rest.
+        */}
+        {pagination && pagination.pages > 1 ? (
+          <nav aria-label="Blog pages" className="mt-20 flex flex-wrap items-center justify-between gap-4 border-t border-[#e5e7eb] pt-6 text-[15px] font-medium" data-blog-pages="">
+            {pagination.page > 1 ? (
+              <Link href={pagePath(pagination.page - 1)} rel="prev" className="flex min-h-[44px] items-center text-[#1a1a2e] hover:underline hover:underline-offset-[3px]">
+                &larr; Newer posts
+              </Link>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-x-8 gap-y-14">
-                {posts.map((post, i) => (
-                  <Link
-                    key={post.id}
-                    href={`/blog/${post.slug}`}
-                    className="group block blog-fade-up"
-                    style={{ animationDelay: `${100 + i * 55}ms` }}
-                  >
-                    <article>
-                      {/* Cover image */}
-                      <div className="aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 mb-5 group-hover:scale-[1.005] transition-transform duration-500 ease-out">
-                        {post.cover_image_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={post.cover_image_url}
-                            alt={post.title}
-                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
-                          />
-                        ) : (
-                          <div className={`w-full h-full bg-gradient-to-br ${post.gradient || "from-neutral-800 to-neutral-900"} flex items-center justify-center group-hover:scale-[1.02] transition-transform duration-700 ease-out`}>
-                            <span className="text-white/20 text-6xl font-bold select-none">
-                              {post.title.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Meta */}
-                      {post.published_at && (
-                        <p className="text-neutral-400 text-sm mb-3">
-                          Published {fmtDate(post.published_at)}&nbsp;·&nbsp;{post.read_time}
-                        </p>
-                      )}
-
-                      {/* Title */}
-                      <h2 className="text-[22px] font-bold text-neutral-900 leading-snug mb-2 transition-colors duration-300">
-                        <span className="bg-[length:0%_1.5px] bg-[position:0_100%] bg-no-repeat bg-gradient-to-r from-neutral-900 to-neutral-900 group-hover:bg-[length:100%_1.5px] transition-[background-size] duration-500 ease-in-out pb-[2px]">
-                          {post.title}
-                        </span>
-                      </h2>
-
-                      {/* Excerpt */}
-                      <p className="text-neutral-500 text-sm leading-relaxed mb-4 line-clamp-2">
-                        {post.excerpt}
-                      </p>
-
-                      {/* Category pill */}
-                      <span className="inline-block px-3 py-1 rounded-full border border-neutral-300 text-xs font-medium text-neutral-700">
-                        {post.category}
-                      </span>
-                    </article>
-                  </Link>
-                ))}
-              </div>
+              <span />
             )}
-            {/*
-              OLDER AND NEWER POSTS AS REAL LINKS. Without them the index
-              stopped at its newest fifty, and a crawler that runs no script
-              never saw a link to the rest.
-            */}
-            {pagination && pagination.pages > 1 ? (
-              <nav aria-label="Blog pages" className="mt-16 flex items-center justify-between border-t border-neutral-200 pt-6 text-sm font-medium" data-blog-pages="">
-                {pagination.page > 1 ? (
-                  <Link href={blogPagePath(pagination.page - 1)} rel="prev" className="text-neutral-600 hover:text-neutral-900 transition-colors">
-                    Newer posts
+            <ol className="flex items-center gap-1">
+              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((n) => (
+                <li key={n}>
+                  <Link
+                    href={pagePath(n)}
+                    aria-current={n === pagination.page ? "page" : undefined}
+                    className="flex h-11 min-w-11 items-center justify-center rounded-lg px-2 tabular-nums text-[#6b7280] hover:text-[#1a1a2e] aria-[current=page]:bg-[#f1f2f4] aria-[current=page]:text-[#1a1a2e]"
+                  >
+                    {n}
                   </Link>
-                ) : <span />}
-                <span className="text-neutral-400">Page {pagination.page} of {pagination.pages}</span>
-                {pagination.page < pagination.pages ? (
-                  <Link href={blogPagePath(pagination.page + 1)} rel="next" className="text-neutral-600 hover:text-neutral-900 transition-colors">
-                    Older posts
-                  </Link>
-                ) : <span />}
-              </nav>
-            ) : null}
-          </main>
-        </div>
+                </li>
+              ))}
+            </ol>
+            {pagination.page < pagination.pages ? (
+              <Link href={pagePath(pagination.page + 1)} rel="next" className="flex min-h-[44px] items-center text-[#1a1a2e] hover:underline hover:underline-offset-[3px]">
+                Older posts &rarr;
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </div>
     </div>
+  )
+}
+
+function CategoryLink({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`-mb-px flex min-h-[48px] items-center whitespace-nowrap border-b-2 text-[15px] transition-colors ${active ? "border-[#1a1a2e] font-medium text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]"}`}
+    >
+      {children}
+    </Link>
   )
 }

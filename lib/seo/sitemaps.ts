@@ -64,6 +64,7 @@ import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
 import { blogSitemapEntries } from "@/lib/blog/listing"
+import { withBlogCategoryPages } from "@/lib/blog/article"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
@@ -438,7 +439,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     with real dates. It listed every category, empty ones included, and gave
     the four code-written posts one date between them.
   */
-  routes.push(...blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug))
+  /* Round 45: a category lives at /blog/category/<slug> (the old address is a 308), with its older pages listed once it has them. */
+  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug), posts))
   return routes
 }
 
