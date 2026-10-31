@@ -7,6 +7,7 @@
  *
  *   a community file posted without the complete step   still size and content checked
  *   "Payout available" after holds are released           to the user id, awaited
+ *   the community and physical crons                      one clock from the request, under maxDuration
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -16,6 +17,7 @@ import { MEMBER_FILE_MAX_BYTES } from "@/lib/communities/post-media"
 import type { CommunityRow, PostMedia } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
 import { pushPayoutsAvailable } from "@/lib/payments/payout-push"
+import { runBudgetMs, runDeadline } from "@/lib/observability/run-deadline"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
@@ -180,6 +182,56 @@ async function main() {
     const route = code("app/api/cron/release-holds/route.ts")
     check("release-holds no longer calls notifyPayoutAvailable with a creator id, fire and forget", !/notifyPayoutAvailable\(/.test(route))
     check("release-holds awaits the payout pushes on both paths", (route.match(/await pushPayoutsAvailable\(/g) ?? []).length === 2)
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\nOne clock for a whole cron run (F3 community, F4 physical)")
+  {
+    /* The community run's steps, each spending ALL of the budget it is handed (a busy queue): the old shape was 10 + 45 + 10 + 15 s. */
+    let t = 1_000_000
+    const run = runDeadline(runBudgetMs(60), { started: t, now: () => t })
+    const spent: [string, number][] = []
+    const step = (name: string, ms: number) => {
+      if (ms > 0) {
+        spent.push([name, ms])
+        t += ms
+      }
+    }
+    t += 300 /* auth and the switch */
+    step("posts", run.share(10_000))
+    step("jobs", run.shareUntil(35_000, 45_000))
+    step("deletions", run.share(10_000))
+    step("automations", run.share(15_000))
+    check("every step's budget is never negative", spent.every(([, ms]) => ms >= 0), spent)
+    check("the whole run ends by 52 s from the request, under the 60 s maxDuration", t - run.started <= 52_000, { total: t - run.started, spent })
+    check("the job queue stops by 35 s, so the later steps still get a turn", spent.some(([n]) => n === "deletions") && spent.some(([n]) => n === "automations"), spent)
+    t = run.until - 1_000
+    check("a step with under two seconds left is skipped, not started", run.share(15_000) === 0)
+    check("runBudgetMs leaves a margin under maxDuration", runBudgetMs(60) === 52_000 && runBudgetMs(300) === 292_000)
+
+    const community = code("app/api/cron/community/route.ts")
+    check("community: the clock is taken before anything else in the run", /async function runJob\(request: Request\) \{\s*const run = runDeadline\(runBudgetMs\(maxDuration\)\)/.test(community))
+    check("community: no step has a fixed budget counted from its own start any more", !/publishDuePosts\(db, Date\.now\(\), 10_000\)/.test(community) && !/runDueDeletions\(db, 10_000\)/.test(community) && !/runChatAutomations\(db, Date\.now\(\), 15_000\)/.test(community) && !/\{ budgetMs: RUN_BUDGET_MS \}/.test(community))
+
+    const physical = code("app/api/cron/physical/route.ts")
+    check("physical: the clock starts at the request, before the Stripe sweep and the follow-ups", /async function runJob\(request: Request\) \{\s*const run = runDeadline\(runBudgetMs\(maxDuration\)\)\s*const started = run\.started/.test(physical) && physical.indexOf("const started") < physical.indexOf("cancelStaleSitePayments(") && (physical.match(/const started =/g) ?? []).length === 1)
+    check("physical: the Stripe sweep has a limit and a deadline", /cancelStaleSitePayments\(db, Date\.now\(\), SWEEP_LIMIT, started \+ SWEEP_UNTIL_MS\)/.test(physical))
+    check("physical: no guard past the run's 52 s", ![...physical.matchAll(/started < (\d+)_000/g)].some((m) => Number(m[1]) > 52))
+  }
+
+  console.log("\nThe Stripe sweep stops starting cancels at its deadline (F4)")
+  {
+    const { cancelStaleSitePayments } = await import("@/lib/checkout/site-payment-sweep")
+    const db = {
+      from() {
+        const q: Record<string, unknown> = {}
+        for (const k of ["select", "eq", "is", "not", "lt"]) q[k] = () => q
+        q.limit = async () => ({ data: [{ id: "c1", stripe_payment_intent_id: "pi_1", coupon_id: null, coupon_holder: null }], error: null })
+        return q
+      },
+    }
+    const counts = await cancelStaleSitePayments(db as never, Date.now(), 20, Date.now() - 1)
+    check("past its deadline no Stripe cancel is started (nothing swept, nothing thrown)", counts.shipped === 0 && counts.baskets === 0, counts)
   }
 
   clearInterval(keepAlive)
