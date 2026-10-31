@@ -75,7 +75,7 @@ function main() {
     every one of those ends up in front of somebody through one of these.
   */
   check("the published site cleans its pages",
-    /pages\[r\.page_key\] = sanitizeSections\(published(, ownSchemas)?\)/.test(published))
+    /* Changed on purpose (round 45 leftovers): and without the contact form's inbox address (lib/website-builder/visitor-sections.ts). */ /pages\[r\.page_key\] = forVisitors\(sanitizeSections\(published(, ownSchemas)?\)\)/.test(published))
   check("and its theme settings, which a .storelib file may emit through `raw`",
     /const themeSettings = sanitizeThemeSettings\(/.test(published),
     "cleaned on save only means a row that never went through save is not cleaned at all")

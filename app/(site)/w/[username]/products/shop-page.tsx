@@ -14,14 +14,15 @@ import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
-import { pageNumberOf } from "@/lib/website-builder/tab-title"
+import { pageNumberOf, pastLastPage } from "@/lib/website-builder/tab-title"
+import { canonicalPageOf } from "@/lib/website-builder/site-seo"
 
 /** What the shop page is drawn from: the filters, the sort and the page number, as the filter form sends them (lib/products/catalog-filters.ts). */
 export type ShopAsked = Record<string, string | string[] | undefined>
 
 export async function shopMetadata(username: string, asked: ShopAsked): Promise<Metadata> {
   // "Shop | brand", through the same metadata rules as every other page; "Shop | Page 2 | brand" past the first.
-  return siteMetadata(username, undefined, "products", null, { pageNumber: pageNumberOf(asked.page) })
+  return siteMetadata(username, undefined, "products", null, { pageNumber: pageNumberOf(asked.page), canonicalPage: canonicalPageOf(asked) })
 }
 
 /**
@@ -74,6 +75,8 @@ export async function ShopPage({ segment, asked }: { segment: string; asked: Sho
      whole shop. */
   const catalogue = await siteCatalogue(site.creatorId).then((c) => (localizer ? localizer.cards(c) : c)).catch(() => products ?? [])
   const { listed, filters, pagination } = catalogPage(catalogue.length ? catalogue : products ?? [], asked, "/products", { words: localizer?.words })
+  /* A page past the last is not a page (round 45): it drew the last one again under its own address, and any number answered, a list without end for a crawler. */
+  if (pastLastPage(asked.page, pagination.pages)) notFound()
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", listed, { filters, pagination }, data)
 
   return (

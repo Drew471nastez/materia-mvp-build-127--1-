@@ -87,7 +87,7 @@ function main() {
     check("it no longer asks for one page by name", !/\.eq\("page_key", "home"\)/.test(build))
     check("it reads the install's pages", /\.from\("store_theme_pages"\)[\s\S]{0,120}\.eq\("install_id", row\.id\)/.test(build))
     /* Cleaned by the built-in schemas and by the ones the creator's own section files declare. */
-    check("and keeps them by key", /pages\[r\.page_key\] = sanitizeSections\(published, ownSchemas\)/.test(build))
+    check("and keeps them by key", /* Changed on purpose (round 45 leftovers): forVisitors takes the contact form's inbox address out. */ /pages\[r\.page_key\] = forVisitors\(sanitizeSections\(published, ownSchemas\)\)/.test(build))
 
     /**
      * A page with no published sections is a page that has been made and not

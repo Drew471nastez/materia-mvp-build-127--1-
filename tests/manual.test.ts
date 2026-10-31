@@ -204,8 +204,9 @@ section("The blog post is the manual, in blocks the blog actually draws")
    * default: the post went live as a title, thirteen tables and nothing in
    * between. Nothing errored, because rendering nothing is not an error.
    */
-  const renderer = readFileSync(join(root, "app/(marketing)/blog/[slug]/page.tsx"), "utf8")
-  const cases = Array.from(renderer.matchAll(/case "([a-z0-9]+)": return/g)).map((m) => m[1])
+  /* Round 45: the article's blocks are drawn by one renderer, beside the page. */
+  const renderer = readFileSync(join(root, "app/(marketing)/blog/_components/article-blocks.tsx"), "utf8")
+  const cases = Array.from(renderer.matchAll(/case "([a-z0-9]+)":/g)).map((m) => m[1])
   const payload = JSON.parse(readFileSync(join(root, "docs/blog/storelib-sections-manual.json"), "utf8")) as {
     content: { type: string; html?: string; text?: string; items?: string[]; headers?: string[] }[]
     title: string

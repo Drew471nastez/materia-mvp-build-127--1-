@@ -995,8 +995,18 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */
   "tests/seo-marketing-r44.test.ts",
+  /* Round 45: storelib.com's own pages say noindex where private (X-Robots-Tag and the layouts), titles for the auth steps, the crawler table, Organization, WebSite and WebApplication priced from plans.ts, breadcrumbs, unique metadata, Explore's views and 404, the Help Center's metadata, llms.txt's plans. */
+  "tests/seo-platform-r45.test.ts",
+  /* Round 45: the public blog rebuilt (every block type, sanitizeInline, the contents list, BlogPosting and VideoObject, /blog/category with the old address a 308, the sign up box and the newsletter) and the help article in the same reading frame. */
+  "tests/blog-public-r45.test.ts",
+  /* Round 45: the blog admin: the sanitiser, a post live only when published and its date has come (scheduling with no job), an old slug's 308, a save from an old version refused with 409 (savePost against an in-memory table), the snippet and preview routes admin checked and noindex, SQL part 345. */
+  "tests/blog-admin-r45.test.ts",
+  /* Round 45, leftovers B: blog author pages (/blog/author/<slug>: ProfilePage, breadcrumbs, live posts, noindex when empty, a 404 with no table, the sitemap), no FAQPage or HowTo in the Help Center, the product file limit from the upload policy, STORELIB_SOCIAL for the footer and sameAs, Copy to Storelib (the https and private address guard, type by bytes, 10 MB, a post's addresses swapped in place). */
+  "tests/seo-leftovers-b-r45.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
+  /* Round 45 (content): lib/marketing/facts read from the code (prices, fees, limits), the /sell pages, /features as Storelib in one page, the comparison pages' checked prices and moving guides, the YouTube video registry and its VideoObject. */
+  "tests/content-r45.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
   "tests/carrier-select.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
@@ -1052,8 +1062,14 @@ const SUITES = [
   "tests/analytics-destinations.test.ts",
   /* Round 44: /admin/seo, every address in Storelib's sitemaps with Google's URL Inspection answer (service account JWT signed with node:crypto, per property, a quota counted in the database, rotated never checked and stalest first) and a score from the live page with every check; admin only, Check now rate limited, SQL part 342; scripts/check-admin-seo.mjs renders it. */
   "tests/admin-seo-console-r44.test.ts",
+  /* Round 45: AI assistant sources on touches and Storelib's own sign ups (SQL part 346), the Audience view's AI assistants group, a spec-correct robots.txt matcher held to Google's examples, the sitemap file check, Search Console performance and Bing in /admin/seo with nothing called indexed without Google's answer, verification meta only when set, and the labels and landmarks the public journeys need; scripts/check-admin-seo.mjs and scripts/check-agent-journeys.mjs drive them in a browser. */
+  "tests/seo-tracking-r45.test.ts",
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
+  /* Round 45: every page a creator publishes, as a search engine reads it: page 2 of a shop or collection its own canonical and a page past the last a 404, an imported theme's shop at one address and a gone product a 404, /collections and /reviews and a community's public posts in the sitemaps, a website behind a password out of storelib.com's, IndexNow for collections and public posts, and every route of a website or a creator page held to a sitemap or a noindex. */
+  "tests/seo-sites-r45.test.ts",
+  /* Round 45 leftovers (a): a creator's contact address asked for on the click (/api/creator-contact, rate limited, noindex, no-store) and in no page's payload, nor a website contact form's inbox; Explore's cards without sign in ids; IndexNow for moderation, admin takedowns and bans; a product's JSON-LD in the page's language; one noindex on a 404; www and a trailing slash in one 308; the imported theme's 303 kept on purpose. */
+  "tests/seo-leftovers-a-r45.test.ts",
 ]
 
 /**

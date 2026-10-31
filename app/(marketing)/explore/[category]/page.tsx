@@ -6,6 +6,7 @@ import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibBreadcrumbJsonLd } from "@/lib/seo/structured-data"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
@@ -14,6 +15,7 @@ import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { offChannelAmong } from "@/lib/store/channel-filter"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { cardCreator } from "@/lib/explore/card-creator"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -70,6 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!VALID_CATEGORIES.includes(category)) {
     return {
       title: "Category Not Found",
+      robots: { index: false, follow: true },
     }
   }
 
@@ -182,7 +185,8 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
         ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
         ...(salesSoldOut(standings.get(product.id)) ? { sold_out: true } : {}),
         ...priceOf(product),
-        creator: creator ? { ...creator, profile } : null,
+        /* Its public id, handle and face only: the sign in id it was found by stays on the server (lib/explore/card-creator.ts). */
+        creator: cardCreator(creator, profile),
         categories: [],
         categoryName: product.category || null,
         reviews_count: (product as any).reviews_count || 0,
@@ -217,17 +221,23 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   return (
     /* Explore's ground and container, which the loading screen draws too
        (./loading.tsx), so nothing moves when the products arrive. */
-    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <div className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: jsonLdScript({
             "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            "name": categoryLabel,
-            "description": categoryDescription,
-            "url": `https://storelib.com/explore/${category}`
+            "@graph": [
+              {
+                "@type": "CollectionPage",
+                "name": categoryLabel,
+                "description": categoryDescription,
+                "url": `https://storelib.com/explore/${category}`,
+              },
+              /* Storelib, Explore, the category (lib/seo/structured-data.ts). */
+              storelibBreadcrumbJsonLd([{ name: "Explore", path: "/explore" }, { name: categoryLabel, path: `/explore/${category}` }]),
+            ],
           }),
         }}
       />
@@ -240,6 +250,6 @@ export default async function CategoryPage({ params, searchParams }: Props) {
           initialSubcategory={initialSub}
         />
       </div>
-    </main>
+    </div>
   )
 }

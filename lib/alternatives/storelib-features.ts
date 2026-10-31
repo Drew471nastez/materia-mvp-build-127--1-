@@ -10,8 +10,8 @@ import { STORELIB } from "./storelib"
 
 export const SL = {
   digitalProducts: { value: "yes", text: "Unlimited, on every plan", code: "lib/billing/plans.ts" },
-  courses: { value: "yes", text: "Lessons, video and progress", code: "app/app/courses" },
-  memberships: { value: "yes", text: "Recurring plans", code: "app/app/memberships" },
+  courses: { value: "yes", text: "Lessons, video, captions and progress", code: "lib/courses/types.ts" },
+  memberships: { value: "partial", text: "As paid community plans, monthly or yearly", code: "app/app/products/new/product-kinds.ts", flag: "communities" },
   communities: { value: "yes", text: "Posts, chat, events and paid plans", code: "app/app/community", flag: "communities" },
   linkInBio: { value: "yes", text: "OnePage at storelib.me/yourname", code: "lib/onepage/address.ts" },
   creatorPage: { value: "yes", text: "storelib.com/yourname", code: "app/(marketing)/[sellername]/page.tsx" },

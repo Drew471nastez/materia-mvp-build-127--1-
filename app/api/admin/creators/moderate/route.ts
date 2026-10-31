@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, after, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
@@ -8,6 +8,7 @@ import { recordAdminAction } from "@/lib/admin/audit"
 import { plainReason } from "@/lib/admin/plain-reason"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
+import { announce, bannedCreatorAddresses, profileAddresses } from "@/lib/seo/announce"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -170,6 +171,12 @@ async function describe(ids: string[]): Promise<Target[]> {
   }
 
   return targets
+}
+
+/** The slugs of a creator's published products, for IndexNow after a ban (lib/seo/announce.ts). A failed read is fewer addresses, never a failed ban. */
+async function publishedSlugs(admin: ReturnType<typeof createAdminClient>, creatorId: string): Promise<string[]> {
+  const { data } = await admin.from("products").select("slug").eq("creator_id", creatorId).eq("status", "published").limit(1000)
+  return ((data as Array<{ slug: string | null }> | null) ?? []).map((p) => p.slug).filter((s): s is string => !!s)
 }
 
 /** A read that failed answers in plain words; anything else stays in the log. */
@@ -337,12 +344,16 @@ async function must<T extends { error: { message: string } | null }>(
 }
 
   const done: string[] = []
+  /* What search engines are told once the answer is sent (lib/seo/announce.ts): a ban's pages, by the products public before it; an unban's page. */
+  const told: Array<{ creatorId: string; slugs: string[] | null }> = []
   let unrecorded = 0
   const failed: Array<{ creatorId: string; error: string }> = []
 
   for (const target of targets) {
     try {
       if (action === "ban") {
+        /* Read before they go dark: the addresses search engines are told to look at again. A failed read only means fewer of them. */
+        const slugs = await publishedSlugs(admin, target.creatorId)
         await must(
           admin
             .from("creators")
@@ -370,6 +381,7 @@ async function must<T extends { error: { message: string } | null }>(
         )
         /* Off Explore's shared catalogue now, not in a minute (lib/explore/catalogue-cache.ts). */
         exploreCatalogueTakenDown()
+        told.push({ creatorId: target.creatorId, slugs })
       } else if (action === "unban") {
         await must(
           admin
@@ -383,6 +395,7 @@ async function must<T extends { error: { message: string } | null }>(
          * creator's decision, and guessing would put something live that they
          * may have taken down themselves before any of this happened.
          */
+        told.push({ creatorId: target.creatorId, slugs: null })
       } else {
         if (!target.userId) {
           failed.push({ creatorId: target.creatorId, error: "No user account is attached to this creator." })
@@ -429,6 +442,21 @@ async function must<T extends { error: { message: string } | null }>(
         error: plain ? (thrown as Error).message : "Failed. The server log has the details.",
       })
     }
+  }
+
+  /*
+    INDEXNOW, THE WAY A DELETE DOES IT (round 45 leftovers): after the answer,
+    one creator at a time, never throwing. A ban sends what was public so
+    engines drop it; an unban sends the creator page, which is back.
+  */
+  if (told.length > 0) {
+    after(() =>
+      announce(async () => {
+        const urls: string[] = []
+        for (const t of told) urls.push(...(await (t.slugs ? bannedCreatorAddresses(t.creatorId, t.slugs) : profileAddresses(t.creatorId)).catch(() => [] as string[])))
+        return urls
+      }),
+    )
   }
 
   return NextResponse.json({

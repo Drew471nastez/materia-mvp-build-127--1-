@@ -12,7 +12,8 @@
  * SUMS       the calculator charges Storelib exactly as checkout does, and
  *            each competitor's plan as its sources say.
  * SEO        unique titles and descriptions, absolute canonicals, one
- *            BreadcrumbList, FAQPage only from the questions on the page.
+ *            BreadcrumbList, no FAQPage (round 45: the questions stay as
+ *            plain HTML).
  * WIRING     static params, the sitemap reads the list, the routes are
  *            reserved words, header, footer and pricing link here, the sign
  *            up link keeps the visit's own tags.
@@ -34,7 +35,7 @@ import { alternativesAddresses } from "@/lib/seo/announce-pages"
 import { RESERVED_ROOT_SEGMENTS } from "@/lib/routes/reserved-segments"
 import { WEB_ONLY_SEGMENTS } from "@/lib/platform/app-links"
 import { AlternativePage } from "@/components/alternatives/alternative-page"
-import { HubDirectory } from "@/components/alternatives/hub-directory"
+import { HubGroups, HubMatrix } from "@/components/alternatives/hub-sections"
 import type { Claim, Competitor, CompetitorCell } from "@/lib/alternatives/types"
 
 let passed = 0
@@ -71,7 +72,7 @@ function claimsOf(c: Competitor): { where: string; claim: Claim | CompetitorCell
 
 /** All the words a page prints, for the copy rules. */
 function wordsOf(c: Competitor): string {
-  return JSON.stringify([c.summary, c.pricingShort, c.seo, c.intro, c.whyStorelib, c.whenToStay, c.strengths, c.limits, c.storelibStrengths, c.storelibLimits, c.features, c.plans.map((p) => [p.name, p.processingLabel, p.claim]), c.pricingNotes, c.examples, c.switching, c.importer, c.faqs])
+  return JSON.stringify([c.summary, c.pricingShort, c.seo, c.intro, c.whyStorelib, c.whenToStay, c.strengths, c.limits, c.storelibStrengths, c.storelibLimits, c.features, c.plans.map((p) => [p.name, p.processingLabel, p.claim]), c.pricingNotes, c.examples, c.switching, c.moving, c.importer, c.faqs])
 }
 
 console.log("\nThe list")
@@ -142,7 +143,7 @@ console.log("\nCopy: no em dash, none of the banned words")
     check(`${c.name}: no em dash`, !words.includes("—") && !words.includes("–"))
     check(`${c.name}: no banned words`, !banned.test(words), words.match(banned)?.[0])
   }
-  const pages = ["components/alternatives/alternative-page.tsx", "components/alternatives/hub-directory.tsx", "components/alternatives/fee-calculator.tsx", "components/alternatives/disclaimer.tsx", "app/(marketing)/alternatives/page.tsx", "lib/alternatives/seo.ts"]
+  const pages = ["components/alternatives/alternative-page.tsx", "components/alternatives/hub-sections.tsx", "components/alternatives/fee-calculator.tsx", "components/alternatives/disclaimer.tsx", "app/(marketing)/alternatives/page.tsx", "lib/alternatives/seo.ts"]
   check("the page code prints no em dash either", pages.every((p) => !code(p).includes("—")))
   check("no testimonials, ratings or review counts are claimed", ALTERNATIVES.every((c) => !/\b(\d(\.\d)? stars?|rated \d|testimonial|reviews? from)\b/i.test(wordsOf(c))))
 }
@@ -218,19 +219,15 @@ console.log("\nMetadata and structured data")
   check("the hub has its own title and canonical", hub.alternates.canonical === "https://storelib.com/alternatives" && !titles.includes(hub.title.absolute))
 
   for (const c of ALTERNATIVES) {
-    const faqs = resolveFaqs(c.faqs, ALL_OFF)
-    const ld = JSON.parse(JSON.stringify(alternativeJsonLd(c, faqs))) as Any
+    const ld = JSON.parse(JSON.stringify(alternativeJsonLd(c))) as Any
     const types = ld["@graph"].map((n: Any) => n["@type"])
-    check(`${c.name}: WebPage, BreadcrumbList and FAQPage, once each`, ["WebPage", "BreadcrumbList", "FAQPage"].every((t) => types.filter((x: string) => x === t).length === 1))
+    check(`${c.name}: WebPage and BreadcrumbList once each, no FAQPage`, ["WebPage", "BreadcrumbList"].every((t) => types.filter((x: string) => x === t).length === 1) && !types.includes("FAQPage"))
+    check(`${c.name}: the WebPage carries dateModified`, ld["@graph"][0].dateModified === c.updated)
     const crumbs = ld["@graph"].find((n: Any) => n["@type"] === "BreadcrumbList").itemListElement
     check(`${c.name}: breadcrumbs Storelib > Alternatives > ${c.name}, absolute`, crumbs.length === 3 && crumbs[2].item === `https://storelib.com${alternativePath(c.slug)}` && crumbs.every((x: Any, i: number) => x.position === i + 1))
-    const faqLd = ld["@graph"].find((n: Any) => n["@type"] === "FAQPage").mainEntity
-    check(`${c.name}: FAQPage is exactly the visible questions and answers`, JSON.stringify(faqLd.map((q: Any) => [q.name, q.acceptedAnswer.text])) === JSON.stringify(faqs.map((f) => [f.q, f.a])))
   }
   const flagged = getAlternative("whop")!.faqs.find((f) => f.flag)!
-  check("a flagged answer reads its off answer while the switch is off, in the FAQ and its markup alike", resolveFaqs([flagged], ALL_OFF)[0].a === flagged.aOff && resolveFaqs([flagged], ALL_ON)[0].a === flagged.a)
-  const noFaq = alternativeJsonLd(getAlternative("gumroad")!, []) as Any
-  check("no FAQPage without questions on the page", !noFaq["@graph"].some((n: Any) => n["@type"] === "FAQPage"))
+  check("a flagged answer reads its off answer while the switch is off", resolveFaqs([flagged], ALL_OFF)[0].a === flagged.aOff && resolveFaqs([flagged], ALL_ON)[0].a === flagged.a)
   const hubLd = hubJsonLd() as Any
   check("the hub lists every comparison in an ItemList", hubLd["@graph"][0].mainEntity.itemListElement.length === ALTERNATIVES.length)
   check("structured data goes through jsonLdScript", code("components/alternatives/alternative-page.tsx").includes("jsonLdScript(") && code("app/(marketing)/alternatives/page.tsx").includes("jsonLdScript("))
@@ -301,11 +298,14 @@ for (const c of ALTERNATIVES) {
 
 console.log("\nRendered: the hub")
 {
-  const items = ALTERNATIVES.map((c) => ({ slug: c.slug, name: c.name, href: alternativePath(c.slug), summary: c.summary, pricingShort: c.pricingShort, categories: c.categories, categoryLabels: [], search: c.name.toLowerCase() }))
-  const html = renderToStaticMarkup(createElement(HubDirectory, { items, categories: [...CATEGORIES] }))
-  check("every comparison is in the server markup, none hidden", ALTERNATIVES.every((c) => html.includes(`href="${alternativePath(c.slug)}"`)) && !/<li[^>]* hidden=""/.test(html))
-  check("the category buttons say which is on", (html.match(/aria-pressed="true"/g) ?? []).length === 1)
-  check("the search has a label", /<label[^>]*for="[^"]+-q"/.test(html))
+  const groups = renderToStaticMarkup(createElement(HubGroups, { list: ALTERNATIVES, flags: ALL_ON }))
+  check("every comparison is in a group, in the server markup", ALTERNATIVES.every((c) => groups.includes(`href="${alternativePath(c.slug)}"`)))
+  check("  grouped by need: downloads, link in bio, communities, a full store", ["digital-products", "link-in-bio", "communities", "online-store"].every((n) => groups.includes(`data-need="${n}"`)))
+  const matrix = renderToStaticMarkup(createElement(HubMatrix, { list: ALTERNATIVES, flags: ALL_ON }))
+  check("the matrix has a column for Storelib and each platform", ALTERNATIVES.every((c) => matrix.includes(`>${c.name}</a></th>`)) && matrix.includes(">Storelib</th>"))
+  check("  a row a page does not compare says so, never a guess", matrix.includes("Not compared"))
+  const off = renderToStaticMarkup(createElement(HubMatrix, { list: ALTERNATIVES, flags: ALL_OFF }))
+  check("  a Storelib feature behind a switch that is off reads Not offered today", off.includes("Not offered today"))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

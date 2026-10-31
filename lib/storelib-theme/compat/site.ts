@@ -45,7 +45,7 @@ import { regionCode } from "@/lib/physical/regions"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
-import { canonicalPath, defaultPageTitle, groupSections } from "./theme"
+import { canonicalPath, defaultPageTitle, groupSections, pagedCanonical } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
@@ -251,6 +251,8 @@ const json = (value: unknown, status = 200, extra: Partial<SiteResponse> = {}): 
 */
 export const onSitePath = (to: string): string => (/^[/\\]{2}/.test(to) ? `/${to.replace(/^[/\\]+/, "")}` : to)
 const redirect = (to: string, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status: 303, type: "text/plain", body: "", headers: { Location: onSitePath(to), "Cache-Control": "private, no-store" }, ...extra })
+/* A move for good (round 45): the same address always goes to the same place, so search engines carry what they know of it over (308, the method kept). */
+const moved = (to: string): SiteResponse => ({ ...redirect(to), status: 308 })
 
 export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
   const path = decodePath(req.path)
@@ -335,7 +337,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* Storelib's own menus link the shop as /products; Shopify sends that address to every product, as here. */
   if (path === "/products" && (method === "GET" || method === "HEAD")) {
     const q = req.query.toString()
-    return redirect(`/collections/all${q ? `?${q}` : ""}`)
+    /* For good: it was a 303, a redirect search engines are told not to keep, so the shop was known by two addresses. */
+    return moved(`/collections/all${q ? `?${q}` : ""}`)
   }
   /*
     THE THEME'S LANGUAGE AND COUNTRY SELECTOR (form 'localization'): the
@@ -437,6 +440,14 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       blog it had, its own domain's path with a locale in front) is sent on,
       once, to the place on this site it meant (./links.ts). Any other address
       that is not a page stays this site's 404.
+
+      A 303, AND ON PURPOSE (round 45 leftovers, the owner's call): an
+      unknown collection lands on /collections/all so a visitor's link from
+      the old store keeps working (tests/builder-nav19.test.ts pins it). For
+      search it is harmless as it is: these addresses are in no sitemap,
+      nothing on the site links them, and an engine reads a redirect to a
+      generic page as a soft 404 anyway. Not a 301 or 308, which would claim
+      the shop is where that collection moved.
     */
     const meant = method === "GET" && !req.ajax && !req.query.get("section_id") && !req.query.get("sections") ? siteLink(path, linkFactsOf({ pageKeys: siteKeys(site), products: site.products, pickable: site.pickable, collections: site.collections, shop: site.shop }), { pageFallback: false }) : path
     if (meant !== path && meant.startsWith("/")) {
@@ -454,7 +465,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* Free shipping over an amount counts the cart after its offers and its code, as the checkout does (Shopify's rule). */
   const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD", "", {}, req.cartDiscount ?? null, false, req.cartOffers ?? null).total_price) || 0 : 0, site.shop.currency ?? undefined)
   /* The password page is in front of every page, so it names no language versions of itself: it is not a search result (noindex below). */
-  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${route.page.template === "password" ? "" : languageLinks(site, path)}`
+  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${route.page.template === "password" ? "" : languageLinks(site, path, pagedCanonical(route.page))}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
@@ -474,13 +485,14 @@ export function tidyHead(html: string): string {
 }
 
 /** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */
-function languageLinks(site: SiteData, path: string): string {
+function languageLinks(site: SiteData, path: string, paged = ""): string {
   const i18n = site.i18n
   const host = site.canonicalHost ?? site.host
   if (!i18n || i18n.languages.length < 2 || !host) return ""
   /* The page's canonical path (a product reached from a collection is the product's page), so each language names the address its canonical does. */
   const own = canonicalPath(path)
-  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${own === "/" && localeRoot(i18n, code) ? "" : own}`
+  /* Page 2 of a collection names page 2 in each language, as its canonical does (pagedCanonical). */
+  const at = (code: string) => `https://${host}${localeRoot(i18n, code)}${own === "/" && localeRoot(i18n, code) ? "" : own}${paged}`
   const links = i18n.languages.map((l) => `<link rel="alternate" hreflang="${escapeHtml(l)}" href="${escapeHtml(at(l))}">`)
   links.push(`<link rel="alternate" hreflang="x-default" href="${escapeHtml(at(i18n.defaultLanguage))}">`)
   return links.join("")

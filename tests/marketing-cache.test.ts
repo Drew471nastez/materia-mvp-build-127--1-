@@ -69,7 +69,7 @@ check("returnTo is decoded once more, as the server did, and a bad escape does n
 check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/bento-grid.tsx")))
 
 console.log("\nThe blog is rebuilt at most once a minute")
-for (const p of ["app/(marketing)/blog/page.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/explore/categories/[category]/page.tsx"]) {
+for (const p of ["app/(marketing)/blog/page.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/category/[slug]/page.tsx"]) {
   const src = code(p)
   check(`${p}: revalidate 60, not force-dynamic`, /export const revalidate = 60/.test(src) && !/force-dynamic/.test(src))
   check(`${p}: posts from the admin client, which reads no cookie`, !/from "@\/lib\/supabase\/server"/.test(src) && !/next\/headers/.test(src))
@@ -78,7 +78,7 @@ check("next.config gives the CDN the same minute for /blog", /source: '\/blog\/:
 const post = code("app/(marketing)/blog/[slug]/page.tsx")
 /* Changed on purpose (round 44): fetchPost moved to lib/blog/post so the post's layout can answer 404 before anything streams; still one read per render. */
 const postData = read("lib/blog/post.ts")
-check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{ fetchPost \} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(marketing)/blog/[slug]/layout.tsx")))
+check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{[^}]*\bfetchPost\b[^}]*\} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(marketing)/blog/[slug]/layout.tsx")))
 check("  and both still call it", (post.match(/await fetchPost\(slug\)/g) ?? []).length === 2)
 
 console.log("\nWhat stays per request, and why")

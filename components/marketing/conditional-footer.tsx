@@ -108,6 +108,7 @@ export function ConditionalFooter() {
       pathname.startsWith("/pricing") ||
       pathname === "/alternatives" ||
       pathname.startsWith("/alternatives/") ||
+      pathname.startsWith("/sell/") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
       pathname.startsWith("/help") ||

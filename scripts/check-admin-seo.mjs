@@ -13,7 +13,12 @@
  *                   Check now posts to /api/admin/seo/check and shows the
  *                   answer
  *
- * At 1280 and 390: nothing sideways, no control off the edge, the wide
+ * Round 45 adds Search performance, Indexing issues, Sitemap conflicts,
+ * Crawlability (and its Check crawlability button) and Bing: each is on
+ * the page, every figure names where it came from, and "On Google" appears
+ * only in what Google answered.
+ *
+ * At 1440 and 390: nothing sideways, no control off the edge, the wide
  * table header only on a desk. Pictures go to SHOTS_DIR or a temp folder.
  *
  *   node scripts/check-admin-seo.mjs
@@ -71,6 +76,41 @@ const totals = [
   { kind: "product", listed: 183402, in_sitemap: 180331, answers_200: 179950, indexed: 96310, not_indexed: 30442, not_checked: 53579, no_property: 0, scored: 60021, average_score: 84.9 },
   { kind: "website", listed: 9020, in_sitemap: 9002, answers_200: 8890, indexed: 4011, not_indexed: 1802, not_checked: 1100, no_property: 2089, scored: 6110, average_score: 81.7 },
 ]
+const ago = (min) => new Date(Date.now() - min * 60_000).toISOString()
+const verdicts = (blocked) => ["Googlebot", "Bingbot", "OAI-SearchBot"].map((crawler) => ({ crawler, allowed: !blocked, rule: blocked ? "Disallow: /app/" : "Allow: /", group: "*" }))
+const crawl = {
+  missingTable: false,
+  robots: { checkedAt: ago(20), report: { url: "https://storelib.com/robots.txt", status: 200, reading: "parsed", ms: 112, sitemaps: ["https://storelib.com/sitemap.xml"], notes: [], paths: [
+    { label: "Home", path: "/", verdicts: verdicts(false) },
+    { label: "Pricing", path: "/pricing", verdicts: verdicts(false) },
+    { label: "Blog", path: "/blog", verdicts: verdicts(false) },
+    { label: "A product", path: "/maya/notion-planner-for-weekly-reviews-habits-and-goals", verdicts: verdicts(false) },
+    { label: "A creator page", path: "/maya", verdicts: verdicts(false) },
+  ] } },
+  sitemaps: { checkedAt: ago(20), report: { skipped: 0, indexes: [{ url: "https://storelib.com/sitemap.xml", status: 200, files: 5, error: null }, { url: "https://storelib.me/sitemap.xml", status: 200, files: 1, error: null }], files: [
+    { url: "https://storelib.com/sitemap/pages.xml", index: "https://storelib.com/sitemap.xml", status: 200, ms: 338, urls: 214, invalidCount: 0, invalid: [], error: null },
+    { url: "https://storelib.com/sitemap/products-0-of-1.xml", index: "https://storelib.com/sitemap.xml", status: 200, ms: 512, urls: 18233, invalidCount: 2, invalid: [{ loc: "https://storelib.com/maya/planner", reason: "Listed twice" }, { loc: "https://storelib.com/x", reason: 'lastmod "yesterday" is not a W3C date' }], error: null },
+    { url: "https://storelib.com/sitemap/creators-0-of-1.xml", index: "https://storelib.com/sitemap.xml", status: 503, ms: 10021, urls: null, invalidCount: 0, invalid: [], error: "HTTP 503" },
+    { url: "https://storelib.me/sitemap/onepages-0-of-1.xml", index: "https://storelib.me/sitemap.xml", status: 200, ms: 290, urls: 4112, invalidCount: 0, invalid: [], error: null },
+  ] } },
+}
+const conflicts = [
+  { kind: "not_200", label: "Does not answer 200", count: 14, sample: [{ url: "https://storelib.com/maya/old-planner", kind: "not_200", found: "HTTP 404", scoredAt: ago(35) }] },
+  { kind: "noindex", label: "Says noindex", count: 3, sample: [{ url: "https://storelib.com/drafty", kind: "noindex", found: "robots meta: noindex", scoredAt: ago(50) }] },
+  { kind: "canonical", label: "Canonical is not this address", count: 0, sample: [] },
+]
+const coverageGroups = [
+  { googleStatus: "indexed", coverageState: "Submitted and indexed", addresses: 120435, newestAnswer: ago(120) },
+  { googleStatus: "not_indexed", coverageState: "Crawled - currently not indexed", addresses: 30112, newestAnswer: ago(130) },
+  { googleStatus: "not_indexed", coverageState: "Discovered - currently not indexed", addresses: 9254, newestAnswer: ago(140) },
+  { googleStatus: "not_indexed", coverageState: "Duplicate, Google chose different canonical than user", addresses: 1220, newestAnswer: ago(300) },
+]
+const searchRows = (keys) => keys.map((key, i) => ({ key, clicks: 900 - i * 120, impressions: 21000 - i * 2500, ctr: (900 - i * 120) / (21000 - i * 2500), position: 4.2 + i * 1.7 }))
+const search = [{ property: "sc-domain:storelib.com", startDate: "2026-10-02", endDate: "2026-10-29", readAt: ago(15), error: null,
+  totals: { clicks: 4210, impressions: 188020, ctr: 0.0224, position: 11.8 },
+  pages: searchRows(["https://storelib.com/", "https://storelib.com/pricing", "https://storelib.com/blog/how-to-sell-digital-products", "https://storelib.com/maya/notion-planner-for-weekly-reviews-habits-and-goals"]),
+  queries: searchRows(["storelib", "sell digital products", "gumroad alternative", "notion planner"]) },
+  { property: "sc-domain:storelib.me", startDate: "2026-10-02", endDate: "2026-10-29", readAt: ago(15), error: "The service account is not a user on sc-domain:storelib.me in Search Console.", totals: null, pages: [], queries: [] }]
 const data = (connected) => ({
   schemaReady: true,
   google: { connected, clientEmail: connected ? "storelib-seo@storelib-prod.iam.gserviceaccount.com" : null, properties: ["sc-domain:storelib.com", "sc-domain:storelib.me"], perDay: 2000, reserve: 200, usedToday: connected ? { "sc-domain:storelib.com": 742, "sc-domain:storelib.me": 690 } : {} },
@@ -79,6 +119,14 @@ const data = (connected) => ({
   sync: { files: Array.from({ length: 44 }, (_, i) => `products-${i}`), next_file: 17, sweep_started_at: "2026-10-29T05:00:00Z", sweep_finished_at: "2026-10-28T20:10:00Z", last_run_at: "2026-10-29T08:00:00Z", last_error: null },
   query: { kind: "all", status: "all", q: "", page: 1 },
   problems: [],
+  readAt: new Date(Date.now() - 60_000).toISOString(),
+  newest: { google: connected ? new Date(Date.now() - 2 * 3600_000).toISOString() : null, scored: new Date(Date.now() - 20 * 60_000).toISOString() },
+  crawl,
+  conflicts,
+  coverage: { basis: "database", groups: connected ? coverageGroups : [] },
+  search: connected ? search : null,
+  bing: { connected, stats: connected ? { siteUrl: "https://storelib.com/", days: 28, clicks: 1203, impressions: 88412, from: "2026-10-03", to: "2026-10-30", readAt: new Date(Date.now() - 40 * 60_000).toISOString(), error: null } : null },
+  verification: { google: connected, bing: false },
 })
 
 try {
@@ -119,6 +167,7 @@ createRoot(document.getElementById("app")!).render(<SeoAdmin data={(window as an
     await p.setRequestInterception(true)
     p.on("request", (r) => {
       if (r.url().startsWith(URL_BASE)) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (r.url().endsWith("/api/admin/seo/crawl")) return r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ ...crawl, robots: { ...crawl.robots, checkedAt: new Date().toISOString() } }) })
       if (r.url().endsWith("/api/admin/seo/check")) {
         const asked = JSON.parse(r.postData() || "{}").url
         const row = rows.find((x) => x.url === asked)
@@ -146,7 +195,7 @@ createRoot(document.getElementById("app")!).render(<SeoAdmin data={(window as an
         /* The status tabs scroll sideways inside their own row, as everywhere in the console. */
         out: controls.filter((el) => { const r = el.getBoundingClientRect(); return (r.left < -0.5 || r.right > innerWidth + 0.5) && !el.closest('[role="tablist"]') }).map((el) => el.textContent.trim().slice(0, 24)),
         h1: document.querySelector("h1")?.textContent,
-        figures: [...document.querySelectorAll("[data-figure]")].map((f) => f.getAttribute("data-figure")),
+        figures: [...document.querySelectorAll("[data-figure]")].filter((f) => !f.closest("[data-search-performance], [data-bing]")).map((f) => f.getAttribute("data-figure")),
         rows: document.querySelectorAll('[role="table"][aria-label="Addresses"] [data-row]').length,
         kinds: document.querySelectorAll('[role="table"][aria-label="Totals by kind"] [data-row]').length,
         setup: !!document.querySelector("[data-gsc-setup]"),
@@ -156,7 +205,7 @@ createRoot(document.getElementById("app")!).render(<SeoAdmin data={(window as an
       }
     })
 
-  for (const [name, viewport] of [["desk 1280", { width: 1280, height: 900 }], ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+  for (const [name, viewport] of [["desk 1440", { width: 1440, height: 900 }], ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
     for (const connected of [false, true]) {
       console.log(`\n${name}, ${connected ? "connected" : "not connected"}`)
       const { p, errors } = await open(viewport, connected)
@@ -188,6 +237,25 @@ createRoot(document.getElementById("app")!).render(<SeoAdmin data={(window as an
       const after = await p.evaluate(() => ({ notes: [...document.querySelectorAll('[data-row-sheet] [role="status"]')].map((n) => n.textContent), refreshed: window.__refreshed || 0, button: document.querySelector("[data-check-now]")?.textContent }))
       expect(after.refreshed >= 1 && after.button === "Check now", "Check now answers and the figures are read again", after)
       if (!connected) expect(after.notes.includes("Google Search Console is not connected, so Google was not asked."), "  and says Google was not asked", after.notes)
+      const r45 = await p.evaluate(() => ({
+        crawl: !!document.querySelector("[data-crawl] [data-robots]") && document.querySelectorAll("[data-sitemap-files] [data-row]").length,
+        conflicts: document.querySelectorAll("[data-conflict]").length,
+        coverage: document.querySelectorAll("[data-coverage] [data-row]").length,
+        search: !!document.querySelector("[data-search-performance]"),
+        aiNote: !!document.querySelector("[data-ai-overviews-note]"),
+        bing: document.querySelector("[data-bing]")?.getAttribute("data-bing"),
+        sources: [...document.querySelectorAll("[data-figure]")].filter((f) => !f.querySelector("[data-source]")).map((f) => f.getAttribute("data-figure")),
+      }))
+      expect(r45.crawl === 4, "crawlability: robots.txt verdicts and four sitemap files", r45.crawl)
+      expect(r45.conflicts === 3, "three kinds of sitemap conflict", r45.conflicts)
+      expect(r45.coverage === (connected ? 4 : 0), "coverage groups only from Google's answers", r45.coverage)
+      expect(r45.search === connected, "search performance only when connected", r45.search)
+      expect(r45.aiNote, "the AI Overviews and AI Mode note", r45.aiNote)
+      expect(r45.bing === (connected ? "connected" : "not_connected"), "Bing's state", r45.bing)
+      expect(r45.sources.length === 0, "every figure names its source", r45.sources)
+      await p.evaluate(() => document.querySelector("[data-crawl-check]").click())
+      await sleep(300)
+      expect(await p.evaluate(() => /just now/.test(document.querySelector("[data-crawl]")?.textContent || "")), "Check crawlability shows the new report", null)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }

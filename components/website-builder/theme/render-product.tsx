@@ -16,6 +16,7 @@
  */
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { forVisitors } from "@/lib/website-builder/visitor-sections"
 import { withMediaUrls } from "@/lib/storage/media-url"
 import { cache } from "react"
 import { notFound } from "next/navigation"
@@ -236,7 +237,11 @@ export async function productMetadata(
 }
 
 /** A product's structured data on a creator's website, as a script body, or null. */
-export async function productStructuredData(slug: string, site: { url: string; seller: string; creatorId?: string; inLanguage?: <T extends Record<string, unknown>>(p: T) => T }): Promise<string | null> {
+export async function productStructuredData(
+  slug: string,
+  /** `language`: the language the page is drawn in, said as the JSON-LD's inLanguage (lib/seo/page-language.ts); absent, left out. */
+  site: { url: string; seller: string; creatorId?: string; inLanguage?: <T extends Record<string, unknown>>(p: T) => T; language?: string },
+): Promise<string | null> {
   const found = await fetchProductBySlug(slug, site.creatorId)
   if (!found) return null
   /* Its name and description in the page's language, as the page itself says them. */
@@ -258,6 +263,7 @@ export async function productStructuredData(slug: string, site: { url: string; s
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
       inStock: !soldOut(product),
       seller: site.seller,
+      inLanguage: site.language,
       rating: own && own.summary.count > 0 ? { average: own.summary.average, count: own.summary.count, reviews: own.items.map((r) => ({ author: r.author, rating: r.rating, body: r.body, title: r.title, date: r.iso })) } : null,
     }),
   )
@@ -385,8 +391,9 @@ export async function renderProduct(
    * before anything sanitised it, and rows can arrive from an import. The
    * save path is the authority; this is what covers what is already there.
    */
-  const rawSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, preview) ?? [])
-  const homeSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(homeData, preview) ?? [])
+  /* Without the creator's own "send messages to" address, which no visitor is shown (lib/website-builder/visitor-sections.ts). */
+  const rawSections: SectionInstance[] = forVisitors(sanitizeSections(pageSections<SectionInstance[]>(pageData, preview) ?? []))
+  const homeSections: SectionInstance[] = forVisitors(sanitizeSections(pageSections<SectionInstance[]>(homeData, preview) ?? []))
 
   const homeHeader = homeSections.find(s => s.type === "header")
   const homeFooter = homeSections.find(s => s.type === "footer")

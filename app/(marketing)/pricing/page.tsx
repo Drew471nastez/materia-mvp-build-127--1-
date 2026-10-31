@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 import { pageMetadata } from "@/lib/seo/page-metadata"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibApplicationJsonLd, storelibBreadcrumbJsonLd, storelibGraph } from "@/lib/seo/structured-data"
 import { PricingPageClient } from "./pricing-client"
 import { CompareStrip } from "@/components/alternatives/compare-strip"
 
@@ -22,5 +24,11 @@ export const metadata: Metadata = pageMetadata({
   for its scroll-in.
 */
 export default function PricingPage() {
-  return <PricingPageClient compare={<CompareStrip />} />
+  return (
+    <>
+      {/* The product with its plans as Offers, priced from lib/billing/plans.ts, and where this page sits (lib/seo/structured-data.ts). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibGraph(storelibApplicationJsonLd(), storelibBreadcrumbJsonLd([{ name: "Pricing", path: "/pricing" }]))) }} />
+      <PricingPageClient compare={<CompareStrip />} />
+    </>
+  )
 }

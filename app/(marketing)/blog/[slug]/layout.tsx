@@ -1,6 +1,6 @@
 import type React from "react"
-import { notFound } from "next/navigation"
-import { blogPostExists } from "@/lib/blog/post"
+import { notFound, permanentRedirect } from "next/navigation"
+import { blogPostExists, blogRedirectFor } from "@/lib/blog/post"
 
 /*
   A post that does not exist is a 404, decided before anything is drawn.
@@ -13,6 +13,9 @@ import { blogPostExists } from "@/lib/blog/post"
 */
 export default async function BlogPostLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params
+  /* Round 45: an old slug of a post that moved is a 308 to where it lives now (lib/blog/post.ts blogRedirectFor). */
+  const movedTo = (await blogPostExists(slug)) ? null : await blogRedirectFor(slug)
+  if (movedTo) permanentRedirect(`/blog/${movedTo}`)
   if (!(await blogPostExists(slug))) notFound()
   return children
 }

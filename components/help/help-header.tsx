@@ -12,7 +12,7 @@ import { HelpAccount } from "./help-account"
  */
 export function HelpHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[#eef0f2] bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
+    <header data-help-header="" className="sticky top-0 z-40 border-b border-[#eef0f2] bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
       <div className="mx-auto flex h-14 w-full max-w-[1120px] items-center justify-between gap-3 px-4 sm:h-[60px] sm:px-6">
         <Link href={helpHref("/help")} className="group flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" aria-label="Storelib Help">
           <StorelibLogo size={28} />

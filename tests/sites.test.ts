@@ -2364,7 +2364,8 @@ check(
   (() => {
     const proxy = strip(read("proxy.ts"))
     const at = proxy.indexOf("bareHost === `www.${MAIN_DOMAIN}`")
-    return at > -1 && /status: 301/.test(proxy.slice(at, at + 400))
+    /* Changed on purpose (round 45 leftovers): a 308 (lib/seo/one-hop.ts wwwHop), so a POST stays a POST. */
+    return at > -1 && /wwwHop\(pathname, search, MAIN_DOMAIN\)/.test(proxy.slice(at, at + 400)) && /status: 308/.test(read("lib/seo/one-hop.ts"))
   })(),
 )
 

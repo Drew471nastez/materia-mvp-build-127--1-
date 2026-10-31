@@ -165,6 +165,13 @@ export interface Competitor {
   calculatorDefaults: { priceDollars: number; sales: number }
   examples: { who: "Sellers" | "Educators" | "Creators"; title: string; text: string }[]
   switching: StepItem[]
+  /**
+   * What happens to each of the three things a seller moves: their products,
+   * their customers, and their domain or link. Plain about what does not
+   * move (Storelib has no customer or list import). The page links each to
+   * the Help Center articles in MOVING_HELP (lib/alternatives/moving.ts).
+   */
+  moving: { products: string; customers: string; domain: string }
   /** A Storelib importer for this platform, when one exists: named above the steps. */
   importer?: { href: string; label: string; text: string }
   faqs: Faq[]

@@ -35,6 +35,9 @@ import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
+import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
+import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
+import { unknownExploreCategory } from "@/lib/explore/category-pages"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -1410,15 +1413,44 @@ export async function proxy(request: NextRequest) {
   const res = forgetStaleCountry(request, await routeRequest(request))
   try {
     res.headers.set(REQUEST_ID_HEADER, rid)
+    /*
+      A PRIVATE ADDRESS ON storelib.com SAYS NOINDEX IN ITS OWN ANSWER (round 45,
+      lib/seo/indexing.ts privatePlatformPath): the checkout, a receipt, the app,
+      logging in. Here, after the routing, so a redirect, a route handler and a
+      page added under one of those routes later all carry it. An answer that
+      already says something about robots keeps its own.
+    */
+    if (onStorelibHost(request.headers.get("host")) && privatePlatformPath(request.nextUrl.pathname) && !res.headers.has("X-Robots-Tag")) {
+      res.headers.set("X-Robots-Tag", PRIVATE_ROBOTS_HEADER)
+    }
   } catch {
     /* an immutable response: it goes without the id */
   }
   return res
 }
 
+/** storelib.com or www.storelib.com: where the private addresses are Storelib's own. */
+function onStorelibHost(host: string | null): boolean {
+  const bare = (host || "").split(":")[0].toLowerCase()
+  return bare === MAIN_DOMAIN || bare === `www.${MAIN_DOMAIN}`
+}
+
 async function routeRequest(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+  /* An Explore category that does not exist is a 404 from here (lib/explore/category-pages.ts unknownExploreCategory): /explore's loading screen would have sent a 200 first. */
+  if (onStorelibHost(request.headers.get("host")) && unknownExploreCategory(pathname)) {
+    return NextResponse.rewrite(new URL("/_not-found", request.url), { status: 404 })
+  }
   const host = request.headers.get("host") || ""
+
+  /*
+    A TRAILING SLASH, AND www WITH IT, IN ONE 308 (lib/seo/one-hop.ts).
+    next.config sets skipTrailingSlashRedirect, so Next no longer answers
+    /pricing/ before this runs; this does, first, as Next did, and on
+    www.storelib.com straight to the apex rather than in two hops.
+  */
+  const slashHop = trailingSlashHop(host, pathname, search, MAIN_DOMAIN)
+  if (slashHop) return NextResponse.redirect(new URL(slashHop.location, request.nextUrl.href), slashHop.status)
 
   /*
     A STRANGER'S COPY OF AN IMPORTED THEME'S PAGE is held by the CDN at a
@@ -1638,11 +1670,10 @@ async function routeRequest(request: NextRequest) {
    * other, which reads as a broken login rather than a redirect somebody
    * forgot.
    */
+  /* 308, like every other permanent redirect here: a 301 lets a client turn a POST into a GET. */
   if (!isApiCall && bareHost === `www.${MAIN_DOMAIN}`) {
-    const canonical = new URL(`https://${MAIN_DOMAIN}`)
-    canonical.pathname = pathname
-    canonical.search = search
-    return NextResponse.redirect(canonical, { status: 301 })
+    const hop = wwwHop(pathname, search, MAIN_DOMAIN)
+    return NextResponse.redirect(new URL(hop.location), { status: hop.status })
   }
 
   /*
@@ -1994,10 +2025,11 @@ async function routeRequest(request: NextRequest) {
   // Everything here lands on /native-start, which resolves the session and sends
   // a seller to /app, a buyer to /library, and a stranger to /welcome.
   const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog", "/alternatives"]
+  /* And the /sell/<use case> pages, which are marketing pages; never /sell itself, the seller onboarding the app opens. */
   const isCapacitor = (request.headers.get("user-agent") || "").includes("Capacitor")
   if (
     isCapacitor &&
-    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)))
+    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) || pathname.startsWith("/sell/"))
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/native-start"

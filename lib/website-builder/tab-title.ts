@@ -131,6 +131,60 @@ export function pageNumberOf(value: unknown): number {
   return Number.isFinite(n) && n > 1 && n < 10000 ? n : 1
 }
 
+/**
+ * ===========================================================================
+ *  PAGE 2 OF A LIST IS ITS OWN PAGE (round 45)
+ * ===========================================================================
+ * The shop and each collection are cut into pages (?page=2). Page 2 shows
+ * products page 1 does not, so it names itself as its canonical, as Google
+ * asks of paginated lists and as Shopify's canonical_url does. It named page
+ * 1, which told search engines the products past the first page were a copy
+ * of it, and they were found only through the sitemap.
+ *
+ * Only the page number counts. A sort, a filter or a search shows the same
+ * products in another order or fewer of them, so an address with any of
+ * those still names the clean list, page 1, as before. The marks a link
+ * carries from an ad or a newsletter (utm_*, gclid, fbclid...) are not part
+ * of the page and change nothing.
+ */
+const TRACKING_PARAM = /^(?:utm_[a-z0-9_]+|gclid|gbraid|wbraid|dclid|fbclid|msclkid|ttclid|twclid|igshid|mc_cid|mc_eid|srsltid|_ga|_gl|ref)$/i
+
+/** The page number an address names as its own canonical: N for ?page=N alone (N > 1), else 1. */
+export function canonicalPageOf(asked: URLSearchParams | Record<string, string | string[] | undefined> | null | undefined): number {
+  if (!asked) return 1
+  const pairs: [string, string][] =
+    asked instanceof URLSearchParams
+      ? [...asked.entries()]
+      : Object.entries(asked).flatMap(([k, v]) => (v === undefined ? [] : (Array.isArray(v) ? v : [v]).map((x) => [k, String(x)] as [string, string])))
+  let page = 1
+  let pages = 0
+  for (const [k, v] of pairs) {
+    if (k === "page") {
+      pages++
+      /* Digits only: "2abc" or "1e3" is not a page of the list. */
+      page = /^\d{1,4}$/.test(v.trim()) ? Number(v.trim()) : NaN
+    } else if (!TRACKING_PARAM.test(k)) return 1
+  }
+  return pages === 1 && Number.isInteger(page) && page > 1 ? page : 1
+}
+
+/** `?page=N` for a list's page past the first, as its canonical carries it; "" for page 1. */
+export function pageQuery(page: number): string {
+  return Number.isInteger(page) && page > 1 ? `?page=${page}` : ""
+}
+
+/**
+ * Whether ?page= asks for a page past the list's last (round 45): the shop
+ * and a collection answer it with a 404 rather than drawing their last page
+ * again at a new address for every number a crawler tries.
+ */
+export function pastLastPage(value: unknown, pages: number): boolean {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === undefined || raw === null || raw === "") return false
+  const n = Math.floor(Number(raw))
+  return Number.isFinite(n) && n > Math.max(1, pages)
+}
+
 const escapeHtmlText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
 /**

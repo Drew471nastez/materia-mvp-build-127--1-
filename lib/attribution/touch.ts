@@ -33,6 +33,7 @@
 
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "@/lib/analytics/sources"
 import { cleanHost, cleanUtm } from "@/lib/orders/order-source"
+import { aiSourceOf, type AiSourceKey } from "./ai-sources"
 
 /** The query parameter a link to checkout carries the touches in. Read once by checkout and removed. */
 export const CARRY_PARAM = "sl_at"
@@ -70,6 +71,13 @@ export interface Touch {
   landing_host?: string
   property_type?: PropertyType
   client_app?: string
+  /**
+   * The AI assistant the visit came from, when its referrer or utm_source
+   * names one (lib/attribution/ai-sources). Worked out again here every time
+   * a touch is read, like `source`, and never carried on the wire. Absent
+   * for most visits from an assistant: those arrive with no referrer.
+   */
+  ai_source?: AiSourceKey
   /** Milliseconds since the epoch. */
   at: number
 }
@@ -129,6 +137,8 @@ export function cleanTouch(input: unknown): Touch | null {
   const a = app(raw.client_app)
   if (a) t.client_app = a
   t.source = categorizeServerSource(t.referrer_host ?? null, t.utm_source ?? null, t.utm_medium ?? null, t.client_app ?? null)
+  const ai = aiSourceOf({ referrerHost: t.referrer_host, utmSource: t.utm_source })
+  if (ai) t.ai_source = ai.key
   return t
 }
 
@@ -374,6 +384,7 @@ export function storedTouch(t: Touch | null | undefined): Record<string, string>
     const v = t[key]
     if (typeof v === "string" && v) out[key] = v
   }
+  if (t.ai_source) out.ai_source = t.ai_source
   out.at = new Date(t.at).toISOString()
   return out
 }

@@ -213,6 +213,7 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
             <Unread reason={reasonFor(p, "views, 30 days")} />
           )}
         </Panel>
+        <AiAssistantsPanel ai={data.ai} problems={p} />
         <Panel title="Countries" meta="By sales, then views">
           {data.countries ? (
             <DataList
@@ -233,6 +234,43 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
         </Panel>
       </div>
     </div>
+  )
+}
+
+/**
+ * THE AI ASSISTANTS GROUP. Visits whose referrer or utm_source names an
+ * assistant, Storelib accounts whose sign up visit did, and which of those
+ * stores pay or sell (lib/attribution/ai-funnel). Most visits from an
+ * assistant carry no referrer and are Direct above, so this is a floor,
+ * never the whole of it, and the panel says so.
+ */
+function AiAssistantsPanel({ ai, problems }: { ai: AudiencePayload["ai"]; problems: AudiencePayload["problems"] }) {
+  return (
+    <Panel title="AI assistants" meta="AI-referred (where the source is known)">
+      {ai ? (
+        <div data-ai-assistants>
+          <DataList
+            label="AI assistants"
+            rows={ai.rows}
+            rowKey={(r) => r.key}
+            empty="No visit or sign up in the last 30 days named an AI assistant."
+            columns={[
+              { key: "label", label: "Assistant", width: "minmax(0,1fr)", phone: "primary", render: (r) => r.label },
+              { key: "views", label: "Views", width: "76px", align: "right", render: (r) => `${num(r.views)} views` },
+              { key: "signups", label: "Sign ups", width: "84px", align: "right", phone: "end", render: (r) => `${num(r.signups)} sign ups` },
+              { key: "paid", label: "Paid plan", width: "84px", align: "right", render: (r) => `${num(r.paidPlan)} paid` },
+              { key: "sale", label: "Has a sale", width: "84px", align: "right", render: (r) => `${num(r.hasSale)} selling` },
+            ]}
+          />
+          <p className="border-t border-white/[0.06] px-4 py-3 text-[12px] leading-5 text-[#9b9ba6]">
+            {num(ai.views)} views from {num(ai.visitors)} visitors and {num(ai.signups)} of {ai.signupsAll === null ? "the" : num(ai.signupsAll)} Storelib sign ups in 30 days named an assistant; {num(ai.paidPlan)} of those stores are on a paid plan and {num(ai.hasSale)} have a sale.
+            {" "}Views are storefront page views; a sign up is credited to the last visit that named an assistant. Most visits from an assistant arrive with no referrer and count as Direct, so these are the ones whose source is known, not all of them.
+          </p>
+        </div>
+      ) : (
+        <Unread reason={reasonFor(problems, "views, 30 days", "AI sign ups")} />
+      )}
+    </Panel>
   )
 }
 

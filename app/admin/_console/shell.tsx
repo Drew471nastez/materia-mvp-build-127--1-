@@ -48,7 +48,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
   {
     group: "Storelib",
     items: [
-      { href: "/admin/blog/dashboard", label: "Blog" },
+      { href: "/admin/blog", label: "Blog" },
       { href: "/admin/blog/seo", label: "Search and moderation" },
       { href: "/admin/seo", label: "SEO status" },
       { href: "/admin/resolution", label: "Resolution center" },
