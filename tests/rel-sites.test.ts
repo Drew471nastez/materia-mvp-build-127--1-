@@ -14,6 +14,7 @@
  *   Theme publish                     a cancelled publish (57014, PGRST002) is asked once more; two minutes, stated
  *   AI spend limits                   a count that cannot be read refuses the run (503, Try again), never unlimited
  *   Draft theme assets                the unpublished file only with the install's signed pass; published files untouched
+ *   Theme sites' last good copy       kept by use, not by arrival; held name/install entries named to outlive a deploy
  *
  * Every true "missing" answer stays what it was.
  */
@@ -546,6 +547,27 @@ async function draftAssets() {
   check("the draft settings drawn into a .css.liquid follow the same pass", /const draft = asked\.draft && isDraftAssetPass\(installId, asked\.pass\)/.test(route) && /installFiles\(admin, installId, draft\)/.test(route) && /const settings = \(draft \? s\?\.draft_settings/.test(route))
 }
 
+async function lastGoodCopies() {
+  console.log("\nG. A theme site's last good copy is there for the sites being visited (production: 716 unavailable vs 199 served)")
+  const { LastGood, keyedAs } = await import("@/lib/website-builder/last-good")
+  const held = new LastGood<string>(3)
+  held.remember("popular", "p")
+  held.remember("b", "b")
+  held.remember("c", "c")
+  held.get("popular")
+  held.remember("d", "d")
+  check("a site still being visited is kept when newer ones arrive (first in, first out dropped it)", held.get("popular") === "p" && held.get("b") === undefined && held.size === 3)
+  held.remember("c", "c2")
+  check("  a fresh copy replaces the old one", held.get("c") === "c2")
+  const a = keyedAs("site-name:v1", (n: string) => `x${n}`)
+  const b = keyedAs("site-name:v1", (n: string) => `y${n}`)
+  check("a held entry is named by its label, not its (minified) text, and still runs its function", a.toString() === b.toString() && a.toString() === "storelib-held:site-name:v1" && a("1") === "x1")
+  const published = read("lib/website-builder/published-site.ts")
+  const compat = read("lib/website-builder/compat-site.ts")
+  check("the name lookup and the published install are held under fixed names", /unstable_cache\(keyedAs\("site-name:v1", \(\) => lookUpName\(lower\)\), \["site-name", lower\]/.test(published) && /\(v\) => v === null, "compat-install:v1"\)/.test(compat))
+  check("both last good maps keep by use", /new LastGood<ShopLookup>\(500\)/.test(published) && /new LastGood<SiteData>\(200\)/.test(compat) && !/lastGood(Site)?\.keys\(\)\.next\(\)/.test(published + compat))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -557,6 +579,7 @@ async function run() {
     await themePublish()
     await aiLimits()
     await draftAssets()
+    await lastGoodCopies()
   } finally {
     globalThis.fetch = realFetch
   }

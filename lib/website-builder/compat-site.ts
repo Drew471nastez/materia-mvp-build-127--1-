@@ -59,6 +59,7 @@ import { liveRelease, releaseFiles } from "./site-releases-server"
 import { pageRowsOf, settingsRowOf } from "./site-releases"
 import { siteIconUrl } from "./site-icon"
 import { draftAssetPass } from "./draft-asset-pass"
+import { LastGood, keyedAs } from "./last-good"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
 
@@ -259,17 +260,19 @@ function withSoldCounts<T extends { id: string; settings: Record<string, unknown
   return cards.map((c) => (typeof sold[c.id] === "number" ? { ...c, settings: { ...c.settings, sold_count: sold[c.id] } } : c))
 }
 
-async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean): Promise<T> {
+/* `stable`: the entry's name for the data cache, kept across deploys (./last-good.ts keyedAs); without one, the function's text, as before. */
+async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean, stable?: string): Promise<T> {
   let passed: { v: T } | null = null
+  const held = async () => {
+    const v = await read()
+    if (skip(v)) {
+      passed = { v }
+      throw NOT_HELD
+    }
+    return v
+  }
   try {
-    return await unstable_cache(async () => {
-      const v = await read()
-      if (skip(v)) {
-        passed = { v }
-        throw NOT_HELD
-      }
-      return v
-    }, key, { tags, revalidate: seconds })()
+    return await unstable_cache(stable ? keyedAs(stable, held) : held, key, { tags, revalidate: seconds })()
   } catch (e) {
     if (e === NOT_HELD && passed) return (passed as { v: T }).v
     throw e
@@ -307,15 +310,14 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  * (the database did not answer) serves the site as it last was. A preview
  * is never kept or served from here.
  */
-const lastGoodSite = new Map<string, SiteData>()
+const lastGoodSite = new LastGood<SiteData>(200)
 
 export async function compatSiteByName(name: string, host: string, previewToken: string | null = null): Promise<CompatLookup> {
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
     if (found.kind === "site" && previewToken === null) {
-      if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
-      lastGoodSite.set(key, found.site)
+      lastGoodSite.remember(key, found.site)
     }
     return found
   } catch (e) {
@@ -354,7 +356,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
-    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null)
+    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null, "compat-install:v1")
   if (!install) return { kind: "missing" }
   const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
