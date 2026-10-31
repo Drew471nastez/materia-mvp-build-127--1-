@@ -43,6 +43,8 @@ const SUITES = [
   "tests/auth-email-code.test.ts",
   /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
   "tests/auth-refresh-outage.test.ts",
+  /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
+  "tests/auth-sync-session-get.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",
