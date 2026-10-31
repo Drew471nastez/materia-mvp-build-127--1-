@@ -458,6 +458,34 @@ async function publicFilesAskNoAuth() {
   /* The renewal /app started goes on retrying behind the answer: it keeps meeting the outage, never the network. */
 }
 
+/* ── EVD-5 ───────────────────────────────────────────────────────────────── */
+
+async function errorPagesTraced() {
+  console.log("\nEVD-5. The static error pages are in every server function's trace")
+  /* The build's own script, from the checkout (a plain .mjs that tsc does not compile). */
+  const { pathToFileURL } = await import("node:url")
+  const { traceErrorPages } = (await import(pathToFileURL(join(process.cwd(), "scripts/trace-error-pages.mjs")).href)) as { traceErrorPages: (d: string) => { pages: string[]; traces: number; changed: number } }
+  const { mkdirSync } = await import("node:fs")
+  const dist = mkdtempSync(join(tmpdir(), "sites2-dist-"))
+  const put = (p: string, body: string) => {
+    mkdirSync(join(dist, p, ".."), { recursive: true })
+    writeFileSync(join(dist, p), body)
+  }
+  put("server/pages-manifest.json", JSON.stringify({ "/404": "pages/404.html", "/500": "pages/500.html" }))
+  put("server/pages/500.html", "<!DOCTYPE html><title>500</title>")
+  put("server/pages/404.html", "<!DOCTYPE html><title>404</title>")
+  put("server/app/(site)/w/[username]/page.js.nft.json", JSON.stringify({ version: 1, files: ["../../../../chunks/ssr/a.js"] }))
+  put("server/app/api/site-theme/site/[username]/[[...path]]/route.js.nft.json", JSON.stringify({ version: 1, files: [] }))
+  put("next-minimal-server.js.nft.json", JSON.stringify({ version: 1, files: ["../node_modules/next/dist/server/next-server.js"] }))
+  const first = traceErrorPages(dist)
+  const page = JSON.parse(readFileSync(join(dist, "server/app/(site)/w/[username]/page.js.nft.json"), "utf8")).files as string[]
+  const minimal = JSON.parse(readFileSync(join(dist, "next-minimal-server.js.nft.json"), "utf8")).files as string[]
+  check("the /w page's trace names pages/500.html and 404.html by the path Next reads them from", page.includes("../../../../pages/500.html") && page.includes("../../../../pages/404.html") && page.includes("../../../../chunks/ssr/a.js"), page)
+  check("  and so does the minimal server's, and every route's", minimal.includes("server/pages/500.html") && first.changed === 3 && first.traces === 3, first)
+  check("  running it again changes nothing", traceErrorPages(dist).changed === 0)
+  check("the build runs it after next build (traces are written before the static pages exist)", /scripts\/build-next\.mjs && node scripts\/trace-error-pages\.mjs"/.test(read("package.json")))
+}
+
 function codeChecks() {
   console.log("\nEVD-1 d. Where the copies are kept, and what may go in")
   const compat = read("lib/website-builder/compat-site.ts")
@@ -494,6 +522,7 @@ async function run() {
     codeChecks()
     await gatewayAnswers()
     await publicFilesAskNoAuth()
+    await errorPagesTraced()
   } finally {
     void realFetch
     console.error = realError
