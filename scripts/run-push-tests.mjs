@@ -41,6 +41,8 @@ const SUITES = [
   "tests/auth-reliability.test.ts",
   /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
   "tests/auth-email-code.test.ts",
+  /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
+  "tests/auth-refresh-outage.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",
