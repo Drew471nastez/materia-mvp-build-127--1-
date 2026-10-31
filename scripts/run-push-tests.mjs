@@ -47,6 +47,8 @@ const SUITES = [
   "tests/auth-sync-session-get.test.ts",
   /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */
   "tests/device-code-guard.test.ts",
+  /* Round rel-security (F2): the admin login is limited per caller address and warns loudly while its fallback credential is in use (the owner's fallback is kept). */
+  "tests/admin-login-limit.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
   "tests/live-speed-view.test.ts",
