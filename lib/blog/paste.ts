@@ -72,6 +72,8 @@ export function inlineHtmlOf(node: Node): string {
   if (italic) out = `<i>${out}</i>`
   if (bold) out = `<b>${out}</b>`
   if (tag === "a") {
+    /* A link's underline is how the document drew links, not emphasis. */
+    out = out.replace(/^<u>([\s\S]*)<\/u>$/, "$1")
     const href = el.getAttribute("href")
     if (href && !/^#/.test(href)) {
       /* Google Docs sends every link through google.com/url?q=; the real address is the q. */
