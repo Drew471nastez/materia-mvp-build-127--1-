@@ -16,6 +16,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { cleanRequestId, requestIdFrom } from "@/lib/net/request-id"
 import { reportError, recordCronRun } from "@/lib/observability/report"
+import { logEvent, logLine } from "@/lib/net/log"
+import { startPhaseTimer, PHASE_SLOW_MS } from "@/lib/perf/phase-timer"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -135,6 +137,50 @@ async function main() {
     const proxy = code("proxy.ts")
     check("the proxy still sends the id on and back on every response", /request\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy) && /res\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy))
     check("reportError never reads next/headers itself (a cached page would turn dynamic)", !/next\/headers/.test(code("lib/observability/report.ts")))
+  }
+
+  console.log("\nLog lines at their real level, as one JSON line")
+  {
+    const seen: { level: string; line: string }[] = []
+    const real = { info: console.info, warn: console.warn, error: console.error }
+    console.info = (l: unknown) => void seen.push({ level: "info", line: String(l) })
+    console.warn = (l: unknown) => void seen.push({ level: "warn", line: String(l) })
+    console.error = (l: unknown) => void seen.push({ level: "error", line: String(l) })
+    logEvent("info", "translate_models_changed", { provider: "gemini", models: "a, b" })
+    logEvent("warn", "rate_limit_count_failed", { bucket: "x", reason: "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3OCJ9.c2lnbmF0dXJlLXZhbHVl from someone@example.com" })
+    logEvent("info", "cron_scheduled_emails_done", { campaigns: { sent: 2, failed: 0 }, engine: { outcomes: { done: 1 } } })
+    const timer = startPhaseTimer("product-timing", "a-slug")
+    timer.mark("variants")
+    timer.done({ client: 1 })
+    console.info = real.info
+    console.warn = real.warn
+    console.error = real.error
+    const parsed = seen.map((s) => ({ ...s, json: (() => { try { return JSON.parse(s.line) } catch { return null } })() }))
+    check("info goes to console.info", parsed[0]?.level === "info" && parsed[0]?.json?.evt === "translate_models_changed", parsed[0])
+    check("warn goes to console.warn, with no token or address in it", parsed[1]?.level === "warn" && !/eyJ|someone@/.test(parsed[1]?.line ?? "") && /\[jwt\]/.test(parsed[1]?.line ?? ""), parsed[1])
+    check("a job's counts stay one line, nested", parsed[2]?.json?.campaigns?.sent === 2 && parsed[2]?.json?.engine?.outcomes?.done === 1 && !parsed[2].line.includes("\n"))
+    check("the product page timing is one JSON line at info when fast", parsed[3]?.level === "info" && parsed[3]?.json?.evt === "phase_timing" && parsed[3]?.json?.id === "a-slug" && typeof parsed[3]?.json?.variants === "number" && parsed[3]?.json?.client === 1, parsed[3])
+    check("and a warning at or past the slow mark", PHASE_SLOW_MS === 3000 && /total >= PHASE_SLOW_MS \? "warn" : "info"/.test(code("lib/perf/phase-timer.ts")))
+    check("logLine keeps its old flat shape", logLine("x", { a: "b", n: 1, z: undefined }) === '{"evt":"x","a":"b","n":1,"z":null}')
+
+    /* The noisiest or misleveled lines in production (Vercel runtime logs, 24h to 2026-10-31): each now a logEvent at its level. */
+    const moved: [string, RegExp][] = [
+      ["lib/markets/open-translate.ts", /logEvent\("info", "translate_models_changed", \{ msg: "\[translate\] gemini models/],
+      ["lib/markets/open-translate.ts", /logEvent\("info", "translate_models_changed", \{ msg: "\[translate\] cloudflare models/],
+      ["lib/website-builder/compat-site.ts", /logEvent\("warn", "site_last_good_served"/],
+      ["lib/website-builder/published-site.ts", /logEvent\("warn", "site_last_good_served"/],
+      ["lib/website-builder/site-releases-server.ts", /logEvent\("warn", "site_release_pointer_unread"/],
+      ["app/api/stripe/webhook/route.ts", /logEvent\("info", "stripe_payment_failed"/],
+      ["app/api/stripe/webhook/route.ts", /logEvent\("warn", "stripe_invoice_payment_failed"/],
+      ["lib/api/rate-limit.ts", /logEvent\("warn", "rate_limit_count_failed"/],
+      ["app/(marketing)/explore/page.tsx", /logEvent\("warn", "explore_creators_embed_refused"/],
+      ["lib/physical/unconfirmed-delivery-server.ts", /logEvent\("error", "physical_unconfirmed_unread", \{[^\n]*reason:/],
+      ["lib/markets/auto-translate.ts", /logEvent\("error", "auto_translate_list_failed", \{[^\n]*reason:/],
+      ["app/api/cron/process-scheduled-emails/route.ts", /logEvent\("info", "cron_scheduled_emails_done"/],
+      ["lib/perf/phase-timer.ts", /"phase_timing"/],
+    ]
+    for (const [p, re] of moved) check(`${p}: ${re.source.slice(0, 60)}`, re.test(code(p)))
+    check("no model list at error level any more", !/console\.error\(`\[translate\] (gemini|cloudflare) models for translating now/.test(code("lib/markets/open-translate.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

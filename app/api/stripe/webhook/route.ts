@@ -36,6 +36,7 @@ import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-or
 import { resolveCreatorForSubscription, stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
 import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
 import { recordPaidPlan } from "@/lib/billing/plan-override"
+import { logEvent } from "@/lib/net/log"
 
 export const runtime = "nodejs"
 /*
@@ -979,7 +980,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.code ?? "")
+    /* A declined card is the buyer's bank saying no, not a fault here: info. Stripe ids only, no card or person. */
+    logEvent("info", "stripe_payment_failed", { msg: "[Webhook] Payment failed", paymentIntent: pi.id, code: pi.last_payment_error?.code ?? null, eventId: event.id })
     /*
       PAYMENT FAILED, for an order that ships: the buyer is told half an hour
       later if they still haven't paid (lib/physical/jobs-server
@@ -1182,7 +1184,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
-    console.log("[Invoice] Payment failed:", invoice.id)
+    /* A renewal that did not go through: the creator's plan is at risk, worth a warning. */
+    logEvent("warn", "stripe_invoice_payment_failed", { msg: "[Invoice] Payment failed", invoice: invoice.id ?? null, eventId: event.id })
     /* NEWER STRIPE API VERSIONS MOVED THE SUBSCRIPTION ONTO invoice.parent.
        Read it from either place, so a plan renewal is never mistaken for a
        one-off invoice whichever version the webhook endpoint sends. */

@@ -200,7 +200,7 @@ can be looked up. The same id is in:
 | --- | --- |
 | An error row in `error_events` (Admin, Health, Errors) | `last_context.rid`, for errors from `onRequestError`, the scheduled jobs, both Stripe webhooks, `/api/client-errors` and membership checkout |
 | The `[source] where: message` log line `reportError` writes | `(rid ...)` at its end |
-| JSON log lines from `lib/net/log.ts` (`logLine`, `logServiceFailure`) and the proxy | `"rid"` |
+| JSON log lines from `lib/net/log.ts` (`logLine`, `logEvent`, `logServiceFailure`) and the proxy | `"rid"` |
 | Notification events, jobs and deliveries | `correlation_id` |
 
 Search Vercel's logs (Observability, Logs) for the id to see every line of
@@ -210,6 +210,32 @@ characters) is dropped. `reportError` does not read the request's headers by
 itself (that would turn a cached page dynamic): a caller passes
 `requestId: requestIdFrom(request.headers)`. Errors raised deep in a library
 with no request at hand are written without one.
+
+### Log levels
+
+`logEvent(level, evt, fields)` in `lib/net/log.ts` writes one JSON line at
+its real level, with nothing private in it (tokens, keys and addresses are
+cut). Vercel's log filters by level, so a line that is informational but
+written as an error hides the real errors. The lines that were the most
+frequent or at the wrong level in production (24 hours to 2026-10-31) now
+go through it:
+
+| `evt` | Level | Was |
+| --- | --- | --- |
+| `translate_models_changed` | info | `[translate] gemini/cloudflare models for translating now`, at error |
+| `site_last_good_served` | warn | `[compat-site]` / `[published-site] served the last good copy`, at error (the visitor got a page) |
+| `site_release_pointer_unread` | warn | `[site-releases] the live release could not be read, drawing from the rows`, at error |
+| `rate_limit_count_failed` | warn | `[rate-limit] counting failed, allowing`, at error |
+| `explore_creators_embed_refused` | warn | `[ExplorePage] Creators embed refused`, at error |
+| `stripe_payment_failed` | info | `[Webhook] Payment failed` (a declined card), at error |
+| `stripe_invoice_payment_failed` | warn | `[Invoice] Payment failed`, at info |
+| `physical_unconfirmed_unread` | error | `[physical] unconfirmed deliveries not read: undefined` (now with the reason) |
+| `auto_translate_list_failed` | error | `[auto-translate] could not list the changed stores` (now with the reason) |
+| `cron_scheduled_emails_done` | info | a pretty-printed object over about thirty lines |
+| `phase_timing` | info, warn from 3 s | `[product-timing] id=... total=...`, one per product page render |
+
+Each line keeps the old text in `msg`, so an old search still finds it.
+Lines that mean a visitor got no page (`site unavailable`) stay errors.
 
 Known gap: where the proxy answers with a plain `NextResponse.next()` (no
 `{ request }`), the route does not see an id the proxy made up. On Vercel

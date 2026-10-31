@@ -12,6 +12,7 @@ import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
 import { recordCronRun } from "@/lib/observability/report"
 import { runCourseEmails } from "@/lib/courses/emails"
 import { sweepReviewRequests } from "@/lib/reviews/requests-server"
+import { logEvent, type LogValue } from "@/lib/net/log"
 
 /**
  * ===========================================================================
@@ -198,7 +199,8 @@ async function runJob(request: Request) {
     () => ({ data: null }),
   )
 
-  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy, reviews, courses })
+  /* One JSON line of counts (it was a pretty-printed object over thirty log lines). */
+  logEvent("info", "cron_scheduled_emails_done", { campaigns, abandoned, engine, legacy, reviews, courses } as unknown as Record<string, LogValue>)
   return NextResponse.json({
     campaigns,
     abandoned,
