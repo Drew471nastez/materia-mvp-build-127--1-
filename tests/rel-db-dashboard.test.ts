@@ -366,7 +366,7 @@ function sqlPart() {
   check("  each line of the part is one whole statement", part.trim().split("\n").slice(1, -1).every((l) => /^DO \$do\$[\s\S]*END \$do\$;$/.test(l)) && part.trimEnd().endsWith("notify pgrst, 'reload schema';"))
   check("  additive only: no drop, no row change, no policy", !/\b(DROP|DELETE|UPDATE|ALTER TABLE|POLICY)\b/i.test(part.replace(/\/\*[\s\S]*?\*\//, "")))
   check("the migration is a byte copy", readFileSync("supabase/migrations/20271103_buyer_email_trigram_indexes.sql", "utf8") === part)
-  check("the README has its row and the check after its column", /\| `349_buyer_email_trigram_indexes\.sql` \|/.test(readFileSync("supabase/sql/run-now/README.md", "utf8")) && /as p349_buyer_email_trigram_indexes;/.test(readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8")))
+  check("the README has its row and the check after its column", /\| `349_buyer_email_trigram_indexes\.sql` \|/.test(readFileSync("supabase/sql/run-now/README.md", "utf8")) && /as p349_buyer_email_trigram_indexes[,;]/.test(readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8")))
   check("  and the bundles carry it", /part 349: orders_buyer_email_trgm_idx skipped/.test(readFileSync("supabase/sql/run-four/3_of_4_latest.sql", "utf8")))
 }
 
