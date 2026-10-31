@@ -138,6 +138,8 @@ export interface PublicFetchOptions {
   /** For the whole of one request, connecting included. */
   timeoutMs?: number
   maxRedirects?: number
+  /** Refuse any address, the first or a redirect's, that is not https (the blog's Copy to Storelib, lib/blog/copy-image.ts). */
+  httpsOnly?: boolean
   /**
    * Origins of this platform's own services, asked even when they are not
    * public: the storage the uploads live in is `localhost` in development.
@@ -227,7 +229,7 @@ export async function fetchPublic(raw: string, opts: PublicFetchOptions): Promis
       /* publicUrlProblem says why */
     }
     const trusted = !!origin && (opts.trustOrigins ?? []).includes(origin)
-    const problem = trusted ? null : publicUrlProblem(current)
+    const problem = trusted ? null : opts.httpsOnly && !/^https:/i.test(current) ? "not https" : publicUrlProblem(current)
     if (problem) throw new Error(`Refused: ${problem}`)
     const answer = await once(new URL(current), opts, trusted)
     if ("response" in answer) return answer.response

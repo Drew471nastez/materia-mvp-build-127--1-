@@ -7,6 +7,7 @@ import { Button, ConfirmDialog, cx } from "@/app/admin/_console/ui"
 import type { Block } from "@/lib/blog/blocks"
 import type { AdminPostView, BlogAuthor, BlogCategory, BlogSnippet } from "@/lib/blog/admin-store"
 import { META_DESCRIPTION_LIMIT, SEO_TITLE_LIMIT, emptyMeta, readTimeFor, slugify, type PostMeta } from "@/lib/blog/editor-model"
+import { externalImagesOf, hostList, replaceImageUrls, type ExternalImage } from "@/lib/blog/external-images"
 
 import { BlogBar, Field, Needs345, PostStatusDot, Section, Switch, field, formatAgo, formatWhen, toLocalInput } from "../_ui"
 
@@ -282,6 +283,42 @@ export default function BlogPostEditorClient({ initial, full, categories, author
     return data.url as string
   }
 
+  /*
+    COPY TO STORELIB. Each picture from another site is downloaded by the
+    server (app/api/admin/blog/copy-image) one at a time and its new address
+    put in place; the post then saves as any edit does.
+  */
+  const [copyBusy, setCopyBusy] = React.useState<{ done: number; of: number } | null>(null)
+  const [copyErrors, setCopyErrors] = React.useState<{ url: string; error: string }[]>([])
+  const externals = React.useMemo(() => externalImagesOf(meta, blocks), [meta, blocks])
+  async function copyToStorelib(list: ExternalImage[]) {
+    const moved = new Map<string, string>()
+    const errors: { url: string; error: string }[] = []
+    for (const [i, img] of list.entries()) {
+      setCopyBusy({ done: i, of: list.length })
+      try {
+        const res = await fetch("/api/admin/blog/copy-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: img.url }) })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && typeof data.url === "string") moved.set(img.url, data.url)
+        else errors.push({ url: img.url, error: typeof data.error === "string" ? data.error : "That did not work." })
+      } catch {
+        errors.push({ url: img.url, error: "No connection." })
+      }
+    }
+    setCopyBusy(null)
+    setCopyErrors(errors)
+    if (!moved.size) return
+    const next = replaceImageUrls(metaRef.current, blocksRef.current, moved)
+    metaRef.current = next.meta
+    blocksRef.current = next.blocks
+    setMetaState(next.meta)
+    setBlocksState(next.blocks)
+    setEditorKey((k) => k + 1)
+    touched()
+    const n = moved.size === 1 ? "1 picture" : `${moved.size} pictures`
+    flash(autosaves ? `Copied ${n} to Storelib.` : `Copied ${n} to Storelib. Update makes it live.`)
+  }
+
   async function openPreview() {
     const w = window.open("about:blank", "_blank")
     if (autosaves && (editSeq.current !== savedSeq.current || !idRef.current)) await queue("autosave")
@@ -412,6 +449,7 @@ export default function BlogPostEditorClient({ initial, full, categories, author
               ) : null}
             </div>
             {!autosaves ? <p className="mb-5 rounded-[8px] border border-[#d4a72c]/30 px-3 py-2 text-[12px] text-[#d4a72c]">This post is live, so changes save only on Update. {short345(note345)} to save drafts of live posts as you type.</p> : null}
+            {externals.length || copyErrors.length ? <ExternalImagesNotice images={externals} busy={copyBusy} errors={copyErrors} onCopy={() => copyToStorelib(externals)} /> : null}
             <TitleField value={meta.title} onChange={onTitle} />
             <BlogEditor key={editorKey} blocks={blocks} onChange={setBlocks} onUpload={upload} snippets={snippets} snippetsNote={full ? null : `Snippets: ${note345}`} />
           </div>
@@ -741,6 +779,36 @@ function TagsField({ value, suggestions, onChange }: { value: string[]; suggesti
         </datalist>
       </div>
       <span className="mt-1 block text-[12px] text-[#6b6b76]">Enter or a comma adds one.</span>
+    </div>
+  )
+}
+
+/** Pictures linked from other sites: which, where, and Copy to Storelib. */
+function ExternalImagesNotice({ images, busy, errors, onCopy }: { images: ExternalImage[]; busy: { done: number; of: number } | null; errors: { url: string; error: string }[]; onCopy: () => void }) {
+  const where = (img: ExternalImage) => img.where.map((w) => (w === "cover" ? "featured image" : w === "share" ? "share image" : "article"))
+  const places = [...new Set(images.flatMap(where))]
+  const count = images.length === 1 ? "1 picture is" : `${images.length} pictures are`
+  return (
+    <div role="status" className="mb-5 rounded-[8px] border border-[#d4a72c]/30 px-3 py-2.5 text-[12px] leading-[18px]" data-external-images={images.length}>
+      {images.length ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="min-w-0 flex-1 basis-[260px] text-[#d4a72c]">
+            {count} linked from {hostList(images)} ({places.join(", ")}). The other site can change or remove {images.length === 1 ? "it" : "them"} at any time.
+          </p>
+          <Button variant="plain" onClick={onCopy} disabled={busy !== null}>
+            {busy ? `Copying ${busy.done + 1} of ${busy.of}…` : "Copy to Storelib"}
+          </Button>
+        </div>
+      ) : null}
+      {errors.length ? (
+        <ul className={cx("space-y-0.5 text-[#f47067]", images.length > 0 && "mt-2")}>
+          {errors.map((e) => (
+            <li key={e.url} className="min-w-0 break-words">
+              {e.url.replace(/^https?:\/\//, "").slice(0, 60)}: {e.error}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }

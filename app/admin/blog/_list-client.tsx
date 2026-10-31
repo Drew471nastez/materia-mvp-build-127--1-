@@ -12,8 +12,26 @@ import { BlogBar, PostStatusDot, formatAgo, formatWhen, inline } from "./_ui"
  * The blog's posts, as the server read them (app/admin/blog/page.tsx).
  * Search, the status, category and author filters and the sort all run
  * over the rows already here, so each is instant. Ticking rows offers
- * Publish and Unpublish for all of them at once.
+ * Publish and Unpublish for all of them at once, and Copy external images:
+ * every picture the ticked posts link from another site, copied into
+ * Storelib (app/api/admin/blog/copy-image), one post after another, with
+ * what happened to each post listed when it is done.
  */
+
+interface CopyReport {
+  id: string
+  title: string
+  copied: number
+  failed: { url: string; error: string }[]
+  none?: boolean
+  error?: string
+}
+
+function copyLine(r: CopyReport): string {
+  if (r.error) return r.error
+  if (r.none) return "No pictures from other sites."
+  return [r.copied ? `${r.copied} copied.` : "", r.failed.length ? `${r.failed.length} not copied: ${r.failed[0].error}` : ""].filter(Boolean).join(" ")
+}
 
 type StatusFilter = "all" | "draft" | "scheduled" | "published"
 type Sort = "edited" | "published" | "title" | "views"
@@ -36,6 +54,8 @@ export default function BlogListClient({ rows, error, categories, authors, full,
   const [busy, setBusy] = React.useState<string | null>(null)
   const [message, setMessage] = React.useState<{ tone: "good" | "bad"; text: string } | null>(null)
   const [deleting, setDeleting] = React.useState<AdminListRow | null>(null)
+  const [copying, setCopying] = React.useState<{ done: number; of: number } | null>(null)
+  const [copyReports, setCopyReports] = React.useState<CopyReport[] | null>(null)
   const [, startTransition] = React.useTransition()
 
   const counts = React.useMemo(() => {
@@ -86,6 +106,32 @@ export default function BlogListClient({ rows, error, categories, authors, full,
     setMessage(failed.length ? { tone: "bad", text: `${done} done. ${failed.length} could not be changed: ${failed[0].error}` } : { tone: "good", text: `${done === 1 ? "1 post" : `${done} posts`} ${action === "publish" ? "published" : "unpublished"}.` })
     setPicked(new Set())
     startTransition(() => router.refresh())
+  }
+
+  /* One post a request, in turn: each post's pictures are fetched one by one, and a request has only so long. */
+  async function copyImages() {
+    const ids = [...picked]
+    setBusy("copy")
+    setMessage(null)
+    setCopyReports(null)
+    const reports: CopyReport[] = []
+    for (const [i, id] of ids.entries()) {
+      setCopying({ done: i, of: ids.length })
+      const title = rows.find((r) => r.id === id)?.title ?? ""
+      try {
+        const res = await fetch("/api/admin/blog/copy-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [id] }) })
+        const data = await res.json().catch(() => ({}))
+        const got = Array.isArray(data.results) ? (data.results[0] as CopyReport | undefined) : undefined
+        reports.push(got ? { ...got, title: got.title || title } : { id, title, copied: 0, failed: [], error: typeof data.error === "string" ? data.error : "That did not work." })
+      } catch {
+        reports.push({ id, title, copied: 0, failed: [], error: "No connection. Nothing was changed." })
+      }
+      setCopyReports([...reports])
+    }
+    setCopying(null)
+    setBusy(null)
+    setPicked(new Set())
+    if (reports.some((r) => r.copied)) startTransition(() => router.refresh())
   }
 
   async function remove(row: AdminListRow) {
@@ -164,6 +210,28 @@ export default function BlogListClient({ rows, error, categories, authors, full,
           </p>
         ) : null}
         {error ? <p className="rounded-[10px] border border-[#f47067]/40 px-4 py-2.5 text-[13px] text-[#f47067]">{error}</p> : null}
+        {copyReports ? (
+          <section aria-label="Copy external images" className="rounded-[10px] border border-white/[0.08] px-4 py-2.5" data-copy-report="">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[13px] font-medium">{copying ? `Copying pictures: ${copyReports.length} of ${copying.of} posts done` : `Copied pictures for ${copyReports.length === 1 ? "1 post" : `${copyReports.length} posts`}`}</p>
+              {!copying ? (
+                <Button variant="quiet" onClick={() => setCopyReports(null)}>
+                  Close
+                </Button>
+              ) : null}
+            </div>
+            <ul className="mt-1.5 space-y-1 text-[13px]">
+              {copyReports.map((r) => (
+                <li key={r.id} className="flex min-w-0 gap-2">
+                  <span className={cx("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", r.error || (r.failed.length && !r.copied) ? "bg-[#f47067]" : r.failed.length ? "bg-[#d4a72c]" : r.copied ? "bg-[#3fb950]" : "bg-[#6b6b76]")} aria-hidden />
+                  <span className="min-w-0">
+                    <span className="text-[#ededf0]">{r.title || "Untitled"}</span> <span className="text-[#9b9ba6]">{copyLine(r)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#111116]" aria-label="Posts">
           {picked.size ? (
@@ -174,6 +242,9 @@ export default function BlogListClient({ rows, error, categories, authors, full,
               </Button>
               <Button variant="plain" disabled={busy !== null || pickedRows.every((r) => r.status === "draft")} onClick={() => bulk("unpublish")}>
                 {busy === "unpublish" ? "Unpublishing…" : "Unpublish"}
+              </Button>
+              <Button variant="plain" disabled={busy !== null} onClick={copyImages}>
+                {busy === "copy" && copying ? `Copying ${copying.done + 1} of ${copying.of}…` : "Copy external images"}
               </Button>
               <Button variant="quiet" onClick={() => setPicked(new Set())} className="ml-auto">
                 Clear
