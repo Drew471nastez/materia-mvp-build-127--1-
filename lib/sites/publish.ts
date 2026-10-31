@@ -124,7 +124,7 @@ export async function publishPreflight(): Promise<string | null> {
  * silently move a page somebody has already linked to; changing the address is
  * a separate, deliberate action.
  */
-async function ensureSlug(site: Site): Promise<string> {
+export async function ensureSlug(site: Site): Promise<string> {
   if (site.slug && !siteSlugError(site.slug)) return site.slug
 
   const admin = createAdminClient()
@@ -135,10 +135,12 @@ async function ensureSlug(site: Site): Promise<string> {
      * would report every taken address as free — and then the unique index
      * would reject the insert with an error nobody could explain.
      */
-    const { count } = await admin
+    const { count, error } = await admin
       .from("sites")
       .select("id", { count: "exact", head: true })
       .eq("slug", candidate.toLowerCase())
+    /* A count that failed is not zero: the address is not known to be free, so the publish stops (fail closed). */
+    if (error) throw new SlugCheckFailed(error.message)
     if ((count ?? 0) > 0) return true
 
     /**
@@ -151,25 +153,38 @@ async function ensureSlug(site: Site): Promise<string> {
      * — and it would shadow the redirect that keeps that creator's old
      * subdomain links working.
      */
-    const { count: usernameCount } = await admin
+    const { count: usernameCount, error: usernameError } = await admin
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("username", candidate.toLowerCase())
+    if (usernameError) throw new SlugCheckFailed(usernameError.message)
     if ((usernameCount ?? 0) > 0) return true
 
     // ...and by creator slug, the OTHER way storelib.com/<name> resolves.
     // Reserving only usernames would leave every slug-addressed creator's
     // name free for a stranger to publish on.
-    const { count: creatorCount } = await admin
+    const { count: creatorCount, error: creatorError } = await admin
       .from("creators")
       .select("id", { count: "exact", head: true })
       .eq("slug", candidate.toLowerCase())
+    if (creatorError) throw new SlugCheckFailed(creatorError.message)
     return (creatorCount ?? 0) > 0
   })
 
-  await admin.from("sites").update({ slug }).eq("id", site.id)
+  /* Kept, or the next publish allocates again and the address moves. */
+  const { error: keepError } = await admin.from("sites").update({ slug }).eq("id", site.id)
+  if (keepError) throw new SlugCheckFailed(keepError.message)
   return slug
 }
+
+/** The address could not be checked or kept: the publish stops before anything goes up. */
+export class SlugCheckFailed extends Error {
+  constructor(why?: string) {
+    super(`site address check failed: ${why || "the read failed"}`)
+    this.name = "SlugCheckFailed"
+  }
+}
+export const SLUG_CHECK_FAILED = "Could not check this site's address right now, so nothing was published. Try again in a moment."
 
 /** The built site, as files ready to upload. */
 export async function buildStatic(
@@ -302,7 +317,14 @@ export async function publishSite(site: Site): Promise<PublishResult> {
     }
   }
 
-  const slug = await ensureSlug(site)
+  let slug: string
+  try {
+    slug = await ensureSlug(site)
+  } catch (e) {
+    if (!(e instanceof SlugCheckFailed)) throw e
+    console.error("[sites/publish] address not checked", { siteId: site.id, message: e.message })
+    return { ok: false, error: SLUG_CHECK_FAILED }
+  }
 
   const { data: created, error: createError } = await admin
     .from("site_deployments")

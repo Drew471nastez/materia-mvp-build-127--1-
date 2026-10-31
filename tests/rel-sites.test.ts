@@ -10,6 +10,7 @@
  *   Creator Pages (storelib.com/<h>)  a failed profile/creator read throws (error screen), never the gate's 308 or a 404
  *   OnePages (storelib.me/<name>)     a failed or slow lookup serves the last answer or throws, never "missing"
  *   AI site publish                   a switch that did not take puts the live version back
+ *   AI site address                   a check that failed is "taken" (fail closed), never "free"
  *
  * Every true "missing" answer stays what it was.
  */
@@ -404,6 +405,43 @@ async function aiSitePublish() {
   check("publishSite switches through goLive and checks the site row's update", /await goLive\(/.test(publish) && /if \(siteError\)/.test(publish))
 }
 
+async function slugCheck() {
+  console.log("\nE1. An AI site's address check that failed stops the publish (MEDIUM-2)")
+  const { ensureSlug, SlugCheckFailed } = await import("@/lib/sites/publish")
+  const head = (count: number) => new Response(null, { status: 200, headers: { "content-range": `*/${count}` } })
+  const site = { id: "s9", name: "Oscar", slug: null } as never
+  const thrown = async (f: () => Promise<unknown>) => f().then(() => null, (e: unknown) => e)
+  {
+    const calls = fakeSupabase({
+      sites: (_u, init) => ((init?.method ?? "GET").toUpperCase() === "PATCH" ? new Response(null, { status: 204 }) : head(0)),
+      profiles: () => new Response(null, { status: 500, statusText: "canceling statement due to statement timeout" }),
+      creators: () => head(0),
+    })
+    const e = await thrown(() => ensureSlug(site))
+    check("a creator-name count that failed stops the publish, never reads as free", e instanceof SlugCheckFailed, String(e))
+    check("  and no address is written", !calls.some((c) => c === "PATCH sites"), calls)
+  }
+  {
+    fakeSupabase({
+      sites: (_u, init) => ((init?.method ?? "GET").toUpperCase() === "PATCH" ? new Response(null, { status: 204 }) : head(0)),
+      profiles: (u) => head(u.searchParams.get("username") === "eq.oscar" ? 1 : 0),
+      creators: () => head(0),
+    })
+    const slug = await ensureSlug(site)
+    check("a name a creator has is still skipped for the next free one", slug === "oscar-2", slug)
+  }
+  {
+    fakeSupabase({
+      sites: (_u, init) => ((init?.method ?? "GET").toUpperCase() === "PATCH" ? json(500, { code: "57014", message: "timeout" }) : head(0)),
+      profiles: () => head(0),
+      creators: () => head(0),
+    })
+    const e = await thrown(() => ensureSlug(site))
+    check("an address that could not be kept stops the publish too (it would move on the next one)", e instanceof SlugCheckFailed, String(e))
+  }
+  check("publishSite answers the check's failure with Try again, not a 500", /if \(!\(e instanceof SlugCheckFailed\)\) throw e/.test(read("lib/sites/publish.ts")) && /return \{ ok: false, error: SLUG_CHECK_FAILED \}/.test(read("lib/sites/publish.ts")))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -411,6 +449,7 @@ async function run() {
     await creatorPages()
     await onePages()
     await aiSitePublish()
+    await slugCheck()
   } finally {
     globalThis.fetch = realFetch
   }
