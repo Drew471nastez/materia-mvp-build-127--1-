@@ -60,7 +60,7 @@ check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Li
 check("the photo stays (it opens the account sheet), the heart is gone", !/data-header-wishlist/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
 /* Round 3: Explore's hamburger is the navigator now, which carries no Library row and no search link, so there is nothing of the tab bar's to drop. */
 check("the menu there is the navigator: no My Library row and no search link to repeat the tab bar", /<PlaceNavigator\b/.test(header) && !/<MenuRow href="\/(account\/)?library"/.test(header) && !/isDiscoverProductContext && !tabsHere/.test(header))
-check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/account\/library" \|\| pathname\.startsWith\("\/account\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
+check("the search strip under the header: not with the tab bar, never on the library or the account", /\{(?:headerH > 0 && )?searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/account\/library" \|\| pathname\.startsWith\("\/account\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
 /* The strip is `fixed` at the foot of the header; a community's own tab row
    is `sticky` at the same offset, so the marketplace search landed on top of
    the community's spaces on a phone. Every /community address is out. */

@@ -2859,7 +2859,16 @@ export function PlatformHeaderClient({
       */}
       {/* Not where the tab bar is (its Search is the way in there), and
           never on the library, the account or inside a community. */}
-      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
+      {/*
+        AND NOT BEFORE THE BAR HAS BEEN MEASURED. headerH starts at 0, so the
+        strip was drawn at the top of the window and moved 63px down a frame
+        later, when the effect above measured the bar: a layout shift on
+        every phone load of a page that shows it (round 46, measured live on
+        /sell/digital-products: 0.010 CLS, "div.fixed.inset-x-0.z-[35] y0 ->
+        y63"). An element that first appears is not a shift; one that moves
+        is.
+      */}
+      {headerH > 0 && searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on

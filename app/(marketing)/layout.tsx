@@ -62,8 +62,13 @@ export default async function MarketingLayout({
       empty document, and everybody else saw a blank frame first.
     */
     <div className="flex min-h-svh flex-col marketing-flex-wrapper">
-      {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
-      <link rel="preconnect" href="https://cdn.sanity.io" />
+      {/*
+        No preconnect here. There was one to cdn.sanity.io, which nothing in
+        this codebase loads from (round 46: no source file names the host, and
+        the live HTML of every marketing page named it only in this link), so
+        every marketing page opened a DNS, TCP and TLS connection on a phone
+        for nothing, at the moment the page's own requests were starting.
+      */}
       <BodyScrollRestorer />
       {/* Nothing until a navigation has been slow for 220ms; see the
           component for why it cannot block and cannot get stuck. */}
