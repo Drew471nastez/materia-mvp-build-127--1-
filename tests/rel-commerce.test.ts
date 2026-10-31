@@ -27,6 +27,8 @@
  *      hours and applies refunds through refund-sync (database audit F8)
  *  10  the draft earnings summary reads every order of the year, a page at
  *      a time
+ *  11  the payouts page and route read their sales list and figures past
+ *      1,000 orders
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -41,6 +43,7 @@ import { forgetPayoutsRead, payoutsReadKey, readPayoutsKept } from "../lib/payme
 import { planCreatorSync, stripeListForSync, SYNC_MAX_PAGES } from "../lib/billing/subscription-sync"
 import { SUPABASE_DEADLINE_MS } from "../lib/net/deadline"
 import { REFUND_CHECK_EVERY_MS, refundCheckDue } from "../lib/orders/refund-check"
+import { allPages, PAGE_ROWS } from "../lib/payments/paged-read"
 
 let passed = 0
 let failed = 0
@@ -517,6 +520,27 @@ async function main() {
     check("1,005 orders in a year: every one counted, not the first 1,000", tax.status === 200 && tax.json?.transactionCount === 1_005 && tax.json?.grossEarnings === 100_500, { status: tax.status, count: tax.json?.transactionCount, gross: tax.json?.grossEarnings, error: tax.json?.error })
     const src = code("app/api/stripe/tax-summary/route.ts")
     check("  read a page at a time by the order's creator, no .in() of every product id", /\.range\(from, from \+ TAX_SUMMARY_PAGE - 1\)/.test(src) && !/\.in\("product_id", productIds\)/.test(src))
+  }
+
+  /* ── 11. Payouts page reads past 1,000 orders (database audit, payments part) ── */
+  section("11. The payouts page's sales list, tab count and figures read past 1,000 orders")
+  {
+    const total = 2_345
+    const pageOf = (from: number, to: number) => Promise.resolve({ data: Array.from({ length: Math.max(0, Math.min(to, total - 1) - from + 1) }, (_, i) => ({ n: from + i })), error: null })
+    const all = await allPages(pageOf)
+    check("a figure read takes every page: 2,345 rows, not 1,000", all.data?.length === total && all.data?.[total - 1]?.n === total - 1, all.data?.length)
+    const list = await allPages(pageOf, 1_500)
+    check("  a list stops at its own ceiling", list.data?.length === 1_500)
+    const failing = await allPages((from) => Promise.resolve(from === PAGE_ROWS ? { data: null, error: { message: "timeout" } } : { data: Array.from({ length: PAGE_ROWS }, () => ({})), error: null }))
+    check("  a figure read whose second page failed is a failed read, never a sum of part of the orders", failing.data === null)
+    /* Through the route, with PostgREST's 1,000 row cap: 1,005 of last year's orders (section 10's) are all in the tax year. */
+    forgetPayoutsRead(creatorId)
+    j.db.maxRows = 1_000
+    const pr = await j.call("GET /api/stripe/payouts?fresh=1", { as: seller })
+    j.db.maxRows = null
+    check("/api/stripe/payouts: last year's 1099-K count is every order (1,005), not 1,000", pr.status === 200 && (pr.json?.taxData?.previousYear?.transactionCount ?? 0) >= 1_005, { status: pr.status, prev: pr.json?.taxData?.previousYear })
+    const page = code("app/app/payouts/page.tsx")
+    check("the payouts page reads its list, tax year and disputes a page at a time", (page.match(/allPages\(/g) ?? []).length === 3 && /PAYOUTS_LIST_MAX,\s*\)/.test(page) && (page.match(/\.range\(from, to\)/g) ?? []).length === 3)
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)

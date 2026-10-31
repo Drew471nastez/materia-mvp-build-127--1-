@@ -7,6 +7,7 @@ import { pickBalance, upcomingByDay } from "@/lib/payments/display-currency"
 import { disputedInStore, taxYearsInUsd, type TaxYear } from "@/lib/money/payout-figures"
 import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
 import { payoutsReadKey, readPayoutsKept } from "@/lib/payments/payouts-read-cache"
+import { allPages } from "@/lib/payments/paged-read"
 
 /*
   ONE READ PER PERSON EVERY HALF MINUTE, AND "UNAVAILABLE" IS NOT "NOTHING".
@@ -214,14 +215,20 @@ async function storelibFigures(admin: ReturnType<typeof createAdminClient>, crea
     disputeData.negativeBalance = (ledgerRead.data as { negative_balance?: number | null } | null)?.negative_balance || 0
     const ids = ((productsRead.data as { id: string }[] | null) || []).map((p) => p.id)
     if (ids.length > 0) {
+      /* Every page (lib/payments/paged-read): a read stops at 1,000 rows, and these are figures. */
       const [disputedRead, taxRead] = await Promise.all([
-        admin.from("orders").select("amount_cents, created_at, currency").in("product_id", ids).eq("status", "disputed"),
-        admin
-          .from("orders")
-          .select("amount_cents, created_at, status, currency")
-          .in("product_id", ids)
-          .in("status", ["completed", "refunded", "disputed"])
-          .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
+        allPages((from, to) => admin.from("orders").select("id, amount_cents, created_at, currency").in("product_id", ids).eq("status", "disputed").order("created_at", { ascending: true }).order("id", { ascending: true }).range(from, to)),
+        allPages((from, to) =>
+          admin
+            .from("orders")
+            .select("id, amount_cents, created_at, status, currency")
+            .in("product_id", ids)
+            .in("status", ["completed", "refunded", "disputed"])
+            .gte("created_at", `${previousYear}-01-01T00:00:00Z`)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
       ])
       /* Disputes in the store's currency; the 1099-K years in US dollars, each sale at its own day's rate (lib/money/payout-figures). */
       const [disputed, years] = await Promise.all([

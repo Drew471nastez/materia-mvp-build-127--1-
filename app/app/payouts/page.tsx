@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allPages } from "@/lib/payments/paged-read";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
@@ -159,6 +160,8 @@ function PayoutsWaiting({ label }: { label: string }) {
 /** The client's card (app/app/orders/order-parts `card`), written out: this is a server file. */
 const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]";
 
+/** The Sales list's newest orders on this page (the Orders page has every one). */
+const PAYOUTS_LIST_MAX = 5_000;
 /** The longest Stripe's balance may hold the page's first draw. */
 const STRIPE_WAIT_MS = 2_500;
 
@@ -226,29 +229,49 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
   const products = productsData || [];
   const productIds = products.map((p) => p.id);
 
+  /*
+    A PAGE AT A TIME (database audit, payments part). Each of these was one read, and a read stops at 1,000 rows:
+    a store past its thousandth order had its Sales list and tab counts stop at 1,000, and its 1099-K years and
+    open disputes summed from part of its orders. The figures now read every page; the list reads up to
+    PAYOUTS_LIST_MAX newest orders (the Orders page has the full history), so the page's own payload stays bounded.
+  */
   const nothing = { data: null };
   const [ordersRead, taxRead, disputedRead] = productIds.length > 0
     ? await Promise.all([
-        adminSupabase
-          .from("orders")
-          .select("*")
-          .in("product_id", productIds)
-          .in("status", ["completed", "refunded", "disputed"])
-          .order("created_at", { ascending: false }),
-        Promise.resolve(
-          adminSupabase
-            .from("orders")
-            .select("amount_cents, created_at, status, currency")
-            .in("product_id", productIds)
-            .in("status", ["completed", "refunded", "disputed"])
-            .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
+        allPages(
+          (from, to) =>
+            adminSupabase
+              .from("orders")
+              .select("*")
+              .in("product_id", productIds)
+              .in("status", ["completed", "refunded", "disputed"])
+              .order("created_at", { ascending: false })
+              .order("id", { ascending: false })
+              .range(from, to),
+          PAYOUTS_LIST_MAX,
+        ),
+        allPages(
+          (from, to) =>
+            adminSupabase
+              .from("orders")
+              .select("id, amount_cents, created_at, status, currency")
+              .in("product_id", productIds)
+              .in("status", ["completed", "refunded", "disputed"])
+              .gte("created_at", `${previousYear}-01-01T00:00:00Z`)
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, to),
         ).then((r) => r, () => nothing),
-        Promise.resolve(
-          adminSupabase
-            .from("orders")
-            .select("amount_cents, created_at, currency")
-            .in("product_id", productIds)
-            .eq("status", "disputed"),
+        allPages(
+          (from, to) =>
+            adminSupabase
+              .from("orders")
+              .select("id, amount_cents, created_at, currency")
+              .in("product_id", productIds)
+              .eq("status", "disputed")
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, to),
         ).then((r) => r, () => nothing),
       ])
     : [nothing, nothing, nothing];
