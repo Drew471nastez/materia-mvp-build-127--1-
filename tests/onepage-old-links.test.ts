@@ -302,7 +302,14 @@ async function throughProxy(base: string) {
   const danut = await expect("https://dj-danut.storelib.com/links", 307, "https://storelib.com/dj-danut", "dj-danut.storelib.com/links goes to the creator page, in one hop")
   check("temporary and never held, so it moves to the OnePage the day there is one", danut.cache === "no-store", show(danut))
   check("and says what the lookup answered", danut.answer === "creator", show(danut))
-  await expect("https://dj-danut.storelib.com/links/?utm_source=instagram&ref=bio", 307, "https://storelib.com/dj-danut?utm_source=instagram&ref=bio", "with the query kept")
+  /*
+    Changed on purpose (round 45 leftovers): the trailing slash is the proxy's first answer now
+    (lib/seo/one-hop.ts, next.config skipTrailingSlashRedirect), a 308 on the same host with the
+    query kept, where Next used to answer it before the proxy ran. Live it was two hops before and is
+    two hops now; the second is the same 307.
+  */
+  await expect("https://dj-danut.storelib.com/links/?utm_source=instagram&ref=bio", 308, "https://dj-danut.storelib.com/links?utm_source=instagram&ref=bio", "a trailing slash goes first, with the query kept")
+  await expect("https://dj-danut.storelib.com/links?utm_source=instagram&ref=bio", 307, "https://storelib.com/dj-danut?utm_source=instagram&ref=bio", "with the query kept")
   await expect("https://storelib.com/dj-danut/links", 307, "https://storelib.com/dj-danut", "storelib.com/dj-danut/links too")
   await expect("https://storelib.com/l/dj-danut", 307, "https://storelib.com/dj-danut", "storelib.com/l/dj-danut too")
   await expect("https://storelib.com/dj-danut.links", 307, "https://storelib.com/dj-danut", "storelib.com/dj-danut.links too")

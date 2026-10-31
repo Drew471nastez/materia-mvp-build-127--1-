@@ -305,6 +305,8 @@ export function productJsonLd(p: {
   rating?: { average: number; count: number; reviews?: { author: string; rating: number; body: string; title?: string; date: string }[] } | null
   /** The store's own currency (lib/store/selling-currency), the one the price is in. Absent, the platform's. */
   currency?: string
+  /** The language the page is drawn in (lib/seo/page-language.ts websitePageLanguage); absent, left out rather than guessed. */
+  inLanguage?: string
 }) {
   const price = typeof p.priceCents === "number" && p.priceCents >= 0 ? (p.priceCents / 100).toFixed(2) : null
   const rated = p.rating && p.rating.count > 0 && p.rating.average > 0 ? p.rating : null
@@ -313,6 +315,7 @@ export function productJsonLd(p: {
     "@type": "Product",
     name: p.name,
     url: p.url,
+    ...(p.inLanguage ? { inLanguage: p.inLanguage } : {}),
     ...(plain(p.description) ? { description: plain(p.description, 5000) } : {}),
     ...(p.images.length ? { image: p.images.slice(0, 10) } : {}),
     brand: { "@type": "Brand", name: p.seller },

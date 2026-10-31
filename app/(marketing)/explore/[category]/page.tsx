@@ -15,6 +15,7 @@ import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { offChannelAmong } from "@/lib/store/channel-filter"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { cardCreator } from "@/lib/explore/card-creator"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -184,7 +185,8 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
         ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
         ...(salesSoldOut(standings.get(product.id)) ? { sold_out: true } : {}),
         ...priceOf(product),
-        creator: creator ? { ...creator, profile } : null,
+        /* Its public id, handle and face only: the sign in id it was found by stays on the server (lib/explore/card-creator.ts). */
+        creator: cardCreator(creator, profile),
         categories: [],
         categoryName: product.category || null,
         reviews_count: (product as any).reviews_count || 0,

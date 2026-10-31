@@ -74,6 +74,7 @@ import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { MissingImageGuard } from "@/components/media/missing-image"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { siteVerification } from "@/lib/seo/site-verification"
+import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
 import { CapturePlatformTouch } from "@/components/attribution/capture-platform-touch"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -184,7 +185,7 @@ export default function RootLayout({
    * by design, so every page reported a hydration mismatch that was not one.
    */
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
+    <html lang={STORELIB_PAGE_LANG} className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all

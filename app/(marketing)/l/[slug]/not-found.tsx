@@ -14,6 +14,10 @@
  * Absolute links, because on storelib.me a relative `/` is not Storelib.
  */
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { NOT_FOUND_METADATA } from "@/lib/seo/not-found-metadata"
+
+/* One robots tag on a 404, and it says noindex: lib/seo/not-found-metadata.ts. */
+export const metadata = NOT_FOUND_METADATA
 
 export default function OnePageNotFound() {
   return (

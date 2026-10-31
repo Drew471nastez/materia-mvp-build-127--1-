@@ -15,6 +15,7 @@ import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { ExplorePullRefresh } from "@/components/explore/explore-pull-refresh"
 import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
+import { cardCreator } from "@/lib/explore/card-creator"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
@@ -212,7 +213,8 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   const creatorOf = (p: any) => {
     const creator = creatorById.get(p.creator_id) ?? one(p.creator)
     if (!creator) return null
-    return { ...creator, profile: profileById.get(creator.user_id) ?? null }
+    /* Its public id, handle and face only: the sign in id it was found by stays on the server (lib/explore/card-creator.ts). */
+    return cardCreator(creator, profileById.get(creator.user_id) ?? null)
   }
 
   return products.map((product) => ({

@@ -636,10 +636,11 @@ function main() {
      */
     check(
       "and the block offers it, revealed by a button",
-      renderer.includes("<ContactReveal email={contactEmail} />") &&
+      /* Changed on purpose (round 45 leftovers): the block hands the button the handle and the address is fetched on the press (lib/commerce/contact-email.ts). */
+      renderer.includes("<ContactReveal handle={contactHandle} />") &&
         read("components/storefront/contact-reveal.tsx").includes("href={`mailto:${email}`}"),
     )
-    check("only when one is set", /\{contactEmail && \(/.test(renderer))
+    check("only when one is set", /\{contactHandle && \(/.test(renderer))
     check("it is validated as an address before being stored", /\^\[\^\\s@\]\+@/.test(api))
     check("and clearing it removes the link", api.includes("next.contactEmail = contactEmail || undefined"))
 
@@ -1271,7 +1272,7 @@ function main() {
     check(
       "the contact is in About and on no other line",
       (renderer.match(/<ContactReveal/g) ?? []).length === 1 &&
-        renderer.includes("<ContactReveal email={contactEmail} />"),
+        renderer.includes("<ContactReveal handle={contactHandle} />"),
     )
     check(
       "and the header carries no contact of its own",
@@ -1280,7 +1281,8 @@ function main() {
     const reveal = code("components/storefront/contact-reveal.tsx")
     check(
       "the address is not rendered until the button is pressed",
-      /if \(!shown\) \{/.test(reveal) && /setShown\(true\)/.test(reveal),
+      /* Changed on purpose (round 45 leftovers): not in the page at all until the route answers the press. */
+      /if \(!email\) \{/.test(reveal) && /setEmail\(data\.email\)/.test(reveal),
     )
     /**
      * ONE EXPRESSION, NOT THREE. The address was worked out inline at each
@@ -1340,7 +1342,8 @@ function main() {
     )
     check(
       "and the contact address is one of them",
-      taken.includes("sellerContactEmail") && given.has("sellerContactEmail"),
+      /* Renamed on purpose (round 45 leftovers): it carries the handle now, never the address. */
+      taken.includes("sellerContactHandle") && given.has("sellerContactHandle"),
     )
   }
 

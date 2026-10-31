@@ -1,4 +1,5 @@
 import { withOwnersCommunities } from "@/lib/commerce/owner-communities-server"
+import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
@@ -1794,7 +1795,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         ? [product.thumbnail_url]
         : undefined,
     url: canonicalUrl,
-    inLanguage: "en",
+    /* The page's own language, the <html lang> the root layout prints (lib/seo/page-language.ts), never a guess. */
+    inLanguage: STORELIB_PAGE_LANG,
     brand: {
       "@type": "Brand",
       name: sellerDisplayName,

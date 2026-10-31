@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, after, type NextRequest } from "next/server"
 
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { announceAddresses, communityAddresses } from "@/lib/seo/announce-pages"
 import { readFlag } from "@/lib/platform/flags"
 import {
   ADMIN_ACTIONS,
@@ -95,6 +96,11 @@ export async function POST(request: NextRequest) {
           detail: { slug: result.community.slug, status: result.community.status, hidden: result.community.platformHidden },
         })
       : true
+    /* Hidden, suspended or back: its page told to search engines after the answer (lib/seo/announce-pages.ts), as a creator's own change is. */
+    if (result.changed && result.community.slug) {
+      const slug = result.community.slug
+      after(() => announceAddresses(communityAddresses(slug)))
+    }
     return NextResponse.json({ community: result.community, changed: result.changed, recorded: recorded && (result.audited || !result.changed) }, { headers: NO_STORE })
   } catch (error) {
     return adminFailure("community action", error)

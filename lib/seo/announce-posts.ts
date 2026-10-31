@@ -61,3 +61,14 @@ export async function publicPostAddresses(communityId: string, postId: string): 
     return []
   }
 }
+
+/**
+ * The moderation actions that can take a public post's page away or bring it
+ * back (round 45 leftovers): a removal, its undoing, and a move to another
+ * space, which may be members only. Pinning, locking and featuring change
+ * nothing an engine indexes. Pure, for app/api/community/[communityId]/
+ * moderation/act and app/api/app/community/[id]/moderation.
+ */
+export function seenByModeration(targetType: unknown, action: unknown): boolean {
+  return targetType === "post" && (action === "remove" || action === "restore" || action === "move")
+}

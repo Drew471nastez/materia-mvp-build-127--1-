@@ -40,7 +40,7 @@ export function SectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
-  sellerContactEmail,
+  sellerContactHandle,
   aboutOwnerActions,
   communityBlocks,
 }: {
@@ -76,7 +76,7 @@ export function SectionRenderer({
    * prop this wrapper accepts is also passed on, so a name added to one half
    * and not the other is caught here rather than by a blank space on a page.
    */
-  sellerContactEmail?: string
+  sellerContactHandle?: string
   /** The owner's About edit control; only the page knows who is looking. */
   aboutOwnerActions?: React.ReactNode
   /** The Community sections' data, read on the server for this page (lib/communities/server/blocks.ts). */
@@ -108,7 +108,7 @@ export function SectionRenderer({
       sellerMemberSince={sellerMemberSince}
       sellerTotalSales={sellerTotalSales}
       sellerProductsCount={sellerProductsCount}
-      sellerContactEmail={sellerContactEmail}
+      sellerContactHandle={sellerContactHandle}
       aboutOwnerActions={aboutOwnerActions}
       communityBlocks={communityBlocks}
     />
