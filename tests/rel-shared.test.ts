@@ -10,6 +10,7 @@
  *   the community and physical crons                      one clock from the request, under maxDuration
  *   seo-index, warm-sites, notify (timed out in prod)     a hard stop under maxDuration, resumed next run
  *   crons and webhooks                                    no bare supabase-js client without a deadline
+ *   rollup-daily, storage-cleanup with a failed step      answer 500, so the run is recorded failed and alerted
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -24,7 +25,12 @@ import { recordFile } from "@/lib/admin/seo/store"
 import { inspectUrl } from "@/lib/admin/seo/google"
 import { warmPublishedSites } from "@/lib/website-builder/warm-sites"
 import { runWork } from "@/lib/notify/engine"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
+import { register } from "node:module"
+import { tmpdir } from "node:os"
+import { pathToFileURL } from "node:url"
+import { build } from "esbuild"
+import { cleanupFailures, rollupFailures, statusForFailures } from "@/lib/observability/step-failures"
 import { join } from "node:path"
 import { stripComments } from "./_source"
 
@@ -352,6 +358,52 @@ async function main() {
     check("no cron or webhook builds a bare supabase-js client (no request deadline, no schema-reload retry)", bare.length === 0, bare)
     check("the email cron and the Mailgun webhook use createAdminClient", ["app/api/cron/process-scheduled-emails/route.ts", "app/api/webhooks/mailgun/route.ts"].every((f) => /const supabaseAdmin = createAdminClient\(\)/.test(code(f))))
     check("and createAdminClient's fetch is the deadline one", /global: \{ fetch: mediaFetch \}/.test(code("lib/supabase/admin.ts")) && /return deadlineFetch\(input, init\)/.test(code("lib/storage/media-url.ts")))
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\nA cron whose steps failed answers 500, so recordCronRun records and reports it (item 6)")
+  {
+    check("no failures: 200; any: 500", statusForFailures([]) === 200 && statusForFailures(["x"]) === 500)
+    const f = rollupFailures([{ date: "2026-10-30", error: "boom" }, { date: "2026-10-29", propertiesError: "nope" }, { date: "2026-10-28" }], [{ day: "2026-10-30", error: "part 126 has not run" }, { day: "2026-10-29", error: "timeout" }], { error: "sweep failed" })
+    check("each failed rollup, property rollup, performance day and the site speed sweep are listed; a part not run yet is not", f.length === 4 && f.some((x) => /^rollup 2026-10-30/.test(x)) && f.some((x) => /^property rollup 2026-10-29/.test(x)) && f.some((x) => /^performance 2026-10-29/.test(x)) && !f.some((x) => /part 126/.test(x)) && f.some((x) => /^website speed/.test(x)), f)
+    const c = cleanupFailures({ files: ["product-images: denied"], "deleted rows": null, "ops logs": "timeout", "community uploads": [], "cart uploads": [] })
+    check("storage-cleanup's failures from each sweep and purge", c.length === 2 && c[0] === "files: product-images: denied" && c[1] === "ops logs: timeout", c)
+
+    /* The real rollup-daily route, with the database answering an error for the rollup RPC. */
+    const dir = mkdtempSync(join(tmpdir(), "rel-shared-stubs-"))
+    const stub = (name: string, source: string) => {
+      const file = join(dir, `${name}.mjs`)
+      writeFileSync(file, source)
+      return pathToFileURL(file).href
+    }
+    const stubs: Record<string, string> = {
+      "@/lib/supabase/admin": stub("admin", `export const createAdminClient = () => ({ rpc: async (name) => (globalThis.__rpcFails && name === "refresh_daily_rollup" ? { data: null, error: { message: "relation does not exist" } } : { data: 3, error: null }), from: () => ({ select: () => ({ gte: () => ({ lt: async () => ({ data: [], error: null }) }) }) }) })\n`),
+      "@/lib/perf/daily": stub("perf", `export const rollupAndScorePerfDay = async (day) => ({ day, rolledUp: 1, score: 90 })\n`),
+      "@/lib/website-builder/web-performance-read": stub("sites", `export const rollupPendingSiteDays = async () => ({ days: 0, rows: 0, left: 0, cleaned: 0 })\n`),
+      "@/lib/observability/report": stub("report", `export const recordCronRun = (_j, _r, run) => run()\n`),
+    }
+    register(pathToFileURL(join(process.cwd(), "scripts/push-test-stubs.mjs")).href, { parentURL: import.meta.url, data: { stubs } })
+    const file = join(process.env.PUSH_TEST_OUT || dir, "__rollup-route__", "route.mjs")
+    await build({
+      entryPoints: [join(process.cwd(), "app/api/cron/rollup-daily/route.ts")], outfile: file, bundle: true, format: "esm", platform: "node", target: "node20",
+      logLevel: "error", alias: { "@": process.cwd() }, packages: "external",
+      plugins: [{ name: "stand-ins", setup(b) { b.onResolve({ filter: /.*/ }, (a) => (a.path in stubs ? { path: a.path, external: true } : undefined)) } }],
+      external: ["next/*", "server-only"],
+    })
+    const route = (await import(pathToFileURL(file).href)) as { POST: (r: Request) => Promise<Response> }
+    process.env.CRON_SECRET = "test-secret"
+    const call = () => route.POST(new Request("https://storelib.com/api/cron/rollup-daily?date=2026-10-30", { method: "POST", headers: { authorization: "Bearer test-secret" } }))
+    const quietError = console.error
+    console.error = () => {}
+    ;(globalThis as { __rpcFails?: boolean }).__rpcFails = true
+    const bad = await call()
+    ;(globalThis as { __rpcFails?: boolean }).__rpcFails = false
+    const good = await call()
+    console.error = quietError
+    const badBody = (await bad.json()) as { success: boolean; failed: string[] }
+    check("rollup-daily with a failed RPC answers 500 (recordCronRun records it not ok and reports it)", bad.status === 500 && badBody.success === false && badBody.failed.length === 1, { status: bad.status, badBody })
+    check("rollup-daily with every step fine still answers 200", good.status === 200, good.status)
+    check("storage-cleanup answers its failures' status", /status: statusForFailures\(failed\)/.test(code("app/api/cron/storage-cleanup/route.ts")) && /cleanupFailures\(\{ files: summary\.errors/.test(code("app/api/cron/storage-cleanup/route.ts")))
   }
 
   clearInterval(keepAlive)
