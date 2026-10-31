@@ -13,7 +13,7 @@
  *   the screenshots are real files at their real size, with a phone picture
  *   where the screen is wide
  *   SEO: unique titles and descriptions, canonicals, JSON-LD (TechArticle,
- *   BreadcrumbList, FAQPage, HowTo, CollectionPage), sitemap rows with
+ *   BreadcrumbList, CollectionPage; no FAQPage or HowTo), sitemap rows with
  *   lastmod and images, moved articles sent on for good
  *   the Help Center's pages: no "What happens if" highlight on the home,
  *   one plain line instead; an article page with its contents, previous and
@@ -39,7 +39,7 @@ import {
 } from "../lib/help/articles"
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, PHYSICAL_SECTIONS } from "../lib/help/physical-articles"
 import { PHYSICAL_SHOTS } from "../lib/help/physical-shots"
-import { helpArticleJsonLd, helpCategoryJsonLd, helpFaq, helpHowTo, helpHomeJsonLd } from "../lib/help/structured-data"
+import { helpArticleJsonLd, helpCategoryJsonLd, helpHomeJsonLd } from "../lib/help/structured-data"
 import { searchHelp } from "../lib/help/search"
 import { CARRIER_LIST } from "../lib/physical/carriers"
 import { CUSTOMER_EMAILS } from "../lib/emails/customer-catalog"
@@ -211,15 +211,16 @@ const types = ld["@graph"].map((g) => g["@type"])
 check("an article's JSON-LD is a TechArticle with its breadcrumbs", types.includes("TechArticle") && types.includes("BreadcrumbList"), types)
 const tech = ld["@graph"].find((g) => g["@type"] === "TechArticle")!
 check("  with dateModified, its screenshots and Storelib as publisher", tech.dateModified === z.updated && Array.isArray(tech.image) && (tech.image as string[]).every((u) => u.startsWith("https://storelib.com/help/physical/")) && (tech.publisher as { name: string }).name === "Storelib")
-check("  a HowTo for its first numbered steps", types.includes("HowTo") && (helpHowTo(z)?.steps.length ?? 0) >= 3)
+/* Changed on purpose (round 45): Google has retired HowTo rich results, so an article with numbered steps carries no HowTo. */
+check("  no HowTo for its numbered steps", !types.includes("HowTo") && z.body.some((b) => b.type === "steps"))
 const crumbs = ld["@graph"].find((g) => g["@type"] === "BreadcrumbList") as { itemListElement: { item: string }[] }
 /* Changed on purpose (round AT): the Help Center lives at help.storelib.com, its pages at the root there (lib/help/paths). */
 check("  breadcrumbs: Help Center, Physical products, the article", crumbs.itemListElement.length === 3 && crumbs.itemListElement[2].item === "https://help.storelib.com/physical-products/zero-to-100")
 const q = art("physical-products-questions")
-const qa = helpFaq(q)
 const qld = helpArticleJsonLd(q, helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] }
-check("the common questions article is an FAQPage, every question with its answer", q.faq === true && qa.length >= 7 && qa.every((x) => x.q.endsWith("?") && x.a.length > 20) && qld["@graph"].some((g) => g["@type"] === "FAQPage"), qa.length)
-check("an article without real questions gets no FAQPage", !(helpArticleJsonLd(art("taxes"), helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] })["@graph"].some((g) => g["@type"] === "FAQPage"))
+/* Changed on purpose (round 45): Google shows FAQ rich results only for government and health sites, so the questions article is a TechArticle and BreadcrumbList with no FAQPage; its questions stay in the page as headings. */
+check("the common questions article is a TechArticle with no FAQPage, its questions still headings", qld["@graph"].map((g) => g["@type"]).join(",") === "TechArticle,BreadcrumbList" && q.body.filter((b) => (b.type === "h" || b.type === "sub") && b.text.trim().endsWith("?")).length >= 7)
+check("no article in the Help Center prints an FAQPage or a HowTo", !/FAQPage|HowTo/.test(JSON.stringify(helpArticlesIn("physical-products").map((x) => helpArticleJsonLd(x, helpCategory("physical-products")!)))))
 const cld = helpCategoryJsonLd(PHYSICAL_CATEGORY, helpArticlesIn("physical-products")) as { "@graph": { "@type": string; mainEntity?: { numberOfItems: number } }[] }
 check("the topic page is a CollectionPage listing every article", cld["@graph"][0]["@type"] === "CollectionPage" && cld["@graph"][0].mainEntity?.numberOfItems === helpArticlesIn("physical-products").length)
 /* Changed on purpose (round 45): Google retired the sitelinks search box, so the home names no SearchAction. */

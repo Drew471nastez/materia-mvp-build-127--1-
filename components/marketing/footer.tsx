@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent, type JSX } from "react"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { SELL_PAGES, useCasePath } from "@/lib/marketing/sell-links"
+import { STORELIB_SOCIAL, type StorelibSocialNetwork } from "@/lib/seo/storelib-social"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -50,13 +51,21 @@ function YouTubeIcon({ className }: { className?: string }) {
 }
 
 
-const SOCIAL = [
-  { label: "Facebook", href: "https://facebook.com", Icon: FacebookIcon },
-  { label: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
-  { label: "X", href: "https://x.com", Icon: XIcon },
-  { label: "TikTok", href: "https://tiktok.com", Icon: TikTokIcon },
-  { label: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
-]
+/*
+  STORELIB'S PROFILES, ONLY THE CONFIRMED ONES (lib/seo/storelib-social
+  STORELIB_SOCIAL, the same list as the Organization's sameAs). The icons
+  used to link to bare facebook.com, instagram.com and so on, which are not
+  Storelib. A network with no confirmed profile draws no icon; with none,
+  the row is not drawn. How to add one is written beside the list.
+*/
+const SOCIAL_ICONS: Record<StorelibSocialNetwork, { label: string; Icon: (p: { className?: string }) => JSX.Element }> = {
+  facebook: { label: "Storelib on Facebook", Icon: FacebookIcon },
+  instagram: { label: "Storelib on Instagram", Icon: InstagramIcon },
+  x: { label: "Storelib on X", Icon: XIcon },
+  tiktok: { label: "Storelib on TikTok", Icon: TikTokIcon },
+  youtube: { label: "Storelib on YouTube", Icon: YouTubeIcon },
+}
+const SOCIAL = STORELIB_SOCIAL.filter((p) => /^https:\/\//.test(p.url) && p.network in SOCIAL_ICONS).map((p) => ({ href: p.url, ...SOCIAL_ICONS[p.network] }))
 
 const PRODUCT = [
   { label: "Home", href: "/" },
@@ -157,20 +166,22 @@ export function MarketingFooter() {
               </a>
             </div>
 
-            <div className="flex items-center gap-4">
-              {SOCIAL.map(({ label, href, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="text-white/85 transition-colors hover:text-white"
-                >
-                  <Icon className="h-5 w-5" />
-                </a>
-              ))}
-            </div>
+            {SOCIAL.length ? (
+              <div className="flex items-center gap-4" data-storelib-social="">
+                {SOCIAL.map(({ label, href, Icon }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    target="_blank"
+                    rel="me noopener"
+                    aria-label={label}
+                    className="flex h-11 w-11 items-center justify-center text-white/85 transition-colors hover:text-white"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </a>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <nav aria-label="Product" className="space-y-4">

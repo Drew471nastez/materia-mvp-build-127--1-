@@ -56,6 +56,8 @@ export interface ArticleViewData {
   byline: string | null
   /** The post's blog_authors row (lib/blog/post readBlogAuthor); the byline text when it has none. */
   author?: { name: string; role?: string | null; bio?: string | null; avatar_url?: string | null; links?: { label: string; url: string }[] } | null
+  /** The author's page (/blog/author/<slug>) when the post has a blog_authors row; the byline and the author box link to it. */
+  authorHref?: string | null
   /** The category's address (its slug from blog_categories). */
   categoryHref?: string
   coverAlt?: string | null
@@ -70,7 +72,7 @@ export interface ArticleViewData {
 /** Anisia's picture: the byline the editor gives a post by default. */
 const ANISIA_AVATAR = "https://storelib.com/media/onepage-assets/ee48b026-347c-4372-8589-eea3863b443c/avatars/avatar-1770910695542.jpg"
 
-interface Who {
+export interface Who {
   name: string
   role: string | null
   bio: string | null
@@ -91,7 +93,7 @@ export function whoWrote(data: Pick<ArticleViewData, "author" | "byline">): Who 
   return { ...a, bio: null, avatar: /^anisia$/i.test(a.name) ? ANISIA_AVATAR : null, links: [] }
 }
 
-function Avatar({ who, size }: { who: Who; size: number }) {
+export function Avatar({ who, size }: { who: Who; size: number }) {
   if (who.organization) return <StorelibLogo size={size} alt="" />
   if (who.avatar) {
     return (
@@ -122,7 +124,7 @@ function Byline({ data, minutes }: { data: ArticleViewData; minutes: number }) {
       <div className="min-w-0 text-[14px] leading-snug">
         <p className="text-[#1a1a2e]">
           By{" "}
-          <a href="#author" className="font-medium hover:underline hover:underline-offset-[3px]">
+          <a href={data.authorHref || "#author"} rel={data.authorHref ? "author" : undefined} className="font-medium hover:underline hover:underline-offset-[3px]" data-blog-byline-author="">
             {who.name}
           </a>
           {who.role ? <span className="text-[#6b7280]">, {who.role}</span> : null}
@@ -255,7 +257,13 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
               <div className="min-w-0">
                 <p className="text-[13px] text-[#6b7280]">Written by</p>
                 <h2 id="author-name" className="mt-0.5 text-[17px] font-semibold text-[#1a1a2e]">
-                  {who.name}
+                  {data.authorHref ? (
+                    <Link href={data.authorHref} rel="author" className="hover:underline hover:decoration-[#1a1a2e]/30 hover:underline-offset-[3px]">
+                      {who.name}
+                    </Link>
+                  ) : (
+                    who.name
+                  )}
                   {who.role ? <span className="font-normal text-[#6b7280]">, {who.role}</span> : null}
                 </h2>
                 <p className="mt-2 text-[15px] leading-relaxed text-[#4b5563]">
@@ -264,12 +272,19 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
                       ? "The people who build Storelib, writing about selling digital products, running a store and growing an audience."
                       : `${who.name} writes practical guides for creators at Storelib.`)}
                 </p>
-                {who.links.length ? (
+                {who.links.length || data.authorHref ? (
                   <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
+                    {data.authorHref ? (
+                      <li>
+                        <Link href={data.authorHref} className="flex min-h-[44px] items-center font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-[3px] hover:decoration-[#1a1a2e]" data-blog-author-page="">
+                          All articles by {who.name}
+                        </Link>
+                      </li>
+                    ) : null}
                     {who.links.map((l) => (
                       <li key={l.url}>
-                        <a href={l.url} rel="noopener me" className="flex min-h-[44px] items-center font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-[3px] hover:decoration-[#1a1a2e]">
-                          {l.label || l.url.replace(/^https?:\/\/(www\.)?/, "")}
+                        <a href={l.url} rel="me noopener" className="flex min-h-[44px] items-center font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-[3px] hover:decoration-[#1a1a2e]">
+                          {l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                         </a>
                       </li>
                     ))}

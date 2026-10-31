@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import BlogPostTracker from "./_tracker"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
-import { BLOG_FEED_ALTERNATE, STATIC_BLOG_POSTS, absoluteBlogImage } from "@/lib/blog/listing"
+import { BLOG_FEED_ALTERNATE, STATIC_BLOG_POSTS, absoluteBlogImage, blogAuthorPath } from "@/lib/blog/listing"
 import { readBlogPosts } from "@/lib/blog/read"
 import { articleWordCount, blogCategoryPath, ctaVariant, legacyBlocks, normalizeBlocks, postNeighbours, relatedPosts } from "@/lib/blog/article"
 import { blogPostingJsonLd, breadcrumbListJsonLd, videoObjectsJsonLd } from "@/lib/blog/structured-data"
@@ -144,6 +144,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     modified: post.updated_at,
     byline: post.byline,
     profile,
+    authorUrl: profile?.slug ? blogAuthorPath(profile.slug) : null,
     category: post.category,
     wordCount: articleWordCount(blocks),
     keywords: post.keywords,
@@ -175,6 +176,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           cover: post.cover_image_url ?? null,
           byline: post.byline,
           author: profile,
+          authorHref: profile?.slug ? blogAuthorPath(profile.slug) : null,
           categoryHref: post.category ? blogCategoryPath(post.category, 1, categories) : "/blog",
           coverAlt: post.cover_alt,
           blocks,

@@ -33,6 +33,7 @@ import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, PRO_YEARLY_MONTHLY_CENTS, YEARLY
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 import { FREE_COMMUNITY_LIMIT } from "@/lib/communities/plan-limit"
+import { MAX_UPLOAD_BYTES, formatLimit } from "@/lib/security/uploads/policy"
 import { CROSS_BORDER_REGION } from "@/lib/payments/stripe/payout-regions"
 
 /** The day these facts were last read against the code. Pages print it as "Updated <Month YYYY>". */
@@ -102,6 +103,9 @@ function planFact(id: FactPlanId): PlanFact {
     communities: id === "free" ? FREE_COMMUNITY_LIMIT : null,
   }
 }
+
+/** "10 GB": the most one product file may be, on every plan, as the upload routes enforce it (lib/security/uploads/policy). */
+export const PRODUCT_FILE_LIMIT = formatLimit(MAX_UPLOAD_BYTES.product_file)
 
 export const PLANS: Record<FactPlanId, PlanFact> = { free: planFact("free"), pro: planFact("pro") }
 
@@ -201,7 +205,7 @@ export const PRODUCT_TYPES: readonly Fact[] = [
     id: "digital",
     label: "Digital downloads",
     status: "yes",
-    text: `Files people download: ebooks, templates, presets, sample packs, fonts. Unlimited products on every plan, up to ${P.free.filesPerProduct} files each on Free and ${P.pro.filesPerProduct} on Pro, each file up to 10 GB.`,
+    text: `Files people download: ebooks, templates, presets, sample packs, fonts. Unlimited products on every plan, up to ${P.free.filesPerProduct} files each on Free and ${P.pro.filesPerProduct} on Pro, each file up to ${PRODUCT_FILE_LIMIT}.`,
     source: "lib/storage/plans.ts",
     help: "/help/products/files-and-delivery",
   },

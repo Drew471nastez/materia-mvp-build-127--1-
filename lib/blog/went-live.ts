@@ -29,6 +29,7 @@ export async function announceScheduledBlogPosts(now = Date.now()): Promise<numb
     revalidatePath("/blog")
     revalidatePath("/blog/rss.xml")
     revalidatePath("/blog/category", "layout")
+    revalidatePath("/blog/author", "layout")
     for (const s of slugs) revalidatePath(`/blog/${s}`)
     await announceAddresses(blogPostAddresses(...slugs))
     return slugs.length

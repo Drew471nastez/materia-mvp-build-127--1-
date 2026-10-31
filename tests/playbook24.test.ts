@@ -18,7 +18,7 @@
  *   its screenshots are real files, under 200 KB, with phone pictures
  *   it is reachable: Start here on the topic page, Settings › Shipping, its
  *   How it works, the empty Orders page, Zero to 100, the sitemap
- *   SEO: an FAQPage of its questions and a HowTo of the test order
+ *   SEO: a TechArticle and its breadcrumbs, no FAQPage or HowTo (round 45)
  *   the other articles no longer say what round 24 made untrue
  */
 import { existsSync, readFileSync } from "node:fs"
@@ -29,7 +29,7 @@ import { ArticleBody } from "@/components/help/help-parts"
 import { articleText, helpArticle, helpArticlesFor, helpArticlesIn, helpCategory, helpToc, type HelpBlock } from "@/lib/help/articles"
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY } from "@/lib/help/physical-articles"
 import { PHYSICAL_SHOTS } from "@/lib/help/physical-shots"
-import { helpArticleJsonLd, helpFaq, helpHowTo } from "@/lib/help/structured-data"
+import { helpArticleJsonLd } from "@/lib/help/structured-data"
 import { PROVIDERS } from "@/lib/physical/providers"
 import { EXPLAINERS } from "@/lib/settings/explainers"
 import { HELP_TOPICS } from "@/lib/help/questions"
@@ -207,13 +207,10 @@ check("searching for it finds it", helpArticlesIn("physical-products").includes(
 console.log("\n11. Structured data")
 const ld = helpArticleJsonLd(a, helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] }
 const types = ld["@graph"].map((g) => g["@type"])
-check("TechArticle, BreadcrumbList, FAQPage and HowTo", ["TechArticle", "BreadcrumbList", "FAQPage", "HowTo"].every((t) => types.includes(t)), types)
-const faq = helpFaq(a)
-check("  the FAQ is the what if questions, each with its answer", faq.length >= 10 && faq.every((q) => q.q.endsWith("?") && q.a.length > 60), faq.map((q) => q.q))
-const how = helpHowTo(a)
-check("  the HowTo is the test order, not the first run of steps", !!how && how.name.endsWith("How to check it all works") && /Coupons/.test(how.steps[0]), how?.name)
-const other = helpArticle("physical-products", "zero-to-100")!
-check("  an article that names no HowTo keeps its first run of steps", helpHowTo(other)?.steps[0] === (other.body.find((b) => b.type === "steps") as { items: string[] }).items[0])
+/* Changed on purpose (round 45): Google shows FAQ rich results only for government and health sites and has retired HowTo, so the playbook is a TechArticle and its breadcrumbs only. Its what if questions and its test order stay in the page. */
+check("TechArticle and BreadcrumbList, no FAQPage or HowTo", types.join(",") === "TechArticle,BreadcrumbList", types)
+check("  the what if questions are still headings in the page", a.body.filter((b) => (b.type === "h" || b.type === "sub") && b.text.trim().endsWith("?")).length >= 10)
+check("  and the test order is still its numbered steps", a.body.some((b) => b.type === "sub" && b.text === "How to check it all works") || a.body.some((b) => b.type === "h" && b.text === "How to check it all works"))
 
 /* ── 12. The page draws the new parts ──────────────────────────────────── */
 console.log("\n12. The article page")

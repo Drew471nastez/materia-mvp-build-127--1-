@@ -107,7 +107,6 @@ const ARTICLES: Article[] = [
     summary: "Give one product, or every product in a collection, tiers like Buy 2 get 1 free or 4 for 30% off, shown as choices on the product page.",
     keywords: ["quantity break", "quantity breaks", "volume discount", "tiered pricing", "tiers", "buy 2 get 1 free", "buy x get y", "bogo", "multi buy", "bulk discount", "free item"],
     related: ["offers", "bundles", "how-offers-are-priced", "offers-common-problems"],
-    howTo: "Make a quantity break",
     body: [
       { type: "p", text: "A quantity break rewards buying more of one product. On the product page the buyer sees each tier as a choice with its total. Picking one sets the quantity, and the cart and the checkout charge exactly the total the tier showed." },
       shot("product-page-offers", "A website product page for the Speckled mug with a quantity break box, Buy more mugs, save more: Buy 1 at $32.00, Buy 2 get 1 free at $64.00 marked Most popular, and Buy 4, save 30% at $89.60. Under it the Breakfast set bundle and an apron upsell.", "The quantity break, a bundle and an upsell on one product page.", "product-page-offers-phone"),
@@ -144,7 +143,6 @@ const ARTICLES: Article[] = [
     summary: "Put two to five products in a set with a percent or amount off, shown on each product's page with Add all to cart and finished in the cart.",
     keywords: ["bundle", "bundles", "set", "kit", "frequently bought together", "buy together", "add all to cart", "complete the set", "product bundle", "combo"],
     related: ["offers", "upsells", "offers-on-your-website", "offers-common-problems"],
-    howTo: "Make a bundle",
     body: [
       { type: "p", text: "A bundle is a set of two to five of your products at a better price together. Each product's page shows the set, its price together and Add all to cart. A buyer who has only part of the set in the cart is shown the rest, with what they'd save." },
       { type: "h", text: "Make a bundle" },
@@ -182,7 +180,6 @@ const ARTICLES: Article[] = [
     summary: "Suggest one product on product pages, in the cart and at checkout when the cart holds the products you choose, with a percent or amount off.",
     keywords: ["upsell", "upsells", "cross sell", "cross sells", "cross selling", "order bump", "checkout offer", "add to your order", "add on", "you may also like", "post purchase", "related product"],
     related: ["offers", "bundles", "offers-on-your-website", "offers-common-problems"],
-    howTo: "Make an upsell",
     body: [
       { type: "p", text: "An upsell suggests one product to someone already buying, at a lower price. It shows on a product page under the buy buttons, in the cart, and at checkout under Add to your order. One press adds it, and the checkout takes the discount off while the cart still qualifies." },
       { type: "h", text: "Make an upsell" },
@@ -321,7 +318,6 @@ const ARTICLES: Article[] = [
     summary: "An offer that doesn't show, doesn't apply, or applies differently than you expected, and what to change.",
     keywords: ["not showing", "not working", "not applied", "missing", "offer gone", "wrong price", "discount missing", "upsell not showing", "bundle not showing", "quantity break not working", "troubleshoot", "fix"],
     related: ["offers", "offers-on-your-website", "how-offers-are-priced"],
-    faq: true,
     body: [
       { type: "h", text: "Why doesn't my offer show on the product page?" },
       { type: "p", text: "Check four things. The offer is Active in the list, not Off, Scheduled or Ended. Product page is ticked under Show it on (in More options). Every product in it is published (the editor says when one is a draft). And the page uses Storelib's Product section with its Bundles and upsells block, and the block's toggle for that kind is on. On an imported theme, the block has to be added from Add block first." },

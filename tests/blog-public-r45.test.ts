@@ -244,7 +244,8 @@ async function main() {
     const many = Array.from({ length: 120 }, (_, i) => ({ slug: `g${i}`, category: "Growth", published_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), updated_at: null }))
     const manyUrls = withBlogCategoryPages(blogSitemapEntries(many, STORELIB_CATEGORIES, categoryToSlug), many).map((e) => e.url)
     check("  and a category's older pages once it has them", manyUrls.includes("https://storelib.com/blog/category/growth/page/2") && manyUrls.includes("https://storelib.com/blog/category/growth/page/3") && !manyUrls.includes("https://storelib.com/blog/category/growth/page/4"))
-    check("sitemaps.ts uses it", /withBlogCategoryPages\(blogSitemapEntries\(posts, blogCategories\.map\(\(c\) => c\.name\), \(name\) => categorySlugOf\(name, blogCategories\)\), posts, blogCategories\)/.test(code("lib/seo/sitemaps.ts")))
+    /* Changed on purpose (round 45): blogSitemapEntries also takes the authors with live posts (their /blog/author pages, tests/seo-leftovers-b-r45.test.ts). */
+    check("sitemaps.ts uses it", /withBlogCategoryPages\(blogSitemapEntries\(posts, blogCategories\.map\(\(c\) => c\.name\), \(name\) => categorySlugOf\(name, blogCategories\), blogAuthors\), posts, blogCategories\)/.test(code("lib/seo/sitemaps.ts")))
 
     const html = renderToStaticMarkup(createElement(BlogListing, { posts: [], activeCategory: "Growth", title: "Growth", subtitle: "x", pagination: { page: 2, pages: 3 }, pagePath: (n: number) => blogCategoryPath("Growth", n) }))
     check("a category's pages are real links at its own addresses", /href="\/blog\/category\/growth"[^>]*rel="prev"|rel="prev"[^>]*href="\/blog\/category\/growth"/.test(html) && /href="\/blog\/category\/growth\/page\/3"/.test(html))
