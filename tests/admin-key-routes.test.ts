@@ -65,6 +65,8 @@ const PROOFS: [string, RegExp][] = [
   ["the signed-in creator's own site", /await ownInstall\(/],
   /* GitHub's HMAC over the exact body, checked before the body is parsed. */
   ["GitHub's signature on the payload", /verifySignature\(raw, req\.headers\.get\("x-hub-signature-256"\)/],
+  /* Mailgun's HMAC (timestamp + token, the account's signing key, constant time), refused before anything is read or written; tests/mailgun-signature.test.ts. Listed since the route moved to createAdminClient (rel-shared). */
+  ["Mailgun's signature on the delivery", /if \(!verifyWebhookSignature\(body\?\.signature\)\)/],
   /* lib/automations/flow-io.ts: auth.getUser(), then the creator by user id,
      and every flow read by that creator id. */
   ["the signed-in creator, for an automation", /await signedInCreator\(\)[\s\S]*\.eq\("creator_id", me\.creatorId\)/],
