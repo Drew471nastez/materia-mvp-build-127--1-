@@ -8,7 +8,7 @@
  *    files owned by other areas (payments, Mailgun, crons, auth) are listed
  *    by name and reported, not changed here.
  */
-import { readdirSync, statSync } from "node:fs"
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { readCode } from "./_source"
 import { inStoreCurrency } from "../lib/money/report-currency-server"
@@ -89,6 +89,7 @@ async function run() {
   await pastAThousand()
   shell()
   await productsPage()
+  sqlPart()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
@@ -349,6 +350,24 @@ async function productsPage() {
   const page = readCode("app/app/products/page.tsx")
   check("both the owner's and a team member's list use it", (page.match(/readProductList<ListedRow>\(/g) ?? []).length === 2 && !/select\("\*"\)/.test(page))
   check("  and the browser's refresh reads the same columns and pages", /readProductList<Product & \{ community_id\?: string \| null \}>\(supabase, creatorId\)/.test(client) && !/from\("products"\)\.select\("\*"\)/.test(client))
+}
+
+function sqlPart() {
+  console.log("\n7. SQL part 349: buyer email trigram indexes")
+  const part = readFileSync("supabase/sql/run-now/349_buyer_email_trigram_indexes.sql", "utf8")
+  const conc = readFileSync("supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql", "utf8")
+  const names = ["orders_buyer_email_trgm_idx", "commerce_checkouts_buyer_email_trgm_idx"]
+  const tables = ["orders", "commerce_checkouts"]
+  names.forEach((n, i) => {
+    check(`${n}: in the part, made only when missing, on ${tables[i]}(buyer_email) with gin_trgm_ops`, new RegExp(`IF to_regclass\\('public\\.${n}'\\) IS NOT NULL THEN RETURN`).test(part) && new RegExp(`CREATE INDEX IF NOT EXISTS ${n} ON public\\.${tables[i]} USING gin \\(buyer_email %I\\.gin_trgm_ops\\) WHERE buyer_email IS NOT NULL`).test(part))
+    check(`  and in the concurrent script with the same definition`, new RegExp(`^CREATE INDEX CONCURRENTLY IF NOT EXISTS ${n} ON public\\.${tables[i]} USING gin \\(buyer_email extensions\\.gin_trgm_ops\\) WHERE buyer_email IS NOT NULL;$`, "m").test(conc))
+  })
+  check("the part never uses CONCURRENTLY (every part runs as one transaction) and says to run the script first", !/CREATE INDEX CONCURRENTLY/.test(part.replace(/\/\*[\s\S]*?\*\//, "")) && /RUN_BUYER_EMAIL_TRGM_CONCURRENTLY\.sql/.test(part) && /ONE LINE PER RUN/.test(part))
+  check("  each line of the part is one whole statement", part.trim().split("\n").slice(1, -1).every((l) => /^DO \$do\$[\s\S]*END \$do\$;$/.test(l)) && part.trimEnd().endsWith("notify pgrst, 'reload schema';"))
+  check("  additive only: no drop, no row change, no policy", !/\b(DROP|DELETE|UPDATE|ALTER TABLE|POLICY)\b/i.test(part.replace(/\/\*[\s\S]*?\*\//, "")))
+  check("the migration is a byte copy", readFileSync("supabase/migrations/20271103_buyer_email_trigram_indexes.sql", "utf8") === part)
+  check("the README has its row and the check after its column", /\| `349_buyer_email_trigram_indexes\.sql` \|/.test(readFileSync("supabase/sql/run-now/README.md", "utf8")) && /as p349_buyer_email_trigram_indexes;/.test(readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8")))
+  check("  and the bundles carry it", /part 349: orders_buyer_email_trgm_idx skipped/.test(readFileSync("supabase/sql/run-four/3_of_4_latest.sql", "utf8")))
 }
 
 run().catch((e) => {
