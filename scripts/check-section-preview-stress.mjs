@@ -67,7 +67,7 @@ const image = stub("image.jsx", "import React from 'react';export default functi
 const supa = stub("supabase.js", "const chain=()=>new Proxy(function(){},{get:(_,k)=>k==='then'?undefined:chain,apply:()=>chain()});export function createClient(){return{auth:{getUser:async()=>({data:{user:null}}),getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},from:()=>chain(),channel:()=>({on(){return this},subscribe(){return this},unsubscribe(){}}),removeChannel(){}}}")
 const built = await build({
   entryPoints: [join(root, "scripts/render-section-preview-stress.tsx")],
-  bundle: true, write: false, platform: "browser", format: "iife", minify: true, jsx: "automatic", logLevel: "error",
+  bundle: true, write: false, platform: "browser", format: "iife", minify: !process.env.PROFILE, jsx: "automatic", logLevel: "error",
   define: { "process.env.NODE_ENV": '"production"', "process.env.NEXT_PUBLIC_SUPABASE_URL": '"https://placeholder.supabase.co"', "process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY": '"placeholder"', "process.env.NEXT_PUBLIC_APP_URL": '"https://storelib.com"' },
   banner: { js: 'var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true,versions:{},platform:"browser",cwd:function(){return "/"},nextTick:function(f){setTimeout(f,0)}};globalThis.process=process;' },
   alias: {
@@ -79,6 +79,7 @@ const built = await build({
   loader: { ".css": "empty", ".svg": "dataurl", ".png": "dataurl" },
 })
 const js = built.outputFiles[0].text
+if (process.env.PROFILE) writeFileSync(join(tmpdir(), "section-preview-stress-probe.js"), js)
 const css = await appCss(root)
 const theme = await stressTheme()
 let font = Buffer.alloc(0)
@@ -123,7 +124,7 @@ function rng(seed) {
 function audit({ revs, settled }) {
   const frame = document.querySelector("iframe[data-compat-sheet]")
   const scroller = document.querySelector("[data-section-library-layer] [data-library-scroll]")
-  const out = { cut: 0, pictures: 0, overlap: 0, misplaced: 0, escapable: 0, stale: 0, duplicate: 0, orphan: 0, worst: 0, examples: [] }
+  const out = { cutScrolling: 0, cut: 0, pictures: 0, overlap: 0, misplaced: 0, escapable: 0, stale: 0, duplicate: 0, orphan: 0, worst: 0, examples: [] }
   if (!frame || !scroller || !frame.contentDocument) return out
   const layer = document.querySelector("[data-section-library-layer]")
   if (layer?.getAttribute("data-state") !== "open") return out
@@ -167,7 +168,11 @@ function audit({ revs, settled }) {
       /* Cut: the section is taller than its card while the card is not at its tallest (it was measured against other styles than it is drawn in). */
       const pv = sl.querySelector("[data-sl-pv]")
       const natural = pv ? pv.getBoundingClientRect().height * k : 0
-      if (settled && sl.hasAttribute("data-on") && natural > own.height + 2 && own.height < own.width * 1.1 - 2) { out.cut++; note("cut", { natural: Math.round(natural), card: Math.round(own.height) }) }
+      if (settled === "scrolling" && sl.hasAttribute("data-on") && natural > own.height + 2 && own.height < own.width * 1.1 - 2) out.cutScrolling++
+      else if (settled === true && sl.hasAttribute("data-on") && natural > own.height + 2 && own.height < own.width * 1.1 - 2) { out.cut++; 
+        let mem = null
+        try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk?.startsWith("wb-compat-preview-h3:")) { const v = JSON.parse(localStorage.getItem(lk) ?? "{}")[key]; if (v) mem = v } } } catch { /* none */ }
+        note("cut", { natural: Math.round(natural), card: Math.round(own.height), pvHeight: pv.offsetHeight, mem, skipped: sl.hasAttribute("data-measured"), fonts: frame.contentDocument.fonts.status, ro: (window.__ro ?? []).filter((r) => r.key === key).slice(-6), state: document.querySelector(`[data-library-card="${key.split(":")[0]}"] [data-preview-box]`)?.style.height }) }
       for (const [other, b] of hosts) {
         if (other === key) continue
         if (area(cut(shown, b)) > 0) { out.overlap++; note("over", { other }); break }
@@ -175,15 +180,16 @@ function audit({ revs, settled }) {
     }
     const want = revs[key.split(":")[0]]
     const m = /rev (\d+)/.exec(sl.textContent ?? "")
-    if (settled && want !== undefined && m && Number(m[1]) !== want) { out.stale++; note("stale", { has: Number(m[1]), want }) }
+    if (settled === true && want !== undefined && m && Number(m[1]) !== want) { out.stale++; note("stale", { has: Number(m[1]), want }) }
   }
   out.worst = Math.round(out.worst * 100) / 100
   return out
 }
 
-const total = { cut: 0, overlap: 0, misplaced: 0, escapable: 0, stale: 0, duplicate: 0, orphan: 0, checks: 0, pictures: 0 }
+const total = { cutScrolling: 0, cut: 0, overlap: 0, misplaced: 0, escapable: 0, stale: 0, duplicate: 0, orphan: 0, checks: 0, pictures: 0 }
 const perRun = []
 let shots = 0
+const profile = new Map()
 const perf = { longTasks: 0, longest: 0, frames: [], scrolls: 0 }
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--font-render-hinting=none"] })
 try {
@@ -200,6 +206,7 @@ try {
     const slow = rand() < 0.4 ? pick([2, 4]) : 1
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: slow })
     await page.goto(origin, { waitUntil: "load" })
+    if (process.env.SETTLE_EXTRA) await page.evaluate((ms) => { window.SETTLE_EXTRA = ms }, Number(process.env.SETTLE_EXTRA))
     /* Half the runs let the closed library draw its cards ahead first, as an editor left alone does. */
     if (rand() < 0.5) await sleep(2500 + rand() * 3000)
     await page.evaluate(() => {
@@ -214,10 +221,10 @@ try {
     let added = 0
     const runTotals = { cut: 0, overlap: 0, misplaced: 0, stale: 0, duplicate: 0, escapable: 0, worst: 0, slow, zoom, size: size.join("x"), examples: [] }
     const check = async (label) => {
-      const a = await page.evaluate(audit, { revs, settled: /settled|scrolled/.test(label) })
+      const a = await page.evaluate(audit, { revs, settled: /settled/.test(label) ? true : /last frame/.test(label) ? "scrolling" : false })
       total.checks++
       total.pictures += a.pictures
-      for (const k of ["cut", "overlap", "misplaced", "escapable", "stale", "duplicate", "orphan"]) total[k] += a[k]
+      for (const k of ["cutScrolling", "cut", "overlap", "misplaced", "escapable", "stale", "duplicate", "orphan"]) total[k] += a[k]
       for (const k of ["cut", "overlap", "misplaced", "stale", "duplicate", "escapable"]) runTotals[k] += a[k]
       runTotals.worst = Math.max(runTotals.worst, a.worst)
       if (a.examples.length && runTotals.examples.length < 8) runTotals.examples.push({ label, ...a.examples[0] })
@@ -235,7 +242,7 @@ try {
             const r = b.getBoundingClientRect(), v = document.querySelector("[data-section-library-layer] [data-library-scroll]")?.getBoundingClientRect()
             return v && r.height > 0 && r.bottom > v.top && r.top < v.bottom
           })
-          if (!waiting || performance.now() > until) setTimeout(done, 250)
+          if (!waiting || performance.now() > until) setTimeout(done, window.SETTLE_EXTRA || 250)
           else setTimeout(tick, 100)
         }
         tick()
@@ -346,6 +353,9 @@ try {
       all?.click()
     })
     await settle()
+    /* PROFILE=1: a trace of the scroll, its main thread time summed by event (and by function for script). */
+    const tracing = process.env.PROFILE && slow === 1
+    if (tracing) await page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink"] })
     const s = await page.evaluate(() => new Promise((done) => {
       const sc = document.querySelector("[data-section-library-layer] [data-library-scroll]")
       if (!sc) return done({ frames: [], long: [] })
@@ -364,11 +374,25 @@ try {
       }
       requestAnimationFrame(step)
     }))
+    if (tracing) {
+      const trace = JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8"))
+      const names = new Map()
+      for (const e of trace.traceEvents) if (e.ph === "M" && e.name === "thread_name" && e.args?.name === "CrRendererMain") names.set(`${e.pid}:${e.tid}`, true)
+      for (const e of trace.traceEvents) {
+        if (e.ph !== "X" || !names.has(`${e.pid}:${e.tid}`) || !e.dur) continue
+        const k = e.name === "FunctionCall" ? `FunctionCall ${e.args?.data?.functionName || "?"} ${(e.args?.data?.url || "").slice(-20)}:${e.args?.data?.lineNumber ?? ""}` : e.name
+        profile.set(k, (profile.get(k) ?? 0) + e.dur / 1000)
+      }
+    }
     perf.scrolls++
     perf.longTasks += s.long.length
     perf.longest = Math.max(perf.longest, ...s.long, 0)
     if (slow === 1) perf.frames.push(...s.frames.slice(1))
-    await check("scrolled")
+    await check("scrolled, last frame")
+    /* And three frames later: what is still cut then is not the frame or two a card takes to be read as it scrolls in. */
+    await nextFrame()
+    await nextFrame()
+    await check("scrolled, settled")
     runTotals.errors = errors.slice(0, 3)
     perRun.push(runTotals)
     const bad = runTotals.cut + runTotals.overlap + runTotals.misplaced + runTotals.stale + runTotals.duplicate + runTotals.escapable
@@ -386,11 +410,12 @@ const runsWithOverlap = perRun.filter((r) => r.overlap > 0).length
 const runsBad = perRun.filter((r) => r.cut + r.overlap + r.misplaced + r.stale + r.duplicate > 0).length
 const summary = {
   runs: RUNS, steps: STEPS, seed: SEED, checks: total.checks, pictures: total.pictures,
-  overlap: total.overlap, cut: total.cut, misplaced: total.misplaced, stale: total.stale, duplicate: total.duplicate, escapable: total.escapable, orphan: total.orphan,
+  overlap: total.overlap, cut: total.cut, cutInLastScrollFrame: total.cutScrolling, misplaced: total.misplaced, stale: total.stale, duplicate: total.duplicate, escapable: total.escapable, orphan: total.orphan,
   runsWithOverlap, runsWithAnyFault: runsBad,
   scroll: { runs: perf.scrolls, longTasks: perf.longTasks, longestTask: Math.round(perf.longest), frameP50: pct(0.5), frameP95: pct(0.95), frameMax: pct(1), framesOver20ms: sorted.filter((f) => f > 20).length, frames: sorted.length },
 }
 console.log("\n" + JSON.stringify(summary, null, 2))
+if (profile.size) console.log("\nmain thread while scrolling (ms, summed):\n" + [...profile].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => `${v.toFixed(1).padStart(9)}  ${k}`).join("\n"))
 if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify({ summary, perRun }, null, 2))
 if (STRICT) {
   const fail = []

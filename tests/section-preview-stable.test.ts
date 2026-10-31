@@ -18,7 +18,8 @@
  *   the new one, and measured its sections in the old theme's styles.
  *   A PUSH WAS A NEW SHEET PER FILE while the library was open: a burst is
  *   taken once.
- *   A FONT REMEASURED EVERY CARD IN ONE TASK: a few ms a frame, nearest first.
+ *   A FONT REMEASURED EVERY CARD BY FORCED LAYOUT: heights now come from a
+ *   ResizeObserver, and the page is positioned so a section's layout is its own.
  *
  * The browser half, with the numbers: scripts/check-section-preview-stress.mjs.
  */
@@ -47,10 +48,10 @@ console.log("\nThe page the cards are placed on cannot be moved")
   const lockAt = rules.indexOf('"html,body{')
   check("the page's lock is inside the cards' layer, where no theme !important beats it", layerAt >= 0 && lockAt > layerAt)
   const lock = rules.slice(lockAt, rules.indexOf("\n", lockAt))
-  for (const prop of ["margin:0!important", "padding:0!important", "position:static!important", "zoom:1!important", "transform:none!important", "overflow:hidden!important", "scroll-snap-type:none!important", "contain:none!important"]) {
+  for (const prop of ["margin:0!important", "padding:0!important", "position:relative!important", "inset:auto!important", "zoom:1!important", "transform:none!important", "overflow:hidden!important", "scroll-snap-type:none!important", "contain:none!important"]) {
     check(`  ${prop}`, lock.includes(prop))
   }
-  check("the page is put back at its top left if anything scrolled it", /page\.scrollTo\(0, 0\)/.test(sheet) && /const page = this\.doc\.scrollingElement/.test(sheet))
+  check("the page is put back at its top left if anything scrolled it", /page\.scrollTo\(0, 0\)/.test(sheet) && /const page = this\.doc\?\.scrollingElement/.test(sheet))
 }
 
 console.log("\nA section's linked stylesheet reaches only the cards that link it")
@@ -74,9 +75,18 @@ console.log("\nA push swaps the document cleanly")
 
 console.log("\nNo long task while the list scrolls")
 {
-  check("remeasuring after a font or picture is a few ms of a frame, nearest the screen first", /if \(performance\.now\(\) - t0 >= REMEASURE_FRAME_MS\) break/.test(sheet) && /\.sort\(\(a, b\) => a\.d - b\.d\)/.test(sheet) && /if \(this\.remeasure\.size\) this\.queueRemeasure\(\)/.test(sheet) && /const REMEASURE_FRAME_MS = 4/.test(src))
-  check("putting sections in takes less of a frame while the list scrolls", /performance\.now\(\) - lastInput < SCROLLING_MS \? REMEASURE_FRAME_MS : FRAME_BUDGET_MS/.test(sheet))
-  check("a height is remembered only once the section's pictures are in", /if \(h > 0 && Array\.from\(w\.querySelectorAll\("img"\)\)\.every\(\(img\) => img\.complete\)\) rememberHeight/.test(sheet))
+  check("a section's new height comes from the browser's own layout (a ResizeObserver on its box and its <main>), never a forced read", /new ResizeObserver\(\(entries\) => this\.onSizes\(entries\)\)/.test(sheet) && /this\.sizes\.observe\(w\)/.test(sheet) && /e\.borderBoxSize\?\.\[0\]\?\.blockSize/.test(sheet) && !/queueRemeasure/.test(sheet))
+  check("  a picture, stylesheet or font away from the screen lets its section out of content-visibility for one frame, a few a frame, nearest first", /frameOf\(this\.wrappers\.get\(key\)!\)\.removeAttribute\("data-measured"\)\s*\n\s*this\.unskipped\.add\(key\)/.test(sheet) && /const REFRESH_PER_FRAME = 6/.test(src) && /\.sort\(\(a, b\) => a\.d - b\.d\)\.slice\(0, REFRESH_PER_FRAME\)/.test(sheet))
+  check("  a section let out, shown again or come on screen has its height read in the next frame, after the browser laid it out", /this\.takeHeight\(key, w, Math\.max\(w\.offsetHeight, \(this\.roots\.get\(key\) \?\? w\)\.offsetHeight\)\)/.test(sheet) && /this\.unskipped\.add\(key\)[\s\S]{0,300}this\.arriving\.add\(key\)/.test(sheet) && /if \(w\.hidden\) \{\s*\n\s*this\.stale\.add\(key\)\s*\n\s*reshown = true/.test(sheet) && /if \(reshown\) this\.queueRefresh\(\)/.test(sheet))
+  check("  a card coming on screen (an IntersectionObserver) or leaving content-visibility's skip has its height taken then", /if \(e\.isIntersecting\) \{\s*\n\s*this\.onScreen\.set\(k, e\.target\)\s*\n\s*this\.arriving\.add\(k\)/.test(sheet) && /contentvisibilityautostatechange/.test(sheet))
+  check("  a picture landing on screen, or a font, is observed afresh at once, not left to the deferred refresh", /if \(this\.onScreen\.has\(key\)\) \{\s*\n\s*this\.arriving\.add\(key\)/.test(sheet) && /for \(const k of this\.onScreen\.keys\(\)\) this\.arriving\.add\(k\)/.test(sheet))
+  check("a measured section grows its card in sight even after a remembered height: nothing is cut", /if \(\(wanted > kept\.h && \(!kept\.mem \|\| !fromMemory\)\) \|\| !inSight\(box\.current\)\)/.test(src))
+  check("  a card put away keeps its pending layout until it is shown", /return !!w\?\.isConnected && !frameOf\(w\)\.hidden/.test(sheet))
+  check("  and never while the list is moving", /if \(this\.open && still < SCROLL_SETTLE_MS\)/.test(sheet) && /const SCROLL_SETTLE_MS = 150/.test(src))
+  check("  the page's scroll is read only where its layout is already done", !/sync\(\) \{[\s\S]{0,400}scrollingElement/.test(sheet))
+  check("putting sections in takes less of a frame while the list scrolls", /performance\.now\(\) - lastInput < SCROLLING_MS \? SCROLL_FRAME_BUDGET_MS : FRAME_BUDGET_MS/.test(sheet))
+  check("only the cards themselves, not what changes inside them, ask for every picture to be placed again", /mo\?\.observe\(grid, \{ childList: true \}\)/.test(src) && /\(r\.target as HTMLElement\)\.parentElement === grid/.test(src))
+  check("a height is remembered only once the section's pictures are in and the fonts have loaded", /if \(h > 0 && this\.settled\(w\)\) rememberHeight/.test(sheet) && /if \(this\.settled\(w\)\) rememberHeight/.test(sheet) && /this\.doc\.fonts\.status !== "loaded"\) return false/.test(sheet) && /every\(\(img\) => img\.complete\)/.test(sheet))
 }
 
 console.log("\nThe browser probe")

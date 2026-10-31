@@ -363,9 +363,12 @@ function sheetRules(width: number): string {
       fixed bar) moved every card's picture 40px down its card, over the
       name under it. In the first layer nothing in the theme can beat it.
       No zoom or transform on the page either (both would scale every card's
-      place), and nothing that could scroll it.
+      place), and nothing that could scroll it. Positioned, at no offset, so
+      the body holds the cards: with `position: static` the cards were the
+      viewport's, and the list scrolled at 23ms a frame instead of 17
+      (scripts/check-section-preview-stress.mjs PROFILE=1).
     */
-    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:static!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
+    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:relative!important;inset:auto!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
     `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important}`,
     /* Layout containment includes child margins and floats in the natural height,
        instead of measuring a short box with its content spilling below it. */
@@ -534,8 +537,12 @@ function onIdle(cb: (d: IdleDeadline) => void): void {
 const FRAME_BUDGET_MS = 8
 /** Input this recent means the list is being scrolled or used. */
 const SCROLLING_MS = 200
-/** How much of a frame measuring sections again may take (queueRemeasure), and putting them in while the list scrolls. */
-const REMEASURE_FRAME_MS = 4
+/** How long after the last scroll or input the list counts as still (queueRefresh). */
+const SCROLL_SETTLE_MS = 150
+/** How many sections away from the screen are laid out again in one frame (queueRefresh). */
+const REFRESH_PER_FRAME = 6
+/** How much of a frame putting sections in may take while the list scrolls. */
+const SCROLL_FRAME_BUDGET_MS = 4
 /** How long a section's pictures may hold its fade-in back. */
 const DECODE_WAIT_MS = 500
 /** The card's own corner, inside its 1px border (rounded-xl). */
@@ -602,8 +609,14 @@ class PreviewSheet {
   open = false
   private scheduled = false
   private syncQueued = false
-  private remeasure = new Set<string>()
-  private remeasureQueued = false
+  /** Sections whose layout is out of date (a picture, a stylesheet or a font came) while skipped away from the screen (queueRefresh). */
+  private readonly stale = new Set<string>()
+  /** Let out of content-visibility for one frame so the browser lays them out and `sizes` reports them. */
+  private readonly unskipped = new Set<string>()
+  private refreshQueued = false
+  /** Each section's own box and its <main>, watched for their size (onSizes). */
+  private sizes: ResizeObserver | null = null
+  private readonly roots = new Map<string, HTMLElement>()
   private document_: { html: string; main: string } | null = null
   /** The theme stylesheets sections link, each once in the head, by its text (hoistSheets): the token the cards that link it carry. */
   private readonly shared = new Map<string, string>()
@@ -612,8 +625,10 @@ class PreviewSheet {
   private donor: Map<string, string> | null = null
   private readonly instant = new Set<string>()
   private readonly fontsLoaded = () => {
-    for (const k of this.wrappers.keys()) this.remeasure.add(k)
-    this.queueRemeasure()
+    for (const k of this.wrappers.keys()) this.stale.add(k)
+    this.queueRefresh()
+    for (const k of this.onScreen.keys()) this.arriving.add(k)
+    this.checkOnScreen()
   }
 
   constructor(
@@ -657,7 +672,11 @@ class PreviewSheet {
     this.sharedEls = []
     this.shared.clear()
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
-    this.remeasure.clear()
+    this.sizes?.disconnect()
+    this.sizes = null
+    this.roots.clear()
+    this.stale.clear()
+    this.unskipped.clear()
     this.doc = null
     this.proto = null
     this.frame = null
@@ -729,12 +748,87 @@ class PreviewSheet {
     const card = entry.box.closest("[data-library-card]")
     this.watch(entry.box, true)
     this.watch(card, true)
+    this.inView(entry.box, key, true)
     this.schedule()
     return () => {
       this.watch(entry.box, false)
       this.watch(card, false)
+      this.inView(entry.box, key, false)
       if (this.cards.get(key) === entry) this.cards.delete(key)
     }
+  }
+
+  /**
+   * ===========================================================================
+   *  WHAT IS ON SCREEN IS ALWAYS ITS SECTION'S HEIGHT
+   * ===========================================================================
+   * A card's height follows its section through the ResizeObserver and the
+   * reads above, but a section laid out again inside a skipped card (a font
+   * or a stylesheet that landed while it was away) can come on screen with
+   * no notice at all, a few pixels or a picture's height short, cut at its
+   * foot. So a card coming on screen, or within 100px of it (an
+   * IntersectionObserver says which, nothing is read for that), has its
+   * section's height read once in the next frame, and so do the cards on
+   * screen when the library opens. The browser has just laid them out, so
+   * each read costs nothing; once on screen a card is never skipped, and the
+   * ResizeObserver follows it.
+   */
+  private readonly onScreen = new Map<string, Element>()
+  private screen: IntersectionObserver | null = null
+  private screenRoot: Element | null = null
+  private checking = false
+  private inView(box: HTMLElement, key: string, on: boolean) {
+    if (typeof IntersectionObserver === "undefined") return
+    const root = box.closest("[data-library-scroll]")
+    if (!this.screen || this.screenRoot !== root) {
+      this.screen?.disconnect()
+      this.screenRoot = root
+      this.onScreen.clear()
+      this.screen = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          const k = (e.target as HTMLElement).dataset.slKey
+          if (!k) continue
+          if (e.isIntersecting) {
+            this.onScreen.set(k, e.target)
+            this.arriving.add(k)
+          } else if (this.onScreen.get(k) === e.target) this.onScreen.delete(k)
+        }
+        this.checkOnScreen()
+      }, { root, rootMargin: "100px 0px" })
+      for (const [k, c] of this.cards) {
+        c.box.dataset.slKey = k
+        this.screen.observe(c.box)
+      }
+    }
+    box.dataset.slKey = key
+    if (on) this.screen.observe(box)
+    else {
+      this.screen.unobserve(box)
+      if (this.onScreen.get(key) === box) this.onScreen.delete(key)
+    }
+  }
+
+  /**
+   * Cards just come on screen (or near it), and sections just let out of
+   * content-visibility: each section's height is read in the next frame,
+   * after the browser has laid it out. A fresh ResizeObserver observation
+   * was tried instead and is not enough: a section laid out again inside a
+   * skipped card can be reported at its old size, and the card stays cut.
+   */
+  private readonly arriving = new Set<string>()
+  private checkOnScreen() {
+    if (this.checking || typeof window === "undefined") return
+    this.checking = true
+    requestAnimationFrame(() => {
+      this.checking = false
+      if (!this.doc) return
+      for (const key of this.arriving) {
+        const w = this.wrappers.get(key)
+        if (!w?.isConnected || frameOf(w).hidden) continue
+        this.takeHeight(key, w, Math.max(w.offsetHeight, (this.roots.get(key) ?? w).offsetHeight))
+      }
+      this.arriving.clear()
+    })
   }
 
   /* ── the frame ── */
@@ -763,6 +857,11 @@ class PreviewSheet {
     if (loadedFrom.get(doc) !== this.srcDoc) return
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
+    this.sizes?.disconnect()
+    this.sizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver((entries) => this.onSizes(entries))
+    this.roots.clear()
+    this.stale.clear()
+    this.unskipped.clear()
     this.wrappers.clear()
     this.shared.clear()
     this.sharedEls = []
@@ -796,6 +895,8 @@ class PreviewSheet {
     doc.fonts?.addEventListener?.("loadingdone", this.fontsLoaded)
     this.sync()
     this.schedule()
+    for (const key of this.onScreen.keys()) this.arriving.add(key)
+    this.checkOnScreen()
   }
 
   /**
@@ -806,6 +907,8 @@ class PreviewSheet {
   setOpen(open: boolean) {
     this.open = open
     if (!open || !this.doc) return
+    for (const key of this.onScreen.keys()) this.arriving.add(key)
+    this.checkOnScreen()
     for (const img of Array.from(this.doc.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
       img.setAttribute("fetchpriority", "low")
       img.loading = "eager"
@@ -848,7 +951,7 @@ class PreviewSheet {
     if (this.open) {
       /* Just after a frame is drawn, so the work has the rest of the frame to itself. */
       /* Half as much while the list is moving under somebody's finger or wheel: a frame then is theirs first. */
-      requestAnimationFrame(() => window.setTimeout(() => this.run(performance.now() - lastInput < SCROLLING_MS ? REMEASURE_FRAME_MS : FRAME_BUDGET_MS), 0))
+      requestAnimationFrame(() => window.setTimeout(() => this.run(performance.now() - lastInput < SCROLLING_MS ? SCROLL_FRAME_BUDGET_MS : FRAME_BUDGET_MS), 0))
       return
     }
     const wait = Math.max(INPUT_QUIET_MS - (performance.now() - lastInput), CANVAS_QUIET_MS - (performance.now() - lastCanvasInput))
@@ -917,6 +1020,17 @@ class PreviewSheet {
     /* The card's own box (sheetRules), and the theme's <main> in it. */
     const box = doc.createElement(CARD_TAG)
     box.setAttribute("data-sl-card", key)
+    /*
+      A card scrolled to is laid out again by the browser as it leaves
+      content-visibility's skip, and the ResizeObserver says nothing then.
+      Its height is read in the next frame (checkOnScreen), from the layout
+      that frame did anyway.
+    */
+    box.addEventListener("contentvisibilityautostatechange", (e) => {
+      if ((e as Event & { skipped?: boolean }).skipped !== false) return
+      this.arriving.add(key)
+      this.checkOnScreen()
+    })
     const w = (this.proto ? this.proto.cloneNode(false) : doc.createElement("div")) as HTMLElement
     w.setAttribute("data-sl-pv", key)
     box.appendChild(w)
@@ -937,10 +1051,19 @@ class PreviewSheet {
       }
     }
     this.measure(key, w)
-    /* A picture or a stylesheet that lands later may change the height: measured again then. */
+    /*
+      A picture or a stylesheet that lands later may change the height. On or
+      near the screen the browser lays it out and `sizes` reports the new
+      height in that frame; away from it its layout is skipped, so it is let
+      out of content-visibility for a frame once the list is still (queueRefresh).
+    */
     const again = () => {
-      this.remeasure.add(key)
-      this.queueRemeasure()
+      this.stale.add(key)
+      this.queueRefresh()
+      if (this.onScreen.has(key)) {
+        this.arriving.add(key)
+        this.checkOnScreen()
+      }
     }
     for (const img of Array.from(w.querySelectorAll("img"))) {
       if (!img.complete) img.addEventListener("load", again, { once: true })
@@ -1033,50 +1156,123 @@ class PreviewSheet {
     }
     /* Skipped while away from the screen from now on: its box is its card's size whatever it holds (contain: strict), so skipping it moves nothing. */
     box.setAttribute("data-measured", "")
+    /* Watched from now on: any later change in its height arrives with the browser's own layout, nothing forced. */
+    if (this.sizes) {
+      const was = this.roots.get(key)
+      if (was && was !== root) this.sizes.unobserve(was)
+      this.roots.set(key, root)
+      this.sizes.observe(w)
+      if (root !== w) this.sizes.observe(root)
+    }
     if (h > 0 && h !== this.heights.get(key)) this.heights.set(key, h)
-    /*
-      Remembered only once its pictures are in. A height measured before a
-      picture had a size was remembered too, and the next opening held the
-      card at it (a remembered height never moves the list) with the
-      section cut at its foot.
-    */
-    if (h > 0 && Array.from(w.querySelectorAll("img")).every((img) => img.complete)) rememberHeight(this.heightsId, this.renderWidth, key, h)
+    if (h > 0 && this.settled(w)) rememberHeight(this.heightsId, this.renderWidth, key, h)
     const prev = this.stateOf(key)
     this.setState(key, { height: h > 0 ? h : prev.height, state: shows ? (prev.state === "named" ? "waiting" : prev.state) : "named" })
   }
 
-  private queueRemeasure() {
-    if (this.remeasureQueued) return
-    this.remeasureQueued = true
+  /**
+   * Whether a section's height is final: its pictures are in and the
+   * document's fonts have loaded. Only such a height is remembered. One
+   * measured before a picture had a size, or in the fallback font, was
+   * remembered too, and the next opening held the card at it (a remembered
+   * height never moves the list) with the section cut at its foot.
+   */
+  private settled(w: HTMLElement): boolean {
+    if (this.doc?.fonts && this.doc.fonts.status !== "loaded") return false
+    return Array.from(w.querySelectorAll("img")).every((img) => img.complete)
+  }
+
+  /**
+   * ===========================================================================
+   *  A SECTION'S NEW HEIGHT ARRIVES WITH THE BROWSER'S OWN LAYOUT
+   * ===========================================================================
+   * Measuring again after a picture or a font came was offsetHeight read
+   * card by card, each read laying out the whole cards' document there and
+   * then, a few every frame: the list scrolled at 23ms a frame where it had
+   * scrolled at 17. Each section's box is watched instead (a ResizeObserver
+   * in this window can watch elements in the frame's document), so its
+   * height comes from the layout the browser does for the frame anyway.
+   */
+  private onSizes(entries: ResizeObserverEntry[]) {
+    const keys = new Set<string>()
+    for (const e of entries) {
+      const size = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height
+      measuredSize.set(e.target, size)
+      const key = (e.target as HTMLElement).closest?.("[data-sl-pv]")?.getAttribute("data-sl-pv")
+      if (key) keys.add(key)
+    }
+    for (const key of keys) {
+      const w = this.wrappers.get(key)
+      if (!w?.isConnected) continue
+      const root = this.roots.get(key) ?? w
+      this.takeHeight(key, w, Math.max(measuredSize.get(w) ?? 0, measuredSize.get(root) ?? 0))
+    }
+    /* The page never scrolls (sheetRules), but find in page or a re-snap can still scroll it; read here, where its layout is already done. */
+    const page = this.doc?.scrollingElement
+    if (page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) page.scrollTo(0, 0)
+  }
+
+  /** A section's height, as the browser laid it out. Nothing laid out (a card put away, or skipped) is not a height; a section with nothing to see was named by measure. */
+  private takeHeight(key: string, w: HTMLElement, own: number) {
+    if (!(own > 8)) return
+    const h = Math.ceil(own)
+    if (h === this.heights.get(key)) return
+    this.heights.set(key, h)
+    if (this.settled(w)) rememberHeight(this.heightsId, this.renderWidth, key, h)
+    this.setState(key, { height: h })
+  }
+
+  /**
+   * Sections laid out again away from the screen, a few a frame, nearest
+   * first, never while the list is moving: each is let out of
+   * content-visibility for one frame (the browser lays it out in that
+   * frame's own layout, and `sizes` reports it), then skipped again.
+   */
+  private queueRefresh() {
+    if (this.refreshQueued || typeof window === "undefined") return
+    this.refreshQueued = true
     requestAnimationFrame(() => {
-      this.remeasureQueued = false
-      /*
-        A little of every frame (a font landing asks for every card at once:
-        157 sections laid out in one task stalled a scrolling list), at most
-        REMEASURE_FRAME_MS, the cards nearest what is on screen first, read
-        again each frame so a card scrolled to is next.
-      */
-      const t0 = performance.now()
+      this.refreshQueued = false
+      /* Laid out by the browser in the frame just drawn, and read (checkOnScreen): skipped again. */
+      for (const key of this.unskipped) {
+        const w = this.wrappers.get(key)
+        if (w?.isConnected) frameOf(w).setAttribute("data-measured", "")
+      }
+      this.unskipped.clear()
+      if (!this.stale.size || !this.doc) return
+      const still = performance.now() - lastInput
+      if (this.open && still < SCROLL_SETTLE_MS) {
+        this.refreshQueued = true
+        window.setTimeout(() => {
+          this.refreshQueued = false
+          this.queueRefresh()
+        }, SCROLL_SETTLE_MS - still)
+        return
+      }
       const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
       const distance = (key: string) => {
         const r = view ? this.cards.get(key)?.box.getBoundingClientRect() : null
         if (!view || !r) return 0
         return r.bottom < view.top ? view.top - r.bottom : r.top > view.bottom ? r.top - view.bottom : 0
       }
-      const order = [...this.remeasure].map((key) => ({ key, d: distance(key) })).sort((a, b) => a.d - b.d)
-      for (const { key } of order) {
-        if (performance.now() - t0 >= REMEASURE_FRAME_MS) break
-        this.measureNow(key)
+      /* A card put away (its category hidden) stays to be laid out when it is shown again (sync). */
+      const ready = [...this.stale].filter((key) => {
+        const w = this.wrappers.get(key)
+        if (!w?.isConnected) this.stale.delete(key)
+        return !!w?.isConnected && !frameOf(w).hidden
+      })
+      if (!ready.length) return
+      const next = ready.map((key) => ({ key, d: distance(key) })).sort((a, b) => a.d - b.d).slice(0, REFRESH_PER_FRAME)
+      for (const { key } of next) {
+        this.stale.delete(key)
+        frameOf(this.wrappers.get(key)!).removeAttribute("data-measured")
+        this.unskipped.add(key)
+        /* Read in the next frame: the ResizeObserver says nothing for a section put away (0) and shown again inside a skipped card. */
+        this.arriving.add(key)
       }
-      this.sync()
-      if (this.remeasure.size) this.queueRemeasure()
+      this.checkOnScreen()
+      this.queueRefresh()
     })
-  }
-
-  private measureNow(key: string) {
-    this.remeasure.delete(key)
-    const w = this.wrappers.get(key)
-    if (w?.isConnected) this.measure(key, w)
   }
 
   /* ── putting each section over its card ── */
@@ -1095,9 +1291,6 @@ class PreviewSheet {
     const frame = this.frame
     const grid = this.grid
     if (!frame || !grid || !this.doc || !frame.isConnected) return
-    /* The page never scrolls (sheetRules), but find in page or a re-snap can still scroll it: every card is placed from its top left. */
-    const page = this.doc.scrollingElement
-    if (page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) page.scrollTo(0, 0)
     /* Read the host boxes together before writing to the preview document.
        offsetWidth rounds fractional CSS pixels; treating that rounding as a
        dialog transform made the error accumulate down a long list. */
@@ -1123,11 +1316,17 @@ class PreviewSheet {
     const surface = frame.getBoundingClientRect()
     const paintedScale = surface.width / this.renderWidth
     if (!(paintedScale > 0)) return
+    let reshown = false
     for (const { key, inner, box, st, rect: r } of targets) {
       const w = frameOf(inner)
       if (!box || !r || !(r.width > 0) || !(r.height > 0)) {
         w.hidden = true
         continue
+      }
+      /* Shown again after being put away: what changed meanwhile (a picture, a font) is laid out and read once (queueRefresh). */
+      if (w.hidden) {
+        this.stale.add(key)
+        reshown = true
       }
       w.hidden = false
       /* Written only when it moved: the same values again would still ask the frame to look. */
@@ -1160,6 +1359,7 @@ class PreviewSheet {
         this.setState(key, { state: "shown" })
       }
     }
+    if (reshown) this.queueRefresh()
   }
 
   /** Shown once its pictures are decoded and any stylesheet it still links has come: faded in if somebody is looking, simply there otherwise. */
@@ -1324,6 +1524,8 @@ function somethingToSee(root: HTMLElement): boolean {
 const loadedFrom = new WeakMap<Document, string>()
 /** What a document showed when its sheet was given up: each shown section's markup, by card. */
 const shownBefore = new WeakMap<Document, Map<string, string>>()
+/** The last size the browser reported for a section's box or its <main> (PreviewSheet.onSizes). */
+const measuredSize = new WeakMap<Element, number>()
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
 /** A section's card box in the cards' document (sheetRules): its <main>'s parent. */
@@ -1371,11 +1573,17 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     const ro = new ResizeObserver(() => sheet.sync())
     ro.observe(grid)
     /* A card put in, taken out or shown by a category, whatever React did or did not render around it: every section put back over its card before paint. */
+    /* Only the cards themselves: a card's shimmer or name coming and going inside it moves nothing its ResizeObserver would not see. */
     const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => sheet.requestSync())
-    mo?.observe(grid, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] })
+    mo?.observe(grid, { childList: true })
+    const shown = typeof MutationObserver === "undefined" ? null : new MutationObserver((records) => {
+      if (records.some((r) => (r.target as HTMLElement).parentElement === grid)) sheet.requestSync()
+    })
+    shown?.observe(grid, { subtree: true, attributes: true, attributeFilter: ["hidden"] })
     return () => {
       ro.disconnect()
       mo?.disconnect()
+      shown?.disconnect()
     }
   }, [sheet])
   if (!sheet) return null
@@ -1453,6 +1661,12 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     the section cut at its foot, rather than pushing every card under it
     down the list: a wrong remembered height can mis-size a card for a
     moment, never move the list.
+
+    EXCEPT ONCE ITS SECTION IS MEASURED. The owner: a picture cut in half
+    or a heading cut mid line is worse than the list under it moving down.
+    A card grows to its section as soon as the section is measured, whether
+    its height until then was remembered or a placeholder. Only a height
+    from memory never grows a card in sight, and nothing ever shrinks one.
   */
   const fromMemory = remembered !== null && !named
   const [kept, setKept] = useState(() => ({ h: wanted, w: width, mem: fromMemory }))
@@ -1471,7 +1685,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       return
     }
     const take = () => setKept({ h: wanted, w: width, mem: fromMemory })
-    if ((wanted > kept.h && !kept.mem) || !inSight(box.current)) {
+    if ((wanted > kept.h && (!kept.mem || !fromMemory)) || !inSight(box.current)) {
       take()
       return
     }

@@ -87,7 +87,7 @@ console.log("\nA remembered height is checked, and kept per version")
   check("  a height only remembered is marked so until it is measured", /REMEMBERED\.add\(key\)/.test(lib) && /REMEMBERED\.delete\(next\.key\)/.test(lib))
   check("an imported theme's are kept per version of its files and settings", /const heightsId = useMemo\(\(\) => `\$\{installId\}:\$\{rows \? filesTag\(rows, settings\) : "none"\}`/.test(compat) && /new PreviewSheet\(ctx\.theme, ctx\.page, ctx\.rows, ctx\.heightsId, renderWidth\)/.test(compat) && /hit = rememberedHeightsFrom\(/.test(compat) && /if \(!rememberedHeightOk\(h\)\) return/.test(compat))
   check("  a tag changes with any change in what it tags", textTag(["a", "bc"]) !== textTag(["ab", "c"]) && textTag(["x"]) === textTag(["x"]))
-  check("a card sized by a remembered height is not made taller in front of somebody either", /if \(\(wanted > kept\.height && !kept\.mem\) \|\| !box \|\| !inSight\(box\)\)/.test(lib) && /if \(\(wanted > kept\.h && !kept\.mem\) \|\| !inSight\(box\.current\)\)/.test(compat))
+  check("a card sized by a remembered height is not made taller in front of somebody either", /* Changed on purpose (AH1: an imported section, once measured, grows its card, so nothing is cut) */ /if \(\(wanted > kept\.height && !kept\.mem\) \|\| !box \|\| !inSight\(box\)\)/.test(lib) && /if \(\(wanted > kept\.h && \(!kept\.mem \|\| !fromMemory\)\) \|\| !inSight\(box\.current\)\)/.test(compat))
 }
 
 console.log("\nThe probe and its fixture")
