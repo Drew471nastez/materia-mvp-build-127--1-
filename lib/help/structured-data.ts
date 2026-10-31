@@ -6,17 +6,20 @@
  * article data the page draws, so the two can never say different things:
  *
  *   article    an Article (TechArticle) with its headline, description,
- *              dates, screenshots and publisher; a BreadcrumbList; an
- *              FAQPage when its headings are real questions with their
- *              answers under them (faq: true); and a HowTo for its first
- *              numbered steps when it has at least three
+ *              dates, screenshots and publisher, and a BreadcrumbList
  *   topic      a CollectionPage listing its articles, and its breadcrumbs
  *   home       the Help Center as a WebPage
+ *
+ * No FAQPage and no HowTo (round 45). Google shows FAQ rich results only
+ * for well known government and health sites and has retired HowTo rich
+ * results altogether, so the markup earned nothing and described the page
+ * twice. The questions and steps are still in the page as plain HTML,
+ * which is what a search engine or an AI agent reads anyway.
  *
  * Printed through lib/seo/json-ld jsonLdScript, like every other JSON-LD.
  */
 import { publicHelpUrl } from "./paths"
-import { articleText, helpArticlePath, helpImages, plainText, type HelpArticle, type HelpCategory } from "./articles"
+import { articleText, helpArticlePath, helpImages, type HelpArticle, type HelpCategory } from "./articles"
 
 export const HELP_ORIGIN = "https://storelib.com"
 const PUBLISHER = {
@@ -35,47 +38,6 @@ export function helpBreadcrumbs(items: { name: string; path: string }[]) {
     "@type": "BreadcrumbList",
     itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, name: it.name, item: abs(it.path) })),
   }
-}
-
-/** Questions and answers: each heading that ends in a question mark, with the paragraphs under it until the next heading. */
-export function helpFaq(a: HelpArticle): { q: string; a: string }[] {
-  const out: { q: string; a: string }[] = []
-  let current: { q: string; parts: string[] } | null = null
-  const flush = () => {
-    if (current && current.parts.length) out.push({ q: current.q, a: current.parts.join(" ") })
-    current = null
-  }
-  for (const b of a.body) {
-    if (b.type === "h" || b.type === "sub") {
-      flush()
-      if (/\?$/.test(b.text.trim())) current = { q: plainText(b.text), parts: [] }
-    } else if (current && (b.type === "p" || b.type === "note")) current.parts.push(plainText(b.text))
-    else if (current && (b.type === "steps" || b.type === "list")) current.parts.push(b.items.map(plainText).join(" "))
-    else if (current && b.type === "facts") current.parts.push(b.items.map(([label, text]) => `${label}: ${plainText(text)}`).join(" "))
-  }
-  flush()
-  return out
-}
-
-/**
- * The first run of numbered steps worth a HowTo: at least three, named by the
- * heading above them. An article that names its HowTo heading (`howTo`) uses
- * the first steps after that heading instead.
- */
-export function helpHowTo(a: HelpArticle): { name: string; steps: string[] } | null {
-  let heading: string | null = null
-  let reached = !a.howTo
-  for (const b of a.body) {
-    if (b.type === "h" || (a.howTo && b.type === "sub")) {
-      if (b.type === "h") heading = plainText(b.text)
-      if (a.howTo && plainText(b.text) === a.howTo) {
-        heading = plainText(b.text)
-        reached = true
-      }
-    }
-    if (reached && b.type === "steps" && b.items.length >= 3) return { name: heading && !/^\d/.test(heading) ? `${a.title}: ${heading}` : a.title, steps: b.items.map(plainText) }
-  }
-  return null
 }
 
 export function helpArticleJsonLd(a: HelpArticle, category: HelpCategory) {
@@ -105,22 +67,6 @@ export function helpArticleJsonLd(a: HelpArticle, category: HelpCategory) {
       { name: a.title, path },
     ]),
   ]
-  if (a.faq) {
-    const qa = helpFaq(a)
-    if (qa.length >= 2) {
-      graph.push({ "@type": "FAQPage", mainEntity: qa.map((x) => ({ "@type": "Question", name: x.q, acceptedAnswer: { "@type": "Answer", text: x.a } })) })
-    }
-  }
-  const how = helpHowTo(a)
-  if (how) {
-    graph.push({
-      "@type": "HowTo",
-      name: how.name,
-      description: a.summary,
-      ...(images[0] ? { image: images[0] } : {}),
-      step: how.steps.map((text, i) => ({ "@type": "HowToStep", position: i + 1, name: text.split(/(?<=\.)\s/)[0].slice(0, 110), text })),
-    })
-  }
   return { "@context": "https://schema.org", "@graph": graph }
 }
 
