@@ -2410,7 +2410,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number; moving?: boolean }
         const was = ghostNow.current
         /* Moving: where it last stood is kept, and the box set aside (placeGhost). */
-        const next = typeof b.id === "string" ? (b.moving === true ? (was && was.id === b.id ? { ...was, moving: true } : null) : { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 }) : null
+        const next: typeof ghostNow.current = typeof b.id === "string" ? (b.moving === true ? (was && was.id === b.id ? { ...was, moving: true } : null) : { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 }) : null
         if (b.moving === true && !next) return
         if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height && !!was.moving === !!next.moving) return
         ghostNow.current = next
