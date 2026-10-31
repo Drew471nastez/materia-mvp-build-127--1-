@@ -7,7 +7,8 @@ import { helpLink } from "@/lib/marketing/help-links"
 import { featuresJsonLd } from "@/lib/marketing/features-seo"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { SignupCta } from "@/components/alternatives/signup-cta"
-import { BODY, MUTED, Section } from "@/components/alternatives/parts"
+/* Class strings, renamed so they never read as components passed across the server boundary (tests/rsc-boundary). */
+import { BODY as bodyText, MUTED as mutedText, Section } from "@/components/alternatives/parts"
 import { SaleExample } from "@/components/marketing/sale-example"
 import { RelatedVideo } from "@/components/marketing/related-video"
 
@@ -98,7 +99,7 @@ export default async function FeaturesPage() {
         <header className="pb-10 pt-8 sm:pb-12 sm:pt-12">
           <h1 className="max-w-[820px] text-[30px] font-bold leading-[1.12] tracking-[-0.02em] text-[#1a1a2e] sm:text-[40px]">Storelib in one page</h1>
           <p className="mt-4 max-w-[720px] text-[17px] leading-[1.6] text-[#374151]">{storelibSummary(flags)}</p>
-          <p className={`mt-3 ${MUTED}`}>Updated {monthYear(FACTS_UPDATED)}. Every price, fee and limit here is read from the code Storelib runs on.</p>
+          <p className={`mt-3 ${mutedText}`}>Updated {monthYear(FACTS_UPDATED)}. Every price, fee and limit here is read from the code Storelib runs on.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <SignupCta slug={null} source="features" placement="top">Start free</SignupCta>
             <Link href="/pricing" className="inline-flex h-11 items-center rounded-[10px] border border-[#d4d7dc] bg-white px-5 text-[15px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#f9fafb]">See pricing</Link>
@@ -107,8 +108,8 @@ export default async function FeaturesPage() {
 
         <Section id="who" title="Who it is for">
           <div className="max-w-[720px] space-y-4">
-            <p className={BODY}>{WHO_FOR}</p>
-            <p className={BODY}>
+            <p className={bodyText}>{WHO_FOR}</p>
+            <p className={bodyText}>
               Storelib is made by Andrew, a solo founder in Bucharest. He started out selling sample packs to music producers, and he also runs Materia, which makes Shopify themes.
             </p>
           </div>
@@ -151,7 +152,7 @@ export default async function FeaturesPage() {
             </div>
             <SaleExample priceCents={2900} what="a $29 product" />
           </div>
-          <p className={`mt-6 max-w-[760px] ${BODY}`}>
+          <p className={`mt-6 max-w-[760px] ${bodyText}`}>
             Payouts go through {PAYOUTS.method} to banks in {PAYOUTS.regions}. Paying yearly for Pro is not on sale yet.
           </p>
         </Section>
@@ -159,7 +160,7 @@ export default async function FeaturesPage() {
         <Section id="limits" title="What Storelib does not do">
           <ul className="grid max-w-[980px] gap-x-10 gap-y-4 md:grid-cols-2">
             {LIMITATIONS.map((f) => (
-              <li key={f.id} className={BODY} data-limit={f.id}>
+              <li key={f.id} className={bodyText} data-limit={f.id}>
                 <span className="font-semibold text-[#1a1a2e]">{f.label}.</span> {f.text}
               </li>
             ))}
@@ -167,7 +168,7 @@ export default async function FeaturesPage() {
         </Section>
 
         <Section id="compare" title="How it compares">
-          <p className={`max-w-[720px] ${BODY}`}>
+          <p className={`max-w-[720px] ${bodyText}`}>
             Each comparison uses the other company&apos;s own pricing and help pages, dated, and says where the other platform is the better choice.
           </p>
           <ul className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -175,7 +176,7 @@ export default async function FeaturesPage() {
               <li key={c.slug}>
                 <Link href={alternativePath(c.slug)} className="group block">
                   <span className="text-[15px] font-semibold text-[#1a1a2e] group-hover:underline">Storelib vs {c.name}</span>
-                  <span className={`mt-0.5 block ${MUTED}`}>{c.summary}</span>
+                  <span className={`mt-0.5 block ${mutedText}`}>{c.summary}</span>
                 </Link>
               </li>
             ))}

@@ -174,8 +174,8 @@ const row = (i: number, o: Partial<BlogPost> = {}): BlogPost => ({
 
   const entries = blogSitemapEntries([{ ...row(1), category: "Tutorials", updated_at: "2026-09-01T00:00:00.000Z" }], STORELIB_CATEGORIES, categoryToSlug)
   const urls = entries.map((e) => e.url)
-  check("the sitemap rows: /blog, the categories with posts, every post", urls[0] === "https://storelib.com/blog" && urls.includes("https://storelib.com/blog/explore/categories/tutorials") && urls.includes("https://storelib.com/blog/post-1") && STATIC_BLOG_POSTS.every((p) => urls.includes(`https://storelib.com/blog/${p.slug}`)))
-  check("an empty category is not listed", !urls.includes("https://storelib.com/blog/explore/categories/announcements") && !urls.includes("https://storelib.com/blog/explore/categories/case-studies"))
+  check("the sitemap rows: /blog, the categories with posts, every post", urls[0] === "https://storelib.com/blog" && urls.includes("https://storelib.com/blog/category/tutorials") && urls.includes("https://storelib.com/blog/post-1") && STATIC_BLOG_POSTS.every((p) => urls.includes(`https://storelib.com/blog/${p.slug}`)))
+  check("an empty category is not listed", !urls.includes("https://storelib.com/blog/category/announcements") && !urls.includes("https://storelib.com/blog/category/case-studies"))
   check("/blog's date is the newest change, a post's its own", entries[0].lastModified === "2026-09-01T00:00:00.000Z" && entries.find((e) => e.url.endsWith("/post-1"))?.lastModified === "2026-09-01T00:00:00.000Z")
   check("each code-written post carries its own date, not one shared date", new Set(STATIC_BLOG_POSTS.map((p) => entries.find((e) => e.url.endsWith(`/${p.slug}`))?.lastModified)).size === 4)
   check("an unpublished post is not a row, so it is not listed (the query asks for is_published)", /\.from\("blog_posts"\)\.select\("slug, category, updated_at, published_at"\)\.eq\("is_published", true\)/.test(code("lib/seo/sitemaps.ts")))
