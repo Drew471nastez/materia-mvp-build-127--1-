@@ -78,7 +78,7 @@ check("next.config gives the CDN the same minute for /blog", /source: '\/blog\/:
 const post = code("app/(marketing)/blog/[slug]/page.tsx")
 /* Changed on purpose (round 44): fetchPost moved to lib/blog/post so the post's layout can answer 404 before anything streams; still one read per render. */
 const postData = read("lib/blog/post.ts")
-check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{ fetchPost \} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(marketing)/blog/[slug]/layout.tsx")))
+check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{[^}]*\bfetchPost\b[^}]*\} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(marketing)/blog/[slug]/layout.tsx")))
 check("  and both still call it", (post.match(/await fetchPost\(slug\)/g) ?? []).length === 2)
 
 console.log("\nWhat stays per request, and why")

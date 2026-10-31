@@ -1,8 +1,7 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { STORELIB_CATEGORIES } from "@/lib/blog-categories"
 import { blogPagePath, type BlogPost } from "@/lib/blog/listing"
-import { blogCategoryPath } from "@/lib/blog/article"
+import { STATIC_BLOG_CATEGORIES, blogCategoryPath, type BlogCategory } from "@/lib/blog/article"
 import { PostCard, PostCover, shortDate } from "./_components/post-card"
 
 export type { BlogPost }
@@ -23,6 +22,7 @@ export default function BlogListing({
   pagination,
   pagePath = blogPagePath,
   featured = false,
+  categories = STATIC_BLOG_CATEGORIES,
 }: {
   posts: BlogPost[]
   activeCategory: string | null
@@ -34,6 +34,8 @@ export default function BlogListing({
   pagePath?: (page: number) => string
   /** Draw the first post large (the index's first page). */
   featured?: boolean
+  /** The categories to link (lib/blog/categories readBlogCategories); the code's eight by default. */
+  categories?: readonly BlogCategory[]
 }) {
   const [lead, ...rest] = featured ? posts : [null, ...posts]
   return (
@@ -68,10 +70,10 @@ export default function BlogListing({
                 All
               </CategoryLink>
             </li>
-            {STORELIB_CATEGORIES.map((cat) => (
-              <li key={cat}>
-                <CategoryLink href={blogCategoryPath(cat)} active={activeCategory === cat}>
-                  {cat}
+            {categories.map((cat) => (
+              <li key={cat.slug}>
+                <CategoryLink href={blogCategoryPath(cat.name, 1, categories)} active={activeCategory === cat.name}>
+                  {cat.name}
                 </CategoryLink>
               </li>
             ))}

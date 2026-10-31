@@ -54,6 +54,11 @@ export interface ArticleViewData {
   updated_at: string | null
   cover: string | null
   byline: string | null
+  /** The post's blog_authors row (lib/blog/post readBlogAuthor); the byline text when it has none. */
+  author?: { name: string; role?: string | null; bio?: string | null; avatar_url?: string | null; links?: { label: string; url: string }[] } | null
+  /** The category's address (its slug from blog_categories). */
+  categoryHref?: string
+  coverAlt?: string | null
   blocks: Block[]
   snippets?: Record<string, Block[]>
   cta: CtaVariant
@@ -65,17 +70,37 @@ export interface ArticleViewData {
 /** Anisia's picture: the byline the editor gives a post by default. */
 const ANISIA_AVATAR = "https://storelib.com/media/onepage-assets/ee48b026-347c-4372-8589-eea3863b443c/avatars/avatar-1770910695542.jpg"
 
-function Avatar({ byline, size }: { byline: string | null; size: number }) {
-  const a = authorOf(byline)
-  if (a.organization) return <StorelibLogo size={size} alt="" />
-  if (/^anisia$/i.test(a.name)) {
+interface Who {
+  name: string
+  role: string | null
+  bio: string | null
+  avatar: string | null
+  links: { label: string; url: string }[]
+  organization: boolean
+}
+
+/** Who wrote it: the blog_authors row when there is one, the byline text otherwise. */
+export function whoWrote(data: Pick<ArticleViewData, "author" | "byline">): Who {
+  const p = data.author
+  if (p?.name) {
+    const base = authorOf(p.name)
+    const avatar = safeImageUrl(p.avatar_url)
+    return { name: base.name, role: p.role?.trim() || base.role, bio: p.bio?.trim() || null, avatar, links: (p.links ?? []).filter((l) => /^https?:\/\//i.test(l.url)), organization: base.organization && !avatar }
+  }
+  const a = authorOf(data.byline)
+  return { ...a, bio: null, avatar: /^anisia$/i.test(a.name) ? ANISIA_AVATAR : null, links: [] }
+}
+
+function Avatar({ who, size }: { who: Who; size: number }) {
+  if (who.organization) return <StorelibLogo size={size} alt="" />
+  if (who.avatar) {
     return (
       <span className="relative block shrink-0 overflow-hidden rounded-full bg-[#eef0f3]" style={{ width: size, height: size }}>
-        <BlogImage src={ANISIA_AVATAR} alt="" fill sizes={`${size}px`} className="object-cover" />
+        <BlogImage src={who.avatar} alt="" fill sizes={`${size}px`} className="object-cover" />
       </span>
     )
   }
-  const initials = a.name
+  const initials = who.name
     .split(/\s+/)
     .map((w) => w[0])
     .join("")
@@ -88,19 +113,19 @@ function Avatar({ byline, size }: { byline: string | null; size: number }) {
   )
 }
 
-function Byline({ data, minutes, compact }: { data: ArticleViewData; minutes: number; compact?: boolean }) {
-  const a = authorOf(data.byline)
+function Byline({ data, minutes }: { data: ArticleViewData; minutes: number }) {
+  const who = whoWrote(data)
   const updated = isMeaningfullyUpdated(data.published_at, data.updated_at) ? data.updated_at : null
   return (
-    <div className={`flex items-start gap-3 ${compact ? "" : "flex-col"}`} data-blog-byline="">
-      <Avatar byline={data.byline} size={compact ? 40 : 48} />
+    <div className="flex items-start gap-3" data-blog-byline="">
+      <Avatar who={who} size={40} />
       <div className="min-w-0 text-[14px] leading-snug">
         <p className="text-[#1a1a2e]">
           By{" "}
           <a href="#author" className="font-medium hover:underline hover:underline-offset-[3px]">
-            {a.name}
+            {who.name}
           </a>
-          {a.role ? <span className="text-[#6b7280]">, {a.role}</span> : null}
+          {who.role ? <span className="text-[#6b7280]">, {who.role}</span> : null}
         </p>
         <p className="mt-1 text-[#6b7280]">
           {data.published_at ? <time dateTime={data.published_at}>{formatBlogDate(data.published_at)}</time> : null}
@@ -137,7 +162,8 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
   const { toc } = articleOutline(data.blocks)
   const minutes = readMinutes(articleWordCount(data.blocks))
   const cover = safeImageUrl(data.cover)
-  const author = authorOf(data.byline)
+  const who = whoWrote(data)
+  const categoryHref = data.categoryHref ?? (data.category ? blogCategoryPath(data.category) : "/blog")
   const cta = BLOG_CTA[data.cta]
 
   return (
@@ -160,7 +186,7 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
                       /
                     </li>
                     <li>
-                      <Link href={blogCategoryPath(data.category)} className="hover:text-[#1a1a2e]">
+                      <Link href={categoryHref} className="hover:text-[#1a1a2e]">
                         {data.category}
                       </Link>
                     </li>
@@ -176,7 +202,7 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
             </nav>
             {data.category ? (
               <p className="mt-8 text-[14px] font-medium text-[#6d28d9]">
-                <Link href={blogCategoryPath(data.category)} className="hover:underline hover:underline-offset-[3px]">
+                <Link href={categoryHref} className="hover:underline hover:underline-offset-[3px]">
                   {data.category}
                 </Link>
               </p>
@@ -184,14 +210,14 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
             <h1 className={`${data.category ? "mt-3" : "mt-8"} text-balance text-[36px] font-semibold leading-[1.08] tracking-[-0.032em] text-[#1a1a2e] sm:text-[48px] lg:text-[56px]`}>{data.title}</h1>
             {data.excerpt ? <p className="mt-5 max-w-[62ch] text-pretty text-[18px] leading-[1.6] text-[#4b5563] sm:text-[20px]">{data.excerpt}</p> : null}
             <div className="mt-7 xl:hidden">
-              <Byline data={data} minutes={minutes} compact />
+              <Byline data={data} minutes={minutes} />
             </div>
           </header>
         </div>
 
         {cover ? (
           <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-2xl bg-[#eef0f3] sm:mt-10 lg:aspect-[21/9]">
-            <BlogImage src={cover} alt={data.title} fill priority sizes="(min-width: 1240px) 1176px, (min-width: 1024px) calc(100vw - 64px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" className="object-cover" />
+            <BlogImage src={cover} alt={data.coverAlt || data.title} fill priority sizes="(min-width: 1240px) 1176px, (min-width: 1024px) calc(100vw - 64px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" className="object-cover" />
           </div>
         ) : null}
 
@@ -225,18 +251,30 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
             </div>
 
             <section id="author" aria-labelledby="author-name" className="mt-10 flex scroll-mt-28 gap-4 rounded-2xl bg-[#f6f7f9] p-5 sm:p-6" data-blog-author="">
-              <Avatar byline={data.byline} size={56} />
+              <Avatar who={who} size={56} />
               <div className="min-w-0">
                 <p className="text-[13px] text-[#6b7280]">Written by</p>
                 <h2 id="author-name" className="mt-0.5 text-[17px] font-semibold text-[#1a1a2e]">
-                  {author.name}
-                  {author.role ? <span className="font-normal text-[#6b7280]">, {author.role}</span> : null}
+                  {who.name}
+                  {who.role ? <span className="font-normal text-[#6b7280]">, {who.role}</span> : null}
                 </h2>
                 <p className="mt-2 text-[15px] leading-relaxed text-[#4b5563]">
-                  {author.organization
-                    ? "The people who build Storelib, writing about selling digital products, running a store and growing an audience."
-                    : `${author.name} writes practical guides for creators at Storelib.`}
+                  {who.bio ||
+                    (who.organization
+                      ? "The people who build Storelib, writing about selling digital products, running a store and growing an audience."
+                      : `${who.name} writes practical guides for creators at Storelib.`)}
                 </p>
+                {who.links.length ? (
+                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
+                    {who.links.map((l) => (
+                      <li key={l.url}>
+                        <a href={l.url} rel="noopener me" className="flex min-h-[44px] items-center font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-[3px] hover:decoration-[#1a1a2e]">
+                          {l.label || l.url.replace(/^https?:\/\/(www\.)?/, "")}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             </section>
 
@@ -246,7 +284,7 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
           </div>
 
           <aside className="hidden xl:block" aria-label="About this article">
-            <Byline data={data} minutes={minutes} compact />
+            <Byline data={data} minutes={minutes} />
             <div className="mt-6 -ml-3">
               <ShareButtons url={data.url} title={data.title} />
             </div>

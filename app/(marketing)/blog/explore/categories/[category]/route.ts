@@ -1,4 +1,5 @@
 import { legacyCategoryTarget } from "@/lib/blog/article"
+import { readBlogCategories } from "@/lib/blog/categories"
 
 /*
   THE OLD CATEGORY ADDRESS. /blog/explore/categories/<slug> moved to
@@ -9,7 +10,7 @@ import { legacyCategoryTarget } from "@/lib/blog/article"
   next.config's /blog/:path* rule lets the CDN hold the answer.
 */
 export async function GET(_req: Request, { params }: { params: Promise<{ category: string }> }) {
-  const target = legacyCategoryTarget((await params).category)
+  const target = legacyCategoryTarget((await params).category, await readBlogCategories())
   if (!target) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } })
   return new Response(null, { status: 308, headers: { Location: target } })
 }

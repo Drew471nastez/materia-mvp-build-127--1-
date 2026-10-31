@@ -10,8 +10,10 @@
  *                   mainEntityOfPage. The author is a Person when the byline
  *                   names one ("Anisia - Head of Marketing": name and
  *                   jobTitle), and Storelib the Organization when it is a
- *                   team byline ("Storelib Team"). A Person's url only when
- *                   an author page exists; none does yet.
+ *                   team byline ("Storelib Team"). The blog_authors row
+ *                   wins when the post has one (name, role, its links as
+ *                   sameAs). A Person's url only when an author page
+ *                   exists; none does yet.
  *   BreadcrumbList  on an article, a category and the index.
  *   VideoObject     per YouTube block, only with Google's required fields:
  *                   name (the block's title, its caption, or the post's
@@ -69,6 +71,8 @@ export interface BlogPostingInput {
   published: string | null
   modified: string | null
   byline: string | null
+  /** The post's author from blog_authors (lib/blog/post readBlogAuthor), when it has one; wins over the byline text. */
+  profile?: { name: string; role?: string | null; links?: { url: string }[] } | null
   /** An author page, when one exists. */
   authorUrl?: string | null
   category?: string | null
@@ -78,7 +82,8 @@ export interface BlogPostingInput {
 
 export function blogPostingJsonLd(input: BlogPostingInput) {
   const images = [...new Set(input.images.filter((u): u is string => typeof u === "string" && /^https:\/\//i.test(u) && !/\.svg(?:[?#]|$)/i.test(u)))]
-  const author = authorOf(input.byline)
+  const author = input.profile?.name ? { ...authorOf(input.profile.name), role: input.profile.role?.trim() || null } : authorOf(input.byline)
+  const sameAs = (input.profile?.links ?? []).map((l) => l.url).filter((u) => /^https:\/\//i.test(u))
   const published = isoDate(input.published)
   const modified = isoDate(input.modified) ?? published
   return {
@@ -91,7 +96,7 @@ export function blogPostingJsonLd(input: BlogPostingInput) {
     ...(modified ? { dateModified: modified } : {}),
     author: author.organization
       ? ORG
-      : { "@type": "Person", name: author.name, ...(author.role ? { jobTitle: author.role } : {}), ...(input.authorUrl ? { url: abs(input.authorUrl) } : {}) },
+      : { "@type": "Person", name: author.name, ...(author.role ? { jobTitle: author.role } : {}), ...(input.authorUrl ? { url: abs(input.authorUrl) } : {}), ...(sameAs.length ? { sameAs } : {}) },
     publisher: storelibPublisher(),
     url: input.url,
     mainEntityOfPage: { "@type": "WebPage", "@id": input.url },

@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
+import { readBlogCategories } from "@/lib/blog/categories"
 import { BlogCategoryView, blogCategoryMetadata, blogCategoryPage } from "../../_blog-category"
 
 /*
@@ -18,8 +18,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return blogCategoryMetadata((await params).slug, 1)
 }
 
-export function generateStaticParams() {
-  return STORELIB_CATEGORIES.map((c) => ({ slug: categoryToSlug(c) }))
+export async function generateStaticParams() {
+  return (await readBlogCategories()).map((c) => ({ slug: c.slug }))
 }
 
 export default async function BlogCategoryPage({ params }: Props) {

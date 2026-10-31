@@ -70,7 +70,7 @@ export default async function BlogPreviewPage({ params }: { params: Promise<{ to
           <img src={meta.cover_image_url} alt={meta.cover_alt || meta.title} className="mb-8 w-full rounded-xl object-cover" />
         ) : null}
         <section>
-          <PreviewBlocks blocks={body} />
+          <PreviewBlocks blocks={body} title={meta.title} />
         </section>
         {meta.tags.length ? (
           <p className="mt-10 flex flex-wrap gap-2">

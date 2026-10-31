@@ -68,16 +68,18 @@ type Any = any
 async function main() {
   console.log("\nsanitizeInline")
   {
-    check("keeps the inline tags", sanitizeInline("<b>a</b> <strong>b</strong> <i>c</i> <em>d</em> <u>e</u> <s>f</s> <code>g</code> h<br/>i") === "<b>a</b> <strong>b</strong> <i>c</i> <em>d</em> <u>e</u> <s>f</s> <code>g</code> h<br>i")
+    /* Since the merge: lib/blog/sanitize.ts sanitizeInlineHtml does the work, strong and em folded to b and i. */
+    check("keeps the inline tags", sanitizeInline("<b>a</b> <strong>b</strong> <i>c</i> <em>d</em> <u>e</u> <s>f</s> <code>g</code> h<br/>i") === "<b>a</b> <b>b</b> <i>c</i> <i>d</i> <u>e</u> <s>f</s> <code>g</code> h<br>i")
     check("a keeps its href and nothing else", sanitizeInline('<a href="/pricing" class="x" style="color:red" onclick="alert(1)">p</a>') === '<a href="/pricing">p</a>')
-    check("  an external link gets rel=noopener", sanitizeInline('<a href="https://example.com/x">x</a>') === '<a href="https://example.com/x" rel="noopener">x</a>')
-    check("javascript: links lose their href", sanitizeInline('<a href="javascript:alert(1)">x</a>') === "<a>x</a>")
-    check("  also when hidden with entities, case or whitespace", ['<a href="JaVaScRiPt:alert(1)">x</a>', '<a href="java&#x09;script:alert(1)">x</a>', '<a href=" javascript:alert(1)">x</a>', '<a href="javascript&colon;alert(1)">x</a>'].every((h) => sanitizeInline(h) === "<a>x</a>"))
-    check("data: and vbscript: too", sanitizeInline('<a href="data:text/html,x">x</a>') === "<a>x</a>" && sanitizeInline('<a href="vbscript:x">x</a>') === "<a>x</a>")
+    check("  an external link keeps its address", sanitizeInline('<a href="https://example.com/x">x</a>') === '<a href="https://example.com/x">x</a>')
+    check("javascript: links lose their href", sanitizeInline('<a href="javascript:alert(1)">x</a>') === "x")
+    check("  also when hidden with entities, case or whitespace", ['<a href="JaVaScRiPt:alert(1)">x</a>', '<a href="java&#x09;script:alert(1)">x</a>', '<a href=" javascript:alert(1)">x</a>', '<a href="javascript&colon;alert(1)">x</a>'].every((h) => sanitizeInline(h) === "x"))
+    check("data: and vbscript: too", sanitizeInline('<a href="data:text/html,x">x</a>') === "x" && sanitizeInline('<a href="vbscript:x">x</a>') === "x")
     check("mailto, tel and anchors are kept", sanitizeInline('<a href="mailto:a@b.co">m</a><a href="tel:+1">t</a><a href="#h">h</a>') === '<a href="mailto:a@b.co">m</a><a href="tel:+1">t</a><a href="#h">h</a>')
     check("on* handlers never survive, on any tag", !/onerror|onload|onclick/i.test(sanitizeInline('<b onmouseover="x()">b</b><img src=x onerror=alert(1)><svg onload=alert(1)>')))
     check("script and style go with their text", sanitizeInline("a<script>alert(1)</script>b<style>p{}</style>c") === "abc")
-    check("other tags go, their text stays", sanitizeInline('<span style="x">one</span> <div>two</div> <img src="x.png">') === "one two ")
+    const other = sanitizeInline('<span style="x">one</span> <div>two</div> <img src="x.png">')
+    check("other tags go, their text stays", !/[<>]/.test(other) && /one\s+two/.test(other), other)
     check("unclosed tags are closed, stray closers dropped", sanitizeInline("<b>bold <i>both") === "<b>bold <i>both</i></b>" && sanitizeInline("x</b></a>") === "x")
     check("text is escaped where it is not markup; real entities stay", sanitizeInline("1 < 2 & 3 > 2 &amp; &lt;") === "1 &lt; 2 &amp; 3 &gt; 2 &amp; &lt;")
     check("the href's quotes cannot break out", !/"\s+onclick/.test(sanitizeInline(`<a href='/x" onclick="alert(1)'>x</a>`)))
@@ -166,7 +168,7 @@ async function main() {
     check("table, lists, code (escaped)", /<th[^>]*>Plan<\/th>/.test(html) && /<td[^>]*>5%<\/td>/.test(html) && /<li[^>]*><b>One<\/b><\/li>/.test(html) && /<ol/.test(html) && /const a = &#x27;&lt;b&gt;&#x27;/.test(html))
     check("callout with its tone", /data-blog-callout="warning"[\s\S]*Warning[\s\S]*Careful/.test(html))
     check("cta block with its button", /data-blog-cta-block[\s\S]*Try it[\s\S]*Free to start[\s\S]*href="\/signup"[^>]*>Start/.test(html))
-    check("embed from the allow-list is a lazy frame built from the id", /<iframe[^>]*src="https:\/\/player\.vimeo\.com\/video\/76979871\?dnt=1"[^>]*loading="lazy"|<iframe[^>]*loading="lazy"[^>]*src="https:\/\/player\.vimeo\.com\/video\/76979871\?dnt=1"/.test(html))
+    check("embed from the allow-list is a lazy frame built from the id", /<iframe[^>]*src="https:\/\/player\.vimeo\.com\/video\/76979871"[^>]*loading="lazy"|<iframe[^>]*loading="lazy"[^>]*src="https:\/\/player\.vimeo\.com\/video\/76979871"/.test(html))
     check("  anything else is a plain link, never a frame", /<a href="https:\/\/evil\.example\.com\/76979871"[^>]*>Not vimeo<\/a>/.test(html) && !/<iframe[^>]*evil/.test(html))
     check("video: mp4 or webm, controls, preload none", /<video[^>]*controls=""[^>]*preload="none"/.test(html) && /<source src="https:\/\/cdn\.example\.com\/clip\.webm" type="video\/webm"/.test(html) && !/clip\.mov/.test(html))
     check("snippet: a resolved one draws its blocks, a missing one draws nothing", /From the snippet/.test(html) && !/missing/.test(html))
@@ -175,7 +177,7 @@ async function main() {
   console.log("\nEmbeds")
   {
     check("youtube ids from every address shape", ["https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ", "https://www.youtube.com/embed/dQw4w9WgXcQ"].every((u) => youtubeIdFromUrl(u) === "dQw4w9WgXcQ"))
-    check("each provider's frame", blogEmbed({ provider: "loom", url: "https://www.loom.com/share/abc123" })?.kind === "frame" && (blogEmbed({ provider: "x", url: "https://x.com/u/status/123" }) as Any).src.startsWith("https://platform.twitter.com/embed/Tweet.html?id=123") && (blogEmbed({ provider: "spotify", url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC" }) as Any).src === "https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC" && (blogEmbed({ provider: "codepen", url: "https://codepen.io/team/pen/abcDEF" }) as Any).src.startsWith("https://codepen.io/team/embed/abcDEF") && (blogEmbed({ provider: "figma", url: "https://www.figma.com/design/AbC123/File" }) as Any).src.startsWith("https://www.figma.com/embed?embed_host=storelib&url="))
+    check("each provider's frame", blogEmbed({ provider: "loom", url: "https://www.loom.com/share/0123456789abcdef0123" })?.kind === "frame" && (blogEmbed({ provider: "x", url: "https://x.com/u/status/1234567" }) as Any).src.startsWith("https://platform.twitter.com/embed/Tweet.html?id=123") && (blogEmbed({ provider: "spotify", url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC" }) as Any).src === "https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC" && (blogEmbed({ provider: "codepen", url: "https://codepen.io/team/pen/abcDEF" }) as Any).src.startsWith("https://codepen.io/team/embed/abcDEF") && (blogEmbed({ provider: "figma", url: "https://www.figma.com/design/AbC123def456/File" }) as Any).src.startsWith("https://www.figma.com/embed?embed_host=storelib&url="))
     check("a provider with somebody else's address is nothing", blogEmbed({ provider: "loom", url: "https://loom.evil.com/share/abc" }) === null && blogEmbed({ provider: "spotify", url: "javascript:alert(1)" }) === null && blogEmbed({ url: "https://vimeo.com/1" }) === null)
     const csp = read("lib/security/csp.ts")
     check("every frame host is in the CSP's frame-src", ["https://player.vimeo.com", "https://www.loom.com", "https://platform.twitter.com", "https://open.spotify.com", "https://www.figma.com", "https://codepen.io", "https://www.youtube-nocookie.com"].every((h) => csp.includes(`"${h}"`) && read("vercel.json").includes(h)))
@@ -232,7 +234,7 @@ async function main() {
     check("  an unknown category is still a 404", missing.status === 404)
     check("the old page is gone, the new pages exist with layouts deciding 404 and 308 before the stream", !existsSync(join(process.cwd(), "app/(marketing)/blog/explore/categories/[category]/page.tsx")) && existsSync(join(process.cwd(), "app/(marketing)/blog/category/[slug]/page.tsx")) && /permanentRedirect\(`\/blog\/category\/\$\{slug\}`\)/.test(code("app/(marketing)/blog/category/[slug]/page/[page]/layout.tsx")) && /notFound\(\)/.test(code("app/(marketing)/blog/category/[slug]/layout.tsx")))
     const cat = code("app/(marketing)/blog/_blog-category.tsx")
-    check("a category page: its own canonical, BreadcrumbList, noindex while empty", /path: blogCategoryPath\(category, page\)/.test(cat) && /breadcrumbListJsonLd\(crumbs\)/.test(cat) && /: \{ index: false, follow: true \}/.test(cat))
+    check("a category page: its own canonical, BreadcrumbList, noindex while empty", /path: blogCategoryPath\(category\.name, page, categories\)/.test(cat) && /breadcrumbListJsonLd\(crumbs\)/.test(cat) && /: \{ index: false, follow: true \}/.test(cat))
     const internal = ["app/(marketing)/blog/_blog-listing.tsx", "app/(marketing)/blog/_components/article-view.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/_blog-category.tsx"]
     check("no internal link names the old address", internal.every((p) => !code(p).includes("explore/categories")))
 
@@ -242,7 +244,7 @@ async function main() {
     const many = Array.from({ length: 120 }, (_, i) => ({ slug: `g${i}`, category: "Growth", published_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), updated_at: null }))
     const manyUrls = withBlogCategoryPages(blogSitemapEntries(many, STORELIB_CATEGORIES, categoryToSlug), many).map((e) => e.url)
     check("  and a category's older pages once it has them", manyUrls.includes("https://storelib.com/blog/category/growth/page/2") && manyUrls.includes("https://storelib.com/blog/category/growth/page/3") && !manyUrls.includes("https://storelib.com/blog/category/growth/page/4"))
-    check("sitemaps.ts uses it", /withBlogCategoryPages\(blogSitemapEntries\(posts, STORELIB_CATEGORIES, categoryToSlug\), posts\)/.test(code("lib/seo/sitemaps.ts")))
+    check("sitemaps.ts uses it", /withBlogCategoryPages\(blogSitemapEntries\(posts, blogCategories\.map\(\(c\) => c\.name\), \(name\) => categorySlugOf\(name, blogCategories\)\), posts, blogCategories\)/.test(code("lib/seo/sitemaps.ts")))
 
     const html = renderToStaticMarkup(createElement(BlogListing, { posts: [], activeCategory: "Growth", title: "Growth", subtitle: "x", pagination: { page: 2, pages: 3 }, pagePath: (n: number) => blogCategoryPath("Growth", n) }))
     check("a category's pages are real links at its own addresses", /href="\/blog\/category\/growth"[^>]*rel="prev"|rel="prev"[^>]*href="\/blog\/category\/growth"/.test(html) && /href="\/blog\/category\/growth\/page\/3"/.test(html))
@@ -260,6 +262,23 @@ async function main() {
     check("the newsletter route takes source blog and a honeypot that stores nothing", /body\.source === "blog" \? "blog" : "footer"/.test(route) && /body\.company/.test(route) && route.indexOf("body.company") < route.indexOf(".upsert("))
     const card = code("app/(marketing)/blog/_components/newsletter-card.tsx")
     check("  the card says done only after the server said ok", /if \(!res\.ok \|\| !data\?\.ok\)/.test(card) && /source: "blog"/.test(card))
+  }
+
+  console.log("\nWired to the editor's data layer (seo-blogadmin)")
+  {
+    const page = code("app/(marketing)/blog/[slug]/page.tsx")
+    check("snippets are expanded on the server before drawing", /expandSnippets\(rowBlocks, await readBlogSnippets\(rowBlocks\)\)/.test(page))
+    check("the author row drives the byline, the box and the Person", /readBlogAuthor\(dbPost\?\.author_id\)/.test(page) && /author: profile/.test(page) && /profile,/.test(page))
+    check("canonical_url, noindex, og_image_url, cover_alt and tags", /canonicalOf\(slug, dbPost\?\.canonical_url\)/.test(page) && /dbPost\?\.noindex === true/.test(page) && /dbPost\?\.og_image_url \|\| dbPost\?\.cover_image_url/.test(page) && /cover_alt/.test(page) && /dbPost\?\.tags/.test(page))
+    check("generateStaticParams lists only live posts", /\.eq\("is_published", true\)\.or\(liveDateFilter\(\)\)/.test(page))
+    check("the blog's lists read through readBlogPosts, which is date filtered", /\.or\(liveDateFilter\(\)\)/.test(code("lib/blog/read.ts")) && /readBlogPosts/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /readBlogPosts/.test(code("app/(marketing)/blog/_blog-category.tsx")))
+    check("the preview draws with the public renderer", /import \{ ArticleBlocks \} from "@\/app\/\(marketing\)\/blog\/_components\/article-blocks"/.test(code("app/admin/blog/preview/[token]/_article.tsx")))
+    check("sanitizeInline is sanitizeInlineHtml", /return sanitizeInlineHtml\(html \?\? ""\)/.test(code("app/(marketing)/blog/_components/article-blocks.tsx")))
+    check("the old slug's 308 stays in the post's layout", /blogRedirectFor\(slug\)/.test(code("app/(marketing)/blog/[slug]/layout.tsx")))
+    const renamed = [{ slug: "growth", name: "Growing", description: "d" }]
+    check("a renamed category keeps its slug in every address", blogCategoryPath("Growing", 1, renamed) === "/blog/category/growth" && legacyCategoryTarget("growth", renamed) === "/blog/category/growth" && legacyCategoryTarget("tutorials", renamed) === null)
+    const sd = blogPostingJsonLd({ url: "https://storelib.com/blog/x", title: "T", description: "D", images: [], fallbackImage: "/x.jpg", published: null, modified: null, byline: "Storelib Team", profile: { name: "Jane Roe", role: "Editor", links: [{ url: "https://x.com/jane" }, { url: "javascript:x" }] } }) as Any
+    check("the Person comes from the author row, its links as sameAs", sd.author["@type"] === "Person" && sd.author.name === "Jane Roe" && sd.author.jobTitle === "Editor" && JSON.stringify(sd.author.sameAs) === '["https://x.com/jane"]')
   }
 
   console.log("\nRelated and neighbours")
