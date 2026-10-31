@@ -33,7 +33,9 @@ export function moneyWithoutCurrency(payload: Record<string, unknown> | null | u
 
 /** Flags one held email for the admin. Never throws: the payment it belongs to is already done. */
 export async function flagHeldEmail(details: { email: string; orderId?: string | null; type?: string | null }): Promise<void> {
-  console.error("[email] held: currency unknown", details.email, details.orderId ? String(details.orderId).slice(0, 8) : "")
+  /* `email` here is the kind of email ("Receipt", "Sale"), never an address. */
+  const kind = details.email
+  console.error("[email] held: currency unknown", kind, details.orderId ? String(details.orderId).slice(0, 8) : "")
   await import("@/lib/observability/report")
     .then(({ reportError }) =>
       reportError({

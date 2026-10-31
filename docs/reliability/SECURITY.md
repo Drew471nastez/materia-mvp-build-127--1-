@@ -45,10 +45,10 @@ Trust boundaries that matter most:
 | SITE-7 | MEDIUM | AI limits fail open | `claude/rel-sites` |
 | SITE-9 | MEDIUM | draft theme assets public | `claude/rel-sites` (later) |
 | SEC-8 | LOW-MEDIUM | `/auth/continue` lacks claims fallback (availability) | `claude/rel-security` |
-| SEC-9 | LOW-MEDIUM | recovery tokens via custom scheme | `claude/rel-security` |
-| SEC-10 | LOW | dead bridge with non-atomic consume | `claude/rel-security` |
-| SEC-11 | LOW | personal data in logs and URLs | `claude/rel-security` |
-| SEC-12 | LOW | CSP report-only, no Permissions-Policy | Batch 6 |
+| SEC-9 | LOW-MEDIUM | recovery tokens via custom scheme | `claude/rel2-security2`: raw tokens no longer sent; bridge code handoff documented (section 5) |
+| SEC-10 | LOW | dead bridge with non-atomic consume | `claude/rel2-security2`: atomic consume (section 5) |
+| SEC-11 | LOW | personal data in logs and URLs | `claude/rel2-security2`: logs masked; addresses in URLs open (section 4) |
+| SEC-12 | LOW | CSP report-only, no Permissions-Policy | `claude/rel2-security2`: Permissions-Policy on storelib.com; CSP still report only |
 | SITE-10 | LOW | unescaped `ilike` on creator name | `claude/rel-sites` |
 | EVD-3 | MEDIUM | auth calls on public routes (cost and latency, not a leak) | not assigned |
 
@@ -84,20 +84,83 @@ Trust boundaries that matter most:
   keys.
 - **Community privacy.** Private responses are `no-store`/`private`; share
   cards show a post only if it is public.
-- **IDOR sample.** About 12 service-role routes taking ids (orders resend and
-  invoice, cashout, email messages, theme publish, memberships manage,
-  payouts sheet, v1 analytics, site-account delete, sites run, team join)
-  each resolve ownership through a helper. None vulnerable.
+- **Tenant isolation (IDOR), full sweep.** 463 route handlers and pages that
+  take an id, handle, token or address from the request and reach the
+  service-role client, directly or through a helper, were checked; none
+  reads or writes another tenant's rows. Method, notes and the per-route
+  table: [IDOR_SWEEP.md](IDOR_SWEEP.md).
 
 ## 4. Open items
 
 | Item | Status | Next step |
 | --- | --- | --- |
 | CSP | `Content-Security-Policy-Report-Only` in `vercel.json`, reports to `/api/csp-report` | review reports, then enforce on apex app routes (sites may need their own policy) |
-| Permissions-Policy | not set | add `camera=(), microphone=(), geolocation=()` on apex app routes, not on creator sites |
+| Permissions-Policy | **sent on storelib.com and www only** (vercel.json, `tests/permissions-policy.test.ts`): `camera=(self "https://connect-js.stripe.com" "https://js.stripe.com"), microphone=(self), geolocation=(), payment=(self "https://js.stripe.com"), usb=(), display-capture=()`. Camera and microphone stay on because the ID photo and the builder's voice ask use them; payment for Apple Pay and Google Pay in Stripe's frame | creator sites and custom domains could get their own later (an AI site already sets one) |
 | HSTS | Vercel default; not explicit, custom domains UNPROVEN | add explicitly for apex after checking subdomain impact |
-| IDOR coverage | only about 12 of 300+ service-role routes sampled | **recommended: full sweep** of every route that takes an id from the path, query or body and uses `createAdminClient()`, checking it resolves ownership before use; turn each check into a route test |
+| IDOR coverage | **done**: [IDOR_SWEEP.md](IDOR_SWEEP.md), no gap found | repeat the check for each new route that uses the service role with a request id |
 | Repository visibility | not checked | owner confirms the GitHub repository is private; if not, SEC-2 is exploitable now |
 | Admin identity | one shared login, no MFA, no per-person audit | longer term: per-person admin accounts on Supabase Auth with MFA |
 | Private community pictures in a public bucket | design trade-off, URLs hard to guess | owner decision whether to move to signed URLs |
-| `/auth/app-callback`, GET sync-session, custom-scheme reset | legacy | retire after Vercel logs show zero use |
+| `/auth/app-callback`, GET sync-session, custom-scheme reset | legacy; see section 5 | retire `/auth/app-callback` after Vercel logs show zero use |
+| Email address in `/signup/verify?email=` URLs | still in 10 redirects and the code email's link (request logs) | move it to the session (the page can read `user.email`), or to the `#` fragment; touches every sign-up redirect, so its own change |
+
+## 5. Native app links (SEC-9, SEC-10)
+
+What was found (grep over `app/`, `lib/`, `components/`, `android/`,
+`ios/`, `capacitor.config.ts`, `public/.well-known`, `app/api/app-links`):
+
+- The installed apps load the live site (`capacitor.config.ts`
+  `server.url = https://storelib.com/native-start`), so the deep link
+  handling that matters is the web code in `lib/native-oauth.ts`, not the
+  app build. Android declares the custom scheme `storelib://auth/callback`
+  and `storelib://reset-password`, and verified https App Links for
+  `/app/auth/callback` and `/reset-password`
+  (`android/app/src/main/AndroidManifest.xml`; the files are served by
+  `app/api/app-links/assetlinks` and `apple-app-site-association`).
+- **`/app/auth/callback` (SEC-10).** Nothing writes `oauth_bridge_tokens`
+  any more; `MainActivity` sees the App Link and lets the WebView JS finish
+  OAuth with PKCE, it does not load the route. The route stays because an
+  older build may still open it. Its token is now single use for real: the
+  delete returns the row (`DELETE ... RETURNING`,
+  `lib/auth/bridge-token.ts`), so two requests at once cannot both get the
+  session; the stored path is checked like the query's, and redirects are
+  `no-store`. Test: `tests/bridge-token-once.test.ts`.
+- **`/auth/app-callback`.** No producer anywhere (no web, Java or JS code
+  links to it), and the current app JS does not understand its
+  `storelib://auth/callback?token=` links. It only relays tokens it is given,
+  so no victim token reaches it. Left in place (no route deleted); retire it
+  after Vercel logs show no hits.
+
+**The risk of a custom scheme.** Any Android app can declare `storelib://`
+in its manifest. When two apps claim one scheme, Android shows a chooser or
+picks one; either way a link on that scheme can be delivered to an app that
+is not Storelib, with everything in it. iOS custom schemes have the same
+weakness. A credential in such a link is a credential handed to whichever
+app answers.
+
+- **Recovery tokens (fixed).** The reset page's legacy link (tokens in the
+  `#` fragment) sent the live access and refresh tokens on as
+  `storelib://auth/callback?type=recovery&access_token=...`. It now finishes
+  the reset in the browser. Test: `tests/custom-scheme-tokens.test.ts`
+  (also refuses any new `storelib://` address carrying a session token).
+- **Bridge code (kept, risk accepted for now).** A phone browser opening the
+  emailed reset link (`/reset-password?code=`) hands the one-time bridge code
+  to `storelib://reset-password?code=` and, after 6 seconds, uses it itself.
+  An app that intercepts it can exchange the code at
+  `/api/auth/exchange-reset-code` for a recovery session first. The app's
+  handler (`lib/native-oauth.ts` `isBridgeCodeResetLink`) depends on it, so it
+  was not changed.
+- **OAuth code (fine).** `storelib://auth/callback?code=` carries a PKCE code,
+  useless without the verifier stored inside the app.
+
+**The safe alternative.** Use the verified https links the app already has:
+Android App Links (`autoVerify` with `assetlinks.json`) and iOS Universal
+Links. The OS gives a verified https link only to the app whose signing
+certificate the site names, so no other app can receive it. For the reset:
+the emailed `https://storelib.com/reset-password?code=` link already opens
+the app when it is installed (the manifest has the App Link). The browser
+page's custom-scheme handoff can then go: on a phone browser, offer an
+"Open in the app" button that links to the same https address (a user tap
+on a verified App Link opens the app), and otherwise finish in the browser.
+That is a change to the app's reset path, to be made and tested on real
+devices together with the owner.

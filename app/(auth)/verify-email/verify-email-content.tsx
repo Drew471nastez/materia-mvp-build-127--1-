@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { continueHref, readCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -63,7 +64,7 @@ export default function VerifyEmailContent() {
     setResendLoading(true)
 
     try {
-      console.log("[VerifyEmail] Sending verification code to:", email)
+      console.log("[VerifyEmail] Sending verification code to:", maskEmail(email))
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -32,6 +32,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
+import { maskEmail } from "@/lib/privacy/mask-email"
 import { completeNativeSession } from "@/lib/auth/native-session"
 import { goToAuthHref, hrefForLog } from "@/lib/auth/session-sync"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
@@ -442,7 +443,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   error      : ${exchangeErr ? exchangeErr.message : "null"}`)
     console.log(`${TAG}   hasSession : ${!!data?.session}`)
     console.log(`${TAG}   userId     : ${data?.session?.user?.id ?? "null"}`)
-    console.log(`${TAG}   email      : ${data?.session?.user?.email ?? "null"}`)
+    console.log(`${TAG}   email      : ${maskEmail(data?.session?.user?.email)}`)
 
     if (exchangeErr) {
       const failure = classifyOAuthError({ message: exchangeErr.message })
@@ -466,7 +467,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     const email = verifiedSession?.user?.email ?? data.session.user.email ?? data.session.user.id
     console.log(`${TAG} ── getSession() verification ──────────────────────────`)
     console.log(`${TAG}   session exists : ${!!verifiedSession}`)
-    console.log(`${TAG}   user email     : ${email}`)
+    console.log(`${TAG}   user email     : ${maskEmail(email)}`)
     showToast(`Session verified: ${email}`, "ok")
 
     if (!verifiedSession) {
@@ -477,7 +478,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
 
     // ── LOG 7: success — determine destination and navigate ───────────────────
-    console.log(`${TAG} ✓ Session confirmed for ${email} — determining destination…`)
+    console.log(`${TAG} ✓ Session confirmed for ${maskEmail(email)} — determining destination…`)
     showToast(`Session OK — ${email}`, "ok")
 
     // Close Chrome Custom Tab again (belt-and-suspenders — some Android

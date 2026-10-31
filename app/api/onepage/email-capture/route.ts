@@ -6,6 +6,7 @@ import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-s
 import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
+import { maskEmail } from "@/lib/privacy/mask-email"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
         if (!emailResult.success) {
           console.error("[email-capture] Error sending download email:", emailResult.error)
         } else {
-          console.log("[email-capture] ✅ Download email sent successfully to:", normalizedEmail)
+          console.log("[email-capture] ✅ Download email sent successfully to:", maskEmail(normalizedEmail))
         }
       }
 

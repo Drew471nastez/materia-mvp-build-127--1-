@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+function pathOf(location: string): string {
+  try {
+    return new URL(location, "https://storelib.com").pathname
+  } catch {
+    return "(unreadable)"
+  }
+}
+
 export const runtime = "nodejs"
 
 /**
@@ -76,7 +84,8 @@ export async function POST(request: Request) {
     })
 
     if (linkError || !linkData?.properties?.action_link) {
-      console.error("[exchange-reset-code] generateLink failed:", linkError)
+      /* The kind and status only: an auth error can name the address. */
+      console.error("[exchange-reset-code] generateLink failed:", linkError?.name ?? "no link", linkError?.status ?? "")
       return NextResponse.json({ error: "Failed to create recovery session" }, { status: 500 })
     }
 
@@ -97,7 +106,8 @@ export async function POST(request: Request) {
     // Parse tokens from the Location header's hash fragment
     const hashIndex = location.indexOf("#")
     if (hashIndex === -1) {
-      console.error("[exchange-reset-code] No hash fragment in redirect:", location.slice(0, 200))
+      /* The path only: the redirect's query can carry an error naming the account. */
+      console.error("[exchange-reset-code] No hash fragment in redirect:", pathOf(location))
       return NextResponse.json({ error: "Recovery verification failed" }, { status: 500 })
     }
 
@@ -116,7 +126,7 @@ export async function POST(request: Request) {
       type: "recovery",
     })
   } catch (error) {
-    console.error("[exchange-reset-code] Unexpected error:", error)
+    console.error("[exchange-reset-code] Unexpected error:", error instanceof Error ? error.name : "unknown")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
