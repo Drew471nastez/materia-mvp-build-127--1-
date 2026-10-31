@@ -9,6 +9,7 @@
  *   "Payout available" after holds are released           to the user id, awaited
  *   the community and physical crons                      one clock from the request, under maxDuration
  *   seo-index, warm-sites, notify (timed out in prod)     a hard stop under maxDuration, resumed next run
+ *   crons and webhooks                                    no bare supabase-js client without a deadline
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -23,7 +24,7 @@ import { recordFile } from "@/lib/admin/seo/store"
 import { inspectUrl } from "@/lib/admin/seo/google"
 import { warmPublishedSites } from "@/lib/website-builder/warm-sites"
 import { runWork } from "@/lib/notify/engine"
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
 
@@ -333,6 +334,24 @@ async function main() {
     check("and the run says it stopped for time", summary.stoppedForTime === true)
     const route = code("app/api/cron/notify/route.ts")
     check("notify: the clock starts with the request and the forwarding takes only what is left", /async function runJob\(request: Request\) \{\s*const run = runDeadline\(runBudgetMs\(maxDuration\)\)/.test(route) && /const forwardMs = run\.share\(10_000\)/.test(route) && !/Math\.max\(2_000, 55_000/.test(route))
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\nCrons and webhooks use the deadline-wrapped admin client (item 5)")
+  {
+    const walk = (dir: string): string[] =>
+      readdirSync(join(process.cwd(), dir)).flatMap((f) => {
+        const p = `${dir}/${f}`
+        return statSync(join(process.cwd(), p)).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : []
+      })
+    const files = [...walk("app/api/cron"), ...walk("app/api/webhooks")]
+    const bare = files.filter((f) => {
+      const src = code(f)
+      return /import\s*\{[^}]*\bcreateClient\b[^}]*\}\s*from\s*["']@supabase\/supabase-js["']/.test(src) && !/import\s+type\s*\{[^}]*\bcreateClient\b/.test(src)
+    })
+    check("no cron or webhook builds a bare supabase-js client (no request deadline, no schema-reload retry)", bare.length === 0, bare)
+    check("the email cron and the Mailgun webhook use createAdminClient", ["app/api/cron/process-scheduled-emails/route.ts", "app/api/webhooks/mailgun/route.ts"].every((f) => /const supabaseAdmin = createAdminClient\(\)/.test(code(f))))
+    check("and createAdminClient's fetch is the deadline one", /global: \{ fetch: mediaFetch \}/.test(code("lib/supabase/admin.ts")) && /return deadlineFetch\(input, init\)/.test(code("lib/storage/media-url.ts")))
   }
 
   clearInterval(keepAlive)
