@@ -1051,42 +1051,25 @@ class PreviewSheet {
     requestAnimationFrame(() => {
       this.remeasureQueued = false
       /*
-        A little at a time (a font landing asks for every card at once: 157
-        sections laid out in one task stalled a scrolling list). In a frame,
-        only the cards on screen or near it, within REMEASURE_FRAME_MS; the
-        rest in the browser's idle moments.
+        A little of every frame (a font landing asks for every card at once:
+        157 sections laid out in one task stalled a scrolling list), at most
+        REMEASURE_FRAME_MS, the cards nearest what is on screen first, read
+        again each frame so a card scrolled to is next.
       */
       const t0 = performance.now()
       const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
-      let nearLeft = false
-      for (const key of [...this.remeasure]) {
+      const distance = (key: string) => {
         const r = view ? this.cards.get(key)?.box.getBoundingClientRect() : null
-        if (view && !(r && r.bottom > view.top - 400 && r.top < view.bottom + 400)) continue
-        if (performance.now() - t0 >= REMEASURE_FRAME_MS) {
-          nearLeft = true
-          break
-        }
+        if (!view || !r) return 0
+        return r.bottom < view.top ? view.top - r.bottom : r.top > view.bottom ? r.top - view.bottom : 0
+      }
+      const order = [...this.remeasure].map((key) => ({ key, d: distance(key) })).sort((a, b) => a.d - b.d)
+      for (const { key } of order) {
+        if (performance.now() - t0 >= REMEASURE_FRAME_MS) break
         this.measureNow(key)
       }
       this.sync()
-      if (nearLeft) this.queueRemeasure()
-      else if (this.remeasure.size) this.remeasureIdle()
-    })
-  }
-
-  private remeasureIdleQueued = false
-  /** The cards away from the screen, measured again when the browser has a moment. */
-  private remeasureIdle() {
-    if (this.remeasureIdleQueued || typeof window === "undefined") return
-    this.remeasureIdleQueued = true
-    onIdle((d) => {
-      this.remeasureIdleQueued = false
-      for (const key of [...this.remeasure]) {
-        if (d.timeRemaining() < 4) break
-        this.measureNow(key)
-      }
-      this.sync()
-      if (this.remeasure.size) this.remeasureIdle()
+      if (this.remeasure.size) this.queueRemeasure()
     })
   }
 
