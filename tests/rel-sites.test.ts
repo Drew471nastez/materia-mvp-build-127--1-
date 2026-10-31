@@ -13,6 +13,7 @@
  *   AI site address                   a check that failed is "taken" (fail closed), never "free"
  *   Theme publish                     a cancelled publish (57014, PGRST002) is asked once more; two minutes, stated
  *   AI spend limits                   a count that cannot be read refuses the run (503, Try again), never unlimited
+ *   Draft theme assets                the unpublished file only with the install's signed pass; published files untouched
  *
  * Every true "missing" answer stays what it was.
  */
@@ -500,6 +501,51 @@ async function aiLimits() {
   check("every AI route answers the limit's own status, and the one-run-per-site read that failed refuses", [sitesAgent, read("app/api/website-builder/themes/[installId]/agent/route.ts"), read("app/api/website-builder/themes/[installId]/sections/code/route.ts")].every((r) => /status: limitStatus\((limited|busy)\)/.test(r) && !/\{ error: (limited|busy) \}, \{ status: 429 \}/.test(r)) && /if \(activeError\) return NextResponse\.json\(\{ error: AI_LIMIT_UNREADABLE \}, \{ status: 503 \}\)/.test(sitesAgent))
 }
 
+async function draftAssets() {
+  console.log("\nF. A theme's draft stylesheets and scripts need the install's signed pass (MEDIUM-5)")
+  const { GET } = await import("@/app/api/site-theme/assets/[installId]/[version]/[...name]/route")
+  const { draftAssetPass, isDraftAssetPass } = await import("@/lib/website-builder/draft-asset-pass")
+  const { splitAssetVersion, withDraftPass } = await import("@/lib/storelib-theme/compat/draft-version")
+  const A = "11111111-1111-4111-8111-111111111111"
+  const B = "22222222-2222-4222-8222-222222222222"
+  const asked: string[] = []
+  fakeSupabase({
+    store_theme_custom_files: (url) => {
+      asked.push(url.searchParams.get("select") ?? "")
+      return json(200, [{ path: "shopify/assets/theme.css", content: "body{color:live}", draft_content: "body{color:draft}" }])
+    },
+  })
+  const get = async (version: string) => {
+    const res = await GET(new Request(`https://storelib.com/api/site-theme/assets/${A}/${version}/theme.css`), { params: Promise.resolve({ installId: A, version, name: ["theme.css"] }) })
+    return { status: res.status, body: await res.text(), cache: res.headers.get("cache-control") }
+  }
+  const pass = draftAssetPass(A)
+  const open = await get("edit")
+  check("the builder's old address with no pass is the PUBLISHED file, never the draft (and never a 404)", open.status === 200 && /live/.test(open.body) && !/draft/.test(open.body), open)
+  check("  not cached either", open.cache === "private, max-age=0, must-revalidate")
+  const own = await get(withDraftPass("edit", pass))
+  check("with this install's pass, the draft", own.status === 200 && /draft/.test(own.body), own)
+  const preview = await get(withDraftPass(`draft-${Date.now()}`, pass))
+  check("  a preview's draft-<time> address with its pass, too", /draft/.test(preview.body))
+  const other = await get(withDraftPass("edit", draftAssetPass(B)))
+  check("another install's pass opens nothing here", /live/.test(other.body) && !/draft/.test(other.body))
+  const forged = await get(withDraftPass("edit", "x".repeat(32)))
+  check("  nor does a made-up one", /live/.test(forged.body))
+  const published = await get("1730000000")
+  check("a published address is unchanged: the live file, cached for a year", /live/.test(published.body) && published.cache === "public, max-age=31536000, immutable", published)
+  check("  and never asks for the draft column", !asked[asked.length - 1].includes("draft_content"), asked)
+  check("the pass is per install, fixed, and checked in constant time", draftAssetPass(A) === draftAssetPass(A) && draftAssetPass(A) !== draftAssetPass(B) && isDraftAssetPass(A, pass) && !isDraftAssetPass(B, pass) && !isDraftAssetPass(A, null))
+  check("a draft version still reads as a draft with its pass, a published one never", splitAssetVersion(`edit.${pass}`).draft && splitAssetVersion(`draft-9.${pass}`).pass === pass && !splitAssetVersion("h-0123456789abcdef").draft && !splitAssetVersion("1730000000").draft)
+
+  const files = read("app/api/website-builder/themes/[installId]/files/route.ts")
+  const canvasFiles = read("components/website-builder/compat/compat-files.ts")
+  const site = read("lib/website-builder/compat-site.ts")
+  check("the owner's editor is handed the pass with the theme's files (owner or team only), and draws with it", /NextResponse\.json\(\{ files, asset_pass: draftAssetPass\(installId\) \}\)/.test(files) && /passes\.set\(installId, d\.asset_pass\)/.test(canvasFiles) && /\$\{draftAssetVersion\(installId\)\}/.test(read("components/website-builder/compat/compat-canvas.tsx")) && /\$\{draftAssetVersion\(installId\)\}/.test(read("components/website-builder/compat/compat-section-preview.tsx")))
+  check("a preview link's page and the cover's page draw their assets with the pass", /withDraftPass\(`draft-\$\{Date\.now\(\)\}`, draftAssetPass\(row\.id\)\)/.test(site) && /compatThemeFor\(row\.id, withDraftPass\("edit", draftAssetPass\(row\.id\)\), rows, settings\)/.test(site))
+  const route = read("app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts")
+  check("the draft settings drawn into a .css.liquid follow the same pass", /const draft = asked\.draft && isDraftAssetPass\(installId, asked\.pass\)/.test(route) && /installFiles\(admin, installId, draft\)/.test(route) && /const settings = \(draft \? s\?\.draft_settings/.test(route))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -510,6 +556,7 @@ async function run() {
     await slugCheck()
     await themePublish()
     await aiLimits()
+    await draftAssets()
   } finally {
     globalThis.fetch = realFetch
   }
