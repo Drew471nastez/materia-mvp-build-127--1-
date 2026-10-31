@@ -22,3 +22,24 @@ export function markLayerBack(): void {
 export function isLayerBack(): boolean {
   return typeof performance !== "undefined" && performance.now() - markedAt < 400
 }
+
+/*
+  WHILE A LAYER PUTS THE ADDRESS BACK. Its own history.back() is a popstate
+  like any other: the layer must not take it for a second close, and the
+  route loading bar (components/navigation/route-loading-bar.tsx) must not
+  take it for a navigation. The flag lives here, not in the lightbox, so the
+  loading bar, which is on every marketing page, reads it without bringing
+  the viewer and its video player into every page's bundle (round 46: about
+  60 KB of script the page never ran).
+*/
+let historyLayerRestoring = false
+
+/** Route loading must ignore popstate while a layer is stepping back over its entry. */
+export function isHistoryLayerRestoring(): boolean {
+  return historyLayerRestoring
+}
+
+/** Set by useHistoryLayer (components/community/member/lightbox.tsx) around its own step back. */
+export function setHistoryLayerRestoring(on: boolean): void {
+  historyLayerRestoring = on
+}
