@@ -85,16 +85,16 @@ export async function downloadExternalImage(raw: string, deps: Pick<CopyDeps, "r
   const content = imageContentProblem(res.headers.get("content-type"), bytes.subarray(0, 4096))
   if ("problem" in content) return { ok: false, error: content.problem }
   const picture = preparePublicImage(bytes, COPY_IMAGE_MAX_BYTES)
-  if (!picture.ok) return { ok: false, error: picture.error }
+  if ("error" in picture) return { ok: false, error: picture.error }
   return { ok: true, bytes: picture.bytes, mime: picture.mime, ext: picture.ext }
 }
 
 /** Download, check and store one picture: its new address on Storelib, or why not. */
 export async function copyExternalImage(raw: string, deps: CopyDeps = DEFAULT_DEPS): Promise<CopyResult> {
   const got = await downloadExternalImage(raw, deps)
-  if (!got.ok) return got
+  if ("error" in got) return { ok: false, error: got.error }
   const stored = await deps.store(got, { media: true })
-  if (!stored.ok) {
+  if ("error" in stored) {
     console.error("[admin] blog copy image: storage:", String(stored.error?.message ?? "").slice(0, 200))
     return { ok: false, error: "The picture could not be stored. Nothing was changed." }
   }
@@ -135,7 +135,7 @@ export async function copyPostImages(supabase: Supa, id: string, deps: CopyDeps 
   /* One at a time: a post has a handful of pictures, and a site asked for ten at once may refuse them all. */
   for (const url of urls.keys()) {
     const r = await copyExternalImage(url, deps)
-    if (r.ok) moved.set(url, r.url)
+    if ("url" in r) moved.set(url, r.url)
     else failed.push({ url, error: r.error })
   }
   if (!moved.size) return { id, title, copied: 0, failed }
