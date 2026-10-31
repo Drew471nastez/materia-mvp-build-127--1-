@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { Check } from "lucide-react"
 import { ARRIVAL_COOKIE, arrivalFromCookieString, arrivalWaitsOn, type Arrival } from "@/lib/auth/arrival"
 import { tt } from "@/lib/i18n/text"
+import { recordSignupTouches } from "@/lib/attribution/signup-browser"
 
 /** On screen this long, then it fades. */
 const SHOWN_MS = 3000
@@ -50,6 +51,8 @@ export function ArrivalNote() {
     if (arrivalWaitsOn(pathname)) return
     const note = take()
     if (!note) return
+    /* A new account: where its visit came from, written once by the server (app/api/auth/signup-attribution). */
+    if (note.arrival === "new") recordSignupTouches()
     const left = note.at + SHOWN_MS - Date.now()
     if (left <= 0) return
     setSaid(note.arrival)

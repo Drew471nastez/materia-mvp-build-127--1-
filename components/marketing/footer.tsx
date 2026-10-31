@@ -174,7 +174,7 @@ export function MarketingFooter() {
           </div>
 
           <nav aria-label="Product" className="space-y-4">
-            <h4 className="text-sm font-semibold text-white">Product</h4>
+            <h2 className="text-sm font-semibold text-white">Product</h2>
             <div className="space-y-3">
               {PRODUCT.map((l) => (
                 <Link key={l.label} href={l.href} className={linkClass}>
@@ -196,7 +196,7 @@ export function MarketingFooter() {
           </nav>
 
           <nav aria-label="Support" className="space-y-4">
-            <h4 className="text-sm font-semibold text-white">Support</h4>
+            <h2 className="text-sm font-semibold text-white">Support</h2>
             <div className="space-y-3">
               {SUPPORT.map((l) =>
                 l.href.startsWith("mailto:") ? (
@@ -218,7 +218,7 @@ export function MarketingFooter() {
           </nav>
 
           <div className="col-span-2 space-y-4">
-            <h4 className="text-sm font-semibold text-white">Join Our Community!</h4>
+            <h2 className="text-sm font-semibold text-white">Join Our Community!</h2>
             <p className="text-sm text-white/50">Receive weekly assets and future templates for free by joining our community.</p>
 
             {state === "done" ? (

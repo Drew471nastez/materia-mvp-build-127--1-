@@ -109,12 +109,14 @@ export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
       {checkoutError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-5 py-3 rounded-xl shadow-lg max-w-[90vw]">
           <span>{checkoutError}</span>
-          <button onClick={() => setCheckoutError(null)} className="ml-2 text-red-400 hover:text-red-600 shrink-0">✕</button>
+          <button type="button" aria-label="Dismiss" onClick={() => setCheckoutError(null)} className="ml-2 text-red-400 hover:text-red-600 shrink-0">✕</button>
         </div>
       )}
 
       {/* PRICING */}
+      {/* The plans' heading is this page's h1: /pricing had none (a browser agent and a screen reader look for one). */}
       <PricingSection
+        headingLevel={1}
         hideDetailsLink
         headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
         subtitleOverride={isUpgradeMode ? "Pro is $29 a month. Cancel at any time from Billing." : undefined}

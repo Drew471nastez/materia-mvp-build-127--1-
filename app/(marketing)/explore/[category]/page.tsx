@@ -219,7 +219,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   return (
     /* Explore's ground and container, which the loading screen draws too
        (./loading.tsx), so nothing moves when the products arrive. */
-    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <div className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
@@ -248,6 +248,6 @@ export default async function CategoryPage({ params, searchParams }: Props) {
           initialSubcategory={initialSub}
         />
       </div>
-    </main>
+    </div>
   )
 }

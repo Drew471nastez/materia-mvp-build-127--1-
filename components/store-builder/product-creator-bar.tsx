@@ -437,6 +437,8 @@ export function ProductCreatorBar({
           <form onSubmit={handleSubmit} className="flex gap-2 items-center shrink-0">
             <Input
               type="email"
+              aria-label="Your email"
+              autoComplete="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -1437,6 +1439,8 @@ export function LiveProductCreatorBar({
               <form onSubmit={handleSubmit} className="ml-auto flex shrink-0 items-center gap-2">
                 <Input
                   type="email"
+                  aria-label="Your email"
+                  autoComplete="email"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
