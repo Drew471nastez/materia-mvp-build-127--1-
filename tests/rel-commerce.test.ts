@@ -25,6 +25,8 @@
  *      deadline, so it cannot hold a Stripe webhook (database audit F1)
  *   9  the Orders page's missed-refund check runs once per creator per six
  *      hours and applies refunds through refund-sync (database audit F8)
+ *  10  the draft earnings summary reads every order of the year, a page at
+ *      a time
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -501,6 +503,20 @@ async function main() {
     const page = code("app/app/orders/sales/page.tsx")
     const sweep = page.slice(page.indexOf("async function catchMissedRefunds"))
     check("a refund found is applied by refund-sync (ledger line, each refund once), never by raw order updates", /if \(!refundCheckDue\(creatorId\)\) return/.test(sweep) && /await syncChargeRefund\(admin, stripe, charge\)/.test(sweep) && !/from\("orders"\)\s*\.update/.test(sweep))
+  }
+
+  /* ── 10. Tax summary paged (database audit, payments part) ────────── */
+  section("10. The draft earnings summary counts every order of the year, past 1,000")
+  {
+    const year = new Date().getFullYear() - 1
+    const rows = Array.from({ length: 1_005 }, (_, i) => ({ creator_id: creatorId, product_id: pack, status: "completed", amount_cents: 100, fee_cents: 5, currency: "usd", buyer_email: `t${i}@example.com`, receipt_token: `tax-${i}-${Math.random().toString(36).slice(2)}`, created_at: new Date(Date.UTC(year, 2, 1, 0, 0, i % 3600)).toISOString() }))
+    for (const r of rows) j.db.insert("orders", r, {})
+    j.db.maxRows = 1_000
+    const tax = await j.call(`GET /api/stripe/tax-summary?year=${year}`, { as: seller })
+    j.db.maxRows = null
+    check("1,005 orders in a year: every one counted, not the first 1,000", tax.status === 200 && tax.json?.transactionCount === 1_005 && tax.json?.grossEarnings === 100_500, { status: tax.status, count: tax.json?.transactionCount, gross: tax.json?.grossEarnings, error: tax.json?.error })
+    const src = code("app/api/stripe/tax-summary/route.ts")
+    check("  read a page at a time by the order's creator, no .in() of every product id", /\.range\(from, from \+ TAX_SUMMARY_PAGE - 1\)/.test(src) && !/\.in\("product_id", productIds\)/.test(src))
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)

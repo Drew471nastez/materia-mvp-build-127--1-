@@ -55,6 +55,8 @@ export class MemoryDb {
    * table, or an rpc's name) with `method` (any when absent) answer this error, as a timeout or an outage would.
    */
   faults: { table: string; method?: string; times: number; code: string; status: number; hang?: boolean }[] = []
+  /** PostgREST's max-rows (1,000 on Supabase), when a suite sets it: a read answers at most this many rows. Off by default. */
+  maxRows: number | null = null
   /** `hang`: the request is accepted and never answered (it ends only when its caller aborts it, as a deadline does). */
   failNext(table: string, opts: { method?: string; times?: number; code?: string; status?: number; hang?: boolean } = {}) {
     this.faults.push({ table, method: opts.method?.toUpperCase(), times: opts.times ?? 1, code: opts.code ?? "57014", status: opts.status ?? 500, hang: opts.hang })
@@ -409,6 +411,7 @@ export class MemoryDb {
         const all = this.select(table, selectParam ?? "*", filters, { order, limit: null, offset: 0 })
         total = all.length
         rows = all.slice(offset, limit !== null ? offset + limit : undefined)
+        if (this.maxRows !== null) rows = rows.slice(0, this.maxRows)
         if (method === "HEAD") return new Response(null, { status: 200, headers: { "content-range": `*/${total}` } })
       } else if (method === "POST") {
         const body = JSON.parse((await req.text()) || "null")
