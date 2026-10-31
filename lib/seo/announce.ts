@@ -40,6 +40,12 @@ async function handleOfCreator(admin: Admin, creatorId: string): Promise<string 
   return (profile as { username?: string } | null)?.username ?? c.slug ?? null
 }
 
+/** The website's shop as its sitemap lists it: /collections/all on an imported theme, where /products redirects (round 45). */
+function shopOf(site: { origin: string; entries: { url: string }[] }): string {
+  const all = `${site.origin}/collections/all`
+  return site.entries.some((e) => e.url === all) ? all : `${site.origin}/products`
+}
+
 /** A product: its page, its creator's page, and the same product on their website. */
 export async function productAddresses(productId: string, creatorId: string): Promise<string[]> {
   const admin = createAdminClient()
@@ -51,7 +57,7 @@ export async function productAddresses(productId: string, creatorId: string): Pr
   if (!p?.slug || p.creator_id !== creatorId || !notSpam(handle)) return []
   const urls = [getProductShareUrl(handle, p.slug), `${BASE}/${handle}`]
   const [site, pageHost] = await Promise.all([siteSitemap(handle), activeDomainOf(creatorId)])
-  if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(p.slug)}`, `${site.origin}/products`)
+  if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(p.slug)}`, shopOf(site))
   urls.push(...onPageDomain(handle, pageHost, p.slug))
   return urls
 }
@@ -82,7 +88,7 @@ export async function removedProductAddresses(slug: string, creatorId: string): 
   if (still || !notSpam(handle)) return []
   const urls = [getProductShareUrl(handle, slug), `${BASE}/${handle}`]
   const [site, pageHost] = await Promise.all([siteSitemap(handle), activeDomainOf(creatorId)])
-  if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(slug)}`, `${site.origin}/products`)
+  if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(slug)}`, shopOf(site))
   urls.push(...onPageDomain(handle, pageHost, slug))
   return urls
 }
@@ -131,6 +137,22 @@ export async function websiteAddresses(creatorId: string): Promise<string[]> {
   if (!site) return formerSiteAddresses(creatorId, handle)
   /* Published but noindex: the front page, so engines see it went. */
   return site.entries.length > 0 ? site.entries.map((e) => e.url) : [`${site.origin}/`]
+}
+
+/**
+ * A collection of the creator's website (round 45): its page under each
+ * slug given (a rename sends the old one, now a 404, and the new), and the
+ * collections list that links it. Only while a website is published and
+ * open to search engines, at its canonical origin; nothing otherwise.
+ */
+export async function collectionAddresses(creatorId: string, ...slugs: Array<string | null | undefined>): Promise<string[]> {
+  const wanted = [...new Set(slugs.map((s) => (s ?? "").trim().toLowerCase()).filter((s) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s)))]
+  if (wanted.length === 0) return []
+  const handle = await handleOfCreator(createAdminClient(), creatorId)
+  if (!notSpam(handle)) return []
+  const site = await siteSitemap(handle)
+  if (!site || site.entries.length === 0) return []
+  return [...wanted.map((s) => `${site.origin}/collections/${s}`), `${site.origin}/collections`]
 }
 
 /** For `after()`: work out the addresses and send them, never throwing. */
