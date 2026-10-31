@@ -1699,11 +1699,34 @@ export const SectionLibrary = memo(function SectionLibrary({
    * keep the browser from ever committing the close's first frame, and a
    * transition whose start is never committed does not run.
    */
+  /*
+    ON A COMPUTER, THE DIALOG STARTS CLOSING IN THE FRAME AFTER THE CLICK,
+    AND THE EDITOR IS DRAWN ONCE FOR THE CLOSE AND THE ADD (scripts/check-
+    section-insert-smooth.mjs). Telling the editor the library had closed,
+    inside the click, drew the whole editor there and then: 130 to 260ms
+    before the first frame of the close at a quarter speed, then the whole
+    editor again for the add. The closed state is put on the dialog's own
+    element instead (its exit is opacity and transform, run by the
+    compositor once that frame is drawn, and the dialog stops taking clicks
+    with it, so a second click cannot add twice), and the editor hears of the
+    close and the add together, in one render, on the next frame. A phone's
+    sheet closes as before: its movement belongs to the sheet.
+  */
   const handleAdd = useCallback((type: string, presetIndex = 0) => {
     hapticTap("light")
+    const layer = phone ? null : document.querySelector<HTMLElement>("[data-section-library-layer]")
+    if (layer) {
+      layer.setAttribute("data-state", "closed")
+      layer.setAttribute("inert", "")
+      requestAnimationFrame(() => {
+        onOpenChange(false)
+        onAddSection(type, presetIndex)
+      })
+      return
+    }
     onOpenChange(false)
     requestAnimationFrame(() => onAddSection(type, presetIndex))
-  }, [onAddSection, onOpenChange])
+  }, [onAddSection, onOpenChange, phone])
 
   const empty = searching
     ? tt("Nothing matches “{value}”", { value: query.trim() })

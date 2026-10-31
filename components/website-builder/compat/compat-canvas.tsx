@@ -48,6 +48,8 @@ import { useCanvasReviews } from "@/components/website-builder/use-canvas-review
 import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
+import { linkedSheets } from "@/lib/storelib-theme/compat/preview-styles"
+import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
 import type { CartOffers } from "@/lib/storelib-theme/compat/objects"
 import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
@@ -1403,7 +1405,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
     for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id), ...(choice ? { now: true } : {}) }, "*")
-    if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
+    if (Object.keys(plan.message).length) {
+      /* A section new to the page comes with the text of the stylesheets it links, so it is never drawn without them (preview-styles.ts linkedSheets). */
+      const added = Array.isArray(plan.message.order) ? (plan.message.order as { html?: string }[]).flatMap((x) => (x.html ? [x.html] : [])) : []
+      const sheets = added.length ? linkedSheets(added, rowsRef.current, fixThemeCss) : {}
+      win.postMessage({ storelib: 1, type: "patch", ...plan.message, ...(Object.keys(sheets).length ? { sheets } : {}) }, "*")
+    }
     tell(win, isLive())
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, jsonOf(s))
@@ -1998,13 +2005,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
   useEffect(() => {
     const onReveal = (e: Event) => {
-      const detail = (e as CustomEvent<{ id?: string; since?: number }>).detail
+      const detail = (e as CustomEvent<{ id?: string; since?: number; arrival?: boolean }>).detail
       const id = detail?.id
       if (!id) return
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
       /* `since`: not if the person has moved the page themselves since then (the end of a run they scrolled away during). */
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id, ...(typeof detail?.since === "number" ? { since: detail.since } : {}) }, "*")
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id, ...(typeof detail?.since === "number" ? { since: detail.since } : {}), ...(detail?.arrival ? { arrival: true } : {}) }, "*")
     }
     window.addEventListener(REVEAL_EVENT, onReveal)
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)

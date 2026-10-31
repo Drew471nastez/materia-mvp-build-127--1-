@@ -1617,16 +1617,24 @@ export const CANVAS_BRIDGE = `
   var kept = {}, keptLink = {};
   /* The same file at another version (?v=, its text changed: a push) takes the old one's place once it has loaded, never both (round 13). */
   var fileOf = function (href) { return String(href).replace(/[?&]v=[^&#]*/, ""); };
-  var keep = function (href) {
+  /*
+    text: the stylesheet's own text, when the builder has it (a section new
+    to the page: compat-canvas.tsx, preview-styles.ts linkedSheets). Written
+    as a <style> in this task, so it applies before the section is put in,
+    with no request to wait for; a link otherwise, waited for (2s at most).
+  */
+  var keep = function (href, text) {
     if (kept[href]) return kept[href];
-    var l = document.createElement("link");
-    l.rel = "stylesheet";
-    l.href = href;
+    var inline = typeof text === "string";
+    var l = document.createElement(inline ? "style" : "link");
+    if (inline) l.textContent = text;
+    else { l.rel = "stylesheet"; l.href = href; }
+    l.__slHref = href;
     l.setAttribute("data-sl", "");
     var old = keptLink[fileOf(href)];
     keptLink[fileOf(href)] = l;
-    kept[href] = new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
-    if (old) kept[href].then(function () { if (old.href && kept[old.href]) delete kept[old.href]; old.remove(); });
+    kept[href] = inline ? Promise.resolve() : new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
+    if (old) kept[href].then(function () { var was = old.__slHref || old.href; if (was && kept[was]) delete kept[was]; old.remove(); });
     document.head.appendChild(l);
     return kept[href];
   };
@@ -2462,13 +2470,91 @@ export const CANVAS_BRIDGE = `
     return true;
   };
   var groupOf = function (el) { var m = /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className || ""); return m ? m[1] : ""; };
-  var fresh = function (html) {
+  var fresh = function (html, sheets) {
     var tpl = document.createElement("template");
     tpl.innerHTML = html;
     var el = tpl.content.firstElementChild;
     if (!el) return null;
-    Array.prototype.slice.call(el.querySelectorAll('link[rel="stylesheet"][href]')).forEach(function (l) { keep(l.href); l.remove(); });
+    Array.prototype.slice.call(el.querySelectorAll('link[rel="stylesheet"][href]')).forEach(function (l) { keep(l.href, sheets ? sheets[l.getAttribute("href")] : undefined); l.remove(); });
     return el;
+  };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SECTION ADDED ARRIVES WITH ITS STYLES, AND THE PAGE MAKES ROOM
+    ═══════════════════════════════════════════════════════════════════════
+    The owner: "After I click it, it goes into the canvas with no delay, no
+    bump, no glitch, no flash." Measured (scripts/check-section-insert-
+    smooth.mjs) on a theme whose sections link their own stylesheet, as
+    Dawn's do: the section went in before its stylesheet had loaded and was
+    on screen unstyled for up to 27 frames, then grew by 900px when the file
+    came; every section under it was pushed down by its height in one frame
+    (a layout shift of 0.3 to 1.2); and the glide to it went to the wrong
+    place (A STICKY HEADER, below).
+
+    Now a section new to the page waits for its stylesheets before it goes
+    in: the builder hands over the text of the ones in the theme's files
+    (keep, above), so that wait is nothing, and only a stylesheet from
+    elsewhere is waited for. And a section the builder says is arriving
+    (added from the library: "reveal" with arrival) is played in as a
+    Storelib theme's canvas plays it (lib/website-builder/section-arrival.ts,
+    the same times and curve): the sections below it start where they were
+    and slide to their new place by transform, it fades up underneath them,
+    and the page scrolls, once and smoothly, only when its top is not on
+    screen already. Transform and opacity only; nothing moves with reduced
+    motion, and a scroll there is instant.
+  */
+  var ARRIVE_MS = 460, ARRIVE_SCROLL_MS = 320, ARRIVE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+  var arriving = {};
+  var sheetsReady = function (m) {
+    var waits = [];
+    (m.order || []).forEach(function (it) {
+      if (!it.html || document.getElementById("shopify-section-" + it.id)) return;
+      var tp = document.createElement("template");
+      tp.innerHTML = it.html;
+      Array.prototype.forEach.call(tp.content.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { waits.push(keep(l.href, m.sheets ? m.sheets[l.getAttribute("href")] : undefined)); });
+    });
+    return waits.length ? Promise.all(waits) : null;
+  };
+  var pageTops = function () {
+    var out = {};
+    Array.prototype.forEach.call(document.querySelectorAll(".shopify-section"), function (x) { if (x.id) out[x.id] = x.getBoundingClientRect().top + scrollY; });
+    return out;
+  };
+  var arrive = function (el, before) {
+    var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var cover = coverBottom();
+    var r = el.getBoundingClientRect();
+    var scrolls = false;
+    /* Its top on screen, below a sticky header, with room to see that something is there: the page stays where it is. */
+    if (!(r.top >= cover && r.top <= innerHeight - Math.min(140, (innerHeight - cover) * 0.25))) {
+      var top = Math.max(0, Math.round(r.top + scrollY - cover - 16));
+      if (Math.abs(scrollY - top) > 4) { scrollTo({ top: top, behavior: still ? "auto" : "smooth" }); scrolls = true; }
+    }
+    if (still || !el.animate) return;
+    var delay = scrolls ? ARRIVE_SCROLL_MS : 0;
+    var all = Array.prototype.slice.call(document.querySelectorAll(".shopify-section"));
+    var reach = scrollY + innerHeight * 2;
+    all.slice(all.indexOf(el) + 1).forEach(function (f) {
+      var was = before[f.id];
+      /* An overlay group's section (a pop-up, a bar fixed to the foot) is not in the page's flow: a transform would carry what it fixes. */
+      if (was === undefined || /shopify-section-group-overlay/.test(f.className || "")) return;
+      var now = f.getBoundingClientRect().top + scrollY;
+      var d = was - now;
+      if (Math.abs(d) < 1 || Math.min(was, now) > reach) return;
+      var cs = getComputedStyle(f);
+      if (cs.position === "fixed" || cs.position === "sticky") return;
+      f.animate([{ transform: "translate3d(0, " + d + "px, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: ARRIVE_MS, delay: delay, easing: ARRIVE_EASE, fill: "backwards" });
+    });
+    el.setAttribute("data-sl-arrival", "playing");
+    var a = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, delay: delay, easing: ARRIVE_EASE, fill: "backwards" });
+    a.finished.then(function () { el.setAttribute("data-sl-arrival", "done"); }, function () { el.setAttribute("data-sl-arrival", "done"); });
+  };
+  /* Said before the section is drawn; kept until the patch that puts it in. Not drawn here in time (a page drawn again behind this one), it is glided to as before. */
+  var expectArrival = function (id) {
+    if (!id) return;
+    if (document.getElementById("shopify-section-" + id)) { queue = queue.then(function () { revealSection(id); }).catch(function () {}); return; }
+    clearTimeout(arriving[id]);
+    arriving[id] = setTimeout(function () { delete arriving[id]; revealSection(id); }, 4000);
   };
   /*
     A section new to the page runs its own scripts once, as it would have had
@@ -2489,7 +2575,12 @@ export const CANVAS_BRIDGE = `
       old.replaceWith(s);
     });
   };
+  /* A section new to the page goes in with its stylesheets applied (A SECTION ADDED ARRIVES): waited for here, the whole patch at once after. */
   var patch = function (m) {
+    var ready = sheetsReady(m);
+    return ready ? ready.then(function () { return patchNow(m); }) : patchNow(m);
+  };
+  var patchNow = function (m) {
     /* The layout around the sections first (THE LAYOUT AROUND THE SECTIONS): a page that no longer matches its drawing is drawn again. */
     if (m.layout) {
       var laidOut = false;
@@ -2563,12 +2654,14 @@ export const CANVAS_BRIDGE = `
     var y = scrollY;
     var byId = function (id) { return document.getElementById("shopify-section-" + id); };
     var added = [];
+    /* Where everything was, for a section arriving (A SECTION ADDED ARRIVES): read before anything moves. */
+    var tops = m.order.some(function (x) { return arriving[x.id] && !byId(x.id); }) ? pageTops() : null;
     for (var i = 0; i < m.order.length; i++) {
       var it = m.order[i];
       var el = byId(it.id);
       if (!el) {
         if (!it.html) return reload("missing " + it.id);
-        el = fresh(it.html);
+        el = fresh(it.html, m.sheets);
         if (!el) continue;
         drawn[it.id] = it.html;
         added.push(el);
@@ -2595,6 +2688,13 @@ export const CANVAS_BRIDGE = `
       rewatch([], el);
     });
     if (scrollY !== y) scrollTo(0, y);
+    if (tops) added.forEach(function (el) {
+      var id = el.getAttribute("data-section-id") || el.id.slice(16);
+      if (!arriving[id]) return;
+      clearTimeout(arriving[id]);
+      delete arriving[id];
+      arrive(el, tops);
+    });
     if (selected.section) mark(selected.section, selected.block, false);
     reportSoon();
   };
@@ -2630,19 +2730,34 @@ export const CANVAS_BRIDGE = `
   addEventListener("wheel", personScrolls, { passive: true, capture: true });
   addEventListener("touchmove", personScrolls, { passive: true, capture: true });
   addEventListener("keydown", function (e) { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) personScrolls(); }, true);
+  /*
+    A STICKY HEADER: how much of the top of the page it covers. Only a bar
+    that is painted counts: the header group's children include the menu
+    drawer and the search overlay, fixed to the whole window and hidden until
+    opened, and those were taken for a header as tall as the window, so a
+    section added was glided to 850px above itself, off screen (scripts/
+    check-section-insert-smooth.mjs, Materia's drawer).
+  */
+  var coverBottom = function () {
+    var cover = 0;
+    var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
+    for (var i = 0; i < tops.length; i++) {
+      var cs = getComputedStyle(tops[i]);
+      if (cs.position !== "sticky" && cs.position !== "fixed") continue;
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue;
+      var r = tops[i].getBoundingClientRect();
+      if (r.top > 1 || r.bottom <= 0 || r.height === 0 || r.height > innerHeight * 0.4) continue;
+      cover = Math.max(cover, r.bottom);
+    }
+    return cover;
+  };
   var revealSection = function (id) {
     if (!id) return;
     var tries = 0;
     var go = function () {
       var el = document.getElementById("shopify-section-" + id) || document.querySelector('[data-section-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
       if (!el) { if (++tries < 10) setTimeout(go, 120); return; }
-      var cover = 0;
-      var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
-      for (var i = 0; i < tops.length; i++) {
-        var cs = getComputedStyle(tops[i]);
-        if (cs.position === "sticky" || cs.position === "fixed") { var r = tops[i].getBoundingClientRect(); if (r.top <= 1) cover = Math.max(cover, r.bottom); }
-      }
-      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - cover - 16);
+      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - coverBottom() - 16);
       var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (Math.abs(scrollY - top) > 4) scrollTo({ top: top, behavior: still ? "auto" : "smooth" });
     };
@@ -2849,7 +2964,7 @@ export const CANVAS_BRIDGE = `
     if (m.type === "patch" || m.type === "edits" || m.type === "section") holdStill();
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
-      queue = queue.then(function () { patch(m); holdStill(true); }).catch(function (err) { reload(String(err)); });
+      queue = queue.then(function () { return Promise.resolve(patch(m)).then(function () { holdStill(true); }); }).catch(function (err) { reload(String(err)); });
     } else if (m.type === "edits") {
       /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
       queue = queue.then(function () {
@@ -2905,6 +3020,8 @@ export const CANVAS_BRIDGE = `
       /* Round AH: a section just added, pasted or written by the AI, brought smoothly to the top, below a sticky header, once it is drawn. */
       /* Not when it comes at the end of a run the person scrolled away during (round 14): the page is where they took it. */
       if (typeof m.since === "number" && personScrolledAt >= m.since) return;
+      /* Added from the library: played in by the patch that draws it, with the page making room (A SECTION ADDED ARRIVES). */
+      if (m.arrival) { expectArrival(String(m.id || "")); return; }
       queue = queue.then(function () { revealSection(String(m.id || "")); }).catch(function () {});
     } else if (m.type === "inspect") {
       setInspect(m.on);

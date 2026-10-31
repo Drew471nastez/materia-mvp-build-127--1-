@@ -6531,14 +6531,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         }
       : null
     setSections(next)
-    setSelectedPanel({ type: "section", sectionId: newSection.id })
     quietPanel.current = `section:${newSection.id}`
     /* Its settings are where the sidebar is looking, whichever tab it was on. */
-    setPageBrowserOpen(false)
-    setSidebarMode("sections")
+    const openItsPanel = () => {
+      setSelectedPanel({ type: "section", sectionId: newSection.id })
+      setPageBrowserOpen(false)
+      setSidebarMode("sections")
+    }
+    /*
+      THE SECTION AND ITS RING FIRST, ITS SETTINGS WHEN THEY ARE READY, on a
+      computer, as a section clicked in the canvas is (pickSection, round
+      36). The new section's panel was mounted in the same render as the
+      section itself, and that mount held the section back from the canvas:
+      on a Storelib theme, 145 to 200ms from the click to its first pixel at
+      1x and 650 to 1200ms at a quarter speed (scripts/check-section-insert-
+      smooth.mjs). The pick is said at once, so the canvas draws it selected
+      in the frame it arrives, and the panel follows in a transition. A
+      phone's sheet rises on that panel once the canvas is still
+      (riseOnAdded), so there it is opened with the section as before.
+    */
+    if (isMobileView) openItsPanel()
+    else {
+      pickStore.set({ id: newSection.id, from: selectedPanelNow.current })
+      startTransition(openItsPanel)
+    }
     setIsDirty(true)
-    if (!scroller) revealSection(newSection.id, true)
-    /* An imported theme's canvas is a frame the arrival cannot measure: told to glide to the new section itself. */ else window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id } }))
+    /*
+      An imported theme's canvas is a frame the arrival cannot measure: told
+      the section is arriving, it plays the same arrival itself once the
+      section is drawn, styles and all (canvas-bridge.ts, A SECTION ADDED
+      ARRIVES). A Storelib theme's canvas has no listener for it.
+    */
+    window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id, arrival: true } }))
     if (isMobileView) riseOnAdded(newSection.id)
   }
 

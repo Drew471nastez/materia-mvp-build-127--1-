@@ -985,6 +985,8 @@ const SUITES = [
   "tests/wb-scroll-r14.test.ts",
   /* Round 14 (INCOMING): changes from Storelib AI, an agent or a push taken in without freezing the editor, on the owner's real Materia (scripts/check-wb-incoming-r14.mjs) */
   "tests/wb-incoming-r14.test.ts",
+  /* A section picked in Add a section lands cleanly: an imported theme's own stylesheets handed to the frame with it, the page making room as on a Storelib theme, the glide past a hidden drawer, the dialog closing in the first frame (scripts/check-section-insert-smooth.mjs) */
+  "tests/section-insert-smooth.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
