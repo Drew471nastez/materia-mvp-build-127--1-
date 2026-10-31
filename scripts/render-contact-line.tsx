@@ -14,16 +14,26 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { ContactReveal } from "@/components/storefront/contact-reveal"
 
+/* The route the button asks (app/api/creator-contact), answered here the way it answers a buyer. */
+const realFetch = window.fetch.bind(window)
+window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input instanceof Request ? input.url : input)
+  if (url.startsWith("/api/creator-contact?handle=andrewrullz")) {
+    return Promise.resolve(new Response(JSON.stringify({ email: "hello@andrewrullz.com" }), { status: 200, headers: { "Content-Type": "application/json" } }))
+  }
+  return realFetch(input, init)
+}
+
 createRoot(document.getElementById("app")!).render(
   <div style={{ background: "#fff", padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
-    {/* The @handle sits near it on the real page; it is here so a check
+    {/* Round 45: the address is fetched on click by handle (app/api/creator-contact), never in the page. The @handle sits near it on the real page; it is here so a check
         looking for an address cannot mistake a username for one. */}
     <p data-case="handle">@andrewrullz</p>
     <div data-case="with">
-      <ContactReveal email="hello@andrewrullz.com" />
+      <ContactReveal handle="andrewrullz" />
     </div>
     <div data-case="without">
-      <ContactReveal email="" />
+      <ContactReveal handle="" />
     </div>
   </div>,
 )
