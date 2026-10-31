@@ -22,7 +22,7 @@
  * grows one the moment this scrolls away. See lib/explore/use-search-handoff.
  */
 
-import { openSearchOverlay } from "@/components/search/search-overlay"
+import { openSearchOverlay } from "@/components/search/search-overlay-handle"
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
