@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     says so itself (app/(auth)/signup/layout.tsx). Links are still followed.
   */
   robots: { index: false, follow: true },
+  /* And no canonical: a step names no address to index (round 45, lib/seo/private-metadata.ts). */
+  alternates: { canonical: null },
   openGraph: {
     type: "website",
     locale: "en_US",

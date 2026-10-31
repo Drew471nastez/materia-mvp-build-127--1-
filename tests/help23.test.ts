@@ -222,7 +222,8 @@ check("the common questions article is an FAQPage, every question with its answe
 check("an article without real questions gets no FAQPage", !(helpArticleJsonLd(art("taxes"), helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] })["@graph"].some((g) => g["@type"] === "FAQPage"))
 const cld = helpCategoryJsonLd(PHYSICAL_CATEGORY, helpArticlesIn("physical-products")) as { "@graph": { "@type": string; mainEntity?: { numberOfItems: number } }[] }
 check("the topic page is a CollectionPage listing every article", cld["@graph"][0]["@type"] === "CollectionPage" && cld["@graph"][0].mainEntity?.numberOfItems === helpArticlesIn("physical-products").length)
-check("the home says how to search it", (helpHomeJsonLd("x") as { potentialAction: { target: string } }).potentialAction.target.includes("https://help.storelib.com/search?q={search_term_string}"))
+/* Changed on purpose (round 45): Google retired the sitelinks search box, so the home names no SearchAction. */
+check("the home names no search action", !("potentialAction" in (helpHomeJsonLd("x") as Record<string, unknown>)) && /^https:\/\/help\.storelib\.com\/?$/.test((helpHomeJsonLd("x") as { url: string }).url))
 check("JSON-LD is printed through jsonLdScript on all three pages", [page, catPage, home].every((s) => /jsonLdScript\(/.test(s)))
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the sitemap gives each article its lastmod and screenshots", /lastModified: a\.updated \?\? null, images: helpImages\(a\)/.test(sitemap))

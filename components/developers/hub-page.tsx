@@ -44,6 +44,7 @@ import { DocContent } from "./doc-content"
 import { HubMenus } from "./hub-menus"
 import { Toc } from "./toc"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { MONO } from "./type"
 
 export function devMetadata(slug: string): Metadata {
@@ -55,8 +56,9 @@ export function devMetadata(slug: string): Metadata {
     title: { absolute: title },
     description: page.description,
     alternates: { canonical: path },
-    openGraph: { title, description: page.description, type: "article", url: path, siteName: "Storelib" },
-    twitter: { card: "summary", title, description: page.description },
+    /* Storelib's share picture too (round 45): a page's openGraph replaces the root layout's, and these had none. */
+    openGraph: { title, description: page.description, type: "article", url: path, siteName: "Storelib", images: [{ url: storelibAssetUrl(STORELIB_OG_IMAGE), width: 1200, height: 630, alt: title }] },
+    twitter: { card: "summary_large_image", title, description: page.description, images: [storelibAssetUrl(STORELIB_OG_IMAGE)] },
     keywords: ["Storelib", FRAMEWORK_NAME, "website builder", "sections", ".storelib", "theme development", "theme templates", "AI agents", "llms.txt"],
   }
 }

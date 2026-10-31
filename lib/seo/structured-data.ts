@@ -15,6 +15,9 @@
 import { normalizeSocialUrl } from "@/lib/onepage/social-url"
 import { plainSummary } from "@/lib/html-entities"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
+import { OFFERED_PLANS, PRO_PRICE_CENTS } from "@/lib/billing/plans"
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
+import { storelibLogoUrl } from "@/lib/brand/logo"
 
 /** More than a person has accounts; enough to stop a pasted list. */
 const MAX_SAME_AS = 10
@@ -110,4 +113,138 @@ export function profilePageJsonLd(p: ProfileForJsonLd) {
       },
     ],
   }
+}
+
+/* ── Storelib itself (round 45) ────────────────────────────────────────── */
+
+/**
+ * ===========================================================================
+ *  STORELIB, AS A SEARCH ENGINE READS STORELIB.COM ITSELF
+ * ===========================================================================
+ * Three things, each only what is true and what Google and Bing document:
+ *
+ *   ORGANIZATION   name, address, logo. `sameAs` only for a Storelib profile
+ *                  that really exists: the footer's social icons point at
+ *                  facebook.com, x.com and the rest with no account in the
+ *                  address, so none of them is one. Empty, it is left out.
+ *   WEBSITE        name and address. No SearchAction: Google retired the
+ *                  sitelinks search box, and its target (/explore?q=) is a
+ *                  results page robots.txt keeps crawlers off.
+ *   WEBAPPLICATION the product, on the home page, /pricing and /features,
+ *                  with the plans as Offers written from lib/billing/plans.ts,
+ *                  so a price here cannot differ from the price on the card.
+ *                  operatingSystem is "Web": the iOS and Android shells
+ *                  exist in the repo, but no store listing is linked from
+ *                  anything Storelib publishes (the Play address answers 404
+ *                  and the App Store id is an unset env value), so the
+ *                  markup does not claim them.
+ *
+ * No AggregateRating or Review: there are no Storelib reviews to back one.
+ */
+
+export const STORELIB_URL = "https://storelib.com"
+export const STORELIB_NAME = "Storelib"
+export const STORELIB_DESCRIPTION = "Sell digital products, courses, memberships and physical goods from your own store, OnePage, website or community, with payments through Stripe."
+
+/**
+ * Storelib's own profiles elsewhere, for Organization.sameAs. Add one only
+ * once the account exists and is Storelib's; an address that is not, tells
+ * a search engine Storelib is somebody else.
+ */
+export const STORELIB_SAME_AS: readonly string[] = []
+
+const ORG_ID = `${STORELIB_URL}/#organization`
+const SITE_ID = `${STORELIB_URL}/#website`
+const APP_ID = `${STORELIB_URL}/#app`
+
+export function storelibOrganizationJsonLd(sameAs: readonly string[] = STORELIB_SAME_AS) {
+  const profiles = sameAsUrls([...sameAs])
+  return {
+    "@type": "Organization",
+    "@id": ORG_ID,
+    name: STORELIB_NAME,
+    url: STORELIB_URL,
+    logo: storelibLogoUrl(),
+    description: STORELIB_DESCRIPTION,
+    ...(profiles.length ? { sameAs: profiles } : {}),
+  }
+}
+
+export function storelibWebSiteJsonLd() {
+  return {
+    "@type": "WebSite",
+    "@id": SITE_ID,
+    name: STORELIB_NAME,
+    url: STORELIB_URL,
+    inLanguage: "en",
+    publisher: { "@id": ORG_ID },
+  }
+}
+
+/** "29.00", the way schema.org writes a price: a number, a dot, no currency sign. */
+export function schemaPrice(cents: number): string {
+  return (Math.round(cents) / 100).toFixed(2)
+}
+
+/** Each plan on sale, from OFFERED_PLANS: Free at 0, Pro at its monthly price. */
+export function storelibPlanOffers() {
+  return OFFERED_PLANS.map((plan) => ({
+    "@type": "Offer",
+    name: plan.name,
+    price: schemaPrice(plan.priceCents),
+    priceCurrency: PLAN_CURRENCY,
+    url: `${STORELIB_URL}/pricing`,
+    ...(plan.priceCents > 0
+      ? {
+          priceSpecification: {
+            "@type": "UnitPriceSpecification",
+            price: schemaPrice(plan.priceCents),
+            priceCurrency: PLAN_CURRENCY,
+            billingDuration: "P1M",
+            unitText: "month",
+          },
+        }
+      : {}),
+  }))
+}
+
+export function storelibApplicationJsonLd() {
+  return {
+    "@type": "WebApplication",
+    "@id": APP_ID,
+    name: STORELIB_NAME,
+    url: STORELIB_URL,
+    description: STORELIB_DESCRIPTION,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    publisher: { "@id": ORG_ID },
+    offers: storelibPlanOffers(),
+  }
+}
+
+/** The lowest and highest monthly prices the Offers name, for tests and llms.txt. */
+export const STORELIB_PRICE_RANGE = { lowCents: 0, highCents: PRO_PRICE_CENTS }
+
+/** A trail on storelib.com, Storelib first: [{ name: "Pricing", path: "/pricing" }]. */
+export function storelibBreadcrumbJsonLd(trail: { name: string; path: string }[]) {
+  const steps = [{ name: STORELIB_NAME, path: "/" }, ...trail]
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: steps.map((s, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: s.name,
+      item: /^https?:\/\//i.test(s.path) ? s.path : `${STORELIB_URL}${s.path === "/" ? "" : s.path}`,
+    })),
+  }
+}
+
+/** Several of the above as one script: one @context, one @graph. */
+export function storelibGraph(...nodes: object[]) {
+  return { "@context": "https://schema.org", "@graph": nodes }
+}
+
+/** The home page: who Storelib is, the site, and the product. */
+export function storelibHomeJsonLd() {
+  return storelibGraph(storelibOrganizationJsonLd(), storelibWebSiteJsonLd(), storelibApplicationJsonLd())
 }

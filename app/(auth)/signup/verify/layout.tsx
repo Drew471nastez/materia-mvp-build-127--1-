@@ -5,6 +5,8 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "Check your email",
   robots: { index: false, follow: true },
+  /* Not /signup's canonical either: a step names no address to index (lib/seo/private-metadata.ts). */
+  alternates: { canonical: null },
 }
 
 export default function SignupVerifyLayout({ children }: { children: React.ReactNode }) {

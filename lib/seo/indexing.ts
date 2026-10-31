@@ -218,7 +218,7 @@ export function robotsTxt(input: { disallow?: string[]; sitemaps: string[]; clos
  * belong to one signed in person, and the addresses the proxy rewrites
  * built sites onto (a site is at its own host, never under storelib.com).
  */
-const PRIVATE_ROUTES = [
+export const PRIVATE_ROUTES: readonly string[] = [
   "admin",
   "api",
   "app",
@@ -266,6 +266,144 @@ export const PLATFORM_DISALLOW = [
   "/explore?sort=",
   "/explore?q=",
 ]
+
+/**
+ * ===========================================================================
+ *  A PRIVATE PAGE SAYS SO ITSELF (round 45)
+ * ===========================================================================
+ * robots.txt keeps crawlers off PRIVATE_ROUTES, but robots.txt is a request
+ * not to fetch, not a request not to index: a checkout link shared on a
+ * forum could still be listed as a bare address, and /checkout itself said
+ * `index, follow` with a canonical of its own. So every private address now
+ * says noindex in its own answer, twice over:
+ *
+ *   the X-Robots-Tag header, written by proxy.ts for every storelib.com
+ *   address this matches (privatePlatformPath), redirects and route
+ *   handlers included, so a page added under one of these routes later is
+ *   covered without anyone remembering;
+ *
+ *   the robots meta, from a layout.tsx at the top of each route
+ *   (lib/seo/private-metadata.ts), which also clears any canonical.
+ *
+ * The flows a person passes through on the way in (logging in, a reset,
+ * the steps after /signup) are the same: noindex, links followed. /signup
+ * itself is not here: it is the page a search for "Storelib sign up" should
+ * land on, and it is in the sitemap (app/(auth)/signup/layout.tsx).
+ * tests/seo-platform-r45.test.ts walks both lists.
+ */
+export const AUTH_FLOW_ROUTES: readonly string[] = [
+  "forgot-password",
+  "login",
+  "logout",
+  "onboarding",
+  "request",
+  "reset-password",
+  "sell",
+  "verify-email",
+  "welcome",
+]
+
+/** Steps under an indexed page that are not themselves pages to index. */
+const PRIVATE_SUBPATHS: readonly string[] = ["/signup/"]
+
+/**
+ * Routes private only as themselves. /sell is the sign-up entry, but
+ * /sell/<use-case> are the public landing pages (app/(marketing)/sell/[slug]),
+ * which are indexed and in the sitemap.
+ */
+const PRIVATE_ONLY_EXACT: readonly string[] = ["sell"]
+
+/** Whether a storelib.com path is one person's step, never a page to index. */
+export function privatePlatformPath(pathname: string): boolean {
+  const path = (pathname || "/").toLowerCase()
+  if (PRIVATE_SUBPATHS.some((p) => path.startsWith(p))) return true
+  const parts = path.split("/")
+  const first = parts[1] ?? ""
+  if (PRIVATE_ONLY_EXACT.includes(first) && parts.slice(2).some(Boolean)) return false
+  return PRIVATE_ROUTES.includes(first) || AUTH_FLOW_ROUTES.includes(first)
+}
+
+/** The header proxy.ts writes on those answers. */
+export const PRIVATE_ROBOTS_HEADER = "noindex, nofollow"
+
+/**
+ * ===========================================================================
+ *  WHO CRAWLS STORELIB, AND FOR WHAT (round 45)
+ * ===========================================================================
+ * Two kinds of crawler read public pages, and they are decided apart:
+ *
+ *   SEARCH     builds a search index that sends people back to the page:
+ *              Google Search, Bing (which also feeds DuckDuckGo and
+ *              Copilot), ChatGPT search, Perplexity, Claude's search,
+ *              Apple's Siri and Spotlight. Shutting one out takes Storelib
+ *              and every creator's page out of that engine's results. These
+ *              stay allowed.
+ *
+ *   TRAINING   collects pages to train a model; it sends no visitors back.
+ *              Each operator names a separate token for it, so it can be
+ *              refused without leaving search.
+ *
+ *   USER       a fetch one person asked an assistant to make, like opening
+ *              a link. Not a crawl; the operators say robots.txt may not be
+ *              applied to it. Listed so the table is complete.
+ *
+ * TODAY EVERY ONE OF THEM IS ALLOWED, through `User-agent: *` alone, and
+ * the robots.txt this writes is the one Storelib served before this table
+ * existed. To refuse a crawler, set its `allowed` to false: it then gets a
+ * group of its own with `Disallow: /`. A named group REPLACES `*` for that
+ * crawler (it does not add to it), which is why an allowed crawler is never
+ * given a group here: it would lose PLATFORM_DISALLOW. A refused crawler's
+ * group needs none, since `Disallow: /` already covers them.
+ *
+ * Tokens as each operator documents them (checked October 2026).
+ */
+export type CrawlerPurpose = "search" | "training" | "user"
+
+export interface CrawlerPolicy {
+  /** The robots.txt token. */
+  token: string
+  operator: string
+  purpose: CrawlerPurpose
+  allowed: boolean
+}
+
+export const KNOWN_CRAWLERS: readonly CrawlerPolicy[] = [
+  { token: "Googlebot", operator: "Google", purpose: "search", allowed: true },
+  { token: "Bingbot", operator: "Microsoft", purpose: "search", allowed: true },
+  { token: "OAI-SearchBot", operator: "OpenAI", purpose: "search", allowed: true },
+  { token: "PerplexityBot", operator: "Perplexity", purpose: "search", allowed: true },
+  { token: "Claude-SearchBot", operator: "Anthropic", purpose: "search", allowed: true },
+  { token: "Applebot", operator: "Apple", purpose: "search", allowed: true },
+  { token: "DuckDuckBot", operator: "DuckDuckGo", purpose: "search", allowed: true },
+  /* Training. Allowed today, by the owner's current policy; each can be refused on its own. */
+  { token: "GPTBot", operator: "OpenAI", purpose: "training", allowed: true },
+  { token: "Google-Extended", operator: "Google", purpose: "training", allowed: true },
+  { token: "ClaudeBot", operator: "Anthropic", purpose: "training", allowed: true },
+  { token: "Applebot-Extended", operator: "Apple", purpose: "training", allowed: true },
+  { token: "CCBot", operator: "Common Crawl", purpose: "training", allowed: true },
+  { token: "meta-externalagent", operator: "Meta", purpose: "training", allowed: true },
+  /* A person's own request through an assistant. */
+  { token: "ChatGPT-User", operator: "OpenAI", purpose: "user", allowed: true },
+  { token: "Claude-User", operator: "Anthropic", purpose: "user", allowed: true },
+  { token: "Perplexity-User", operator: "Perplexity", purpose: "user", allowed: true },
+]
+
+export interface RobotsRule {
+  userAgent: string | string[]
+  allow?: string | string[]
+  disallow?: string | string[]
+}
+
+/**
+ * The groups robots.txt adds after `*` (app/robots.ts): one `Disallow: /`
+ * group naming every crawler the table refuses, and nothing while all are
+ * allowed. A search crawler is never caught by a training switch: each row
+ * is its own token.
+ */
+export function refusedCrawlerRules(crawlers: readonly CrawlerPolicy[] = KNOWN_CRAWLERS): RobotsRule[] {
+  const refused = crawlers.filter((c) => !c.allowed).map((c) => c.token)
+  return refused.length ? [{ userAgent: refused, disallow: "/" }] : []
+}
 
 /**
  * On a built site's host: its forms' API, previews, the shop's search results,

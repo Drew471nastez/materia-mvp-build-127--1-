@@ -11,7 +11,7 @@
  *              answers under them (faq: true); and a HowTo for its first
  *              numbered steps when it has at least three
  *   topic      a CollectionPage listing its articles, and its breadcrumbs
- *   home       the Help Center as a WebPage with a search action
+ *   home       the Help Center as a WebPage
  *
  * Printed through lib/seo/json-ld jsonLdScript, like every other JSON-LD.
  */
@@ -158,6 +158,6 @@ export function helpHomeJsonLd(description: string) {
     description,
     url: abs("/help"),
     publisher: PUBLISHER,
-    potentialAction: { "@type": "SearchAction", target: `${abs("/help/search")}?q={search_term_string}`, "query-input": "required name=search_term_string" },
+    /* No SearchAction (round 45): Google retired the sitelinks search box, and /help/search is a results page that says noindex. */
   }
 }

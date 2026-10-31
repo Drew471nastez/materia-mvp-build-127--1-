@@ -40,12 +40,15 @@ const INTERESTS_WAIT_MS = 1_500
   this page used to tell search engines that address was /explore. A search
   is a results page: noindex, its links followed.
 */
-export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }): Promise<Metadata> {
-  const params = await searchParams.catch(() => ({}) as { q?: string; type?: string })
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; sort?: string; srt?: string }> }): Promise<Metadata> {
+  const params = await searchParams.catch(() => ({}) as { q?: string; type?: string; sort?: string; srt?: string })
   const q = typeof params?.q === "string" ? params.q : null
   const type = typeof params?.type === "string" ? params.type : null
+  /* An order is the same list again: noindex, canonical at the clean page (round 45). */
+  /* "recommended" is the default order the Filters panel writes on every address, so it is no order of its own. */
+  const sort = [params?.sort, params?.srt].find((v): v is string => typeof v === "string" && !!v.trim() && v !== "recommended") ?? null
   /* Asked only when the address asks for communities, so every other Explore view reads nothing more. */
-  const seo = exploreIndexing({ q, type, communitiesOn: type === "communities" ? await communitiesEnabled() : false })
+  const seo = exploreIndexing({ q, type, sort, communitiesOn: type === "communities" ? await communitiesEnabled() : false })
   if (!seo.communities && seo.index) return EXPLORE_METADATA
   const title = seo.communities ? "Storelib | Discover communities" : "Storelib | Discover"
   const description = seo.communities ? "Communities run by independent creators on Storelib. Browse them by topic and join the ones you like." : EXPLORE_METADATA.description
