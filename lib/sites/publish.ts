@@ -374,7 +374,7 @@ export async function publishSite(site: Site): Promise<PublishResult> {
   }
 
   const publishedAt = new Date().toISOString()
-  const switched = await switchLiveDeployment(admin as unknown as SwitchDb, site.id, deploymentId, {
+  const switched = await goLive(admin as unknown as SwitchDb & RpcDb, site.id, deploymentId, {
     status: "ready",
     storage_prefix: prefix,
     file_count: Object.keys(built.output).length,
@@ -492,6 +492,40 @@ export async function switchLiveDeployment(
   }
   console.error("[sites/publish] OLD POINTER NOT RESTORED: site has no live deployment", { siteId, previousId, code: restoreError.code, message: restoreError.message })
   return { ok: false, error: SWITCH_RESTORE_FAILED }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RpcDb = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: any; error: DbError }> }
+
+/** The database has no such function yet (its SQL part has not run): PostgREST's code, or Postgres's. */
+function noSuchFunction(error: DbError): boolean {
+  return !!error && (error.code === "PGRST202" || error.code === "42883")
+}
+
+/**
+ * THE SWITCH IN ONE TRANSACTION when SQL part 348 has run
+ * (switch_site_deployment), and the two-step switch with its way back when it
+ * has not. The function's failure changes nothing, so the old version is
+ * still live; an answer that was lost is checked by reading what is live.
+ */
+export async function goLive(
+  db: SwitchDb & RpcDb,
+  siteId: string,
+  deploymentId: string,
+  fields: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await db.rpc("switch_site_deployment", { p_site: siteId, p_deployment: deploymentId, p_fields: fields })
+  if (!error) return { ok: true }
+  if (noSuchFunction(error)) return switchLiveDeployment(db, siteId, deploymentId, fields)
+  const { data: live } = await db.from("site_deployments").select("id").eq("site_id", siteId).eq("is_live", true).maybeSingle()
+  if ((live as { id?: string } | null)?.id === deploymentId) return { ok: true }
+  console.error("[sites/publish] switch in one step failed; nothing changed", { siteId, deploymentId, code: error.code, message: error.message })
+  await db
+    .from("site_deployments")
+    .update({ status: "failed", error: error.message || "could not go live", finished_at: new Date().toISOString() })
+    .eq("id", deploymentId)
+    .eq("is_live", false)
+  return { ok: false, error: SWITCH_FAILED }
 }
 
 /** Take a site offline without deleting anything it built. */

@@ -367,8 +367,41 @@ async function aiSitePublish() {
   } finally {
     console.error = quiet
   }
+  {
+    const { goLive } = await import("@/lib/sites/publish")
+    const quietLog = console.error
+    console.error = () => {}
+    try {
+      /* Part 348 has not run: PostgREST does not know the function, and the two-step switch is used. */
+      const missing = Object.assign(deploymentsDb(fresh(), () => null), { rpc: async () => ({ data: null, error: { code: "PGRST202", message: "Could not find the function" } }) })
+      const r1 = await goLive(missing, "s", "new", fields)
+      check("before part 348 runs, the two-step switch with its way back is used", r1.ok && JSON.stringify(liveOf(missing.rows)) === '["new"]')
+      /* Part 348 has run: one call, and the database does the switch. */
+      const calls: unknown[] = []
+      const rows = fresh()
+      const oneStep = Object.assign(deploymentsDb(rows, () => null), {
+        rpc: async (fn: string, args: Record<string, unknown>) => {
+          calls.push([fn, args])
+          rows[0].is_live = false
+          rows[1].is_live = true
+          return { data: true, error: null }
+        },
+      })
+      const r2 = await goLive(oneStep, "s", "new", fields)
+      check("after part 348, the switch is one call to switch_site_deployment", r2.ok && calls.length === 1 && (calls[0] as [string])[0] === "switch_site_deployment" && oneStep.log.length === 0, oneStep.log)
+      /* The function failed: one transaction, so nothing changed; the new one is marked failed. */
+      const failing = Object.assign(deploymentsDb(fresh(), () => null), { rpc: async () => ({ data: null, error: { code: "57014", message: "timeout" } }) })
+      const r3 = await goLive(failing, "s", "new", fields)
+      check("  a switch in one step that failed leaves the old version live and says so", !r3.ok && JSON.stringify(liveOf(failing.rows)) === '["old"]' && failing.rows[1].status === "failed")
+    } finally {
+      console.error = quietLog
+    }
+    const part = read("supabase/sql/run-now/348_site_switch_in_one_step.sql")
+    check("part 348 is one transaction with a lock per site, refuses another site's deployment, service role only", /pg_advisory_xact_lock\(hashtextextended\('storelib-site-switch:'/.test(part) && /WHERE id = p_deployment AND site_id = p_site/.test(part) && /REVOKE ALL ON FUNCTION public\.switch_site_deployment\(uuid, uuid, jsonb\) FROM PUBLIC, anon, authenticated/.test(part) && /GRANT EXECUTE ON FUNCTION public\.switch_site_deployment\(uuid, uuid, jsonb\) TO service_role/.test(part))
+    check("  and its migration copy is the same bytes", part === read("supabase/migrations/20271103_site_switch_in_one_step.sql"))
+  }
   const publish = read("lib/sites/publish.ts")
-  check("publishSite switches through switchLiveDeployment and checks the site row's update", /await switchLiveDeployment\(/.test(publish) && /if \(siteError\)/.test(publish))
+  check("publishSite switches through goLive and checks the site row's update", /await goLive\(/.test(publish) && /if \(siteError\)/.test(publish))
 }
 
 async function run() {
