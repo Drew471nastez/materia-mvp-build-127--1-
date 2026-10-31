@@ -39,6 +39,8 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const code = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
 const realFetch = globalThis.fetch
 const realError = console.error
+/* AbortSignal.timeout does not keep Node running: a request waiting on one would end the process with nothing printed. */
+const keepAlive = setInterval(() => {}, 1_000)
 
 type Sent = { url: string; body: Record<string, unknown> | null }
 /** Supabase as reportError and recordCronRun see it: every POST/PATCH captured, answers that say "nothing to tell". */
@@ -237,6 +239,44 @@ async function main() {
     server.close()
   }
 
+  console.log("\n/api/health: bounded, never cached, a state per dependency")
+  {
+    const { GET } = await import("@/app/api/health/route")
+    const mod = code("app/api/health/route.ts")
+    const asked: string[] = []
+    /* Supabase that never answers: every request waits for its abort signal. */
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      asked.push(String(input instanceof Request ? input.url : input))
+      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
+      return new Promise<Response>((_, reject) => signal?.addEventListener("abort", () => reject(signal.reason ?? new Error("aborted"))))
+    }) as typeof fetch
+    const t0 = Date.now()
+    const down = await GET()
+    const took = Date.now() - t0
+    restore()
+    const body = (await down.json()) as Record<string, unknown>
+    check("a database that never answers is \"down\" within its deadline", down.status === 503 && body.status === "down" && took < 3_500, { status: down.status, took })
+    check("  never cached", down.headers.get("cache-control") === "no-store")
+    check("  says which dependency, and nothing from the database", JSON.stringify(body.checks) === '{"database":"down","jobs":"unknown"}' && !/supabase|fake/i.test(JSON.stringify(body)), body)
+    check("  its ping is a trivial read: one id, no count of every creator", asked.some((u) => /\/rest\/v1\/creators\?select=id&limit=1/.test(u)) && !asked.some((u) => /count/.test(u)), asked)
+
+    /* Supabase that answers the ping and never the job read: the job read gets what is left of the whole budget. */
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input)
+      if (url.includes("/rest/v1/creators")) return Promise.resolve(new Response("[]", { status: 200, headers: { "content-type": "application/json" } }))
+      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
+      return new Promise<Response>((_, reject) => signal?.addEventListener("abort", () => reject(signal.reason ?? new Error("aborted"))))
+    }) as typeof fetch
+    const t1 = Date.now()
+    const slowJobs = await GET()
+    const took2 = Date.now() - t1
+    restore()
+    const b2 = (await slowJobs.json()) as { status: string; checks: Record<string, string>; jobs: { state: string }[] }
+    check("a job read that never answers is \"unknown\", not a failure, inside the whole budget", slowJobs.status === 200 && b2.status === "ok" && b2.checks.database === "ok" && b2.checks.jobs === "unknown" && b2.jobs.every((j) => j.state === "unknown") && took2 < 4_500, { status: slowJobs.status, took2, checks: b2.checks })
+    check("the function itself cannot run long", /export const maxDuration = 10/.test(mod) && /const HEALTH_TOTAL_MS = 4_000/.test(mod))
+  }
+
+  clearInterval(keepAlive)
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

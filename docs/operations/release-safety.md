@@ -176,6 +176,27 @@ at most once an hour while it continues. Every occurrence is counted in the
 admin: Health, Errors. Nothing personal is sent: addresses are masked and
 anything named like a secret is dropped (`lib/observability/report.ts`).
 
+### `/api/health` for an uptime monitor
+
+`GET /api/health`, no sign in, `Cache-Control: no-store`. Point any uptime
+service at it (GitHub's `.github/workflows/uptime.yml` already asks every 15
+minutes). It answers in about 4 seconds at worst, whatever the database does:
+the database ping (one id from `creators`, no count) has 2.5 s, the job read
+gets what is left of 4 s, and the function's `maxDuration` is 10 s.
+
+| Status | Body `status` | Meaning |
+| --- | --- | --- |
+| 200 | `ok` | the database answered and every job is on time (or not recorded yet) |
+| 503 | `degraded` | the database answered, a scheduled job is late or its last run failed |
+| 503 | `down` | the database did not answer in time, or is not configured |
+
+`checks` gives each dependency on its own, for a monitor that alerts on one:
+`{ "database": "ok" | "down", "jobs": "ok" | "degraded" | "unknown" }`.
+`jobs` lists each job's state and last run; `build` names the deployment.
+Nothing private is in it: no error text from the database, no keys, no
+people. Alert on two failures in a row, not one: a single slow answer during
+a deploy is normal.
+
 ### Where each figure is
 
 | Figure | Where |
