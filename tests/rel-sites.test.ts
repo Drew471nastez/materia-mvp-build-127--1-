@@ -9,6 +9,7 @@
  *   AI sites (<slug>.storelib.com)   503 + Retry-After on a failed read, never 404 or 301; the last live copy held
  *   Creator Pages (storelib.com/<h>)  a failed profile/creator read throws (error screen), never the gate's 308 or a 404
  *   OnePages (storelib.me/<name>)     a failed or slow lookup serves the last answer or throws, never "missing"
+ *   AI site publish                   a switch that did not take puts the live version back
  *
  * Every true "missing" answer stays what it was.
  */
@@ -253,12 +254,130 @@ async function onePages() {
   check("the share image and photo answer 503 for a failed lookup, not a held 404", routes.every((r) => /findPublishedOnePage\(slug\)\.catch\(\(\) => undefined\)/.test(r) && /status: 503/.test(r)))
 }
 
+/**
+ * site_deployments in memory, with the unique index on (site_id) WHERE
+ * is_live, and a hook that can fail any statement before it runs.
+ */
+type Dep = { id: string; site_id: string; is_live: boolean; status: string; storage_prefix?: string }
+function deploymentsDb(rows: Dep[], fail: (op: { kind: "select" | "update"; patch?: Record<string, unknown>; filters: Record<string, unknown> }) => { code: string; message: string } | null) {
+  const log: string[] = []
+  return {
+    rows,
+    log,
+    from(table: string) {
+      if (table !== "site_deployments") throw new Error(`unexpected table ${table}`)
+      const filters: Record<string, unknown> = {}
+      let kind: "select" | "update" = "select"
+      let patch: Record<string, unknown> | undefined
+      const matches = () => rows.filter((r) => Object.entries(filters).every(([k, v]) => (r as Record<string, unknown>)[k] === v))
+      const run = async () => {
+        const injected = fail({ kind, patch, filters })
+        log.push(`${kind} ${JSON.stringify(patch ?? {})} ${JSON.stringify(filters)}${injected ? ` -> ${injected.code}` : ""}`)
+        if (injected) return { data: null, error: injected }
+        if (kind === "select") return { data: matches()[0] ?? null, error: null }
+        const hit = matches()
+        if (patch?.is_live === true) {
+          for (const r of hit) if (rows.some((o) => o !== r && o.site_id === r.site_id && o.is_live)) return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } }
+        }
+        for (const r of hit) Object.assign(r, patch)
+        return { data: null, error: null }
+      }
+      const q: Record<string, unknown> = {
+        select: () => ((kind = "select"), q),
+        update: (p: Record<string, unknown>) => ((kind = "update"), (patch = p), q),
+        eq: (k: string, v: unknown) => ((filters[k] = v), q),
+        maybeSingle: () => run(),
+        then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => run().then(ok, ko),
+      }
+      return q
+    },
+  }
+}
+
+async function aiSitePublish() {
+  console.log("\nD. An AI site publish whose switch did not take puts the live version back (HIGH-1)")
+  const { switchLiveDeployment, SWITCH_FAILED, SWITCH_RESTORE_FAILED } = await import("@/lib/sites/publish")
+  const fields = { status: "ready", storage_prefix: "sites/s/new" }
+  const fresh = (): Dep[] => [
+    { id: "old", site_id: "s", is_live: true, status: "ready" },
+    { id: "new", site_id: "s", is_live: false, status: "building" },
+  ]
+  const liveOf = (rows: Dep[]) => rows.filter((r) => r.is_live).map((r) => r.id)
+  const quiet = console.error
+  console.error = () => {}
+  try {
+    {
+      const db = deploymentsDb(fresh(), () => null)
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a switch that works makes the new deployment the only live one", r.ok && JSON.stringify(liveOf(db.rows)) === '["new"]' && db.rows[1].status === "ready", db.log)
+    }
+    {
+      const db = deploymentsDb(fresh(), (op) => (op.kind === "update" && op.patch?.storage_prefix ? { code: "57014", message: "canceling statement due to statement timeout" } : null))
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a new pointer that times out puts the old one back: the site stays live", !r.ok && JSON.stringify(liveOf(db.rows)) === '["old"]', db.log)
+      check("  the new deployment is marked failed", db.rows[1].status === "failed" && db.rows[1].is_live === false)
+      check("  and the creator is told the live version stayed", !r.ok && (r as { error: string }).error === SWITCH_FAILED)
+    }
+    {
+      const db = deploymentsDb(fresh(), (op) => (op.kind === "update" && op.patch?.is_live === false ? { code: "57014", message: "timeout" } : null))
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("an old pointer that would not come down stops the publish with the old one live", !r.ok && JSON.stringify(liveOf(db.rows)) === '["old"]' && db.rows[1].status === "failed", db.log)
+    }
+    {
+      const db = deploymentsDb(fresh(), (op) => (op.kind === "select" ? { code: "PGRST002", message: "schema cache" } : null))
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a live read that failed changes no pointer at all", !r.ok && JSON.stringify(liveOf(db.rows)) === '["old"]', db.log)
+    }
+    {
+      /* The new pointer's update took, but its answer was lost: the old one is refused by the unique index, and the re-read finds the new one live. */
+      let lost = true
+      const rows = fresh()
+      const db = deploymentsDb(rows, (op) => {
+        if (op.kind === "update" && op.patch?.storage_prefix && lost) {
+          lost = false
+          Object.assign(rows[1], op.patch, { is_live: true })
+          return { code: "", message: "fetch failed" }
+        }
+        return null
+      })
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a new pointer that went up although its answer was lost counts as live, not failed", r.ok && JSON.stringify(liveOf(db.rows)) === '["new"]' && db.rows[1].status !== "failed", db.log)
+    }
+    {
+      let restores = 0
+      const db = deploymentsDb(fresh(), (op) => {
+        if (op.kind === "update" && op.patch?.storage_prefix) return { code: "57014", message: "timeout" }
+        if (op.kind === "update" && op.patch?.is_live === true && op.filters.id === "old") return restores++ === 0 ? { code: "", message: "fetch failed" } : null
+        return null
+      })
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a restore that fails once is asked again", r.ok === false && restores === 2 && JSON.stringify(liveOf(db.rows)) === '["old"]', db.log)
+    }
+    {
+      const db = deploymentsDb(fresh(), (op) => (op.kind === "update" && (op.patch?.storage_prefix || (op.patch?.is_live === true && op.filters.id === "old")) ? { code: "57014", message: "timeout" } : null))
+      const r = await switchLiveDeployment(db, "s", "new", fields)
+      check("a restore that never takes says so plainly (publish again)", !r.ok && (r as { error: string }).error === SWITCH_RESTORE_FAILED)
+    }
+    {
+      const rows: Dep[] = [{ id: "first", site_id: "s", is_live: false, status: "building" }]
+      const db = deploymentsDb(rows, () => null)
+      const r = await switchLiveDeployment(db, "s", "first", fields)
+      check("a site's first publish goes live with nothing to take down", r.ok && rows[0].is_live)
+    }
+  } finally {
+    console.error = quiet
+  }
+  const publish = read("lib/sites/publish.ts")
+  check("publishSite switches through switchLiveDeployment and checks the site row's update", /await switchLiveDeployment\(/.test(publish) && /if \(siteError\)/.test(publish))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
     await aiSites()
     await creatorPages()
     await onePages()
+    await aiSitePublish()
   } finally {
     globalThis.fetch = realFetch
   }

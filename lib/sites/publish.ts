@@ -373,50 +373,125 @@ export async function publishSite(site: Site): Promise<PublishResult> {
     return { ok: false, error: "Could not upload the site.", details: [detail] }
   }
 
-  /**
-   * THE SWITCH. Old pointer down, new pointer up.
-   *
-   * Between these two statements a site has no live deployment for a few
-   * milliseconds, which serves a 404 — the alternative is setting the new one
-   * first, which trips the unique index and leaves the OLD one live and the
-   * new one marked failed. A brief miss is recoverable; a publish that
-   * silently did not take is not.
-   */
-  await admin
-    .from("site_deployments")
-    .update({ is_live: false })
-    .eq("site_id", site.id)
-    .eq("is_live", true)
-
   const publishedAt = new Date().toISOString()
-  const { error: liveError } = await admin
-    .from("site_deployments")
-    .update({
-      status: "ready",
-      is_live: true,
-      storage_prefix: prefix,
-      file_count: Object.keys(built.output).length,
-      bytes,
-      published_at: publishedAt,
-      finished_at: publishedAt,
-    })
-    .eq("id", deploymentId)
-
-  if (liveError) {
-    return { ok: false, error: "The site built but could not go live. Try again." }
+  const switched = await switchLiveDeployment(admin as unknown as SwitchDb, site.id, deploymentId, {
+    status: "ready",
+    storage_prefix: prefix,
+    file_count: Object.keys(built.output).length,
+    bytes,
+    published_at: publishedAt,
+    finished_at: publishedAt,
+  })
+  if (switched.ok === false) {
+    return { ok: false, error: switched.error }
   }
 
-  await admin
-    .from("sites")
-    .update({
-      status: "published",
-      published_deployment_id: deploymentId,
-      published_revision: revision,
-      published_at: publishedAt,
-    })
-    .eq("id", site.id)
+  const siteFields = {
+    status: "published",
+    published_deployment_id: deploymentId,
+    published_revision: revision,
+    published_at: publishedAt,
+  }
+  /* The site is live by now; this row only says so. Asked again once, and logged if it still does not take: the next publish writes it. */
+  let { error: siteError } = await admin.from("sites").update(siteFields).eq("id", site.id)
+  if (siteError) ({ error: siteError } = await admin.from("sites").update(siteFields).eq("id", site.id))
+  if (siteError) {
+    console.error("[sites/publish] live, but the site row was not updated", { siteId: site.id, deploymentId, code: siteError.code, message: siteError.message })
+  }
 
   return { ok: true, url: publishedUrl(slug), slug, deploymentId, revision }
+}
+
+/* The few calls the switch makes, so it can be driven by a fake in tests. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SwitchDb = { from: (table: string) => any }
+type DbError = { code?: string; message?: string } | null
+
+export const SWITCH_FAILED = "The site built but could not go live. Nothing that was live has changed. Try again."
+export const SWITCH_RESTORE_FAILED = "The site built but could not go live, and the version that was live could not be put back. Publish again to bring it back."
+
+/**
+ * ===========================================================================
+ *  THE SWITCH: OLD POINTER DOWN, NEW POINTER UP, AND BACK IF IT DID NOT TAKE
+ * ===========================================================================
+ * Two statements, because the unique index on (site_id) WHERE is_live
+ * refuses the new pointer while the old one is up. Between them a site has no
+ * live deployment for a few milliseconds, which the serving route answers
+ * with the held copy or a 503.
+ *
+ * Neither result used to be read. If "new up" failed (a statement timeout
+ * when the database is slow), the old pointer stayed down and the site
+ * answered "Site not found" until the creator published again. Now:
+ *
+ *   - which deployment is live is read first, so it can be put back;
+ *   - "old down" failing changes nothing (one statement), so the publish stops;
+ *   - "new up" failing puts the old pointer back (asked twice), unless the
+ *     new one did go live after all (the unique index refuses the old one
+ *     with 23505, and a re-read confirms it), and marks the new one failed.
+ *
+ * A single-transaction switch needs a database function (SQL part 348,
+ * switch_site_deployment): until it has run, this is the path.
+ */
+export async function switchLiveDeployment(
+  db: SwitchDb,
+  siteId: string,
+  deploymentId: string,
+  fields: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const liveNow = async (): Promise<{ id: string | null; error: DbError }> => {
+    const { data, error } = await db.from("site_deployments").select("id").eq("site_id", siteId).eq("is_live", true).maybeSingle()
+    return { id: (data as { id?: string } | null)?.id ?? null, error }
+  }
+  const markFailed = (why: string) =>
+    db
+      .from("site_deployments")
+      .update({ status: "failed", error: why, finished_at: new Date().toISOString() })
+      .eq("id", deploymentId)
+      .eq("is_live", false)
+
+  const before = await liveNow()
+  if (before.error) {
+    await markFailed("could not read the live deployment")
+    console.error("[sites/publish] switch not started: live read failed", { siteId, code: before.error.code, message: before.error.message })
+    return { ok: false, error: SWITCH_FAILED }
+  }
+  const previousId = before.id
+
+  if (previousId) {
+    const { error: downError } = await db.from("site_deployments").update({ is_live: false }).eq("site_id", siteId).eq("is_live", true)
+    if (downError) {
+      await markFailed("could not take the old version down")
+      console.error("[sites/publish] switch not started: old pointer kept", { siteId, code: downError.code, message: downError.message })
+      return { ok: false, error: SWITCH_FAILED }
+    }
+  }
+
+  const { error: liveError } = await db.from("site_deployments").update({ ...fields, is_live: true }).eq("id", deploymentId)
+  if (!liveError) return { ok: true }
+
+  console.error("[sites/publish] new pointer did not go up", { siteId, deploymentId, code: liveError.code, message: liveError.message })
+  if (!previousId) {
+    await markFailed(liveError.message || "could not go live")
+    return { ok: false, error: SWITCH_FAILED }
+  }
+
+  let restoreError: DbError = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    ;({ error: restoreError } = await db.from("site_deployments").update({ is_live: true }).eq("id", previousId))
+    if (!restoreError) break
+    if (restoreError.code === "23505") {
+      /* Something is live already: the new one, if its update took after all. */
+      const after = await liveNow()
+      if (after.id === deploymentId) return { ok: true }
+      if (after.id) break
+    }
+  }
+  if (!restoreError) {
+    await markFailed(liveError.message || "could not go live")
+    return { ok: false, error: SWITCH_FAILED }
+  }
+  console.error("[sites/publish] OLD POINTER NOT RESTORED: site has no live deployment", { siteId, previousId, code: restoreError.code, message: restoreError.message })
+  return { ok: false, error: SWITCH_RESTORE_FAILED }
 }
 
 /** Take a site offline without deleting anything it built. */
