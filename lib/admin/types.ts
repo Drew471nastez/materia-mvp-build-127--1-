@@ -233,7 +233,11 @@ export type AudiencePayload = Base & {
   countries: { code: string; name: string; views: number; orders: number; gross: number }[] | null
   /** Visits, Storelib sign ups and paid stores by AI assistant, where the source is known (lib/attribution/ai-funnel). */
   ai: {
-    rows: { key: string; label: string; views: number; visitors: number; signups: number; paidPlan: number; hasSale: number }[]
+    rows: { key: string; label: string; siteVisits: number; views: number; visitors: number; signups: number; paidPlan: number; hasSale: number }[]
+    /** Visits to storelib.com's own pages (part 347); null before it runs. */
+    siteVisits: number | null
+    /** Each assistant's top landing pages on storelib.com. */
+    landings: { key: string; label: string; path: string; visits: number }[]
     views: number
     visitors: number
     signups: number
