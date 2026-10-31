@@ -37,6 +37,7 @@ import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
 import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
+import { unknownExploreCategory } from "@/lib/explore/category-pages"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -1436,6 +1437,10 @@ function onStorelibHost(host: string | null): boolean {
 
 async function routeRequest(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+  /* An Explore category that does not exist is a 404 from here (lib/explore/category-pages.ts unknownExploreCategory): /explore's loading screen would have sent a 200 first. */
+  if (onStorelibHost(request.headers.get("host")) && unknownExploreCategory(pathname)) {
+    return NextResponse.rewrite(new URL("/_not-found", request.url), { status: 404 })
+  }
   const host = request.headers.get("host") || ""
 
   /*

@@ -19,6 +19,7 @@
  * HELP       unique titles, canonicals at help.storelib.com, breadcrumbs.
  * LLMS       the plans as facts, from the plans table.
  */
+import { unknownExploreCategory } from "../lib/explore/category-pages"
 import { FEATURES_DESCRIPTION, FEATURES_PATH, FEATURES_TITLE } from "../lib/marketing/features-seo"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
@@ -251,6 +252,9 @@ console.log("\nEach public platform page names itself")
 
 console.log("\nExplore: views of a page, and pages that are not")
 {
+  check("an Explore category that does not exist is a 404 from the proxy, before /explore's loading screen sends a 200",
+    unknownExploreCategory("/explore/nope") && unknownExploreCategory("/explore/nope/") && !unknownExploreCategory("/explore/design") && !unknownExploreCategory("/explore/communities") && !unknownExploreCategory("/explore/search") && !unknownExploreCategory("/explore") && !unknownExploreCategory("/explore/design/extra") &&
+      /async function routeRequest[\s\S]{0,400}unknownExploreCategory\(pathname\)[\s\S]{0,120}NextResponse\.rewrite\(new URL\("\/_not-found", request\.url\), \{ status: 404 \}\)/.test(code("proxy.ts")))
   check("a sort is noindex, links followed, canonical at the clean page", (() => {
     const s = exploreIndexing({ sort: "newest", communitiesOn: true })
     return !s.index && s.canonical === EXPLORE_URL
