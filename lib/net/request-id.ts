@@ -22,6 +22,22 @@ export function cleanRequestId(v: string | null | undefined): string | null {
   return v && SHAPE.test(v) ? v : null
 }
 
+/**
+ * The id the proxy gave this request, or Vercel's own, or null: never a new
+ * one. For a log line or an error row about a request already in flight,
+ * where a made-up id would match nothing. Takes a Headers or the plain object
+ * Next hands to onRequestError.
+ */
+export function requestIdFrom(headers: { get(name: string): string | null } | Record<string, string | string[] | undefined> | null | undefined): string | null {
+  if (!headers) return null
+  const read = (name: string): string | null => {
+    if (typeof (headers as { get?: unknown }).get === "function") return (headers as { get(name: string): string | null }).get(name)
+    const v = (headers as Record<string, string | string[] | undefined>)[name]
+    return Array.isArray(v) ? v[0] ?? null : v ?? null
+  }
+  return cleanRequestId(read(REQUEST_ID_HEADER)) ?? cleanRequestId(read("x-vercel-id"))
+}
+
 export function requestIdOf(headers: { get(name: string): string | null }): string {
   return (
     cleanRequestId(headers.get(REQUEST_ID_HEADER)) ??

@@ -82,6 +82,7 @@ import type { RenderedSection } from "@/components/website-builder/sections/stor
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { StorefrontCollection, StorefrontData } from "@/lib/storelib-theme/types"
 import { siteStoreName, siteTabTitle } from "./tab-title"
+import { logEvent } from "@/lib/net/log"
 
 /** The product a product page is about, as a section reads it. */
 type StorefrontProduct = StorefrontData["product"]
@@ -693,7 +694,7 @@ const resolveSite = cache(async function resolveSite(name: string): Promise<Shop
   } catch (e) {
     const held = lastGood.get(lower)
     if (held) {
-      console.error(`[published-site] served the last good copy of ${lower}:`, e instanceof Error ? e.message : e)
+      logEvent("warn", "site_last_good_served", { msg: "[published-site] served the last good copy", site: lower, reason: e instanceof Error ? e.message : String(e) })
       return held
     }
     throw e

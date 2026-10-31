@@ -13,6 +13,7 @@ export function register() {}
 
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   const { reportError } = await import("@/lib/observability/report")
+  const { requestIdFrom } = await import("@/lib/net/request-id")
   await reportError({
     source: "server",
     where: `${request.method} ${context.routePath || request.path.split("?")[0]}`,
@@ -22,5 +23,7 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
       renderSource: (context as { renderSource?: string }).renderSource ?? null,
       digest: (error as { digest?: string } | null)?.digest ?? null,
     },
+    /* The id the proxy sent back as x-request-id: the row and the person's failed load are the same request. */
+    requestId: requestIdFrom(request.headers),
   })
 }

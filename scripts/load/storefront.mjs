@@ -11,7 +11,7 @@
  *   --concurrency / LOAD_CONCURRENCY   requests in flight at once, default 10, at most 50
  *   --paths / LOAD_PATHS        comma separated paths, default the list below
  *   --json                      print the result as JSON as well
- *   --i-mean-production         required to aim at storelib.com
+ *   --i-mean-production         required to aim at storelib.com or storelib.me (--i-know-this-is-production also works)
  *
  * GET only, no cookies, no body. Nothing it asks for writes anything, so it
  * is safe against a preview deployment that shares production's database.
@@ -47,7 +47,7 @@ export function refuseTarget(base, iMeanProduction) {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return `BASE_URL must be http or https: ${base}`
   const host = url.hostname.toLowerCase()
-  const isProduction = host === "storelib.com" || host.endsWith(".storelib.com")
+  const isProduction = ["storelib.com", "storelib.me"].some((d) => host === d || host.endsWith(`.${d}`))
   if (isProduction && !iMeanProduction) return `${host} is production. Aim at a preview deployment, or pass --i-mean-production if you really mean it.`
   return null
 }
@@ -107,7 +107,7 @@ async function main() {
     console.error("storefront load: set BASE_URL or pass --base")
     process.exit(2)
   }
-  const refusal = refuseTarget(base, process.argv.includes("--i-mean-production"))
+  const refusal = refuseTarget(base, process.argv.includes("--i-mean-production") || process.argv.includes("--i-know-this-is-production"))
   if (refusal) {
     console.error(`storefront load: ${refusal}`)
     process.exit(2)

@@ -19,6 +19,11 @@
  * durations.
  */
 
+import { logEvent } from "@/lib/net/log"
+
+/** A render at least this long is logged as a warning. */
+export const PHASE_SLOW_MS = 3_000
+
 export interface PhaseTimer {
   /** Record the moment a phase finished, measured from the one before it. */
   mark: (name: string) => void
@@ -42,8 +47,18 @@ export function startPhaseTimer(label: string, id: string): PhaseTimer {
       if (printed) return
       printed = true
       const total = Math.round(performance.now() - t0)
-      const tail = extra ? " " + Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(" ") : ""
-      console.log(`[${label}] id=${id} total=${total} ${marks.join(" ")}${tail}`)
+      /*
+        One JSON line (lib/net/log.ts), so Vercel's log can be searched and
+        grouped by phase. It is the most frequent line in production (one per
+        product page render): info, and a warning only when the render took
+        PHASE_SLOW_MS or more, so a slow page shows among the warnings.
+      */
+      const phases: Record<string, number> = {}
+      for (const m of marks) {
+        const [k, v] = m.split("=")
+        phases[k] = Number(v)
+      }
+      logEvent(total >= PHASE_SLOW_MS ? "warn" : "info", "phase_timing", { ...phases, ...(extra ?? {}), label, id, total })
     },
   }
 }

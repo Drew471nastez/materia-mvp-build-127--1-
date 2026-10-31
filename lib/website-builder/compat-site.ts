@@ -62,6 +62,7 @@ import { draftAssetPass } from "./draft-asset-pass"
 import { LastGood, keyedAs } from "./last-good"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
+import { logEvent } from "@/lib/net/log"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -323,7 +324,8 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   } catch (e) {
     const held = previewToken === null ? lastGoodSite.get(key) : undefined
     if (held) {
-      console.error(`[compat-site] served the last good copy of ${key}:`, e instanceof Error ? e.message : e)
+      /* The visitor got a page: a warning, not an error (the failures that left a visitor with no page stay errors). */
+      logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: e instanceof Error ? e.message : String(e) })
       return { kind: "site", site: { ...held, host } }
     }
     throw e

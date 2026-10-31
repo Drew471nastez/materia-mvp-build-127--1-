@@ -94,3 +94,108 @@ The script measures the cache for its own requests. For real visitors,
 Vercel adds `x-vercel-cache` after the function has answered, so the app
 never sees it and cannot report it cheaply. It is in Vercel, the project,
 **Observability**, **Edge Requests** (the cache column, by path).
+
+## The key paths: `scripts/load/scenarios.mjs`
+
+`storefront.mjs` above is read only. `scenarios.mjs` drives what visitors and
+buyers actually do, including two writes, so it is for a **staging**
+deployment only: a Vercel preview that reads a staging Supabase project and
+Stripe test keys (set up below). Plain Node `fetch`, no dependency.
+
+| Scenario | Request | Needs | Writes |
+| --- | --- | --- | --- |
+| `onepage` | `GET /l/<slug>` (or `--onepage-path`) | `--onepage` | no |
+| `creator` | `GET /<handle>` | `--creator` | no |
+| `site` | `GET /w/<name>`; an imported theme: `--site-path /api/site-theme/site/<name>/` | `--site` or `--site-path` | no |
+| `assets` | each of `--assets`, plus `/robots.txt`, `/favicon.ico` | any scenario | no |
+| `collect` | `POST /api/track-view` (the analytics beacon) | `--creator-id <uuid>` | a page view row |
+| `checkout` | `POST /api/checkout/stripe-session` (makes a PaymentIntent) | `--product <uuid>` **and** `--checkout` | a Stripe test PaymentIntent, a checkout start |
+
+```bash
+LOAD_ALLOW_HOSTS=storelib-staging.example.dev \
+node scripts/load/scenarios.mjs --base https://storelib-git-staging-team.vercel.app \
+  --onepage demo --creator demo --site demo \
+  --assets /api/site-theme/assets/<install>/<version>/theme.css \
+  --creator-id <demo creator uuid> --product <demo product uuid> --checkout \
+  --concurrency 10 --rate 20 --seconds 60
+```
+
+| Option | Environment | Default | |
+| --- | --- | --- | --- |
+| `--base` | `BASE_URL` | none | Required. |
+| `--seconds` | `LOAD_SECONDS` | 30 | At most 600. |
+| `--concurrency` | `LOAD_CONCURRENCY` | 10 | In flight at once, at most 50. |
+| `--rate` | `LOAD_RATE` | no cap | Requests started per second across all workers, at most 500. |
+| `--scenarios` | `LOAD_SCENARIOS` | every configured one | Comma list to keep. |
+| `--onepage`, `--onepage-path`, `--creator`, `--site`, `--site-path`, `--assets`, `--creator-id`, `--product` | `LOAD_ONEPAGE`, `LOAD_ONEPAGE_PATH`, `LOAD_CREATOR`, `LOAD_SITE`, `LOAD_SITE_PATH`, `LOAD_ASSETS`, `LOAD_CREATOR_ID`, `LOAD_PRODUCT` | | What to load. |
+| `--checkout` | | off | Without it, `--product` does nothing. |
+| | `LOAD_STRIPE_PUBLISHABLE_KEY` | | The target's `pk_test_` key, when the script cannot find it in the target's pages. |
+| | `LOAD_ALLOW_HOSTS` | | Comma list of exact host names that are staging. |
+| `--json` | | | Also print the result as JSON. |
+| `--i-know-this-is-production` | | | See below. Never do this for `collect` or `checkout`. |
+
+### What it will not do
+
+- **Aim at production by accident.** It is an allow list: `localhost`,
+  loopback and private addresses, Vercel branch previews
+  (`*-git-*.vercel.app`) and `LOAD_ALLOW_HOSTS`. Everything else, and always
+  `storelib.com`, `storelib.me` and their subdomains, is refused unless
+  `--i-know-this-is-production` is passed. A creator's custom domain or a
+  production deployment's own `*.vercel.app` address is production too,
+  which is why it is not a deny list.
+- **Touch live Stripe.** Before a checkout run it reads the creator page (or
+  `/`) and up to 40 of its scripts for the publishable key. `pk_live_`
+  anywhere refuses the run, whatever flags are passed. No key found refuses
+  it too, unless `LOAD_STRIPE_PUBLISHABLE_KEY` is the target's `pk_test_`
+  key. Buyers are `load+<n>@example.com`; no card is entered, so no payment
+  is made: a PaymentIntent is created and left unconfirmed.
+- **Send cookies.** Every request is a stranger's.
+
+`/api/checkout/stripe-session` is rate limited per address and per email
+(`lib/api/rate-limit.ts`), so a long checkout run from one machine ends in
+429s. They are counted on their own (`429`), not as errors. Measure checkout
+in short runs, or with `LOAD_SCENARIOS=checkout --rate 2`.
+
+### Reading the result
+
+```
+500 requests in 5.1 s (99.0 per second)
+all        p50 27 ms  p95 44 ms  p99 46 ms  errors 0.0%  4xx 20  429 4
+  onepage       84  p50 28 ms  p95 44 ms  p99 46 ms  errors 0.0%  4xx 0  429 0
+  checkout      83  p50 27 ms  p95 44 ms  p99 46 ms  errors 0.0%  4xx 0  429 4
+```
+
+errors are network failures, 15 s timeouts and statuses of 500 or more; `4xx`
+(other than 429) and `429` are answers, counted apart. The run above is the
+script against a local stub server (it proves the script, not the app). The
+same targets as above apply to the pages; for `collect` the answer should be
+a 204 in under 300 ms at p95, and for `checkout` under 2 s at p95 (it calls
+Stripe).
+
+### Set up a staging copy (one time, the owner)
+
+A preview deployment reads production's Supabase unless told otherwise, so
+`collect` and `checkout` must not run against an ordinary preview.
+
+1. **Supabase**: create a second project (`storelib-staging`, the free plan is
+   enough for a load test at these rates). Apply the schema: run the files in
+   `supabase/sql/run-now/` in order in its SQL editor (the same parts as
+   production, `docs/operations/admin-sql-updates.md`). Create one demo
+   creator with a OnePage, a published website and one paid product by
+   signing up on the staging preview. Never copy production data into it.
+2. **Stripe**: use the test mode keys of the same Stripe account (`sk_test_`,
+   `pk_test_`), and a test mode Connect account for the demo creator.
+3. **Vercel**: Settings, Environment Variables. Add the staging values for
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`,
+   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` scoped to
+   **Preview** and the branch `staging` only (the "Preview (staging)"
+   branch filter), so other previews keep their settings. Leave Mailgun
+   unset there (no real email) and `ALERT_EMAIL` unset.
+4. Push the commit to test to a branch named `staging`. Its branch address,
+   `storelib-git-staging-<team>.vercel.app`, is allowed by the script
+   without a flag. If previews are behind Vercel Authentication, use a
+   Protection Bypass for Automation secret (release-safety.md) or turn
+   protection off for that branch while testing.
+5. Run from a machine near the deployment's region (`iad1`), one minute at
+   10 in flight first, and record the numbers here.

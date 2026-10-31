@@ -42,6 +42,7 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { logEvent } from "@/lib/net/log"
 
 export interface RateWindow {
   /** How many are allowed. */
@@ -239,9 +240,9 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
     )
     const answers = await Promise.all(asks)
     for (const { window, count, error } of answers) {
-      /* Table missing, permissions wrong, database unreachable: allow. */
+      /* Table missing, permissions wrong, database unreachable: allow (a warning, logEvent: failing open is the decision). */
       if (error) {
-        console.error(`[rate-limit] ${options.bucket}: counting failed, allowing (${error.message})`)
+        logEvent("warn", "rate_limit_count_failed", { msg: "[rate-limit] counting failed, allowing", bucket: options.bucket, reason: error.message })
         return null
       }
 

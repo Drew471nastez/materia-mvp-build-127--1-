@@ -27,6 +27,7 @@ import "server-only"
  */
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
+import { logEvent } from "@/lib/net/log"
 
 export const UNCONFIRMED_AFTER_DAYS = 60
 export const UNCONFIRMED_EVENT = "delivery.unconfirmed"
@@ -75,7 +76,8 @@ export async function closeUnconfirmedDeliveries(db: Db, now: number = Date.now(
     ;({ data, error } = await ask(false))
   }
   if (error) {
-    console.error("[physical] unconfirmed deliveries not read:", error.code)
+    /* Was `error.code` alone, which a timeout does not have ("not read: undefined"). */
+    logEvent("error", "physical_unconfirmed_unread", { msg: "[physical] unconfirmed deliveries not read", code: (error as { code?: string }).code ?? null, reason: (error as { message?: string }).message ?? null })
     return { closed: 0 }
   }
   let closed = 0

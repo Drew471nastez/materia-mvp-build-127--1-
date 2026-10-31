@@ -7,6 +7,7 @@ import { handleConnectPayoutEvent, isConnectPayoutEvent } from "@/lib/stripe/con
 import { claimStripeEvent, noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { timed } from "@/lib/perf/server-timing"
 
@@ -60,7 +61,7 @@ async function handlePOST(request: Request) {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
     })
-    await reportError({ source: "webhook", where: `stripe connect ${event.type}`, error, context: { eventId: event.id } })
+    await reportError({ source: "webhook", where: `stripe connect ${event.type}`, error, context: { eventId: event.id }, requestId: requestIdFrom(request.headers) })
     return NextResponse.json({ error: "Handler failed" }, { status: 500 })
   }
 }

@@ -28,6 +28,7 @@ import { isPayoutLedgerSkip, PayoutLedgerSkip } from "@/lib/stripe/connect-payou
 import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
@@ -35,6 +36,7 @@ import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-or
 import { resolveCreatorForSubscription, stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
 import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
 import { recordPaidPlan } from "@/lib/billing/plan-override"
+import { logEvent } from "@/lib/net/log"
 
 export const runtime = "nodejs"
 /*
@@ -139,7 +141,7 @@ async function handlePOST(request: Request) {
     answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }), held)
   } catch (error) {
     if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId }, requestId: requestIdFrom(request.headers) })
     throw error
   }
   if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
@@ -149,7 +151,7 @@ async function handlePOST(request: Request) {
   } else if (eventId && answer.status >= 500) {
     await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
     /* Stripe will try again, but a payment event failing is the owner's to know about now. */
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId }, requestId: requestIdFrom(request.headers) })
   }
   return answer
 }
@@ -978,7 +980,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.code ?? "")
+    /* A declined card is the buyer's bank saying no, not a fault here: info. Stripe ids only, no card or person. */
+    logEvent("info", "stripe_payment_failed", { msg: "[Webhook] Payment failed", paymentIntent: pi.id, code: pi.last_payment_error?.code ?? null, eventId: event.id })
     /*
       PAYMENT FAILED, for an order that ships: the buyer is told half an hour
       later if they still haven't paid (lib/physical/jobs-server
@@ -1181,7 +1184,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
-    console.log("[Invoice] Payment failed:", invoice.id)
+    /* A renewal that did not go through: the creator's plan is at risk, worth a warning. */
+    logEvent("warn", "stripe_invoice_payment_failed", { msg: "[Invoice] Payment failed", invoice: invoice.id ?? null, eventId: event.id })
     /* NEWER STRIPE API VERSIONS MOVED THE SUBSCRIPTION ONTO invoice.parent.
        Read it from either place, so a plan renewal is never mistaken for a
        one-off invoice whichever version the webhook endpoint sends. */

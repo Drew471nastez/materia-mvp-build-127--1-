@@ -31,6 +31,7 @@ import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { exploreIndexing } from "@/lib/seo/explore-indexing"
 import { LeaveCopy } from "@/components/navigation/leave-copy"
+import { logEvent } from "@/lib/net/log"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
 const INTERESTS_WAIT_MS = 1_500
@@ -169,7 +170,7 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   let { data: products, error } = (await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)) as { data: any[] | null; error: { message: string } | null }
   let embedded = !error
   if (error) {
-    console.error("[ExplorePage] Creators embed refused, reading them on their own:", error.message)
+    logEvent("warn", "explore_creators_embed_refused", { msg: "[ExplorePage] Creators embed refused, reading them on their own", reason: error.message })
     ;({ data: products, error } = (await read(PRODUCT_COLUMNS)) as { data: any[] | null; error: { message: string } | null })
     embedded = false
   }

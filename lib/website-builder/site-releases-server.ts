@@ -41,6 +41,7 @@
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { blobGroups, buildManifest, filesOf, readManifest, releaseList, RELEASES_KEPT, rollbackFailure, sha256Hex, type ReleaseListItem, type ReleaseManifest, type ReleasePage, type RollbackFailure } from "./site-releases"
+import { logEvent } from "@/lib/net/log"
 
 type DbError = { code?: string; message?: string } | null
 type Result<T = unknown> = { data: T; error: DbError }
@@ -109,7 +110,8 @@ export async function livePointer(creatorId: string, tags: string[]): Promise<Li
   try {
     return await unstable_cache(() => readLivePointer(createAdminClient(), creatorId), ["site-live-release", creatorId], { tags, revalidate: POINTER_HOLD_S })()
   } catch (e) {
-    console.error("[site-releases] the live release could not be read, drawing from the rows:", e instanceof Error ? e.message : e)
+    /* The site is still drawn, from the rows: a warning. */
+    logEvent("warn", "site_release_pointer_unread", { msg: "[site-releases] the live release could not be read, drawing from the rows", reason: e instanceof Error ? e.message : String(e) })
     return null
   }
 }
