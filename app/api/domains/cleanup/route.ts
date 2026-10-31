@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient as createServiceClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { matchesSecret } from "@/lib/api/require-secret"
 import { removeDomainHosts } from "@/lib/custom-domains/vercel"
 
@@ -26,7 +26,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = createServiceClient(supabaseUrl, supabaseKey)
+    /* The shared factory: every request carries a deadline (lib/net/deadline.ts). */
+    const supabase = createAdminClient()
 
     // Find all expired redirects (grace period has passed)
     const { data: expiredRedirects, error: fetchError } = await supabase

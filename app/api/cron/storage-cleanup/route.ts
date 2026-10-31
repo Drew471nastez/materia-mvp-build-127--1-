@@ -4,6 +4,7 @@ import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runStorageCleanup } from "@/lib/storage/cleanup"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { recordCronRun } from "@/lib/observability/report"
+import { cleanupFailures, statusForFailures } from "@/lib/observability/step-failures"
 import { sweepCommunityOrphans } from "@/lib/communities/server/orphans"
 
 /**
@@ -46,13 +47,21 @@ async function runJob(request: Request) {
     if (summary.errors.length > 0) console.error("[storage-cleanup]", summary.errors.join("; "))
     /* Copies of deleted rows older than 90 days (run-now part 66, docs/operations/backups.md). Missing before part 66: nothing to forget. */
     let deletedRowsForgotten = 0
+    let purgeError: string | null = null
+    let opsPurgeError: string | null = null
     if (url.searchParams.get("dry") !== "1") {
       const { data, error } = await createAdminClient().rpc("storelib_purge_deleted_rows", {})
-      if (error && error.code !== "PGRST202") console.error("[storage-cleanup] deleted rows not purged:", error.message)
+      if (error && error.code !== "PGRST202") {
+        console.error("[storage-cleanup] deleted rows not purged:", error.message)
+        purgeError = error.message
+      }
       deletedRowsForgotten = typeof data === "number" ? data : 0
       /* Scheduled job runs after 30 days, errors unseen for 90 (run-now part 68). */
       const ops = await createAdminClient().rpc("storelib_purge_ops_logs", {})
-      if (ops.error && ops.error.code !== "PGRST202") console.error("[storage-cleanup] job and error logs not purged:", ops.error.message)
+      if (ops.error && ops.error.code !== "PGRST202") {
+        console.error("[storage-cleanup] job and error logs not purged:", ops.error.message)
+        opsPurgeError = ops.error.message
+      }
     }
     /* Community pictures and files taken out of drafts and never posted (lib/communities/server/orphans.ts). */
     const communityOrphans = await sweepCommunityOrphans(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
@@ -61,7 +70,9 @@ async function runJob(request: Request) {
     const { sweepCartUploads } = await import("@/lib/cart-uploads/store")
     const cartUploads = await sweepCartUploads(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
     if (cartUploads.errors.length > 0) console.error("[storage-cleanup] cart uploads:", cartUploads.errors.join("; "))
-    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans, cartUploads }, { headers: { "Cache-Control": "no-store" } })
+    /* Any step that failed makes the run fail (500), so recordCronRun records it and alerts (lib/observability/step-failures.ts). */
+    const failed = cleanupFailures({ files: summary.errors, "deleted rows": purgeError, "ops logs": opsPurgeError, "community uploads": communityOrphans.errors, "cart uploads": cartUploads.errors })
+    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans, cartUploads, failed }, { status: statusForFailures(failed), headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })

@@ -151,7 +151,56 @@ export interface DeadlineOptions {
   ms?: number | null
 }
 
+/*
+  ===========================================================================
+   A REFRESH THAT AUTH COULD NOT ANSWER IS NOT A SIGN OUT
+  ===========================================================================
+  @supabase/auth-js (2.87.3, lib/fetch.js handleError) treats only a thrown
+  fetch or a 502, 503 or 504 as AuthRetryableFetchError. Any other failure of
+  POST /auth/v1/token?grant_type=refresh_token, a 500 during an Auth incident
+  or a 429 in a refresh storm included, becomes an AuthApiError, and
+  GoTrueClient._callRefreshToken then calls _removeSession(): the proxy writes
+  the cleared cookies onto the response, the browser and the app's device
+  store forget the tokens, and the person is signed out at random. The app's
+  three-state auth (lib/auth/current-user.ts) never sees it, because it
+  happens inside the library before an answer comes back.
+
+  So a 500, 502, 504 or 429 from the refresh is handed to the library as a
+  503, which it retries with its own backoff and, failing that, returns as a
+  retryable error with the session kept. Only the refresh: a sign in, a code
+  exchange or a 400 such as refresh_token_not_found ("Already Used") are
+  handed back as they are, so a token Auth really refused still signs out.
+*/
+export const REFRESH_OUTAGE_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 504])
+
+export function isRefreshTokenRequest(url: string, method: string): boolean {
+  if (method !== "POST" || !url.includes("/auth/v1/token")) return false
+  try {
+    return new URL(url, "http://local").searchParams.get("grant_type") === "refresh_token"
+  } catch {
+    return /[?&]grant_type=refresh_token(?:&|$)/.test(url)
+  }
+}
+
+export function refreshOutageAsRetryable(url: string, method: string, res: Response): Response {
+  if (!REFRESH_OUTAGE_STATUSES.has(res.status) || !isRefreshTokenRequest(url, method)) return res
+  console.warn(`[auth] token refresh answered ${res.status}; kept the session and passed it on as 503 so it is retried`)
+  void res.body?.cancel().catch(() => {})
+  const headers = new Headers(res.headers)
+  headers.delete("content-length")
+  headers.delete("content-encoding")
+  headers.set("content-type", "application/json")
+  return new Response(JSON.stringify({ message: `Auth answered ${res.status} to a token refresh` }), { status: 503, statusText: "Service Unavailable", headers })
+}
+
 export function deadlineFetch(input: RequestInfo | URL, init?: RequestInit, opts: DeadlineOptions = {}): Promise<Response> {
+  const method = methodOf(input, init)
+  const url = urlOf(input)
+  if (isRefreshTokenRequest(url, method)) return fetchWithDeadline(input, init, opts).then((res) => refreshOutageAsRetryable(url, method, res))
+  return fetchWithDeadline(input, init, opts)
+}
+
+function fetchWithDeadline(input: RequestInfo | URL, init?: RequestInit, opts: DeadlineOptions = {}): Promise<Response> {
   const base = opts.base ?? ((...a: Parameters<typeof fetch>) => globalThis.fetch(...a))
   const url = urlOf(input)
   const method = methodOf(input, init)

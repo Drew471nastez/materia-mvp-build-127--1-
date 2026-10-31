@@ -235,7 +235,7 @@ function main() {
   const page = readFileSync(join(process.cwd(), "app/app/page.tsx"), "utf8")
   check("the banner is handed the sales, and reads no orders itself",
     /sales: SalesSummary/.test(banner) && !/OrderRow|orders:/.test(banner)
-    && /creatorSalesRows\(adminSupabase, creator\.id, now\)/.test(page) && /salesSummaryFrom\(\{ \.\.\.bannerRows, totals: salesTotals \}, now\)/.test(page) && /bannerSales=\{bannerSales\}/.test(page))
+    && /* Changed on purpose (round rel-db): no ECB download from the render. */ /creatorSalesRows\(adminSupabase, creator\.id, now(, \{ noFetch: true \})?\)/.test(page) && /salesSummaryFrom\(\{ \.\.\.bannerRows, totals: salesTotals \}, now\)/.test(page) && /bannerSales=\{bannerSales\}/.test(page))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

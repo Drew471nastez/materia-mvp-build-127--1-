@@ -61,6 +61,8 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import { FAIL_COPY, WAIT_MS, fetchWithDeadline, requestJson } from "@/lib/net/request"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
+import { confirmOutcomeUnknown, intentKey, nextPress, type Held } from "@/lib/checkout/pay-retry"
+import { CHECKING_MESSAGE } from "@/lib/checkout/confirm-outcome"
 
 interface CheckoutPageClientProps {
   product: {
@@ -275,6 +277,11 @@ export default function CheckoutPageClient({
   const [nativeApp, setNativeApp] = React.useState<boolean | null>(null)
   const [card, setCard] = React.useState<NativeCard>(EMPTY_CARD)
   const secretRef = React.useRef<string | null>(null)
+  /**
+   * The app's PaymentIntent whose confirm ended without a sure answer (lib/checkout/pay-retry): the next Pay press
+   * confirms this same one rather than making a second, so a payment that did go through is never paid twice.
+   */
+  const heldIntent = React.useRef<Held<IntentResult> | null>(null)
 
   React.useEffect(() => setNativeApp(isNativeApp()), [])
   /* Touches a website's link carried here (`sl_at`): read once, then off the address (lib/attribution/browser). */
@@ -873,8 +880,25 @@ export default function CheckoutPageClient({
       })
       const pm = await pmRes.json()
       if (!pmRes.ok) throw new Error(pm?.error?.message || "Check the card details and try again.")
-      const intent = await createIntent()
-      let confirmed: Awaited<ReturnType<typeof postJson<{ status?: string; actionUrl?: string }>>>
+      /* What this press pays for: a held intent is confirmed again only for the same order (lib/checkout/pay-retry). */
+      const key = intentKey({ productId: product.id, variantId: variant?.id ?? null, total, currency: chargeCurrency, tipCents, coupon: applied?.code ?? null, customPrice })
+      const askPaid = (held: IntentResult) =>
+        postJson<{ receiptToken?: string; amountCents?: number }>("/api/checkout/confirm-payment", { paymentIntentId: held.paymentIntentId, clientSecret: held.clientSecret }).catch(() => null)
+      const press = nextPress(heldIntent.current, key)
+      if (press === "check" && heldIntent.current) {
+        /* A different order while the last payment is still unknown: that one is asked about first, and only a sure "not paid" lets a new one start. */
+        const asked = await askPaid(heldIntent.current.intent)
+        if (asked?.ok && asked.data.receiptToken) {
+          heldIntent.current = null
+          showPaid(asked.data.receiptToken, { total: asked.data.amountCents ?? 0, free: false })
+          return
+        }
+        if (!asked || asked.status >= 500) throw new Error(CHECKING_MESSAGE)
+        heldIntent.current = null
+      }
+      const intent = press === "reuse" && heldIntent.current ? heldIntent.current.intent : await createIntent()
+      secretRef.current = intent.clientSecret
+      let confirmed: Awaited<ReturnType<typeof postJson<{ status?: string; actionUrl?: string }>>> | null
       try {
         confirmed = await postJson<{ status?: string; actionUrl?: string }>("/api/checkout/confirm-with-pm", {
           paymentIntentId: intent.paymentIntentId,
@@ -883,26 +907,34 @@ export default function CheckoutPageClient({
           returnUrl: window.location.href,
         })
       } catch {
-        /* NO ANSWER IS NOT A NO. The card may have been charged after all, so this never says "nothing was charged" on a
-           guess: it asks the server what Stripe says this payment did. Paid: the receipt (the same order the webhook makes,
-           never a second). Not paid: Pay is free to press again. No answer to that either: it says it does not know. */
-        const asked = await postJson<{ receiptToken?: string; amountCents?: number }>("/api/checkout/confirm-payment", {
-          paymentIntentId: intent.paymentIntentId,
-          clientSecret: intent.clientSecret,
-        }).catch(() => null)
+        confirmed = null
+      }
+      if (confirmOutcomeUnknown(confirmed)) {
+        /* NO ANSWER IS NOT A NO, and neither is a 5xx or "unknown". The card may have been charged after all, so this never
+           says "nothing was charged" on a guess: the intent is kept for the next press, and the server is asked what Stripe
+           says this payment did. Paid: the receipt (the same order the webhook makes, never a second). Otherwise it says it
+           is still checking, and Pay confirms this same payment again. */
+        heldIntent.current = { intent, key }
+        const asked = await askPaid(intent)
         if (asked?.ok && asked.data.receiptToken) {
+          heldIntent.current = null
           showPaid(asked.data.receiptToken, { total: asked.data.amountCents ?? 0, free: false })
           return
         }
-        if (asked && asked.status >= 400 && asked.status < 500) throw new Error("The payment did not complete. Try again.")
-        throw new Error("We could not confirm the payment. Check your email for a receipt before you try again.")
+        throw new Error(confirmed?.data.status === "unknown" ? confirmed.data.error || CHECKING_MESSAGE : CHECKING_MESSAGE)
       }
-      if (!confirmed.ok) throw new Error(confirmed.data.error || "The payment did not go through. Nothing was charged.")
-      if (confirmed.data.status === "requires_action" && confirmed.data.actionUrl) {
-        window.location.href = confirmed.data.actionUrl
+      const answer = confirmed!
+      if (!answer.ok) {
+        /* A sure "no" (a declined card): nothing was charged on this intent. */
+        heldIntent.current = null
+        throw new Error(answer.data.error || "The payment did not go through. Nothing was charged.")
+      }
+      heldIntent.current = null
+      if (answer.data.status === "requires_action" && answer.data.actionUrl) {
+        window.location.href = answer.data.actionUrl
         return
       }
-      await onPaid(intent.paymentIntentId, confirmed.data.status || "unknown")
+      await onPaid(intent.paymentIntentId, answer.data.status || "unknown")
     } catch (e) {
       setError(e instanceof Error ? e.message : "The payment did not go through. Nothing was charged.")
     } finally {
@@ -1276,6 +1308,7 @@ export default function CheckoutPageClient({
         onEmail={setEmail}
         check={(mode) => check(mode)}
         createIntent={createIntent}
+        intentKey={intentKey({ productId: product.id, variantId: variant?.id ?? null, total, currency: chargeCurrency, tipCents, coupon: applied?.code ?? null, customPrice })}
         payerName={() => `${firstName} ${lastName}`.trim()}
         onPaid={onPaid}
         onError={setError}

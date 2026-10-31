@@ -23,7 +23,7 @@ import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { chooseTier } from "@/lib/sites/agent/models"
 import { canAnswer, modelFor, resolveForCreator } from "@/lib/sites/agent/provider"
-import { agentRateLimit } from "@/lib/sites/rate-limit"
+import { AI_LIMIT_UNREADABLE, agentRateLimit, limitStatus } from "@/lib/sites/rate-limit"
 import { runAgent } from "@/lib/sites/agent/run"
 import type { AgentEvent } from "@/lib/sites/agent/types"
 
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
    * error mid-stream is not.
    */
   const limited = await agentRateLimit(creatorId)
-  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
+  if (limited) return NextResponse.json({ error: limited }, { status: limitStatus(limited) })
 
   /**
    * ONE RUN PER SITE AT A TIME.
@@ -99,7 +99,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
    *
    * 409 rather than 429: nothing is rate-limited, the resource is busy.
    */
-  const { data: active } = await createAdminClient().rpc("site_active_run", { p_site_id: siteId })
+  const { data: active, error: activeError } = await createAdminClient().rpc("site_active_run", { p_site_id: siteId })
+  /* Not knowing whether a run is going is not "none is": a second run would be paid for twice. */
+  if (activeError) return NextResponse.json({ error: AI_LIMIT_UNREADABLE }, { status: 503 })
   if ((active as unknown[] | null)?.length) {
     return NextResponse.json(
       { error: "This site is already being edited. Wait for that to finish, or stop it first." },

@@ -205,11 +205,11 @@ const missingTable = (e: { code?: string | null; message?: string | null } | nul
 
 /**
  * The AI assistants group: the views already read, the visits to
- * storelib.com's own pages Storelib counted (part 347), Storelib's own sign
+ * storelib.com's own pages Storelib counted (part 350), Storelib's own sign
  * ups of the same 30 days (part 346), and which of those accounts pay or
  * sell (lib/attribution/ai-funnel says how each is counted). Without part
  * 346 the views are still shown and a notice says what is missing; without
- * part 347 siteVisits is null and the panel says to run it.
+ * part 350 siteVisits is null and the panel says to run it.
  */
 async function aiSiteVisits(r: Reader, since: string): Promise<SiteVisitRow[] | null> {
   try {

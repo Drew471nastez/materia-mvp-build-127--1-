@@ -58,6 +58,9 @@ import { minorUnits } from "@/lib/markets/money"
 import { liveRelease, releaseFiles } from "./site-releases-server"
 import { pageRowsOf, settingsRowOf } from "./site-releases"
 import { siteIconUrl } from "./site-icon"
+import { draftAssetPass } from "./draft-asset-pass"
+import { LastGood, keyedAs } from "./last-good"
+import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
@@ -120,7 +123,7 @@ function shopImage(media: Record<string, string>, v: string): string {
  */
 export function compatThemeFor(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
   const media = assetAddresses(rows)
-  const draft = version === "edit" || version.startsWith("draft")
+  const draft = splitAssetVersion(version).draft
   const versions = new Map<string, string>()
   let digest: string | null = null
   const versionOf = (name: string): string => {
@@ -257,17 +260,19 @@ function withSoldCounts<T extends { id: string; settings: Record<string, unknown
   return cards.map((c) => (typeof sold[c.id] === "number" ? { ...c, settings: { ...c.settings, sold_count: sold[c.id] } } : c))
 }
 
-async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean): Promise<T> {
+/* `stable`: the entry's name for the data cache, kept across deploys (./last-good.ts keyedAs); without one, the function's text, as before. */
+async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean, stable?: string): Promise<T> {
   let passed: { v: T } | null = null
+  const held = async () => {
+    const v = await read()
+    if (skip(v)) {
+      passed = { v }
+      throw NOT_HELD
+    }
+    return v
+  }
   try {
-    return await unstable_cache(async () => {
-      const v = await read()
-      if (skip(v)) {
-        passed = { v }
-        throw NOT_HELD
-      }
-      return v
-    }, key, { tags, revalidate: seconds })()
+    return await unstable_cache(stable ? keyedAs(stable, held) : held, key, { tags, revalidate: seconds })()
   } catch (e) {
     if (e === NOT_HELD && passed) return (passed as { v: T }).v
     throw e
@@ -305,15 +310,14 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  * (the database did not answer) serves the site as it last was. A preview
  * is never kept or served from here.
  */
-const lastGoodSite = new Map<string, SiteData>()
+const lastGoodSite = new LastGood<SiteData>(200)
 
 export async function compatSiteByName(name: string, host: string, previewToken: string | null = null): Promise<CompatLookup> {
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
     if (found.kind === "site" && previewToken === null) {
-      if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
-      lastGoodSite.set(key, found.site)
+      lastGoodSite.remember(key, found.site)
     }
     return found
   } catch (e) {
@@ -352,7 +356,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
-    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null)
+    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null, "compat-install:v1")
   if (!install) return { kind: "missing" }
   const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
@@ -371,7 +375,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
 
-  const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
+  /* A preview's draft files with their pass (./draft-asset-pass.ts): this page may show the draft, so its assets may too. */
+  const version = draft ? withDraftPass(`draft-${Date.now()}`, draftAssetPass(row.id)) : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
   /* Held on this server by what they were read from: the release's id, or the publish when they come from the rows. */
   const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
@@ -638,7 +643,8 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     storeMenusOrNull(admin, row.creator_id),
   ])
   const sections = pageSections<StoredSection[]>(pageRow.data as never, true) ?? []
-  const theme = compatThemeFor(row.id, "edit", rows, settings)
+  /* The cover's page shows the draft (its own pass let it in), and so do its assets. */
+  const theme = compatThemeFor(row.id, withDraftPass("edit", draftAssetPass(row.id)), rows, settings)
   const currency = await cachedStoreCurrency(row.creator_id)
   return drawPage(theme, {
     template: "index",

@@ -460,7 +460,7 @@ async function main() {
     const setup = code("app/api/app/community/[id]/setup/route.ts")
     check("the setup list: owners and admins (manage_settings), rate limited writes", /requireCreatorCommunity\(id, "manage_settings"\)/.test(setup) && /manageLimit/.test(setup))
     const cron = code("app/api/cron/community/route.ts")
-    check("the job run carries the deletions on, only while communities are on", /on \? await runDueDeletions\(db, 10_000\)/.test(cron))
+    check("the job run carries the deletions on, only while communities are on", /deletionsMs = on \? run\.share\(10_000\) : 0/.test(cron) && /deletionsMs > 0 \? await runDueDeletions\(db, deletionsMs\)/.test(cron) /* Changed on purpose (rel-shared): ten seconds at most, from what the run has left */)
     const overview = code("lib/communities/server/creator.ts")
     check("the Overview's Set up card reads the setup list", /stepsLeft\(\s*setupChecklist\(/.test(overview) && /setupExtras\(db, c, ctx\.userId\)/.test(overview))
     const sidebar = code("components/app/sidebar.tsx")

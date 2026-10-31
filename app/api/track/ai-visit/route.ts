@@ -3,7 +3,7 @@
  *  POST /api/track/ai-visit   { source, path }
  * ===========================================================================
  * One more visit from an AI assistant to one of Storelib's own pages, on
- * today's count (platform_ai_visits, SQL part 347, through
+ * today's count (platform_ai_visits, SQL part 350, through
  * bump_platform_ai_visit). Sent by the page the visit landed on, once per
  * tab session, only with a yes to analytics (lib/attribution/ai-visit-
  * browser). lib/attribution/ai-visits.ts has the rules this keeps.
@@ -27,7 +27,7 @@
  *                             memory first like every beacon
  *
  * ALWAYS 204, with nothing set: the page does nothing with the answer and a
- * caller learns nothing from it. BEFORE PART 347 RUNS the function is
+ * caller learns nothing from it. BEFORE PART 350 RUNS the function is
  * missing: the route remembers that for ten minutes and stops asking.
  */
 import { NextResponse, type NextRequest } from "next/server"

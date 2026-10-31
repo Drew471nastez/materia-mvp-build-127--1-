@@ -2,6 +2,7 @@ import "server-only"
 
 import { randomBytes } from "node:crypto"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { mediaFetch } from "@/lib/storage/media-url"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { profileAvatar } from "@/lib/account/avatar"
@@ -201,7 +202,8 @@ export async function createBusinessAccount(caller: { id: string; email: string 
     password: randomBytes(32).toString("base64url"),
     email_confirm: true,
     user_metadata: { display_name: "" },
-    app_metadata: { business_owner: ownerId },
+    /* The owner proved this address is theirs (lib/auth/verified-email.ts). */
+    app_metadata: { business_owner: ownerId, verified_email: email.trim().toLowerCase() },
   })
   if (createError || !created.user) {
     console.error("[businesses] create account failed:", createError?.message)
@@ -238,6 +240,8 @@ export async function sessionFor(userId: string): Promise<MintedSession | null> 
   }
   /* A client of its own that keeps nothing: the session is handed to the browser, not stored here. */
   const anon = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    /* The shared clients' fetch: an auth call that never answers ends at its deadline (lib/net/deadline.ts). */
+    global: { fetch: mediaFetch },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   })
   let { data, error } = await anon.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" })

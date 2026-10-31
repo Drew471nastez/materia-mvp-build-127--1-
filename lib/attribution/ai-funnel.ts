@@ -11,9 +11,9 @@
  *   storelib.com visits
  *             (round 46) visits to Storelib's own public pages, counted by
  *             Storelib per day, assistant and landing path
- *             (platform_ai_visits, part 347, lib/attribution/ai-visits): a
+ *             (platform_ai_visits, part 350, lib/attribution/ai-visits): a
  *             visitor who said yes to analytics, once per tab session. Null
- *             before part 347 runs, and the panel says so.
+ *             before part 350 runs, and the panel says so.
  *   sign ups  Storelib accounts (part 346, account_attribution) whose first
  *             or last touch names an assistant. Credited to the last touch's
  *             assistant, the first's when the last names none.
@@ -29,7 +29,7 @@ import { aiSourceLabel, aiSourceOf, type AiSourceKey } from "./ai-sources"
 export interface AiFunnelRow {
   key: AiSourceKey
   label: string
-  /** Visits to storelib.com's own pages (part 347). 0 when none, or before it runs (AiFunnel.siteVisits is null then). */
+  /** Visits to storelib.com's own pages (part 350). 0 when none, or before it runs (AiFunnel.siteVisits is null then). */
   siteVisits: number
   views: number
   visitors: number
@@ -47,7 +47,7 @@ export interface AiLandingRow {
 
 export interface AiFunnel {
   rows: AiFunnelRow[]
-  /** Totals over the assistants. Null when storelib.com visits are not counted yet (part 347 not run, or not read). */
+  /** Totals over the assistants. Null when storelib.com visits are not counted yet (part 350 not run, or not read). */
   siteVisits: number | null
   /** The landing pages each assistant sent the most storelib.com visits to, LANDINGS_PER_ASSISTANT each, in the rows' order. */
   landings: AiLandingRow[]

@@ -48,6 +48,8 @@ import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import { formatMoney } from "@/lib/communities/membership-policy"
 import { WAIT_MS, requestJson } from "@/lib/net/request"
+import { confirmOutcomeUnknown } from "@/lib/checkout/pay-retry"
+import { CHECKING_MESSAGE } from "@/lib/checkout/confirm-outcome"
 
 export interface MembershipCheckoutProps {
   product: { id: string; title: string; slug: string; thumbnail_url: string | null }
@@ -118,6 +120,12 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   const [card, setCard] = React.useState<NativeCard>(EMPTY_CARD)
   /** The subscription the last Join made, for the confirmation after Stripe.js. */
   const started = React.useRef<{ subscriptionId: string; clientSecret: string; membershipId: string; trialDays: number } | null>(null)
+  /**
+   * In the app: the subscription whose confirm ended without a sure answer (a 5xx, "unknown", no answer). The next
+   * Join confirms that same one again instead of starting a second subscription (lib/checkout/pay-retry), so a
+   * payment that did go through is never paid twice.
+   */
+  const heldJoin = React.useRef<{ subscriptionId: string; clientSecret: string; key: string } | null>(null)
 
   React.useEffect(() => setNativeApp(isNativeApp()), [])
 
@@ -139,6 +147,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   const confirm = React.useCallback(
     async (subscriptionId: string, clientSecret: string, extra: { paymentMethodId?: string } = {}) => {
       let last = "Your payment went through. The membership is still being set up: it will be in your library in a moment. You will not be charged again."
+      let unknown = false
       for (const wait of [0, 1500, 4000]) {
         if (wait) await new Promise((r) => setTimeout(r, wait))
         const res = await postJson<{ membershipId?: string; status?: string; access?: boolean; actionUrl?: string | null }>("/api/memberships/confirm", {
@@ -160,10 +169,15 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
           if (extra.paymentMethodId) throw new Error(last)
           break
         }
+        /* The card's confirm ended without a sure answer: never "you will not be charged again" on a guess (lib/checkout/confirm-outcome). */
+        if (extra.paymentMethodId && confirmOutcomeUnknown(res)) {
+          unknown = true
+          last = res.data.status === "unknown" && res.data.error ? res.data.error : CHECKING_MESSAGE
+        }
         /* Paid and not yet active on our side: the webhook is on its way. The same three tries as the one time checkout. */
         extra = {}
       }
-      throw new Error(last)
+      throw Object.assign(new Error(last), { unknown })
     },
     [finishOn],
   )
@@ -280,8 +294,24 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
       })
       const pm = await pmRes.json()
       if (!pmRes.ok) throw new Error(pm?.error?.message || "Check the card details and try again.")
-      const intent = await startSubscription(undefined, ["card"], pm.id)
-      await confirm(started.current!.subscriptionId, intent.clientSecret, { paymentMethodId: pm.id })
+      const key = `${product.id}:${interval}:${email.trim().toLowerCase()}`
+      const held = heldJoin.current
+      /* The same Join again while the last one is not known: that subscription, confirmed again. Otherwise a new one. */
+      let sub: { subscriptionId: string; clientSecret: string }
+      if (held && held.key === key) sub = held
+      else {
+        const intent = await startSubscription(undefined, ["card"], pm.id)
+        sub = { subscriptionId: started.current!.subscriptionId, clientSecret: intent.clientSecret }
+      }
+      heldJoin.current = { subscriptionId: sub.subscriptionId, clientSecret: sub.clientSecret, key }
+      try {
+        await confirm(sub.subscriptionId, sub.clientSecret, { paymentMethodId: pm.id })
+        heldJoin.current = null
+      } catch (e) {
+        /* A sure "no" (a declined card) lets it go; anything else keeps it for the next press. */
+        if (!(e as { unknown?: boolean }).unknown) heldJoin.current = null
+        throw e
+      }
     } catch (e) {
       if ((e as { alreadyMember?: boolean }).alreadyMember) setError("You are already a member. It is in your library under Memberships.")
       else setError(e instanceof Error ? e.message : "The payment did not go through. Nothing was charged.")
@@ -384,6 +414,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
         onEmail={setEmail}
         check={check}
         createIntent={createIntent}
+        intentKey={`${product.id}:${interval}:${email.trim().toLowerCase()}`}
         payerName={() => fullName.trim()}
         onPaid={onPaid}
         onError={onError}

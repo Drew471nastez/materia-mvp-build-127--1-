@@ -12,10 +12,10 @@
  *   ROUTE      the real handler with the database's fetch stubbed: only
  *              { p_source, p_path } reaches the database, never an address
  *              or a user agent; another site's request and an unknown
- *              assistant count nothing; always 204; quiet before part 347
- *   SQL        part 347: RLS on, service role only, idempotent, the copy
+ *              assistant count nothing; always 204; quiet before part 350
+ *   SQL        part 350: RLS on, service role only, idempotent, the copy
  *              in migrations byte identical, its README row and check column
- *   ADMIN      storelib.com visits, top pages, the run-347 line and the
+ *   ADMIN      storelib.com visits, top pages, the run-350 line and the
  *              words saying where the numbers come from
  *
  * Run with:  npm run test:push
@@ -247,12 +247,12 @@ async function main() {
     res = await post({ source: "claude", path: "/pricing" }, { referer: "" })
     check("Referer stripped: the known label still counts", calls.length === before + 1 && JSON.parse(calls[calls.length - 1].body).p_source === "claude")
 
-    /* Before part 347: the function is missing; the route answers 204 and stops asking for a while. */
+    /* Before part 350: the function is missing; the route answers 204 and stops asking for a while. */
     answer = () => new Response(JSON.stringify({ code: "PGRST202", message: "Could not find the function public.bump_platform_ai_visit" }), { status: 404, headers: { "Content-Type": "application/json" } })
     res = await post({ source: "chatgpt", path: "/pricing" })
     const after = calls.length
     const res2 = await post({ source: "chatgpt", path: "/features" })
-    check("before part 347: 204, and the next count does not ask again", res.status === 204 && res2.status === 204 && calls.length === after)
+    check("before part 350: 204, and the next count does not ask again", res.status === 204 && res2.status === 204 && calls.length === after)
 
     const route = code("app/api/track/ai-visit/route.ts")
     check("the route never reads the user agent, cookies or the address itself", !/user-agent|cookies|x-forwarded-for|x-real-ip|\.ip\b/.test(route))
@@ -263,9 +263,9 @@ async function main() {
   }
 
   /* ── SQL ───────────────────────────────────────────────────────────── */
-  console.log("\nPart 347\n")
+  console.log("\nPart 350\n")
   {
-    const sql = read("supabase/sql/run-now/347_platform_ai_visits.sql")
+    const sql = read("supabase/sql/run-now/350_platform_ai_visits.sql")
     const mig = readdirSync(join(process.cwd(), "supabase/migrations")).find((f) => /^2027\d{4}_platform_ai_visits\.sql$/.test(f))
     check("a byte identical copy in migrations", !!mig && read(`supabase/migrations/${mig}`) === sql)
     check("the table, its key and its checks, if not exists", /CREATE TABLE IF NOT EXISTS public\.platform_ai_visits \(day date NOT NULL, ai_source text NOT NULL CHECK \(ai_source ~ '\^\[a-z_\]\{2,20\}\$'\), landing_path text NOT NULL CHECK \(char_length\(landing_path\) BETWEEN 1 AND 200/.test(sql) && /PRIMARY KEY \(day, ai_source, landing_path\)/.test(sql))
@@ -276,8 +276,8 @@ async function main() {
     check("adds one for today in UTC, as an upsert", /\(now\(\) AT TIME ZONE 'utc'\)::date/.test(sql) && /ON CONFLICT \(day, ai_source, landing_path\) DO UPDATE SET visits = v\.visits \+ 1/.test(sql))
     check("no column for a visitor, an address, a user agent or a referrer", !/\b(ip|ip_hash|user_agent|visitor_id|referrer|cookie)\b\s+(text|inet|uuid)/i.test(sql))
     check("safe to run again", /CREATE OR REPLACE FUNCTION/.test(sql) && /Safe to run again/.test(sql))
-    check("its README row", /\| `347_platform_ai_visits\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
-    check("its column in the check after, RLS and anon refused", /as p347_platform_ai_visits[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /has_function_privilege\('anon', 'public\.bump_platform_ai_visit\(text, text\)', 'EXECUTE'\)/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("its README row", /\| `350_platform_ai_visits\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
+    check("its column in the check after, RLS and anon refused", /as p350_platform_ai_visits[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /has_function_privilege\('anon', 'public\.bump_platform_ai_visit\(text, text\)', 'EXECUTE'\)/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("listed for the admin's schema check", /platform_ai_visits: \{ columns: \["day", "ai_source", "landing_path", "visits"\], later: true \}/.test(read("lib/admin/schema-expectations.ts")))
   }
 
@@ -306,13 +306,13 @@ async function main() {
     check("the funnel in one row: visits, sign ups, paid", chat?.siteVisits === 180 && chat?.signups === 1 && chat?.paidPlan === 1)
     const chatPages = f.landings.filter((l) => l.key === "chatgpt")
     check(`top ${LANDINGS_PER_ASSISTANT} pages per assistant, the most first`, chatPages.length === LANDINGS_PER_ASSISTANT && chatPages[0].path === "/alternatives/gumroad" && chatPages[0].visits === 120 && f.landings.some((l) => l.key === "perplexity"))
-    check("before part 347: siteVisits is null, not 0", buildAiFunnel({ views: [], siteVisits: null, signups: [], signupsAll: 0, paidUsers: new Set(), saleUsers: new Set() }).siteVisits === null)
+    check("before part 350: siteVisits is null, not 0", buildAiFunnel({ views: [], siteVisits: null, signups: [], signupsAll: 0, paidUsers: new Set(), saleUsers: new Set() }).siteVisits === null)
 
     const view = code("lib/admin/views/platform.ts")
     check("read from platform_ai_visits for the same 30 days, quiet when the table is missing", /from\("platform_ai_visits"\)/.test(view) && /\.gte\("day", since\.slice\(0, 10\)\)/.test(view) && /if \(missingTable\(error\)\) return null/.test(view))
     const panel = read("app/admin/_console/view-platform.tsx")
     check("the panel names where the numbers come from", AI_VISITS_LABEL === "Counted by Storelib, visitors who accepted analytics, where the assistant is known." && /\{AI_VISITS_LABEL\}/.test(panel))
-    check("  says what to run before part 347", /Run SQL part 347 to count visits to storelib\.com\./.test(panel))
+    check("  says what to run before part 350", /Run SQL part 350 to count visits to storelib\.com\./.test(panel))
     check("  storelib.com visits, then sign ups, then paid", /storelib\.com visits, then `/.test(panel) && /Storelib sign ups, then \{num\(ai\.paidPlan\)\} on a paid plan/.test(panel))
     check("  the top pages per assistant", /label="Top storelib\.com pages per assistant"/.test(panel))
     check("  store views kept apart from storelib.com visits", /label: "Store views"/.test(panel) && /Page views on creators&apos; storefronts/.test(panel))
@@ -321,7 +321,7 @@ async function main() {
   /* ── Copy ──────────────────────────────────────────────────────────── */
   console.log("\nThe words\n")
   {
-    const files = ["app/admin/_console/view-platform.tsx", "lib/attribution/ai-visits.ts", "lib/attribution/ai-visit-browser.ts", "app/api/track/ai-visit/route.ts", "components/attribution/capture-platform-touch.tsx", "supabase/sql/run-now/347_platform_ai_visits.sql"]
+    const files = ["app/admin/_console/view-platform.tsx", "lib/attribution/ai-visits.ts", "lib/attribution/ai-visit-browser.ts", "app/api/track/ai-visit/route.ts", "components/attribution/capture-platform-touch.tsx", "supabase/sql/run-now/350_platform_ai_visits.sql"]
     const text = files.map(read).join("\n")
     check("no em dash", !text.includes("—"))
     check("none of the banned words", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income)\b/i.test(text))

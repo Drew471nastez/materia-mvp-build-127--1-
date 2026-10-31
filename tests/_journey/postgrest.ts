@@ -50,6 +50,17 @@ export class MemoryDb {
   tables: Record<string, Row[]> = {}
   model: Map<string, TableModel>
   rpcs: Record<string, RpcFn> = {}
+  /**
+   * Database blips for reliability suites (tests/rel-commerce.test.ts): the next `times` requests to `table` (a
+   * table, or an rpc's name) with `method` (any when absent) answer this error, as a timeout or an outage would.
+   */
+  faults: { table: string; method?: string; times: number; code: string; status: number; hang?: boolean }[] = []
+  /** PostgREST's max-rows (1,000 on Supabase), when a suite sets it: a read answers at most this many rows. Off by default. */
+  maxRows: number | null = null
+  /** `hang`: the request is accepted and never answered (it ends only when its caller aborts it, as a deadline does). */
+  failNext(table: string, opts: { method?: string; times?: number; code?: string; status?: number; hang?: boolean } = {}) {
+    this.faults.push({ table, method: opts.method?.toUpperCase(), times: opts.times ?? 1, code: opts.code ?? "57014", status: opts.status ?? 500, hang: opts.hang })
+  }
   /** Generated columns: computed on every read. */
   generated: Record<string, (r: Row) => Record<string, unknown>> = {
     inventory_levels: (r) => ({ available: (Number(r.on_hand) || 0) - (Number(r.committed) || 0) }),
@@ -346,6 +357,21 @@ export class MemoryDb {
     const single = accept.includes("vnd.pgrst.object")
     const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
       new Response(body === undefined ? "" : JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } })
+    {
+      const target = path.startsWith("rpc/") ? path.slice(4) : decodeURIComponent(path)
+      const fault = this.faults.find((f) => f.times > 0 && f.table === target && (!f.method || f.method === method))
+      if (fault) {
+        fault.times--
+        if (fault.hang) {
+          return new Promise<Response>((_, reject) => {
+            const gone = () => reject(req.signal.reason ?? new DOMException("aborted", "AbortError"))
+            if (req.signal.aborted) gone()
+            else req.signal.addEventListener("abort", gone, { once: true })
+          })
+        }
+        return json({ code: fault.code, message: `canceling statement due to statement timeout (injected on ${target})`, details: null, hint: null }, fault.status)
+      }
+    }
     const fail = (e: unknown) => {
       if (e instanceof PgError) return json({ code: e.code, message: e.message, details: e.details, hint: null }, e.status)
       return json({ code: "XX000", message: e instanceof Error ? e.message : String(e), details: null, hint: null }, 500)
@@ -385,6 +411,7 @@ export class MemoryDb {
         const all = this.select(table, selectParam ?? "*", filters, { order, limit: null, offset: 0 })
         total = all.length
         rows = all.slice(offset, limit !== null ? offset + limit : undefined)
+        if (this.maxRows !== null) rows = rows.slice(0, this.maxRows)
         if (method === "HEAD") return new Response(null, { status: 200, headers: { "content-range": `*/${total}` } })
       } else if (method === "POST") {
         const body = JSON.parse((await req.text()) || "null")

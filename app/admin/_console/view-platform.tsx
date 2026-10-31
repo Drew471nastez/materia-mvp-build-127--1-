@@ -247,10 +247,10 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
  * never the whole of it, and the panel says so.
  *
  * Round 46: storelib.com visits, Storelib's own count of visits to its own
- * pages (part 347, lib/attribution/ai-visits), first in each row so a row
+ * pages (part 350, lib/attribution/ai-visits), first in each row so a row
  * reads as the funnel it is: visits, then sign ups, then paid. Store views
  * stay apart, after it: they are creators' pages. Each assistant's top
- * landing pages under it. Before part 347 the column is left out and one
+ * landing pages under it. Before part 350 the column is left out and one
  * line says what to run.
  */
 function AiAssistantsPanel({ ai, problems }: { ai: AudiencePayload["ai"]; problems: AudiencePayload["problems"] }) {
@@ -270,7 +270,7 @@ function AiAssistantsPanel({ ai, problems }: { ai: AudiencePayload["ai"]; proble
         <div data-ai-assistants>
           {counted ? null : (
             <p className="border-b border-white/[0.06] px-4 py-2.5 text-[12px] text-[#9b9ba6]" data-ai-visits-missing>
-              Run SQL part 347 to count visits to storelib.com.
+              Run SQL part 350 to count visits to storelib.com.
             </p>
           )}
           <DataList label="AI assistants" rows={ai.rows} rowKey={(r) => r.key} empty="No visit or sign up in the last 30 days named an AI assistant." columns={columns} />

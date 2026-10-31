@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorFor } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { stripe } from "@/lib/stripe"
+import type Stripe from "stripe"
+import { syncChargeRefund } from "@/lib/stripe/refund-sync"
+import { refundCheckDue } from "@/lib/orders/refund-check"
 import { COLUMNS_COOKIE, hiddenColumnsFrom, queryFromParams } from "@/lib/orders/order-view"
 import { readOrdersListing } from "@/lib/orders/paged"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
@@ -75,6 +78,8 @@ async function recentPayments(admin: ReturnType<typeof createAdminClient>, creat
 }
 
 async function catchMissedRefunds(creatorId: string) {
+  /* Once per creator per six hours (lib/orders/refund-check, database audit F8). */
+  if (!refundCheckDue(creatorId)) return
   const admin = createAdminClient()
   const since = Date.now() - REFUND_CHECK_DAYS * 24 * 3_600_000
   /*
@@ -82,15 +87,15 @@ async function catchMissedRefunds(creatorId: string) {
     one payment intent, and Stripe reports refunds per payment, not per row.
     Reading "something on this payment was refunded" as "this row was" marked
     every product in a basket refunded when one of them was. So the check is
-    per payment: a payment with one row takes Stripe's amount, a payment with
-    several is only marked when Stripe says the whole of it went back, and a
-    part refund of a basket is left to the webhook, which knows which item.
+    per payment, and a refund found is applied by lib/stripe/refund-sync, as
+    the charge.refunded webhook applies it: to the row the refund names, or
+    shared across the basket's rows, each refund once, with its ledger line.
   */
   let rowsByIntent: Map<string, PaidRow[]>
   try {
     rowsByIntent = await recentPayments(admin, creatorId, since)
   } catch {
-    /* Read again on the next visit. */
+    /* Read again on the next check. */
     return
   }
   const queue = [...rowsByIntent.entries()]
@@ -98,26 +103,17 @@ async function catchMissedRefunds(creatorId: string) {
     .slice(0, REFUND_CHECK_MAX)
   const worker = async () => {
     for (let next = queue.shift(); next; next = queue.shift()) {
-      const [intent, group] = next
+      const [intent] = next
       try {
         const pi = await stripe.paymentIntents.retrieve(intent, { expand: ["latest_charge"] })
-        const charge = pi.latest_charge as { refunded?: boolean; amount_refunded?: number } | null
-        if (!charge || !(charge.refunded || (charge.amount_refunded ?? 0) > 0)) continue
-        if (group.length > 1 && !charge.refunded) continue
-        const refundedAt = new Date().toISOString()
-        for (const order of group) {
-          if (order.status !== "completed") continue
-          await admin.from("orders").update({ status: "refunded" }).eq("id", order.id)
-          /* What was charged, the tip already inside it. */
-          const whole = order.amount_cents || 0
-          await admin
-            .from("orders")
-            .update({
-              refund_amount_cents: group.length === 1 ? charge.amount_refunded || order.amount_cents : whole,
-              refunded_at: refundedAt,
-            })
-            .eq("id", order.id)
-        }
+        const charge = pi.latest_charge as Stripe.Charge | null
+        if (!charge || typeof charge !== "object" || !(charge.refunded || (charge.amount_refunded ?? 0) > 0)) continue
+        /*
+          THE WEBHOOK'S OWN PATH (database audit F8). This wrote the rows' status and amount itself, with no ledger
+          line, so the wallet could still count refunded money. lib/stripe/refund-sync does what charge.refunded does:
+          each refund once (keyed by its id in the ledger), shared across a basket's rows, the wallet moved with it.
+        */
+        await syncChargeRefund(admin, stripe, charge)
       } catch {
         /* An invalid or rate limited intent is left for the next visit. */
       }

@@ -334,6 +334,7 @@ async function main() {
     check("no email or address column", !/email|ip_address|user_agent/i.test(sql.split("\n").slice(1).join("\n")))
     check("the function is the service role's alone, and waits for 342", /REVOKE ALL ON FUNCTION public\.seo_coverage_groups\(\) FROM PUBLIC, anon, authenticated/.test(sql) && /to_regclass\('public\.seo_index_status'\) IS NULL/.test(sql))
     check("the migration is the same SQL", read("supabase/migrations/20271103_account_attribution.sql") === sql)
+    /* Changed on purpose (reliability merge): later parts (347 to 349) follow p346, so it ends in a comma or the semicolon. */
     check("99_check_after has p346", /as p346_account_attribution[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("the README lists it", read("supabase/sql/run-now/README.md").includes("| `346_account_attribution.sql` |"))
     check("the parts list has it", read("lib/admin/sql-parts.generated.ts").includes('part: "346", file: "346_account_attribution.sql"'))

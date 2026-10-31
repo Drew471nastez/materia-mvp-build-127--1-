@@ -5,10 +5,10 @@
  * The real console (scripts/render-admin.tsx fixtures, as scripts/check-admin.mjs
  * renders them) at 1440 and 390, in two states:
  *
- *   COUNTED    part 347 has run: storelib.com visits first in each row, the
+ *   COUNTED    part 350 has run: storelib.com visits first in each row, the
  *              top storelib.com pages per assistant, and the line saying
  *              where the numbers come from
- *   MISSING    before part 347: no visits column, one line saying to run it
+ *   MISSING    before part 350: no visits column, one line saying to run it
  *
  * Measured: nothing sideways, nothing poking out of the panel, no cell over
  * the next, the copy on the page. Pictures go to SHOTS_DIR or a temp folder.
@@ -111,9 +111,9 @@ try {
         expect(m.text.includes("1,479 storelib.com visits, then 50 of 1,204 Storelib sign ups, then 7 on a paid plan"), "visits, then sign ups, then paid")
         expect(m.landings === 7, "the top pages per assistant", m.landings)
         if (width > 800) expect(m.headers[1] === "storelib.com visits", "storelib.com visits first after the assistant", m.headers)
-        expect(!m.text.includes("Run SQL part 347"), "no run-347 line once it has run")
+        expect(!m.text.includes("Run SQL part 350"), "no run-350 line once it has run")
       } else {
-        expect(m.text.includes("Run SQL part 347 to count visits to storelib.com"), "says to run part 347")
+        expect(m.text.includes("Run SQL part 350 to count visits to storelib.com"), "says to run part 350")
         expect(!m.text.includes("storelib.com visits,") && m.landings === 0, "and shows no visits or pages")
         if (width > 800) expect(!m.headers.includes("storelib.com visits"), "no visits column", m.headers)
       }

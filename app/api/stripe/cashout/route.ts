@@ -1,6 +1,7 @@
 import { moneyCaller } from "@/lib/team/money"
 import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse } from "next/server"
+import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { emit } from "@/lib/notify/outbox"
@@ -352,6 +353,8 @@ export async function POST(request: Request) {
     /* A team member's cash out is on the record with their name (lib/team/areas). */
     await recordTeamAction(who, who.userId, "payouts_manage", "payout_cashed_out", { payout_id: stripePayout.id, amount: payoutAmountNative, currency: payoutCurrency })
 
+    /* The payouts page reads Stripe afresh after a cash out (lib/payments/payouts-read-cache). */
+    forgetPayoutsRead(creator.id)
     return NextResponse.json({
       success: true,
       payout: {

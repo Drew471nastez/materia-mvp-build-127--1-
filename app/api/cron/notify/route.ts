@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runNotificationWork } from "@/lib/notify/worker"
 import { recordCronRun } from "@/lib/observability/report"
+import { runBudgetMs, runDeadline } from "@/lib/observability/run-deadline"
 
 /**
  * GET /api/cron/notify
@@ -27,16 +28,28 @@ export const maxDuration = 60
 
 /** Stop taking batches with time left to finish the one in hand. */
 const RUN_BUDGET_MS = 45_000
+/**
+ * ONE CLOCK FOR THE RUN, FROM THE REQUEST (lib/observability/run-deadline.ts).
+ * New batches are claimed until CLAIM_UNTIL_MS; the batch in hand starts no
+ * job past the run's deadline less HAND_BACK_MS (the rest go back to the
+ * queue for the next run); the analytics forwarding takes only what is left.
+ * It used to be 45 s of claims, then a batch with no end, then at least 2 s
+ * more of forwarding whatever time it was: past the 60 s limit when busy.
+ */
+const CLAIM_UNTIL_MS = 36_000
+const HAND_BACK_MS = 4_000
 
 async function runJob(request: Request) {
+  const run = runDeadline(runBudgetMs(maxDuration))
+  const started = run.started
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
 
-  const started = Date.now()
   try {
-    const summary = await runNotificationWork(RUN_BUDGET_MS)
+    const summary = await runNotificationWork(run.shareUntil(CLAIM_UNTIL_MS, RUN_BUDGET_MS, 0), { hardStopMs: Math.max(0, run.left() - HAND_BACK_MS) })
     /* Storelib analytics on to the stores' own tools (lib/analytics/destinations): what is due, retries included, in the time left. */
-    const forwarded = await drainForwarded(Math.max(2_000, 55_000 - (Date.now() - started)))
+    const forwardMs = run.share(10_000)
+    const forwarded = forwardMs > 0 ? await drainForwarded(forwardMs) : { taken: 0, sent: 0, retried: 0, failed: 0, skipped: 0 }
     const ms = Date.now() - started
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
     const didWork = summary.events + summary.eventErrors + summary.planned + summary.cancelled + summary.jobs > 0

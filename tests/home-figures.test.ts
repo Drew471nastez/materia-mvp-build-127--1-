@@ -167,8 +167,8 @@ console.log("\nHome: the page reads it this way")
   /* Changed on purpose: the page reads no order rows now (a read stops at 1,000). The first sale and the sales challenges
      are counted over every order by the same rule (homeTotals, or analytics_all_time which counts the same), still through lib/home/progress. */
   check("the page reads no order rows, and counts the sales over every order, the same way",
-    !/\.from\("orders"\)/.test(home) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(home) && /sales: salesTotals/.test(home) && /viewerId=\{user\.id\}/.test(home)
-      && /* Changed on purpose (currency round AM): the rows in the store's currency first. */ /homeTotals\(\(await inStoreCurrency\(admin, creatorId, rows, storeCurrency\)\)\.rows\)/.test(code("lib/analytics/creator-orders.ts")) && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts"))
+    !/\.from\("orders"\)/.test(home) && /* Changed on purpose (round rel-db): with a ceiling, the banner rows' count past it. */ /creatorSalesTotals\(adminSupabase, creator\.id(, \{ noFetch: true \})?\)/.test(home) && /sales: salesTotals|const sales = salesTotals \?\?/.test(home) && /viewerId=\{user\.id\}/.test(home)
+      && /* Changed on purpose (currency round AM): the rows in the store's currency first. */ /homeTotals\(\(await inStoreCurrency\(admin, creatorId, rows, storeCurrency(, \{ noFetch: opts\.noFetch \})?\)\)\.rows\)/.test(code("lib/analytics/creator-orders.ts")) && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts"))
       && /rows\.sales \? \{ sales: n\(rows\.sales\.sales\)/.test(code("lib/home/progress.ts")))
 }
 

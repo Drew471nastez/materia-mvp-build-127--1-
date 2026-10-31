@@ -8,7 +8,7 @@
  * them, and the admin could not join "ChatGPT sent 120 visits to
  * /alternatives/gumroad" to the sign ups that followed. Now a visit that
  * lands on one of them with an assistant named (lib/attribution/ai-sources)
- * adds one to a daily count, platform_ai_visits (SQL part 347), by day,
+ * adds one to a daily count, platform_ai_visits (SQL part 350), by day,
  * assistant and landing path. Nothing else: no visitor, no address, no user
  * agent, no cookie. A count, never a row per person.
  *

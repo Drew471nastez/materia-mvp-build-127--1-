@@ -35,7 +35,7 @@ import { soldOutMessage } from "@/lib/products/sales-limit"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { randomUUID } from "node:crypto"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
-import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
+import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
@@ -434,13 +434,13 @@ async function handlePOST(request: Request) {
       try again, which would fail the same way forever, and nothing ever let
       the dead account go. Only when Stripe's refusal is about the destination
       is the account itself asked about, and only when it is gone from this
-      platform (accountIsGone, the same narrow test the payments page uses) is
+      platform (accountGoneFromPlatform, the same narrow test the payments page uses, which never reads a platform-wide permission failure as one account gone) is
       it released, which closes the gate for everyone after this buyer and
       shows the creator Reconnect payments. Nothing was charged: this is the
       PaymentIntent being created, not confirmed.
     */
     if (refusedDestination(error)) {
-      const gone = await stripe.accounts.retrieve(account).then(() => false, (e: unknown) => accountIsGone(e))
+      const gone = await stripe.accounts.retrieve(account).then(() => false, (e: unknown) => accountGoneFromPlatform(e))
       if (gone) {
         await releaseConnectedAccount(creator.id, account, "legacy_platform").catch((e) =>
           console.error("[stripe-session] release", e instanceof Error ? e.message.slice(0, 160) : "unknown"),
