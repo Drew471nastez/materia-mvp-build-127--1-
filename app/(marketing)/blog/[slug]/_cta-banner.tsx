@@ -57,13 +57,12 @@ export default function CtaBanner({ variant }: { variant: CtaVariant }) {
           name="email"
           autoComplete="email"
           placeholder="Your email address"
-          className="h-12 min-w-0 flex-1 rounded-xl border border-[#d4d7dc] bg-white px-4 text-[16px] text-[#1a1a2e] placeholder:text-[#9ca3af] outline-none focus:border-[#1a1a2e] sm:h-11 sm:border-0 sm:px-3"
+          className="h-12 min-w-0 rounded-xl sm:flex-1 border border-[#d4d7dc] bg-white px-4 text-[16px] text-[#1a1a2e] placeholder:text-[#9ca3af] outline-none focus:border-[#1a1a2e] sm:h-11 sm:border-0 sm:px-3"
         />
         <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] bg-[#16161a] px-5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2c2c34] sm:h-11">
           Start free
         </button>
       </form>
-      <p className="mt-3 text-[13px] text-[#6b7280]">Free plan, no monthly fee.</p>
     </section>
   )
 }

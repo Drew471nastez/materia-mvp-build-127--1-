@@ -170,7 +170,7 @@ function CategoryLink({ href, active, children }: { href: string; active: boolea
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`-mb-px flex min-h-[48px] items-center whitespace-nowrap border-b-2 text-[15px] transition-colors ${active ? "border-[#1a1a2e] font-medium text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]"}`}
+      className={`-mb-px flex min-h-[48px] min-w-[44px] items-center justify-center whitespace-nowrap border-b-2 text-[15px] transition-colors ${active ? "border-[#1a1a2e] font-medium text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]"}`}
     >
       {children}
     </Link>

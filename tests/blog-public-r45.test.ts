@@ -304,7 +304,7 @@ async function main() {
     check("the contents spy uses an IntersectionObserver", /new IntersectionObserver/.test(code("app/(marketing)/blog/_components/toc-spy.tsx")))
     const view = code("app/(marketing)/blog/_components/article-view.tsx")
     check("the article view is a server component; the cover has priority and sizes", !/^"use client"/.test(read("app/(marketing)/blog/_components/article-view.tsx")) && /fill priority sizes=/.test(view))
-    check("the help article has the same contents on the left and the progress line", /ReadingProgress target="\[data-help-article\]"/.test(code("app/help/[category]/[article]/page.tsx")) && /lg:grid-cols-\[220px_minmax\(0,1fr\)\]/.test(code("app/help/[category]/[article]/page.tsx")))
+    check("the help article has the same contents on the left and the progress line", /ReadingProgress target="\[data-help-article\]"/.test(code("app/help/[category]/[article]/page.tsx")) && /lg:grid-cols-\[220px_minmax\(0,1fr\)\]/.test(code("app/help/[category]/[article]/page.tsx")) && /toc\.length >= 2 \?/.test(code("app/help/[category]/[article]/page.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
