@@ -131,7 +131,7 @@ async function main() {
       check(`${p} asks teamPageStore("products")`, read(p).includes('teamPageStore("products")') && !/currentCreatorId\(\)/.test(read(p)))
     }
     const list = read("app/app/products/page.tsx")
-    check("the list: a member's read with the service role by the store's id, the owner's on their own client as before", /admin\.from\("products"\)\.select\("\*"\)\.eq\("creator_id", team\.creatorId\)/.test(list) && /supabase\s*\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(list))
+    check("the list: a member's read with the service role by the store's id, the owner's on their own client as before", /* Changed on purpose (round rel-db): the same two clients through lib/products/list-read */ /readProductList<ListedRow>\(admin, team\.creatorId\)/.test(list) && /readProductList<ListedRow>\(supabase, creator\.id\)/.test(list) && /const supabase = await createClient\(\)/.test(list))
     check("  and the list's pull to refresh reads the store, not the member's own", /\?\? storeId/.test(read("app/app/products/products-client.tsx")))
     const editor = read("app/app/products/load-editor.ts")
     check("the editor: a member's product read by id and by the store, kept only when it is the store's", /if \(!permits\(team\.acting\.permissions, "products"\)\) return \{ state: "signed-out" \}/.test(editor) && /\.eq\("id", id\)\.eq\("creator_id", acting\.creatorId\)/.test(editor) && /product\.creator_id !== acting\.creatorId/.test(editor))

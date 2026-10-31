@@ -16,6 +16,7 @@ import { latestCreatorOrders, readCreatorOrders } from "../lib/analytics/creator
 import { taxYearsInUsd } from "../lib/money/payout-figures"
 import { setupNotificationIds } from "../lib/notifications/unread-state"
 import { factsFromRows, homeProgress } from "../lib/home/progress"
+import { PRODUCT_LIST_COLUMNS, readProductList } from "../lib/products/list-read"
 import { AnalyticsUnavailable, countVisits, isAnalyticsUnavailable, readAll, readAudience, readNavClicks, type Admin, type CountQuestion } from "../lib/analytics/report-read"
 
 let passed = 0
@@ -87,6 +88,7 @@ async function run() {
   await homeTotals()
   await pastAThousand()
   shell()
+  await productsPage()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
@@ -287,6 +289,66 @@ function shell() {
   const creator = { id: "c1", slug: "s", onboarding_completed: true } as unknown as Parameters<typeof factsFromRows>[0]["creator"]
   const ring = (n: number) => homeProgress({ ...factsFromRows({ creator, products: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })), domains: [], websiteLive: false, userMetadata: null }), sales: 0 }).completed
   check("  and the ring counts the same with one product read as with 40", ring(1) === ring(40) && ring(0) < ring(1), { zero: ring(0), one: ring(1), forty: ring(40) })
+}
+
+/** products: answers `.range(from, to)` from `all` (or an error for `failColumns`), recording each select. */
+function productsDb(all: Array<Record<string, unknown>>, failColumns?: (columns: string) => { code: string; message: string } | null) {
+  const selects: string[] = []
+  const ranges: Array<[number, number]> = []
+  const db = {
+    from() {
+      let columns = ""
+      let range: [number, number] = [0, 999]
+      const q: Record<string, unknown> = {
+        select(c: string) {
+          columns = c
+          selects.push(c)
+          return q
+        },
+        eq: () => q,
+        order: () => q,
+        range(a: number, b: number) {
+          range = [a, b]
+          ranges.push(range)
+          return q
+        },
+        then(ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) {
+          const error = failColumns?.(columns) ?? null
+          return Promise.resolve(error ? { data: null, error } : { data: all.slice(range[0], range[1] + 1), error: null }).then(ok, bad)
+        },
+      }
+      return q
+    },
+  }
+  return { db, selects, ranges }
+}
+
+async function productsPage() {
+  console.log("\n6. The Products page")
+  const all = Array.from({ length: 1003 }, (_, i) => ({ id: `p${i}`, created_at: new Date(Date.UTC(2026, 0, 1) - i * 1000).toISOString() }))
+  {
+    const { db, selects, ranges } = productsDb(all)
+    const { data } = await readProductList<{ id: string }>(db, "c1")
+    check("1,003 products: all of them, in two pages", data?.length === 1003 && ranges.length === 2 && ranges[1][0] === 1000, { rows: data?.length, ranges })
+    check("  with named columns, never *", selects.every((c) => c === PRODUCT_LIST_COLUMNS) && !PRODUCT_LIST_COLUMNS.includes("*"))
+  }
+  const client = readCode("app/app/products/products-client.tsx")
+  const typed = client.slice(client.indexOf("interface Product {"), client.indexOf("}", client.indexOf("interface Product {")))
+  const fields = [...typed.matchAll(/^\s*(\w+)\??:/gm)].map((m) => m[1])
+  check("  every field the list's Product type reads is selected (and community_id for the filter)", fields.length >= 13 && [...fields, "community_id"].every((f) => PRODUCT_LIST_COLUMNS.split(", ").includes(f)), fields)
+  {
+    const { db, selects } = productsDb(all.slice(0, 3), (c) => (c === "*" ? null : { code: "42703", message: "column products.sales_count does not exist" }))
+    const { data } = await readProductList<{ id: string }>(db, "c1")
+    check("a database missing a column: read with * as before", data?.length === 3 && selects[selects.length - 1] === "*", selects)
+  }
+  {
+    const { db } = productsDb([], () => ({ code: "57014", message: "timeout" }))
+    const { data, error } = await readProductList(db, "c1")
+    check("a failed read is the old empty list (data null), not a different error path", data === null && !!error)
+  }
+  const page = readCode("app/app/products/page.tsx")
+  check("both the owner's and a team member's list use it", (page.match(/readProductList<ListedRow>\(/g) ?? []).length === 2 && !/select\("\*"\)/.test(page))
+  check("  and the browser's refresh reads the same columns and pages", /readProductList<Product & \{ community_id\?: string \| null \}>\(supabase, creatorId\)/.test(client) && !/from\("products"\)\.select\("\*"\)/.test(client))
 }
 
 run().catch((e) => {

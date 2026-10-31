@@ -169,7 +169,7 @@ section("Products: the creator and the profile together")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
   /* Changed on purpose (round 41 team): the owner's list is on their own client as before; a team member's is read with the service role, by the store's id */
-  check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && /supabase\s*\.from\("products"\)/.test(src) && /admin\.from\("products"\)\.select\("\*"\)\.eq\("creator_id", team\.creatorId\)/.test(src))
+  check("the products on the caller's own client, by the creator's id", /* Changed on purpose (round rel-db): named columns, every product a page at a time (lib/products/list-read), same clients */ /readProductList<ListedRow>\(supabase, creator\.id\)/.test(src) && /const supabase = await createClient\(\)/.test(src) && /readProductList<ListedRow>\(admin, team\.creatorId\)/.test(src))
   check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing",
     /const user = await pageUser\(\)/.test(src) && /if \(!user\) return null/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
 }
