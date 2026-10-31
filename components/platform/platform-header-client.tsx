@@ -1855,7 +1855,9 @@ export function PlatformHeaderClient({
   const isReadRoute = pathname === "/help" || pathname.startsWith("/help/") || pathname === "/terms" || pathname === "/privacy"
   /* The comparison pages read like the pricing page they sit beside (lib/alternatives). */
   const isCompareRoute = pathname === "/alternatives" || pathname.startsWith("/alternatives/")
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute || isReadRoute || isCompareRoute
+  /* The use case pages (/sell/<use-case>, app/(marketing)/sell/[slug]) are marketing pages too; /sell itself is the sign up entry. */
+  const isUseCaseRoute = pathname.startsWith("/sell/")
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute || isReadRoute || isCompareRoute || isUseCaseRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -2868,7 +2870,7 @@ export function PlatformHeaderClient({
         y63"). An element that first appears is not a shift; one that moves
         is.
       */}
-      {headerH > 0 && searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
+      {headerH > 0 && searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isUseCaseRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on
