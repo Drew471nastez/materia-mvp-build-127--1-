@@ -25,6 +25,7 @@ import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { claimStripeEvent, noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
 import { isPayoutLedgerSkip, PayoutLedgerSkip } from "@/lib/stripe/connect-payout-webhook"
+import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
@@ -1388,6 +1389,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
     /* A failed payout, or the one that fixes it: the creator's notifications, after the answer. */
     const payoutCreatorId = creator.id as string
+    /* This instance's kept payouts read is let go (lib/payments/payouts-read-cache). */
+    forgetPayoutsRead(payoutCreatorId)
     after(async () => (await import("@/lib/notifications/events")).notePayout(payoutCreatorId))
 
     // ── Ledger: update balance buckets for payout status changes ─────────

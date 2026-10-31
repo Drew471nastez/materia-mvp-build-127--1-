@@ -17,6 +17,9 @@
  *      the creator its customer names (MEDIUM-6)
  *   5  a Connect PermissionError releases nobody unless the platform key
  *      itself passes a bounded check (MEDIUM-7)
+ *   6  the payouts page: one read for both lists, kept half a minute per
+ *      person, and a part Stripe did not give is "unavailable", never an
+ *      empty list (MEDIUM-4/5)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -27,6 +30,7 @@ import { instantOrderBody } from "../lib/onepage/product-block"
 import { CHECKING_MESSAGE, rereadIntent, settledFrom } from "../lib/checkout/confirm-outcome"
 import { confirmOutcomeUnknown, intentKey, nextPress, paidIntentInError, stripeJsOutcomeUnknown } from "../lib/checkout/pay-retry"
 import { accountGoneFromPlatform, resetPlatformKeyCheck } from "../lib/payments/stripe/connect"
+import { forgetPayoutsRead, payoutsReadKey, readPayoutsKept } from "../lib/payments/payouts-read-cache"
 
 let passed = 0
 let failed = 0
@@ -364,6 +368,63 @@ async function main() {
   const connectSrc = code("lib/payments/stripe/connect.ts")
   check("every automatic release on the payments page goes through the platform check", !/\baccountIsGone\((error|read\.error)\)/.test(connectSrc.replace(/export function accountIsGone[\s\S]*?\n\}/, "").replace(/if \(!accountIsGone\(error\)\) return false/, "")))
   for (const route of ["app/api/checkout/cart/route.ts", "app/api/checkout/site/route.ts", "app/api/checkout/stripe-session/route.ts"]) check(`${route} releases only through accountGoneFromPlatform`, /accountGoneFromPlatform\(/.test(code(route)) && !/accountIsGone\(/.test(code(route)))
+
+  /* ── 6. MEDIUM-4 / MEDIUM-5 ────────────────────────────────────────── */
+  section("6. Payouts: one read shared, kept half a minute per person, and \"unavailable\" is not \"nothing\" (MEDIUM-4/5)")
+  /* Section 5 let the account go: connected again for the payouts page. */
+  Object.assign(j.rows("creators").find((r) => r.id === creatorId)!, { stripe_account_id: acct, charges_enabled: true, payouts_enabled: true })
+  forgetPayoutsRead(creatorId)
+  const stripeReads = () => j.world.calls.filter((c) => ["payouts.list", "balance.retrieve", "accounts.retrieve", "balanceTransactions.list"].includes(c.method)).length
+  const realPayoutsList = s.payouts.list
+  s.payouts.list = async (...args: unknown[]) => {
+    j.world.calls.push({ method: "payouts.list", args })
+    return { object: "list", has_more: false, data: [{ id: "po_shown1", object: "payout", amount: 1200, currency: "usd", status: "paid", arrival_date: 1_761_000_000, created: 1_760_900_000, method: "standard", type: "bank_account", description: null, destination: null }] }
+  }
+  const r0 = stripeReads()
+  const v1 = await j.call("GET /api/stripe/payouts", { as: seller })
+  const afterFirst = stripeReads()
+  check("the first read asks Stripe (four reads) and answers the list", v1.status === 200 && v1.json?.payouts?.[0]?.id === "po_shown1" && afterFirst - r0 === 4 && !v1.json?.unavailable, { status: v1.status, reads: afterFirst - r0, body: v1.json?.unavailable })
+  const v2 = await j.call("GET /api/stripe/payouts", { as: seller })
+  check("a second read within half a minute is the kept answer: no Stripe read", v2.status === 200 && v2.json?.cached === true && stripeReads() === afterFirst && v2.json?.payouts?.[0]?.id === "po_shown1", { reads: stripeReads() - afterFirst })
+  const v3 = await j.call("GET /api/stripe/payouts?fresh=1", { as: seller })
+  check("a user action (?fresh=1) reads Stripe again", v3.status === 200 && !v3.json?.cached && stripeReads() === afterFirst + 4, { reads: stripeReads() - afterFirst })
+  const other = await j.signUp("stranger@example.com")
+  const v4 = await j.call("GET /api/stripe/payouts", { as: other })
+  check("another person is never handed this store's kept answer", v4.status !== 200 || !(v4.json?.payouts ?? []).some((p: Obj) => p.id === "po_shown1"), { status: v4.status, body: v4.json })
+  let calls = 0
+  const keyA = payoutsReadKey("user-a", "creator-1", "acct_1")
+  const keyB = payoutsReadKey("user-b", "creator-1", "acct_1")
+  await readPayoutsKept(keyA, async () => ({ who: "a", n: ++calls }))
+  const forB = await readPayoutsKept(keyB, async () => ({ who: "b", n: ++calls }))
+  check("  the key is per person: two people of one store each get their own read", forB.body.who === "b" && !forB.cached && calls === 2)
+  const slow = () => new Promise<Record<string, unknown>>((resolve) => setTimeout(() => resolve({ n: ++calls }), 30))
+  forgetPayoutsRead("creator-1")
+  const [x1, x2] = await Promise.all([readPayoutsKept(keyA, slow, { fresh: true }), readPayoutsKept(keyA, slow, { fresh: true })])
+  check("  two reads at once share one", x1.body.n === x2.body.n && calls === 3, { calls })
+
+  forgetPayoutsRead(creatorId)
+  s.payouts.list = async () => {
+    throw connErr()
+  }
+  const u1 = await j.call("GET /api/stripe/payouts", { as: seller })
+  check("Stripe's payouts read failed: the answer says unavailable.payouts, not an empty list as fact", u1.status === 200 && u1.json?.unavailable?.payouts === true, { status: u1.status, unavailable: u1.json?.unavailable })
+  const beforeU2 = stripeReads()
+  await j.call("GET /api/stripe/payouts", { as: seller })
+  check("  and such an answer is never kept (the next read asks Stripe again)", stripeReads() > beforeU2)
+  s.payouts.list = realPayoutsList
+  forgetPayoutsRead(creatorId)
+
+  const payoutsPage = code("app/app/payouts/payouts-client.tsx")
+  const list = payoutsPage.slice(payoutsPage.indexOf("function PayoutsHistoryList"), payoutsPage.indexOf("export function PayoutsClient"))
+  check("the payouts list no longer fetches on its own (one read for the page)", !/fetch\(/.test(list) && /payouts: StripePayout\[\] \| null/.test(list))
+  check("  and no background tick bumps a key that makes it fetch again", !/refreshKey/.test(payoutsPage))
+  check("  a part Stripe did not give keeps what was shown", /if \(!missing\.payouts\) \{\s*setPayoutRows/.test(payoutsPage) && /missing\.balance \? null : pickBalance/.test(payoutsPage) && /!missing\.pending\) setUpcoming/.test(payoutsPage))
+  check("  a failed refresh never empties the list, and says so quietly", /setRefreshStale\(true\)/.test(payoutsPage) && /tt\("Couldn't refresh just now\. Showing the last list we had\."\)/.test(payoutsPage))
+  check("  user actions ask for a fresh read", (payoutsPage.match(/refreshBalances\(\{ fresh: true \}\)/g) ?? []).length >= 3)
+  for (const code6 of ["de", "es", "fr", "it", "pl", "pt-BR"]) {
+    const cat = readFileSync(join(process.cwd(), `lib/i18n/catalog/${code6}.ts`), "utf8")
+    check(`  the new words in ${code6}`, cat.includes(`"Couldn't refresh just now. Showing the last list we had."`) && cat.includes(`"Payouts couldn't be loaded just now. They'll show here in a moment."`))
+  }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with an unexpected server error", j.serverErrors.length === 0, j.serverErrors)

@@ -5,6 +5,7 @@ import type Stripe from "stripe"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { emit } from "@/lib/notify/outbox"
 import { postLedger } from "@/lib/payments/ledger"
+import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 
 const PAYOUT_TYPES = new Set([
   "payout.created",
@@ -78,6 +79,8 @@ export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Str
   }
 
   const payoutCreatorId = creator.id as string
+  /* This instance's kept payouts read is let go (lib/payments/payouts-read-cache). */
+  forgetPayoutsRead(payoutCreatorId)
   after(async () => (await import("@/lib/notifications/events")).notePayout(payoutCreatorId))
 
   try {

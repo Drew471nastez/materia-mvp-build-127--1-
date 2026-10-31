@@ -6,8 +6,15 @@ import type Stripe from "stripe"
 import { pickBalance, upcomingByDay } from "@/lib/payments/display-currency"
 import { disputedInStore, taxYearsInUsd, type TaxYear } from "@/lib/money/payout-figures"
 import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
+import { payoutsReadKey, readPayoutsKept } from "@/lib/payments/payouts-read-cache"
 
-export async function GET() {
+/*
+  ONE READ PER PERSON EVERY HALF MINUTE, AND "UNAVAILABLE" IS NOT "NOTHING".
+  The answer is kept per person, store and account (lib/payments/payouts-read-cache, MEDIUM-4); a user action asks
+  with ?fresh=1. A Stripe read that failed or was slow used to answer as if Stripe had nothing; now the answer names
+  the parts that are `unavailable` and the page keeps what it last showed for them (MEDIUM-5).
+*/
+export async function GET(request?: Request) {
   try {
     const adminSupabase = createAdminClient()
 
@@ -29,114 +36,11 @@ export async function GET() {
       return NextResponse.json({ payouts: [], balance: null, balanceCurrency: null, upcoming: [] })
     }
 
-    /*
-      STRIPE'S OWN FIGURES, IN STRIPE'S OWN CURRENCY. This used to convert
-      the balance to dollars with a market rate and, when Stripe showed
-      nothing, stand in Storelib's ledger or the creator's all time order
-      totals for it. Every one of those was a number that was never going
-      to reach the bank. Now the balance is Stripe's, in the currency Stripe
-      holds it in (lib/payments/display-currency), and "Arriving soon" is
-      Stripe's pending transactions with the day each becomes available.
-    */
-    /*
-      STRIPE AND THE DATABASE AT ONCE. The dispute and tax figures need only
-      the creator row, so they are read while Stripe answers instead of after
-      it (lib below: storelibFigures). And no Stripe read holds the page past
-      STRIPE_WAIT_MS: a slow one answers as if Stripe had nothing, and the
-      page's next tick (30s, or the next visit) reads it again.
-    */
-    const figuresRead = storelibFigures(adminSupabase, creator.id)
-    const [payoutsResult, balanceResult, accountResult, pendingResult] = await Promise.all([
-      inTime(stripe.payouts.list(
-        { limit: 100, expand: ["data.destination"] },
-        { stripeAccount: stripeAccountId }
-      ), { data: [] as Stripe.Payout[] }),
-      inTime(stripe.balance.retrieve(
-        {},
-        { stripeAccount: stripeAccountId }
-      ), null),
-      inTime(stripe.accounts.retrieve(stripeAccountId), null),
-      inTime(stripe.balanceTransactions.list(
-        { limit: 100 },
-        { stripeAccount: stripeAccountId }
-      ), { data: [] as Stripe.BalanceTransaction[] }),
-    ])
-
-    // The payout schedule Stripe keeps for the account (payouts stay manual: Cash out)
-    const schedule = (accountResult as any)?.settings?.payouts?.schedule
-    const payoutScheduleInterval: string | null = schedule?.interval || null
-    const payoutScheduleDelay: number | null = schedule?.delay_days ?? null
-
-    const picked = pickBalance(balanceResult, (accountResult as any)?.default_currency ?? null)
-    const balanceCurrency = picked?.currency ?? ((accountResult as any)?.default_currency || null)
-    const upcoming = balanceCurrency ? upcomingByDay(pendingResult.data as any[], balanceCurrency) : []
-
-    const payouts = payoutsResult.data.map((p) => {
-      // Extract readable destination string
-      let destination: string | null = null
-      const dest = p.destination as any
-      if (dest) {
-        if (typeof dest === "string") {
-          destination = null
-        } else if (dest.last4) {
-          const bankName = dest.bank_name || dest.institution_name || null
-          destination = bankName ? `${bankName} ••••${dest.last4}` : `Bank account ••••${dest.last4}`
-        }
-      }
-
-      return {
-        id: p.id,
-        amount: p.amount,
-        currency: p.currency,
-        status: p.status,
-        // arrival_date is a Unix timestamp (seconds)
-        arrival_date: p.arrival_date ?? null,
-        created: p.created,
-        method: p.method,
-        type: p.type,
-        description: p.description ?? null,
-        destination,
-      }
-    })
-
-    const balance = balanceResult
-      ? {
-          available: balanceResult.available.map((b) => ({ amount: b.amount, currency: b.currency })),
-          pending: balanceResult.pending.map((b) => ({ amount: b.amount, currency: b.currency })),
-        }
-      : null
-
-    // Include account status for the client state machine
-    const accountStatus = accountResult ? {
-      charges_enabled: (accountResult as any).charges_enabled || false,
-      payouts_enabled: (accountResult as any).payouts_enabled || false,
-      details_submitted: (accountResult as any).details_submitted || false,
-      requirements: {
-        currently_due: (accountResult as any).requirements?.currently_due || [],
-        eventually_due: (accountResult as any).requirements?.eventually_due || [],
-        past_due: (accountResult as any).requirements?.past_due || [],
-        disabled_reason: (accountResult as any).requirements?.disabled_reason || null,
-      },
-    } : null
-
-    /* The same status the payments card shows, from the same account read. */
-    const banks = (accountResult as any)?.external_accounts?.data as Array<{ object?: string; status?: string | null }> | undefined
-    const paymentsStatus = accountResult
-      ? getStorelibPaymentsStatus(
-          statusFactsOf(
-            accountResult as any,
-            banks ? banks.filter((b) => b.object === "bank_account") : (accountResult as any).payouts_enabled ? [{ status: "new" }] : [],
-            {
-              everActive: !!(creator as { stripe_connected_at?: string | null }).stripe_connected_at,
-              lastPayoutFailed: (payoutsResult.data[0] as { status?: string } | undefined)?.status === "failed",
-            },
-          ),
-        )
-      : null
-
-    const { disputeData, taxData } = await figuresRead
-
-    return NextResponse.json({ payouts, balance, balanceCurrency, upcoming, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData })
+    /* Per person, per store, per account: a team member's answer is theirs, and a new account is a new key. */
+    const fresh = request ? new URL(request.url).searchParams.get("fresh") === "1" : false
+    const { body, cached } = await readPayoutsKept(payoutsReadKey(who.userId, creator.id, stripeAccountId), () => readPayouts(adminSupabase, creator), { fresh })
+    if (cached) return NextResponse.json({ ...body, cached: true })
+    return NextResponse.json(body)
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(
@@ -146,16 +50,141 @@ export async function GET() {
   }
 }
 
+async function readPayouts(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  creator: { id: string; stripe_account_id: string; stripe_connected_at?: string | null },
+): Promise<Record<string, unknown>> {
+  const stripeAccountId = creator.stripe_account_id
+
+  /*
+    STRIPE'S OWN FIGURES, IN STRIPE'S OWN CURRENCY. This used to convert
+    the balance to dollars with a market rate and, when Stripe showed
+    nothing, stand in Storelib's ledger or the creator's all time order
+    totals for it. Every one of those was a number that was never going
+    to reach the bank. Now the balance is Stripe's, in the currency Stripe
+    holds it in (lib/payments/display-currency), and "Arriving soon" is
+    Stripe's pending transactions with the day each becomes available.
+  */
+  /*
+    STRIPE AND THE DATABASE AT ONCE. The dispute and tax figures need only
+    the creator row, so they are read while Stripe answers instead of after
+    it (lib below: storelibFigures). And no Stripe read holds the page past
+    STRIPE_WAIT_MS: a slow one is marked unavailable (below), and the
+    page keeps what it showed for that part until its next tick.
+  */
+  const figuresRead = storelibFigures(adminSupabase, creator.id)
+  const missed: Record<string, true> = {}
+  const [payoutsResult, balanceResult, accountResult, pendingResult] = await Promise.all([
+    inTime(stripe.payouts.list(
+      { limit: 100, expand: ["data.destination"] },
+      { stripeAccount: stripeAccountId }
+    ), { data: [] as Stripe.Payout[] }, () => (missed.payouts = true)),
+    inTime(stripe.balance.retrieve(
+      {},
+      { stripeAccount: stripeAccountId }
+    ), null, () => (missed.balance = true)),
+    inTime(stripe.accounts.retrieve(stripeAccountId), null, () => (missed.account = true)),
+    inTime(stripe.balanceTransactions.list(
+      { limit: 100 },
+      { stripeAccount: stripeAccountId }
+    ), { data: [] as Stripe.BalanceTransaction[] }, () => (missed.pending = true)),
+  ])
+
+  // The payout schedule Stripe keeps for the account (payouts stay manual: Cash out)
+  const schedule = (accountResult as any)?.settings?.payouts?.schedule
+  const payoutScheduleInterval: string | null = schedule?.interval || null
+  const payoutScheduleDelay: number | null = schedule?.delay_days ?? null
+
+  const picked = pickBalance(balanceResult, (accountResult as any)?.default_currency ?? null)
+  const balanceCurrency = picked?.currency ?? ((accountResult as any)?.default_currency || null)
+  const upcoming = balanceCurrency ? upcomingByDay(pendingResult.data as any[], balanceCurrency) : []
+
+  const payouts = payoutsResult.data.map((p) => {
+    // Extract readable destination string
+    let destination: string | null = null
+    const dest = p.destination as any
+    if (dest) {
+      if (typeof dest === "string") {
+        destination = null
+      } else if (dest.last4) {
+        const bankName = dest.bank_name || dest.institution_name || null
+        destination = bankName ? `${bankName} ••••${dest.last4}` : `Bank account ••••${dest.last4}`
+      }
+    }
+
+    return {
+      id: p.id,
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      // arrival_date is a Unix timestamp (seconds)
+      arrival_date: p.arrival_date ?? null,
+      created: p.created,
+      method: p.method,
+      type: p.type,
+      description: p.description ?? null,
+      destination,
+    }
+  })
+
+  const balance = balanceResult
+    ? {
+        available: balanceResult.available.map((b) => ({ amount: b.amount, currency: b.currency })),
+        pending: balanceResult.pending.map((b) => ({ amount: b.amount, currency: b.currency })),
+      }
+    : null
+
+  // Include account status for the client state machine
+  const accountStatus = accountResult ? {
+    charges_enabled: (accountResult as any).charges_enabled || false,
+    payouts_enabled: (accountResult as any).payouts_enabled || false,
+    details_submitted: (accountResult as any).details_submitted || false,
+    requirements: {
+      currently_due: (accountResult as any).requirements?.currently_due || [],
+      eventually_due: (accountResult as any).requirements?.eventually_due || [],
+      past_due: (accountResult as any).requirements?.past_due || [],
+      disabled_reason: (accountResult as any).requirements?.disabled_reason || null,
+    },
+  } : null
+
+  /* The same status the payments card shows, from the same account read. */
+  const banks = (accountResult as any)?.external_accounts?.data as Array<{ object?: string; status?: string | null }> | undefined
+  const paymentsStatus = accountResult
+    ? getStorelibPaymentsStatus(
+        statusFactsOf(
+          accountResult as any,
+          banks ? banks.filter((b) => b.object === "bank_account") : (accountResult as any).payouts_enabled ? [{ status: "new" }] : [],
+          {
+            everActive: !!(creator as { stripe_connected_at?: string | null }).stripe_connected_at,
+            lastPayoutFailed: (payoutsResult.data[0] as { status?: string } | undefined)?.status === "failed",
+          },
+        ),
+      )
+    : null
+
+  const { disputeData, taxData } = await figuresRead
+
+  /* Only present when a Stripe read fell back: which parts the page should keep from before rather than show as empty. */
+  const unavailable = Object.keys(missed).length ? missed : undefined
+  return { payouts, balance, balanceCurrency, upcoming, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData, ...(unavailable ? { unavailable } : {}) }
+}
+
 /** The longest one Stripe read may hold this answer. */
 const STRIPE_WAIT_MS = 6_000
 
-/** A Stripe read, or `fallback` if it fails or takes longer than STRIPE_WAIT_MS. */
-function inTime<T, F>(read: Promise<T>, fallback: F): Promise<T | F> {
+/** A Stripe read, or `fallback` if it fails or takes longer than STRIPE_WAIT_MS; `missed` is told when it fell back. */
+function inTime<T, F>(read: Promise<T>, fallback: F, missed: () => void = () => {}): Promise<T | F> {
   let timer: ReturnType<typeof setTimeout> | undefined
   return Promise.race([
-    read.catch(() => fallback),
+    read.catch(() => {
+      missed()
+      return fallback
+    }),
     new Promise<F>((resolve) => {
-      timer = setTimeout(() => resolve(fallback), STRIPE_WAIT_MS)
+      timer = setTimeout(() => {
+        missed()
+        resolve(fallback)
+      }, STRIPE_WAIT_MS)
     }),
   ]).finally(() => clearTimeout(timer))
 }
