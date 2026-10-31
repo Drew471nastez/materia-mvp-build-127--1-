@@ -20,7 +20,7 @@
  * read `_` and `%` in a name as wildcards, and two accounts matching that
  * way came back as an error and a 404 for both. The exact name is now found.
  */
-import { readPublicRow } from "@/lib/security/public-rows"
+import { readPublicRow, readPublicRowStrict } from "@/lib/security/public-rows"
 
 type Client = Parameters<typeof readPublicRow>[0]
 
@@ -28,4 +28,11 @@ export async function publicProfileByName<T = any>(client: Client, username: str
   const exact = await readPublicRow<T>(client, "profiles", (q) => q.eq("username", username))
   if (exact) return exact
   return readPublicRow<T>(client, "profiles", (q) => q.ilike("username", username))
+}
+
+/** The same lookup, bounded, THROWING when a read failed (lib/security/public-rows readPublicRowStrict): for pages where null is a 404 or a redirect. */
+export async function publicProfileByNameStrict<T = any>(client: Client, username: string): Promise<T | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const exact = await readPublicRowStrict<T>(client, "profiles", (q) => q.eq("username", username))
+  if (exact) return exact
+  return readPublicRowStrict<T>(client, "profiles", (q) => q.ilike("username", username))
 }

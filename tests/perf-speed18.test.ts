@@ -376,7 +376,7 @@ async function profileByName() {
   check("and it never asks whether the viewer follows the creator", !/viewerFollowsPromise/.test(page) && !/from\("follows"\)/.test(page))
   const sales = code("lib/communities/server/public.ts")
   check("a community's sales page asks for its gallery and live numbers beside its tiers, not after its products", sales.indexOf("const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])") > 0 && sales.indexOf("const galleryAndStats") < sales.search(/const \[tiers, links, creators[^\]]*\] = await Promise\.all\(\[/) /* Changed on purpose (round 26): the summary and the staff deletion date join the same batch. */ && /galleryAndStats!\.then\(\(\[gallery\]\) => gallery\)/.test(sales) && sales.indexOf("if (community.status === \"draft\" && !staff) return null") < sales.indexOf("const galleryAndStats"))
-  check("the creator page and the member profile both read it this way", /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
+  check("the creator page and the member profile both read it this way", /* Changed on purpose (round rel-sites): the creator page reads it bounded and strict (a failed read throws), the same exact-name-first lookup. */ /publicProfileByNameStrict\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
 }
 
 async function sharedConfigs() {

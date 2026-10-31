@@ -7,7 +7,8 @@ import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
-import { loadAccountEmail, loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
+import { loadAccountEmail, loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
+import { SiteReadError } from "@/lib/website-builder/site-read"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -408,18 +409,21 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * go through lib/commerce/creator-page-data now, which dedupes within the
    * request: whichever asks first pays, and the second gets the same promise.
    */
-  const profile = await loadProfileByUsername(username)
+  /* Strict: a read that failed THROWS (the error screen, Try again), never this page's 404. */
+  const profile = await loadProfileByUsernameStrict(username)
 
   if (!profile) {
     // Check username history for redirects (old username → new username)
     const adminSupabase = createAdminClient()
-    const { data: historyRecord } = await adminSupabase
+    const { data: historyRecord, error: historyError } = await adminSupabase
       .from("username_history")
       .select("new_username")
       .ilike("old_username", username)
       .order("changed_at", { ascending: false })
       .limit(1)
       .maybeSingle()
+    /* A failed history read is not "no old name": the error screen, never a 404 for a renamed creator. */
+    if (historyError) throw new SiteReadError("username history", historyError.message ?? "the read failed")
 
     if (historyRecord?.new_username) {
       /* PERMANENT: the old name is gone for good, and a 308 is what tells a
@@ -431,8 +435,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     notFound()
   }
 
-  /* Deduped with the layout's, as above. */
-  const creator = await loadCreatorForUser(profile.id)
+  /* Deduped with the layout's, as above. Strict: a failed read is the error screen, not "nothing set up yet". */
+  const creator = await loadCreatorForUserStrict(profile.id)
 
   if (!creator) {
     return (

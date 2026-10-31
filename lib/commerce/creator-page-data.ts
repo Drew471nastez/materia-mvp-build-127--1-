@@ -26,8 +26,8 @@ import { cache } from "react"
 import { unstable_cache } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
-import { readPublicRow } from "@/lib/security/public-rows"
-import { publicProfileByName } from "@/lib/profile/profile-by-name"
+import { readPublicRow, readPublicRowStrict } from "@/lib/security/public-rows"
+import { publicProfileByName, publicProfileByNameStrict } from "@/lib/profile/profile-by-name"
 import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
@@ -42,14 +42,28 @@ import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./produc
  * Deduping within the request is the whole win anyway, since this is the
  * query the layout and the page each ran separately.
  */
-export const loadProfileByUsername = cache(async (username: string) => {
-  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). */
-  return publicProfileByName(await createClient(), username)
+export const loadProfileByUsernameStrict = cache(async (username: string) => {
+  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). Bounded, and a failed read THROWS (SiteReadError): null is only "no such name". */
+  return publicProfileByNameStrict(await createClient(), username)
 })
 
-/** The creator row for a profile, shared with the product page's cache. */
+/**
+ * The same profile where a failed read may read as "none" (a layout's skeleton
+ * colour, a share image). The one read above, shared within the request, so
+ * the strict and the lenient caller cost one round trip between them.
+ */
+export const loadProfileByUsername = cache(async (username: string) => {
+  return loadProfileByUsernameStrict(username).catch(() => null)
+})
+
+/** The creator row for a profile, bounded; a failed read THROWS (SiteReadError), null is only "no creator row". */
+export const loadCreatorForUserStrict = cache(async (userId: string) => {
+  return readPublicRowStrict(await createClient(), "creators", (q) => q.eq("user_id", userId))
+})
+
+/** The creator row for a profile, shared with the product page's cache; a failed read reads as none, as it always has. */
 export const loadCreatorForUser = cache(async (userId: string) => {
-  return readPublicRow(await createClient(), "creators", (q) => q.eq("user_id", userId))
+  return loadCreatorForUserStrict(userId).catch(() => null)
 })
 
 /**

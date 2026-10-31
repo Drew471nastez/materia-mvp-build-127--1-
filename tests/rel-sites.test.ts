@@ -7,6 +7,7 @@
  * with Supabase answered by a scripted fetch:
  *
  *   AI sites (<slug>.storelib.com)   503 + Retry-After on a failed read, never 404 or 301; the last live copy held
+ *   Creator Pages (storelib.com/<h>)  a failed profile/creator read throws (error screen), never the gate's 308 or a 404
  *
  * Every true "missing" answer stays what it was.
  */
@@ -148,10 +149,71 @@ async function aiSites() {
   check("every read of the route is bounded (abortSignal through siteRead or within)", (route.match(/\.abortSignal\(signal\)/g) ?? []).length >= 4 && /within<Blob>/.test(route))
 }
 
+async function creatorPages() {
+  console.log("\nB. A Creator Page's failed read is never a permanent redirect or a 404 (HIGH-3)")
+  const { readPublicRowStrict, readPublicRow } = await import("@/lib/security/public-rows")
+  const { isSiteReadError } = await import("@/lib/website-builder/site-read")
+  const { ensureStorefrontOrRedirectToMember } = await import("@/lib/profile/storefront-gate")
+  const { loadProfileByUsername, loadCreatorForUser } = await import("@/lib/commerce/creator-page-data")
+
+  /* A client whose every read answers what `answer` says for its table. */
+  const clientOf = (answer: (table: string) => { data: unknown; error: unknown }) => ({
+    from: (table: string) => {
+      const q: Record<string, unknown> = {}
+      for (const m of ["select", "eq", "ilike", "abortSignal"]) q[m] = () => q
+      q.maybeSingle = async () => answer(table)
+      return q
+    },
+  })
+  const thrown = async (f: () => Promise<unknown>) => f().then(() => null, (e: unknown) => e)
+
+  const err = await thrown(() => readPublicRowStrict(clientOf(() => ({ data: null, error: { code: "57014", message: "statement timeout" } })) as never, "creators", (q) => q.eq("user_id", "u1")))
+  check("the strict read throws a SiteReadError for a failed read", isSiteReadError(err), String(err))
+  check("  where the lenient read still answers null, as every other caller expects", (await readPublicRow(clientOf(() => ({ data: null, error: { code: "57014" } })) as never, "creators", (q) => q.eq("user_id", "u1"))) === null)
+  check("the strict read answers null only for a row that is not there", (await readPublicRowStrict(clientOf(() => ({ data: null, error: null })) as never, "creators", (q) => q.eq("user_id", "u1"))) === null)
+  const fallback = await readPublicRowStrict<{ id: string }>(
+    clientOf((t) => (t === "creators_public" ? { data: null, error: { code: "42P01" } } : { data: { id: "c1", user_id: "u1", onboarding_completed: true }, error: null })) as never,
+    "creators",
+    (q) => q.eq("user_id", "u1"),
+  )
+  check("  before part 63 it reads the table, cut to public columns, as before", fallback?.id === "c1", fallback)
+
+  // The gate through the real loaders, Supabase answered by the scripted fetch.
+  {
+    const calls = fakeSupabase({
+      profiles_public: () => json(200, [{ id: "p1", username: "golf" }]),
+      creators_public: () => TIMEOUT(),
+    })
+    const e = await thrown(() => ensureStorefrontOrRedirectToMember("golf"))
+    check("a failed creator read in the storefront gate THROWS (error screen), never the 308 to /@handle", isSiteReadError(e), String(e))
+    check("  the creator read was asked twice, then given up", calls.filter((c) => c.endsWith("creators_public")).length === 2, calls)
+  }
+  {
+    fakeSupabase({ profiles_public: () => TIMEOUT(), creators_public: () => json(200, []) })
+    const e = await thrown(() => ensureStorefrontOrRedirectToMember("hotel"))
+    check("a failed profile read in the gate throws too, never a 404", isSiteReadError(e), String(e))
+    check("  the lenient loaders other pages use still read a failure as none", (await loadProfileByUsername("hotel")) === null)
+  }
+  {
+    fakeSupabase({ profiles_public: () => json(200, [{ id: "p2", username: "india" }]), creators_public: () => json(200, [{ id: "c2", user_id: "p2", onboarding_completed: true }]) })
+    check("a live storefront passes the gate", (await thrown(() => ensureStorefrontOrRedirectToMember("india"))) === null)
+    check("  and the lenient creator loader answers the row", ((await loadCreatorForUser("p2")) as { id?: string } | null)?.id === "c2")
+  }
+  {
+    fakeSupabase({ profiles_public: () => json(200, []), creators_public: () => json(200, []) })
+    check("a name nobody has passes the gate untouched (the page's own 404)", (await thrown(() => ensureStorefrontOrRedirectToMember("juliet"))) === null)
+  }
+
+  const page = read("app/(marketing)/u/[username]/page.tsx")
+  check("the creator page's own profile and creator reads are the strict ones", /const profile = await loadProfileByUsernameStrict\(username\)/.test(page) && /const creator = await loadCreatorForUserStrict\(profile\.id\)/.test(page))
+  check("  and a failed username-history read is not a 404", /if \(historyError\) throw new SiteReadError/.test(page))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
     await aiSites()
+    await creatorPages()
   } finally {
     globalThis.fetch = realFetch
   }
