@@ -121,3 +121,54 @@ attached automatically. "Add to library" on the receipt still works.
 - Full IDOR sweep of all service role routes (only about 12 sampled).
 - Canvas on its own origin (editor freezes from theme code; see the round 14 editor report).
 - Load test on a staging copy (needs a staging Supabase project).
+
+## Deploy 1 (live)
+
+Wave 1 merged with main and deployed to production on 2026-10-31 as `721d8bdb1`
+(Vercel `dpl_9WLWfGBpjZSWCnoNdLXc76YSkK9A`, READY). Before the push: full
+`test:push` passed except one main pin (`seo-tracking-r45` expected part 346
+last; loosened on purpose), production build exit 0. After: public pages 200,
+the guest order takeover path refuses, `GET /auth/sync-session` with tokens
+signs nobody in (303), no error or fatal log lines on the deployment in its
+first hour. `smoke-deploy.mjs` failed 2 checks (`/explore` not CDN cached,
+`/app` redirect marked public) that this deploy did not touch (no diff in
+proxy.ts, explore, next.config, vercel.json); left for the session that owns
+them. The security SQL part was renumbered 345 → 347 because main took 345
+and 346.
+
+## Wave 2 (merged on `claude/reliability-engineering` as `72d603793`, not yet deployed)
+
+Gates on the merged result: full `npm run test:push` **all suites passed
+(exit 0)**; production build exit 0; `server/pages/500.html` and `404.html`
+traced into 1057 of 1057 server traces.
+
+| ID | Status | Branch, commits | What changed | Test |
+| --- | --- | --- | --- | --- |
+| EVD-1 last good copy per instance only | COMPLETE (production effect NOT VERIFIED until deployed) | rel2-sites2 62e992151, 4350c96a7 | `lib/website-builder/shared-copy.ts`: last good copies kept in Next's shared data cache under fixed names that survive deploys, tagged so publish, unpublish and take down expire them at once; served only instead of an error | `tests/rel-sites2.test.ts` (fresh process, renamed functions, every read failing: page served; after tag expiry: 503) |
+| EVD-2 gateway HTML / cut JSON read as data | COMPLETE | rel2-sites2 2fab70f0f | `mediaFetch` retries a REST GET answered with an HTML error page or truncated JSON, then answers 503 SLGW1/SLGW2 so sites serve the last good copy | rel-sites2 EVD-2 |
+| EVD-3 auth on public routes | COMPLETE | rel2-sites2 8e2c41389 | proxy skips the session read for site assets, covers, robots, sitemaps, manifest, favicon | through the real proxy: 6–7 token calls → 0; /app still renews |
+| EVD-5 `/500` ENOENT | IMPLEMENTED, NOT VERIFIED on Vercel | rel2-sites2 99ff9634b | `scripts/trace-error-pages.mjs` after `next build` adds 500/404.html to every trace (the trace ran before the page existed) | build output checked |
+| IDOR full sweep | COMPLETE, no gap found | rel2-security2 1df74e775 | `docs/reliability/IDOR_SWEEP.md`, 463 rows | n/a (docs) |
+| SEC-10 bridge token used twice | COMPLETE | rel2-security2 9657f3cbf, 6ec29f5f2 | atomic consume, same origin next, no-store | `tests/bridge-token-once.test.ts` |
+| SEC-9 tokens over storelib:// | COMPLETE for raw tokens; bridge code path NEEDS OWNER (device testing) | rel2-security2 8c68f1530 | legacy reset finishes in the browser | `tests/custom-scheme-tokens.test.ts` |
+| SEC-11 emails in logs | COMPLETE for logs; email in `/signup/verify` URL NOT STARTED | rel2-security2 2c83283ce | `maskEmail` in logs | `tests/log-privacy.test.ts` |
+| SEC-12 Permissions-Policy | COMPLETE (header on storelib.com app hosts only) | rel2-security2 4b8caeb31 | camera, microphone, payment allowed where used | `tests/permissions-policy.test.ts`; smoke checks it |
+| PAY-8 trial cancelled with a card | COMPLETE | rel2-commerce2 495eb1c68 | decides from Stripe's current subscription and cards | `tests/rel-commerce2.test.ts` §1 |
+| PAY-12 slow work before the webhook answers | COMPLETE | rel2-commerce2 2396cbac4, 5cc8bd696 | state writes first, PDFs, emails, fee read after the answer; 3272ms → 36ms in the test | §2 |
+| PAY-11 legacy checkout path | COMPLETE | rel2-commerce2 4e95913a4 | `latest_charge`, logged | §3 |
+| PAY-5 bank shown missing | COMPLETE | rel2-commerce2 6e78f0277 | "We couldn't check your bank account right now" | §4 |
+| PAY-9 stable idempotency key | NOT STARTED (designed in IMPLEMENTATION_PLAN.md) | rel2-commerce2 b9ed5f05c | needs a `checkout_attempts` table | |
+| Correlation ids | COMPLETE | rel2-obs b224a1d91 | request id on error rows, cron failures, webhooks | `tests/rel-obs.test.ts` |
+| Structured logs | COMPLETE | rel2-obs b96bac6ce, 98c535631 | top noisy and misleveled lines as JSON at their real level | rel-obs |
+| Health endpoint | COMPLETE | rel2-obs ccdb7b0e4 | bounded to 4s, one row ping, per dependency state | rel-obs |
+| Load test script | COMPLETE (run only against a local stub) | rel2-obs d0b49887f | `scripts/load/scenarios.mjs`, refuses production and live Stripe | rel-obs |
+
+Process note: the obs agent force pushed its own branch once (with lease)
+after a rebase; nothing was lost and no shared branch was touched.
+
+## Still open after wave 2
+
+- PAY-9 (designed), SITE-8 cold instance routing, `/signup/verify?email=` in URLs,
+  the `storelib://reset-password?code=` app link (needs device testing),
+  CSP enforcing, canvas on its own origin, a staging load test,
+  Supabase capacity review (needs dashboard access).
