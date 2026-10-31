@@ -532,6 +532,10 @@ function onIdle(cb: (d: IdleDeadline) => void): void {
 
 /** How much of a frame an open library spends putting sections in, at most. */
 const FRAME_BUDGET_MS = 8
+/** Input this recent means the list is being scrolled or used. */
+const SCROLLING_MS = 200
+/** How much of a frame measuring sections again may take (queueRemeasure), and putting them in while the list scrolls. */
+const REMEASURE_FRAME_MS = 4
 /** How long a section's pictures may hold its fade-in back. */
 const DECODE_WAIT_MS = 500
 /** The card's own corner, inside its 1px border (rounded-xl). */
@@ -843,7 +847,8 @@ class PreviewSheet {
     watchInput()
     if (this.open) {
       /* Just after a frame is drawn, so the work has the rest of the frame to itself. */
-      requestAnimationFrame(() => window.setTimeout(() => this.run(FRAME_BUDGET_MS), 0))
+      /* Half as much while the list is moving under somebody's finger or wheel: a frame then is theirs first. */
+      requestAnimationFrame(() => window.setTimeout(() => this.run(performance.now() - lastInput < SCROLLING_MS ? REMEASURE_FRAME_MS : FRAME_BUDGET_MS), 0))
       return
     }
     const wait = Math.max(INPUT_QUIET_MS - (performance.now() - lastInput), CANVAS_QUIET_MS - (performance.now() - lastCanvasInput))
@@ -1028,10 +1033,14 @@ class PreviewSheet {
     }
     /* Skipped while away from the screen from now on: its box is its card's size whatever it holds (contain: strict), so skipping it moves nothing. */
     box.setAttribute("data-measured", "")
-    if (h > 0 && h !== this.heights.get(key)) {
-      this.heights.set(key, h)
-      rememberHeight(this.heightsId, this.renderWidth, key, h)
-    }
+    if (h > 0 && h !== this.heights.get(key)) this.heights.set(key, h)
+    /*
+      Remembered only once its pictures are in. A height measured before a
+      picture had a size was remembered too, and the next opening held the
+      card at it (a remembered height never moves the list) with the
+      section cut at its foot.
+    */
+    if (h > 0 && Array.from(w.querySelectorAll("img")).every((img) => img.complete)) rememberHeight(this.heightsId, this.renderWidth, key, h)
     const prev = this.stateOf(key)
     this.setState(key, { height: h > 0 ? h : prev.height, state: shows ? (prev.state === "named" ? "waiting" : prev.state) : "named" })
   }
@@ -1042,26 +1051,49 @@ class PreviewSheet {
     requestAnimationFrame(() => {
       this.remeasureQueued = false
       /*
-        A frame's worth at a time (a font landing asks for every card at
-        once: 157 sections laid out in one task stalled a scrolling list),
-        the ones somebody can see first.
+        A little at a time (a font landing asks for every card at once: 157
+        sections laid out in one task stalled a scrolling list). In a frame,
+        only the cards on screen or near it, within REMEASURE_FRAME_MS; the
+        rest in the browser's idle moments.
       */
       const t0 = performance.now()
       const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
-      const near = (key: string) => {
+      let nearLeft = false
+      for (const key of [...this.remeasure]) {
         const r = view ? this.cards.get(key)?.box.getBoundingClientRect() : null
-        return r && view && r.bottom > view.top - 400 && r.top < view.bottom + 400 ? 0 : 1
-      }
-      const order = [...this.remeasure].sort((a, b) => near(a) - near(b))
-      for (const key of order) {
-        if (performance.now() - t0 >= FRAME_BUDGET_MS) break
-        this.remeasure.delete(key)
-        const w = this.wrappers.get(key)
-        if (w?.isConnected) this.measure(key, w)
+        if (view && !(r && r.bottom > view.top - 400 && r.top < view.bottom + 400)) continue
+        if (performance.now() - t0 >= REMEASURE_FRAME_MS) {
+          nearLeft = true
+          break
+        }
+        this.measureNow(key)
       }
       this.sync()
-      if (this.remeasure.size) this.queueRemeasure()
+      if (nearLeft) this.queueRemeasure()
+      else if (this.remeasure.size) this.remeasureIdle()
     })
+  }
+
+  private remeasureIdleQueued = false
+  /** The cards away from the screen, measured again when the browser has a moment. */
+  private remeasureIdle() {
+    if (this.remeasureIdleQueued || typeof window === "undefined") return
+    this.remeasureIdleQueued = true
+    onIdle((d) => {
+      this.remeasureIdleQueued = false
+      for (const key of [...this.remeasure]) {
+        if (d.timeRemaining() < 4) break
+        this.measureNow(key)
+      }
+      this.sync()
+      if (this.remeasure.size) this.remeasureIdle()
+    })
+  }
+
+  private measureNow(key: string) {
+    this.remeasure.delete(key)
+    const w = this.wrappers.get(key)
+    if (w?.isConnected) this.measure(key, w)
   }
 
   /* ── putting each section over its card ── */

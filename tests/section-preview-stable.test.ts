@@ -18,7 +18,7 @@
  *   the new one, and measured its sections in the old theme's styles.
  *   A PUSH WAS A NEW SHEET PER FILE while the library was open: a burst is
  *   taken once.
- *   A FONT REMEASURED EVERY CARD IN ONE TASK: a frame's worth at a time.
+ *   A FONT REMEASURED EVERY CARD IN ONE TASK: a few ms a frame near the screen, the rest when idle.
  *
  * The browser half, with the numbers: scripts/check-section-preview-stress.mjs.
  */
@@ -74,7 +74,7 @@ console.log("\nA push swaps the document cleanly")
 
 console.log("\nNo long task while the list scrolls")
 {
-  check("remeasuring after a font or picture is a frame's worth at a time, nearest first", /if \(performance\.now\(\) - t0 >= FRAME_BUDGET_MS\) break/.test(sheet) && /if \(this\.remeasure\.size\) this\.queueRemeasure\(\)/.test(sheet))
+  check("remeasuring after a font or picture is a few ms of a frame for the cards near the screen, the rest when idle", /if \(performance\.now\(\) - t0 >= REMEASURE_FRAME_MS\) \{/.test(sheet) && /else if \(this\.remeasure\.size\) this\.remeasureIdle\(\)/.test(sheet) && /const REMEASURE_FRAME_MS = 4/.test(src))
 }
 
 console.log("\nThe browser probe")
