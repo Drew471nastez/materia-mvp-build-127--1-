@@ -188,6 +188,35 @@ anything named like a secret is dropped (`lib/observability/report.ts`).
 
 No paid service is involved in any of these.
 
+### Following one request through the logs
+
+Every request that passes the proxy gets one id, `x-request-id`
+(`lib/net/request-id.ts`): a valid one the caller sent is kept, else Vercel's
+own `x-vercel-id`, else a new one. The proxy sends it back on every response,
+so a person's failed load (browser dev tools, Network, the response headers)
+can be looked up. The same id is in:
+
+| Where | As |
+| --- | --- |
+| An error row in `error_events` (Admin, Health, Errors) | `last_context.rid`, for errors from `onRequestError`, the scheduled jobs, both Stripe webhooks, `/api/client-errors` and membership checkout |
+| The `[source] where: message` log line `reportError` writes | `(rid ...)` at its end |
+| JSON log lines from `lib/net/log.ts` (`logLine`, `logServiceFailure`) and the proxy | `"rid"` |
+| Notification events, jobs and deliveries | `correlation_id` |
+
+Search Vercel's logs (Observability, Logs) for the id to see every line of
+that request. The id is never a person's data: it is a random or Vercel id,
+and a header that does not look like one (letters, digits, `-_:.`, 8 to 100
+characters) is dropped. `reportError` does not read the request's headers by
+itself (that would turn a cached page dynamic): a caller passes
+`requestId: requestIdFrom(request.headers)`. Errors raised deep in a library
+with no request at hand are written without one.
+
+Known gap: where the proxy answers with a plain `NextResponse.next()` (no
+`{ request }`), the route does not see an id the proxy made up. On Vercel
+that is never the case in practice, since the proxy's id is `x-vercel-id`,
+which the route reads as well; locally, the route and the response can show
+different ids.
+
 ### Set it up (one time, the owner)
 
 1. Vercel, Settings, Environment Variables, Production:

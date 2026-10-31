@@ -28,6 +28,7 @@ import { isPayoutLedgerSkip, PayoutLedgerSkip } from "@/lib/stripe/connect-payou
 import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
@@ -139,7 +140,7 @@ async function handlePOST(request: Request) {
     answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }), held)
   } catch (error) {
     if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId }, requestId: requestIdFrom(request.headers) })
     throw error
   }
   if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
@@ -149,7 +150,7 @@ async function handlePOST(request: Request) {
   } else if (eventId && answer.status >= 500) {
     await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
     /* Stripe will try again, but a payment event failing is the owner's to know about now. */
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId }, requestId: requestIdFrom(request.headers) })
   }
   return answer
 }

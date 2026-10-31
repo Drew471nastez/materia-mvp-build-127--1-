@@ -28,6 +28,7 @@
 
 import { NextResponse } from "next/server"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 
 export const runtime = "nodejs"
 
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     console.warn(`[client-error] stale code on ${path}: ${message}`)
   } else {
     /* Counted with every other error and told to the owner once (lib/observability/report). */
-    await reportError({ source: "client", where: path || "unknown page", error: new Error(message), context: { digest: digest || null } })
+    await reportError({ source: "client", where: path || "unknown page", error: new Error(message), context: { digest: digest || null }, requestId: requestIdFrom(request.headers) })
   }
 
   /** Nothing to say back. A reporter that returns a body invites a retry. */
