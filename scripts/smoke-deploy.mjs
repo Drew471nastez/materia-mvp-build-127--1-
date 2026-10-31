@@ -128,6 +128,8 @@ async function main() {
         else report(!!res.headers.get(h), `security header ${h}`, res.headers.get(h) ?? "missing")
       }
       if (!local) report(!!res.headers.get("content-security-policy") || !!res.headers.get("content-security-policy-report-only"), "a content security policy is sent")
+      /* storelib.com and www only (vercel.json, SEC-12): creator sites, custom domains and previews do not get it. */
+      if (!local && /^(www\.)?storelib\.com$/i.test(new URL(base).hostname)) report(/camera=/.test(res.headers.get("permissions-policy") ?? ""), "a permissions policy is sent", res.headers.get("permissions-policy") ?? "missing")
     }
   }
 
