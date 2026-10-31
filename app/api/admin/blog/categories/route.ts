@@ -16,7 +16,7 @@ export async function GET() {
   return blogJson({ categories: await readCategories(supabase, full, STORELIB_CATEGORIES), full })
 }
 
-/** A new category: { name, description?, slug? }. Its slug is its address, /blog/explore/categories/<slug>, and does not change after. */
+/** A new category: { name, description?, slug? }. Its slug is its address, /blog/category/<slug>, and does not change after. */
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return blogJson({ error: "Unauthorized" }, 401)

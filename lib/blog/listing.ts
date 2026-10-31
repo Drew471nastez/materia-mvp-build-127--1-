@@ -156,7 +156,7 @@ export function blogSitemapEntries(rows: Array<Pick<BlogPost, "slug" | "publishe
   }
   for (const category of categories) {
     const inIt = posts.filter((p) => p.category === category)
-    if (inIt.length) out.push({ url: `${BLOG_URL}/explore/categories/${categorySlug(category)}`, lastModified: newestBlogChange(inIt) })
+    if (inIt.length) out.push({ url: `${BLOG_URL}/category/${categorySlug(category)}`, lastModified: newestBlogChange(inIt) })
   }
   for (const p of posts) out.push({ url: `${BLOG_URL}/${p.slug}`, lastModified: newestBlogChange([p]) })
   return out

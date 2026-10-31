@@ -18,6 +18,6 @@ export function blogJson(data: unknown, status = 200): NextResponse {
 export function revalidateBlogPages(...slugs: Array<string | null | undefined>) {
   revalidatePath("/blog")
   revalidatePath("/blog/rss.xml")
-  revalidatePath("/blog/explore/categories", "layout")
+  revalidatePath("/blog/category", "layout")
   for (const s of new Set(slugs.filter(Boolean) as string[])) revalidatePath(`/blog/${s}`)
 }

@@ -612,7 +612,7 @@ function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) 
 function YouTubeBlock({ block }: { block: Block }) {
   const api = useApi()
   const [raw, setRaw] = React.useState(block.videoId ? `https://www.youtube.com/watch?v=${block.videoId}` : "")
-  const [open, setOpen] = React.useState(Boolean(block.chapters?.length || block.transcript))
+  const [open, setOpen] = React.useState(Boolean(block.chapters?.length || block.transcript || block.uploadDate))
   const set = (patch: Partial<Block>) => api.update(block.id, patch)
   const id = block.videoId
   const bad = (block.chapters ?? []).filter((c) => c.trim() && !parseChapter(c))
@@ -647,6 +647,17 @@ function YouTubeBlock({ block }: { block: Block }) {
             <Label warn={bad.length ? `${bad.length} line${bad.length > 1 ? "s" : ""} not "m:ss Title"` : null}>Chapters, one per line</Label>
             <Area rows={4} value={(block.chapters ?? []).join("\n")} placeholder={"0:00 Intro\n1:30 Setting up the store"} onChange={(e) => set({ chapters: e.target.value.split("\n") })} />
           </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block">
+              <Label>Video title on YouTube</Label>
+              <Input value={block.title ?? ""} placeholder="Optional, the caption is used when empty" onChange={(e) => set({ title: e.target.value })} />
+            </label>
+            <label className="block">
+              <Label warn={block.uploadDate && Number.isNaN(Date.parse(block.uploadDate)) ? "Use YYYY-MM-DD" : null}>Upload date</Label>
+              <Input type="date" value={(block.uploadDate ?? "").slice(0, 10)} onChange={(e) => set({ uploadDate: e.target.value })} />
+            </label>
+          </div>
+          <p className="text-[12px] text-[#9b9ba6]">With an upload date, search engines are told this is a video (from YouTube Studio, Details).</p>
           <label className="block">
             <Label>Transcript</Label>
             <Area rows={5} value={block.transcript ?? ""} placeholder="Shown collapsed under the video" onChange={(e) => set({ transcript: e.target.value })} />
