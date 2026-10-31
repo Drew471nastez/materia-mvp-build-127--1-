@@ -10,6 +10,7 @@ import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadAccountEmail, loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
 import { SiteReadError } from "@/lib/website-builder/site-read"
 import { exactIlike } from "@/lib/onepage/username"
+import { withoutContactEmail } from "@/lib/commerce/contact-email"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -1080,6 +1081,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     */
     const viewerBought = viewerBoughtFromCreator
     const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
+    /*
+      ROUND 45 LEFTOVERS: THE ADDRESS ITSELF STAYS ON THE SERVER. What the
+      page hands the Contact button is the handle, and only when the gate
+      above said yes; pressing it asks /api/creator-contact, which asks the
+      same question again (lib/commerce/contact-email.ts). The address was
+      in the RSC payload before, inside the header settings and here.
+    */
+    const publicContactHandle = publicContactEmail ? profile.username || username : undefined
     const savedGlobalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**
      * A SCHEME BEING TRIED IN EDIT PROFILE, for the owner only, drawn in
@@ -1425,7 +1434,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         )}
 
         <ShopHeaderRenderer
-          settings={headerSettings}
+          /* Without contactEmail: a client component's props are in the page's payload (lib/commerce/contact-email.ts). */
+          settings={withoutContactEmail(headerSettings)}
           creator={headerCreator}
           profile={headerProfile}
           products={productsData}
@@ -1534,7 +1544,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               sellerMemberSince={profile.created_at}
               sellerTotalSales={salesShown ? totalSales : 0}
               sellerProductsCount={productsCount}
-              sellerContactEmail={publicContactEmail}
+              sellerContactHandle={publicContactHandle}
               /**
                * The owner's way into the story block, decided here because
                * this is the only place that knows who is looking. The
@@ -1548,7 +1558,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                     headline={(aboutSection.settings as AboutSettings).headline || ""}
                     story={(aboutSection.settings as AboutSettings).aboutContent || ""}
                     media={(aboutSection.settings as AboutSettings).mediaItems || []}
-                    contactEmail={publicContactEmail ?? ""}
+                    /* The owner's own typed address, for their own form: this control is drawn only for them. It was the buyer's gated value, empty for an owner, so saving About wiped the address. */
+                    contactEmail={headerSettings.contactEmail ?? ""}
                   />
                 ) : null
               }

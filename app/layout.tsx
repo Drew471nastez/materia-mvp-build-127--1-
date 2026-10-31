@@ -73,6 +73,9 @@ import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplac
 import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { MissingImageGuard } from "@/components/media/missing-image"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
+import { siteVerification } from "@/lib/seo/site-verification"
+import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
+import { CapturePlatformTouch } from "@/components/attribution/capture-platform-touch"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -153,6 +156,8 @@ export const metadata: Metadata = {
     images: [storelibAssetUrl(STORELIB_OG_IMAGE)],
   },
   metadataBase: new URL("https://storelib.com"),
+  /* google-site-verification and msvalidate.01, only when GOOGLE_SITE_VERIFICATION or BING_SITE_VERIFICATION is set (lib/seo/site-verification.ts). */
+  verification: siteVerification(),
 }
 
 export const viewport: Viewport = {
@@ -180,7 +185,7 @@ export default function RootLayout({
    * by design, so every page reported a hydration mismatch that was not one.
    */
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
+    <html lang={STORELIB_PAGE_LANG} className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all
@@ -292,6 +297,8 @@ export default function RootLayout({
               <SettingsSubpageHost />
               {/* "Account created" or "Welcome back", once, on the page a sign in lands on (lib/auth/arrival.ts). */}
               <ArrivalNote />
+              {/* Where a visit to storelib.com came from, kept for a Storelib account made later (lib/attribution/browser notePlatformVisit). */}
+              <CapturePlatformTouch />
             </> })}
           </LocaleProvider>
         </SWRProvider>

@@ -2,7 +2,7 @@ import dynamic from "next/dynamic"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
-import { storelibLogoUrl } from "@/lib/brand/logo"
+import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 
@@ -31,37 +31,8 @@ const ProductMarquee = dynamic(() => import("@/components/marketing/product-marq
 export default function StorelibLanding() {
   return (
     <div className="bg-white overflow-x-hidden">
-      {/* JSON-LD structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: jsonLdScript({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "Storelib",
-            "url": "https://storelib.com",
-            "logo": storelibLogoUrl(),
-            "sameAs": [],
-            "description": "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience."
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: jsonLdScript({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "Storelib",
-            "url": "https://storelib.com",
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": "https://storelib.com/explore?q={search_term_string}",
-              "query-input": "required name=search_term_string"
-            }
-          }),
-        }}
-      />
+      {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
       {/* HERO SECTION */}
       <Hero />

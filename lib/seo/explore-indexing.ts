@@ -16,12 +16,16 @@
  * one of those two, and names it. A search (?q=) is a results page, not
  * content: noindex, links followed. robots.txt already keeps crawlers off
  * /explore?q=, but only when q comes first in the query.
+ *
+ * Round 45: an order (?sort=, the old name, or ?srt=, the Filters panel's)
+ * is the same list again in another order: noindex, links followed, and
+ * canonical at the clean address, like a search.
  */
 
 export const EXPLORE_URL = "https://storelib.com/explore"
 export const EXPLORE_COMMUNITIES_URL = `${EXPLORE_URL}?type=communities`
 
-export function exploreIndexing(input: { q?: string | null; type?: string | null; communitiesOn: boolean }): {
+export function exploreIndexing(input: { q?: string | null; type?: string | null; sort?: string | null; communitiesOn: boolean }): {
   canonical: string
   communities: boolean
   index: boolean
@@ -30,6 +34,6 @@ export function exploreIndexing(input: { q?: string | null; type?: string | null
   return {
     canonical: communities ? EXPLORE_COMMUNITIES_URL : EXPLORE_URL,
     communities,
-    index: !(input.q ?? "").trim(),
+    index: !(input.q ?? "").trim() && !(input.sort ?? "").trim(),
   }
 }

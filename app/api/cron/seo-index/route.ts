@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runSeoCron } from "@/lib/admin/seo/run"
 import { recordCronRun } from "@/lib/observability/report"
+import { announceScheduledBlogPosts } from "@/lib/blog/went-live"
 
 /**
  * GET /api/cron/seo-index
@@ -25,6 +26,9 @@ async function runJob(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
   try {
+    /* A blog post scheduled for the last few minutes: its cached pages rebuilt and the engines told (lib/blog/went-live.ts). */
+    const wentLive = await announceScheduledBlogPosts()
+    if (wentLive) console.log(`[cron/seo-index] blog posts gone live: ${wentLive}`)
     const summary = await runSeoCron({ budgetMs: RUN_BUDGET_MS, started })
     const asked = Object.values(summary.inspected).reduce((n, p) => n + p.granted, 0)
     console.log(

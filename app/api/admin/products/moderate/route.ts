@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, after, type NextRequest } from "next/server"
 
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
@@ -6,6 +6,7 @@ import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { plainReason } from "@/lib/admin/plain-reason"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { purgeProductCaches, refreshPublishedSite } from "@/lib/products/forget-product"
+import { announce, productAddresses } from "@/lib/seo/announce"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
   if (product.creator_id) {
     purgeProductCaches({ creatorId: product.creator_id, productId, slug: product.slug ?? null })
     await refreshPublishedSite(product.creator_id)
+    /* And search engines told, after the answer, the way a creator's own delete does (lib/seo/announce.ts): taken down, they find it gone; put back, they find it again. */
+    const creatorId = product.creator_id
+    after(() => announce(() => productAddresses(productId, creatorId)))
   }
 
   const recorded = await recordAdminAction(admin, {

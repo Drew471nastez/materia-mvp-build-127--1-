@@ -167,7 +167,7 @@ console.log("\nAn imported theme's head")
   const i18n = { locale: "fr", defaultLanguage: "en", languages: ["en", "fr"] } as never
   check("a page in another language is its own canonical", canonicalPath("/about", i18n) === "/fr/about" && canonicalPath("/", i18n) === "/fr" && canonicalPath("/about", { locale: "en", defaultLanguage: "en", languages: ["en", "fr"] } as never) === "/about")
   const theme = read("lib/storelib-theme/compat/theme.ts")
-  check("  on the website's primary host", /canonical_url: page\.canonicalHost \?\? page\.host \? `https:\/\/\$\{page\.canonicalHost \?\? page\.host\}\$\{canonicalPath\(page\.path, page\.i18n\)\}`/.test(theme))
+  check("  on the website's primary host", /canonical_url: page\.canonicalHost \?\? page\.host \? `https:\/\/\$\{page\.canonicalHost \?\? page\.host\}\$\{canonicalPath\(page\.path, page\.i18n\)\}\$\{pagedCanonical\(page\)\}`/.test(theme))
   check("  and its languages (hreflang) name the same path", /const own = canonicalPath\(path\)/.test(read("lib/storelib-theme/compat/site.ts")))
   const compat = read("lib/website-builder/compat-site.ts")
   check("a handle the spam rules hold back says noindex on every page, as a Storelib theme's do",

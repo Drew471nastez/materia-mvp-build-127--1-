@@ -446,12 +446,17 @@ export async function generateMetadata({ searchParams }: CheckoutPageProps): Pro
   const h = await headers()
   const origin = checkoutOrigin({ host: h.get("host"), forwardedHost: h.get("x-forwarded-host"), proto: h.get("x-forwarded-proto") })
   const host = new URL(origin).host
+  /*
+    THE SHARED LINK'S CARD, NOT A PAGE TO INDEX (round 45). The address is
+    og:url, so a pasted checkout link previews as the product; the page
+    names no canonical and says noindex (./layout.tsx, lib/seo/private-metadata).
+    It used to say index with itself as canonical.
+  */
   const canonical = checkoutCanonical(origin, { productId: params.productId, variantId: params.variantId })
   const fallback: Metadata = {
     metadataBase: new URL(origin),
     title: { absolute: "Storelib" },
     description: "Checkout",
-    alternates: { canonical },
     openGraph: { type: "website", url: canonical, siteName: checkoutSiteName(host, null), title: "Storelib", description: "Checkout", images: [{ url: checkoutShareImage(null), alt: "Storelib" }] },
     twitter: { card: "summary_large_image", title: "Storelib", description: "Checkout", images: [checkoutShareImage(null)] },
   }
@@ -473,7 +478,6 @@ export async function generateMetadata({ searchParams }: CheckoutPageProps): Pro
       title: { absolute: title },
       description,
       icons: icon ? { icon: [{ url: icon }], shortcut: [icon], apple: [{ url: icon }] } : undefined,
-      alternates: { canonical },
       openGraph: { type: "website", url: canonical, siteName, title, description, images: [{ url: image, alt: title }] },
       twitter: { card: "summary_large_image", title, description, images: [image] },
     }

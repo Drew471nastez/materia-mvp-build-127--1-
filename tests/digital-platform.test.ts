@@ -94,7 +94,9 @@ check(
     return (
       /Sell Products & Grow Your Audience/.test(root) &&
       /sell digital products/i.test(root) &&
-      /Organization/.test(home) &&
+      /* Changed on purpose (round 45): the Organization is built in lib/seo/structured-data.ts and printed by storelibHomeJsonLd. */
+      /storelibHomeJsonLd\(\)/.test(home) &&
+      /"@type": "Organization"/.test(code("lib/seo/structured-data.ts")) &&
       !/Second-Hand|Sneakers|Vintage/i.test(home)
     )
   })(),

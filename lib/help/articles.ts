@@ -17,6 +17,7 @@
  *
  * Text may carry links as [label](/path). Nothing else is parsed.
  */
+import { MAX_UPLOAD_BYTES, formatLimit } from "@/lib/security/uploads/policy"
 
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, SITE_WIDE_ARTICLES } from "./physical-articles"
 import { OFFER_ARTICLES } from "./offer-articles"
@@ -73,10 +74,6 @@ export interface HelpArticle {
   updated?: string
   /** Other articles to read next, as slugs in the same topic or "topic/slug". */
   related?: string[]
-  /** Its headings are questions and the paragraph under each is the answer: marked up as an FAQ for search engines. */
-  faq?: boolean
-  /** The heading whose numbered steps are its HowTo for search engines, when it isn't the first run of steps. */
-  howTo?: string
   body: HelpBlock[]
 }
 
@@ -304,7 +301,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: "What happens between a buyer paying and a buyer downloading your files.",
     keywords: ["upload", "file size", "download", "delivery", "receipt", "library", "buyer", "didn't receive", "access"],
     body: [
-      { type: "p", text: "Upload files in the Files part of the product editor. Each file can be up to 5 GB." },
+      /* The per-file limit is the one the upload routes enforce (lib/security/uploads/policy MAX_UPLOAD_BYTES.product_file), never typed here. */
+      { type: "p", text: `Upload files in the Digital Files part of the product editor. Each file can be up to ${formatLimit(MAX_UPLOAD_BYTES.product_file)}.` },
       { type: "h", text: "What the buyer gets" },
       { type: "steps", items: [
         "After paying, the buyer receives one receipt email for the payment.",
@@ -519,7 +517,6 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ["currency", "dollars", "usd", "euro", "lei", "explore price", "marketplace", "store currency", "exchange rate", "small order", "payouts", "statement", "bank statement", "descriptor", "traffic sources", "utm", "more from"],
     updated: "2026-10-19",
     related: ["fees", "how-payouts-work", "orders", "refund-an-order"],
-    faq: true,
     body: [
       { type: "p", text: "Storelib sells your products in two kinds of places, and each one has its own currency. This page walks through it from the buyer's first click to the money landing in your bank, so nothing at checkout surprises you or them." },
       { type: "h", text: "Which currency does each place sell in?" },

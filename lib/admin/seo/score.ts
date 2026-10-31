@@ -9,6 +9,8 @@
  * share of the points that could be judged.
  */
 
+import { robotsAllowed } from "@/lib/seo/robots-match"
+
 export type CheckState = "pass" | "fail" | "skip"
 
 export interface Check {
@@ -211,45 +213,10 @@ export function scorePage(facts: PageFacts): ScoreResult {
 /* ── robots.txt ────────────────────────────────────────────────────────── */
 
 /**
- * Whether Googlebot may fetch a path, by Google's reading of robots.txt
- * (developers.google.com/search/docs/crawling-indexing/robots/robots_txt):
- * the most specific group for the agent (googlebot over *), and in it the
- * longest matching rule, Allow winning a tie. `*` and a closing `$` are
- * understood.
+ * Whether Googlebot may fetch a path, by Google's reading of robots.txt:
+ * lib/seo/robots-match.ts is the matcher (the agent's own group over `*`,
+ * the longest matching rule, Allow winning a tie, `*` and a closing `$`).
  */
 export function robotsAllows(txt: string, pathWithQuery: string, agent = "googlebot"): boolean {
-  type Group = { agents: string[]; rules: { allow: boolean; path: string }[] }
-  const groups: Group[] = []
-  let current: Group | null = null
-  let lastWasAgent = false
-  for (const raw of txt.split(/\r?\n/)) {
-    const line = raw.replace(/#.*$/, "").trim()
-    const m = /^([a-z-]+)\s*:\s*(.*)$/i.exec(line)
-    if (!m) continue
-    const key = m[1].toLowerCase()
-    const value = m[2].trim()
-    if (key === "user-agent") {
-      if (!current || !lastWasAgent) {
-        current = { agents: [], rules: [] }
-        groups.push(current)
-      }
-      current.agents.push(value.toLowerCase())
-      lastWasAgent = true
-    } else if (key === "allow" || key === "disallow") {
-      lastWasAgent = false
-      if (current && value) current.rules.push({ allow: key === "allow", path: value })
-    } else lastWasAgent = false
-  }
-  const named = groups.filter((g) => g.agents.some((a) => a !== "*" && agent.toLowerCase().startsWith(a)))
-  const chosen = named.length ? named : groups.filter((g) => g.agents.includes("*"))
-  const rules = chosen.flatMap((g) => g.rules)
-  let best: { allow: boolean; length: number } | null = null
-  for (const r of rules) {
-    const anchored = r.path.endsWith("$")
-    const body = anchored ? r.path.slice(0, -1) : r.path
-    const pattern = new RegExp(`^${body.split("*").map((s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}${anchored ? "$" : ""}`)
-    if (!pattern.test(pathWithQuery)) continue
-    if (!best || r.path.length > best.length || (r.path.length === best.length && r.allow)) best = { allow: r.allow, length: r.path.length }
-  }
-  return best ? best.allow : true
+  return robotsAllowed(txt, pathWithQuery, agent)
 }

@@ -1,828 +1,1700 @@
 "use client"
 
-import { useRef, useLayoutEffect, useCallback, useState } from "react"
+import * as React from "react"
 
-export type BlockType = "p" | "h2" | "h3" | "hr" | "img" | "youtube" | "table" | "quote" | "ul" | "ol" | "code"
+import type { Block, BlockType } from "@/lib/blog/blocks"
+import { EMBED_PROVIDERS, embedTarget, parseChapter, youtubeIdFrom } from "@/lib/blog/embed"
+import { blocksFromHtmlDocument, blocksFromPlainText, looksLikeImageUrl, pastedUrl } from "@/lib/blog/paste"
+import { sanitizeInlineHtml, safeHref } from "@/lib/blog/sanitize"
 
-export interface Block {
-  id: string
-  type: BlockType
-  html?: string        // p, h2, h3, quote
-  url?: string         // img
-  alt?: string         // img
-  caption?: string     // img
-  videoId?: string     // youtube
-  headers?: string[]   // table
-  rows?: string[][]    // table
-  items?: string[]     // ul, ol
-  lang?: string        // code
-  text?: string        // code
-}
+export type { Block, BlockType }
 
-function newId() {
+/**
+ * ===========================================================================
+ *  THE BLOG'S BLOCK EDITOR
+ * ===========================================================================
+ * Writes exactly lib/blog/blocks.ts, which the article draws. A list of
+ * blocks; text blocks are contentEditable, everything else is a small form.
+ *
+ *   "/" at the start of an empty line   the block menu, filtered as you type
+ *   "## ", "- ", "1. ", "> ", "```"      a heading, a list, a quote, code
+ *   Enter / Shift+Enter                  a new paragraph / a line break
+ *   Backspace at the start               joins the line above; deletes an empty block
+ *   Cmd B I U, Cmd Shift S, Cmd E, Cmd K bold, italic, underline, strike, code, link
+ *   Alt Up / Alt Down                    move the block
+ *   Cmd D                                duplicate the block
+ *
+ * Paste keeps structure and drops looks (lib/blog/paste.ts): Google Docs'
+ * headings, lists, bold and links come through, its fonts and colours do
+ * not. A pasted address becomes a link, or a YouTube, embed or image block
+ * on an empty line.
+ *
+ * The dark console's own vocabulary (app/admin/_console/ui.tsx): #0b0b0f and
+ * #111116, one hairline, violet only for focus and selection.
+ */
+
+/* ── Ids, defaults, the menu ──────────────────────────────────────────── */
+
+export function newBlockId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function extractYouTubeId(input: string): string {
-  const match = input.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)
-  return match ? match[1] : input.trim()
-}
+const TEXT_TYPES = new Set<BlockType>(["p", "h2", "h3", "quote", "callout"])
+const LIST_TYPES = new Set<BlockType>(["ul", "ol"])
 
-// ─── Text Block (contenteditable) ─────────────────────────────────────────
-function TextBlock({
-  block,
-  onChange,
-  placeholder,
-  className,
-}: {
-  block: Block
-  onChange: (html: string) => void
-  placeholder: string
-  className: string
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const lastId = useRef(block.id)
-
-  useLayoutEffect(() => {
-    if (!ref.current) return
-    if (block.id !== lastId.current || ref.current.innerHTML === "") {
-      ref.current.innerHTML = block.html || ""
-      lastId.current = block.id
-    }
-  }, [block.id, block.html])
-
-  const execCmd = (cmd: string, val?: string) => {
-    ref.current?.focus()
-    document.execCommand(cmd, false, val)
+export function blankBlock(type: BlockType): Block {
+  const id = newBlockId()
+  switch (type) {
+    case "ul":
+    case "ol":
+      return { id, type, items: [""] }
+    case "code":
+      return { id, type, lang: "", text: "" }
+    case "table":
+      return { id, type, headers: ["", ""], rows: [["", ""], ["", ""]] }
+    case "img":
+    case "video":
+      return { id, type, url: "", alt: "", caption: "" }
+    case "youtube":
+      return { id, type, videoId: "" }
+    case "embed":
+      return { id, type, url: "" }
+    case "callout":
+      return { id, type, tone: "note", html: "" }
+    case "cta":
+      return { id, type, title: "", body: "", label: "", url: "" }
+    case "snippet":
+      return { id, type, snippetId: "" }
+    case "hr":
+      return { id, type }
+    default:
+      return { id, type, html: "" }
   }
-
-  return (
-    <div className="group/text relative">
-      {/* Mini formatting toolbar */}
-      <div className="absolute -top-9 left-0 hidden group-focus-within/text:flex items-center gap-0.5 bg-neutral-900 rounded-lg px-1 py-1 shadow-lg z-10">
-        {[
-          { cmd: "bold", icon: <span className="font-bold text-xs">B</span>, title: "Bold (⌘B)" },
-          { cmd: "italic", icon: <span className="italic text-xs">I</span>, title: "Italic (⌘I)" },
-          { cmd: "underline", icon: <span className="underline text-xs">U</span>, title: "Underline (⌘U)" },
-          { cmd: "strikeThrough", icon: <span className="line-through text-xs">S</span>, title: "Strikethrough" },
-        ].map(b => (
-          <button
-            key={b.cmd}
-            onMouseDown={e => { e.preventDefault(); execCmd(b.cmd) }}
-            title={b.title}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors"
-          >
-            {b.icon}
-          </button>
-        ))}
-        <div className="w-px h-4 bg-white/20 mx-0.5" />
-        <button
-          onMouseDown={e => {
-            e.preventDefault()
-            const url = prompt("Link URL:")
-            if (url) execCmd("createLink", url)
-          }}
-          title="Link"
-          className="w-7 h-7 flex items-center justify-center rounded-md text-white hover:bg-white/20 transition-colors"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </button>
-      </div>
-
-      <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={() => { if (ref.current) onChange(ref.current.innerHTML) }}
-        onKeyDown={e => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "b") { e.preventDefault(); execCmd("bold") }
-          if ((e.metaKey || e.ctrlKey) && e.key === "i") { e.preventDefault(); execCmd("italic") }
-          if ((e.metaKey || e.ctrlKey) && e.key === "u") { e.preventDefault(); execCmd("underline") }
-        }}
-        className={`${className} outline-none min-h-[1.5em] empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-300`}
-        data-placeholder={placeholder}
-      />
-    </div>
-  )
 }
 
-// ─── Block type configs ────────────────────────────────────────────────────
-const BLOCK_TYPES: { type: BlockType; label: string; group: string; icon: React.ReactNode }[] = [
-  {
-    type: "p", group: "Text", label: "Paragraph",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>,
-  },
-  {
-    type: "h2", group: "Text", label: "Heading 2",
-    icon: <span className="text-xs font-bold">H2</span>,
-  },
-  {
-    type: "h3", group: "Text", label: "Heading 3",
-    icon: <span className="text-xs font-bold">H3</span>,
-  },
-  {
-    type: "quote", group: "Text", label: "Quote",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>,
-  },
-  {
-    type: "code", group: "Text", label: "Code Block",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
-  },
-  {
-    type: "ul", group: "Lists", label: "Bullet List",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>,
-  },
-  {
-    type: "ol", group: "Lists", label: "Numbered List",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>,
-  },
-  {
-    type: "hr", group: "Structure", label: "Divider",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/></svg>,
-  },
-  {
-    type: "table", group: "Structure", label: "Table",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
-  },
-  {
-    type: "img", group: "Media", label: "Image",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-  },
-  {
-    type: "youtube", group: "Media", label: "YouTube",
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="currentColor"/></svg>,
-  },
+const MENU: { type: BlockType; label: string; hint: string; keys: string }[] = [
+  { type: "p", label: "Text", hint: "A paragraph", keys: "paragraph text p" },
+  { type: "h2", label: "Heading", hint: "A section, in the table of contents", keys: "heading h2 title section" },
+  { type: "h3", label: "Subheading", hint: "A smaller heading", keys: "subheading h3" },
+  { type: "ul", label: "Bulleted list", hint: "", keys: "bullet list ul unordered" },
+  { type: "ol", label: "Numbered list", hint: "", keys: "numbered list ol ordered steps" },
+  { type: "quote", label: "Quote", hint: "", keys: "quote blockquote" },
+  { type: "callout", label: "Callout", hint: "A note, a tip or a warning", keys: "callout note tip warning box" },
+  { type: "code", label: "Code", hint: "", keys: "code snippet pre" },
+  { type: "table", label: "Table", hint: "", keys: "table grid rows columns" },
+  { type: "hr", label: "Divider", hint: "", keys: "divider hr line separator" },
+  { type: "img", label: "Image", hint: "Upload or paste an address", keys: "image picture photo img upload" },
+  { type: "youtube", label: "YouTube", hint: "With chapters and a transcript", keys: "youtube video" },
+  { type: "video", label: "Video file", hint: "An mp4 or webm address", keys: "video mp4 webm file" },
+  { type: "embed", label: "Embed", hint: "Vimeo, Loom, X, Spotify, Figma, CodePen", keys: "embed vimeo loom x twitter spotify figma codepen iframe" },
+  { type: "cta", label: "Call to action", hint: "A heading, a line and a button", keys: "cta button call action" },
+  { type: "snippet", label: "Snippet", hint: "A reusable block from the library", keys: "snippet reusable library" },
 ]
 
-const DEFAULTS: Record<BlockType, Partial<Block>> = {
-  p: { html: "" },
-  h2: { html: "" },
-  h3: { html: "" },
-  quote: { html: "" },
-  code: { lang: "javascript", text: "" },
-  ul: { items: [""] },
-  ol: { items: [""] },
-  hr: {},
-  table: { headers: ["Column 1", "Column 2"], rows: [["", ""]] },
-  img: { url: "", alt: "", caption: "" },
-  youtube: { videoId: "" },
+function menuMatches(query: string) {
+  const q = query.trim().toLowerCase()
+  if (!q) return MENU
+  return MENU.filter((m) => m.label.toLowerCase().includes(q) || m.keys.includes(q))
 }
 
-// ─── Single Block ──────────────────────────────────────────────────────────
-function BlockItem({
-  block,
-  index,
-  total,
-  onChange,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
-  onUpload,
-}: {
-  block: Block
-  index: number
-  total: number
-  onChange: (id: string, updates: Partial<Block>) => void
-  onDelete: (id: string) => void
-  onMoveUp: (id: string) => void
-  onMoveDown: (id: string) => void
-  onUpload: (file: File) => Promise<string>
-}) {
-  const [uploading, setUploading] = useState(false)
+/* ── Caret helpers ────────────────────────────────────────────────────── */
 
-  const updateBlock = (updates: Partial<Block>) => onChange(block.id, updates)
+function placeCaret(el: HTMLElement, where: "start" | "end") {
+  el.focus()
+  const sel = window.getSelection()
+  if (!sel) return
+  const range = document.createRange()
+  range.selectNodeContents(el)
+  range.collapse(where === "start")
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
 
-  // ── Render the content area based on block type ──
-  function renderContent() {
-    switch (block.type) {
-      case "p":
-        return (
-          <TextBlock
-            block={block}
-            onChange={html => updateBlock({ html })}
-            placeholder="Write something…"
-            className="text-neutral-800 text-base leading-relaxed py-1"
-          />
-        )
+function caretAtEdge(el: HTMLElement, edge: "start" | "end"): boolean {
+  const sel = window.getSelection()
+  if (!sel || !sel.rangeCount || !sel.isCollapsed) return false
+  const r = sel.getRangeAt(0)
+  if (!el.contains(r.startContainer)) return false
+  const probe = document.createRange()
+  probe.selectNodeContents(el)
+  if (edge === "start") probe.setEnd(r.startContainer, r.startOffset)
+  else probe.setStart(r.endContainer, r.endOffset)
+  return probe.toString().length === 0
+}
 
-      case "h2":
-        return (
-          <TextBlock
-            block={block}
-            onChange={html => updateBlock({ html })}
-            placeholder="Heading 2"
-            className="text-2xl font-bold text-neutral-900 py-1"
-          />
-        )
+/** Everything after the caret, taken out of `el`, as HTML. */
+function extractAfterCaret(el: HTMLElement): string {
+  const sel = window.getSelection()
+  if (!sel || !sel.rangeCount) return ""
+  const r = sel.getRangeAt(0)
+  r.deleteContents()
+  const tail = document.createRange()
+  tail.setStart(r.endContainer, r.endOffset)
+  tail.setEnd(el, el.childNodes.length)
+  const box = document.createElement("div")
+  box.appendChild(tail.extractContents())
+  return box.innerHTML
+}
 
-      case "h3":
-        return (
-          <TextBlock
-            block={block}
-            onChange={html => updateBlock({ html })}
-            placeholder="Heading 3"
-            className="text-xl font-semibold text-neutral-900 py-1"
-          />
-        )
+function cleanEmpty(el: HTMLElement) {
+  if (el.innerHTML === "<br>" || el.innerHTML === "<div><br></div>") el.innerHTML = ""
+}
 
-      case "quote":
-        return (
-          <div className="border-l-4 border-neutral-300 pl-4">
-            <TextBlock
-              block={block}
-              onChange={html => updateBlock({ html })}
-              placeholder="Enter a quote…"
-              className="text-neutral-600 italic text-base leading-relaxed py-1"
-            />
-          </div>
-        )
+const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
 
-      case "code":
-        return (
-          <div className="rounded-xl bg-neutral-950 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 bg-neutral-900 border-b border-neutral-800">
-              <select
-                value={block.lang || "javascript"}
-                onChange={e => updateBlock({ lang: e.target.value })}
-                className="text-xs text-neutral-400 bg-transparent outline-none cursor-pointer"
-              >
-                {["javascript", "typescript", "python", "jsx", "tsx", "html", "css", "json", "bash", "sql", "go", "rust", "java", "php"].map(l => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-              <span className="text-xs text-neutral-600 font-mono">code</span>
-            </div>
-            <textarea
-              value={block.text || ""}
-              onChange={e => updateBlock({ text: e.target.value })}
-              placeholder="Enter code…"
-              rows={6}
-              spellCheck={false}
-              className="w-full bg-transparent text-emerald-400 font-mono text-sm p-4 resize-none outline-none leading-relaxed"
-            />
-          </div>
-        )
+export function cx(...p: (string | false | null | undefined)[]) {
+  return p.filter(Boolean).join(" ")
+}
 
-      case "hr":
-        return (
-          <div className="py-3 flex items-center gap-3">
-            <div className="flex-1 h-px bg-neutral-200" />
-            <span className="text-neutral-300 text-xs">divider</span>
-            <div className="flex-1 h-px bg-neutral-200" />
-          </div>
-        )
+/* ── The API every block is handed ────────────────────────────────────── */
 
-      case "img":
-        return (
-          <div className="space-y-3">
-            {block.url ? (
-              <div className="relative rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={block.url} alt={block.alt || ""} className="w-full max-h-80 object-cover" />
-                <button
-                  onClick={() => updateBlock({ url: "" })}
-                  className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-neutral-200 rounded-xl p-8 text-center">
-                <svg className="mx-auto mb-3 text-neutral-300" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <label className="cursor-pointer px-3 py-1.5 bg-neutral-900 text-white text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors">
-                    {uploading ? "Uploading…" : "Upload Image"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={async e => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        setUploading(true)
-                        const url = await onUpload(file)
-                        updateBlock({ url })
-                        setUploading(false)
-                      }}
-                    />
-                  </label>
-                  <span className="text-xs text-neutral-400">or</span>
-                </div>
-                <input
-                  type="url"
-                  placeholder="Paste image URL…"
-                  value={block.url || ""}
-                  onChange={e => updateBlock({ url: e.target.value })}
-                  className="w-full max-w-sm px-3 py-1.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="Alt text"
-                value={block.alt || ""}
-                onChange={e => updateBlock({ alt: e.target.value })}
-                className="px-3 py-1.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-              />
-              <input
-                type="text"
-                placeholder="Caption (optional)"
-                value={block.caption || ""}
-                onChange={e => updateBlock({ caption: e.target.value })}
-                className="px-3 py-1.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-              />
-            </div>
-          </div>
-        )
+interface EditorApi {
+  update: (id: string, patch: Partial<Block>) => void
+  insertAfter: (id: string | null, blocks: Block[], focus?: "start" | "end") => void
+  replaceWith: (id: string, blocks: Block[], focus?: "start" | "end") => void
+  remove: (id: string, focusPrev?: boolean) => void
+  move: (id: string, dir: -1 | 1) => void
+  duplicate: (id: string) => void
+  convert: (id: string, type: BlockType) => void
+  mergeIntoPrevious: (id: string, html: string) => boolean
+  focusNeighbour: (id: string, dir: -1 | 1) => boolean
+  openSlash: (id: string, query: string, rect: DOMRect) => void
+  closeSlash: () => void
+  slashKey: (e: React.KeyboardEvent) => boolean
+  uploadInto: (id: string, file: File) => void
+  registerSync: (id: string, fn: () => void) => () => void
+}
 
-      case "youtube": {
-        const vid = block.videoId
-        return (
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="YouTube URL or video ID…"
-                value={block.videoId || ""}
-                onChange={e => updateBlock({ videoId: extractYouTubeId(e.target.value) })}
-                className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-              />
-            </div>
-            {vid && (
-              <div className="aspect-video rounded-xl overflow-hidden bg-neutral-100">
-                <iframe
-                  src={`https://www.youtube.com/embed/${vid}`}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="YouTube embed"
-                />
-              </div>
-            )}
-          </div>
-        )
+const ApiContext = React.createContext<EditorApi | null>(null)
+const useApi = () => React.useContext(ApiContext)!
+
+/* ── Rich text (p, h2, h3, quote, callout) ────────────────────────────── */
+
+const TEXT_STYLE: Record<string, string> = {
+  p: "text-[16px] leading-[1.7] text-[#dcdce2]",
+  h2: "text-[24px] max-md:!text-[22px] leading-[1.3] font-semibold tracking-[-0.01em] text-[#ededf0]",
+  h3: "text-[19px] max-md:!text-[18px] leading-[1.35] font-semibold text-[#ededf0]",
+  quote: "border-l-2 border-white/25 pl-4 text-[17px] max-md:!text-[17px] leading-[1.65] italic text-[#c9c9d1]",
+  callout: "text-[15px] leading-[1.6] text-[#dcdce2]",
+}
+const PLACEHOLDER: Record<string, string> = { p: "Type / for blocks", h2: "Heading", h3: "Subheading", quote: "Quote", callout: "Write the note" }
+const INLINE_CSS =
+  "[&_a]:text-[#c4b5fd] [&_a]:underline [&_a]:decoration-[#c4b5fd]/40 [&_a]:underline-offset-2 [&_code]:rounded-[4px] [&_code]:bg-white/[0.08] [&_code]:px-1 [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[0.88em] [&_b]:font-semibold [&_b]:text-[#ededf0]"
+
+const MARKDOWN: { re: RegExp; type: BlockType }[] = [
+  { re: /^###\s$/, type: "h3" },
+  { re: /^##\s$/, type: "h2" },
+  { re: /^[-*]\s$/, type: "ul" },
+  { re: /^1[.)]\s$/, type: "ol" },
+  { re: /^>\s$/, type: "quote" },
+  { re: /^```$/, type: "code" },
+  { re: /^---$/, type: "hr" },
+]
+
+function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholder?: boolean }) {
+  const api = useApi()
+  const ref = React.useRef<HTMLDivElement>(null)
+  const html = block.html ?? ""
+
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (el && el.innerHTML !== html && document.activeElement !== el) el.innerHTML = html
+  }, [html])
+
+  const sync = React.useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    cleanEmpty(el)
+    api.update(block.id, { html: el.innerHTML })
+  }, [api, block.id])
+
+  React.useEffect(() => api.registerSync(block.id, sync), [api, block.id, sync])
+
+  function onInput() {
+    const el = ref.current!
+    cleanEmpty(el)
+    const t = (el.textContent ?? "").replace(/\u00a0/g, " ")
+    if (block.type === "p" && el.children.length === 0) {
+      for (const m of MARKDOWN) {
+        if (m.re.test(t)) {
+          const fresh = blankBlock(m.type)
+          if (m.type === "hr") api.replaceWith(block.id, [fresh, blankBlock("p")], "end")
+          else api.replaceWith(block.id, [fresh], "start")
+          return
+        }
       }
-
-      case "table": {
-        const headers = block.headers || ["Column 1", "Column 2"]
-        const rows = block.rows || [["", ""]]
-        return (
-          <div className="space-y-2 overflow-x-auto">
-            <div className="inline-block min-w-full">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr>
-                    {headers.map((h, ci) => (
-                      <th key={ci} className="border border-neutral-200 p-0">
-                        <input
-                          value={h}
-                          onChange={e => {
-                            const nh = [...headers]
-                            nh[ci] = e.target.value
-                            updateBlock({ headers: nh })
-                          }}
-                          className="w-full px-3 py-2 text-xs font-semibold text-neutral-700 bg-neutral-50 outline-none focus:bg-indigo-50"
-                          placeholder={`Column ${ci + 1}`}
-                        />
-                      </th>
-                    ))}
-                    <th className="border border-neutral-200 w-8">
-                      <button
-                        onClick={() => updateBlock({ headers: [...headers, "Column"], rows: rows.map(r => [...r, ""]) })}
-                        className="w-full h-full flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 py-2"
-                        title="Add column"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, ri) => (
-                    <tr key={ri}>
-                      {row.map((cell, ci) => (
-                        <td key={ci} className="border border-neutral-200 p-0">
-                          <input
-                            value={cell}
-                            onChange={e => {
-                              const nr = rows.map((r, rIdx) => rIdx === ri ? r.map((c, cIdx) => cIdx === ci ? e.target.value : c) : r)
-                              updateBlock({ rows: nr })
-                            }}
-                            className="w-full px-3 py-2 text-neutral-700 outline-none focus:bg-blue-50"
-                            placeholder="…"
-                          />
-                        </td>
-                      ))}
-                      <td className="border border-neutral-200 w-8">
-                        <button
-                          onClick={() => updateBlock({ rows: rows.filter((_, i) => i !== ri) })}
-                          className="w-full flex items-center justify-center text-neutral-300 hover:text-red-500 hover:bg-red-50 py-2"
-                          title="Delete row"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td colSpan={headers.length + 1} className="border border-neutral-200">
-                      <button
-                        onClick={() => updateBlock({ rows: [...rows, Array(headers.length).fill("")] })}
-                        className="w-full px-3 py-1.5 text-xs text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50 text-left flex items-center gap-1"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add row
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      }
-
-      case "ul":
-      case "ol": {
-        const items = block.items || [""]
-        const isOrdered = block.type === "ol"
-        return (
-          <div className="space-y-1.5">
-            {items.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-neutral-400 text-sm w-5 text-right flex-shrink-0 font-medium">
-                  {isOrdered ? `${i + 1}.` : "•"}
-                </span>
-                <input
-                  type="text"
-                  value={item}
-                  onChange={e => {
-                    const ni = [...items]
-                    ni[i] = e.target.value
-                    updateBlock({ items: ni })
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      const ni = [...items]
-                      ni.splice(i + 1, 0, "")
-                      updateBlock({ items: ni })
-                      setTimeout(() => {
-                        const inputs = (e.target as HTMLElement).closest(".space-y-1\\.5")?.querySelectorAll("input")
-                        inputs?.[i + 1]?.focus()
-                      }, 10)
-                    }
-                    if (e.key === "Backspace" && item === "" && items.length > 1) {
-                      e.preventDefault()
-                      updateBlock({ items: items.filter((_, idx) => idx !== i) })
-                    }
-                  }}
-                  placeholder={`Item ${i + 1}`}
-                  className="flex-1 text-neutral-800 text-sm outline-none border-b border-transparent focus:border-neutral-200 py-0.5 transition-colors bg-transparent"
-                />
-                {items.length > 1 && (
-                  <button
-                    onClick={() => updateBlock({ items: items.filter((_, idx) => idx !== i) })}
-                    className="text-neutral-300 hover:text-red-400 transition-colors flex-shrink-0"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={() => updateBlock({ items: [...items, ""] })}
-              className="ml-7 text-xs text-neutral-400 hover:text-neutral-600 flex items-center gap-1 mt-1"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add item
-            </button>
-          </div>
-        )
-      }
-
-      default:
-        return null
     }
+    if (block.type === "p" && /^\/[a-z0-9 ]{0,24}$/i.test(t) && el.children.length === 0) api.openSlash(block.id, t.slice(1), el.getBoundingClientRect())
+    else api.closeSlash()
+    api.update(block.id, { html: el.innerHTML })
   }
 
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const el = ref.current!
+    if (api.slashKey(e)) return
+    const mod = e.metaKey || e.ctrlKey
+    if (mod && !e.altKey) {
+      const k = e.key.toLowerCase()
+      if ((k === "b" || k === "i" || k === "u") && !e.shiftKey) {
+        e.preventDefault()
+        document.execCommand(k === "b" ? "bold" : k === "i" ? "italic" : "underline")
+        sync()
+        return
+      }
+      if (k === "s" && e.shiftKey) {
+        e.preventDefault()
+        document.execCommand("strikeThrough")
+        sync()
+        return
+      }
+      if (k === "e") {
+        e.preventDefault()
+        toggleInlineCode()
+        sync()
+        return
+      }
+      if (k === "k") {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent("blog-editor:link"))
+        return
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      const after = sanitizeInlineHtml(extractAfterCaret(el))
+      cleanEmpty(el)
+      api.update(block.id, { html: el.innerHTML })
+      /* An empty quote or callout line ends it, the way an empty list item ends a list. */
+      if ((block.type === "quote" || block.type === "callout") && !el.textContent && !after) {
+        api.replaceWith(block.id, [blankBlock("p")], "start")
+        return
+      }
+      api.insertAfter(block.id, [{ ...blankBlock("p"), html: after }], "start")
+      return
+    }
+    if (e.key === "Backspace" && caretAtEdge(el, "start")) {
+      if (!el.textContent) {
+        e.preventDefault()
+        if (block.type !== "p") api.convert(block.id, "p")
+        else api.remove(block.id, true)
+        return
+      }
+      if (api.mergeIntoPrevious(block.id, el.innerHTML)) e.preventDefault()
+      return
+    }
+    if (e.key === "ArrowUp" && !e.shiftKey && caretAtEdge(el, "start") && api.focusNeighbour(block.id, -1)) e.preventDefault()
+    if (e.key === "ArrowDown" && !e.shiftKey && caretAtEdge(el, "end") && api.focusNeighbour(block.id, 1)) e.preventDefault()
+  }
+
+  const placeholder = PLACEHOLDER[block.type] ?? ""
   return (
-    <div className="group/block relative flex gap-3">
-      {/* Block type badge */}
-      <div className="flex-shrink-0 mt-1">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-100 text-neutral-400 text-[10px] font-bold uppercase">
-          {block.type === "p" ? "¶" : block.type === "hr" ? "—" : block.type === "img" ? "🖼" : block.type === "youtube" ? "▶" : block.type.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">{renderContent()}</div>
-
-      {/* Controls (appear on hover) */}
-      <div className="flex-shrink-0 flex flex-col gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity mt-1">
-        <button
-          onClick={() => onMoveUp(block.id)}
-          disabled={index === 0}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-neutral-100 text-neutral-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-          title="Move up"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-        </button>
-        <button
-          onClick={() => onMoveDown(block.id)}
-          disabled={index === total - 1}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-neutral-100 text-neutral-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-          title="Move down"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <button
-          onClick={() => onDelete(block.id)}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-red-50 text-neutral-300 hover:text-red-500 transition-colors"
-          title="Delete block"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Add Block Menu ────────────────────────────────────────────────────────
-function AddBlockMenu({ onAdd, compact }: { onAdd: (type: BlockType) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const groups = ["Text", "Lists", "Structure", "Media"]
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className={compact
-          ? "flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-neutral-400 hover:text-neutral-700 border border-dashed border-neutral-200 rounded-lg hover:border-neutral-400 transition-all hover:bg-white"
-          : "flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-800 border border-dashed border-neutral-200 rounded-lg hover:border-neutral-400 transition-all hover:bg-white"
-        }
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        {compact ? "Add" : "Add Block"}
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-2 z-20 bg-white rounded-xl border border-neutral-200 shadow-xl p-3 w-72">
-            {groups.map(group => {
-              const types = BLOCK_TYPES.filter(t => t.group === group)
-              if (!types.length) return null
-              return (
-                <div key={group} className="mb-3 last:mb-0">
-                  <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5 px-1">{group}</div>
-                  <div className="grid grid-cols-2 gap-1">
-                    {types.map(t => (
-                      <button
-                        key={t.type}
-                        onClick={() => { onAdd(t.type); setOpen(false) }}
-                        className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 transition-colors text-left"
-                      >
-                        <span className="text-neutral-400">{t.icon}</span>
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
+    <div
+      ref={ref}
+      data-rt={block.id}
+      role="textbox"
+      aria-multiline="true"
+      aria-label={block.type === "p" ? "Paragraph" : placeholder}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck
+      onInput={onInput}
+      onKeyDown={onKeyDown}
+      onPaste={(e) => handlePaste(e, block, ref.current!, api, sync)}
+      onBlur={() => {
+        const el = ref.current
+        if (!el) return
+        const clean = sanitizeInlineHtml(el.innerHTML)
+        if (clean !== el.innerHTML) el.innerHTML = clean
+        api.update(block.id, { html: clean })
+      }}
+      data-placeholder={placeholder}
+      className={cx(
+        "min-h-[1.6em] whitespace-pre-wrap break-words outline-none",
+        TEXT_STYLE[block.type],
+        INLINE_CSS,
+        alwaysPlaceholder || block.type !== "p"
+          ? "empty:before:text-[#5c5c66] empty:before:content-[attr(data-placeholder)]"
+          : "focus:empty:before:text-[#5c5c66] focus:empty:before:content-[attr(data-placeholder)]",
       )}
-    </div>
+    />
   )
 }
 
-// ─── Inline Inserter (between blocks) ─────────────────────────────────────
-function InlineInserter({
-  onAdd,
-  onUpload,
-}: {
-  onAdd: (type: BlockType) => void
-  onUpload: (file: File) => Promise<string>
-}) {
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+function toggleInlineCode() {
+  const sel = window.getSelection()
+  if (!sel || !sel.rangeCount) return
+  const range = sel.getRangeAt(0)
+  let n: Node | null = range.commonAncestorContainer
+  while (n && !(n instanceof HTMLElement && n.dataset.rt)) {
+    if (n instanceof HTMLElement && n.tagName === "CODE") {
+      const parent = n.parentNode!
+      while (n.firstChild) parent.insertBefore(n.firstChild, n)
+      parent.removeChild(n)
+      return
+    }
+    n = n.parentNode
+  }
+  if (range.collapsed) return
+  const code = document.createElement("code")
+  code.textContent = range.toString()
+  range.deleteContents()
+  range.insertNode(code)
+  sel.removeAllRanges()
+  const after = document.createRange()
+  after.selectNodeContents(code)
+  sel.addRange(after)
+}
 
+/* ── Paste ────────────────────────────────────────────────────────────── */
+
+function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api: EditorApi, sync: () => void) {
+  const cd = e.clipboardData
+  const files = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"))
+  if (files.length) {
+    e.preventDefault()
+    for (const f of files) {
+      const img = blankBlock("img")
+      api.insertAfter(block.id, [img])
+      api.uploadInto(img.id, f)
+    }
+    return
+  }
+  const html = cd.getData("text/html")
+  const plain = cd.getData("text/plain")
+  const url = pastedUrl(plain)
+  const empty = !(el.textContent ?? "").trim()
+  if (url) {
+    e.preventDefault()
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed) {
+      document.execCommand("createLink", false, url)
+      sync()
+      return
+    }
+    if (empty && block.type === "p") {
+      const yt = youtubeIdFrom(url)
+      if (yt) return api.replaceWith(block.id, [{ ...blankBlock("youtube"), videoId: yt }])
+      const target = embedTarget(url)
+      if (target) return api.replaceWith(block.id, [{ ...blankBlock("embed"), url, provider: target.provider }])
+      if (looksLikeImageUrl(url)) return api.replaceWith(block.id, [{ ...blankBlock("img"), url }])
+    }
+    const safe = safeHref(url)
+    if (safe) document.execCommand("insertHTML", false, `<a href="${safe.replace(/"/g, "&quot;")}">${url.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</a>&nbsp;`)
+    sync()
+    return
+  }
+  e.preventDefault()
+  const blocks = html ? blocksFromHtmlDocument(new DOMParser().parseFromString(html, "text/html"), newBlockId) : blocksFromPlainText(plain, newBlockId)
+  if (!blocks.length) return
+  /* One line of text goes in at the caret, as it would in any text field. */
+  if (blocks.length === 1 && blocks[0].type === "p") {
+    document.execCommand("insertHTML", false, blocks[0].html ?? "")
+    sync()
+    return
+  }
+  if (empty) api.replaceWith(block.id, blocks, "end")
+  else api.insertAfter(block.id, blocks, "end")
+}
+
+/* ── Lists ────────────────────────────────────────────────────────────── */
+
+function ListBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const ref = React.useRef<HTMLElement>(null)
+  const items = block.items?.length ? block.items : [""]
+  const html = items.map((i) => `<li>${i || "<br>"}</li>`).join("")
+
+  const read = React.useCallback((): string[] => {
+    const el = ref.current
+    if (!el) return [""]
+    const out = Array.from(el.children)
+      .filter((c) => c.tagName === "LI")
+      .map((li) => (li.innerHTML === "<br>" ? "" : li.innerHTML))
+    return out.length ? out : [""]
+  }, [])
+
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    /* Written here and never by React, so typing is never interrupted by a re-render putting the same list back. */
+    if (el && (!el.firstElementChild || (document.activeElement !== el && JSON.stringify(read()) !== JSON.stringify(items)))) el.innerHTML = html
+  }, [html, items, read])
+
+  const sync = React.useCallback(() => api.update(block.id, { items: read() }), [api, block.id, read])
+  React.useEffect(() => api.registerSync(block.id, sync), [api, block.id, sync])
+
+  function currentLi(): HTMLLIElement | null {
+    let n = window.getSelection()?.anchorNode ?? null
+    while (n && n !== ref.current) {
+      if (n instanceof HTMLLIElement) return n
+      n = n.parentNode
+    }
+    return null
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    const el = ref.current!
+    const mod = e.metaKey || e.ctrlKey
+    const k = e.key.toLowerCase()
+    if (mod && !e.shiftKey && (k === "b" || k === "i" || k === "u")) {
+      e.preventDefault()
+      document.execCommand(k === "b" ? "bold" : k === "i" ? "italic" : "underline")
+      sync()
+      return
+    }
+    if (mod && k === "k") {
+      e.preventDefault()
+      window.dispatchEvent(new CustomEvent("blog-editor:link"))
+      return
+    }
+    const li = currentLi()
+    if (e.key === "Enter" && !e.shiftKey && li && !(li.textContent ?? "").trim()) {
+      /* Enter on an empty item ends the list with a paragraph. */
+      e.preventDefault()
+      li.remove()
+      api.update(block.id, { items: read() })
+      api.insertAfter(block.id, [blankBlock("p")], "start")
+      return
+    }
+    if (e.key === "Backspace" && li && li === el.firstElementChild && caretAtEdge(li, "start")) {
+      e.preventDefault()
+      const rest = read()
+      if (rest.length === 1) api.convert(block.id, "p")
+      else api.replaceWith(block.id, [{ ...blankBlock("p"), html: rest[0] }, { ...block, items: rest.slice(1) }], "start")
+      return
+    }
+    if (e.key === "ArrowUp" && li && li === el.firstElementChild && caretAtEdge(li, "start") && api.focusNeighbour(block.id, -1)) e.preventDefault()
+    if (e.key === "ArrowDown" && li && li === el.lastElementChild && caretAtEdge(li, "end") && api.focusNeighbour(block.id, 1)) e.preventDefault()
+  }
+
+  const Tag = block.type === "ol" ? "ol" : "ul"
   return (
-    <div className="group/inserter relative flex items-center gap-1.5 py-0.5 -my-0.5">
-      {/* Hover line */}
-      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover/inserter:bg-neutral-200 transition-colors pointer-events-none" />
+    <Tag
+      ref={ref as React.Ref<HTMLUListElement & HTMLOListElement>}
+      data-rt={block.id}
+      contentEditable
+      suppressContentEditableWarning
+      onInput={sync}
+      onKeyDown={onKeyDown}
+      onPaste={(e) => {
+        const plain = e.clipboardData.getData("text/plain")
+        const rich = e.clipboardData.getData("text/html")
+        const url = pastedUrl(plain)
+        e.preventDefault()
+        if (url) document.execCommand("createLink", false, url)
+        else {
+          const blocks = rich ? blocksFromHtmlDocument(new DOMParser().parseFromString(rich, "text/html"), newBlockId) : blocksFromPlainText(plain, newBlockId)
+          const lines = blocks.flatMap((b) => b.items ?? (b.html ? [b.html] : []))
+          document.execCommand("insertHTML", false, lines.join("</li><li>"))
+        }
+        sync()
+      }}
+      onBlur={sync}
+      className={cx("space-y-1 pl-6 text-[16px] leading-[1.7] text-[#dcdce2] outline-none marker:text-[#6b6b76]", Tag === "ol" ? "list-decimal" : "list-disc", INLINE_CSS)}
+    />
+  )
+}
 
-      {/* Quick actions */}
-      <div className="relative z-[1] flex items-center gap-1 opacity-0 group-hover/inserter:opacity-100 transition-opacity ml-8">
-        {/* Quick image upload */}
-        <label
-          className={`flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-dashed border-neutral-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all cursor-pointer ${uploading ? "text-blue-500 bg-blue-50 border-blue-300" : "text-neutral-400"}`}
+/* ── Small form controls, in the console's look ───────────────────────── */
+
+export const fieldCls =
+  "w-full rounded-[8px] border border-white/[0.1] bg-[#0b0b0f] px-3 text-[13px] text-[#ededf0] outline-none placeholder:text-[#5c5c66] focus:border-[#8b5cf6]/70"
+
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={cx(fieldCls, "h-9", props.className)} />
+}
+
+function Area(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={cx(fieldCls, "resize-y py-2 leading-5", props.className)} />
+}
+
+function Label({ children, warn }: { children: React.ReactNode; warn?: React.ReactNode }) {
+  return (
+    <span className="mb-1 flex items-baseline justify-between gap-2 text-[12px] text-[#9b9ba6]">
+      <span>{children}</span>
+      {warn ? <span className="text-[#d4a72c]">{warn}</span> : null}
+    </span>
+  )
+}
+
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cx("rounded-[10px] border border-white/[0.08] bg-[#0b0b0f] p-3", className)}>{children}</div>
+}
+
+function SmallButton({ children, className, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={cx("inline-flex h-8 items-center gap-1 rounded-[7px] border border-white/[0.1] bg-[#17171d] px-2.5 text-[12px] text-[#ededf0] outline-none hover:bg-[#1d1d24] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 disabled:opacity-50", className)}
+    >
+      {children}
+    </button>
+  )
+}
+
+/* ── Media and the other blocks ───────────────────────────────────────── */
+
+function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) {
+  const api = useApi()
+  const [broken, setBroken] = React.useState(false)
+  const [drag, setDrag] = React.useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const set = (patch: Partial<Block>) => api.update(block.id, patch)
+  const altMissing = Boolean(block.url) && !(block.alt ?? "").trim()
+  return (
+    <Card>
+      {block.url && !broken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={block.url} alt={block.alt || ""} onError={() => setBroken(true)} className="mx-auto max-h-[420px] w-auto max-w-full rounded-[6px]" />
+      ) : (
+        <div
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return
+            e.preventDefault()
+            e.stopPropagation()
+            setDrag(true)
+          }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => {
+            const f = e.dataTransfer.files?.[0]
+            if (!f) return
+            e.preventDefault()
+            e.stopPropagation()
+            setDrag(false)
+            api.uploadInto(block.id, f)
+          }}
+          className={cx("flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed px-4 py-6 text-center", drag ? "border-[#8b5cf6]/70 bg-[#8b5cf6]/[0.06]" : "border-white/[0.12]")}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          {uploading ? "Uploading..." : "Image"}
+          {broken ? <p className="text-[13px] text-[#f47067]">This picture did not load. Check the address or upload it.</p> : null}
+          <p className="text-[13px] text-[#9b9ba6]">{uploading ? "Uploading…" : "Drop a picture here, paste one, or"}</p>
+          <SmallButton disabled={uploading} onClick={() => fileRef.current?.click()}>
+            Upload
+          </SmallButton>
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
             className="hidden"
-            disabled={uploading}
-            onChange={async e => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              setUploading(true)
-              try {
-                const url = await onUpload(file)
-                if (url) {
-                  onAdd("img")
-                  // Small delay to let the block be created, then we update it via a custom event
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent("blog-editor-set-last-img", { detail: { url } }))
-                  }, 50)
-                }
-              } finally {
-                setUploading(false)
-                if (fileRef.current) fileRef.current.value = ""
-              }
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) api.uploadInto(block.id, f)
+              e.target.value = ""
+            }}
+          />
+        </div>
+      )}
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <Label>Address</Label>
+          <Input
+            value={block.url ?? ""}
+            placeholder="https://…"
+            onChange={(e) => {
+              setBroken(false)
+              set({ url: e.target.value.trim() })
             }}
           />
         </label>
+        <label className="block">
+          <Label warn={altMissing ? "Required" : null}>Alt text</Label>
+          <Input value={block.alt ?? ""} placeholder="What the picture shows" onChange={(e) => set({ alt: e.target.value })} aria-invalid={altMissing} className={altMissing ? "border-[#d4a72c]/60" : ""} />
+        </label>
+        <label className="block">
+          <Label>Caption</Label>
+          <Input value={block.caption ?? ""} placeholder="Optional" onChange={(e) => set({ caption: e.target.value })} />
+        </label>
+      </div>
+      {altMissing ? <p className="mt-2 text-[12px] text-[#d4a72c]">Add alt text: screen readers read it aloud, and search engines read it for Images.</p> : null}
+    </Card>
+  )
+}
 
-        {/* Quick paragraph */}
-        <button
-          onClick={() => onAdd("p")}
-          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-neutral-400 rounded-lg border border-dashed border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600 transition-all"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
-          Text
-        </button>
+function YouTubeBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const [raw, setRaw] = React.useState(block.videoId ? `https://www.youtube.com/watch?v=${block.videoId}` : "")
+  const [open, setOpen] = React.useState(Boolean(block.chapters?.length || block.transcript || block.uploadDate))
+  const set = (patch: Partial<Block>) => api.update(block.id, patch)
+  const id = block.videoId
+  const bad = (block.chapters ?? []).filter((c) => c.trim() && !parseChapter(c))
+  return (
+    <Card>
+      <label className="block">
+        <Label warn={raw && !youtubeIdFrom(raw) ? "Not a YouTube address" : null}>YouTube address</Label>
+        <Input
+          value={raw}
+          placeholder="https://www.youtube.com/watch?v=…"
+          onChange={(e) => {
+            setRaw(e.target.value)
+            set({ videoId: youtubeIdFrom(e.target.value) ?? "" })
+          }}
+        />
+      </label>
+      {id ? (
+        <div className="mt-3 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" className="h-[68px] w-[120px] shrink-0 rounded-[6px] object-cover" />
+          <p className="min-w-0 text-[12px] text-[#9b9ba6]">
+            Video <span className="font-mono text-[#ededf0]">{id}</span>
+          </p>
+        </div>
+      ) : null}
+      <button type="button" onClick={() => setOpen((o) => !o)} className="mt-3 text-[12px] text-[#9b9ba6] underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">
+        {open ? "Hide chapters and transcript" : "Chapters and transcript"}
+      </button>
+      {open ? (
+        <div className="mt-2 grid gap-2">
+          <label className="block">
+            <Label warn={bad.length ? `${bad.length} line${bad.length > 1 ? "s" : ""} not "m:ss Title"` : null}>Chapters, one per line</Label>
+            <Area rows={4} value={(block.chapters ?? []).join("\n")} placeholder={"0:00 Intro\n1:30 Setting up the store"} onChange={(e) => set({ chapters: e.target.value.split("\n") })} />
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block">
+              <Label>Video title on YouTube</Label>
+              <Input value={block.title ?? ""} placeholder="Optional, the caption is used when empty" onChange={(e) => set({ title: e.target.value })} />
+            </label>
+            <label className="block">
+              <Label warn={block.uploadDate && Number.isNaN(Date.parse(block.uploadDate)) ? "Use YYYY-MM-DD" : null}>Upload date</Label>
+              <Input type="date" value={(block.uploadDate ?? "").slice(0, 10)} onChange={(e) => set({ uploadDate: e.target.value })} />
+            </label>
+          </div>
+          <p className="text-[12px] text-[#9b9ba6]">With an upload date, search engines are told this is a video (from YouTube Studio, Details).</p>
+          <label className="block">
+            <Label>Transcript</Label>
+            <Area rows={5} value={block.transcript ?? ""} placeholder="Shown collapsed under the video" onChange={(e) => set({ transcript: e.target.value })} />
+          </label>
+        </div>
+      ) : null}
+    </Card>
+  )
+}
 
-        {/* All blocks menu */}
-        <AddBlockMenu onAdd={onAdd} compact />
+function VideoBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const set = (patch: Partial<Block>) => api.update(block.id, patch)
+  const ok = /^(https?:\/\/\S+|\/\S+)\.(mp4|webm|mov)(\?|#|$)/i.test(block.url ?? "")
+  return (
+    <Card>
+      {block.url && ok ? <video src={block.url} controls preload="metadata" className="mb-3 max-h-[360px] w-full rounded-[6px] bg-black" /> : null}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <Label warn={block.url && !ok ? "An .mp4 or .webm address" : null}>Video file address</Label>
+          <Input value={block.url ?? ""} placeholder="https://…/clip.mp4" onChange={(e) => set({ url: e.target.value.trim() })} />
+        </label>
+        <label className="block">
+          <Label warn={block.url && !(block.alt ?? "").trim() ? "Recommended" : null}>Description</Label>
+          <Input value={block.alt ?? ""} placeholder="What happens in it" onChange={(e) => set({ alt: e.target.value })} />
+        </label>
+        <label className="block">
+          <Label>Caption</Label>
+          <Input value={block.caption ?? ""} placeholder="Optional" onChange={(e) => set({ caption: e.target.value })} />
+        </label>
+      </div>
+    </Card>
+  )
+}
+
+function EmbedBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const target = block.url ? embedTarget(block.url) : null
+  return (
+    <Card>
+      <label className="block">
+        <Label warn={block.url && !target ? "Not on the list: shown as a link" : null}>Address to embed</Label>
+        <Input
+          value={block.url ?? ""}
+          placeholder="https://vimeo.com/…"
+          onChange={(e) => {
+            const url = e.target.value.trim()
+            api.update(block.id, { url, provider: embedTarget(url)?.provider })
+          }}
+        />
+      </label>
+      <p className="mt-2 text-[12px] text-[#6b6b76]">
+        {target ? <>Drawn as a {EMBED_PROVIDERS[target.provider].label} embed.</> : <>Embeds from {Object.values(EMBED_PROVIDERS).map((p) => p.label).join(", ")}.</>}
+      </p>
+      <label className="mt-2 block">
+        <Label>Caption</Label>
+        <Input value={block.caption ?? ""} placeholder="Optional" onChange={(e) => api.update(block.id, { caption: e.target.value })} />
+      </label>
+    </Card>
+  )
+}
+
+const TONES: { id: NonNullable<Block["tone"]>; label: string; colour: string }[] = [
+  { id: "note", label: "Note", colour: "#9b9ba6" },
+  { id: "tip", label: "Tip", colour: "#3fb950" },
+  { id: "warning", label: "Warning", colour: "#d4a72c" },
+]
+
+function CalloutBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const tone = TONES.find((t) => t.id === block.tone) ?? TONES[0]
+  return (
+    <div className="rounded-[10px] border border-white/[0.08] bg-white/[0.025] px-4 py-3" style={{ borderLeftColor: tone.colour, borderLeftWidth: 2 }}>
+      <div className="mb-1.5 flex gap-1" role="radiogroup" aria-label="Callout kind">
+        {TONES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={t.id === tone.id}
+            onClick={() => api.update(block.id, { tone: t.id })}
+            className={cx("h-6 rounded-[6px] px-2 text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70", t.id === tone.id ? "bg-white/[0.08] text-[#ededf0]" : "text-[#6b6b76] hover:text-[#ededf0]")}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <RichText block={block} />
+    </div>
+  )
+}
+
+function CtaBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const set = (patch: Partial<Block>) => api.update(block.id, patch)
+  const urlBad = Boolean(block.url) && !safeHref(block.url)
+  return (
+    <Card className="grid gap-2 sm:grid-cols-2">
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#6b6b76] sm:col-span-2">Call to action</p>
+      <label className="block sm:col-span-2">
+        <Label>Heading</Label>
+        <Input value={block.title ?? ""} placeholder="Start selling on Storelib" onChange={(e) => set({ title: e.target.value })} />
+      </label>
+      <label className="block sm:col-span-2">
+        <Label>Line under it</Label>
+        <Input value={block.body ?? ""} placeholder="Optional" onChange={(e) => set({ body: e.target.value })} />
+      </label>
+      <label className="block">
+        <Label>Button</Label>
+        <Input value={block.label ?? ""} placeholder="Create your store" onChange={(e) => set({ label: e.target.value })} />
+      </label>
+      <label className="block">
+        <Label warn={urlBad ? "Not an address" : null}>Goes to</Label>
+        <Input value={block.url ?? ""} placeholder="/signup" onChange={(e) => set({ url: e.target.value.trim() })} />
+      </label>
+    </Card>
+  )
+}
+
+export interface SnippetOption {
+  id: string
+  name: string
+  blocks: Block[]
+}
+
+function SnippetBlock({ block, snippets, note }: { block: Block; snippets: SnippetOption[]; note?: string | null }) {
+  const api = useApi()
+  const chosen = snippets.find((s) => s.id === block.snippetId)
+  return (
+    <Card>
+      <label className="block">
+        <Label warn={block.snippetId && !chosen ? "Deleted from the library" : null}>Snippet</Label>
+        <select value={block.snippetId ?? ""} onChange={(e) => api.update(block.id, { snippetId: e.target.value })} className={cx(fieldCls, "h-9")} disabled={!snippets.length}>
+          <option value="">{snippets.length ? "Choose from the library" : "The library is empty"}</option>
+          {snippets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {chosen ? (
+        <p className="mt-2 text-[12px] text-[#9b9ba6]">
+          {chosen.blocks.length} block{chosen.blocks.length === 1 ? "" : "s"}. A change in the library shows in every post that places it.
+        </p>
+      ) : null}
+      <p className="mt-2 text-[12px] text-[#6b6b76]">
+        {note ?? (
+          <a href="/admin/blog/library?tab=snippets" target="_blank" rel="noopener noreferrer" className="underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">
+            Open the snippet library
+          </a>
+        )}
+      </p>
+    </Card>
+  )
+}
+
+function CodeBlock({ block }: { block: Block }) {
+  const api = useApi()
+  return (
+    <div className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#0b0b0f]">
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-1">
+        <input
+          value={block.lang ?? ""}
+          onChange={(e) => api.update(block.id, { lang: e.target.value })}
+          placeholder="language"
+          aria-label="Language"
+          className="h-7 w-32 bg-transparent font-mono text-[12px] text-[#9b9ba6] outline-none placeholder:text-[#5c5c66]"
+        />
+      </div>
+      <textarea
+        value={block.text ?? ""}
+        onChange={(e) => api.update(block.id, { text: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === "Tab" && !e.shiftKey) {
+            e.preventDefault()
+            const t = e.currentTarget
+            const { selectionStart: a, selectionEnd: b, value } = t
+            api.update(block.id, { text: `${value.slice(0, a)}  ${value.slice(b)}` })
+            requestAnimationFrame(() => t.setSelectionRange(a + 2, a + 2))
+          }
+          if (e.key === "Backspace" && !e.currentTarget.value) {
+            e.preventDefault()
+            api.remove(block.id, true)
+          }
+        }}
+        spellCheck={false}
+        rows={Math.min(24, Math.max(3, (block.text ?? "").split("\n").length + 1))}
+        placeholder="Code"
+        aria-label="Code"
+        className="block w-full resize-y bg-transparent px-3 py-2.5 font-mono text-[13px] leading-[1.6] text-[#c9f5d4] outline-none placeholder:text-[#5c5c66]"
+      />
+    </div>
+  )
+}
+
+function TableBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const headers = block.headers?.length ? block.headers : [""]
+  const rows = block.rows ?? []
+  const cols = headers.length
+  const set = (h: string[], r: string[][]) => api.update(block.id, { headers: h, rows: r })
+  const cell = "h-9 w-full min-w-[110px] bg-transparent px-2.5 text-[13px] text-[#dcdce2] outline-none placeholder:text-[#5c5c66] focus:bg-white/[0.04]"
+  return (
+    <div className="rounded-[10px] border border-white/[0.08] bg-[#0b0b0f]">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              {headers.map((h, ci) => (
+                <th key={ci} className="border-b border-r border-white/[0.08] p-0 last:border-r-0">
+                  <input value={h} placeholder={`Column ${ci + 1}`} aria-label={`Column ${ci + 1} heading`} onChange={(e) => set(headers.map((x, i) => (i === ci ? e.target.value : x)), rows)} className={cx(cell, "font-semibold text-[#ededf0]")} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri}>
+                {Array.from({ length: cols }, (_, ci) => (
+                  <td key={ci} className="border-b border-r border-white/[0.06] p-0 last:border-r-0">
+                    <input
+                      value={r[ci] ?? ""}
+                      aria-label={`Row ${ri + 1}, column ${ci + 1}`}
+                      onChange={(e) => set(headers, rows.map((row, i) => (i === ri ? Array.from({ length: cols }, (_, c) => (c === ci ? e.target.value : row[c] ?? "")) : row)))}
+                      className={cell}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-2">
+        <SmallButton onClick={() => set(headers, [...rows, Array(cols).fill("")])}>Add row</SmallButton>
+        <SmallButton disabled={!rows.length} onClick={() => set(headers, rows.slice(0, -1))}>Remove row</SmallButton>
+        <SmallButton disabled={cols >= 8} onClick={() => set([...headers, ""], rows.map((r) => [...r, ""]))}>Add column</SmallButton>
+        <SmallButton disabled={cols <= 1} onClick={() => set(headers.slice(0, -1), rows.map((r) => r.slice(0, cols - 1)))}>Remove column</SmallButton>
+        <input value={block.caption ?? ""} onChange={(e) => api.update(block.id, { caption: e.target.value })} placeholder="Caption" aria-label="Table caption" className={cx(fieldCls, "h-8 min-w-[140px] flex-1")} />
       </div>
     </div>
   )
 }
 
-// ─── Main Blog Editor ──────────────────────────────────────────────────────
-export interface BlogEditorProps {
-  blocks: Block[]
-  onChange: (blocks: Block[]) => void
-}
+/* ── One block, with its handle ───────────────────────────────────────── */
 
-export default function BlogEditor({ blocks, onChange }: BlogEditorProps) {
-  const blocksRef = useRef(blocks)
-  blocksRef.current = blocks
-  const [dragOver, setDragOver] = useState(false)
+const BlockRow = React.memo(function BlockRow({
+  block,
+  index,
+  count,
+  uploading,
+  snippets,
+  snippetsNote,
+  drop,
+  dragging,
+  onDragStartId,
+  onDragOverId,
+  onDropId,
+}: {
+  block: Block
+  index: number
+  count: number
+  uploading: boolean
+  snippets: SnippetOption[]
+  snippetsNote?: string | null
+  drop: "before" | "after" | null
+  dragging: boolean
+  onDragStartId: (id: string | null) => void
+  onDragOverId: (id: string, pos: "before" | "after") => void
+  onDropId: (id: string) => void
+}) {
+  const api = useApi()
+  const [menu, setMenu] = React.useState(false)
+  const rowRef = React.useRef<HTMLDivElement>(null)
+  const first = index === 0
 
-  const addBlock = useCallback((type: BlockType, afterIndex?: number) => {
-    const newBlock: Block = { id: newId(), type, ...DEFAULTS[type] }
-    const updated = [...blocksRef.current]
-    if (afterIndex !== undefined) {
-      updated.splice(afterIndex + 1, 0, newBlock)
-    } else {
-      updated.push(newBlock)
-    }
-    onChange(updated)
-    return newBlock.id
-  }, [onChange])
+  let content: React.ReactNode = null
+  switch (block.type) {
+    case "p":
+    case "h2":
+    case "h3":
+    case "quote":
+      content = <RichText block={block} alwaysPlaceholder={first && count === 1} />
+      break
+    case "callout":
+      content = <CalloutBlock block={block} />
+      break
+    case "ul":
+    case "ol":
+      content = <ListBlock block={block} />
+      break
+    case "code":
+      content = <CodeBlock block={block} />
+      break
+    case "table":
+      content = <TableBlock block={block} />
+      break
+    case "img":
+      content = <ImageBlock block={block} uploading={uploading} />
+      break
+    case "youtube":
+      content = <YouTubeBlock block={block} />
+      break
+    case "video":
+      content = <VideoBlock block={block} />
+      break
+    case "embed":
+      content = <EmbedBlock block={block} />
+      break
+    case "cta":
+      content = <CtaBlock block={block} />
+      break
+    case "snippet":
+      content = <SnippetBlock block={block} snippets={snippets} note={snippetsNote} />
+      break
+    case "hr":
+      content = (
+        <div
+          tabIndex={0}
+          data-hr={block.id}
+          aria-label="Divider"
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" || e.key === "Delete") {
+              e.preventDefault()
+              api.remove(block.id, true)
+            }
+          }}
+          className="rounded-[4px] py-3 outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/50"
+        >
+          <hr className="border-white/[0.14]" />
+        </div>
+      )
+      break
+  }
 
-  const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
-    onChange(blocksRef.current.map(b => b.id === id ? { ...b, ...updates } : b))
-  }, [onChange])
-
-  const deleteBlock = useCallback((id: string) => {
-    onChange(blocksRef.current.filter(b => b.id !== id))
-  }, [onChange])
-
-  const moveUp = useCallback((id: string) => {
-    const i = blocksRef.current.findIndex(b => b.id === id)
-    if (i <= 0) return
-    const updated = [...blocksRef.current]
-    ;[updated[i - 1], updated[i]] = [updated[i], updated[i - 1]]
-    onChange(updated)
-  }, [onChange])
-
-  const moveDown = useCallback((id: string) => {
-    const i = blocksRef.current.findIndex(b => b.id === id)
-    if (i >= blocksRef.current.length - 1) return
-    const updated = [...blocksRef.current]
-    ;[updated[i], updated[i + 1]] = [updated[i + 1], updated[i]]
-    onChange(updated)
-  }, [onChange])
-
-  const uploadImage = useCallback(async (file: File): Promise<string> => {
-    const fd = new FormData()
-    fd.append("file", file)
-    const res = await fetch("/api/admin/blog/upload", { method: "POST", body: fd })
-    const data = await res.json()
-    return data.url || ""
-  }, [])
-
-  // Listen for the custom event to set URL on the last added img block
-  useLayoutEffect(() => {
-    const handler = (e: Event) => {
-      const url = (e as CustomEvent).detail?.url
-      if (!url) return
-      const current = blocksRef.current
-      // Find the last img block without a URL
-      for (let i = current.length - 1; i >= 0; i--) {
-        if (current[i].type === "img" && !current[i].url) {
-          onChange(current.map((b, idx) => idx === i ? { ...b, url } : b))
-          break
-        }
-      }
-    }
-    window.addEventListener("blog-editor-set-last-img", handler)
-    return () => window.removeEventListener("blog-editor-set-last-img", handler)
-  }, [onChange])
-
-  // Drag-and-drop images onto the entire editor
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes("Files")) {
-      e.preventDefault()
-      setDragOver(true)
-    }
-  }, [])
-
-  const handleDragLeave = useCallback(() => setDragOver(false), [])
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"))
-    for (const file of files) {
-      const url = await uploadImage(file)
-      if (url) {
-        const id = addBlock("img")
-        // Short delay then set URL
-        setTimeout(() => {
-          onChange(blocksRef.current.map(b => b.id === id ? { ...b, url } : b))
-        }, 30)
-      }
-    }
-  }, [uploadImage, addBlock, onChange])
+  const spacing = first ? "" : block.type === "h2" ? "pt-7" : block.type === "h3" ? "pt-5" : TEXT_TYPES.has(block.type) && block.type !== "callout" ? "pt-2" : LIST_TYPES.has(block.type) ? "pt-2" : "pt-4"
+  const handleTop = block.type === "h2" ? (first ? 2 : 30) : block.type === "h3" ? (first ? 0 : 20) : first ? 0 : TEXT_TYPES.has(block.type) || LIST_TYPES.has(block.type) ? 8 : 16
 
   return (
     <div
-      className={`space-y-2 relative ${dragOver ? "ring-2 ring-blue-400 ring-offset-2 rounded-xl" : ""}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      ref={rowRef}
+      data-block={block.id}
+      data-type={block.type}
+      onDragOver={(e) => {
+        if (!dragging) return
+        e.preventDefault()
+        const r = rowRef.current!.getBoundingClientRect()
+        onDragOverId(block.id, e.clientY < r.top + r.height / 2 ? "before" : "after")
+      }}
+      onDrop={(e) => {
+        if (!dragging) return
+        e.preventDefault()
+        onDropId(block.id)
+      }}
+      className={cx("group/block relative", spacing)}
     >
-      {/* Drag-and-drop overlay */}
-      {dragOver && (
-        <div className="absolute inset-0 z-30 bg-blue-50/80 rounded-xl flex items-center justify-center pointer-events-none">
-          <div className="text-blue-600 font-medium text-sm flex items-center gap-2">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            Drop image here to insert
-          </div>
-        </div>
-      )}
-
-      {blocks.length === 0 && (
-        <div className="text-center py-12 text-neutral-300">
-          <svg className="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-          <p className="text-sm">No content yet. Add your first block below.</p>
-          <p className="text-xs mt-1 text-neutral-300">You can also drag &amp; drop images anywhere here.</p>
-        </div>
-      )}
-
-      {blocks.map((block, index) => (
-        <div key={block.id}>
-          {/* Inline inserter before each block */}
-          <InlineInserter
-            onAdd={(type) => addBlock(type, index - 1)}
-            onUpload={uploadImage}
-          />
-
-          <div className="rounded-xl border border-transparent hover:border-neutral-100 p-3 transition-colors">
-            <BlockItem
-              block={block}
-              index={index}
-              total={blocks.length}
-              onChange={updateBlock}
-              onDelete={deleteBlock}
-              onMoveUp={moveUp}
-              onMoveDown={moveDown}
-              onUpload={uploadImage}
-            />
-          </div>
-        </div>
-      ))}
-
-      {/* Bottom inserter + full Add Block menu */}
-      <InlineInserter
-        onAdd={(type) => addBlock(type)}
-        onUpload={uploadImage}
-      />
-
-      <div className="pt-2">
-        <AddBlockMenu onAdd={(type) => addBlock(type)} />
+      {drop ? <div aria-hidden className={cx("pointer-events-none absolute -left-2 -right-2 z-10 h-[2px] rounded-full bg-[#8b5cf6]", drop === "before" ? "top-0" : "-bottom-[1px]")} /> : null}
+      <div className="absolute -left-7 z-20 sm:-left-9" style={{ top: handleTop }}>
+        <button
+          type="button"
+          draggable
+          aria-label={`Block ${index + 1} of ${count}: move, duplicate or delete`}
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "move"
+            e.dataTransfer.setData("text/plain", "")
+            if (rowRef.current) e.dataTransfer.setDragImage(rowRef.current, 16, 16)
+            onDragStartId(block.id)
+          }}
+          onDragEnd={() => onDragStartId(null)}
+          onClick={() => setMenu((m) => !m)}
+          className={cx(
+            "flex h-7 w-6 cursor-grab items-center justify-center rounded-[6px] text-[#6b6b76] outline-none transition-opacity hover:bg-white/[0.06] hover:text-[#ededf0] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 active:cursor-grabbing",
+            menu ? "bg-white/[0.06] opacity-100" : "opacity-50 sm:opacity-0 sm:group-hover/block:opacity-100 sm:group-focus-within/block:opacity-100",
+          )}
+        >
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden>
+            <circle cx="2.5" cy="2.5" r="1.3" />
+            <circle cx="7.5" cy="2.5" r="1.3" />
+            <circle cx="2.5" cy="7" r="1.3" />
+            <circle cx="7.5" cy="7" r="1.3" />
+            <circle cx="2.5" cy="11.5" r="1.3" />
+            <circle cx="7.5" cy="11.5" r="1.3" />
+          </svg>
+        </button>
+        {menu ? <BlockMenu block={block} index={index} count={count} onClose={() => setMenu(false)} /> : null}
       </div>
+      {content}
     </div>
+  )
+})
+
+function BlockMenu({ block, index, count, onClose }: { block: Block; index: number; count: number; onClose: () => void }) {
+  const api = useApi()
+  const ref = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const away = (e: MouseEvent) => {
+      if (!ref.current?.parentElement?.contains(e.target as Node)) onClose()
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("mousedown", away)
+    document.addEventListener("keydown", esc)
+    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus()
+    return () => {
+      document.removeEventListener("mousedown", away)
+      document.removeEventListener("keydown", esc)
+    }
+  }, [onClose])
+  const turnable = TEXT_TYPES.has(block.type) || LIST_TYPES.has(block.type)
+  const item = "flex h-8 w-full items-center justify-between gap-6 rounded-[6px] px-2.5 text-left text-[13px] text-[#ededf0] outline-none hover:bg-white/[0.06] focus-visible:bg-white/[0.08] disabled:opacity-40"
+  const kbd = "text-[11px] text-[#6b6b76]"
+  const alt = isMac() ? "⌥" : "Alt "
+  const cmd = isMac() ? "⌘" : "Ctrl "
+  const act = (fn: () => void) => () => {
+    onClose()
+    fn()
+  }
+  return (
+    <div ref={ref} role="menu" className="absolute left-0 top-8 z-30 w-[230px] rounded-[10px] border border-white/[0.1] bg-[#17171d] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+      <button role="menuitem" type="button" className={item} disabled={index === 0} onClick={act(() => api.move(block.id, -1))}>
+        Move up <span className={kbd}>{alt}↑</span>
+      </button>
+      <button role="menuitem" type="button" className={item} disabled={index === count - 1} onClick={act(() => api.move(block.id, 1))}>
+        Move down <span className={kbd}>{alt}↓</span>
+      </button>
+      <button role="menuitem" type="button" className={item} onClick={act(() => api.duplicate(block.id))}>
+        Duplicate <span className={kbd}>{cmd}D</span>
+      </button>
+      {turnable ? (
+        <>
+          <p className="px-2.5 pb-1 pt-2 text-[11px] text-[#6b6b76]">Turn into</p>
+          <div className="flex flex-wrap gap-1 px-1.5 pb-1.5">
+            {(["p", "h2", "h3", "ul", "ol", "quote", "callout"] as BlockType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="menuitem"
+                disabled={t === block.type}
+                onClick={act(() => api.convert(block.id, t))}
+                className="h-7 rounded-[6px] border border-white/[0.08] px-2 text-[12px] text-[#c9c9d1] outline-none hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 disabled:border-[#8b5cf6]/50 disabled:text-[#ededf0]"
+              >
+                {MENU.find((m) => m.type === t)?.label.replace(" list", "")}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <div className="my-1 h-px bg-white/[0.08]" />
+      <button role="menuitem" type="button" className={cx(item, "text-[#f47067]")} onClick={act(() => api.remove(block.id, true))}>
+        Delete
+      </button>
+    </div>
+  )
+}
+
+/* ── The "/" menu ─────────────────────────────────────────────────────── */
+
+function SlashMenu({ state, onPick, onHover }: { state: { query: string; index: number; rect: DOMRect }; onPick: (t: BlockType) => void; onHover: (i: number) => void }) {
+  const items = menuMatches(state.query)
+  const listRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    listRef.current?.querySelector(`[data-i="${state.index}"]`)?.scrollIntoView({ block: "nearest" })
+  }, [state.index])
+  const below = state.rect.bottom + 330 < window.innerHeight
+  const top = below ? state.rect.bottom + 6 : Math.max(8, state.rect.top - 326)
+  const left = Math.max(8, Math.min(state.rect.left, window.innerWidth - 288))
+  return (
+    <div
+      role="listbox"
+      aria-label="Insert a block"
+      ref={listRef}
+      style={{ position: "fixed", top, left }}
+      className="z-40 max-h-[320px] w-[280px] overflow-y-auto rounded-[10px] border border-white/[0.1] bg-[#17171d] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
+    >
+      {items.length ? (
+        items.map((m, i) => (
+          <button
+            key={m.type}
+            data-i={i}
+            type="button"
+            role="option"
+            aria-selected={i === state.index}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              onPick(m.type)
+            }}
+            onMouseEnter={() => onHover(i)}
+            className={cx("flex w-full flex-col items-start rounded-[6px] px-2.5 py-1.5 text-left outline-none", i === state.index ? "bg-white/[0.08]" : "")}
+          >
+            <span className="text-[13px] text-[#ededf0]">{m.label}</span>
+            {m.hint ? <span className="text-[11px] leading-4 text-[#6b6b76]">{m.hint}</span> : null}
+          </button>
+        ))
+      ) : (
+        <p className="px-2.5 py-2 text-[12px] text-[#6b6b76]">No block called “{state.query}”</p>
+      )}
+    </div>
+  )
+}
+
+/* ── The bar over selected text, and the link editor ──────────────────── */
+
+function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }) {
+  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null)
+  const [mode, setMode] = React.useState<"format" | "link" | "bubble">("format")
+  const [href, setHref] = React.useState("")
+  const [blank, setBlank] = React.useState(false)
+  const [active, setActive] = React.useState<Record<string, boolean>>({})
+  const saved = React.useRef<Range | null>(null)
+  const anchor = React.useRef<HTMLAnchorElement | null>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const modeRef = React.useRef(mode)
+  React.useEffect(() => {
+    modeRef.current = mode
+  }, [mode])
+
+  const editableOf = React.useCallback(
+    (n: Node | null): HTMLElement | null => {
+      while (n && n !== root.current) {
+        if (n instanceof HTMLElement && n.dataset.rt) return n
+        n = n.parentNode
+      }
+      return null
+    },
+    [root],
+  )
+  const linkOf = React.useCallback(
+    (n: Node | null): HTMLAnchorElement | null => {
+      while (n && n !== root.current) {
+        if (n instanceof HTMLAnchorElement) return n
+        if (n instanceof HTMLElement && n.dataset.rt) return null
+        n = n.parentNode
+      }
+      return null
+    },
+    [root],
+  )
+
+  const openLink = React.useCallback(() => {
+    const sel = window.getSelection()
+    if (!sel || !sel.rangeCount || !editableOf(sel.anchorNode)) return
+    saved.current = sel.getRangeAt(0).cloneRange()
+    const link = linkOf(sel.anchorNode)
+    anchor.current = link
+    setHref(link?.getAttribute("href") ?? "")
+    setBlank(link?.target === "_blank")
+    const rect = (link ?? saved.current).getBoundingClientRect()
+    setPos({ top: rect.top - 44, left: rect.left + rect.width / 2 })
+    setMode("link")
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }, [editableOf, linkOf])
+
+  React.useEffect(() => {
+    const onSel = () => {
+      if (modeRef.current === "link") return
+      const sel = window.getSelection()
+      if (!sel || !sel.rangeCount || !editableOf(sel.anchorNode)) return setPos(null)
+      const range = sel.getRangeAt(0)
+      const link = linkOf(sel.anchorNode)
+      if (sel.isCollapsed && !link) return setPos(null)
+      const rect = sel.isCollapsed && link ? link.getBoundingClientRect() : range.getBoundingClientRect()
+      if (!rect.width && !rect.height) return setPos(null)
+      anchor.current = link
+      setMode(sel.isCollapsed ? "bubble" : "format")
+      setActive({ bold: document.queryCommandState("bold"), italic: document.queryCommandState("italic"), underline: document.queryCommandState("underline"), strikeThrough: document.queryCommandState("strikeThrough") })
+      setPos({ top: rect.top - 44, left: rect.left + rect.width / 2 })
+    }
+    document.addEventListener("selectionchange", onSel)
+    window.addEventListener("blog-editor:link", openLink)
+    return () => {
+      document.removeEventListener("selectionchange", onSel)
+      window.removeEventListener("blog-editor:link", openLink)
+    }
+  }, [editableOf, linkOf, openLink])
+
+  function syncFrom(n: Node | null) {
+    const el = editableOf(n)
+    if (el) el.dispatchEvent(new Event("input", { bubbles: true }))
+  }
+
+  function restore() {
+    const sel = window.getSelection()
+    if (saved.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(saved.current)
+    }
+  }
+
+  function close() {
+    setPos(null)
+    setMode("format")
+  }
+
+  function applyLink() {
+    const url = safeHref(href.trim())
+    restore()
+    let link = anchor.current
+    if (!url) return close()
+    if (link) link.setAttribute("href", url)
+    else {
+      document.execCommand("createLink", false, url)
+      const n = window.getSelection()?.anchorNode ?? null
+      link = linkOf(n) ?? ((n instanceof Element ? n : n?.parentElement)?.querySelector?.(`a[href="${CSS.escape(url)}"]`) as HTMLAnchorElement | null)
+    }
+    if (link) {
+      if (blank) link.setAttribute("target", "_blank")
+      else link.removeAttribute("target")
+    }
+    syncFrom(saved.current?.startContainer ?? null)
+    close()
+  }
+
+  function removeLink() {
+    const link = anchor.current
+    if (!link?.parentNode) return close()
+    const host = link.parentNode
+    while (link.firstChild) host.insertBefore(link.firstChild, link)
+    host.removeChild(link)
+    syncFrom(host)
+    close()
+  }
+
+  if (!pos) return null
+  const btn = (on?: boolean) => cx("flex h-8 min-w-8 items-center justify-center rounded-[6px] px-2 text-[13px] outline-none hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70", on ? "text-[#c4b5fd]" : "text-[#ededf0]")
+  const cmd = isMac() ? "⌘" : "Ctrl "
+  const run = (c: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (c === "code") toggleInlineCode()
+    else document.execCommand(c)
+    syncFrom(window.getSelection()?.anchorNode ?? null)
+    setActive((a) => ({ ...a, [c]: !a[c] }))
+  }
+  const width = mode === "link" ? 360 : mode === "bubble" ? 300 : 250
+  return (
+    <div
+      role="toolbar"
+      aria-label="Text"
+      onMouseDown={(e) => {
+        if (mode !== "link") e.preventDefault()
+      }}
+      style={{ position: "fixed", top: Math.max(8, pos.top), left: Math.max(8, Math.min(pos.left - width / 2, window.innerWidth - width - 8)) }}
+      className="z-40 flex items-center gap-0.5 rounded-[9px] border border-white/[0.12] bg-[#17171d] p-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+    >
+      {mode === "format" ? (
+        <>
+          <button type="button" title={`Bold (${cmd}B)`} aria-pressed={active.bold} onMouseDown={run("bold")} className={cx(btn(active.bold), "font-bold")}>B</button>
+          <button type="button" title={`Italic (${cmd}I)`} aria-pressed={active.italic} onMouseDown={run("italic")} className={cx(btn(active.italic), "italic")}>I</button>
+          <button type="button" title={`Underline (${cmd}U)`} aria-pressed={active.underline} onMouseDown={run("underline")} className={cx(btn(active.underline), "underline underline-offset-2")}>U</button>
+          <button type="button" title={`Strike (${cmd}Shift S)`} aria-pressed={active.strikeThrough} onMouseDown={run("strikeThrough")} className={cx(btn(active.strikeThrough), "line-through")}>S</button>
+          <button type="button" title={`Code (${cmd}E)`} onMouseDown={run("code")} className={cx(btn(), "font-mono text-[12px]")}>{"</>"}</button>
+          <span aria-hidden className="mx-0.5 h-4 w-px bg-white/[0.12]" />
+          <button type="button" title={`Link (${cmd}K)`} onMouseDown={(e) => { e.preventDefault(); openLink() }} className={btn(Boolean(anchor.current))}>Link</button>
+        </>
+      ) : mode === "bubble" ? (
+        <>
+          <a href={anchor.current?.getAttribute("href") ?? "#"} target="_blank" rel="noopener noreferrer" className="max-w-[170px] truncate px-2 text-[12px] text-[#c4b5fd] underline underline-offset-2">
+            {anchor.current?.getAttribute("href")}
+          </a>
+          <button type="button" onMouseDown={(e) => { e.preventDefault(); openLink() }} className={btn()}>Edit</button>
+          <button type="button" onMouseDown={(e) => { e.preventDefault(); removeLink() }} className={btn()}>Remove</button>
+        </>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            applyLink()
+          }}
+          className="flex items-center gap-1 p-0.5"
+        >
+          <input
+            ref={inputRef}
+            value={href}
+            onChange={(e) => setHref(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault()
+                restore()
+                close()
+              }
+            }}
+            placeholder="https://… or /pricing"
+            aria-label="Link address"
+            className="h-8 w-[160px] rounded-[6px] bg-[#0b0b0f] px-2 text-[13px] text-[#ededf0] outline-none placeholder:text-[#5c5c66]"
+          />
+          <label className="flex items-center gap-1 px-1 text-[11px] text-[#9b9ba6]">
+            <input type="checkbox" checked={blank} onChange={(e) => setBlank(e.target.checked)} className="accent-[#8b5cf6]" />
+            New tab
+          </label>
+          <button type="submit" className={btn()}>Apply</button>
+          {anchor.current ? <button type="button" onClick={removeLink} className={btn()}>Remove</button> : null}
+        </form>
+      )}
+    </div>
+  )
+}
+
+/* ── The editor ───────────────────────────────────────────────────────── */
+
+export default function BlogEditor({
+  blocks,
+  onChange,
+  onUpload,
+  snippets = [],
+  snippetsNote,
+}: {
+  blocks: Block[]
+  onChange: (blocks: Block[]) => void
+  /** Uploads one picture and answers its address; throws with a reason the editor shows. */
+  onUpload: (file: File) => Promise<string>
+  snippets?: SnippetOption[]
+  /** Set when the snippet library is off (before SQL part 345): said where a snippet would be picked. */
+  snippetsNote?: string | null
+}) {
+  const root = React.useRef<HTMLDivElement>(null)
+  const blocksRef = React.useRef(blocks)
+  const onChangeRef = React.useRef(onChange)
+  const uploadRef = React.useRef(onUpload)
+  React.useLayoutEffect(() => {
+    blocksRef.current = blocks
+    onChangeRef.current = onChange
+    uploadRef.current = onUpload
+  })
+  const focusReq = React.useRef<{ id: string; where: "start" | "end" | number } | null>(null)
+  const syncs = React.useRef(new Map<string, () => void>())
+  const [slash, setSlash] = React.useState<{ id: string; query: string; index: number; rect: DOMRect } | null>(null)
+  const slashRef = React.useRef(slash)
+  React.useLayoutEffect(() => {
+    slashRef.current = slash
+  }, [slash])
+  const [uploading, setUploading] = React.useState<ReadonlySet<string>>(new Set())
+  const [uploadError, setUploadError] = React.useState<string | null>(null)
+  const [dragId, setDragId] = React.useState<string | null>(null)
+  const [dropAt, setDropAt] = React.useState<{ id: string; pos: "before" | "after" } | null>(null)
+
+  const commit = React.useCallback((next: Block[]) => {
+    blocksRef.current = next
+    onChangeRef.current(next)
+  }, [])
+
+  const applyFocus = React.useCallback(() => {
+    const req = focusReq.current
+    if (!req) return
+    const row = root.current?.querySelector<HTMLElement>(`[data-block="${req.id}"]`)
+    if (!row) return
+    focusReq.current = null
+    const rt = row.querySelector<HTMLElement>("[data-rt]")
+    if (!rt) {
+      row.querySelector<HTMLElement>("input, textarea, select, [data-hr]")?.focus()
+      return
+    }
+    if (typeof req.where === "number") {
+      rt.focus()
+      const walker = document.createTreeWalker(rt, NodeFilter.SHOW_TEXT)
+      let left = req.where
+      let node = walker.nextNode()
+      while (node && left > (node.nodeValue ?? "").length) {
+        left -= (node.nodeValue ?? "").length
+        node = walker.nextNode()
+      }
+      const sel = window.getSelection()
+      if (node && sel) {
+        const r = document.createRange()
+        r.setStart(node, Math.min(left, (node.nodeValue ?? "").length))
+        r.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(r)
+      } else placeCaret(rt, "end")
+      return
+    }
+    const target = rt.tagName === "UL" || rt.tagName === "OL" ? ((req.where === "start" ? rt.firstElementChild : rt.lastElementChild) as HTMLElement | null) ?? rt : rt
+    if (target !== rt) rt.focus()
+    placeCaret(target, req.where)
+  }, [])
+
+  const pickSlash = React.useCallback(
+    (type: BlockType) => {
+      const s = slashRef.current
+      if (!s) return
+      setSlash(null)
+      const fresh = blankBlock(type)
+      const next = blocksRef.current.map((b) => (b.id === s.id ? fresh : b))
+      focusReq.current = { id: fresh.id, where: "start" }
+      if (type === "hr") {
+        const p = blankBlock("p")
+        next.splice(next.findIndex((b) => b.id === fresh.id) + 1, 0, p)
+        focusReq.current = { id: p.id, where: "start" }
+      }
+      commit(next)
+    },
+    [commit],
+  )
+
+  const api = React.useMemo<EditorApi>(() => {
+    const at = (id: string) => blocksRef.current.findIndex((b) => b.id === id)
+    return {
+      update: (id, patch) => {
+        const list = blocksRef.current
+        const i = at(id)
+        if (i < 0) return
+        const cur = list[i] as unknown as Record<string, unknown>
+        if (Object.entries(patch).every(([k, v]) => JSON.stringify(cur[k]) === JSON.stringify(v))) return
+        const next = list.slice()
+        next[i] = { ...list[i], ...patch }
+        commit(next)
+      },
+      insertAfter: (id, add, focus = "start") => {
+        if (!add.length) return
+        const list = blocksRef.current.slice()
+        const i = id ? list.findIndex((b) => b.id === id) : list.length - 1
+        list.splice(i + 1, 0, ...add)
+        focusReq.current = { id: (focus === "end" ? add[add.length - 1] : add[0]).id, where: focus }
+        commit(list)
+      },
+      replaceWith: (id, add, focus = "start") => {
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        if (i < 0) return
+        list.splice(i, 1, ...add)
+        if (!list.length) list.push(blankBlock("p"))
+        focusReq.current = { id: (focus === "end" ? add[add.length - 1] : add[0])?.id ?? list[0].id, where: focus }
+        commit(list)
+      },
+      remove: (id, focusPrev) => {
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        if (i < 0) return
+        list.splice(i, 1)
+        if (!list.length) list.push(blankBlock("p"))
+        const target = list[Math.max(0, i - 1)]
+        if (focusPrev && target) focusReq.current = { id: target.id, where: i === 0 ? "start" : "end" }
+        commit(list)
+      },
+      move: (id, dir) => {
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        const j = i + dir
+        if (i < 0 || j < 0 || j >= list.length) return
+        ;[list[i], list[j]] = [list[j], list[i]]
+        commit(list)
+        requestAnimationFrame(() => root.current?.querySelector<HTMLElement>(`[data-block="${id}"]`)?.scrollIntoView({ block: "nearest" }))
+      },
+      duplicate: (id) => {
+        syncs.current.get(id)?.()
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        if (i < 0) return
+        const copy = { ...(JSON.parse(JSON.stringify(list[i])) as Block), id: newBlockId() }
+        delete copy.anchor
+        list.splice(i + 1, 0, copy)
+        focusReq.current = { id: copy.id, where: "end" }
+        commit(list)
+      },
+      convert: (id, type) => {
+        syncs.current.get(id)?.()
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        if (i < 0) return
+        const cur = list[i]
+        const fresh: Block = { ...blankBlock(type), id: cur.id }
+        if (TEXT_TYPES.has(type)) fresh.html = cur.html ?? (cur.items ?? []).filter(Boolean).join("<br>")
+        if (LIST_TYPES.has(type)) fresh.items = cur.items ?? (cur.html ? cur.html.split(/<br\s*\/?>/) : [""])
+        list[i] = fresh
+        focusReq.current = { id: cur.id, where: "end" }
+        commit(list)
+      },
+      mergeIntoPrevious: (id, html) => {
+        const list = blocksRef.current
+        const i = at(id)
+        const prev = list[i - 1]
+        if (!prev || !TEXT_TYPES.has(prev.type)) return false
+        const before = prev.html ?? ""
+        const next = list.slice()
+        next[i - 1] = { ...prev, html: before + html }
+        next.splice(i, 1)
+        /* The caret goes where the two lines meet: the length of the line above, in characters. */
+        const box = document.createElement("div")
+        box.innerHTML = before
+        focusReq.current = { id: prev.id, where: (box.textContent ?? "").length }
+        commit(next)
+        return true
+      },
+      focusNeighbour: (id, dir) => {
+        const n = blocksRef.current[at(id) + dir]
+        if (!n) return false
+        focusReq.current = { id: n.id, where: dir < 0 ? "end" : "start" }
+        applyFocus()
+        return true
+      },
+      openSlash: (id, query, rect) => setSlash((s) => ({ id, query, index: s && s.id === id && s.query === query ? s.index : 0, rect })),
+      closeSlash: () => setSlash((s) => (s ? null : s)),
+      slashKey: (e) => {
+        const s = slashRef.current
+        if (!s) return false
+        const items = menuMatches(s.query)
+        const n = Math.max(1, items.length)
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault()
+          setSlash({ ...s, index: (s.index + (e.key === "ArrowDown" ? 1 : -1) + n) % n })
+          return true
+        }
+        if ((e.key === "Enter" || e.key === "Tab") && items.length) {
+          e.preventDefault()
+          pickSlash(items[Math.min(s.index, items.length - 1)].type)
+          return true
+        }
+        if (e.key === "Escape") {
+          e.preventDefault()
+          setSlash(null)
+          return true
+        }
+        return false
+      },
+      uploadInto: (id, file) => {
+        setUploading((u) => new Set(u).add(id))
+        setUploadError(null)
+        uploadRef
+          .current(file)
+          .then((url) => {
+            const list = blocksRef.current
+            const i = list.findIndex((b) => b.id === id)
+            if (i < 0) return
+            const next = list.slice()
+            next[i] = { ...list[i], url }
+            commit(next)
+          })
+          .catch((e: Error) => setUploadError(e.message || "The picture could not be uploaded."))
+          .finally(() =>
+            setUploading((u) => {
+              const n = new Set(u)
+              n.delete(id)
+              return n
+            }),
+          )
+      },
+      registerSync: (id, fn) => {
+        syncs.current.set(id, fn)
+        return () => {
+          if (syncs.current.get(id) === fn) syncs.current.delete(id)
+        }
+      },
+    }
+  }, [commit, pickSlash, applyFocus])
+
+  React.useLayoutEffect(() => {
+    applyFocus()
+  })
+
+  /* Keys that act on the block the caret is in, wherever in it. */
+  function onKeyDownCapture(e: React.KeyboardEvent) {
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-block]")
+    if (!row || !root.current?.contains(row)) return
+    const id = row.dataset.block!
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault()
+      syncs.current.get(id)?.()
+      api.move(id, e.key === "ArrowUp" ? -1 : 1)
+      return
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "d") {
+      e.preventDefault()
+      api.duplicate(id)
+    }
+  }
+
+  const onDragStartId = React.useCallback((id: string | null) => {
+    setDragId(id)
+    if (!id) setDropAt(null)
+  }, [])
+  const onDragOverId = React.useCallback((id: string, pos: "before" | "after") => setDropAt((d) => (d?.id === id && d.pos === pos ? d : { id, pos })), [])
+  const dropRef = React.useRef(dropAt)
+  React.useLayoutEffect(() => {
+    dropRef.current = dropAt
+  }, [dropAt])
+  const dragRef = React.useRef(dragId)
+  React.useLayoutEffect(() => {
+    dragRef.current = dragId
+  }, [dragId])
+  const onDropId = React.useCallback(
+    (id: string) => {
+      const from = dragRef.current
+      const pos = dropRef.current?.pos ?? "before"
+      setDragId(null)
+      setDropAt(null)
+      if (!from || from === id) return
+      const list = blocksRef.current.slice()
+      const moving = list.splice(list.findIndex((x) => x.id === from), 1)[0]
+      list.splice(list.findIndex((x) => x.id === id) + (pos === "after" ? 1 : 0), 0, moving)
+      commit(list)
+    },
+    [commit],
+  )
+
+  return (
+    <ApiContext.Provider value={api}>
+      <div ref={root} onKeyDownCapture={onKeyDownCapture} className="relative" data-blog-editor>
+        {uploadError ? (
+          <p role="alert" className="mb-3 rounded-[8px] border border-[#f47067]/40 px-3 py-2 text-[13px] text-[#f47067]">
+            {uploadError}
+          </p>
+        ) : null}
+        {blocks.map((b, i) => (
+          <BlockRow
+            key={b.id}
+            block={b}
+            index={i}
+            count={blocks.length}
+            uploading={uploading.has(b.id)}
+            snippets={snippets}
+            snippetsNote={snippetsNote}
+            dragging={Boolean(dragId)}
+            drop={dragId && dropAt?.id === b.id && dragId !== b.id ? dropAt.pos : null}
+            onDragStartId={onDragStartId}
+            onDragOverId={onDragOverId}
+            onDropId={onDropId}
+          />
+        ))}
+        <button
+          type="button"
+          onClick={() => {
+            const last = blocksRef.current[blocksRef.current.length - 1]
+            if (last && last.type === "p" && !(last.html ?? "").trim()) {
+              focusReq.current = { id: last.id, where: "start" }
+              applyFocus()
+              return
+            }
+            api.insertAfter(null, [blankBlock("p")])
+          }}
+          aria-label="Add a line at the end"
+          className="mt-2 block min-h-[96px] w-full cursor-text outline-none"
+        />
+        {slash ? <SlashMenu state={slash} onPick={pickSlash} onHover={(i) => setSlash((s) => (s ? { ...s, index: i } : s))} /> : null}
+        <SelectionBar root={root} />
+      </div>
+    </ApiContext.Provider>
   )
 }

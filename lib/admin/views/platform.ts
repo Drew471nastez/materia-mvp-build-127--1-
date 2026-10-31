@@ -1,6 +1,8 @@
 import "server-only"
 
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { buildAiFunnel, signupAiSource, type AiFunnel, type SignupRow } from "@/lib/attribution/ai-funnel"
+import { ENTITLED_STATUSES } from "@/lib/billing/subscription-state"
 
 import type { AudiencePayload, AuditPayload, DomainRow, EmailPayload, PeoplePayload, SiteRow, WebsitesPayload } from "../types"
 import { Reader, UUID_RE, distinct, isoDaysAgo, isoMinutesAgo, searchText } from "../platform-metrics"
@@ -153,8 +155,8 @@ export async function email(r: Reader): Promise<Omit<EmailPayload, "problems" | 
 export async function audience(r: Reader): Promise<Omit<AudiencePayload, "problems" | "notices">> {
   const since = isoDaysAgo(30)
   const [views, live, orders] = await Promise.all([
-    r.rows<{ created_at: string; visitor_id: string | null; source_category: string | null; country_code: string | null; country_name: string | null }>(
-      "views, 30 days", "analytics_events", "created_at, visitor_id, source_category, country_code, country_name",
+    r.rows<{ created_at: string; visitor_id: string | null; source_category: string | null; country_code: string | null; country_name: string | null; referrer_domain: string | null; utm_source: string | null }>(
+      "views, 30 days", "analytics_events", "created_at, visitor_id, source_category, country_code, country_name, referrer_domain, utm_source",
       (q) => q.eq("event_type", "view").gte("created_at", since).order("created_at", { ascending: false }).limit(50000)),
     r.rows<{ visitor_id: string | null }>("live now", "analytics_events", "visitor_id", (q) =>
       q.eq("event_type", "view").gte("created_at", isoMinutesAgo(5)).limit(5000)),
@@ -162,6 +164,7 @@ export async function audience(r: Reader): Promise<Omit<AudiencePayload, "proble
       "orders by country", "orders", "buyer_country, buyer_country_code, amount_cents", (q) => q.eq("status", "completed").gte("created_at", since).limit(20000)),
   ])
   if (views && views.length >= 50000) r.notice("Traffic counts the newest 50,000 page views of the last 30 days.")
+  const ai = await aiAssistants(r, views, since)
 
   const bySource = new Map<string, { views: number; visitors: Set<string> }>()
   const byCountry = new Map<string, { code: string; name: string; views: number; orders: number; gross: number }>()
@@ -193,7 +196,60 @@ export async function audience(r: Reader): Promise<Omit<AudiencePayload, "proble
     visitors30: views ? distinct(views, "visitor_id") : null,
     sources: views ? [...bySource.entries()].map(([name, s]) => ({ name, views: s.views, visitors: s.visitors.size })).sort((a, b) => b.views - a.views).slice(0, 12) : null,
     countries: views || orders ? [...byCountry.values()].sort((a, b) => b.gross - a.gross || b.views - a.views).slice(0, 25) : null,
+    ai,
   }
+}
+
+const missingTable = (e: { code?: string | null; message?: string | null } | null | undefined) =>
+  !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|could not find the table/i.test(e.message ?? ""))
+
+/**
+ * The AI assistants group: the views already read, Storelib's own sign ups
+ * of the same 30 days (part 346), and which of those accounts pay or sell
+ * (lib/attribution/ai-funnel says how each is counted). Without part 346
+ * the views are still shown and a notice says what is missing.
+ */
+async function aiAssistants(r: Reader, views: { visitor_id: string | null; referrer_domain: string | null; utm_source: string | null }[] | null, since: string): Promise<AiFunnel | null> {
+  let signups: SignupRow[] | null = null
+  let signupsAll: number | null = null
+  try {
+    const [list, all] = await Promise.all([
+      r.db
+        .from("account_attribution")
+        .select("user_id, first_ai_source, last_ai_source")
+        .gte("created_at", since)
+        .or("first_ai_source.not.is.null,last_ai_source.not.is.null")
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      r.db.from("account_attribution").select("user_id", { count: "exact", head: true }).gte("created_at", since),
+    ])
+    if (missingTable(list.error) || missingTable(all.error)) r.notice("Sign ups by AI assistant start when supabase/sql/run-now/346_account_attribution.sql has run.")
+    else if (list.error) r.note("AI sign ups", "account_attribution", list.error)
+    else {
+      signups = (list.data ?? []) as SignupRow[]
+      signupsAll = all.error ? null : all.count ?? 0
+    }
+  } catch (e) {
+    r.note("AI sign ups", "account_attribution", e)
+  }
+  const ids = (signups ?? []).filter((s) => signupAiSource(s)).map((s) => s.user_id).slice(0, 1000)
+  const paidUsers = new Set<string>()
+  const saleUsers = new Set<string>()
+  if (ids.length) {
+    const creators = await r.rows<{ id: string; user_id: string | null }>("AI sign ups' stores", "creators", "id, user_id", (q) => q.in("user_id", ids).limit(1000))
+    const byCreator = new Map((creators ?? []).filter((c) => c.user_id).map((c) => [c.id, c.user_id as string]))
+    const creatorIds = [...byCreator.keys()]
+    if (creatorIds.length) {
+      const [subs, sold] = await Promise.all([
+        r.rows<{ creator_id: string; status: string | null }>("AI sign ups' plans", "subscriptions", "creator_id, status", (q) => q.in("creator_id", creatorIds).limit(2000)),
+        r.rows<{ creator_id: string }>("AI sign ups' sales", "products", "creator_id", (q) => q.in("creator_id", creatorIds).gt("sales_count", 0).limit(2000)),
+      ])
+      for (const s of subs ?? []) if (s.status && ENTITLED_STATUSES.has(s.status)) paidUsers.add(byCreator.get(s.creator_id) ?? "")
+      for (const p of sold ?? []) saleUsers.add(byCreator.get(p.creator_id) ?? "")
+    }
+  }
+  if (!views && !signups) return null
+  return buildAiFunnel({ views, signups, signupsAll, paidUsers, saleUsers })
 }
 
 /* ── People: every account, creator or buyer ──────────────────────────── */

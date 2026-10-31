@@ -3,7 +3,8 @@
  *  WHAT THE COMPARISON PAGES SAY ABOUT STORELIB, READ FROM THE CODE
  * ===========================================================================
  * Every number a comparison page prints about Storelib comes from here, and
- * everything here comes from the tables checkout and billing use: the fee
+ * everything here comes from lib/marketing/facts, which reads the tables
+ * checkout and billing use: the fee
  * rules (lib/payments/fees), the plan price (lib/billing/plans), the site
  * limits (lib/sites/plan) and storage (lib/storage/plans). Change a fee and
  * every comparison page, its calculator and its FAQ change with it.
@@ -11,38 +12,33 @@
  * Pure and client safe, so the calculator can import it.
  */
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
-import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
-import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
-import { PRO_PRICE_CENTS, PRO_CHECKOUT_PLAN_ID, formatPlanPrice } from "@/lib/billing/plans"
-import { siteLimits } from "@/lib/sites/plan"
-import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
+import { ratePercentLabel } from "@/lib/payments/fees/config"
+import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
+import { FEES, PLANS, proBreakEvenDollars as factsBreakEven } from "@/lib/marketing/facts"
 import type { Rate, Source } from "./types"
 import { CHECKED_ON } from "./checked"
 
 export type StorelibPlanId = "free" | typeof PRO_CHECKOUT_PLAN_ID
 
-const usd = CURRENCY_FEE_RULES.USD
-const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`
-
-/** The words every page uses for Storelib's plans and fees. */
+/** The words every page uses for Storelib's plans and fees, from lib/marketing/facts (which reads them from the code). */
 export const STORELIB = {
-  proPrice: formatPlanPrice(PRO_PRICE_CENTS),
-  proPriceCents: PRO_PRICE_CENTS,
-  freeRate: ratePercentLabel(FREE_STANDARD_RATE),
-  proRate: ratePercentLabel(PAID_STANDARD_RATE),
-  freeSmallRate: ratePercentLabel(FREE_MICRO_RATE),
-  proSmallRate: ratePercentLabel(PAID_MICRO_RATE),
-  fixed: dollars(usd.fixedFeeMinor),
-  smallOrderBelow: dollars(usd.microThresholdMinor),
+  proPrice: PLANS.pro.price,
+  proPriceCents: PLANS.pro.monthlyCents,
+  freeRate: ratePercentLabel(PLANS.free.rate),
+  proRate: ratePercentLabel(PLANS.pro.rate),
+  freeSmallRate: ratePercentLabel(PLANS.free.smallOrderRate),
+  proSmallRate: ratePercentLabel(PLANS.pro.smallOrderRate),
+  fixed: FEES.fixed,
+  smallOrderBelow: FEES.smallOrderBelow,
   /** "5% + $0.25" */
-  freeFee: `${ratePercentLabel(FREE_STANDARD_RATE)} + ${dollars(usd.fixedFeeMinor)}`,
-  proFee: `${ratePercentLabel(PAID_STANDARD_RATE)} + ${dollars(usd.fixedFeeMinor)}`,
-  freeSites: siteLimits("free").maxSites,
-  proSites: siteLimits(PRO_CHECKOUT_PLAN_ID).maxSites,
-  freeStorage: formatBytes(PLAN_LIMITS.free.storageQuotaBytes),
-  proStorage: formatBytes(PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes),
-  proCustomDomain: siteLimits(PRO_CHECKOUT_PLAN_ID).customDomain,
-  freeCustomDomain: siteLimits("free").customDomain,
+  freeFee: PLANS.free.feeLabel,
+  proFee: PLANS.pro.feeLabel,
+  freeSites: PLANS.free.websites,
+  proSites: PLANS.pro.websites,
+  freeStorage: PLANS.free.storage,
+  proStorage: PLANS.pro.storage,
+  proCustomDomain: PLANS.pro.ownDomain,
+  freeCustomDomain: PLANS.free.ownDomain,
 } as const
 
 /**
@@ -50,8 +46,7 @@ export const STORELIB = {
  * to the next $10, the same sum the pricing page's FAQ does (lib/billing/plans planQuestions).
  */
 export function proBreakEvenDollars(): number {
-  const saved = FREE_STANDARD_RATE - PAID_STANDARD_RATE
-  return saved > 0 ? Math.ceil(PRO_PRICE_CENTS / 100 / saved / 10) * 10 : 0
+  return factsBreakEven()
 }
 
 /** Storelib's fee on one sale of `priceCents` in US dollars, exactly as checkout charges it. */

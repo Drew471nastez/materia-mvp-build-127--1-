@@ -59,7 +59,7 @@ export const stanStore: Competitor = {
     { text: `A free plan with no monthly fee, and Pro at ${STORELIB.proPrice} when the lower rate pays for itself.`, code: "lib/billing/plans.ts" },
     { text: "Email campaigns, automations, discount codes and bundles on every plan.", code: "app/app/emails" },
     { text: "A OnePage for your bio link, a creator page and a website builder, selling the same products.", code: "lib/onepage/address.ts" },
-    { text: "Courses with lessons and progress, and memberships.", code: "app/app/courses" },
+    { text: "Courses with lessons and progress, and paid communities.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and progress." },
   ],
   storelibLimits: [
     { text: "Storelib takes a percentage of each sale. At high volume a flat subscription like Stan's can cost less, and the calculator shows where.", code: "lib/payments/fees/defaults.ts" },
@@ -125,6 +125,11 @@ export const stanStore: Competitor = {
     { title: "Swap the link in your bio", text: "Put your OnePage address in your Instagram, TikTok and YouTube bios, where your Stan link was." },
     { title: "Plan the overlap", text: "If you have monthly members on Stan, keep the account until their current periods end, or tell them how to join on Storelib." },
   ],
+  moving: {
+    products: "There is no Stan import. Add each download as a digital product and each course as a video course, with its lessons in order. Coaching calls have no Storelib equivalent.",
+    customers: "Storelib cannot import customer or email lists. Tell your audience where they already follow you, and let monthly members finish their current period on Stan.",
+    domain: "Your Stan link lives in your bio, so the move is a swap: put storelib.me/yourname there instead. A website on your own domain is on Pro.",
+  },
   faqs: [
     { q: "Is Storelib cheaper than Stan Store?", a: `It depends on how much you sell. Stan is $29 a month with 0% per sale. Storelib Free is $0 a month with ${STORELIB.freeFee} a sale, so it costs less until your sales are high enough for 5% to pass $29. The calculator on this page shows the point for your price.` },
     { q: "Does Storelib have a free plan like Stan's trial?", a: "Storelib Free is a plan, not a trial. It has no monthly fee and no end date, and it asks for no card." },
@@ -134,11 +139,11 @@ export const stanStore: Competitor = {
   ],
   visuals: ["onepage", "course", "dashboard"],
   sources: [
-    { id: "stan-pricing", title: "Stan Store pricing: plans, costs, and what you get", url: "https://stan.store/blog/stan-store-pricing/", publisher: "Stan", checkedOn: on },
+    { id: "stan-pricing", title: "Stan Store pricing: plans, costs, and what you get", url: "https://stan.store/blog/stan-store-pricing/", publisher: "Stan", checkedOn: "2026-10-31" },
     { id: "stan-fees", title: "Stan, Stripe, and PayPal transaction fees (Help Center)", url: "https://help.stan.store/article/83-stan-stripes-transaction-fees", publisher: "Stan", checkedOn: on },
     { id: "stan-plans", title: "Creator vs. Creator Pro (Help Center)", url: "https://help.stan.store/article/31-creator-vs-creator-pro", publisher: "Stan", checkedOn: on },
     { id: "stan-coaching", title: "How to create a coaching call product (Help Center)", url: "https://help.stan.store/article/15-how-to-create-a-coaching-call-product", publisher: "Stan", checkedOn: on },
     { id: "stan-calendar", title: "How to sync your Google Calendar with Stan (Help Center)", url: "https://help.stan.store/article/51-how-to-sync-your-google-calendar-with-stan", publisher: "Stan", checkedOn: on },
   ],
-  updated: on,
+  updated: "2026-10-31",
 }

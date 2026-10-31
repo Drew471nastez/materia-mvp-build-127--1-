@@ -50,7 +50,7 @@ export const gumroad: Competitor = {
   storelibStrengths: [
     { text: `${STORELIB.freeFee} a sale on Free, ${STORELIB.proFee} on Pro, and a lower rate with no fixed part under ${STORELIB.smallOrderBelow}.`, code: "lib/payments/fees/config.ts" },
     { text: "A website builder, a creator page and a OnePage, all selling the same products.", code: "lib/sites/plan.ts" },
-    { text: "Courses with lessons and progress, and memberships with recurring plans.", code: "app/app/courses" },
+    { text: "Courses with lessons and progress, and paid communities billed monthly or yearly.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and each student's progress." },
     { text: "Email campaigns and automations to your buyers and subscribers.", code: "app/app/emails" },
   ],
   storelibLimits: [
@@ -122,6 +122,11 @@ export const gumroad: Competitor = {
     label: "Import from Gumroad",
     text: "Storelib can bring your Gumroad products in for you: paste a Gumroad access token and each digital product arrives as a draft, ready for its files.",
   },
+  moving: {
+    products: "Storelib's Gumroad import brings your digital products in as drafts. Upload each product's files again, check the price and publish. Memberships and bundles are added by hand.",
+    customers: "Buyers and subscribers are not moved: Storelib has no import for customer or email lists. Send one last email from Gumroad with your new links, and keep Gumroad open until past buyers have their files.",
+    domain: "A domain pointed at Gumroad moves when you change its DNS records to the ones Storelib shows in Settings, Domains, on Pro. Without a domain, your OnePage at storelib.me/yourname is your new link.",
+  },
   faqs: [
     { q: "Is Storelib cheaper than Gumroad?", a: `For most sales, yes. Gumroad takes 10% + 50¢ of a direct sale. Storelib takes ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, which costs ${STORELIB.proPrice} a month. Card processing applies on both. Gumroad's fee also covers sales tax as merchant of record, which Storelib does not do, so weigh that if you sell to many countries.` },
     { q: "Does Storelib charge more for marketplace sales like Gumroad Discover?", a: "No. Storelib's fee is worked out from the price and your plan only. A sale from Explore pays the same as a sale from your own link." },
@@ -131,7 +136,7 @@ export const gumroad: Competitor = {
   ],
   visuals: ["dashboard", "creator", "course"],
   sources: [
-    { id: "gumroad-pricing", title: "Gumroad pricing", url: "https://gumroad.com/pricing", publisher: "Gumroad", checkedOn: on },
+    { id: "gumroad-pricing", title: "Gumroad pricing", url: "https://gumroad.com/pricing", publisher: "Gumroad", checkedOn: "2026-10-31" },
     { id: "gumroad-fees", title: "Gumroad's fees (Help Center)", url: "https://gumroad.com/help/article/66-gumroads-fees", publisher: "Gumroad", checkedOn: on },
     { id: "gumroad-mor", title: "Gumroad is becoming a Merchant of Record", url: "https://gumroad.gumroad.com/p/gumroad-is-becoming-a-merchant-of-record-more-updates", publisher: "Gumroad", checkedOn: on },
     { id: "gumroad-tax", title: "Sales tax on Gumroad (Help Center)", url: "https://gumroad.com/help/article/121-sales-tax-on-gumroad", publisher: "Gumroad", checkedOn: on },
@@ -141,5 +146,5 @@ export const gumroad: Competitor = {
     { id: "gumroad-domain", title: "Setting up a custom domain (Help Center)", url: "https://help.gumroad.com/article/153-setting-up-a-custom-domain", publisher: "Gumroad", checkedOn: on },
     { id: "gumroad-features", title: "Gumroad features", url: "https://gumroad.com/features", publisher: "Gumroad", checkedOn: on },
   ],
-  updated: on,
+  updated: "2026-10-31",
 }

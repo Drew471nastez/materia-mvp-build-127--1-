@@ -6,6 +6,7 @@ import { Breadcrumbs, ContactSupport } from "@/components/help/help-parts"
 import { HELP_WIDTH, HelpHero, TopicIcon } from "@/components/help/help-hero"
 import { QuestionsBrowser } from "@/components/help/questions-browser"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { helpBreadcrumbs } from "@/lib/help/structured-data"
 
 const DESCRIPTION = "What happens when an order can't be filled, a parcel goes missing, a buyer wants a refund or can't find a download, and what to do, for stores and for buyers."
 
@@ -28,14 +29,11 @@ export const revalidate = 60
  */
 export default async function HelpQuestionsPage() {
   const topics = helpTopicsFor(await isPhysicalCommerceEnabled())
-  const faq = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: topics.flatMap((t) => t.questions.map((q) => ({ "@type": "Question", name: q.q, acceptedAnswer: { "@type": "Answer", text: q.a.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") } }))),
-  }
+  /* Breadcrumbs only (round 45): no FAQPage, whose rich results Google shows only for government and health sites. The answers are plain HTML below. */
+  const crumbs = { "@context": "https://schema.org", ...helpBreadcrumbs([{ name: "Help Center", path: "/help" }, { name: "Order problems", path: "/help/questions" }]) }
   return (
     <div className="bg-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(faq) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(crumbs) }} />
       <HelpHero />
       <div className={`${HELP_WIDTH} pt-6 sm:pt-8`}>
         <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: "Order problems" }]} />

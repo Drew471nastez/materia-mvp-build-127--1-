@@ -16,6 +16,13 @@ const EXPLORE_SIGNED_IN_COOKIES = (() => {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /**
+   * THE PROXY DROPS A TRAILING SLASH, NOT NEXT (lib/seo/one-hop.ts), so
+   * www.storelib.com/pricing/ is one 308 to storelib.com/pricing rather than
+   * two hops. Every path the proxy's matcher leaves out is a file under
+   * /_next or an image, which never ends in a slash.
+   */
+  skipTrailingSlashRedirect: true,
+  /**
    * THE COVER'S BROWSER. @sparticuz/chromium reads a compressed Chromium out
    * of its own bin/ folder at run time, and puppeteer-core loads it with
    * dynamic requires — neither survives being bundled, so both are in the

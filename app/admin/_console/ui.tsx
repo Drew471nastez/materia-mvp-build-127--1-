@@ -82,6 +82,8 @@ export type FigureItem = {
   label: string
   value: React.ReactNode
   sub?: React.ReactNode
+  /** Where the figure came from and when it was read ("Google, read 2 h ago"). */
+  source?: React.ReactNode
   /** Set when the value could not be read: the reason, in plain words. */
   unreadable?: string | null
 }
@@ -103,6 +105,7 @@ export function Figures({ items, columns = 4 }: { items: FigureItem[]; columns?:
             <>
               <p className="mt-1 truncate text-[22px] font-semibold leading-7 tabular-nums tracking-[-0.01em] text-[#ededf0]">{f.value}</p>
               {f.sub ? <p className="mt-0.5 truncate text-[12px] text-[#6b6b76] tabular-nums">{f.sub}</p> : null}
+              {f.source ? <p className="mt-0.5 truncate text-[11px] text-[#6b6b76] tabular-nums" data-source>{f.source}</p> : null}
             </>
           )}
         </div>

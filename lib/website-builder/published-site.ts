@@ -39,6 +39,7 @@
  */
 import { LastGood, keyedAs } from "./last-good"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { forVisitors } from "@/lib/website-builder/visitor-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
@@ -372,7 +373,8 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
     const published = pageSections<SectionInstance[]>(r as never, false)
     // A page that has never been published is not a page a visitor can see.
     if (!published || published.length === 0) continue
-    pages[r.page_key] = sanitizeSections(published, ownSchemas)
+    /* Without the creator's own "send messages to" address, which no visitor is shown (./visitor-sections.ts). */
+    pages[r.page_key] = forVisitors(sanitizeSections(published, ownSchemas))
   }
   /**
    * ONE HEADER AND ONE FOOTER, at render, whatever the rows hold.

@@ -17,9 +17,9 @@ import { siteMetadata } from "../../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
-import { pageNumberOf } from "@/lib/website-builder/tab-title"
+import { pageNumberOf, pastLastPage } from "@/lib/website-builder/tab-title"
 import { breadcrumbJsonLd } from "@/lib/website-builder/breadcrumbs"
-import { jsonLdScript } from "@/lib/website-builder/site-seo"
+import { canonicalPageOf, jsonLdScript } from "@/lib/website-builder/site-seo"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 
 /** What a collection page is drawn from: the filters, the sort and the page number (lib/products/catalog-filters.ts). */
@@ -38,7 +38,7 @@ export async function collectionMetadata(segment: string, rawHandle: string, ask
   const name = inIt?.collection.title?.trim()
   /* Its own address for search engines, in each language: every collection used to name the collections index as its canonical. */
   const path = HANDLE.test(handle) ? `/collections/${handle}` : undefined
-  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path } : { path })
+  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path, canonicalPage: canonicalPageOf(asked) } : { path })
 }
 
 /**
@@ -102,6 +102,8 @@ export async function CollectionPage({ segment, rawHandle, asked }: { segment: s
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
   const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`, { words: localizer?.words })
+  /* A page past the last is not a page (round 45), as on the shop. */
+  if (pastLastPage(asked.page, pagination.pages)) notFound()
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters, pagination }, data)
   /* Where the collection sits on the website, for search results (Home › Collections › Summer). The site's own address, held per request. */
   const origin = await siteOrigin(site.creatorId, username)

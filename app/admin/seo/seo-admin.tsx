@@ -10,6 +10,7 @@ import type { KindTotals, ListQuery, StatusFilter, StatusRow } from "@/lib/admin
 
 import { ago, date, num } from "../_console/format"
 import { Banner, Button, DataList, Facts, Figures, Filters, Pager, Panel, SearchField, Status, cx, type Column } from "../_console/ui"
+import { BingPanel, ConflictsPanel, CoveragePanel, CrawlPanel, SearchPerformancePanel, fromDatabase, fromGoogle, fromOwnCheck } from "./seo-panels"
 
 /**
  * /admin/seo on the client: the figures, the kinds, and one page of
@@ -157,19 +158,25 @@ export function SeoAdmin({ data }: { data: SeoConsoleData }) {
 
         <GooglePanel google={data.google} used={used} />
 
+        <SearchPerformancePanel connected={data.google.connected} search={data.search} />
+
         {data.schemaReady ? (
           <>
             <Figures
               columns={3}
               items={[
-                { label: "In sitemap", value: num(all.in_sitemap), sub: all.listed > all.in_sitemap ? `${num(all.listed - all.in_sitemap)} left the sitemap` : "Every listed address" },
-                { label: "Answers 200", value: num(all.answers_200), sub: `of ${num(all.scored)} fetched` },
-                { label: "Average score", value: all.average_score === null ? "None yet" : String(all.average_score), sub: `${num(all.scored)} scored` },
-                { label: "On Google", value: num(all.indexed), sub: "Google's verdict PASS" },
-                { label: "Not on Google", value: num(all.not_indexed), sub: "Excluded or failed" },
-                { label: "Not checked", value: num(all.not_checked), sub: all.no_property ? `${num(all.no_property)} outside Search Console` : "With Google yet" },
+                { label: "In sitemap", value: num(all.in_sitemap), sub: all.listed > all.in_sitemap ? `${num(all.listed - all.in_sitemap)} left the sitemap` : "Every listed address", source: fromDatabase(data.readAt) },
+                { label: "Answers 200", value: num(all.answers_200), sub: `of ${num(all.scored)} fetched`, source: fromOwnCheck(data.newest.scored) },
+                { label: "Average score", value: all.average_score === null ? "None yet" : String(all.average_score), sub: `${num(all.scored)} scored`, source: fromOwnCheck(data.newest.scored) },
+                { label: "On Google", value: num(all.indexed), sub: "Google's verdict PASS", source: fromGoogle(data.newest.google) },
+                { label: "Not on Google", value: num(all.not_indexed), sub: "Excluded or failed", source: fromGoogle(data.newest.google) },
+                { label: "Not checked", value: num(all.not_checked), sub: all.no_property ? `${num(all.no_property)} outside Search Console` : "With Google yet", source: fromDatabase(data.readAt) },
               ]}
             />
+
+            <CoveragePanel coverage={data.coverage} connected={data.google.connected} />
+
+            <ConflictsPanel conflicts={data.conflicts} scoredAt={data.newest.scored} />
 
             <KindTable rows={data.totals} current={data.query.kind} onPick={(kind) => go({ kind })} />
 
@@ -209,6 +216,10 @@ export function SeoAdmin({ data }: { data: SeoConsoleData }) {
             </Panel>
           </>
         ) : null}
+
+        <CrawlPanel initial={data.crawl} />
+
+        <BingPanel bing={data.bing} verification={data.verification} />
       </div>
       <RowSheet
         row={open}
@@ -269,7 +280,7 @@ function GooglePanel({ google, used }: { google: SeoConsoleData["google"]; used:
     )
   }
   return (
-    <Panel title="Google Search Console" meta={`Connected as ${google.clientEmail}`}>
+    <Panel title="Google Search Console" meta="Connected: the service account variables are set">
       <div className="flex flex-wrap gap-x-6 gap-y-1 px-4 py-3 text-[13px] text-[#9b9ba6] tabular-nums">
         {google.properties.map((p) => {
           const n = used.find(([k]) => k === p)?.[1] ?? 0
