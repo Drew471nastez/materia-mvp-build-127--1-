@@ -11,6 +11,7 @@
  *   seo-index, warm-sites, notify (timed out in prod)     a hard stop under maxDuration, resumed next run
  *   crons and webhooks                                    no bare supabase-js client without a deadline
  *   rollup-daily, storage-cleanup with a failed step      answer 500, so the run is recorded failed and alerted
+ *   a browser push service that never answers             the send ends at its timeout
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -30,6 +31,11 @@ import { register } from "node:module"
 import { tmpdir } from "node:os"
 import { pathToFileURL } from "node:url"
 import { build } from "esbuild"
+import https from "node:https"
+import { EventEmitter } from "node:events"
+import { createECDH, randomBytes } from "node:crypto"
+import webpush from "web-push"
+import { WEB_PUSH_TIMEOUT_MS, webPushOptions } from "@/lib/push/sender"
 import { cleanupFailures, rollupFailures, statusForFailures } from "@/lib/observability/step-failures"
 import { join } from "node:path"
 import { stripComments } from "./_source"
@@ -404,6 +410,36 @@ async function main() {
     check("rollup-daily with a failed RPC answers 500 (recordCronRun records it not ok and reports it)", bad.status === 500 && badBody.success === false && badBody.failed.length === 1, { status: bad.status, badBody })
     check("rollup-daily with every step fine still answers 200", good.status === 200, good.status)
     check("storage-cleanup answers its failures' status", /status: statusForFailures\(failed\)/.test(code("app/api/cron/storage-cleanup/route.ts")) && /cleanupFailures\(\{ files: summary\.errors/.test(code("app/api/cron/storage-cleanup/route.ts")))
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\nA Web Push send has a timeout (item 7)")
+  {
+    check("every Web Push send carries a timeout of 8 s", WEB_PUSH_TIMEOUT_MS === 8_000 && webPushOptions({ subject: "mailto:x@example.com", publicKey: "p", privateKey: "k" }).timeout === 8_000)
+    check("the sender uses those options", /webPushOptions\(keys\)/.test(code("lib/push/sender.ts")) && !/\{ vapidDetails: keys, TTL: 60 \* 60 \* 24 \}/.test(code("lib/push/sender.ts")))
+    /* A push service that accepts the request and never answers: web-push's https.request, replaced by one that only ever times out. */
+    const realRequest = https.request
+    ;(https as { request: unknown }).request = ((opts: { timeout?: number }) => {
+      const req = new EventEmitter() as EventEmitter & { write: () => void; end: () => void; destroy: (e?: Error) => void }
+      req.write = () => {}
+      req.end = () => {
+        if (opts.timeout) setTimeout(() => req.emit("timeout"), opts.timeout)
+      }
+      req.destroy = (e?: Error) => {
+        setImmediate(() => req.emit("error", e ?? new Error("destroyed")))
+      }
+      return req
+    }) as never
+    const ecdh = createECDH("prime256v1")
+    ecdh.generateKeys()
+    const subscription = { endpoint: "https://push.example.com/send/abc", keys: { p256dh: ecdh.getPublicKey("base64url"), auth: randomBytes(16).toString("base64url") } }
+    const vapid = webpush.generateVAPIDKeys()
+    const keys = { subject: "mailto:test@example.com", publicKey: vapid.publicKey, privateKey: vapid.privateKey }
+    const t0 = Date.now()
+    const outcome = await webpush.sendNotification(subscription, "{}", webPushOptions(keys, 300)).then(() => "sent", (e: unknown) => `failed: ${e instanceof Error ? e.message : e}`)
+    const took = Date.now() - t0
+    ;(https as { request: unknown }).request = realRequest
+    check("a push service that never answers fails the send at the timeout, not at the function's limit", outcome.startsWith("failed") && took < 2_000, { outcome, took })
   }
 
   clearInterval(keepAlive)
