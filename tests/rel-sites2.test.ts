@@ -414,6 +414,50 @@ async function gatewayAnswers() {
   void CUT_SHORT_CODE
 }
 
+/* ── EVD-3 ───────────────────────────────────────────────────────────────── */
+
+async function publicFilesAskNoAuth() {
+  console.log("\nEVD-3. A website's public files read no session, so they never wait on Supabase Auth")
+  const { skipsSessionRefresh } = await import("@/lib/auth/no-session-paths")
+  const signedIn = ["sb-fixture-auth-token"]
+  const open = ["/robots.txt", "/sitemap.xml", "/sitemap/products-1.xml", "/w/maya/robots.txt", "/w/maya/sitemap.xml", "/site.webmanifest", "/favicon.ico", "/api/site-theme/assets/i-1/h-abc/theme.css", "/api/site-theme/cover/i-1.x.y"]
+  check("robots.txt, sitemaps, the manifest, the icon, theme assets and the cover read no session, signed in or not", open.every((p) => skipsSessionRefresh(p, signedIn) && skipsSessionRefresh(p, [])))
+  const kept = ["/", "/products/hat", "/app", "/app/settings", "/sell", "/w/maya", "/w/maya/preview", "/api/site-theme/site/maya", "/api/website-builder/themes/i-1/sections", "/api/website-builder/themes/i-1/agent-activity", "/api/analytics/own/token", "/robots.txt.bak", "/x/robots.txt"]
+  check("  pages, /app, the builder, previews, the imported theme's own pages and the owner's analytics still do", kept.every((p) => !skipsSessionRefresh(p, signedIn)), kept.filter((p) => skipsSessionRefresh(p, signedIn)))
+
+  /* Through the real proxy: a signed in visitor whose access token has run out (so a session read would renew it with Supabase Auth). */
+  await useSites()
+  const sitesFetch = globalThis.fetch
+  const auth: string[] = []
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
+    if (url.pathname.startsWith("/auth/v1/")) {
+      auth.push(url.pathname)
+      /* Auth having a bad moment: the session is kept (nothing written), and the call is counted. */
+      return json(503, { code: 503, msg: "upstream unavailable" })
+    }
+    return sitesFetch(input, init)
+  }) as typeof fetch
+  const ref = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
+  const past = Math.floor(Date.now() / 1000) - 3600
+  const session = { access_token: "expired.access.token", refresh_token: "r-1", token_type: "bearer", expires_in: 3600, expires_at: past, user: { id: "u-1", aud: "authenticated", role: "authenticated" } }
+  const cookie = `sb-${ref}-auth-token=base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`
+  const { proxy } = await import("@/proxy")
+  const { NextRequest } = await import("next/server")
+  const ask = async (url: string) => {
+    auth.length = 0
+    const res = (await proxy(new NextRequest(url, { headers: { host: new URL(url).host, cookie, accept: "*/*" } }) as never)) as Response
+    return { status: res.status, auth: [...auth] }
+  }
+  for (const url of ["https://maya.storelib.com/robots.txt", "https://maya.storelib.com/sitemap.xml", "https://maya.storelib.com/api/site-theme/assets/i-1/h-abc/theme.css", "https://storelib.com/api/site-theme/assets/i-1/edit/navigation.css", "https://storelib.com/robots.txt", "https://storelib.com/api/site-theme/cover/i-1.x.y"]) {
+    const r = await ask(url)
+    check(`  ${new URL(url).host}${new URL(url).pathname}: no request to Supabase Auth`, r.auth.length === 0, r)
+  }
+  const page = await ask("https://storelib.com/app")
+  check("  /app with the same expired session still renews it with Supabase Auth (auth for the app unchanged)", page.auth.length > 0, page)
+  /* The renewal /app started goes on retrying behind the answer: it keeps meeting the outage, never the network. */
+}
+
 function codeChecks() {
   console.log("\nEVD-1 d. Where the copies are kept, and what may go in")
   const compat = read("lib/website-builder/compat-site.ts")
@@ -449,8 +493,9 @@ async function run() {
     await freshServerServes()
     codeChecks()
     await gatewayAnswers()
+    await publicFilesAskNoAuth()
   } finally {
-    globalThis.fetch = realFetch
+    void realFetch
     console.error = realError
   }
   console.log(`\n${passed} passed, ${failed} failed`)
@@ -458,6 +503,7 @@ async function run() {
     for (const f of failures) console.log(`  - ${f}`)
     process.exit(1)
   }
+  process.exit(0)
 }
 
 run().catch((e) => {
