@@ -8,6 +8,7 @@
  *   a community file posted without the complete step   still size and content checked
  *   "Payout available" after holds are released           to the user id, awaited
  *   the community and physical crons                      one clock from the request, under maxDuration
+ *   seo-index, warm-sites, notify (timed out in prod)     a hard stop under maxDuration, resumed next run
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -18,6 +19,10 @@ import type { CommunityRow, PostMedia } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
 import { pushPayoutsAvailable } from "@/lib/payments/payout-push"
 import { runBudgetMs, runDeadline } from "@/lib/observability/run-deadline"
+import { recordFile } from "@/lib/admin/seo/store"
+import { inspectUrl } from "@/lib/admin/seo/google"
+import { warmPublishedSites } from "@/lib/website-builder/warm-sites"
+import { runWork } from "@/lib/notify/engine"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
@@ -232,6 +237,102 @@ async function main() {
     }
     const counts = await cancelStaleSitePayments(db as never, Date.now(), 20, Date.now() - 1)
     check("past its deadline no Stripe cancel is started (nothing swept, nothing thrown)", counts.shipped === 0 && counts.baskets === 0, counts)
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\nseo-index: a sitemap file unfinished at the hard stop is written again next run (item 4)")
+  {
+    const upserts: number[] = []
+    let leftMarked = false
+    const admin = {
+      from() {
+        return {
+          upsert: async (rows: unknown[]) => {
+            upserts.push(rows.length)
+            return { error: null }
+          },
+          update() {
+            leftMarked = true
+            const q: Record<string, unknown> = {}
+            for (const k of ["eq", "lt"]) q[k] = () => q
+            q.select = async () => ({ data: [], error: null })
+            return q
+          },
+        }
+      },
+    }
+    const addresses = Array.from({ length: 1200 }, (_, i) => ({ url: `https://storelib.com/p/${i}`, kind: "product" as never, source: "products-1-of-1", property: "sc-domain:storelib.com" }))
+    const late = await recordFile(admin as never, "products-1-of-1", addresses, new Date().toISOString(), Date.now() - 1)
+    check("past the hard stop no batch is written and nothing is marked as left the sitemap", !late.complete && upserts.length === 0 && !leftMarked, { late, upserts, leftMarked })
+    const whole = await recordFile(admin as never, "products-1-of-1", addresses, new Date().toISOString())
+    check("with time, the file is written in batches of 500 and finished as before", whole.complete && upserts.join(",") === "500,500,200" && leftMarked && whole.written === 1200, { whole, upserts })
+
+    const run = code("lib/admin/seo/run.ts")
+    check("the walk stays on an unfinished file (next_file not moved past it)", /if \(!result\.complete\) \{\s*summary\.files\.push\(\{ name, listed: result\.written, left: 0, unfinished: true \}\)\s*break\s*\}/.test(run))
+    check("a site's pages unfinished are not marked expanded", /if \(!result\.complete\) break\s*summary\.sites\+\+/.test(run))
+    check("the run's clock is the request's: the route passes when it started", /runSeoCron\(\{ budgetMs: RUN_BUDGET_MS, started \}\)/.test(code("app/api/cron/seo-index/route.ts")) && /const started = options\.started \?\? Date\.now\(\)/.test(run))
+    check("budget 48 s + hard stop 4 s stays under maxDuration 60 s", /RUN_BUDGET_MS = 48_000/.test(code("app/api/cron/seo-index/route.ts")) && /SEO_HARD_STOP_MS = 4_000/.test(run))
+    check("no page score is started later than its worst case before the hard stop", /const lastStart = deadline - \(SCORE_WORST_MS - SEO_HARD_STOP_MS\)/.test(run) && /SCORE_WORST_MS = 20_000/.test(run))
+
+    let aborted = 0
+    const t0 = Date.now()
+    const hang = ((_u: unknown, init?: RequestInit) =>
+      new Promise((_r, reject) => init?.signal?.addEventListener("abort", () => { aborted = Date.now() - t0; reject(new Error("aborted")) }))) as typeof fetch
+    await inspectUrl("t", "https://storelib.com/", "sc-domain:storelib.com", hang, 1_200).catch(() => undefined)
+    check("a Google inspection takes only the time the run has left (not its full 20 s)", aborted > 0 && aborted < 3_000, aborted)
+  }
+
+  console.log("\nwarm-sites: every request ends by the hard stop, and the next run starts at the first site not finished (item 4)")
+  {
+    const before = process.env.VERCEL_DEPLOYMENT_ID
+    process.env.VERCEL_DEPLOYMENT_ID = "dpl_test"
+    let saved: { offset?: number; done?: boolean } | null = null
+    const admin = {
+      from() {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+          upsert: async (row: { value: { offset: number; done: boolean } }) => {
+            saved = row.value
+            return { error: null }
+          },
+        }
+      },
+    }
+    const origins = Array.from({ length: 10 }, (_, i) => `https://site${i}.storelib.com`)
+    /* Sites 0 to 3 answer at once; site 4 onwards never answers (a cold deploy, a stuck page). */
+    const fetcher = ((url: string, init?: RequestInit) => {
+      const n = Number(/site(\d+)/.exec(String(url))?.[1])
+      if (n < 4) return Promise.resolve(new Response("", { status: 200 }))
+      return new Promise((_r, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))))
+    }) as typeof fetch
+    const t0 = Date.now()
+    const r = await warmPublishedSites({ budgetMs: 300, hardStopMs: 1_500, fetcher, admin: admin as never, origins: async (from: number) => (from === 0 ? { origins, read: origins.length } : { origins: [], read: 0 }) })
+    const took = Date.now() - t0
+    check("the run ends near its hard stop, not after 15 s per stuck page", took < 3_000, took)
+    check("the next run starts at the first site not finished (offset 4), not at the top of the page", saved !== null && (saved as { offset: number }).offset === 4 && r.sites === 4, { saved, r })
+    if (before === undefined) delete process.env.VERCEL_DEPLOYMENT_ID
+    else process.env.VERCEL_DEPLOYMENT_ID = before
+    check("the warm route's clock is the request's", /const started = Date\.now\(\)\s*const denied/.test(code("app/api/cron/warm-sites/route.ts")) && /warmPublishedSites\(\{ budgetMs: RUN_BUDGET_MS, started \}\)/.test(code("app/api/cron/warm-sites/route.ts")))
+  }
+
+  console.log("\nnotify: the batch in hand starts no job past the hard stop; those go back to the queue (item 4)")
+  {
+    const handedBack: [string, boolean][] = []
+    let claims = 0
+    const job = (id: string) => ({ id, type: "x", recipient_user_id: "u1", recipient_email: null, attempts: 1, max_attempts: 5, data: {} })
+    const store = {
+      claimEvents: async () => [],
+      claimJobs: async () => (claims++ === 0 ? [job("j1"), job("j2"), job("j3")] : []),
+      rescheduleJob: async (id: string, _w: string, _at: string, _e: string | null, countAttempt: boolean) => {
+        handedBack.push([id, countAttempt])
+        return true
+      },
+    }
+    const summary = await runWork({ store: store as never, email: null, inApp: null, worker: "w" }, 10_000, { hardStopMs: 0 })
+    check("past the hard stop every claimed job is handed back, not counted as an attempt", handedBack.length === 3 && handedBack.every(([, counted]) => counted === false), handedBack)
+    check("and the run says it stopped for time", summary.stoppedForTime === true)
+    const route = code("app/api/cron/notify/route.ts")
+    check("notify: the clock starts with the request and the forwarding takes only what is left", /async function runJob\(request: Request\) \{\s*const run = runDeadline\(runBudgetMs\(maxDuration\)\)/.test(route) && /const forwardMs = run\.share\(10_000\)/.test(route) && !/Math\.max\(2_000, 55_000/.test(route))
   }
 
   clearInterval(keepAlive)

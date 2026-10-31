@@ -20,10 +20,12 @@ export const maxDuration = 60
 const RUN_BUDGET_MS = 48_000
 
 async function runJob(request: Request) {
+  /* The run's clock starts with the request (lib/admin/seo/run.ts runSeoCron: budget, then a hard stop 4 s later, both under maxDuration). */
+  const started = Date.now()
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
   try {
-    const summary = await runSeoCron({ budgetMs: RUN_BUDGET_MS })
+    const summary = await runSeoCron({ budgetMs: RUN_BUDGET_MS, started })
     const asked = Object.values(summary.inspected).reduce((n, p) => n + p.granted, 0)
     console.log(
       `[cron/seo-index] files ${summary.files.map((f) => `${f.name}:${f.listed}`).join(" ") || "none"}, sites ${summary.sites}, inspected ${asked}${summary.google === "not_connected" ? " (Search Console not connected)" : ""}, scored ${summary.scored}, ${summary.ms}ms${summary.problems.length ? `, problems: ${summary.problems.join(" | ")}` : ""}`,

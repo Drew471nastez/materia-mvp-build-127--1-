@@ -27,9 +27,24 @@ import { websiteAddresses } from "@/lib/seo/announce"
 export const WARM_KEY = "website_cache_warmed"
 /** The pages asked for on each site: what a visitor lands on and goes to first. */
 export const WARM_PATHS = ["/", "/products"] as const
-const PAGE = 200
+/**
+ * Sites read per page. A page is finished inside one run or (when its sites
+ * cannot be matched one to one to its rows) done again from its start next
+ * run, so it is small enough to fit: 6 at a time, a few seconds each. It was
+ * 200, which a cold deploy could never finish inside one run.
+ */
+const PAGE = 36
 const AT_ONCE = 6
 const EACH_MS = 15_000
+/** No request is started with less than this left before the run's hard stop. */
+const MIN_REQUEST_MS = 1_000
+/**
+ * How long past its budget a run may still be finishing the sites it started.
+ * A site used to be started up to the budget's last moment and then take a
+ * sitemap and six pages, each up to 15 s, one after another: well past the
+ * function's 60 s. Now each request takes at most what is left before this.
+ */
+export const WARM_HARD_STOP_MS = 7_000
 
 /** And this many more of a site's own pages, from its sitemap, so the menu's About or FAQ is drawn too. */
 export const SITEMAP_PAGES = 4
@@ -60,10 +75,17 @@ export function pagesFromSitemap(origin: string, xml: string): string[] {
   return out
 }
 
-async function warmListOf(origin: string, fetcher: typeof fetch): Promise<string[]> {
+/** A request's own limit: EACH_MS, or less when the run has less left. */
+function limitFor(hardStop: number): number {
+  return Math.min(EACH_MS, hardStop - Date.now())
+}
+
+async function warmListOf(origin: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY): Promise<string[]> {
   const first = WARM_PATHS.map((p) => `${origin}${p}`)
+  const ms = limitFor(hardStop)
+  if (ms < MIN_REQUEST_MS) return first
   const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), EACH_MS)
+  const timer = setTimeout(() => ctl.abort(), ms)
   try {
     const r = await fetcher(`${origin}/sitemap.xml`, { headers: { "user-agent": "StorelibCacheWarm/1.0" }, redirect: "manual", signal: ctl.signal, cache: "no-store" })
     return r.ok ? [...first, ...pagesFromSitemap(origin, await r.text())] : first
@@ -85,9 +107,9 @@ export function startFrom(saved: unknown, deployment: string): { offset: number;
   return { offset: typeof p.offset === "number" && p.offset >= 0 ? p.offset : 0, done: p.done === true }
 }
 
-async function ask(url: string, fetcher: typeof fetch): Promise<"held" | "drawn" | "failed"> {
+async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY): Promise<"held" | "drawn" | "failed"> {
   const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), EACH_MS)
+  const timer = setTimeout(() => ctl.abort(), Math.max(MIN_REQUEST_MS, limitFor(hardStop)))
   try {
     const r = await fetcher(url, { headers: { accept: "text/html", "user-agent": "StorelibCacheWarm/1.0" }, redirect: "manual", signal: ctl.signal, cache: "no-store" })
     /* The body is read so the page is drawn to the end and kept. */
@@ -100,22 +122,29 @@ async function ask(url: string, fetcher: typeof fetch): Promise<"held" | "drawn"
   }
 }
 
-/** Runs a list a few at a time, stopping when the budget is spent. */
-async function some<T>(items: T[], work: (item: T) => Promise<void>, until: number, lanes = AT_ONCE): Promise<number> {
+/**
+ * Runs a list a few at a time, starting nothing once the budget is spent.
+ * `work` answers false when it stopped before the end of its item. Answers
+ * how many items from the START of the list are finished, so a run that
+ * stopped partway carries on from there next time instead of from the top
+ * of the list (items finish out of order across lanes).
+ */
+async function some<T>(items: T[], work: (item: T) => Promise<boolean | void>, until: number, lanes = AT_ONCE): Promise<number> {
   let next = 0
-  let finished = 0
+  const finished = new Array<boolean>(items.length).fill(false)
   const lane = async () => {
     while (next < items.length && Date.now() < until) {
-      const item = items[next++]
-      await work(item)
-      finished++
+      const i = next++
+      finished[i] = (await work(items[i])) !== false
     }
   }
   await Promise.all(Array.from({ length: lanes }, lane))
-  return finished
+  const firstUnfinished = finished.indexOf(false)
+  return firstUnfinished === -1 ? items.length : firstUnfinished
 }
 
-export async function warmPublishedSites(options: { budgetMs: number; fetcher?: typeof fetch }): Promise<{
+/** `started`: when the request began (the cron passes it), so the budget counts from there. */
+export async function warmPublishedSites(options: { budgetMs: number; fetcher?: typeof fetch; started?: number; hardStopMs?: number; origins?: typeof publishedWebsiteOrigins; admin?: Pick<ReturnType<typeof createAdminClient>, "from"> }): Promise<{
   deployment: string | null
   skipped?: "no-deployment" | "already-warmed"
   sites: number
@@ -125,25 +154,42 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
   const deployment = deploymentOf()
   const pages = { held: 0, drawn: 0, failed: 0 }
   if (!deployment) return { deployment, skipped: "no-deployment", sites: 0, pages, done: false }
-  const until = Date.now() + options.budgetMs
+  const until = (options.started ?? Date.now()) + options.budgetMs
+  const hardStop = until + (options.hardStopMs ?? WARM_HARD_STOP_MS)
   const fetcher = options.fetcher ?? fetch
-  const admin = createAdminClient()
+  const readOrigins = options.origins ?? publishedWebsiteOrigins
+  const admin = options.admin ?? createAdminClient()
   const { data } = await admin.from("platform_settings").select("value").eq("key", WARM_KEY).maybeSingle()
   let { offset, done } = startFrom((data as { value?: unknown } | null)?.value ?? null, deployment)
   if (done) return { deployment, skipped: "already-warmed", sites: 0, pages, done: true }
 
   let sites = 0
   while (Date.now() < until) {
-    const { origins, read } = await publishedWebsiteOrigins(offset, PAGE)
+    const { origins, read } = await readOrigins(offset, PAGE)
     if (read === 0) {
       done = true
       break
     }
-    /* Each site's pages one after another, a few sites at a time. */
+    /* Each site's pages one after another, a few sites at a time; a site stops at the hard stop and is done again next run. */
     const finished = await some(origins, async (o) => {
-      for (const u of await warmListOf(o, fetcher)) pages[await ask(u, fetcher)]++
+      for (const u of await warmListOf(o, fetcher, hardStop)) {
+        if (hardStop - Date.now() < MIN_REQUEST_MS) return false
+        pages[await ask(u, fetcher, hardStop)]++
+      }
+      return true
     }, until)
-    if (finished < origins.length) break /* Out of time mid-page: this page again next run. */
+    if (finished < origins.length) {
+      /*
+        Out of time partway: the next run starts at the first site not
+        finished. It used to start this whole page of 200 again, so a page
+        that could not be warmed inside one run never moved on.
+      */
+      if (origins.length === read) {
+        sites += finished
+        offset += finished
+      }
+      break
+    }
     sites += origins.length
     offset += read
     if (read < PAGE) {

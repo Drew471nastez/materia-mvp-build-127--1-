@@ -140,12 +140,13 @@ export function parseInspection(json: unknown): Inspection {
 }
 
 /** One address, asked of Google. Throws GoogleError with a plain reason when Google does not answer it. */
-export async function inspectUrl(token: string, inspectionUrl: string, siteUrl: string, fetchImpl: Fetch = fetch): Promise<Inspection> {
+export async function inspectUrl(token: string, inspectionUrl: string, siteUrl: string, fetchImpl: Fetch = fetch, timeoutMs = 20_000): Promise<Inspection> {
   const res = await fetchImpl(INSPECT_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ inspectionUrl, siteUrl, languageCode: "en-US" }),
-    signal: AbortSignal.timeout(20_000),
+    /* At most 20 s, less when the cron run has less left (lib/admin/seo/run.ts). */
+    signal: AbortSignal.timeout(Math.max(1_000, Math.min(20_000, timeoutMs))),
   })
   const json = await res.json().catch(() => null)
   if (!res.ok) throw new GoogleError(inspectionRefusal(res.status, json, siteUrl), res.status)
