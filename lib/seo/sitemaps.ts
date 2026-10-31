@@ -66,6 +66,8 @@ import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
 import { blogSitemapEntries } from "@/lib/blog/listing"
+import { blogSlugsNotInSitemap } from "@/lib/blog/read"
+import { liveDateFilter } from "@/lib/blog/schedule"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
@@ -493,12 +495,14 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
   }
 
   const admin = createAdminClient()
-  const posts = await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
-    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).order("slug").range(a, b),
+  /* Round 45: a scheduled post is not here until its date (the query below), and a noindex post or one canonical elsewhere never is. */
+  const unlisted = await blogSlugsNotInSitemap()
+  const posts = (await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
+    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).or(liveDateFilter()).order("slug").range(a, b),
     0,
     50_000,
     "blog",
-  )
+  )).filter((p) => !unlisted.has(p.slug))
   /*
     Round 44: the blog from one rule (lib/blog/listing blogSitemapEntries):
     /blog and its older pages, each category that has a post, each post, all
