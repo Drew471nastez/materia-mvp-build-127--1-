@@ -9,12 +9,19 @@
  *      (on the subscription or the customer), nor one Stripe has as paid;
  *      it cancels only an unpaid first payment or a trial with no card
  *      anywhere (PAY-8)
+ *   2  the payment webhook answers once the order, library entry and ledger
+ *      are written; the fee read, receipt PDF, emails and notifications run
+ *      after the answer, once each under their journal keys, and a step that
+ *      failed there is left for the sweep (PAY-12)
  */
 import "./_journey/env"
 import { Journey } from "./_journey/harness"
 import { createAdminClient } from "../lib/supabase/admin"
 import { runMembershipJobs } from "../lib/memberships/reminders"
 import { abandonedCheckout } from "../lib/memberships/state"
+import { instantOrderBody } from "../lib/onepage/product-block"
+import { fulfilPaymentIntent } from "../lib/checkout/fulfil-payment"
+import { unfinishedFollowups } from "../lib/checkout/followups"
 
 let passed = 0
 let failed = 0
@@ -116,6 +123,99 @@ async function main() {
     s.subscriptions.retrieve = real.subRetrieve
     s.subscriptions.cancel = real.subCancel
     s.customers.retrieve = real.cusRetrieve
+  }
+
+
+  /* ── 2. PAY-12 ─────────────────────────────────────────────────────── */
+  section("2. The payment webhook answers before the slow follow-ups (PAY-12)")
+  {
+    const seller = await j.signUp("maker2@example.com", { name: "Mo Maker" })
+    await j.call("POST /api/onboarding/finalize", { as: seller, body: { role: "creator", creatorSlug: "mo" } })
+    const creator = j.rows("creators").find((r) => r.user_id === seller.id)!
+    await j.call("PUT /api/store/settings", { as: seller, body: { storeName: "Mo Sounds", supportEmail: "hello@mo.example", defaultCountry: "US" } })
+    await j.call("POST /api/payments/start", { as: seller, body: { agree: true, kind: "individual", country: "US" } })
+    const acct = j.rows("creators").find((r) => r.id === creator.id)!.stripe_account_id as string
+    j.world.activate(acct)
+    await j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct })
+    const [prod] = j.db.insert("products", { creator_id: creator.id, type: "digital", title: "Drum Kit", slug: "drum-kit", description: "<p>Drum Kit</p>", status: "published", archived: false, price_cents: 1500, thumbnail_url: "https://cdn.example.com/p.jpg", pay_what_you_want: false }, {})
+
+    /* A slow world: each email takes 400ms at the provider, the processing fee read (the platform's own charge read) 1.5s. */
+    const SLOW_FEE_MS = 1_500
+    j.net.mailDelayMs = 400
+    const realCharge = s.charges.retrieve
+    let feeReads = 0
+    let failFeeWrite = false
+    s.charges.retrieve = async (id: string, params?: Obj, opts?: Obj) => {
+      if (!opts?.stripeAccount) {
+        feeReads++
+        await new Promise((r) => setTimeout(r, SLOW_FEE_MS))
+        /* The order's fee write that follows fails once, when a case asks for it. */
+        if (failFeeWrite) j.db.failNext("orders", { method: "PATCH" })
+      }
+      return realCharge(id, params, opts)
+    }
+    let ipSeq = 0
+    const buy = async (email: string) => {
+      const started = await j.call("POST /api/checkout/stripe-session", { headers: { "x-forwarded-for": `198.51.100.${200 + ++ipSeq}` }, body: instantOrderBody({ productId: prod.id as string, email, name: "Pat Payer" }, false) })
+      const pid = started.json?.paymentIntentId as string
+      j.world.payIntent(pid)
+      return { pid, secret: started.json?.clientSecret as string }
+    }
+    const orderOf = (pid: string) => j.rows("orders").find((o) => o.stripe_payment_intent_id === pid)
+    const step = (orderId: string, name: string) => j.rows("order_followups").find((r) => r.order_id === orderId && r.step === name)
+    const ledgerFor = (orderId: string) => j.rows("ledger_events").filter((e) => e.order_id === orderId).length
+    const mailsTo = (email: string) => j.net.to(email).length
+
+    /* BEFORE (the same work in line): the buyer's own page still runs every step before it answers. */
+    const inline = await buy("inline@example.com")
+    const page = await j.call("POST /api/checkout/confirm-payment", { headers: { "x-forwarded-for": "198.51.100.250" }, body: { paymentIntentId: inline.pid, clientSecret: inline.secret } })
+    console.log(`    in line: ${page.ms}ms`)
+    check("in line, the slow fee read and the emails are inside the answer (the time the webhook used to take)", page.status === 200 && page.ms >= SLOW_FEE_MS + 400, { status: page.status, ms: page.ms })
+
+    /* AFTER: the webhook. */
+    const a = await buy("fast@example.com")
+    const hook = await j.webhook("payment_intent.succeeded", j.world.intents.get(a.pid)!, { id: "evt_pay12_a" })
+    const o = orderOf(a.pid)
+    console.log(`    webhook: ${hook.ms}ms (in line ${page.ms}ms)`)
+    check("the webhook answers 200 well before the slow work (under 1s; in line it took the fee read and the emails)", hook.status === 200 && hook.ms < 1_000 && hook.ms < page.ms - SLOW_FEE_MS, { status: hook.status, ms: hook.ms, inline: page.ms })
+    check("  the order and its ledger line were written", !!o && ledgerFor(o.id as string) === 1)
+    check("  after the answer: the receipt went (once), the fee read ran, every step done", !!o && mailsTo("fast@example.com") === 1 && step(o.id as string, "emails")?.state === "done" && step(o.id as string, "notify")?.state === "done" && step(o.id as string, "stripe processing fee")?.state === "done" && step(o.id as string, "complete")?.state === "done", { mails: mailsTo("fast@example.com"), steps: j.rows("order_followups").filter((r) => r.order_id === o?.id) })
+    const fees = feeReads
+    const again = await j.webhook("payment_intent.succeeded", j.world.intents.get(a.pid)!, { id: "evt_pay12_a" })
+    const other = await j.webhook("payment_intent.succeeded", j.world.intents.get(a.pid)!, { id: "evt_pay12_a2" })
+    check("a redelivery (same event, or another event for the same payment) sends nothing twice", again.status < 500 && other.status === 200 && mailsTo("fast@example.com") === 1 && feeReads === fees && ledgerFor(o!.id as string) === 1, { again: again.status, other: other.status, mails: mailsTo("fast@example.com") })
+
+    /* A redelivery that lands while the first delivery's after() work has not run yet. */
+    const b = await buy("race@example.com")
+    const held: (() => Promise<void>)[] = []
+    const defer = (task: () => Promise<void>) => void held.push(task)
+    const admin = createAdminClient() as never
+    const first = await fulfilPaymentIntent(admin, b.pid, { baseUrl: "https://storelib.com", defer })
+    const ob = orderOf(b.pid)
+    check("before its after() work: the order and ledger are there, no email yet", first.ok === true && !!ob && ledgerFor(ob.id as string) === 1 && mailsTo("race@example.com") === 0 && held.length === 1, { first, held: held.length })
+    const second = await fulfilPaymentIntent(admin, b.pid, { baseUrl: "https://storelib.com", defer })
+    check("  a redelivery meanwhile finds the order and leaves the run alone (nothing more deferred)", second.ok === true && second.ok && !second.created && held.length === 1, { second, held: held.length })
+    for (const t of held.splice(0)) await t()
+    check("  the after() work then sends the receipt once and finishes the order", mailsTo("race@example.com") === 1 && step(ob!.id as string, "complete")?.state === "done", { mails: mailsTo("race@example.com") })
+
+    /* A step that fails after the answer is recorded and finished by the sweep. */
+    const c = await buy("sweep@example.com")
+    failFeeWrite = true
+    const failedHook = await j.webhook("payment_intent.succeeded", j.world.intents.get(c.pid)!, { id: "evt_pay12_c" })
+    failFeeWrite = false
+    const oc = orderOf(c.pid)!
+    check("a fee write that failed after the answer: the webhook still answered 200", failedHook.status === 200 && failedHook.ms < 1_000, { status: failedHook.status, ms: failedHook.ms })
+    check("  the step is recorded failed and the order left unfinished; the email went once", step(oc.id as string, "stripe processing fee")?.state === "failed" && step(oc.id as string, "begun")?.state !== "done" && mailsTo("sweep@example.com") === 1, { steps: j.rows("order_followups").filter((r) => r.order_id === oc.id), mails: mailsTo("sweep@example.com") })
+    const begun = step(oc.id as string, "begun")!
+    begun.updated_at = new Date(Date.now() - 5 * 60_000).toISOString()
+    const listed = await unfinishedFollowups(admin, 50)
+    check("  the sweep's list has it", listed.some((x) => x.orderId === oc.id))
+    await j.cron()
+    check("  the sweep wrote the fee and finished the order, and sent no second email", step(oc.id as string, "stripe processing fee")?.state === "done" && step(oc.id as string, "complete")?.state === "done" && mailsTo("sweep@example.com") === 1, { steps: j.rows("order_followups").filter((r) => r.order_id === oc.id), mails: mailsTo("sweep@example.com") })
+    check("no after() task threw", j.afterErrors.length === 0, j.afterErrors)
+
+    s.charges.retrieve = realCharge
+    j.net.mailDelayMs = 0
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)

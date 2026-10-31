@@ -37,6 +37,8 @@ export interface AuthUser {
 
 export class Net {
   mails: SentMail[] = []
+  /** A slow mail provider, when a suite sets it: each send waits this long first. */
+  mailDelayMs = 0
   refused: string[] = []
   users = new Map<string, AuthUser>()
   /** Responses a suite wants a host to give (a carrier, a partner); none by default. */
@@ -205,6 +207,7 @@ export class Net {
     /* A suppression lookup (bounces, complaints, unsubscribes) for an address on none of them is Mailgun's 404. */
     if (/\/(bounces|complaints|unsubscribes)\//.test(url.pathname)) return new Response(JSON.stringify({ message: "Address not found in bounces table" }), { status: 404, headers: { "content-type": "application/json" } })
     if (!/\/messages$/.test(url.pathname)) return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "content-type": "application/json" } })
+    if (this.mailDelayMs > 0) await new Promise((r) => setTimeout(r, this.mailDelayMs))
     const form = await req.formData()
     const all = (k: string) => form.getAll(k).map(String)
     const headers: Record<string, string> = {}

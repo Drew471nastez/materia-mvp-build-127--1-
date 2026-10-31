@@ -19,7 +19,8 @@ export interface StripeProcessingFeeFacts {
 export async function processingFeeFromChargeId(chargeId: string): Promise<StripeProcessingFeeFacts | null> {
   if (!chargeId?.startsWith("ch_")) return null
   try {
-    const charge = await stripe.charges.retrieve(chargeId, { expand: ["balance_transaction"] })
+    /* Bounded: it runs after a paid order's answer, and a fee Stripe has not given is filled by the reconcile later. */
+    const charge = await stripe.charges.retrieve(chargeId, { expand: ["balance_transaction"] }, { timeout: 5_000, maxNetworkRetries: 1 })
     const bt = charge.balance_transaction
     if (!bt || typeof bt === "string") return null
     const balance = bt as Stripe.BalanceTransaction
@@ -50,7 +51,7 @@ export async function persistOrderStripeEconomics(
   orderId: string,
   facts: StripeProcessingFeeFacts,
 ): Promise<void> {
-  await admin
+  const { error } = await admin
     .from("orders")
     .update({
       stripe_balance_transaction_id: facts.balanceTransactionId,
@@ -58,4 +59,6 @@ export async function persistOrderStripeEconomics(
       storelib_net_margin_cents: facts.storelibNetMarginMinor,
     })
     .eq("id", orderId)
+  /* Thrown, so an order follow-up records the step failed and the sweep writes it again. */
+  if (error) throw new Error(`order stripe economics: ${error.code ?? ""} ${error.message ?? ""}`.trim())
 }

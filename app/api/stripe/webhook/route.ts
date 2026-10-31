@@ -965,7 +965,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
     if (isCheckoutIntent(pi)) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
-      const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl })
+      /* The order, library entry and ledger before the answer; the fee read, receipt PDF, emails and notifications after it (PAY-12). */
+      const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl, defer: (task) => after(task) })
       if (result.ok === false) {
         console.error("[Webhook] checkout fulfilment failed:", pi.id, result.error)
         if (result.status >= 500) return NextResponse.json({ error: result.error }, { status: 500 })

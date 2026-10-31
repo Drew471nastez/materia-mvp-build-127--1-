@@ -130,6 +130,8 @@ export interface Answer<T = any> {
   json: T
   headers: Headers
   location: string | null
+  /** How long the handler took to answer, before any after() work (which `call` runs next, as Next would). */
+  ms: number
 }
 
 export interface Person extends AuthUser {
@@ -251,8 +253,11 @@ export class Journey {
       else if (task && typeof (task as Promise<unknown>).then === "function") later.push(() => task)
     }
     let res: Response
+    let ms = 0
     try {
+      const began = Date.now()
       res = await handler(request, { params: Promise.resolve(params) })
+      ms = Date.now() - began
       /* next/server's after(): run once the answer is made, as Next runs it. */
       for (const task of later) {
         try {
@@ -274,7 +279,7 @@ export class Journey {
     }
     if (opts.as) for (const [k, v] of Object.entries(setCookies)) opts.as.cookies.set(k, v)
     if (res.status >= 500) this.serverErrors.push({ route, status: res.status, body: json })
-    return { status: res.status, json, headers: res.headers, location: res.headers.get("location") }
+    return { status: res.status, json, headers: res.headers, location: res.headers.get("location"), ms }
   }
 
   /** A Stripe event, signed and delivered to the webhook route as Stripe sends it. */
