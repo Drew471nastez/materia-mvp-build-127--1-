@@ -11,6 +11,7 @@
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { readCode } from "./_source"
+import { AnalyticsUnavailable, countVisits, isAnalyticsUnavailable, readAll, readAudience, readNavClicks, type Admin, type CountQuestion } from "../lib/analytics/report-read"
 
 let passed = 0
 let failed = 0
@@ -77,11 +78,109 @@ async function run() {
   check("  the wishlist still answers empty (not a 500) when the service key is missing", /if \(!url \|\| !key\) \{[\s\S]*?return null[\s\S]*?\}\s*return createAdminClient\(\)/.test(wish))
   if (raw.some((f) => OWNED_ELSEWHERE.has(f))) console.log(`  note  still raw, owned by another area: ${raw.filter((f) => OWNED_ELSEWHERE.has(f)).join(", ")}`)
 
+  await analytics()
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
     process.exit(1)
   }
+}
+
+/** An admin client that answers every rpc with `rpcAnswer` and every table read with no rows, recording what was asked. */
+function fakeAdmin(rpcAnswer: { data: unknown; error: { code?: string; message: string } | null }) {
+  const tables: string[] = []
+  const rpcs: string[] = []
+  const builder = (): unknown =>
+    new Proxy(
+      {},
+      {
+        get(_t, prop) {
+          if (prop === "then") return (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok, bad)
+          return () => builder()
+        },
+      },
+    )
+  const admin = {
+    from(table: string) {
+      tables.push(table)
+      return builder()
+    },
+    rpc(fn: string) {
+      rpcs.push(fn)
+      const p = Promise.resolve(rpcAnswer)
+      return Object.assign(p, { abortSignal: () => p })
+    },
+  }
+  return { admin: admin as unknown as Admin, tables, rpcs }
+}
+
+async function analytics() {
+  console.log("\n2. Analytics: raw events only when the function is missing")
+  const now = Date.UTC(2026, 9, 30, 12)
+  const q: CountQuestion = {
+    creatorId: "00000000-0000-4000-8000-000000000001",
+    selector: { type: "all" } as CountQuestion["selector"],
+    properties: { onePageId: null, websites: [], defaultWebsite: null },
+    product: null,
+    window: { start: now - 7 * 86_400_000, end: now },
+    previous: { start: now - 14 * 86_400_000, end: now - 7 * 86_400_000 },
+    timeZone: "UTC",
+    mainDomain: "storelib.com",
+    part: "all",
+    now,
+  }
+
+  /* Before the PGRST202 case: that one remembers "missing" for five minutes. */
+  for (const [label, error] of [
+    ["a statement timeout (57014)", { code: "57014", message: "canceling statement due to statement timeout" }],
+    ["a 5xx from PostgREST", { code: "", message: "upstream connect error" }],
+  ] as const) {
+    const t0 = Date.now()
+    const { admin, tables } = fakeAdmin({ data: null, error })
+    let thrown: unknown = null
+    try {
+      await countVisits(admin, q)
+    } catch (e) {
+      thrown = e
+    }
+    check(`${label}: the report is "unavailable", not counted from raw rows`, isAnalyticsUnavailable(thrown) && thrown instanceof AnalyticsUnavailable, String(thrown))
+    check(`  and analytics_events is never read`, !tables.includes("analytics_events"), tables)
+    check(`  and it answers at once (${Date.now() - t0}ms)`, Date.now() - t0 < 1_000)
+  }
+  {
+    const { admin, tables } = fakeAdmin({ data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } })
+    const a = await readAudience(admin, q, q.window)
+    check("systems and carts: a failed function leaves the cards empty, no raw read", a.audience === null && !tables.includes("analytics_events"), tables)
+    const n = await readNavClicks(admin, q)
+    check("clicks between pages: a failed function leaves the card empty, no raw read", n === null && !tables.includes("analytics_events"), tables)
+  }
+  {
+    const { admin, tables } = fakeAdmin({ data: null, error: { code: "PGRST202", message: "Could not find the function public.analytics_report" } })
+    const counted = await countVisits(admin, q)
+    check("the function missing (PGRST202): counted from the raw rows, as before", counted.counted === "rows" && tables.includes("analytics_events"), { counted: counted.counted, tables })
+  }
+  {
+    let pages = 0
+    const page = () => {
+      pages++
+      const rows = Array.from({ length: 1000 }, (_, i) => ({ id: `${pages}-${i}`, created_at: new Date(now + pages * 1000 + i).toISOString() }))
+      return Promise.resolve({ data: rows, error: null })
+    }
+    const read = await readAll(page, { until: Date.now() - 1 })
+    check("a raw read past its wall clock stops after the page in hand and says truncated", read.truncated === true && pages === 1, { pages, truncated: read.truncated })
+    pages = 0
+    let n = 0
+    const short = await readAll(() => {
+      n++
+      return Promise.resolve({ data: n === 1 ? Array.from({ length: 1000 }, (_, i) => ({ id: `a${i}`, created_at: new Date(now + i).toISOString() })) : [{ id: "z", created_at: new Date(now + 5000).toISOString() }], error: null })
+    })
+    check("  without a wall clock every page is read (1,001 rows)", short.rows.length === 1001 && !short.truncated)
+  }
+  const route = readCode("app/api/analytics/reports/route.ts")
+  check("the reports route has maxDuration = 60", /export const maxDuration = 60\b/.test(route))
+  check("  and says unavailable (503, stream line) when the function failed", /isAnalyticsUnavailable\(error\)/.test(route) && /status: 503/.test(route))
+  check("  Home's all time line drops out on a failed function instead of failing the report", /allTimeOf\(admin, q\.creatorId\)\.catch\(\(e\) => \{ if \(isAnalyticsUnavailable\(e\)\) return null/.test(readCode("lib/analytics/report-answer.ts")))
 }
 
 run().catch((e) => {
