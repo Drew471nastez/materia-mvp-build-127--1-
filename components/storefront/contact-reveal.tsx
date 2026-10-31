@@ -12,14 +12,13 @@
  * ask for it — which is the same number of taps as selecting and copying it
  * was, and one fewer than opening a mail client to find out what it is.
  *
- * WHAT THIS DOES AND DOES NOT DO. The address is not in the rendered page
- * until somebody presses the button, so a scraper reading the DOM of a
- * creator page does not come away with it. It IS still in the page's data,
- * because the server sent it to draw this button — a determined harvester
- * reading the payload will find it. Saying otherwise would be a comfortable
- * lie. Keeping it out of the payload entirely means fetching it on the click
- * from an endpoint that can rate-limit, which is a bigger change than the
- * one being made here.
+ * WHAT THIS DOES. The address is in neither the rendered page nor the
+ * page's data. The page hands this button the creator's handle, and only
+ * when the server decided this viewer may have the address; pressing it
+ * asks /api/creator-contact, which asks the same question again, rate
+ * limited, and answers with the address (lib/commerce/contact-email.ts).
+ * It used to be in the payload, because the server sent it to draw this
+ * button, and a scraper reading the HTML of storelib.com/<name> found it.
  *
  * ONE CONTROL, TWO PLACES: the About block and the header's meta line. The
  * header is the only one a page is guaranteed to have — About is a section a
@@ -32,40 +31,71 @@ import { Check, Copy, Mail } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/** Where the button asks for the address; the route's own rule decides (app/api/creator-contact). */
+export function contactAddressUrl(handle: string): string {
+  return `/api/creator-contact?handle=${encodeURIComponent(handle)}`
+}
+
 export function ContactReveal({
-  email,
+  handle,
   className,
   iconClassName,
   /** The address is wider than the word; a tight row says so. */
   maxWidthClassName = "max-w-[220px]",
 }: {
-  email: string
+  /** The creator's handle: the address itself is fetched when the button is pressed. */
+  handle: string
   className?: string
   iconClassName?: string
   maxWidthClassName?: string
 }) {
-  const [shown, setShown] = useState(false)
+  /* Empty until the button is pressed and the route answers: the address is not in the page before that. */
+  const [email, setEmail] = useState("")
+  const [state, setState] = useState<"idle" | "asking" | "failed">("idle")
   const [copied, setCopied] = useState(false)
 
-  if (!email) return null
+  if (!handle) return null
 
-  if (!shown) {
+  if (!email) {
     return (
-      <button
-        type="button"
-        aria-expanded={false}
-        onClick={(e) => {
-          /* In the builder the canvas catches clicks to select a section;
-             revealing is this button's own business either way. */
-          e.stopPropagation()
-          setShown(true)
-        }}
-        className={cn("inline-flex items-center gap-1.5 underline-offset-4 hover:underline", className)}
-        style={{ color: "inherit" }}
-      >
-        <Mail aria-hidden className={cn("h-4 w-4 opacity-70", iconClassName)} />
-        Contact
-      </button>
+      <span className={cn("inline-flex flex-wrap items-center gap-x-2 gap-y-1", className)}>
+        <button
+          type="button"
+          aria-expanded={false}
+          aria-busy={state === "asking" || undefined}
+          disabled={state === "asking"}
+          onClick={(e) => {
+            /* In the builder the canvas catches clicks to select a section;
+               revealing is this button's own business either way. */
+            e.stopPropagation()
+            setState("asking")
+            void (async () => {
+              try {
+                const res = await fetch(contactAddressUrl(handle), { credentials: "same-origin", cache: "no-store" })
+                const data = (await res.json().catch(() => ({}))) as { email?: unknown }
+                if (res.ok && typeof data.email === "string" && data.email) {
+                  setEmail(data.email)
+                  setState("idle")
+                  return
+                }
+              } catch {
+                /* Offline or refused: said below, and the button stays to try again. */
+              }
+              setState("failed")
+            })()
+          }}
+          className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline disabled:opacity-60"
+          style={{ color: "inherit" }}
+        >
+          <Mail aria-hidden className={cn("h-4 w-4 opacity-70", iconClassName)} />
+          Contact
+        </button>
+        {state === "failed" ? (
+          <span role="status" className="text-[13px] opacity-70">
+            The address did not load. Try again.
+          </span>
+        ) : null}
+      </span>
     )
   }
 

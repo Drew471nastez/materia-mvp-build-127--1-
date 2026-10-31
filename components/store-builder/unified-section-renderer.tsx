@@ -170,8 +170,12 @@ export interface UnifiedSectionProps {
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
   sellerProductsCount?: number
-  /** A PUBLIC address the creator typed. Absent means no Contact link. */
-  sellerContactEmail?: string
+  /**
+   * The creator's handle when this viewer may have their contact address.
+   * Absent means no Contact link. The address itself is never in the page:
+   * ContactReveal asks for it when pressed (lib/commerce/contact-email.ts).
+   */
+  sellerContactHandle?: string
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
@@ -547,7 +551,7 @@ function UnifiedAboutSection({
   memberSince,
   totalSales,
   productsCount,
-  contactEmail,
+  contactHandle,
   onUpdateSettings,
   onOpenSidebar,
   pageBackgroundColor,
@@ -561,8 +565,8 @@ function UnifiedAboutSection({
   memberSince?: string
   totalSales?: number
   productsCount?: number
-  /** A PUBLIC address the creator typed. Absent means no Contact link. */
-  contactEmail?: string
+  /** The creator's handle when this viewer may have their address (see sellerContactHandle). Absent means no Contact link. */
+  contactHandle?: string
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
   pageBackgroundColor?: string
@@ -869,9 +873,9 @@ function UnifiedAboutSection({
               comment used to claim the opposite, which had stopped being
               true.
             */}
-            {contactEmail && (
+            {contactHandle && (
               <div className="mt-6 text-sm" style={{ color: textColor || undefined }}>
-                <ContactReveal email={contactEmail} />
+                <ContactReveal handle={contactHandle} />
               </div>
             )}
           </div>
@@ -1447,7 +1451,7 @@ export function UnifiedSectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
-  sellerContactEmail,
+  sellerContactHandle,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
   aboutOwnerActions,
@@ -1606,7 +1610,7 @@ export function UnifiedSectionRenderer({
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
           productsCount={sellerProductsCount}
-          contactEmail={sellerContactEmail}
+          contactHandle={sellerContactHandle}
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
           pageBackgroundColor={globalSettings?.themeColors?.background}
@@ -2689,7 +2693,7 @@ export interface UnifiedShopHeaderProps {
    * way to email them sat oddly among them. It belongs in the About block,
    * which is the part of the page that is about dealing with this person,
    * and the About block is a LOCKED default section, so every creator page
-   * has one. See UnifiedAboutSection's `contactEmail`.
+   * has one. See UnifiedAboutSection's `contactHandle`.
    */
 }
 
