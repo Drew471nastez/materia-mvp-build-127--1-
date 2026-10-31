@@ -990,6 +990,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */
   "tests/seo-marketing-r44.test.ts",
+  /* Round 45: storelib.com's own pages say noindex where private (X-Robots-Tag and the layouts), titles for the auth steps, the crawler table, Organization, WebSite and WebApplication priced from plans.ts, breadcrumbs, unique metadata, Explore's views and 404, the Help Center's metadata, llms.txt's plans. */
+  "tests/seo-platform-r45.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
