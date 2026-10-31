@@ -53,6 +53,10 @@ interface CompatPreviewValue {
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
 /** How long a closed library waits after the last change before it takes the newest (CompatPreviewProvider): as long as a Storelib theme's closed library waits to draw its previews again (section-library.tsx REWARM_AFTER_MS). */
 export const CLOSED_ADOPT_MS = 10_000
+/** An open library takes changes once they have been quiet this long (CompatPreviewProvider), */
+export const LIVE_ADOPT_QUIET_MS = 250
+/** and never later than this after the first. */
+export const LIVE_ADOPT_CAP_MS = 1_200
 const keptThemes = new WeakMap<Record<string, string>, { key: string; sources: Record<string, string>; theme: CompatTheme }>()
 
 /** Whether the library's cards are an imported theme's, drawn here. */
@@ -96,11 +100,25 @@ export function CompatPreviewProvider({
   const newest = useRef(taken)
   newest.current = { sources: sourcesNow, settings: settingsNow, filesVersion: filesVersionNow }
   const behind = taken.sources !== sourcesNow || taken.settings !== settingsNow || taken.filesVersion !== filesVersionNow
+  const behindSince = useRef<number | null>(null)
   useEffect(() => {
-    if (!behind) return
-    if (live) {
-      setTaken(newest.current)
+    if (!behind) {
+      behindSince.current = null
       return
+    }
+    /*
+      OPEN, A BURST IS TAKEN ONCE. A push or an AI run lands as several
+      changes a few milliseconds apart, and each was a new theme, a new sheet
+      and every card drawn again while somebody looked at them. Taken once
+      nothing has changed for LIVE_ADOPT_QUIET_MS, and never later than
+      LIVE_ADOPT_CAP_MS after the first.
+    */
+    if (live) {
+      const now = performance.now()
+      if (behindSince.current === null) behindSince.current = now
+      const wait = Math.max(0, Math.min(LIVE_ADOPT_QUIET_MS, behindSince.current + LIVE_ADOPT_CAP_MS - now))
+      const t = window.setTimeout(() => setTaken(newest.current), wait)
+      return () => window.clearTimeout(t)
     }
     let idleId = 0
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
@@ -336,8 +354,18 @@ const CARD_LAYER = "storelib-card"
 function sheetRules(width: number): string {
   const card = `body>${CARD_TAG}[data-sl-card]`
   return [
-    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important}",
     `@layer ${CARD_LAYER}{`,
+    /*
+      THE PAGE ITSELF IS THE CARDS' COORDINATE SPACE, SO NOTHING MAY MOVE IT.
+      This lock used to sit outside the layer, where an unlayered `!important`
+      with a stronger selector beats it: a section pack's
+      `body.template-index { margin-top: 40px !important }` (room under a
+      fixed bar) moved every card's picture 40px down its card, over the
+      name under it. In the first layer nothing in the theme can beat it.
+      No zoom or transform on the page either (both would scale every card's
+      place), and nothing that could scroll it.
+    */
+    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:static!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
     `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important}`,
     /* Layout containment includes child margins and floats in the natural height,
        instead of measuring a short box with its content spilling below it. */
@@ -573,6 +601,12 @@ class PreviewSheet {
   private remeasure = new Set<string>()
   private remeasureQueued = false
   private document_: { html: string; main: string } | null = null
+  /** The theme stylesheets sections link, each once in the head, by its text (hoistSheets): the token the cards that link it carry. */
+  private readonly shared = new Map<string, string>()
+  private sharedEls: HTMLStyleElement[] = []
+  /** What the document showed under the sheet before this one (shownBefore): a section drawn the same again is shown at once, without a fade. */
+  private donor: Map<string, string> | null = null
+  private readonly instant = new Set<string>()
   private readonly fontsLoaded = () => {
     for (const k of this.wrappers.keys()) this.remeasure.add(k)
     this.queueRemeasure()
@@ -606,7 +640,18 @@ class PreviewSheet {
     /* A section-only update can keep exactly the same srcDoc, so React
        reuses this document for the next sheet. Forgetting the map alone
        left its old pictures painted underneath the replacement cards. */
+    if (this.doc) {
+      const drawn = new Map<string, string>()
+      for (const [key, inner] of this.wrappers) {
+        const html = this.html.get(key)
+        if (html && frameOf(inner).hasAttribute("data-on")) drawn.set(key, html)
+      }
+      shownBefore.set(this.doc, drawn)
+    }
     for (const inner of this.wrappers.values()) frameOf(inner).remove()
+    for (const el of this.sharedEls) el.remove()
+    this.sharedEls = []
+    this.shared.clear()
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.remeasure.clear()
     this.doc = null
@@ -691,7 +736,7 @@ class PreviewSheet {
   /* ── the frame ── */
 
   /** The frame has (re)loaded its document: everything drawn before is put in again, nearest first. */
-  attach(frame: HTMLIFrameElement) {
+  attach(frame: HTMLIFrameElement, loaded = false) {
     this.frame = frame
     this.grid = frame.parentElement
     /* Watched again after a release (a sheet given up and asked for again keeps its cards). */
@@ -702,9 +747,26 @@ class PreviewSheet {
     const doc = frame.contentDocument
     /* Not the blank page a new frame holds before its own document has loaded. */
     if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    /*
+      NOT THE DOCUMENT ON ITS WAY OUT. A push that changes the theme's head
+      gives the frame a new srcdoc, and until that has loaded the frame still
+      holds the old document, complete and about:srcdoc. A newer sheet took
+      it for its own and drew its sections into the old theme's styles,
+      measured them there, and kept those heights. A document is this
+      sheet's only once it is known to have loaded this sheet's srcdoc.
+    */
+    if (loaded) loadedFrom.set(doc, frame.getAttribute("srcdoc") ?? "")
+    if (loadedFrom.get(doc) !== this.srcDoc) return
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
     this.wrappers.clear()
+    this.shared.clear()
+    this.sharedEls = []
+    this.instant.clear()
+    this.donor = shownBefore.get(doc) ?? null
+    shownBefore.delete(doc)
+    /* Nothing of another sheet's is left in it: whatever card or shared style is still in the page is no card of this sheet's. */
+    for (const el of Array.from(doc.querySelectorAll(`body>${CARD_TAG}, style[data-sl-shared]`))) el.remove()
     for (const [k, st] of this.states) if (st.state === "shown") this.states.set(k, { ...st, state: "waiting" })
     for (const key of this.states.keys()) for (const l of this.listeners.get(key) ?? []) l()
     /* The theme's <main>, copied for each card, so the theme's rules for what is in it still hold. */
@@ -845,6 +907,8 @@ class PreviewSheet {
       this.setState(key, { state: "named" })
       return
     }
+    /* Drawn exactly as the sheet before this one showed it: shown at once, not faded in again (a push that changed other sections). */
+    if (this.donor?.get(key) === html) this.instant.add(key)
     /* The card's own box (sheetRules), and the theme's <main> in it. */
     const box = doc.createElement(CARD_TAG)
     box.setAttribute("data-sl-card", key)
@@ -859,6 +923,7 @@ class PreviewSheet {
   /** Puts a section's markup in its wrapper, keeps its styles to it, and measures it. */
   private fill(key: string, w: HTMLElement, html: string) {
     w.innerHTML = html
+    this.hoistSheets(w)
     keepStylesInside(w, key)
     if (this.open) {
       for (const img of Array.from(w.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
@@ -878,6 +943,44 @@ class PreviewSheet {
     for (const link of Array.from(w.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]"))) {
       if (!link.sheet) link.addEventListener("load", again, { once: true })
     }
+  }
+
+  /**
+   * A THEME STYLESHEET A SECTION LINKS REACHES ONLY THE CARDS THAT LINK IT.
+   * It was left inside the section, a <style> in the body of the one
+   * document every card is in, so it styled every card from the moment that
+   * section was put in: a section pack's `#MainContent { padding-top }` or
+   * `h2 { font-size }` moved and grew every other card's section after it
+   * had been measured, and its picture was cut mid line. Each linked sheet
+   * is now put in the head once (by its whole text), in an @scope of the
+   * cards that link it, and a card carries the token of each it links.
+   */
+  private hoistSheets(w: HTMLElement) {
+    const doc = this.doc
+    if (!doc?.head) return
+    const tokens: string[] = []
+    for (const el of Array.from(w.querySelectorAll<HTMLStyleElement>("style[data-sheet-from]"))) {
+      const text = el.textContent ?? ""
+      const media = el.getAttribute("media") ?? ""
+      const id = `${media}|${sheetTag(text)}`
+      let token = this.shared.get(id)
+      if (!token) {
+        token = `s${++sharedSheetCount}`
+        const copy = doc.createElement("style")
+        copy.setAttribute("data-sl-shared", token)
+        copy.setAttribute("data-sheet-from", el.getAttribute("data-sheet-from") ?? "")
+        if (media) copy.setAttribute("media", media)
+        copy.textContent = text
+        doc.head.appendChild(copy)
+        keepStyleTo(copy, `[data-sl-sheets~="${token}"]`)
+        this.shared.set(id, token)
+        this.sharedEls.push(copy)
+      }
+      if (!tokens.includes(token)) tokens.push(token)
+      el.remove()
+    }
+    if (tokens.length) w.setAttribute("data-sl-sheets", tokens.join(" "))
+    else w.removeAttribute("data-sl-sheets")
   }
 
   /** Its natural height, at the width it is pictured at, and whether it has anything to see. */
@@ -938,12 +1041,26 @@ class PreviewSheet {
     this.remeasureQueued = true
     requestAnimationFrame(() => {
       this.remeasureQueued = false
-      for (const key of this.remeasure) {
+      /*
+        A frame's worth at a time (a font landing asks for every card at
+        once: 157 sections laid out in one task stalled a scrolling list),
+        the ones somebody can see first.
+      */
+      const t0 = performance.now()
+      const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
+      const near = (key: string) => {
+        const r = view ? this.cards.get(key)?.box.getBoundingClientRect() : null
+        return r && view && r.bottom > view.top - 400 && r.top < view.bottom + 400 ? 0 : 1
+      }
+      const order = [...this.remeasure].sort((a, b) => near(a) - near(b))
+      for (const key of order) {
+        if (performance.now() - t0 >= FRAME_BUDGET_MS) break
+        this.remeasure.delete(key)
         const w = this.wrappers.get(key)
         if (w?.isConnected) this.measure(key, w)
       }
-      this.remeasure.clear()
       this.sync()
+      if (this.remeasure.size) this.queueRemeasure()
     })
   }
 
@@ -963,6 +1080,9 @@ class PreviewSheet {
     const frame = this.frame
     const grid = this.grid
     if (!frame || !grid || !this.doc || !frame.isConnected) return
+    /* The page never scrolls (sheetRules), but find in page or a re-snap can still scroll it: every card is placed from its top left. */
+    const page = this.doc.scrollingElement
+    if (page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) page.scrollTo(0, 0)
     /* Read the host boxes together before writing to the preview document.
        offsetWidth rounds fractional CSS pixels; treating that rounding as a
        dialog transform made the error accumulate down a long list. */
@@ -1032,11 +1152,11 @@ class PreviewSheet {
     const w = frameOf(inner)
     const imgs = Array.from(inner.querySelectorAll("img")).filter((i) => !i.complete || i.naturalWidth > 0).slice(0, 12)
     const links = Array.from(inner.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]")).filter((l) => !l.sheet)
-    const show = () => {
+    const show = (again = false) => {
       if (!w.isConnected) return
       const view = box.closest("[data-library-scroll]")?.getBoundingClientRect()
       const r = box.getBoundingClientRect()
-      const seen = this.open && !!view && r.bottom > view.top && r.top < view.bottom
+      const seen = !again && this.open && !!view && r.bottom > view.top && r.top < view.bottom
       if (seen) w.removeAttribute("data-instant")
       else w.setAttribute("data-instant", "")
       w.setAttribute("data-on", "")
@@ -1045,6 +1165,10 @@ class PreviewSheet {
       this.setState(key, { state: "shown" })
     }
     if (!imgs.length && !links.length) return show()
+    if (this.instant.delete(key)) {
+      w.setAttribute("data-instant", "")
+      return show(true)
+    }
     let done = false
     const once = () => {
       if (done) return
@@ -1116,37 +1240,48 @@ function retarget(rules: CSSRuleList, scope: string, scoped: boolean) {
 
 /** Each of the section's own <style>s, kept to its wrapper. Exported for its test. */
 export function keepStylesInside(w: HTMLElement, key: string) {
-  const win = w.ownerDocument.defaultView as (Window & { CSSScopeRule?: unknown; CSS?: { escape?: (s: string) => string } }) | null
+  const win = w.ownerDocument.defaultView as (Window & { CSS?: { escape?: (s: string) => string } }) | null
   const esc = win?.CSS?.escape ? win.CSS.escape(key) : key.replace(/["\\]/g, "\\$&")
-  const scope = `[data-sl-pv="${esc}"]`
-  const scoped = !!win?.CSSScopeRule
   /*
     Not the theme's own stylesheets a section links (carried in as <style
-    data-sheet-from>, lib/storelib-theme/compat/preview-styles.ts): they are
-    the theme's, the same in every card and on every page, and parsing tens
-    of kilobytes of them again for each card is what would make the library
-    slow to fill.
+    data-sheet-from>, lib/storelib-theme/compat/preview-styles.ts): those are
+    taken out of the section and put in the head once each, kept to the
+    cards that link them (PreviewSheet.hoistSheets).
   */
-  for (const el of Array.from(w.querySelectorAll("style:not([data-sheet-from])"))) {
-    const sheet = (el as HTMLStyleElement).sheet
-    if (!sheet) continue
-    try {
-      retarget(sheet.cssRules, scope, scoped)
-      if (!scoped) continue
-      /* At-rules a scope cannot hold stay outside it; everything else goes in. */
-      const outside: string[] = []
-      const inside: string[] = []
-      for (const rule of Array.from(sheet.cssRules)) {
-        if (/^@(?:import|namespace|font-face|keyframes|-webkit-keyframes|property|page|counter-style|font-feature-values|layer\s+[^{]*;)/i.test(rule.cssText)) outside.push(rule.cssText)
-        else inside.push(rule.cssText)
-      }
-      if (!inside.length) continue
-      el.textContent = `${outside.join("\n")}\n@scope (${scope}) {\n${inside.join("\n")}\n}`
-    } catch {
-      /* A sheet that cannot be read stays as it was. */
+  for (const el of Array.from(w.querySelectorAll<HTMLStyleElement>("style:not([data-sheet-from])"))) keepStyleTo(el, `[data-sl-pv="${esc}"]`)
+}
+
+/** One <style>'s rules made to reach only what is inside `scope`: in an @scope where there is one, under the selector otherwise. */
+function keepStyleTo(el: HTMLStyleElement, scope: string) {
+  const win = el.ownerDocument.defaultView as (Window & { CSSScopeRule?: unknown }) | null
+  const scoped = !!win?.CSSScopeRule
+  const sheet = el.sheet
+  if (!sheet) return
+  try {
+    retarget(sheet.cssRules, scope, scoped)
+    if (!scoped) return
+    /* At-rules a scope cannot hold stay outside it; everything else goes in. */
+    const outside: string[] = []
+    const inside: string[] = []
+    for (const rule of Array.from(sheet.cssRules)) {
+      if (/^@(?:import|namespace|font-face|keyframes|-webkit-keyframes|property|page|counter-style|font-feature-values|layer\s+[^{]*;)/i.test(rule.cssText)) outside.push(rule.cssText)
+      else inside.push(rule.cssText)
     }
+    if (!inside.length) return
+    el.textContent = `${outside.join("\n")}\n@scope (${scope}) {\n${inside.join("\n")}\n}`
+  } catch {
+    /* A sheet that cannot be read stays as it was. */
   }
 }
+
+/** A short tag of a stylesheet's whole text: two linked copies are one only when every character is the same. */
+function sheetTag(text: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
+  return `${text.length}:${(h >>> 0).toString(36)}`
+}
+/** Unique across every sheet and document, so a document a newer sheet reuses never confuses one sheet's shared styles with another's. */
+let sharedSheetCount = 0
 
 /**
  * Whether a drawn section has anything to see: a picture or a field with a
@@ -1170,6 +1305,10 @@ function somethingToSee(root: HTMLElement): boolean {
   return false
 }
 
+/** The srcdoc each of the frame's documents was loaded from (PreviewSheet.attach). */
+const loadedFrom = new WeakMap<Document, string>()
+/** What a document showed when its sheet was given up: each shown section's markup, by card. */
+const shownBefore = new WeakMap<Document, Map<string, string>>()
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
 /** A section's card box in the cards' document (sheetRules): its <main>'s parent. */
@@ -1216,7 +1355,13 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     if (!sheet || !grid || typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver(() => sheet.sync())
     ro.observe(grid)
-    return () => ro.disconnect()
+    /* A card put in, taken out or shown by a category, whatever React did or did not render around it: every section put back over its card before paint. */
+    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => sheet.requestSync())
+    mo?.observe(grid, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] })
+    return () => {
+      ro.disconnect()
+      mo?.disconnect()
+    }
   }, [sheet])
   if (!sheet) return null
   return (
@@ -1234,7 +1379,7 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
       data-compat-sheet=""
       /* Its scale is the whole picture: the touch rule that flattens transforms inside a .group must leave it alone. */
       data-keep-transform=""
-      onLoad={(e) => sheet.attach(e.currentTarget)}
+      onLoad={(e) => sheet.attach(e.currentTarget, true)}
       className="pointer-events-none absolute left-0 top-0 z-[1] border-0 bg-transparent"
       style={{ width: renderWidth, height: 0, transformOrigin: "0 0", overflowAnchor: "none", colorScheme: "normal" }}
     />

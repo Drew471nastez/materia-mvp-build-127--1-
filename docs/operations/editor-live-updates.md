@@ -12,6 +12,8 @@ The library's section sheet for an imported theme lets go of its frame's documen
 
 Section-only changes can leave the library iframe's `srcDoc` unchanged. The outgoing sheet removes its own card elements before paint, so reusing that document cannot leave old previews behind or duplicate them after each update. Font listeners are released with the sheet. Card positions use the iframe's actual painted origin and scale rather than rounded layout widths; section measurements include child margins, and a replacement sheet keeps existing card heights while awaiting its measurements.
 
+The cards' document is their coordinate space, so nothing in a theme may move it: its lock on `html` and `body` (no margin, padding, position, zoom, transform or scroll) is in the cards' first cascade layer, where a theme's stronger `!important` cannot beat it. A theme stylesheet a section links is put in the head once and kept to the cards that link it (`hoistSheets`), so one section pack's page rules no longer restyle and cut every other card. A newer sheet attaches only to a document known to have loaded its own srcdoc, never to the one the frame is about to replace. An open library takes a burst of changes once (`LIVE_ADOPT_QUIET_MS`, at most `LIVE_ADOPT_CAP_MS` after the first), and a section drawn the same as before a push is shown again at once rather than faded in.
+
 On an imported theme, an agent's saved section file (Storelib AI, MCP, the agent API) draws only the sections of that type on the page and swaps them in place (`syncFileChange` in `compat-canvas.tsx`), the same way a section setting is applied. It does this only when nothing else changed: not a snippet, layout, asset, setting or the page's sections, and not the theme's stylesheet or script bundles. It also needs a page that is not a product page, not loading behind, not asking for a fresh document, not having most of its sections swapped at once, and not worn by many swaps. Any of those draws the whole page as before. While a page loads behind the one on screen, files saved meanwhile are not each a new page behind: they are drawn into it once it comes forward (`behindStale`). A change to the theme's files is drawn in one task and parsed in the next (`prepareDraw`). The editor waits out a scroll between them. A closed library takes such changes 10s after the last one (`CLOSED_ADOPT_MS`), and an open library takes them at once. After the first warm-up, a closed Storelib library draws again only the first 12 cards still to draw (`REWARM_FIRST`). It draws the rest when opened.
 
 `scripts/big-theme-kit.mjs` builds the store-size fixture these were measured on, from a Shopify theme zip (`BIG_THEME_ZIP`; Dawn made 156 sections with a 39 section home page). Each probe below takes it the same way.
@@ -24,6 +26,11 @@ node scripts/check-editor-theme-reads.mjs
 # Actual imported preview components: fractional widths, filtering, title resize,
 # dialog scaling, reopening, and three section-only updates in the same document.
 CHROMIUM=/path/to/chromium node scripts/check-section-preview-layout.mjs
+# The real Add a section dialog on a 157 section theme built to break it, driven by seeded random
+# runs (categories, search, flings, resize, zoom, slowed CPU, pushes and AI edits while open and closed).
+# Fails on any picture over another card, off its card by more than 1px, cut, stale after a push, or doubled.
+# PREVIEW_MODULE=/path/to/older/compat-section-preview.tsx measures a before over the same dialog.
+RUNS=50 npx tsx scripts/check-section-preview-stress.mjs
 # Uses the repository's existing real-editor harness and imported theme fixture.
 # Set CHROMIUM to an installed Chromium binary, as for the other editor probes.
 pnpm dlx tsx@4.20.6 scripts/check-editor-push-scroll.mjs
