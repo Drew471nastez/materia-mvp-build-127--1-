@@ -13,6 +13,9 @@
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-obs.test.ts)
  */
 import { readFileSync } from "node:fs"
+import { execFile } from "node:child_process"
+import http from "node:http"
+import { pathToFileURL } from "node:url"
 import { join } from "node:path"
 import { cleanRequestId, requestIdFrom } from "@/lib/net/request-id"
 import { reportError, recordCronRun } from "@/lib/observability/report"
@@ -181,6 +184,57 @@ async function main() {
     ]
     for (const [p, re] of moved) check(`${p}: ${re.source.slice(0, 60)}`, re.test(code(p)))
     check("no model list at error level any more", !/console\.error\(`\[translate\] (gemini|cloudflare) models for translating now/.test(code("lib/markets/open-translate.ts")))
+  }
+
+  console.log("\nThe key paths load test (scripts/load/scenarios.mjs)")
+  {
+    const L = await import(pathToFileURL(join(process.cwd(), "scripts/load/scenarios.mjs")).href)
+    check("storelib.com, storelib.me and their subdomains are refused", ["https://storelib.com", "https://storelib.me", "https://demo.storelib.com", "https://x.storelib.me/a"].every((u) => typeof L.refuseTarget(u) === "string"))
+    check("  as is any host not known to be staging (a custom domain, a production deployment address)", typeof L.refuseTarget("https://shop.example.com") === "string" && typeof L.refuseTarget("https://storelib-abc123-team.vercel.app") === "string")
+    check("  unless --i-know-this-is-production", L.refuseTarget("https://storelib.com", { iKnowThisIsProduction: true }) === null)
+    check("local, private addresses, branch previews and LOAD_ALLOW_HOSTS are allowed", ["http://localhost:3100", "http://127.0.0.1:3000", "http://10.1.2.3", "http://192.168.1.4:3000", "https://storelib-git-staging-team.vercel.app"].every((u) => L.refuseTarget(u) === null) && L.refuseTarget("https://staging.example.org", { allowHosts: ["staging.example.org"] }) === null)
+    check("a lookalike is not mistaken for production or for staging", typeof L.refuseTarget("https://notstorelib.com") === "string" && typeof L.refuseTarget("https://storelib.com.evil.test") === "string")
+    check("checkout never runs against a live Stripe key, whatever is set", typeof L.refuseCheckout("live", "pk_test_abc") === "string" && typeof L.refuseCheckout("unknown", "pk_live_abc") === "string" && typeof L.refuseCheckout("test", "pk_live_abc") === "string")
+    check("  runs on a test key seen in the pages, or one confirmed by the env", L.refuseCheckout("test", undefined) === null && L.refuseCheckout("unknown", "pk_test_abc") === null && typeof L.refuseCheckout("unknown", undefined) === "string")
+    check("  live wins when a page carries both", L.stripeModeOf(["pk_test_aaaaaaaaaaaa", "pk_live_bbbbbbbbbbbb"]) === "live")
+    check("checkout only with --checkout", !L.buildScenarios({ product: "p" }).some((x: { name: string }) => x.name === "checkout") && L.buildScenarios({ product: "p", checkout: true }).some((x: { name: string }) => x.name === "checkout"))
+    const sm = L.summarise([{ name: "a", status: 200, ms: 10, error: null }, { name: "a", status: 503, ms: 30, error: null }, { name: "a", status: 0, ms: null, error: "TimeoutError" }, { name: "a", status: 429, ms: 5, error: null }, { name: "a", status: 404, ms: 7, error: null }])
+    check("p50/p95/p99 and error rate (5xx and network failures), 4xx and 429 apart", sm.requests === 5 && sm.errors === 2 && sm.errorRate === 0.4 && sm.limited429 === 1 && sm.client4xx === 1 && sm.p50 === 7 && sm.p95 === 30 && sm.p99 === 30, sm)
+    let t = 0
+    const waits: number[] = []
+    const pace = L.pacer(10, () => t, async (ms: number) => { waits.push(ms); t += ms })
+    for (let i = 0; i < 5; i++) await pace()
+    check("--rate spaces the starts (10 a second: 100 ms apart)", waits.length === 4 && waits.every((w) => Math.abs(w - 100) < 1e-6), waits)
+
+    const run = (args: string[], env: Record<string, string> = {}) =>
+      new Promise<{ code: number; out: string }>((done) => {
+        execFile(process.execPath, ["scripts/load/scenarios.mjs", ...args], { env: { ...process.env, ...env }, timeout: 30_000 }, (err, stdout, stderr) =>
+          done({ code: err ? ((err as { code?: number }).code ?? 1) : 0, out: String(stdout) + String(stderr) }),
+        )
+      })
+    const prod = await run(["--base", "https://storelib.com", "--creator", "x", "--seconds", "1"])
+    check("the script exits 2 on production without sending anything", prod.code === 2 && /production/.test(prod.out), prod)
+
+    let posts = 0
+    const server = http.createServer((req, res) => {
+      if (req.method === "POST") posts++
+      if (req.url === "/demo") return res.end('<script src="/c.js"></script>')
+      if (req.url === "/c.js") return res.end(process.env.REL_OBS_LIVE === "1" ? "pk_live_xxxxxxxxxxxx" : "pk_test_xxxxxxxxxxxx")
+      res.statusCode = req.url === "/favicon.ico" ? 404 : 200
+      res.end("ok")
+    })
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()))
+    const port = (server.address() as { port: number }).port
+    const ok = await run(["--base", `http://127.0.0.1:${port}`, "--creator", "demo", "--onepage", "demo", "--creator-id", "00000000-0000-4000-8000-000000000001", "--product", "00000000-0000-4000-8000-000000000002", "--checkout", "--seconds", "2", "--concurrency", "4", "--rate", "50", "--json"])
+    const json = (() => { try { return JSON.parse(ok.out.slice(ok.out.indexOf("{\n"))) } catch { return null } })()
+    check("against a local stub: every scenario ran and was measured", ok.code === 0 && json?.scenarios?.length === 5 && json.scenarios.every((x: { requests: number; p95: number | null }) => x.requests > 0 && x.p95 !== null) && json.all.errors === 0, { code: ok.code, out: ok.out.slice(0, 400) })
+    check("  and the rate cap held (50 a second for 2 s)", (json?.all?.requests ?? 999) <= 110, json?.all?.requests)
+    process.env.REL_OBS_LIVE = "1"
+    const before = posts
+    const live = await run(["--base", `http://127.0.0.1:${port}`, "--creator", "demo", "--product", "00000000-0000-4000-8000-000000000002", "--checkout", "--seconds", "1"], { REL_OBS_LIVE: "1" })
+    delete process.env.REL_OBS_LIVE
+    check("a target whose pages carry pk_live_ is refused before any request is sent", live.code === 2 && /live Stripe/.test(live.out) && posts === before, { code: live.code, out: live.out.slice(0, 300) })
+    server.close()
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
