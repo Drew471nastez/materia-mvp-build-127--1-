@@ -6,6 +6,7 @@
  * systems audit, simulated with a fake and measured:
  *
  *   a community file posted without the complete step   still size and content checked
+ *   "Payout available" after holds are released           to the user id, awaited
  *
  *   node scripts/run-push-tests.mjs (in the list as tests/rel-shared.test.ts)
  */
@@ -14,6 +15,10 @@ import { communityFilesExist } from "@/lib/communities/server/post-files"
 import { MEMBER_FILE_MAX_BYTES } from "@/lib/communities/post-media"
 import type { CommunityRow, PostMedia } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
+import { pushPayoutsAvailable } from "@/lib/payments/payout-push"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { stripComments } from "./_source"
 
 let passed = 0
 let failed = 0
@@ -28,6 +33,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
     console.log(`  FAIL  ${label}${detail !== undefined ? ` — ${JSON.stringify(detail)}` : ""}`)
   }
 }
+const code = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
 const realFetch = globalThis.fetch
 const keepAlive = setInterval(() => {}, 1_000)
 
@@ -129,6 +135,51 @@ async function main() {
     const none = await communityFilesExist(storageFake({}).db as never, community, U(1), [{ fileId: U(16), name: "x.pdf" }])
     check("a file that never arrived is still refused with the upload again sentence", !none.ok && /Upload it again/.test((none as { error: string }).error))
     globalThis.fetch = realFetch
+  }
+
+  // -------------------------------------------------------------------------
+  console.log("\n\"Payout available\" goes to the seller's user id, and the run waits for it (F2)")
+  {
+    const creators: Record<string, string> = { [U(501)]: U(601), [U(502)]: U(602) }
+    const asked: string[][] = []
+    const db = {
+      from(table: string) {
+        return {
+          select() {
+            return {
+              async in(_col: string, ids: string[]) {
+                asked.push([table, ...ids])
+                return { data: ids.filter((id) => creators[id]).map((id) => ({ id, user_id: creators[id] })), error: null }
+              },
+            }
+          },
+        }
+      },
+    }
+    const sentTo: [string, number][] = []
+    let inFlight = 0
+    const send = async (userId: string, cents: number) => {
+      inFlight++
+      await new Promise((r) => setTimeout(r, 20))
+      sentTo.push([userId, cents])
+      inFlight--
+    }
+    const r = await pushPayoutsAvailable(db as never, [{ creatorId: U(501), cents: 1200 }, { creatorId: U(502), cents: 0 }, { creatorId: U(503), cents: 500 }], { send })
+    check("the push goes to the creator's user id, read from creators", sentTo.length === 1 && sentTo[0][0] === U(601) && sentTo[0][1] === 1200, sentTo)
+    check("nothing released, no push; a creator with no account is skipped", r.sent === 1 && r.skipped === 1, r)
+    check("the creators are read once, by id", asked.length === 1 && asked[0][0] === "creators", asked)
+    check("every send has finished when the helper returns (awaited, nothing left in flight)", inFlight === 0)
+
+    const failing = await pushPayoutsAvailable(db as never, [{ creatorId: U(501), cents: 1 }], { send: async () => { throw new Error("no device") } })
+    check("a push that fails never fails the run", failing.sent === 0 && failing.skipped === 1)
+
+    let t = 0
+    const slow = await pushPayoutsAvailable(db as never, Array.from({ length: 50 }, () => ({ creatorId: U(501), cents: 1 })), { send: async () => { t += 1_000 }, budgetMs: 25_000, now: () => t })
+    check("past its time budget the rest wait for the next run", slow.sent === 30 && slow.skipped === 20, slow)
+
+    const route = code("app/api/cron/release-holds/route.ts")
+    check("release-holds no longer calls notifyPayoutAvailable with a creator id, fire and forget", !/notifyPayoutAvailable\(/.test(route))
+    check("release-holds awaits the payout pushes on both paths", (route.match(/await pushPayoutsAvailable\(/g) ?? []).length === 2)
   }
 
   clearInterval(keepAlive)
