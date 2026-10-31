@@ -23,6 +23,7 @@ import { HELP_WIDTH, HelpHero } from "@/components/help/help-hero"
 import { TocSpy } from "@/components/help/toc-spy"
 import { cn } from "@/lib/utils"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import ReadingProgress from "@/app/(marketing)/blog/[slug]/_reading-progress"
 import { helpArticleJsonLd } from "@/lib/help/structured-data"
 
 export const dynamicParams = false
@@ -96,11 +97,19 @@ export default async function HelpArticlePage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(helpArticleJsonLd(article, category)) }} />
       <HelpHero />
 
-      <div className={`${HELP_WIDTH} pt-6 sm:pt-8`}>
+      <ReadingProgress target="[data-help-article]" header="[data-help-header]" />
+      {/* The same reading frame as a blog article: the contents on the left, kept in view, the article in a column of about seventy characters. */}
+      <div className={`${HELP_WIDTH} pt-6 sm:pt-8 lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14`}>
+        <div className="hidden lg:block" />
         <Breadcrumbs items={[{ label: "All topics", href: "/help" }, { label: category.title, href: `/help/${category.slug}` }, { label: article.title }]} />
       </div>
 
-      <div className={`${HELP_WIDTH} grid gap-10 pb-16 pt-8 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-16`}>
+      <div className={`${HELP_WIDTH} grid gap-10 pb-16 pt-8 sm:pt-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14`}>
+        <aside className="hidden lg:order-first lg:block">
+          <div className="sticky top-24">
+            <OnThisPage items={toc} variant="side" />
+          </div>
+        </aside>
         <article className="min-w-0 max-w-[42rem]" data-help-article="">
           {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6b7280]">{article.section}</p> : null}
           <h1 className="text-[28px] font-bold leading-[1.18] tracking-[-0.02em] text-[#1a1a2e] sm:text-[38px]">{article.title}</h1>
@@ -160,11 +169,6 @@ export default async function HelpArticlePage({ params }: PageProps) {
           </div>
         </article>
 
-        <aside className="hidden lg:block">
-          <div className="sticky top-24">
-            <OnThisPage items={toc} variant="side" />
-          </div>
-        </aside>
       </div>
       <TocSpy />
     </div>
