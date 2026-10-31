@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 
 import { GoogleError, accessToken, inspectUrl, serviceAccountFromEnv, type ServiceAccount } from "./google"
+import { crawlCheckIfStale } from "./crawl"
 import { readSitePages, readSitemapFile, sitemapFiles } from "./inventory"
 import { checkLive, type RobotsCache } from "./live"
 import { inspectionsPerRun, kindOf, quotaFromEnv, siteHandleOf, type QuotaSettings } from "./plan"
@@ -52,6 +53,8 @@ export interface RunSummary {
   sites: number
   inspected: Record<string, { asked: number; granted: number; indexed: number; errors: number; stopped?: string }>
   scored: number
+  /** Whether this run checked robots.txt and the sitemap files (when the last check was older than six hours). */
+  crawlChecked?: boolean
   problems: string[]
   ms: number
 }
@@ -201,6 +204,10 @@ export async function runSeoCron(options: { budgetMs: number }): Promise<RunSumm
   await step("inventory", () => syncInventory(admin, started + options.budgetMs / 2, summary, properties))
   await step("sites", () => expandSites(admin, started + options.budgetMs * 0.6, summary, properties))
   if (account) await step("google", () => inspectBatch(admin, account, quotaFromEnv(), properties, started + options.budgetMs * 0.8, summary))
+  /* robots.txt and the sitemap files, read live at most every six hours (crawl.ts), inside a tenth of the run. */
+  await step("crawl", async () => {
+    summary.crawlChecked = await crawlCheckIfStale(admin, options.budgetMs / 10)
+  })
   await step("scores", () => scoreBatch(admin, end, summary))
   if (summary.problems.length) await writeSyncState(admin, { last_error: summary.problems.join(" | ").slice(0, 500) }).catch(() => undefined)
   summary.ms = Date.now() - started
