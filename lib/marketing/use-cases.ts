@@ -24,7 +24,7 @@
  *
  * Pure: the route, the sitemap, the footer and the tests read this list.
  */
-import { PLANS, PRODUCT_TYPES, type FactFlag } from "./facts"
+import { PLANS, PRODUCT_FILE_LIMIT, PRODUCT_TYPES, type FactFlag } from "./facts"
 import { SELL_SHOTS } from "./sell-shots"
 import { SELL_PAGES, type UseCaseSlug } from "./sell-links"
 
@@ -115,7 +115,7 @@ export const USE_CASES: readonly UseCase[] = [
     ],
     steps: [
       { title: "Make the product", text: "In Products, press New product and choose Digital product. Give it a title, a description and a cover.", shot: shot("editor-media", "The Storelib product editor's Photos and video card, with three demo cover images") },
-      { title: "Upload the files", text: `Drop your files into Digital Files. Up to ${free.filesPerProduct} files on Free and ${pro.filesPerProduct} on Pro, each up to 10 GB.`, shot: shot("editor-files", "The Digital Files card in the Storelib product editor, with two demo zip files") },
+      { title: "Upload the files", text: `Drop your files into Digital Files. Up to ${free.filesPerProduct} files on Free and ${pro.filesPerProduct} on Pro, each up to ${PRODUCT_FILE_LIMIT}.`, shot: shot("editor-files", "The Digital Files card in the Storelib product editor, with two demo zip files") },
       { title: "Set the price", text: "A fixed price, a crossed out compare at price, or pay what you want above a minimum. A price of 0 makes it free.", shot: shot("editor-pricing", "The Pricing card in the Storelib product editor: a $29 price and a $39 compare at price") },
       { title: "Publish and share", text: "Publish, then share the product link, your creator page at storelib.com/yourname or your OnePage at storelib.me/yourname." },
     ],
@@ -126,7 +126,7 @@ export const USE_CASES: readonly UseCase[] = [
       { title: "Example: a sample pack", text: "A music producer sells a drum kit for $19 and a bigger bundle for $49, and gives one small pack away for free to grow an email list." },
     ],
     faqs: [
-      { q: "What file types can I sell?", a: "Almost any file people download: PDF, EPUB, ZIP, audio, video, images, fonts, presets and code. Each file can be up to 10 GB. Programs that run when double clicked, like .exe files, are refused." },
+      { q: "What file types can I sell?", a: `Almost any file people download: PDF, EPUB, ZIP, audio, video, images, fonts, presets and code. Each file can be up to ${PRODUCT_FILE_LIMIT}. Programs that run when double clicked, like .exe files, are refused.` },
       { q: "How does the buyer get the file?", a: "By email. The receipt email has a button that opens a page with the downloads. Buyers with a Storelib account also see the purchase in their Library." },
       { q: "Can I sell a Notion or Canva template?", a: "Yes. Most people sell these as a link inside a PDF, or as a file. Upload the PDF and the buyer gets it like any other download." },
       { q: "Does Storelib add license keys?", a: "No. There are no software license keys. If you sell software that checks a key, Storelib is not the right fit for that product." },
