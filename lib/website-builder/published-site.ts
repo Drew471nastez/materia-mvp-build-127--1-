@@ -37,6 +37,7 @@
  * Keeping them apart is also what stops a new creator being cached as "no
  * such site" for an hour because somebody guessed their address early.
  */
+import { LastGood, keyedAs } from "./last-good"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
@@ -247,7 +248,8 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
 /* Once per request too (React's cache): a page and its metadata are drawn side by side and both ask first thing. */
 export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
-  return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
+  /* Named for the data cache by a fixed label, so the entry outlives a deploy and is served stale when a read fails (./last-good.ts). */
+  return unstable_cache(keyedAs("site-name:v1", () => lookUpName(lower)), ["site-name", lower], { revalidate: NAME_TTL })()
 })
 
 /**
@@ -676,16 +678,14 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
  * (site-read.ts) and the cache has nothing to fall back on (a cold start, a
  * new server), the site is served as it last was rather than not at all.
  */
-const lastGood = new Map<string, ShopLookup>()
-const LAST_GOOD_MAX = 500
+const lastGood = new LastGood<ShopLookup>(500)
 
 const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
   try {
     const found = await resolveSiteFresh(lower)
     if (found.kind === "site") {
-      if (lastGood.size >= LAST_GOOD_MAX && !lastGood.has(lower)) lastGood.delete(lastGood.keys().next().value as string)
-      lastGood.set(lower, found)
+      lastGood.remember(lower, found)
     }
     return found
   } catch (e) {

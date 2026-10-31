@@ -132,7 +132,8 @@ async function roundTrips() {
   const broken = await visit(() => resolveOnePage("a-name-asked-while-down"))
   useFixture(fixture)
   const recovered = await visit(() => resolveOnePage("a-name-asked-while-down"))
-  check("a lookup that failed is not held: the next visitor asks again", broken.value?.kind === "missing" && recovered.trips.length > 0, [recovered.trips.length])
+  /* Changed on purpose (round rel-sites): a failed lookup is thrown (the page's error screen with Try again), never "missing" (the page's 404); tests/rel-sites.test.ts covers the held last answer. */
+  check("a lookup that failed is not held: the next visitor asks again", broken.value === undefined && (broken.error as Error | undefined)?.name === "SiteReadError" && recovered.trips.length > 0, [recovered.trips.length, String(broken.error)])
 
   section("The page itself: no cookie, no header, no write (app/(marketing)/l/[slug]/page.tsx)")
   const route = readCode("app/(marketing)/l/[slug]/page.tsx")

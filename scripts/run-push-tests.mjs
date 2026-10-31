@@ -55,6 +55,8 @@ const SUITES = [
   "tests/rel-jobs.test.ts",
   /* Round rel-shared: community files checked at posting (size and bytes, not only at the optional complete step), the payout push to the user and awaited, run-wide deadlines for the community, physical, seo-index, warm-sites and notify crons, deadline-wrapped Supabase clients in the email cron and Mailgun webhook, cron partial failures reported, a Web Push timeout. */
   "tests/rel-shared.test.ts",
+  /* Round rel-sites: public sites when the database is slow or away: an AI site's failed lookup is a 503 with Retry-After (never a 404 or a 301) and its last live copy is held; a Creator Page's failed profile or creator read is the error screen, never the gate's 308 or a 404; a OnePage lookup that failed or ran out serves the last answer for the name or the error screen, never "missing"; an AI site publish whose switch did not take puts the live version back; an AI site address check that failed stops the publish (fail closed); a theme publish the database cancelled (57014, PGRST002) is asked once more, within a stated two minutes; Storelib AI limits whose count cannot be read refuse the run (503, Try again); a theme's draft stylesheets, scripts and settings are served only with the install's signed pass; a theme site's last good copy is kept by use and its held name and install entries outlive a deploy; a creator name is matched literally (`_` and `%` escaped). */
+  "tests/rel-sites.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",

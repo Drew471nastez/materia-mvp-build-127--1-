@@ -22,6 +22,8 @@ import { SITES_HOST } from "@/lib/sites/public-host"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { DEPLOYMENT_BUCKET } from "@/lib/sites/publish"
 import { robotsTxt, urlsetXml } from "@/lib/seo/indexing"
+import { isSiteReadError, siteRead } from "@/lib/website-builder/site-read"
+import { within } from "@/lib/onepage/bounded-read"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -117,6 +119,64 @@ function notFound(): NextResponse {
   )
 }
 
+/**
+ * "ONE MOMENT", NEVER "NOT FOUND", WHEN THE DATABASE DID NOT ANSWER.
+ *
+ * A lookup that failed or timed out is not an answer. Turning it into a 404
+ * told visitors and crawlers the site was gone, and turning it into the old
+ * subdomain's 301 told them it had moved for good. A 503 with Retry-After is
+ * the truth: try again shortly. Never cached, and it reloads by itself.
+ */
+const UNAVAILABLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
+
+function unavailable(): NextResponse {
+  return new NextResponse(UNAVAILABLE_HTML, {
+    status: 503,
+    headers: {
+      ...SECURITY_HEADERS,
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Retry-After": "5",
+    },
+  })
+}
+
+/** How long one file may take to come out of Storage before the visitor is told to try again. */
+const AI_SITE_DOWNLOAD_MS = 8000
+
+/**
+ * THE LAST LIVE PREFIX SEEN FOR EACH SLUG, on this instance.
+ *
+ * A deployment's prefix is immutable (every publish gets its own), so serving
+ * the one we last saw while the database is not answering serves exactly the
+ * bytes that were live a moment ago. Bounded, oldest out first.
+ */
+const LAST_GOOD_PREFIX = new Map<string, string>()
+const LAST_GOOD_MAX = 2000
+
+function rememberPrefix(slug: string, prefix: string | null) {
+  LAST_GOOD_PREFIX.delete(slug)
+  if (!prefix) return
+  LAST_GOOD_PREFIX.set(slug, prefix)
+  if (LAST_GOOD_PREFIX.size > LAST_GOOD_MAX) {
+    const oldest = LAST_GOOD_PREFIX.keys().next().value
+    if (oldest !== undefined) LAST_GOOD_PREFIX.delete(oldest)
+  }
+}
+
+/**
+ * A Storage answer that says the object is not there (a 4xx), as opposed to
+ * Storage failing or not answering. A download's HTTP error comes back as a
+ * StorageUnknownError holding the Response in `originalError` (storage-js
+ * reads no JSON body for a download), so its status is looked for there too;
+ * a network failure or our own timeout has no status at all.
+ */
+function isMissingObject(error: unknown): boolean {
+  const e = error as { status?: unknown; originalError?: { status?: unknown } } | null
+  const status = typeof e?.status === "number" ? e.status : e?.originalError?.status
+  return typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ slug: string; path?: string[] }> },
@@ -183,11 +243,23 @@ export async function GET(
    * of the site's own files cannot shadow anything a creator wrote.
    */
   const wantsVendor = slug === "_vendor" || (path ?? [])[0] === "_vendor"
+  let live: LivePrefix | null = null
+  if (!wantsVendor) {
+    try {
+      live = await livePrefix(admin, slug)
+    } catch (e) {
+      if (!isSiteReadError(e)) throw e
+      console.warn("[sites/serve] site unavailable", { slug, why: e.message })
+      return unavailable()
+    }
+  }
   const objectPath = wantsVendor
     ? slug === "_vendor"
       ? `_vendor/${requested}`
       : requested
-    : await livePrefix(admin, slug).then((prefix) => (prefix ? `${prefix}/${requested || "index.html"}` : null))
+    : live?.prefix
+      ? `${live.prefix}/${requested || "index.html"}`
+      : null
 
   if (!objectPath) {
     /**
@@ -201,7 +273,15 @@ export async function GET(
      * now; only a name belonging to nobody is a 404.
      */
     if (!wantsVendor) {
-      const moved = await creatorPathFor(admin, slug)
+      /* Asked only after the deployment read ANSWERED "none": a failed read never becomes a permanent redirect. */
+      let moved: string | null
+      try {
+        moved = await creatorPathFor(admin, slug)
+      } catch (e) {
+        if (!isSiteReadError(e)) throw e
+        console.warn("[sites/serve] site unavailable", { slug, why: e.message })
+        return unavailable()
+      }
       if (moved) {
         return NextResponse.redirect(`https://${SITES_HOST}/${moved}${requested ? `/${requested}` : ""}`, 301)
       }
@@ -209,8 +289,27 @@ export async function GET(
     return notFound()
   }
 
-  const { data, error } = await admin.storage.from(DEPLOYMENT_BUCKET).download(objectPath)
+  const { data, error } = await within<Blob>(
+    async () => {
+      const r = await admin.storage.from(DEPLOYMENT_BUCKET).download(objectPath)
+      /* The Storage error itself (its `status` tells a missing object from a failure), never a throw. */
+      return { data: r.data, error: r.error ? (r.error as { status?: number; message?: string }) : null }
+    },
+    AI_SITE_DOWNLOAD_MS,
+  )
   if (error || !data) {
+    /**
+     * STORAGE FAILING IS NOT THE FILE BEING MISSING. A timeout, a 5xx or a
+     * dropped connection is a 503 to try again; only Storage answering "no
+     * such object" falls through to the robots/sitemap defaults and the 404.
+     * Neither is a 404 when the prefix came from the held copy: the database
+     * did not confirm it, so "not there" is not known.
+     */
+    const seoFile = !wantsVendor && (requested === "robots.txt" || requested === "sitemap.xml")
+    if (error && (!isMissingObject(error) || (live?.held && !seoFile))) {
+      console.warn("[sites/serve] file unavailable", { slug, why: error.message || "storage did not answer" })
+      return unavailable()
+    }
     /**
      * A SITE WITHOUT ITS OWN ROBOTS.TXT OR SITEMAP GETS ONE. Google treats
      * every host as its own site and looks for both at the root; a built
@@ -218,20 +317,26 @@ export async function GET(
      * address, dated by the live deployment. A site that ships its own
      * files keeps them: this only answers what would have been a 404.
      */
-    if (!wantsVendor && (requested === "robots.txt" || requested === "sitemap.xml")) {
+    if (seoFile) {
       const origin = `https://${slug.toLowerCase()}.${SITES_HOST}`
       if (requested === "robots.txt") {
         return new NextResponse(robotsTxt({ sitemaps: [`${origin}/sitemap.xml`] }), {
           headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
         })
       }
-      const { data: live } = await admin
-        .from("site_deployments")
-        .select("created_at")
-        .eq("is_live", true)
-        .eq("slug", slug.toLowerCase())
-        .maybeSingle()
-      return new NextResponse(urlsetXml([{ url: `${origin}/`, lastModified: (live as { created_at?: string } | null)?.created_at ?? null }]), {
+      /* The date is a nicety: a read that failed or took too long lists the address without one. */
+      const { data: dated } = await within<{ created_at?: string }>(
+        (signal) =>
+          admin
+            .from("site_deployments")
+            .select("created_at")
+            .eq("is_live", true)
+            .eq("slug", slug.toLowerCase())
+            .abortSignal(signal)
+            .maybeSingle(),
+        3000,
+      )
+      return new NextResponse(urlsetXml([{ url: `${origin}/`, lastModified: dated?.created_at ?? null }]), {
         /* Held no longer than the page: a publish changes its date. */
         headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
       })
@@ -289,28 +394,43 @@ async function creatorPathFor(
   admin: ReturnType<typeof createAdminClient>,
   name: string,
 ): Promise<string | null> {
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("username")
-    .eq("username", name.toLowerCase())
-    .maybeSingle()
+  /* Bounded and checked: a read that failed THROWS (SiteReadError), so the caller answers 503, never a 301 or a 404. */
+  const profile = await siteRead<{ username: string }>("ai site creator name", (signal) =>
+    admin
+      .from("profiles")
+      .select("username")
+      .eq("username", name.toLowerCase())
+      .abortSignal(signal)
+      .maybeSingle(),
+  )
 
-  const username = (profile as { username: string } | null)?.username
+  const username = profile?.username
   if (username) return username
 
-  const { data: creator } = await admin
-    .from("creators")
-    .select("slug")
-    .eq("slug", name.toLowerCase())
-    .maybeSingle()
+  const creator = await siteRead<{ slug: string }>("ai site creator slug", (signal) =>
+    admin
+      .from("creators")
+      .select("slug")
+      .eq("slug", name.toLowerCase())
+      .abortSignal(signal)
+      .maybeSingle(),
+  )
 
-  return (creator as { slug: string } | null)?.slug ?? null
+  return creator?.slug ?? null
 }
 
+type LivePrefix = { prefix: string | null; held: boolean }
+
+/**
+ * The live deployment's prefix, or null when the database ANSWERED that there
+ * is none. A read that failed or did not answer within siteRead's limits
+ * serves the last prefix this instance saw for the slug, and with none held
+ * it THROWS a SiteReadError (the route answers 503).
+ */
 async function livePrefix(
   admin: ReturnType<typeof createAdminClient>,
   slug: string,
-): Promise<string | null> {
+): Promise<LivePrefix> {
   /**
    * `eq` on a lowercased slug, not `ilike`.
    *
@@ -320,11 +440,26 @@ async function livePrefix(
    * the source, so an exact match is the same question asked in a form the
    * index in 20260913 can answer: 0.05ms.
    */
-  const { data } = await admin
-    .from("site_deployments")
-    .select("storage_prefix")
-    .eq("is_live", true)
-    .eq("slug", slug.toLowerCase())
-    .maybeSingle()
-  return (data as { storage_prefix: string | null } | null)?.storage_prefix ?? null
+  const key = slug.toLowerCase()
+  try {
+    const data = await siteRead<{ storage_prefix: string | null }>("ai site", (signal) =>
+      admin
+        .from("site_deployments")
+        .select("storage_prefix")
+        .eq("is_live", true)
+        .eq("slug", slug.toLowerCase())
+        .abortSignal(signal)
+        .maybeSingle(),
+    )
+    const prefix = data?.storage_prefix ?? null
+    rememberPrefix(key, prefix)
+    return { prefix, held: false }
+  } catch (e) {
+    const held = LAST_GOOD_PREFIX.get(key)
+    if (held && isSiteReadError(e)) {
+      console.warn("[sites/serve] served the last good copy", { slug: key, why: e.message })
+      return { prefix: held, held: true }
+    }
+    throw e
+  }
 }

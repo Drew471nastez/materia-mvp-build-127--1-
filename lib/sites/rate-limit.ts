@@ -52,6 +52,25 @@ export const PUBLISH_LIMITS: RateWindow[] = [
   { limit: 20, seconds: 3600, message: "That is a lot of publishes in an hour. Try again shortly." },
 ]
 
+/**
+ * WHEN THE COUNT CANNOT BE READ, NO AI RUN STARTS.
+ *
+ * A count that failed used to read as zero, so exactly when the database was
+ * slow (and runs were slow and retried) every per-creator limit on Storelib
+ * AI disappeared, and model spend had no bound. A run refused for a moment
+ * costs the creator a retry; a run let through costs tokens nobody limited.
+ * The routes answer this with 503 and these words. Publishing (no model) is
+ * still let through on a failed count.
+ */
+export const AI_LIMIT_UNREADABLE = "Storelib AI could not check your usage just now, so nothing was started. Try again in a moment."
+
+/** The status a limit's message is answered with: 503 when the count could not be read, 429 when it was over. */
+export function limitStatus(message: string): 429 | 503 {
+  return message === AI_LIMIT_UNREADABLE ? 503 : 429
+}
+
+class CountUnreadable extends Error {}
+
 async function countSince(
   table: "site_agent_runs" | "site_deployments",
   column: string,
@@ -59,20 +78,27 @@ async function countSince(
   seconds: number,
 ): Promise<number> {
   const since = new Date(Date.now() - seconds * 1000).toISOString()
-  const { count } = await createAdminClient()
+  const { count, error } = await createAdminClient()
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq(column, value)
     .gte("created_at", since)
+  /* A failed count is not zero. */
+  if (error) throw new CountUnreadable(error.message || error.code || "count failed")
   return count ?? 0
 }
 
 /** Null when the request may proceed, otherwise what to tell the person. */
 export async function agentRateLimit(creatorId: string): Promise<string | null> {
-  for (const window of AGENT_LIMITS) {
-    if ((await countSince("site_agent_runs", "creator_id", creatorId, window.seconds)) >= window.limit) {
-      return window.message
+  try {
+    for (const window of AGENT_LIMITS) {
+      if ((await countSince("site_agent_runs", "creator_id", creatorId, window.seconds)) >= window.limit) {
+        return window.message
+      }
     }
+  } catch (e) {
+    console.warn("[ai limits] count unreadable, run refused", { why: e instanceof Error ? e.message : String(e) })
+    return AI_LIMIT_UNREADABLE
   }
   return null
 }
@@ -85,10 +111,14 @@ export async function agentRateLimit(creatorId: string): Promise<string | null> 
  * limit would refuse.
  */
 export async function publishRateLimit(siteId: string): Promise<string | null> {
-  for (const window of PUBLISH_LIMITS) {
-    if ((await countSince("site_deployments", "site_id", siteId, window.seconds)) >= window.limit) {
-      return window.message
+  try {
+    for (const window of PUBLISH_LIMITS) {
+      if ((await countSince("site_deployments", "site_id", siteId, window.seconds)) >= window.limit) {
+        return window.message
+      }
     }
+  } catch {
+    /* No model is reached by a publish: a count that cannot be read lets it go, as it always has. */
   }
   return null
 }
@@ -113,8 +143,9 @@ export async function publishRateLimit(siteId: string): Promise<string | null> {
  *                             answer yet. A run that died without answering
  *                             stops counting when its 300 seconds are up.
  *
- * A count that cannot be read lets the run go: a limit is protection, and a
- * database blip must not be the reason a creator cannot edit.
+ * A count that cannot be read refuses the run with AI_LIMIT_UNREADABLE (a
+ * 503, Try again): see above. Changed on purpose (round rel-sites); it used
+ * to let the run go, which left model spend unbounded during an incident.
  */
 export const THEME_AGENT_LIMITS: RateWindow[] = [
   { limit: 8, seconds: 60, message: "You are sending edits faster than they can run. Wait a moment." },
@@ -145,7 +176,8 @@ export async function themeAgentLimit(creatorId: string, db?: LimitDb): Promise<
   try {
     const admin = db ?? (createAdminClient() as unknown as LimitDb)
     const { data: installs, error } = await admin.from("store_theme_installs").select("id").eq("creator_id", creatorId).limit(200)
-    if (error || !Array.isArray(installs) || installs.length === 0) return null
+    if (error || !Array.isArray(installs)) return AI_LIMIT_UNREADABLE
+    if (installs.length === 0) return null
     const since = new Date(Date.now() - 3600_000).toISOString()
     const { data: rows, error: readError } = await admin
       .from("theme_chat_messages")
@@ -154,9 +186,9 @@ export async function themeAgentLimit(creatorId: string, db?: LimitDb): Promise<
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(500)
-    if (readError || !Array.isArray(rows)) return null
+    if (readError || !Array.isArray(rows)) return AI_LIMIT_UNREADABLE
     return themeAgentVerdict(rows as { role: string; created_at: string }[])
   } catch {
-    return null
+    return AI_LIMIT_UNREADABLE
   }
 }

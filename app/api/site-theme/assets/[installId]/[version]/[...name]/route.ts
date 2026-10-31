@@ -19,6 +19,9 @@
  *
  * Read from any origin: the builder draws the page in a sandboxed frame,
  * whose module scripts are cross-origin requests.
+ *
+ * A DRAFT version (`edit`, `draft-<time>`) serves the unpublished file only
+ * with the pass it carries (lib/storelib-theme/compat/draft-version.ts).
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -29,6 +32,8 @@ import { themeAsset } from "@/lib/storelib-theme/compat/site"
 import { compileScss } from "@/lib/storelib-theme/compat/scss"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storelib-theme/compat/asset-version"
+import { splitAssetVersion } from "@/lib/storelib-theme/compat/draft-version"
+import { isDraftAssetPass } from "@/lib/website-builder/draft-asset-pass"
 
 export const runtime = "nodejs"
 
@@ -84,8 +89,15 @@ export async function GET(_req: Request, { params }: Params) {
   }
   const type = assetType(name)
   if (!UUID.test(installId) || !NAME.test(name) || !type) return new NextResponse("Not found", { status: 404, headers: cors })
-  const draft = version === "edit" || version.startsWith("draft")
-  const cache = draft ? "private, max-age=0, must-revalidate" : "public, max-age=31536000, immutable"
+  /*
+    A DRAFT ONLY WITH ITS PASS (lib/storelib-theme/compat/draft-version.ts):
+    the unpublished file and settings are served for a draft version whose
+    pass this server signed for this install. Without one, the published
+    file, never the draft and never a 404. Either way never cached.
+  */
+  const asked = splitAssetVersion(version)
+  const draft = asked.draft && isDraftAssetPass(installId, asked.pass)
+  const cache = asked.draft ? "private, max-age=0, must-revalidate" : "public, max-age=31536000, immutable"
   /* A hash that is not this file's: the current file, held for a minute. */
   const cacheFor = (current: string | null) => (isContentVersion(version) && current !== version ? "public, max-age=60" : cache)
   const admin = createAdminClient()

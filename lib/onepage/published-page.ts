@@ -24,6 +24,7 @@ import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
 import { resolveOnePageAddress, type OnePageAddress } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
+import { SiteReadError } from "@/lib/website-builder/site-read"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
 import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
@@ -179,8 +180,16 @@ export function publishedOnly<Row extends Record<string, unknown>>(row: Row): Ro
  * the page at that address, the page of the account with that username, the
  * creator page of an account with no OnePage, or the address a renamed page
  * or account has now. The page, its metadata and its share image all read
- * this one answer. A read that fails is a name that leads nowhere, which is
- * what it was before: the page's own not found.
+ * this one answer.
+ *
+ * A LOOKUP THAT FAILED IS NOT A NAME THAT LEADS NOWHERE. It used to be read
+ * as "missing", so a bio link answered 404 to visitors and crawlers whenever
+ * the database was slow. Now each query has a deadline
+ * (ONE_PAGE_LOOKUP_ATTEMPT_MS) and the whole lookup a budget
+ * (ONE_PAGE_LOOKUP_BUDGET_MS); a lookup that failed or ran out serves the
+ * last answer this instance had for the name, and with none it THROWS a
+ * SiteReadError: the page shows its error screen with Try again, never its
+ * not found. Only a lookup that answered "nothing" is missing.
  */
 /*
   HELD FOR EVERY VISITOR (lib/onepage/public-cache), under the name it was
@@ -192,21 +201,55 @@ export function publishedOnly<Row extends Record<string, unknown>>(row: Row): Ro
   writer clears it. Publishing, a new address and a new username clear every
   name involved (onePageChangedFor), so a page published a second ago is
   never a held 404. A lookup that FAILED is thrown, which unstable_cache never
-  keeps: the visitor gets the page's own not found, as before, and the next
-  one asks again.
+  keeps, and the next visitor asks again.
 */
+export const ONE_PAGE_LOOKUP_ATTEMPT_MS = 4000
+export const ONE_PAGE_LOOKUP_BUDGET_MS = 8000
+
+/* The last answer per name on this instance, bounded, oldest out first: what a failed lookup serves. */
+const LAST_GOOD_ADDRESS = new Map<string, OnePageAddress<any>>()
+const LAST_GOOD_MAX = 300
+function rememberAddress(slug: string, answer: OnePageAddress<any>) {
+  LAST_GOOD_ADDRESS.delete(slug)
+  if (answer.kind === "missing") return
+  LAST_GOOD_ADDRESS.set(slug, answer)
+  if (LAST_GOOD_ADDRESS.size > LAST_GOOD_MAX) {
+    const oldest = LAST_GOOD_ADDRESS.keys().next().value
+    if (oldest !== undefined) LAST_GOOD_ADDRESS.delete(oldest)
+  }
+}
+
 export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress<any>> => {
+  const key = slug.toLowerCase()
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    return await heldRead(
-      async (): Promise<OnePageAddress<any>> => {
-        const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*"))
-        return answer.kind === "page" ? { ...answer, page: publishedOnly(answer.page) } : answer
-      },
-      ["onepage-address", "v1", slug],
-      { tags: [onePageNameTag(slug)], revalidate: ONE_PAGE_HOLD_SECONDS },
-    )
-  } catch {
-    return { kind: "missing" }
+    const outOfTime = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`no answer in ${ONE_PAGE_LOOKUP_BUDGET_MS}ms`)), ONE_PAGE_LOOKUP_BUDGET_MS)
+    })
+    const answer = await Promise.race([
+      heldRead(
+        async (): Promise<OnePageAddress<any>> => {
+          const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*", { attemptMs: ONE_PAGE_LOOKUP_ATTEMPT_MS }))
+          return answer.kind === "page" ? { ...answer, page: publishedOnly(answer.page) } : answer
+        },
+        ["onepage-address", "v1", slug],
+        { tags: [onePageNameTag(slug)], revalidate: ONE_PAGE_HOLD_SECONDS },
+      ),
+      outOfTime,
+    ])
+    rememberAddress(key, answer)
+    return answer
+  } catch (e) {
+    const why = e instanceof Error ? e.message : "the lookup failed"
+    const held = LAST_GOOD_ADDRESS.get(key)
+    if (held) {
+      console.warn("[onepage] served the last good copy", { slug: key, why })
+      return held
+    }
+    console.warn("[onepage] page unavailable", { slug: key, why })
+    throw new SiteReadError("onepage address", why)
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 })
 

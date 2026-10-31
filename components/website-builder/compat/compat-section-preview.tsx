@@ -28,7 +28,7 @@
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
-import { loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
+import { draftAssetVersion, loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
@@ -142,7 +142,7 @@ export function CompatPreviewProvider({
     const media = assetAddresses(rows)
     try {
       const made = themeOfInstall(rows, settings ?? {}, {
-        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
+        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}`,
         assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
         imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
       })

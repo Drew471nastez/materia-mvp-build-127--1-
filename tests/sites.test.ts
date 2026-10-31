@@ -2108,7 +2108,8 @@ check(
     return (
       agentLimit !== -1 && agentRun !== -1 && agentLimit < agentRun &&
       publishLimit !== -1 && publishRun !== -1 && publishLimit < publishRun &&
-      /status: 429/.test(agent) && /status: 429/.test(publish)
+      /* Changed on purpose (round rel-sites): over the limit is still 429 (limitStatus), and a count that could not be read is a 503 Try again. */
+      /status: limitStatus\(limited\)/.test(agent) && /: 429 \| 503/.test(read("lib/sites/rate-limit.ts")) && /status: 429/.test(publish)
     )
   })(),
 )
