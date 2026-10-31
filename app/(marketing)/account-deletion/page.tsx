@@ -1,12 +1,18 @@
 import type { Metadata } from "next"
+import { pageMetadata } from "@/lib/seo/page-metadata"
 import { Mail } from "lucide-react"
 
 // Note: header and footer are injected by app/(marketing)/layout.tsx via
 // ConditionalHeader / ConditionalFooter — no extra wiring needed in this file.
 
+/*
+  Its own title, description and share card (lib/seo/page-metadata), still
+  noindex on purpose: the page app stores link to, not one to rank. A
+  noindex page names no canonical, so the two signals never disagree.
+*/
 export const metadata: Metadata = {
-  title: "Delete Your Account",
-  description: "Learn how to permanently delete your Storelib account and associated data.",
+  ...pageMetadata({ path: "/account-deletion", title: "Delete Your Account", description: "Learn how to permanently delete your Storelib account and associated data." }),
+  alternates: { canonical: null },
   robots: { index: false, follow: false },
 }
 

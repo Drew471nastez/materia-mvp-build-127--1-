@@ -6,6 +6,7 @@ import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { storelibBreadcrumbJsonLd } from "@/lib/seo/structured-data"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
@@ -70,6 +71,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!VALID_CATEGORIES.includes(category)) {
     return {
       title: "Category Not Found",
+      robots: { index: false, follow: true },
     }
   }
 
@@ -224,10 +226,16 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         dangerouslySetInnerHTML={{
           __html: jsonLdScript({
             "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            "name": categoryLabel,
-            "description": categoryDescription,
-            "url": `https://storelib.com/explore/${category}`
+            "@graph": [
+              {
+                "@type": "CollectionPage",
+                "name": categoryLabel,
+                "description": categoryDescription,
+                "url": `https://storelib.com/explore/${category}`,
+              },
+              /* Storelib, Explore, the category (lib/seo/structured-data.ts). */
+              storelibBreadcrumbJsonLd([{ name: "Explore", path: "/explore" }, { name: categoryLabel, path: `/explore/${category}` }]),
+            ],
           }),
         }}
       />
