@@ -36,6 +36,7 @@ import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
+import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -1438,6 +1439,15 @@ async function routeRequest(request: NextRequest) {
   const host = request.headers.get("host") || ""
 
   /*
+    A TRAILING SLASH, AND www WITH IT, IN ONE 308 (lib/seo/one-hop.ts).
+    next.config sets skipTrailingSlashRedirect, so Next no longer answers
+    /pricing/ before this runs; this does, first, as Next did, and on
+    www.storelib.com straight to the apex rather than in two hops.
+  */
+  const slashHop = trailingSlashHop(host, pathname, search, MAIN_DOMAIN)
+  if (slashHop) return NextResponse.redirect(new URL(slashHop.location, request.nextUrl.href), slashHop.status)
+
+  /*
     A STRANGER'S COPY OF AN IMPORTED THEME'S PAGE is held by the CDN at a
     marked address only this proxy rewrites to (compatRewrite,
     lib/storelib-theme/compat/anonymous-cache.ts). Typed straight at the API,
@@ -1655,11 +1665,10 @@ async function routeRequest(request: NextRequest) {
    * other, which reads as a broken login rather than a redirect somebody
    * forgot.
    */
+  /* 308, like every other permanent redirect here: a 301 lets a client turn a POST into a GET. */
   if (!isApiCall && bareHost === `www.${MAIN_DOMAIN}`) {
-    const canonical = new URL(`https://${MAIN_DOMAIN}`)
-    canonical.pathname = pathname
-    canonical.search = search
-    return NextResponse.redirect(canonical, { status: 301 })
+    const hop = wwwHop(pathname, search, MAIN_DOMAIN)
+    return NextResponse.redirect(new URL(hop.location), { status: hop.status })
   }
 
   /*
