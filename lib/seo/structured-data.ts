@@ -18,6 +18,7 @@ import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { OFFERED_PLANS, PRO_PRICE_CENTS } from "@/lib/billing/plans"
 import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { storelibLogoUrl } from "@/lib/brand/logo"
+import { STORELIB_SOCIAL } from "./storelib-social"
 
 /** More than a person has accounts; enough to stop a pasted list. */
 const MAX_SAME_AS = 10
@@ -146,12 +147,14 @@ export const STORELIB_URL = "https://storelib.com"
 export const STORELIB_NAME = "Storelib"
 export const STORELIB_DESCRIPTION = "Sell digital products, courses, memberships and physical goods from your own store, OnePage, website or community, with payments through Stripe."
 
-/**
- * Storelib's own profiles elsewhere, for Organization.sameAs. Add one only
- * once the account exists and is Storelib's; an address that is not, tells
- * a search engine Storelib is somebody else.
+/*
+ * Storelib's own profiles elsewhere live in ./storelib-social (STORELIB_SOCIAL),
+ * a module with no imports so the footer, drawn in the browser, can read the
+ * same list without pulling in the plans and fees this file needs.
  */
-export const STORELIB_SAME_AS: readonly string[] = []
+export { STORELIB_SOCIAL, type StorelibSocialNetwork } from "./storelib-social"
+/** STORELIB_SOCIAL as addresses, for Organization.sameAs. */
+export const STORELIB_SAME_AS: readonly string[] = STORELIB_SOCIAL.map((p) => p.url)
 
 const ORG_ID = `${STORELIB_URL}/#organization`
 const SITE_ID = `${STORELIB_URL}/#website`
