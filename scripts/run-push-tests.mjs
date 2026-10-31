@@ -1003,6 +1003,8 @@ const SUITES = [
   "tests/seo-leftovers-b-r45.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
+  /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */
+  "tests/alternatives-r46.test.ts",
   /* Round 45 (content): lib/marketing/facts read from the code (prices, fees, limits), the /sell pages, /features as Storelib in one page, the comparison pages' checked prices and moving guides, the YouTube video registry and its VideoObject. */
   "tests/content-r45.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
