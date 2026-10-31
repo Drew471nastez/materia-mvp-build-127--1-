@@ -56,8 +56,10 @@ export async function GET(request: Request) {
   const consumed = await consumeBridgeToken(createAdminClient(), bridgeToken)
   if (consumed.ok === false) {
     if (consumed.reason !== "invalid") console.error("[app/auth/callback] bridge token not used:", consumed.reason)
-    const message = consumed.reason === "expired" ? "Session token expired. Please sign in again." : "Invalid or expired session token. Please sign in again."
-    return go(`${canonicalUrl}/login?error=${encodeURIComponent(message)}`)
+    if (consumed.reason === "expired") {
+      return go(`${canonicalUrl}/login?error=${encodeURIComponent("Session token expired. Please sign in again.")}`)
+    }
+    return go(`${canonicalUrl}/login?error=${encodeURIComponent("Invalid or expired session token. Please sign in again.")}`)
   }
 
   // ── Set session in the WebView's cookie jar ──────────────────────────────
