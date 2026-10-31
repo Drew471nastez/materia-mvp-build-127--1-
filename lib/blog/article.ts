@@ -23,23 +23,37 @@
  *              /blog/explore/categories/<slug> is a 308 to it.
  */
 import { headingAnchor, type Block, type BlockType } from "./blocks"
-import { categoryToSlug, slugToCategory } from "@/lib/blog-categories"
+import { CATEGORY_SUBTITLES, STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { BLOG_ORIGIN, BLOG_PAGE_SIZE, BLOG_URL, blogPageCount, mergeBlogPosts, newestBlogChange } from "./listing"
 
 /* ─── Paths ──────────────────────────────────────────────────────────── */
 
 export const BLOG_CATEGORY_BASE = "/blog/category"
 
+/** A category as the blog_categories table holds it (lib/blog/categories readBlogCategories). A renamed category keeps its slug. */
+export interface BlogCategory {
+  slug: string
+  name: string
+  description: string
+}
+
+/** The eight categories written in code: what the pages use while blog_categories is missing or unreadable. */
+export const STATIC_BLOG_CATEGORIES: BlogCategory[] = STORELIB_CATEGORIES.map((name) => ({ slug: categoryToSlug(name), name, description: CATEGORY_SUBTITLES[name] ?? "" }))
+
+/** A category's slug: the table's when it lists the name, else made from the name. */
+export function categorySlugOf(name: string, categories: readonly BlogCategory[] = STATIC_BLOG_CATEGORIES): string {
+  return categories.find((c) => c.name === name)?.slug ?? categoryToSlug(name)
+}
+
 /** `/blog/category/<slug>` for page 1, `/blog/category/<slug>/page/<n>` after it. */
-export function blogCategoryPath(category: string, page = 1): string {
-  const slug = categoryToSlug(category)
+export function blogCategoryPath(category: string, page = 1, categories?: readonly BlogCategory[]): string {
+  const slug = categorySlugOf(category, categories)
   return page <= 1 ? `${BLOG_CATEGORY_BASE}/${slug}` : `${BLOG_CATEGORY_BASE}/${slug}/page/${page}`
 }
 
 /** Where an old /blog/explore/categories/<slug> address now lives, or null for a category that does not exist. */
-export function legacyCategoryTarget(slug: string): string | null {
-  const category = slugToCategory(slug)
-  return category ? blogCategoryPath(category) : null
+export function legacyCategoryTarget(slug: string, categories: readonly BlogCategory[] = STATIC_BLOG_CATEGORIES): string | null {
+  return categories.some((c) => c.slug === slug) ? `${BLOG_CATEGORY_BASE}/${slug}` : null
 }
 
 /* ─── Text ───────────────────────────────────────────────────────────── */
@@ -349,16 +363,14 @@ export function postNeighbours<T extends { slug: string }>(posts: T[], slug: str
 export function withBlogCategoryPages(
   entries: Array<{ url: string; lastModified: string | null }>,
   rows: Array<{ slug: string; category?: string | null; published_at: string | null; updated_at?: string | null }>,
+  categories: readonly BlogCategory[] = STATIC_BLOG_CATEGORIES,
 ): Array<{ url: string; lastModified: string | null }> {
   const out = entries.map((e) => ({ ...e, url: e.url.replace(`${BLOG_URL}/explore/categories/`, `${BLOG_ORIGIN}${BLOG_CATEGORY_BASE}/`) }))
   const posts = mergeBlogPosts(rows.map((r) => ({ id: r.slug, title: "", excerpt: "", read_time: "", cover_image_url: null, ...r, category: r.category ?? "" })))
-  const byCategory = new Map<string, typeof posts>()
-  for (const p of posts) if (p.category) byCategory.set(p.category, [...(byCategory.get(p.category) ?? []), p])
-  for (const [category, inIt] of byCategory) {
-    if (!slugToCategory(categoryToSlug(category))) continue
-    const pages = blogPageCount(inIt.length)
-    for (let page = 2; page <= pages; page++) {
-      out.push({ url: `${BLOG_ORIGIN}${blogCategoryPath(category, page)}`, lastModified: newestBlogChange(inIt.slice((page - 1) * BLOG_PAGE_SIZE, page * BLOG_PAGE_SIZE)) })
+  for (const c of categories) {
+    const inIt = posts.filter((p) => p.category === c.name)
+    for (let page = 2; page <= blogPageCount(inIt.length); page++) {
+      out.push({ url: `${BLOG_ORIGIN}${blogCategoryPath(c.name, page, categories)}`, lastModified: newestBlogChange(inIt.slice((page - 1) * BLOG_PAGE_SIZE, page * BLOG_PAGE_SIZE)) })
     }
   }
   return out

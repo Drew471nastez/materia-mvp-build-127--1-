@@ -51,7 +51,6 @@ import { siteSeo } from "@/lib/website-builder/site-seo-data"
 import { bannedCreatorIds, confirmedSpamUserIds } from "./bans"
 import { onePageRowListable, type OnePagePresenceRow } from "@/lib/onepage/page-presence"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
@@ -64,7 +63,10 @@ import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
 import { blogSitemapEntries } from "@/lib/blog/listing"
-import { withBlogCategoryPages } from "@/lib/blog/article"
+import { categorySlugOf, withBlogCategoryPages } from "@/lib/blog/article"
+import { readBlogCategories } from "@/lib/blog/categories"
+import { blogSlugsNotInSitemap } from "@/lib/blog/read"
+import { liveDateFilter } from "@/lib/blog/schedule"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
@@ -427,12 +429,14 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
   }
 
   const admin = createAdminClient()
-  const posts = await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
-    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).order("slug").range(a, b),
+  /* Round 45: a scheduled post is not here until its date (the query below), and a noindex post or one canonical elsewhere never is. */
+  const unlisted = await blogSlugsNotInSitemap()
+  const posts = (await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
+    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).or(liveDateFilter()).order("slug").range(a, b),
     0,
     50_000,
     "blog",
-  )
+  )).filter((p) => !unlisted.has(p.slug))
   /*
     Round 44: the blog from one rule (lib/blog/listing blogSitemapEntries):
     /blog and its older pages, each category that has a post, each post, all
@@ -440,7 +444,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     the four code-written posts one date between them.
   */
   /* Round 45: a category lives at /blog/category/<slug> (the old address is a 308), with its older pages listed once it has them. */
-  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug), posts))
+  const blogCategories = await readBlogCategories()
+  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, blogCategories.map((c) => c.name), (name) => categorySlugOf(name, blogCategories)), posts, blogCategories))
   return routes
 }
 

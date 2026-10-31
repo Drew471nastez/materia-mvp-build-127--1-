@@ -992,6 +992,8 @@ const SUITES = [
   "tests/seo-marketing-r44.test.ts",
   /* Round 45: the public blog rebuilt (every block type, sanitizeInline, the contents list, BlogPosting and VideoObject, /blog/category with the old address a 308, the sign up box and the newsletter) and the help article in the same reading frame. */
   "tests/blog-public-r45.test.ts",
+  /* Round 45: the blog admin: the sanitiser, a post live only when published and its date has come (scheduling with no job), an old slug's 308, a save from an old version refused with 409 (savePost against an in-memory table), the snippet and preview routes admin checked and noindex, SQL part 345. */
+  "tests/blog-admin-r45.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */

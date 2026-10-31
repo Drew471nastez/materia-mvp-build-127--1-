@@ -1,110 +1,86 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, after } from "next/server"
 import { announceAddresses, blogPostAddresses } from "@/lib/seo/announce-pages"
 import { adminFailure } from "@/lib/admin/gate"
-import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
-
-function revalidateBlogPages(slug?: string) {
-  revalidatePath("/blog")
-  if (slug) revalidatePath(`/blog/${slug}`)
-  revalidatePath("/blog/explore/categories", "layout")
-}
+import { adminView, blogSchema, readAdminPost, savePost } from "@/lib/blog/admin-store"
+import { blogJson, revalidateBlogPages } from "@/lib/blog/admin-http"
+import { isPostLive } from "@/lib/blog/schedule"
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return blogJson({ error: "Unauthorized" }, 401)
   }
 
   const { id } = await context.params
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (error) return adminFailure("blog post", error)
-  return NextResponse.json(data)
+  const { full } = await blogSchema(supabase)
+  const row = await readAdminPost(supabase, id)
+  if (!row) return blogJson({ error: "That post no longer exists." }, 404)
+  return blogJson({ post: adminView(row), full })
 }
 
+/**
+ * One save: { action, version, meta, blocks, publish_at?, force? }.
+ *
+ *   autosave, save   into the draft copy when the post is live (SQL part
+ *                    345), into the post itself when nobody can see it yet;
+ *                    save also keeps a revision.
+ *   publish          live now, or at publish_at (a later date is scheduled).
+ *   update           the draft made live; a slug that moved leaves a 308.
+ *   unpublish        off the site; the draft is kept.
+ *
+ * `version` is the one the editor was given; a different one on the row is
+ * a 409 with the row as it is now, and nothing is written
+ * (lib/blog/save-rules.ts). Every field is cleaned on the server.
+ */
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return blogJson({ error: "Unauthorized" }, 401)
   }
 
   const { id } = await context.params
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return blogJson({ error: "Invalid request body" }, 400)
   const supabase = createAdminClient()
+  const { full } = await blogSchema(supabase)
+  const saved = await savePost(supabase, id, body, full)
+  if (!saved.ok) return blogJson({ error: saved.error, code: saved.code, current: saved.current }, saved.status)
+  type Live = { slug?: string | null; is_published?: boolean | null; published_at?: string | null }
+  const before = saved.before as Live
+  const data = saved.row as Live
 
-  // If toggling to published for the first time, set published_at
-  const updates: Record<string, unknown> = { ...body }
-  if (updates.is_published && updates._set_published_at) {
-    updates.published_at = new Date().toISOString()
-  }
-  delete updates._set_published_at
-  // Map editor field "author" → DB column "author_name"
-  if ("author" in updates) {
-    updates.author_name = updates.author
-    delete updates.author
-  }
-  // Strip read-only / non-DB fields that the editor sends
-  delete updates.id
-  delete updates.created_at
-  delete updates.updated_at
-  delete updates.views
-
-  /* A new slug leaves the old address behind: it is announced too, so engines drop it. */
-  const before = "slug" in updates ? (await supabase.from("blog_posts").select("slug, is_published").eq("id", id).maybeSingle()).data : null
-
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single()
-
-  if (error) return adminFailure("blog post", error)
-
-  // Revalidate public blog pages so changes appear immediately
-  revalidateBlogPages(data?.slug)
-
-  /* A live post, or one just taken down: tell the engines after the answer (lib/seo/announce-pages.ts). A draft has no page. */
-  if (data?.is_published || updates.is_published === false || before?.is_published) {
-    const slugs = [before?.slug, data?.slug]
-    after(() => announceAddresses(blogPostAddresses(...slugs)))
+  if (saved.liveChanged) {
+    revalidateBlogPages(before?.slug, data?.slug)
+    /* A live post, or one just taken down: tell the engines after the answer (lib/seo/announce-pages.ts). A draft or a post still scheduled has no page. */
+    if (isPostLive(data) || isPostLive(before)) {
+      const slugs = [before?.slug, data?.slug]
+      after(() => announceAddresses(blogPostAddresses(...slugs)))
+    }
   }
 
-  return NextResponse.json(data)
+  return blogJson({ post: adminView(saved.row), full })
 }
 
 export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return blogJson({ error: "Unauthorized" }, 401)
   }
 
   const { id } = await context.params
   const supabase = createAdminClient()
 
   // Fetch the post slug before deleting so we can revalidate its page
-  const { data: post } = await supabase
-    .from("blog_posts")
-    .select("slug")
-    .eq("id", id)
-    .single()
-
-  const { error } = await supabase
-    .from("blog_posts")
-    .delete()
-    .eq("id", id)
-
+  const { data: post } = await supabase.from("blog_posts").select("slug, is_published, published_at").eq("id", id).maybeSingle()
+  const { error } = await supabase.from("blog_posts").delete().eq("id", id)
   if (error) return adminFailure("blog post", error)
 
-  // Revalidate public blog pages so deleted post is removed
   revalidateBlogPages(post?.slug)
   /* Its address answers 404 now; engines told look again and drop it. */
-  const gone = post?.slug
-  after(() => announceAddresses(blogPostAddresses(gone)))
+  if (post && isPostLive(post)) {
+    const gone = post.slug
+    after(() => announceAddresses(blogPostAddresses(gone)))
+  }
 
-  return NextResponse.json({ ok: true })
+  return blogJson({ ok: true })
 }
