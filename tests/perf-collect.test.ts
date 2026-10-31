@@ -142,7 +142,7 @@ async function main() {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("the editor times its opening, its canvas and its saves", /perfStep\("\/step\/editor\/open", sinceScreenStart\(\)\)/.test(editor) && /perfStep\("\/step\/editor\/canvas"/.test(editor) && /perfStep\("\/step\/editor\/save"/.test(editor) && /perfFail\("\/step\/editor\/save"/.test(editor))
     const pay = read("app/checkout/parts/stripe-pay.tsx")
-    check("checkout times the form, the intent and the confirm, wallets included", /perfStep\("\/step\/checkout\/ready"/.test(pay) && (pay.match(/timedStep\("\/step\/checkout\/intent"/g) ?? []).length === 2 && (pay.match(/noteConfirm\(t0, /g) ?? []).length === 3)
+    check("checkout times the form, the intent and the confirm, wallets included", /perfStep\("\/step\/checkout\/ready"/.test(pay) && /* Changed on purpose (rel-commerce): one timed intent step inside intentFor, used by the card and the wallets. */ (pay.match(/timedStep\("\/step\/checkout\/intent"/g) ?? []).length === 1 && (pay.match(/await intentFor\(/g) ?? []).length === 2 && (pay.match(/noteConfirm\(t0, /g) ?? []).length === 3)
     check("a declined card is not counted as a failure", /error\.type !== "card_error" && error\.type !== "validation_error"/.test(pay))
   }
 
