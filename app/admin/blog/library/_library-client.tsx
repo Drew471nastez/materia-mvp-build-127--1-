@@ -305,7 +305,7 @@ function AuthorForm({ author, onDone, onFail }: { author: Partial<BlogAuthor> } 
       </div>
       <Field label="Photo">
         <div className="flex items-center gap-2">
-          <Avatar url={a.avatar_url} name={a.name ?? "?"} />
+          <Avatar url={a.avatar_url} name={a.name ?? ""} />
           <input value={a.avatar_url ?? ""} onChange={(e) => setA({ ...a, avatar_url: e.target.value.trim() })} placeholder="https://…" className={cx(field, "h-9 min-w-0 flex-1")} />
           <Button variant="plain" onClick={() => fileRef.current?.click()}>
             Upload
