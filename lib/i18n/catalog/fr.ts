@@ -5114,6 +5114,8 @@ const words: Record<string, string> = {
  "No payments yet.": "Aucun paiement pour l'instant.",
  "No payouts to export yet": "Aucun virement à exporter pour l'instant",
  "No payouts yet": "Aucun virement pour l'instant",
+ "Couldn't refresh just now. Showing the last list we had.": "Actualisation impossible pour le moment. Voici la dernière liste chargée.",
+ "Payouts couldn't be loaded just now. They'll show here in a moment.": "Les virements n'ont pas pu être chargés pour le moment. Ils s'afficheront ici dans un instant.",
  "No physical orders": "Aucune commande physique",
  "No physical products yet": "Pas encore de produits physiques",
  "No physical products yet.": "Aucun produit physique pour l'instant.",

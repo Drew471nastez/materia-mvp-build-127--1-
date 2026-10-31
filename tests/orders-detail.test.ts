@@ -148,7 +148,8 @@ async function main() {
     check("only a paid order can be refunded", /if \(order\.status !== "completed" && order\.status !== "refunded"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
     check("  and a partly refunded one only up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refund))
     const page = code("app/app/orders/sales/page.tsx")
-    check("a refund on one item of a basket does not mark the whole basket", /if \(group\.length > 1 && !charge\.refunded\) continue/.test(page))
+    /* Changed on purpose (rel-commerce, database audit F8): a found refund goes through lib/stripe/refund-sync, as the charge.refunded webhook does, which applies it to the row it names or shares it across the basket, each refund once, with its ledger line. */
+    check("a refund on one item of a basket does not mark the whole basket", /await syncChargeRefund\(admin, stripe, charge\)/.test(page) && !/update\(\{ status: "refunded" \}\)/.test(page))
   }
 
   console.log("\nSaving a file, in a browser and in the apps")

@@ -156,6 +156,7 @@ const ro: Record<string, string> = {
   "The payment did not go through. Nothing was charged.": "Plata nu a reușit. Nu s-a retras niciun ban.",
   "Check the card details and try again.": "Verifică datele cardului și încearcă din nou.",
   "The payment did not go through. Nothing was charged. Try again.": "Plata nu a reușit. Nu s-a retras niciun ban. Încearcă din nou.",
+  "We are still checking your payment with the bank. Do not use another card yet. Press Pay again to check: it uses the same payment, so you are not charged twice.": "Încă verificăm plata ta cu banca. Nu folosi încă alt card. Apasă din nou Plătește ca să verifici: se folosește aceeași plată, deci nu plătești de două ori.",
   "You are offline. Nothing was charged. Reconnect and press Pay again.": "Nu ai conexiune la internet. Nu s-a retras niciun ban. Reconectează-te și apasă din nou Cumpără.",
   "The connection dropped before the payment started. Nothing was charged. Try again.": "Conexiunea s-a întrerupt înainte de plată. Nu s-a retras niciun ban. Încearcă din nou.",
   "The payment form is still loading. Try again in a moment.": "Formularul de plată încă se încarcă. Încearcă din nou imediat.",

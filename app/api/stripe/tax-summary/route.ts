@@ -2,6 +2,10 @@ import { moneyCaller } from "@/lib/team/money"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
+
+const TAX_SUMMARY_PAGE = 1_000
+const TAX_SUMMARY_MAX_ROWS = 200_000
 
 /**
  * GET /api/stripe/tax-summary?year=2025
@@ -74,14 +78,30 @@ export async function GET(request: Request) {
     const startDate = `${year}-01-01T00:00:00Z`
     const endDate = `${year + 1}-01-01T00:00:00Z`
 
-    const { data: orders } = await adminSupabase
-      .from("orders")
-      .select("amount_cents, fee_cents, created_at, status, product_id, refund_amount_cents, currency")
-      .in("product_id", productIds)
-      .in("status", ["completed", "refunded", "disputed"])
-      .gte("created_at", startDate)
-      .lt("created_at", endDate)
-      .order("created_at", { ascending: true })
+    /*
+      EVERY ORDER OF THE YEAR, A PAGE AT A TIME. One read stops at 1,000 rows, so a store past its thousandth
+      order of the year was summarised from the first thousand; and an .in() of every product id grows the
+      address with the catalogue. Read by the order's creator (by its product on a database without the column,
+      lib/analytics/creator-orders), 1,000 rows a page, in a stable order. A page that fails fails the summary
+      rather than leaving sales out of a tax figure.
+    */
+    const orders = await byCreator(async (scope) => {
+      const out: Array<Record<string, unknown>> = []
+      for (let from = 0; from < TAX_SUMMARY_MAX_ROWS; from += TAX_SUMMARY_PAGE) {
+        const { data, error } = await scopedOrders(adminSupabase, "id, amount_cents, fee_cents, created_at, status, product_id, refund_amount_cents, currency", scope, creator.id, null)
+          .in("status", ["completed", "refunded", "disputed"])
+          .gte("created_at", startDate)
+          .lt("created_at", endDate)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + TAX_SUMMARY_PAGE - 1)
+        if (error) throw new Error(`orders read failed: ${error.message}`)
+        const rows = ownRows((data ?? []) as Array<Record<string, unknown>>)
+        out.push(...rows)
+        if (rows.length < TAX_SUMMARY_PAGE) return out
+      }
+      throw new Error(`more than ${TAX_SUMMARY_MAX_ROWS} orders in ${year}: summary not made from part of them`)
+    })
 
     /*
       IN US DOLLARS. A 1099-K summary is an American form with a dollar line,
