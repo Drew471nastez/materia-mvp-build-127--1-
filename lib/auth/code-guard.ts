@@ -18,7 +18,7 @@
  * the guess is still checked against the code, it just is not counted. The
  * code itself stays the gate.
  */
-import { MAX_CODE_ATTEMPTS } from "@/lib/account/codes"
+import { MAX_CODE_ATTEMPTS, codeMatches } from "@/lib/account/codes"
 
 export type GuardDb = { from: (table: string) => any }
 
@@ -96,4 +96,40 @@ export async function claimCode(db: GuardDb, id: string, nowIso = new Date().toI
   const { data, error } = await db.from("verification_codes").update({ used_at: nowIso }).eq("id", id).is("used_at", null).select("id")
   if (error) return false
   return Array.isArray(data) ? data.length > 0 : !!data
+}
+
+export const DEVICE_WRONG_BUCKET = "confirm-device-wrong"
+/** How far back a device code's wrong tries are counted when its newest code is older (the codes live 15 minutes). */
+const DEVICE_CODE_MINUTES = 15
+
+export type DeviceVerdict = { ok: true; id: string } | { ok: false; status: 400 | 429; error: string; locked: boolean }
+
+/**
+ * A device code for one order (/api/security/confirm-device): live, matching,
+ * claimed once, five wrong tries and every live code is burned.
+ */
+export async function checkDeviceCode(db: GuardDb, orderId: string, code: string, now = Date.now()): Promise<DeviceVerdict> {
+  const nowIso = new Date(now).toISOString()
+  const subject = `order:${orderId}`
+  const codes = await recentCodes(db, "order_id", orderId)
+  const wrong = await wrongCodeCount(db, DEVICE_WRONG_BUCKET, subject, countFrom(codes, DEVICE_CODE_MINUTES, now))
+  if (wrong >= WRONG_CODE_LIMIT) {
+    await burnCodes(db, "order_id", orderId, nowIso)
+    return { ok: false, status: 429, error: "Too many wrong codes. Ask for a new one.", locked: true }
+  }
+  const live = codes.filter((row) => !row.used_at && !!row.expires_at && Date.parse(String(row.expires_at)) > now)
+  const match = live.find((row) => codeMatches(row.code, code))
+  if (!match) {
+    /* A used or expired code typed again is not a guess at a new one; anything else is. */
+    if (!codes.some((row) => codeMatches(row.code, code))) {
+      await recordWrongCode(db, DEVICE_WRONG_BUCKET, subject)
+      if (wrong + 1 >= WRONG_CODE_LIMIT) {
+        await burnCodes(db, "order_id", orderId, nowIso)
+        return { ok: false, status: 400, error: "Too many wrong codes. Ask for a new one.", locked: true }
+      }
+    }
+    return { ok: false, status: 400, error: "Invalid or expired verification code", locked: false }
+  }
+  if (!(await claimCode(db, match.id, nowIso))) return { ok: false, status: 400, error: "Invalid or expired verification code", locked: false }
+  return { ok: true, id: match.id }
 }
