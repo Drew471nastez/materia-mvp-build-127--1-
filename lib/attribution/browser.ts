@@ -44,6 +44,7 @@ import {
   recordVisit,
   touchFromVisit,
   type PropertyType,
+  type Touch,
   type Touches,
 } from "./touch"
 
@@ -258,17 +259,22 @@ export const PLATFORM_SCOPE = "s:storelib"
  */
 let platformArrived = false
 
-/** This document's arrival, kept for Storelib itself. Only on storelib.com, never on a creator's own host. */
-export function notePlatformVisit() {
-  if (typeof window === "undefined" || !platformHost(window.location.hostname)) return
+/**
+ * This document's arrival, kept for Storelib itself. Only on storelib.com,
+ * never on a creator's own host. Returns the touch it recorded (null when
+ * none), so <CapturePlatformTouch> can count a visit from an AI assistant
+ * (lib/attribution/ai-visit-browser).
+ */
+export function notePlatformVisit(): Touch | null {
+  if (typeof window === "undefined" || !platformHost(window.location.hostname)) return null
   const tags = new URLSearchParams(window.location.search)
   const utm = ["utm_source", "utm_medium", "utm_campaign"].map((k) => tags.get(k) ?? "").join("|")
   const key = `${PLATFORM_SCOPE}|${utm}`
-  if (noted.has(key)) return
+  if (noted.has(key)) return null
   noted.add(key)
   const arrival = !platformArrived
   platformArrived = true
-  if (!arrival && utm === "||") return
+  if (!arrival && utm === "||") return null
   const now = Date.now()
   const touch = touchFromVisit({
     href: window.location.href,
@@ -279,12 +285,13 @@ export function notePlatformVisit() {
     property: null,
     now,
   })
-  if (!touch) return
+  if (!touch) return null
   memory.set(PLATFORM_SCOPE, recordVisit(memory.get(PLATFORM_SCOPE), touch, now))
-  if (!hasConsent("analytics")) return
+  if (!hasConsent("analytics")) return touch
   const kept = readStore(now)
   kept[PLATFORM_SCOPE] = { ...recordVisit(kept[PLATFORM_SCOPE] ?? null, touch, now), seen: now }
   writeStore(kept)
+  return touch
 }
 
 /** Storelib's own touches, encoded for the sign up record. "" for none. */

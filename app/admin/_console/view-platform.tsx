@@ -8,6 +8,7 @@ import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
 import { WalletDomainsPanel } from "./panel-wallets"
 import { getOnePageDomain } from "@/lib/onepage/address"
+import { AI_VISITS_LABEL } from "@/lib/attribution/ai-visits"
 import { BuyerHeaderThemePanel } from "./panel-buyer-header-theme"
 import { ExploreMarketplacePanel } from "./panel-explore-marketplace"
 import { ExploreDiscoverModeSwitcherPanel } from "./panel-explore-discover-switcher"
@@ -213,7 +214,6 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
             <Unread reason={reasonFor(p, "views, 30 days")} />
           )}
         </Panel>
-        <AiAssistantsPanel ai={data.ai} problems={p} />
         <Panel title="Countries" meta="By sales, then views">
           {data.countries ? (
             <DataList
@@ -232,6 +232,8 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
             <Unread reason={reasonFor(p, "views, 30 days", "orders by country")} />
           )}
         </Panel>
+        {/* Both columns wide, under the two panels above it. */}
+        <AiAssistantsPanel ai={data.ai} problems={p} />
       </div>
     </div>
   )
@@ -243,32 +245,70 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
  * stores pay or sell (lib/attribution/ai-funnel). Most visits from an
  * assistant carry no referrer and are Direct above, so this is a floor,
  * never the whole of it, and the panel says so.
+ *
+ * Round 46: storelib.com visits, Storelib's own count of visits to its own
+ * pages (part 347, lib/attribution/ai-visits), first in each row so a row
+ * reads as the funnel it is: visits, then sign ups, then paid. Store views
+ * stay apart, after it: they are creators' pages. Each assistant's top
+ * landing pages under it. Before part 347 the column is left out and one
+ * line says what to run.
  */
 function AiAssistantsPanel({ ai, problems }: { ai: AudiencePayload["ai"]; problems: AudiencePayload["problems"] }) {
+  const counted = ai?.siteVisits !== null && ai?.siteVisits !== undefined
+  type Row = NonNullable<AudiencePayload["ai"]>["rows"][number]
+  const columns: Column<Row>[] = [
+    { key: "label", label: "Assistant", width: "minmax(0,1fr)", phone: "primary", render: (r) => r.label },
+    ...(counted ? [{ key: "site", label: "storelib.com visits", width: "168px", align: "right" as const, render: (r: Row) => `${num(r.siteVisits)} storelib.com visits` }] : []),
+    { key: "signups", label: "Sign ups", width: "84px", align: "right", phone: "end", render: (r) => `${num(r.signups)} sign ups` },
+    { key: "paid", label: "Paid plan", width: "84px", align: "right", render: (r) => `${num(r.paidPlan)} paid` },
+    { key: "sale", label: "Has a sale", width: "84px", align: "right", render: (r) => `${num(r.hasSale)} selling` },
+    { key: "views", label: "Store views", width: "128px", align: "right", render: (r) => `${num(r.views)} store views` },
+  ]
   return (
-    <Panel title="AI assistants" meta="AI-referred (where the source is known)">
+    <Panel title="AI assistants" meta="AI-referred (where the source is known)" className="lg:col-span-2">
       {ai ? (
         <div data-ai-assistants>
-          <DataList
-            label="AI assistants"
-            rows={ai.rows}
-            rowKey={(r) => r.key}
-            empty="No visit or sign up in the last 30 days named an AI assistant."
-            columns={[
-              { key: "label", label: "Assistant", width: "minmax(0,1fr)", phone: "primary", render: (r) => r.label },
-              { key: "views", label: "Views", width: "76px", align: "right", render: (r) => `${num(r.views)} views` },
-              { key: "signups", label: "Sign ups", width: "84px", align: "right", phone: "end", render: (r) => `${num(r.signups)} sign ups` },
-              { key: "paid", label: "Paid plan", width: "84px", align: "right", render: (r) => `${num(r.paidPlan)} paid` },
-              { key: "sale", label: "Has a sale", width: "84px", align: "right", render: (r) => `${num(r.hasSale)} selling` },
-            ]}
-          />
-          <p className="border-t border-white/[0.06] px-4 py-3 text-[12px] leading-5 text-[#9b9ba6]">
-            {num(ai.views)} views from {num(ai.visitors)} visitors and {num(ai.signups)} of {ai.signupsAll === null ? "the" : num(ai.signupsAll)} Storelib sign ups in 30 days named an assistant; {num(ai.paidPlan)} of those stores are on a paid plan and {num(ai.hasSale)} have a sale.
-            {" "}Views are storefront page views; a sign up is credited to the last visit that named an assistant. Most visits from an assistant arrive with no referrer and count as Direct, so these are the ones whose source is known, not all of them.
-          </p>
+          {counted ? null : (
+            <p className="border-b border-white/[0.06] px-4 py-2.5 text-[12px] text-[#9b9ba6]" data-ai-visits-missing>
+              Run SQL part 347 to count visits to storelib.com.
+            </p>
+          )}
+          <DataList label="AI assistants" rows={ai.rows} rowKey={(r) => r.key} empty="No visit or sign up in the last 30 days named an AI assistant." columns={columns} />
+          {counted && ai.landings.length ? (
+            <div className="border-t border-white/[0.06]" data-ai-landings>
+              <h3 className="px-4 pb-1 pt-3 text-[12px] font-medium text-[#9b9ba6]">Top storelib.com pages per assistant</h3>
+              <DataList
+                label="Top storelib.com pages per assistant"
+                rows={ai.landings}
+                rowKey={(r) => `${r.key}|${r.path}`}
+                empty=""
+                columns={[
+                  { key: "path", label: "Page", width: "minmax(0,1fr)", phone: "primary", render: (r) => <span title={r.path}>{r.path}</span> },
+                  { key: "label", label: "Assistant", width: "140px", render: (r) => r.label },
+                  { key: "visits", label: "Visits", width: "96px", align: "right", phone: "end", render: (r) => `${num(r.visits)} visits` },
+                ]}
+              />
+            </div>
+          ) : null}
+          <div className="space-y-1.5 border-t border-white/[0.06] px-4 py-3 text-[12px] leading-5 text-[#9b9ba6]" data-ai-visits-source>
+            <p className="text-[#c9c9d1]">
+              Last 30 days: {counted ? `${num(ai.siteVisits)} storelib.com visits, then ` : ""}
+              {num(ai.signups)} of {ai.signupsAll === null ? "the" : num(ai.signupsAll)} Storelib sign ups, then {num(ai.paidPlan)} on a paid plan and {num(ai.hasSale)} with a sale.
+            </p>
+            {counted ? (
+              <p>
+                <span className="text-[#c9c9d1]">storelib.com visits.</span> {AI_VISITS_LABEL} Once per tab session for each page.
+              </p>
+            ) : null}
+            <p>
+              <span className="text-[#c9c9d1]">Store views.</span> Page views on creators&apos; storefronts, {num(ai.views)} from {num(ai.visitors)} visitors.{" "}
+              <span className="text-[#c9c9d1]">Sign ups.</span> Credited to the last visit that named an assistant.
+            </p>
+            <p>Most visits from an assistant arrive with no referrer and count as Direct, so these are the ones whose source is known, not all of them.</p>
+          </div>
         </div>
       ) : (
-        <Unread reason={reasonFor(problems, "views, 30 days", "AI sign ups")} />
+        <Unread reason={reasonFor(problems, "views, 30 days", "AI sign ups", "storelib.com AI visits")} />
       )}
     </Panel>
   )

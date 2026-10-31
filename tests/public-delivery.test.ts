@@ -299,7 +299,7 @@ async function spikes() {
   check("a normal reader (a page view every few seconds) never reaches Postgres", Math.floor(LIMITS.track[0].limit * MEMORY_FIRST_SHARE) >= 20)
 
   section("Memory first only where the worst abuse is a figure too high, never for mail, money or a guess")
-  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "public-search", "ga-seen"])
+  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "public-search", "ga-seen", "ai-visit"])
   const callers: string[] = []
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {

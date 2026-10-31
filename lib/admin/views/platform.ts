@@ -1,7 +1,7 @@
 import "server-only"
 
 import { maskEmail } from "@/lib/privacy/mask-email"
-import { buildAiFunnel, signupAiSource, type AiFunnel, type SignupRow } from "@/lib/attribution/ai-funnel"
+import { buildAiFunnel, signupAiSource, type AiFunnel, type SignupRow, type SiteVisitRow } from "@/lib/attribution/ai-funnel"
 import { ENTITLED_STATUSES } from "@/lib/billing/subscription-state"
 
 import type { AudiencePayload, AuditPayload, DomainRow, EmailPayload, PeoplePayload, SiteRow, WebsitesPayload } from "../types"
@@ -204,12 +204,35 @@ const missingTable = (e: { code?: string | null; message?: string | null } | nul
   !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|could not find the table/i.test(e.message ?? ""))
 
 /**
- * The AI assistants group: the views already read, Storelib's own sign ups
- * of the same 30 days (part 346), and which of those accounts pay or sell
- * (lib/attribution/ai-funnel says how each is counted). Without part 346
- * the views are still shown and a notice says what is missing.
+ * The AI assistants group: the views already read, the visits to
+ * storelib.com's own pages Storelib counted (part 347), Storelib's own sign
+ * ups of the same 30 days (part 346), and which of those accounts pay or
+ * sell (lib/attribution/ai-funnel says how each is counted). Without part
+ * 346 the views are still shown and a notice says what is missing; without
+ * part 347 siteVisits is null and the panel says to run it.
  */
+async function aiSiteVisits(r: Reader, since: string): Promise<SiteVisitRow[] | null> {
+  try {
+    const { data, error } = await r.db
+      .from("platform_ai_visits")
+      .select("ai_source, landing_path, visits")
+      .gte("day", since.slice(0, 10))
+      .limit(20000)
+    if (missingTable(error)) return null
+    if (error) {
+      r.note("storelib.com AI visits", "platform_ai_visits", error)
+      return null
+    }
+    if ((data ?? []).length >= 20000) r.notice("storelib.com visits by AI assistant count the first 20,000 day and page rows of the last 30 days.")
+    return (data ?? []) as SiteVisitRow[]
+  } catch (e) {
+    r.note("storelib.com AI visits", "platform_ai_visits", e)
+    return null
+  }
+}
+
 async function aiAssistants(r: Reader, views: { visitor_id: string | null; referrer_domain: string | null; utm_source: string | null }[] | null, since: string): Promise<AiFunnel | null> {
+  const siteVisitsRead = aiSiteVisits(r, since)
   let signups: SignupRow[] | null = null
   let signupsAll: number | null = null
   try {
@@ -248,8 +271,9 @@ async function aiAssistants(r: Reader, views: { visitor_id: string | null; refer
       for (const p of sold ?? []) saleUsers.add(byCreator.get(p.creator_id) ?? "")
     }
   }
-  if (!views && !signups) return null
-  return buildAiFunnel({ views, signups, signupsAll, paidUsers, saleUsers })
+  const siteVisits = await siteVisitsRead
+  if (!views && !signups && !siteVisits) return null
+  return buildAiFunnel({ views, siteVisits, signups, signupsAll, paidUsers, saleUsers })
 }
 
 /* ── People: every account, creator or buyer ──────────────────────────── */
