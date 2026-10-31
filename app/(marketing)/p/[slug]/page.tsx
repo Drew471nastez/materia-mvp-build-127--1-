@@ -1799,7 +1799,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       "@type": "Brand",
       name: sellerDisplayName,
     },
-    ...(reviewsCount > 0 && {
+    /* Round 45: and a real average, 1 to 5. A count kept with no average yet would print ratingValue "0.0", which Google rejects. */
+    ...(reviewsCount > 0 && reviewsAverage >= 1 && reviewsAverage <= 5 && {
       aggregateRating: {
         "@type": "AggregateRating",
         ratingValue: reviewsAverage.toFixed(1),
