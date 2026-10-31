@@ -56,7 +56,7 @@ Rollback column.
 | PAY-6 | throw on webhook lookup and write errors; resolve invoice creator via `resolveCreatorForSubscription` | revert commit | select error gives 500; missing row still writes invoice |
 | PAY-4, PAY-5 | one fetch per tick, per-account single-flight cache, additive `unavailable` flags | revert commit | call counts; prior rows kept on `unavailable` |
 | PAY-7 | probe platform before auto-release; env kill switch `STRIPE_AUTO_RELEASE=off` | set the env var to `off` (no deploy of code needed beyond a redeploy) or revert | no release when platform probe fails |
-| PAY-8 to PAY-12 | lower priority, same branch if time allows | revert commit | per AUDIT.md |
+| PAY-8 to PAY-12 | lower priority; PAY-8, PAY-11, PAY-12 done in wave 2 (`claude/rel2-commerce2`); PAY-9 designed below, not built | revert commit | per AUDIT.md |
 
 ## Batch 3: sites availability (`claude/rel-sites`)
 
@@ -115,6 +115,25 @@ Rollback column.
 | EVD-5 `/500` page | missing static file | reproduce in a production build |
 | SITE-9 draft asset token, SITE-1 RPC, SITE-5(a) | larger changes | additive SQL approval |
 | Supabase compute review | DB incidents drive most production errors | Supabase dashboard read access |
+
+## PAY-9: a stable product checkout idempotency key (designed, not built)
+
+**Re-evaluated in wave 2 and left on purpose.** A safe design exists, but it needs a new table (an SQL part for owner approval) and a change to every page that starts a product checkout, on the most used money path. What it would buy is small today: since PAY-1 the pages keep the PaymentIntent they made and confirm it again on Pay again (`lib/checkout/pay-retry.ts`), so a second press does not make a second charge. What is left is an unconfirmed second PaymentIntent when the answer to the create request itself is lost, which costs nothing and charges nobody.
+
+**Why the key cannot simply be made stable now.** `app/api/checkout/stripe-session/route.ts` builds the metadata with a fresh `access_token`, `session_fingerprint` and `receipt_token` (nanoid, `generateReceiptToken()`) and `agreed_at: new Date()` on every request, and keys the create with `stripeIdempotencyKey("product-intent", [creator, product], params)`. Stripe refuses a reused key whose parameters differ, so a stable key needs the same parameters: the same tokens and the same `agreed_at`. Deriving the tokens from an id the browser sends was rejected: the receipt token opens the download, and anyone who learned that id could rebuild it.
+
+**The design.**
+
+1. Additive table `checkout_attempts` (SQL part, next free number at the time): `id uuid primary key default gen_random_uuid()`, `attempt_key text unique not null`, `creator_id`, `product_id`, `buyer_email`, `access_token`, `session_fingerprint`, `receipt_token`, `agreed_at timestamptz`, `params_hash text`, `payment_intent_id text`, `created_at`, `expires_at` (created_at + 24h, the time Stripe keeps a key). RLS on, no policies: only the service role reads it. A daily cron line deletes expired rows.
+2. The page makes one `attemptId` (crypto.randomUUID) per checkout form and keeps it while the form is the same order (the same `intentKey` that PAY-1 uses); a change to the order makes a new one. It is sent with the stripe-session request from `app/checkout/checkout-client.tsx` (card and wallet sheet) and `components/checkout/instant-checkout.tsx`.
+3. The route computes `attempt_key = sha256(attemptId | creator | product | lower(email))`, then `insert ... on conflict (attempt_key) do nothing returning *`, else reads the row. A fresh row gets new tokens and `agreed_at`; an existing row gives back the ones stored on it. The tokens never come from the browser's id.
+4. The PaymentIntent is created with `stripeIdentityKey("product-intent", [row.id], params)`. The same order pressed twice, or a request retried, sends the same parameters under the same key, and Stripe returns the first PaymentIntent. If the buyer changed the tip, the variant or the code, `params_hash` differs and the route makes a new row (a new key), so nothing real is blocked. The PaymentIntent id is written on the row.
+5. Before the table exists (or when the insert fails) the route works exactly as now: fresh tokens and the 60 second key. No behaviour depends on the table being there.
+6. Holds are unchanged: the coupon and sales-limit holds are keyed per buyer address and are already refreshed by a second press.
+
+**Tests it needs.** Journey: two stripe-session requests with the same `attemptId` and body return the same `paymentIntentId` from a fake Stripe that honours keys; a changed tip returns a different one; the same `attemptId` from another email returns a different one and different tokens; without the table the route answers as today. Unit: the receipt token on the PaymentIntent is the stored one, never a function of `attemptId`.
+
+**Rollback.** Revert the commit; the table can stay (nothing reads it), or be dropped by the owner.
 
 ## The owner's cascading-failure requirements
 
