@@ -18,6 +18,21 @@ export function isConnectPayoutEvent(type: string): boolean {
   return PAYOUT_TYPES.has(type)
 }
 
+/**
+ * A payout the wallet deliberately leaves alone (a currency no rate converts
+ * to the wallet's). Not a fault: the event is answered 200 and closed. Every
+ * other ledger error is thrown, so the webhook answers 500 and Stripe sends
+ * the event again; postLedger is keyed `payout:<id>:<outcome>`, so the
+ * replay posts once.
+ */
+export class PayoutLedgerSkip extends Error {
+  readonly skip = true
+}
+
+export function isPayoutLedgerSkip(e: unknown): boolean {
+  return e instanceof PayoutLedgerSkip || (e as { skip?: unknown } | null)?.skip === true
+}
+
 /** Connected-account payout lifecycle (Connect webhook destination). */
 export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Stripe.Event): Promise<void> {
   if (!isConnectPayoutEvent(event.type)) return
@@ -26,7 +41,9 @@ export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Str
   const connectedAccountId = typeof event.account === "string" ? event.account : undefined
   if (!connectedAccountId) return
 
-  const { data: creator } = await admin.from("creators").select("id, user_id").eq("stripe_account_id", connectedAccountId).maybeSingle()
+  /* A read that failed is not "no such creator": thrown, so Stripe sends the event again (HIGH-2 / MEDIUM-6). */
+  const { data: creator, error: creatorError } = await admin.from("creators").select("id, user_id").eq("stripe_account_id", connectedAccountId).maybeSingle()
+  if (creatorError) throw new Error(`payout ${payout.id}: creator not read: ${creatorError.message}`)
   if (!creator) return
 
   const arrivalDate = payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null
@@ -37,8 +54,8 @@ export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Str
         ? `****${(payout.destination as { last4: string }).last4}`
         : null
 
-  try {
-    await admin.from("payouts").upsert(
+  {
+    const { error: upsertError } = await admin.from("payouts").upsert(
       {
         creator_id: creator.id,
         stripe_payout_id: payout.id,
@@ -56,23 +73,26 @@ export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Str
       },
       { onConflict: "stripe_payout_id" },
     )
-  } catch (err) {
-    console.error("[connect payout] upsert failed", err)
+    /* Keyed by the payout, so a replay writes the same row. */
+    if (upsertError) throw new Error(`payout ${payout.id} not recorded: ${upsertError.message}`)
   }
 
   const payoutCreatorId = creator.id as string
   after(async () => (await import("@/lib/notifications/events")).notePayout(payoutCreatorId))
 
   try {
-    const { data: ledger } = await admin.from("seller_ledger").select("*").eq("creator_id", creator.id).single()
+    /* No wallet row is "nothing to move"; a read that failed is not, and is thrown (Stripe sends it again). */
+    const { data: ledger, error: ledgerError } = await admin.from("seller_ledger").select("*").eq("creator_id", creator.id).maybeSingle()
+    if (ledgerError) throw new Error(`payout ${payout.id}: wallet not read: ${ledgerError.message}`)
     if (ledger) {
-      const { data: cashoutEvent } = await admin
+      const { data: cashoutEvent, error: cashoutError } = await admin
         .from("ledger_events")
         .select("amount_cents")
         .eq("creator_id", creator.id)
         .eq("event_type", "cashout_initiated")
         .eq("stripe_payout_id", payout.id)
         .maybeSingle()
+      if (cashoutError) throw new Error(`payout ${payout.id}: cash out not read: ${cashoutError.message}`)
 
       const usdAmount = cashoutEvent?.amount_cents || payout.amount
       const returned = event.type === "payout.failed" || event.type === "payout.canceled"
@@ -96,28 +116,42 @@ export async function handleConnectPayoutEvent(admin: SupabaseClient, event: Str
             })
           : { unavailable: true as const }
 
+      /*
+        Only before the ledger function exists (run-now part 64): a direct write, which is not keyed, so its own
+        failure is logged and not retried (a replay would move the money twice).
+      */
       if (posted.unavailable) {
-        if (event.type === "payout.paid") {
-          await admin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
-            })
-            .eq("creator_id", creator.id)
-        } else if (returned) {
-          await admin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              available_amount: ledger.available_amount + usdAmount,
-            })
-            .eq("creator_id", creator.id)
+        try {
+          if (event.type === "payout.paid") {
+            await admin
+              .from("seller_ledger")
+              .update({
+                in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
+              })
+              .eq("creator_id", creator.id)
+          } else if (returned) {
+            await admin
+              .from("seller_ledger")
+              .update({
+                in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                available_amount: ledger.available_amount + usdAmount,
+              })
+              .eq("creator_id", creator.id)
+          }
+        } catch (fallbackErr) {
+          console.error("[connect payout] ledger fallback write failed", fallbackErr)
         }
       }
     }
   } catch (ledgerPayoutErr) {
-    console.error("[connect payout] ledger update failed", ledgerPayoutErr)
+    if (isPayoutLedgerSkip(ledgerPayoutErr)) {
+      console.warn("[connect payout] ledger left alone:", (ledgerPayoutErr as Error).message)
+    } else {
+      /* The wallet gates cash out: a missed payout.failed would leave the creator's money stuck in transit. Stripe sends it again. */
+      console.error("[connect payout] ledger update failed; answering 500 so Stripe retries", ledgerPayoutErr)
+      throw ledgerPayoutErr
+    }
   }
 
   const payoutState =

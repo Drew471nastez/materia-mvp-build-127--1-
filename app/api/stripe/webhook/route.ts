@@ -24,6 +24,7 @@ import { toLedger } from "@/lib/payments/ledger-currency"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { claimStripeEvent, noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
+import { isPayoutLedgerSkip, PayoutLedgerSkip } from "@/lib/stripe/connect-payout-webhook"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
@@ -1297,12 +1298,17 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     // Find the creator by their connected Stripe account
-    const { data: creator } = await supabaseAdmin
+    const { data: creator, error: creatorError } = await supabaseAdmin
       .from("creators")
       .select("id, user_id")
       .eq("stripe_account_id", connectedAccountId)
       .maybeSingle()
 
+    /* A read that failed is not "no creator": 500, so Stripe sends the event again (HIGH-2 / MEDIUM-6). */
+    if (creatorError) {
+      console.error("[Webhook] payout: creator not read:", creatorError.message)
+      return NextResponse.json({ error: "Database unavailable. Stripe will send this again." }, { status: 500 })
+    }
     if (!creator) {
       console.log("[Webhook] No creator found for account:", connectedAccountId)
       return NextResponse.json({ received: true })
@@ -1319,9 +1325,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           ? `****${(payout.destination as any).last4}`
           : null
 
-    // Upsert payout record in DB
-    try {
-      await supabaseAdmin.from("payouts").upsert(
+    // Upsert payout record in DB (keyed by the payout, so a replay writes the same row)
+    {
+      const { error: upsertError } = await supabaseAdmin.from("payouts").upsert(
         {
           creator_id: creator.id,
           stripe_payout_id: payout.id,
@@ -1339,8 +1345,10 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         },
         { onConflict: "stripe_payout_id" }
       )
-    } catch (err) {
-      console.error("[Webhook] Failed to upsert payout:", err)
+      if (upsertError) {
+        console.error("[Webhook] Failed to upsert payout:", upsertError.message)
+        return NextResponse.json({ error: "Database unavailable. Stripe will send this again." }, { status: 500 })
+      }
     }
 
     /* A failed payout, or the one that fixes it: the creator's notifications, after the answer. */
@@ -1349,21 +1357,24 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
     // ── Ledger: update balance buckets for payout status changes ─────────
     try {
-      const { data: ledger } = await supabaseAdmin
+      /* No wallet row is "nothing to move"; a read that failed is thrown, and answered 500 below. */
+      const { data: ledger, error: ledgerError } = await supabaseAdmin
         .from("seller_ledger")
         .select("*")
         .eq("creator_id", creator.id)
-        .single()
+        .maybeSingle()
+      if (ledgerError) throw new Error(`payout ${payout.id}: wallet not read: ${ledgerError.message}`)
 
       if (ledger) {
         // Find the original cashout event to get USD amount
-        const { data: cashoutEvent } = await supabaseAdmin
+        const { data: cashoutEvent, error: cashoutError } = await supabaseAdmin
           .from("ledger_events")
           .select("amount_cents, currency")
           .eq("creator_id", creator.id)
           .eq("event_type", "cashout_initiated")
           .eq("stripe_payout_id", payout.id)
           .maybeSingle()
+        if (cashoutError) throw new Error(`payout ${payout.id}: cash out not read: ${cashoutError.message}`)
 
         /*
           THE WALLET'S UNITS. The balance buckets are kept in the wallet's one
@@ -1382,8 +1393,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         const usdAmount = walletOf.amount
         const walletText = formatMinor(usdAmount, walletOf.currency.toUpperCase(), "en")
         if (walletOf.currency !== ledgerCurrency()) {
-          /* Caught below, which only logs: the notifications after this still go. */
-          throw new Error(`payout ${payout.id} is in ${walletOf.currency.toUpperCase()} and no rate converts it to the wallet's currency: balance buckets left as they are`)
+          /* Deliberate, not a fault: caught below, which only logs, and the notifications after this still go. */
+          throw new PayoutLedgerSkip(`payout ${payout.id} is in ${walletOf.currency.toUpperCase()} and no rate converts it to the wallet's currency: balance buckets left as they are`)
         }
 
         /* Once per payout and outcome, in one locked step (lib/payments/ledger): Stripe
@@ -1408,52 +1419,71 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             })
           : { unavailable: true as const }
 
+        /*
+          Only before the ledger function exists (run-now part 64): direct writes, which are not keyed, so their own
+          failure is logged and not retried (a replay would move the money twice).
+        */
         if (!posted.unavailable) {
           /* Written in the database. */
-        } else if (event.type === "payout.paid") {
-          await supabaseAdmin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
-            })
-            .eq("creator_id", creator.id)
+        } else {
+          try {
+            if (event.type === "payout.paid") {
+              await supabaseAdmin
+                .from("seller_ledger")
+                .update({
+                  in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                  lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
+                })
+                .eq("creator_id", creator.id)
 
-          await supabaseAdmin.from("ledger_events").insert({
-            creator_id: creator.id,
-            event_type: "cashout_completed",
-            amount_cents: usdAmount,
-            net_seller_cents: usdAmount,
-            currency: walletOf.currency,
-            in_transit_delta: -usdAmount,
-            stripe_payout_id: payout.id,
-            description: `Cashout completed: ${walletText} arrived at bank`,
-          })
-        } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
-          // Return funds to available
-          await supabaseAdmin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              available_amount: ledger.available_amount + usdAmount,
-            })
-            .eq("creator_id", creator.id)
+              await supabaseAdmin.from("ledger_events").insert({
+                creator_id: creator.id,
+                event_type: "cashout_completed",
+                amount_cents: usdAmount,
+                net_seller_cents: usdAmount,
+                currency: walletOf.currency,
+                in_transit_delta: -usdAmount,
+                stripe_payout_id: payout.id,
+                description: `Cashout completed: ${walletText} arrived at bank`,
+              })
+            } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
+              // Return funds to available
+              await supabaseAdmin
+                .from("seller_ledger")
+                .update({
+                  in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                  available_amount: ledger.available_amount + usdAmount,
+                })
+                .eq("creator_id", creator.id)
 
-          await supabaseAdmin.from("ledger_events").insert({
-            creator_id: creator.id,
-            event_type: "cashout_failed",
-            amount_cents: usdAmount,
-            net_seller_cents: usdAmount,
-            currency: walletOf.currency,
-            in_transit_delta: -usdAmount,
-            available_delta: usdAmount,
-            stripe_payout_id: payout.id,
-            description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`,
-          })
+              await supabaseAdmin.from("ledger_events").insert({
+                creator_id: creator.id,
+                event_type: "cashout_failed",
+                amount_cents: usdAmount,
+                net_seller_cents: usdAmount,
+                currency: walletOf.currency,
+                in_transit_delta: -usdAmount,
+                available_delta: usdAmount,
+                stripe_payout_id: payout.id,
+                description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`,
+              })
+            }
+          } catch (fallbackErr) {
+            console.error("[Webhook] Ledger payout fallback write failed:", fallbackErr)
+          }
         }
       }
     } catch (ledgerPayoutErr) {
-      console.error("[Webhook] Ledger payout update failed (non-fatal):", ledgerPayoutErr)
+      if (isPayoutLedgerSkip(ledgerPayoutErr)) {
+        console.warn("[Webhook] Ledger payout left alone:", (ledgerPayoutErr as Error).message)
+      } else {
+        /*
+          The wallet gates cash out: a missed payout.failed would leave the creator's money stuck in transit. 500, so
+          Stripe sends the event again; the ledger post is keyed payout:<id>:<outcome>, so the replay posts once.
+        */
+        console.error("[Webhook] Ledger payout update failed; answering 500 so Stripe retries:", ledgerPayoutErr)
+        return NextResponse.json({ error: "The wallet could not be updated. Stripe will send this again." }, { status: 500 })
+      }
     }
 
     /*

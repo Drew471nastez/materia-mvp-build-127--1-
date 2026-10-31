@@ -1074,7 +1074,7 @@ const STRICT_SUITES = [
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
-  /* Reliability (commerce): money paths under a failing Stripe or database, through the real routes (tests/_journey): a confirm that failed is never "nothing was charged" and Pay again reuses the same intent. */
+  /* Reliability (commerce): money paths under a failing Stripe or database, through the real routes (tests/_journey): a confirm that failed is never "nothing was charged" and Pay again reuses the same intent; a payout whose wallet step failed is retried by Stripe, and posted once. */
   "tests/rel-commerce.test.ts",
   /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
   "tests/e2e-personalization.test.ts",
