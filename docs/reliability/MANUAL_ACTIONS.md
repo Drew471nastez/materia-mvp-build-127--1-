@@ -6,31 +6,33 @@ done by the reliability work; all of it is waiting for the owner.
 
 Order of importance: 1, 2, 3, then the rest.
 
-## 1. Approve and deploy the reliability branches
+## 1. Approve and deploy the reliability branch
 
-- **Why:** none of the fixes are live. The five fix branches
-  (`claude/rel-security`, `claude/rel-commerce`, `claude/rel-sites`,
-  `claude/rel-shared`, `claude/rel-db`) and this documentation branch exist
-  only on GitHub. Vercel does not deploy `claude/*` branches.
+- **Why:** none of the fixes are live. All five fix branches are merged into
+  `claude/reliability-engineering` and tested together there. Vercel does not
+  deploy `claude/*` branches.
 - **Service:** GitHub, then Vercel.
 - **Where:** GitHub, the repository, Pull requests.
 - **What:**
-  1. Read [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md) for each branch's
-     status and test results.
-  2. Open one pull request per branch into `main` (or the lead opens them).
-     Merge in batch order: security, commerce, sites, shared, db. Merge one,
-     let CI go green and the deploy settle, then the next.
-  3. Run any SQL part a branch prepared (action 3) before merging code that
-     depends on it. The log says which.
-  4. After each production deploy, run the smoke check
-     (`BASE_URL=https://storelib.com node scripts/smoke-deploy.mjs`) and
-     watch Admin, Health, Errors for an hour.
-- **Value/permission:** repository write; Vercel project access.
-- **Changes production:** yes, on merge to `main`.
+  1. Read [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md).
+  2. Tell the lead "deploy it". The lead merges `main` into the branch,
+     reruns the tests and the production build, then merges into `main`
+     (or opens a pull request if you prefer to press merge yourself).
+  3. If you want less at once: the security merge (SEC-1, the guest order
+     takeover) can ship alone first; it is the only finding that is
+     exploitable today.
+  4. Run SQL part 345 right after the deploy (action 3). Parts 348 and 349
+     can wait; the code works without them.
+  5. After the deploy: `BASE_URL=https://storelib.com node scripts/smoke-deploy.mjs`,
+     then watch Admin, Health, Errors for an hour.
+- **Value/permission:** your "yes" in chat is enough; nothing else needed.
+- **Changes production:** yes.
 - **Cost:** none beyond normal build minutes.
-- **Verify:** Vercel shows the new production deployment; smoke passes; the
-  error groups in [AUDIT.md](AUDIT.md) section 1 fall over the following week.
-- **Undo:** Vercel Instant Rollback ([rollback.md](../operations/rollback.md)).
+- **Verify:** over the following week the error groups in [AUDIT.md](AUDIT.md)
+  section 1 fall: "site unavailable", "Task timed out after 300 seconds",
+  "auth/v1/user took longer than 10s" on public routes.
+- **Undo:** Vercel Instant Rollback ([rollback.md](../operations/rollback.md)),
+  or `git revert -m 1 <merge>` for one area.
 
 ## 2. Set the admin login variables in production (SEC-2)
 
@@ -57,12 +59,11 @@ Run each in the Supabase SQL editor, one new tab per file, after reading it.
 Part numbers are picked by the fix agents (base branch highest is 344) and
 filled in by the lead.
 
-| Part | Finding | What | Notes |
-| --- | --- | --- | --- |
-| TBD | SEC-1 | `profiles_keep_email_verified` trigger: `authenticated` and `anon` cannot change `email_verified` / `email_verified_at` | additive; can be disabled with `ALTER TABLE … DISABLE TRIGGER` |
-| TBD | DB-9 IDX-1 | `CREATE INDEX CONCURRENTLY IF NOT EXISTS orders_buyer_email_trgm_idx …` | run alone, not inside a transaction or with other statements |
-| TBD | DB-9 IDX-2 | `CREATE INDEX CONCURRENTLY IF NOT EXISTS commerce_checkouts_buyer_email_trgm_idx …` | run alone |
-| TBD | others | anything else a branch reports (e.g. SITE-1 RPC later) | see the log |
+| Part | Finding | File | What | Notes |
+| --- | --- | --- | --- | --- |
+| 345 | SEC-1 | `supabase/sql/run-now/345_profiles_keep_email_verified.sql` | trigger `profiles_keep_email_verified`: the browser key can no longer set `email_verified` / `email_verified_at`; only the server can | run right after the deploy; additive; undo with `ALTER TABLE profiles DISABLE TRIGGER profiles_keep_email_verified` |
+| 348 | SITE-1 | `supabase/sql/run-now/348_site_switch_in_one_step.sql` | server only function `switch_site_deployment`: an AI site goes live in one transaction | until it runs, the code uses a two step switch that rolls back on failure; tested on a local Postgres 16 |
+| 349 | DB-7 | `supabase/sql/run-now/349_buyer_email_trigram_indexes.sql` | trigram indexes on `orders.buyer_email` and `commerce_checkouts.buyer_email` | on a large table, first run `supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql` one statement at a time (CONCURRENTLY cannot run in a transaction), then the part builds nothing |
 
 - **Service:** Supabase. **Where:** Dashboard, SQL Editor.
 - **Changes production:** yes (schema, additive).
@@ -84,6 +85,13 @@ filled in by the lead.
 - **Cost:** none.
 - **Verify:** an upload above the limit is refused; a normal product file
   still uploads.
+
+## 4b. Optional switches added in this round
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `DRAFT_ASSET_SECRET` | derived from the service role key | signs the pass that draft theme files now need (SITE-9). Set a 32+ character random value if you want it independent of the service role key. Changing it makes open editor tabs fall back to published files until reloaded. |
+| `STRIPE_AUTO_RELEASE=off` | on | stops every automatic Connect disconnect (PAY-7), as an emergency switch if Stripe permissions ever look wrong. |
 
 ## 5. Earlier pending owner items
 

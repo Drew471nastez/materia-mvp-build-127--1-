@@ -1,135 +1,123 @@
 # Implementation log
 
-Record of what each fix branch did. **This is a template.** The lead fills
-each row from the fix agent's final report. Nothing here is deployed;
-production deploy needs the owner's approval
-([MANUAL_ACTIONS.md](MANUAL_ACTIONS.md), action 1).
+What each fix branch did, from the fix agents' reports, checked by the lead.
+Nothing here is deployed. All of it sits on `claude/reliability-engineering`
+(Vercel never builds `claude/*` branches). Production needs the owner's
+approval ([MANUAL_ACTIONS.md](MANUAL_ACTIONS.md), action 1).
 
-Status values:
-- **NOT STARTED**: not picked up in this round.
-- **IN PROGRESS**: in the branch's assigned list (the area audit's "safe to fix now"), report not yet received.
-- **COMPLETE**: fixed, regression test written and run green.
-- **IMPLEMENTED, NOT VERIFIED**: code in, test not run or not shown failing before.
-- **BLOCKED**: needs access, data or a decision; reason given.
-- **NEEDS APPROVAL**: needs the owner (SQL part, env var, behaviour change).
+Status values: **COMPLETE** (fixed, regression test written and run green,
+shown failing on the old code unless noted), **IMPLEMENTED, NOT VERIFIED**,
+**BLOCKED**, **NEEDS APPROVAL**, **NOT STARTED**.
 
-Columns: ID, status, commit sha, files, test name, rollback, owner follow-up.
+Rollback for every row: `git revert <sha>` (or revert the branch's merge
+commit, `git revert -m 1 <merge>`). No row needs a data migration.
 
-## Already landed before this round (parallel session)
+## Already landed before this round (parallel session, on main)
 
-| Commit | Date | What |
+| Commit | What |
+| --- | --- |
+| `2e88c64ea` | billing reads fail closed; one plan writer from Stripe's current state |
+| `918388a5d` | auth that does not answer is never a sign out; one auth answer per /app render |
+| `f3e1f58bb` | Stripe bounded and breaker guarded; staleness window; one object per press |
+| `21c0882e5` | billing fails closed; deadlines on every Supabase request; credit notes |
+| `299772b2e` | payout and schedule idempotency keys by identity; trusted return URLs |
+
+## Integration gates (run by the lead, not the agents)
+
+| Combination | `npm run test:push` | Notes |
 | --- | --- | --- |
-| `2e88c64ea` | 2026-10-28 | billing reads fail closed; one plan writer from Stripe's current state |
-| `918388a5d` | 2026-10-29 | auth that does not answer is never a sign-out; one auth answer per /app render |
-| `f3e1f58bb` | 2026-10-29 | Stripe bounded and breaker-guarded; staleness window; one object per press |
-| `21c0882e5` | 2026-10-29 | billing fails closed; deadlines on every Supabase request; credit notes |
-| `299772b2e` | 2026-10-30 | payout and schedule idempotency keys by identity; trusted return URLs; per-request billing reads |
+| security alone (`claude/rel-security`) | every suite passes except `round-aj` | `round-aj` fails identically on main (10e69cf32 changed `compat-section-preview.tsx` without its pin) |
+| security + db (merged branch) | every suite passes except `round-aj` | |
+| + shared + sites | every suite passes except `round-aj` | production build passed (exit 0) |
+| + commerce (final, 10b342089) | every suite passes except `round-aj` | typecheck ratchet: 334 on base and branch; the files over baseline are none this work touched |
 
-## `claude/rel-security`
+Agents also saw `agent-loop` (17) and `sites` (1) fail with "This environment
+cannot render-check reliably"; those fail the same way on a clean base and
+did not fail in the lead's runs. The typecheck ratchet reports 334 errors on
+both the base and each branch (baseline 313, inflated by missing generated
+route types); no file got worse. ESLint covers only `.js/.mjs` files in this
+repo, so it does not see the TypeScript changes.
 
-Gate results (fill in): `npm run test:push` …; typecheck ratchet …; `pnpm lint` …
+## `claude/rel-security` (merged as 1dfc96171)
 
-| ID | Status | Commit | Files | Test | Rollback | Owner follow-up |
-| --- | --- | --- | --- | --- | --- | --- |
-| SEC-1 | IN PROGRESS | | | | | run SQL part (number TBD) |
-| SEC-2 | IN PROGRESS | | | | | set `BLOG_ADMIN_USER`, `BLOG_ADMIN_PASSWORD`, `BLOG_ADMIN_SECRET` |
-| SEC-3 | IN PROGRESS | | | | | |
-| SEC-4 | IN PROGRESS | | | | | check logs for GET sync-session before retiring |
-| SEC-5 | IN PROGRESS | | | | | |
-| SEC-6 | IN PROGRESS | | | | | |
-| SEC-7 | IN PROGRESS | | | | | |
-| SEC-8 | IN PROGRESS | | | | | |
-| SEC-9 | NOT STARTED | | | | | |
-| SEC-10 | NOT STARTED | | | | | |
-| SEC-11 | NOT STARTED | | | | | |
-| SEC-12 | NOT STARTED | | | | | Batch 6 |
-| EVD-3 | NOT STARTED | | | | | not assigned yet |
+| ID | Status | Commit | What changed | Test |
+| --- | --- | --- | --- | --- |
+| SEC-1 guest order takeover | COMPLETE (code); SQL part 345 NEEDS APPROVAL | d86c4dc57, fdf8a74ca | verify-email mails only the account's own Auth address (posted email ignored), limits per IP and per address, crypto codes; confirm-email takes only a code sent to the current address, 5 wrong tries burn it, atomic claim; proven address kept in Auth `app_metadata.verified_email`; guest orders attach only to a proven current address | `tests/auth-email-code.test.ts` (39), `buyer-auth-r39` (4 attach checks failed on old code) |
+| SEC-3 sign outs during Auth trouble | COMPLETE | fa783fd5d | `deadlineFetch` turns 500/502/504/429 on the refresh token call into 503, which auth-js 2.87.3 treats as retryable instead of removing the session | `tests/auth-refresh-outage.test.ts`, drives the real GoTrue client; old code signs out |
+| SEC-4 tokens in `/auth/sync-session` URL | COMPLETE | 210762bb9 | GET signs nobody in (303 to its same site `next`, no cookies, no referrer); POST unchanged; no caller used GET | `tests/auth-sync-session-get.test.ts` |
+| SEC-6 device code guessing | COMPLETE | 08b3b4dd1 | 5 wrong tries burn the codes, per IP limit, atomic claim | `tests/device-code-guard.test.ts` (not run on the old route, which had no counter) |
+| SEC-7 `next=` to creator subdomains | COMPLETE | 5110cbd3e | absolute returns only to storelib.com and its reserved platform subdomains | `tests/return-to.test.ts`, `sell-intent` (changed on purpose) |
+| SEC-2 admin blog login | COMPLETE (code); env vars NEED OWNER | e39bd533e | rate limit before the password check; loud log while the fallback credential is in use; fallback kept (owner's decision) | `tests/admin-login-limit.test.ts` |
+| SEC-8 `/auth/continue` in an Auth outage | COMPLETE | 387d7c450 | falls back to the token's signature like `route-user` | static test; fallback itself covered by `net-resilience` |
+| SEC-5, SEC-9 to SEC-12 | NOT STARTED | | verify-email spam is now covered by SEC-1's limits; recovery links on a custom scheme, dead App Link bridge, unmasked emails in some logs, CSP report-only | |
 
-## `claude/rel-commerce`
+Known effect: accounts that changed email in Settings before this change and
+have no Google/Apple identity for the new address no longer get guest orders
+attached automatically. "Add to library" on the receipt still works.
 
-Gate results (fill in): `npm run test:push` …; typecheck ratchet …; `pnpm lint` …
+## `claude/rel-db` (merged as af0ff980d)
 
-| ID | Status | Commit | Files | Test | Rollback | Owner follow-up |
-| --- | --- | --- | --- | --- | --- | --- |
-| PAY-1 | IN PROGRESS | | | | | |
-| PAY-2 | IN PROGRESS | | | | | |
-| PAY-3 | IN PROGRESS | | | | | |
-| PAY-4 | IN PROGRESS | | | | | |
-| PAY-5 | IN PROGRESS | | | | | |
-| PAY-6 | IN PROGRESS | | | | | |
-| PAY-7 | IN PROGRESS | | | | | decide on `STRIPE_AUTO_RELEASE` default |
-| PAY-8 | NOT STARTED | | | | | |
-| PAY-9 | NOT STARTED | | | | | |
-| PAY-10 | NOT STARTED | | | | | |
-| PAY-11 | NOT STARTED | | | | | |
-| PAY-12 | NOT STARTED | | | | | |
+| ID | Status | Commit | What changed | Test |
+| --- | --- | --- | --- | --- |
+| DB-1 raw clients without a deadline | COMPLETE | 7e9520205, a5e0c8576 | domains cleanup, wishlist (3), security confirm-device and verify-email use `createAdminClient()`; business login anon client gets the deadline fetch | `tests/rel-db-dashboard.test.ts` §1 guard: no bare supabase-js client outside `lib/supabase` |
+| DB-2 analytics fallback piles load | COMPLETE | b12c05e86 | raw `analytics_events` reads only when the function is missing; other errors answer "Analytics are unavailable right now" fast; raw reads capped at 15s; route `maxDuration = 60` | §2 |
+| DB-3 Home waits on all-time sales | COMPLETE | dcba05a40 | 3s cap, no ECB download in the render, milestones hidden rather than invented | §3 |
+| DB-4 totals stop at 1,000 orders | COMPLETE | 60ebab8d5, a55f2d4aa | Customers, Payouts tax year and disputes read by creator a page at a time | §4 (1,500 rows) |
+| DB-5 /app layout over-fetch | COMPLETE | dd2a41e45 | onepages `id, status`; `onePagePublished` means published; one product read for the ring | §5 |
+| DB-6 Products page `select('*')` | COMPLETE | cca1312fd | 14 columns, pages of 1,000 up to 20k, same UI | §6 |
+| DB-7 email ILIKE lookups | NEEDS APPROVAL | 63fdcb096 | SQL part 349 (trigram indexes) plus a standalone CONCURRENTLY file | §7 |
+| DB-8 bare `auth.uid()` in RLS, duplicate indexes | NEEDS APPROVAL (documented only) | | list in the db report; read-only check query before any drop | |
 
-## `claude/rel-sites`
+## `claude/rel-shared` (merged as 4f9522a50)
 
-Gate results (fill in): `npm run test:push` …; typecheck ratchet …; `pnpm lint` …
+| ID | Status | Commit | What changed | Test |
+| --- | --- | --- | --- | --- |
+| SHR-1 community uploads skip checks | COMPLETE | 50ee9166c | size and byte inspection at posting time (posts, scheduled posts, chat), refused files removed; existing posts untouched | `tests/rel-shared.test.ts` F1 (4 failures on old code) |
+| SHR-2 payout push wrong id, not awaited | COMPLETE | d5c087e18 | creator id mapped to user id; pushes awaited, 10 at a time, 30s budget | F2 |
+| SHR-3/4 community and physical crons | COMPLETE | 041ac1fea, 0f1910b56 | one clock from the request; whole run ends by 52s; late steps skipped cleanly | F3/F4 |
+| EVD-4 seo-index, warm-sites, notify timeouts | COMPLETE | ba955b986 | run wide deadlines, smaller pages, resume next run; schedules unchanged | item 4 |
+| SHR-5 email paths without a deadline | COMPLETE | e1137c66f, 173d1bd70 | scheduled emails cron and Mailgun webhook on `createAdminClient()` | item 5 |
+| SHR-6 failed steps reported as success | COMPLETE | 1e6a7a158 | rollup-daily and storage-cleanup answer 500 with the failed list | item 6 (old route answered 200) |
+| SHR-7 push send timeout | COMPLETE | a7cf4b4bd | 8s timeout on every Web Push | item 7 |
+| SHR-8 translation-jobs | COMPLETE (comment); lease left alone with reasons | 923e3e0a6 | | item 8 |
 
-| ID | Status | Commit | Files | Test | Rollback | Owner follow-up |
-| --- | --- | --- | --- | --- | --- | --- |
-| SITE-1 | IN PROGRESS | | | | | RPC version would need an SQL part |
-| SITE-2 | IN PROGRESS | | | | | |
-| SITE-3 | IN PROGRESS | | | | | |
-| SITE-4 | IN PROGRESS | | | | | |
-| SITE-5 | IN PROGRESS | | | | | part (a) would need an SQL part |
-| SITE-6 | IN PROGRESS | | | | | |
-| SITE-7 | IN PROGRESS | | | | | |
-| SITE-8 | NOT STARTED | | | | | |
-| SITE-9 | NOT STARTED | | | | | |
-| SITE-10 | IN PROGRESS | | | | | |
-| SITE-11 | NOT STARTED | | | | | |
-| SITE-12 / EVD-1 | NOT STARTED | | | | | not assigned yet |
-| EVD-2 | NOT STARTED | | | | | not assigned yet |
-| EVD-5 | NOT STARTED | | | | | not assigned yet |
+## `claude/rel-sites` (merged as a14634882)
 
-## `claude/rel-shared`
+| ID | Status | Commit | What changed | Test |
+| --- | --- | --- | --- | --- |
+| SITE-2 AI site blip is a 404 or 301 | COMPLETE | 151df5af8 | bounded reads; failure serves the last live copy, else no-store 503 with Retry-After; true 404 and 301 unchanged | `tests/rel-sites.test.ts` (87) |
+| SITE-3 Creator Page blip redirects | COMPLETE | 63eb10892 | strict reads for the gate and page; a failure is the error screen, never 404 or 308 | |
+| SITE-4 OnePage blip is "not found" | COMPLETE | 3754472a6 | 4s per query, 8s budget, last good answer, else error; share images 503 not a cached 404 | |
+| SITE-1 AI site publish can go dark | COMPLETE (code); SQL part 348 NEEDS APPROVAL | 639ba294a, 719e711f0 | compensating switch now; one step RPC once part 348 runs (tested on local Postgres 16) | |
+| SITE-5 slug check fails open | COMPLETE | f7fe6149d | fails closed with a retry message | |
+| SITE-6 theme publish timeouts | COMPLETE | 663ee7320 | one retry on 57014/PGRST002 only, `maxDuration = 120` | |
+| SITE-7 AI spend limits fail open | COMPLETE | e011dc045 | 503 "could not check your usage, nothing was started" | |
+| SITE-9 draft theme assets readable by id | COMPLETE | 9f71fbb3c | draft versions need an install bound HMAC pass; no pass gets the published file, never a 404 | |
+| EVD-1 "site unavailable" | IMPLEMENTED, NOT VERIFIED | 7a618006d, c5def36a3 | last good copies LRU instead of FIFO; data cache keys fixed labels instead of minified callback text | effect can only be measured in production |
+| SITE-10 `%`/`_` in username lookup | COMPLETE | d57763112 | exact case-insensitive match | |
+| EVD-5 `/500` ENOENT | NOT STARTED (attempt reverted) | | `outputFileTracingIncludes` does not apply: Next skips trace includes for prerendered `/w` routes. Needs a different approach | |
 
-Gate results (fill in): `npm run test:push` …; typecheck ratchet …; `pnpm lint` …
+## `claude/rel-commerce` (merged as 10b342089)
 
-| ID | Status | Commit | Files | Test | Rollback | Owner follow-up |
-| --- | --- | --- | --- | --- | --- | --- |
-| SHR-1 | IN PROGRESS | | | | | set bucket size limit on `digital-products` |
-| SHR-2 | IN PROGRESS | | | | | |
-| SHR-3 | IN PROGRESS | | | | | |
-| SHR-4 | IN PROGRESS | | | | | |
-| SHR-5 | IN PROGRESS | | | | | coordinate with DB-1 (same files) |
-| SHR-6 | IN PROGRESS | | | | | |
-| SHR-7 | IN PROGRESS | | | | | |
-| SHR-8 | NOT STARTED | | | | | |
-| SHR-9 | NOT STARTED | | | | | |
-| SHR-10 | NOT STARTED | | | | | |
-| EVD-4 | NOT STARTED | | | | | not assigned yet |
+| ID | Status | Commit | What changed | Test |
+| --- | --- | --- | --- | --- |
+| PAY-1 double charge after an unclear confirm | COMPLETE | f4326ab08 | re-read the intent (5s), answer its real status; unknown is a 503 "we are still checking", never "nothing was charged"; Pay again reuses the same intent | `tests/rel-commerce.test.ts` §1 (109 total) |
+| PAY-2 payout ledger errors swallowed | COMPLETE | a481f7a04 | 500 so Stripe redelivers; ledger keyed per payout and outcome | §2 |
+| PAY-3 entitlement insert failures | COMPLETE | 2b3355d58 | failure recorded, sweep retries; duplicate counts as granted | §3 |
+| PAY-6 webhook DB errors read as nothing to do | COMPLETE | 34d412a3a | 500 so Stripe retries; early `invoice.paid` written straight away | §4 |
+| PAY-7 Connect disconnect on PermissionError | COMPLETE | 4b266f8e2 | platform key checked first; nobody released when in doubt; `STRIPE_AUTO_RELEASE=off` kill switch | §5 |
+| PAY-4/5 payouts page | COMPLETE | e4b322dec | one fetch, 30s per person cache, explicit unavailable parts, last values kept with "Couldn't refresh just now" | §6 |
+| PAY-10 plan sync 20 subscriptions | COMPLETE | 7f3afc33a | pages through; never writes Free from a partial list | §7 |
+| DB-1 (Stripe webhooks) | COMPLETE | 09b978905 | webhooks on `createAdminClient()`, `maxDuration = 60` | §8 |
+| Orders page refund checks | COMPLETE | dd698bf31 | once per creator per 6h; refunds through `syncChargeRefund` with a ledger line | §9 |
+| Tax summary and payouts past 1,000 | COMPLETE | 92f031add, 1996a8686 | paged reads; on merge the Payouts page keeps the db branch's by-creator reads and its 1,000 newest sales list | §10, §11 (pin changed on merge) |
+| PAY-9 stable product checkout idempotency key | NOT STARTED (deliberate) | | would need security tokens derived from a client id; PAY-1 already closes the double charge on the client | |
+| PAY-8, PAY-11, PAY-12 | NOT STARTED | | memberships cron and trials, legacy checkout path, slow work before the webhook answers | |
 
-## `claude/rel-db`
+## Not started in this round
 
-Gate results (fill in): `npm run test:push` …; typecheck ratchet …; `pnpm lint` …
-
-| ID | Status | Commit | Files | Test | Rollback | Owner follow-up |
-| --- | --- | --- | --- | --- | --- | --- |
-| DB-1 | IN PROGRESS | | | | | |
-| DB-2 | IN PROGRESS | | | | | |
-| DB-3 | IN PROGRESS | | | | | |
-| DB-4 | NOT STARTED | | | | | |
-| DB-5 | NOT STARTED | | | | | |
-| DB-6 | IN PROGRESS | | | | | |
-| DB-7 | IN PROGRESS | | | | | |
-| DB-8 | IN PROGRESS | | | | | |
-| DB-9 | IN PROGRESS | | | | | run trigram index statements alone (numbers TBD) |
-| DB-10 | NOT STARTED | | | | | |
-| DB-11 | IN PROGRESS | | | | | |
-| DB-12 | NOT STARTED | | | | | read-only index check, then owner decision |
-| DB-13 | NOT STARTED | | | | | |
-| DB-14 | NOT STARTED | | | | | |
-
-## Merge record (fill in when the owner approves)
-
-| Branch | PR | Merged | Production deployment | Smoke | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `claude/rel-security` | | | | | |
-| `claude/rel-commerce` | | | | | |
-| `claude/rel-sites` | | | | | |
-| `claude/rel-shared` | | | | | |
-| `claude/rel-db` | | | | | |
+- Correlation IDs across every route, structured logs everywhere (some areas already log JSON with correlation ids, for example `notify`).
+- CSP enforcing, `Permissions-Policy` header.
+- Full IDOR sweep of all service role routes (only about 12 sampled).
+- Canvas on its own origin (editor freezes from theme code; see the round 14 editor report).
+- Load test on a staging copy (needs a staging Supabase project).
