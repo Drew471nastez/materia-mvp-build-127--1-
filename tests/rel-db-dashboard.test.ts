@@ -14,6 +14,8 @@ import { readCode } from "./_source"
 import { inStoreCurrency } from "../lib/money/report-currency-server"
 import { latestCreatorOrders, readCreatorOrders } from "../lib/analytics/creator-orders"
 import { taxYearsInUsd } from "../lib/money/payout-figures"
+import { setupNotificationIds } from "../lib/notifications/unread-state"
+import { factsFromRows, homeProgress } from "../lib/home/progress"
 import { AnalyticsUnavailable, countVisits, isAnalyticsUnavailable, readAll, readAudience, readNavClicks, type Admin, type CountQuestion } from "../lib/analytics/report-read"
 
 let passed = 0
@@ -84,6 +86,7 @@ async function run() {
   await analytics()
   await homeTotals()
   await pastAThousand()
+  shell()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
@@ -271,6 +274,19 @@ async function pastAThousand() {
   const payouts = readCode("app/app/payouts/page.tsx")
   check("Payouts: no product id list, no unpaged tax or dispute read", !/\.in\("product_id"/.test(payouts) && /readCreatorOrders<[^>]+>\(adminSupabase, creator\.id, "id, amount_cents, created_at, status, currency"/.test(payouts) && /statuses: \["disputed"\]/.test(payouts))
   check("  the products by a Map, with only the columns the list draws", /productById\.get\(order\.product_id\)/.test(payouts) && !/products\.find\(/.test(payouts) && /\.from\("products"\)\.select\("id, title, thumbnail_url, type"\)/.test(payouts))
+}
+
+function shell() {
+  console.log("\n5. The /app shell's reads")
+  const layout = readCode("app/app/layout.tsx")
+  const onepages = layout.slice(layout.indexOf('.from("onepages")'), layout.indexOf('.from("onepages")') + 200)
+  check("the onepages read asks for its status, never draft_blocks", /\.select\("id, status"\)/.test(onepages) && !/draft_blocks/.test(layout))
+  check("  onePagePublished is the published status, not 'a OnePage exists'", /onePagePublished=\{onepage\?\.status === "published"\}/.test(layout) && !/onePagePublished=\{!!onepage\}/.test(layout))
+  check("  a draft OnePage still gets the OnePage to-do; a published one does not", setupNotificationIds({ stripeConnected: true, stripeStatus: "enabled", onePagePublished: ("draft" as string) === "published" }).includes("onepage-setup") && !setupNotificationIds({ stripeConnected: true, stripeStatus: "enabled", onePagePublished: true }).includes("onepage-setup"))
+  check("the setup ring reads one product, not every product id", /\.from\("products"\)\.select\("id"\)\.eq\("creator_id", creator\.id\)\.limit\(1\)/.test(layout))
+  const creator = { id: "c1", slug: "s", onboarding_completed: true } as unknown as Parameters<typeof factsFromRows>[0]["creator"]
+  const ring = (n: number) => homeProgress({ ...factsFromRows({ creator, products: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })), domains: [], websiteLive: false, userMetadata: null }), sales: 0 }).completed
+  check("  and the ring counts the same with one product read as with 40", ring(1) === ring(40) && ring(0) < ring(1), { zero: ring(0), one: ring(1), forty: ring(40) })
 }
 
 run().catch((e) => {
