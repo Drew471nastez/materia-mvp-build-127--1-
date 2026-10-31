@@ -98,7 +98,9 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
   if (event.type === "account.application.deauthorized") {
     const acctId = connectedAccountId(event)
     if (!acctId) return
-    const { data: creator } = await supabaseAdmin.from("creators").select("id").eq("stripe_account_id", acctId).maybeSingle()
+    /* A read that failed is not "no creator": thrown, so the route answers 500 and Stripe sends it again (MEDIUM-6). */
+    const { data: creator, error: creatorError } = await supabaseAdmin.from("creators").select("id").eq("stripe_account_id", acctId).maybeSingle()
+    if (creatorError) throw new Error(`${event.type} ${acctId}: creator not read: ${creatorError.message}`)
     if (!creator) return
     const { releaseConnectedAccount } = await import("@/lib/payments/stripe/connect")
     await releaseConnectedAccount(creator.id as string, acctId, "creator_disconnect")
@@ -114,7 +116,9 @@ export async function handleConnectAccountEvent(event: Stripe.Event): Promise<vo
 
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account
-    const { data: creator } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled, stripe_onboarding_status").eq("stripe_account_id", account.id).maybeSingle()
+    /* A read that failed is not "no creator": thrown, so the route answers 500 and Stripe sends it again (MEDIUM-6). */
+    const { data: creator, error: creatorError } = await supabaseAdmin.from("creators").select("id, user_id, payouts_enabled, stripe_onboarding_status").eq("stripe_account_id", account.id).maybeSingle()
+    if (creatorError) throw new Error(`account.updated ${account.id}: creator not read: ${creatorError.message}`)
     if (!creator) return
 
     const previousPayoutsEnabled = (creator as { payouts_enabled?: boolean }).payouts_enabled ?? false

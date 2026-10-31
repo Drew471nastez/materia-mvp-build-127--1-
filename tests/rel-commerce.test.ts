@@ -12,6 +12,9 @@
  *      open, so Stripe sends it again, and the replay posts once (HIGH-2)
  *   3  a library entry whose write failed is a failed follow-up, and the
  *      sweep writes it once (MEDIUM-3)
+ *   4  a webhook's database error answers 500 rather than "nothing to do",
+ *      and an invoice that arrives before its subscription row is kept for
+ *      the creator its customer names (MEDIUM-6)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -259,6 +262,48 @@ async function main() {
   check("the sweep wrote the entry, once, and recorded the step done", owns() === 1 && step("entitlement")?.state === "done", { owns: owns(), step: step("entitlement") })
   await j.cron()
   check("  a later sweep or retry adds no second entry", owns() === 1, { owns: owns() })
+
+  /* ── 4. MEDIUM-6 ───────────────────────────────────────────────────── */
+  section("4. Webhook database errors are not \"nothing to do\"; an early invoice is kept (MEDIUM-6)")
+  const creatorRow = j.rows("creators").find((r) => r.id === creatorId)!
+  creatorRow.stripe_customer_id = "cus_plancreator1"
+  const planInvoice = (id: string, sub: string, over: Obj = {}) => ({ id, object: "invoice", customer: "cus_plancreator1", amount_paid: 2900, amount_due: 2900, currency: "usd", status: "paid", billing_reason: "subscription_cycle", invoice_pdf: null, hosted_invoice_url: null, period_start: 1_760_000_000, period_end: 1_762_600_000, attempt_count: 1, parent: { type: "subscription_details", subscription_details: { subscription: sub, metadata: {} } }, lines: { data: [] }, ...over })
+  const invoiceRow = (id: string) => j.rows("invoices").find((r) => r.stripe_invoice_id === id)
+
+  j.db.failNext("subscriptions", { method: "GET", times: 3 })
+  const i1 = await j.webhook("invoice.paid", planInvoice("in_plan1", "sub_plan1"), { id: "evt_invoice1" })
+  check("invoice.paid whose subscriptions read failed: 500 and left open, not \"No subscription found\"", i1.status === 500 && !eventRow("evt_invoice1")?.processed_at && !invoiceRow("in_plan1"), { status: i1.status, body: i1.json })
+  j.db.faults.length = 0
+  j.db.insert("subscriptions", { creator_id: creatorId, stripe_subscription_id: "sub_plan1", stripe_customer_id: "cus_plancreator1", plan_id: "growth", status: "active" }, {})
+  const subRow = j.rows("subscriptions").find((r) => r.stripe_subscription_id === "sub_plan1")
+  const i2 = await j.webhook("invoice.paid", planInvoice("in_plan1", "sub_plan1"), { id: "evt_invoice1" })
+  check("  Stripe's next delivery writes the invoice against its subscription", i2.status === 200 && invoiceRow("in_plan1")?.creator_id === creatorId && invoiceRow("in_plan1")?.subscription_id === subRow?.id, { status: i2.status, row: invoiceRow("in_plan1") })
+
+  const i3 = await j.webhook("invoice.paid", planInvoice("in_plan2", "sub_plan_new", { billing_reason: "subscription_create" }), { id: "evt_invoice2" })
+  check("invoice.paid before the subscription row exists: kept for the creator the customer names (200, no link yet)", i3.status === 200 && invoiceRow("in_plan2")?.creator_id === creatorId && invoiceRow("in_plan2")?.subscription_id == null, { status: i3.status, row: invoiceRow("in_plan2") })
+  const i4 = await j.webhook("invoice.paid", planInvoice("in_foreign1", "sub_foreign1", { customer: "cus_nobody" }), { id: "evt_invoice3" })
+  check("an invoice no creator owns is still skipped (200, nothing written)", i4.status === 200 && !invoiceRow("in_foreign1"), { status: i4.status, body: i4.json })
+  const i4b = await j.webhook("invoice.paid", planInvoice("in_member1", "sub_member9", { parent: { type: "subscription_details", subscription_details: { subscription: "sub_member9", metadata: { kind: "membership_x", creator_id: creatorId } } } }), { id: "evt_invoice4" })
+  check("  a membership's invoice naming its seller is never written as the seller's plan invoice", i4b.status === 200 && !invoiceRow("in_member1"), { status: i4b.status, body: i4b.json })
+
+  j.db.failNext("invoices", { method: "POST" })
+  const i5 = await j.webhook("invoice.paid", planInvoice("in_plan3", "sub_plan1"), { id: "evt_invoice5" })
+  check("an invoice write that failed: 500, so Stripe sends it again", i5.status === 500 && !eventRow("evt_invoice5")?.processed_at, { status: i5.status })
+  const i6 = await j.webhook("invoice.paid", planInvoice("in_plan3", "sub_plan1"), { id: "evt_invoice5" })
+  check("  and the next delivery writes it once", i6.status === 200 && j.rows("invoices").filter((r) => r.stripe_invoice_id === "in_plan3").length === 1, { status: i6.status })
+
+  j.db.failNext("subscriptions", { method: "GET", times: 3 })
+  const i7 = await j.webhook("invoice.payment_failed", planInvoice("in_plan4", "sub_plan1", { status: "open", amount_paid: 0 }), { id: "evt_invoicefail1" })
+  j.db.faults.length = 0
+  check("invoice.payment_failed whose subscriptions read failed: 500, not \"No subscription found\"", i7.status === 500 && !eventRow("evt_invoicefail1")?.processed_at, { status: i7.status, body: i7.json })
+
+  j.db.failNext("creators", { method: "GET", times: 3 })
+  const a1 = await j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct, id: "evt_accountupdated1" })
+  j.db.faults.length = 0
+  check("account.updated whose creator read failed: 500 and left open (Connect flags not left stale)", a1.status === 500 && !eventRow("evt_accountupdated1")?.processed_at, { status: a1.status })
+  const a2 = await j.webhook("account.updated", j.world.account(acct), { connect: true, account: acct, id: "evt_accountupdated1" })
+  check("  the next delivery is handled", a2.status === 200 && !!eventRow("evt_accountupdated1")?.processed_at, { status: a2.status })
+  j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/\/api\/stripe\/webhook/.test(x.route) || x.status !== 500))
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with an unexpected server error", j.serverErrors.length === 0, j.serverErrors)

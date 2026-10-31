@@ -31,7 +31,7 @@ import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
 import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-order"
-import { stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
+import { resolveCreatorForSubscription, stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
 import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
 import { recordPaidPlan } from "@/lib/billing/plan-override"
 
@@ -70,6 +70,20 @@ function subscriptionSyncDeps(): SyncDeps {
     recordPaidPlan: (creatorId, planId, status) => recordPaidPlan(supabaseAdmin, creatorId, planId, status),
     log: (message, detail) => console.log(message, detail ?? ""),
   }
+}
+
+/**
+ * The creator a plan invoice belongs to when no subscriptions row names its subscription yet (MEDIUM-6): found as
+ * the plan sync finds them (lib/billing/subscription-sync resolveCreatorForSubscription). Throws when the database
+ * did not answer. Null for an invoice no creator owns. `id` is null: the row this invoice will link to is not known.
+ */
+async function creatorForInvoice(invoice: any, subscriptionId: string): Promise<{ id: string | null; creator_id: string } | null> {
+  const details = invoice?.parent?.subscription_details ?? invoice?.subscription_details ?? null
+  const metadata = (details?.metadata ?? {}) as Record<string, string>
+  /* A membership's subscription names its SELLER as creator_id: never read as the seller's own plan (lib/memberships/webhook handles those). */
+  if (typeof metadata.kind === "string" && metadata.kind.startsWith("membership")) return null
+  const found = await resolveCreatorForSubscription(supabaseAdmin as any, { id: subscriptionId, status: "active", customer: invoice?.customer ?? "", metadata } as any)
+  return found ? { id: null, creator_id: (found as { id: string }).id } : null
 }
 
 /** When a scheduled cancellation takes effect, from whichever field this API version fills. */
@@ -1087,18 +1101,28 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     try {
-      const { data: subscription } = await supabaseAdmin
+      /*
+        WHOSE INVOICE (MEDIUM-6). A read that failed is not "no subscription": it is thrown and answered 500, so
+        Stripe sends the event again. No row is not always "not ours" either: the first invoice.paid can arrive
+        before customer.subscription.created has written the row, and the row is one per creator (the current
+        subscription), so an older one's invoice never finds it. The creator is then found as the plan sync finds
+        them (the row, the checkout's metadata.creator_id, then the stored customer), and the invoice is written
+        with no subscription link. Only an invoice no creator owns (a membership's, another product's) is skipped.
+      */
+      const { data: row, error: rowError } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
         .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
+      if (rowError) throw new Error(`subscriptions read failed: ${rowError.message}`)
 
+      const subscription = row ?? (await creatorForInvoice(invoice, subscriptionId))
       if (!subscription) {
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
 
       // Upsert invoice to avoid duplicates
-      await supabaseAdmin.from("invoices").upsert({
+      const { error: invoiceError } = await supabaseAdmin.from("invoices").upsert({
         creator_id: subscription.creator_id,
         subscription_id: subscription.id,
         stripe_invoice_id: invoice.id,
@@ -1109,6 +1133,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         period_start: invoice.period_start ? safeTimestamp(invoice.period_start) : null,
         period_end: invoice.period_end ? safeTimestamp(invoice.period_end) : null,
       }, { onConflict: "stripe_invoice_id" })
+      /* Keyed by the invoice, so Stripe's next delivery writes the same row. */
+      if (invoiceError) throw new Error(`invoice not written: ${invoiceError.message}`)
 
       console.log("[Invoice] Record saved")
 
@@ -1132,7 +1158,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         })
       }
     } catch (error) {
+      /* A database that did not answer: 500, so Stripe sends it again (the writes above are keyed). */
       console.error("[Invoice] Error:", error)
+      return NextResponse.json({ error: "Invoice not recorded yet. Stripe will send this again." }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })
@@ -1152,12 +1180,15 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     try {
-      const { data: subscription } = await supabaseAdmin
+      /* A read that failed is thrown (500, Stripe sends it again); no row is resolved as for invoice.paid (MEDIUM-6). */
+      const { data: row, error: rowError } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
         .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
+      if (rowError) throw new Error(`subscriptions read failed: ${rowError.message}`)
 
+      const subscription = row ?? (await creatorForInvoice(invoice, subscriptionId))
       if (!subscription) {
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
@@ -1190,11 +1221,14 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           .eq("stripe_subscription_id", subscriptionId)
           .in("status", ["active", "trialing"])
 
-        await supabaseAdmin
-          .from("creators")
-          .update({ subscription_status: "past_due" })
-          .eq("id", subscription.creator_id)
-          .in("subscription_status", ["active", "trialing"])
+        /* Only for the subscription the row names: a failure on another (an older one) never marks the creator. */
+        if (row) {
+          await supabaseAdmin
+            .from("creators")
+            .update({ subscription_status: "past_due" })
+            .eq("id", subscription.creator_id)
+            .in("subscription_status", ["active", "trialing"])
+        }
       }
 
       /* Each attempt Stripe makes is its own event; the key is the invoice and the attempt. */
@@ -1215,6 +1249,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       })
     } catch (error) {
       console.error("[Invoice] Error:", error)
+      return NextResponse.json({ error: "Failed payment not recorded yet. Stripe will send this again." }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })
