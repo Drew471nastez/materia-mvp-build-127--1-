@@ -185,7 +185,7 @@ export function MarketingFooter() {
           </nav>
 
           <nav aria-label="Sell" className="space-y-4">
-            <h4 className="text-sm font-semibold text-white">Sell</h4>
+            <h2 className="text-sm font-semibold text-white">Sell</h2>
             <div className="space-y-3">
               {SELL.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass}>
