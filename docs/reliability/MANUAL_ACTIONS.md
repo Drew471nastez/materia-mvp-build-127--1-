@@ -21,7 +21,7 @@ Order of importance: 1, 2, 3, then the rest.
   3. If you want less at once: the security merge (SEC-1, the guest order
      takeover) can ship alone first; it is the only finding that is
      exploitable today.
-  4. Run SQL part 345 right after the deploy (action 3). Parts 348 and 349
+  4. Run SQL part 347 right after the deploy (action 3). Parts 348 and 349
      can wait; the code works without them.
   5. After the deploy: `BASE_URL=https://storelib.com node scripts/smoke-deploy.mjs`,
      then watch Admin, Health, Errors for an hour.
@@ -61,7 +61,7 @@ filled in by the lead.
 
 | Part | Finding | File | What | Notes |
 | --- | --- | --- | --- | --- |
-| 345 | SEC-1 | `supabase/sql/run-now/345_profiles_keep_email_verified.sql` | trigger `profiles_keep_email_verified`: the browser key can no longer set `email_verified` / `email_verified_at`; only the server can | run right after the deploy; additive; undo with `ALTER TABLE profiles DISABLE TRIGGER profiles_keep_email_verified` |
+| 347 | SEC-1 | `supabase/sql/run-now/347_profiles_keep_email_verified.sql` | trigger `profiles_keep_email_verified`: the browser key can no longer set `email_verified` / `email_verified_at`; only the server can | run right after the deploy; additive; undo with `ALTER TABLE profiles DISABLE TRIGGER profiles_keep_email_verified` |
 | 348 | SITE-1 | `supabase/sql/run-now/348_site_switch_in_one_step.sql` | server only function `switch_site_deployment`: an AI site goes live in one transaction | until it runs, the code uses a two step switch that rolls back on failure; tested on a local Postgres 16 |
 | 349 | DB-7 | `supabase/sql/run-now/349_buyer_email_trigram_indexes.sql` | trigram indexes on `orders.buyer_email` and `commerce_checkouts.buyer_email` | on a large table, first run `supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql` one statement at a time (CONCURRENTLY cannot run in a transaction), then the part builds nothing |
 

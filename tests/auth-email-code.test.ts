@@ -214,8 +214,8 @@ async function main() {
     check("an email change records the new proven address", /\[VERIFIED_EMAIL_KEY\]: String\(pending\.new_email\)/.test(readCode("app/api/auth/verify-email-change/route.ts")))
     check("Google and Apple sign in records the address they vouch for", /providerVerifiedEmails\(data\.user\)\.includes\(vouched\)/.test(readCode("app/auth/callback/route.ts")))
     check("a business account records its address", /verified_email: email\.trim\(\)\.toLowerCase\(\)/.test(readCode("lib/businesses/server.ts")))
-    const sql = readCode("supabase/sql/run-now/345_profiles_keep_email_verified.sql")
-    check("SQL part 345: the browser key cannot set email_verified", /current_user IN \('authenticated', 'anon'\)/.test(sql) && /NEW\.email_verified := OLD\.email_verified/.test(sql) && /NEW\.email_verified := false/.test(sql))
+    const sql = readCode("supabase/sql/run-now/347_profiles_keep_email_verified.sql")
+    check("SQL part 347: the browser key cannot set email_verified", /current_user IN \('authenticated', 'anon'\)/.test(sql) && /NEW\.email_verified := OLD\.email_verified/.test(sql) && /NEW\.email_verified := false/.test(sql))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
