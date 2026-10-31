@@ -440,6 +440,14 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       blog it had, its own domain's path with a locale in front) is sent on,
       once, to the place on this site it meant (./links.ts). Any other address
       that is not a page stays this site's 404.
+
+      A 303, AND ON PURPOSE (round 45 leftovers, the owner's call): an
+      unknown collection lands on /collections/all so a visitor's link from
+      the old store keeps working (tests/builder-nav19.test.ts pins it). For
+      search it is harmless as it is: these addresses are in no sitemap,
+      nothing on the site links them, and an engine reads a redirect to a
+      generic page as a soft 404 anyway. Not a 301 or 308, which would claim
+      the shop is where that collection moved.
     */
     const meant = method === "GET" && !req.ajax && !req.query.get("section_id") && !req.query.get("sections") ? siteLink(path, linkFactsOf({ pageKeys: siteKeys(site), products: site.products, pickable: site.pickable, collections: site.collections, shop: site.shop }), { pageFallback: false }) : path
     if (meant !== path && meant.startsWith("/")) {

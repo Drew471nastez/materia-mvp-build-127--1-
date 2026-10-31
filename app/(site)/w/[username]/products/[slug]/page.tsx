@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation"
+import { websitePageLanguage } from "@/lib/seo/page-language"
 import type { Metadata } from "next"
 import { productMetadata, productStructuredData, renamedProductSlug, renderProduct } from "@/components/website-builder/theme/render-product"
 import { creatorByName, publishedShopByName } from "@/lib/website-builder/published-site"
@@ -96,10 +97,17 @@ export default async function SiteProductPage({ params }: PageProps) {
     const path = `/products/${encodeURIComponent(renamed)}`
     permanentRedirect(pageLocale && langs ? localizedPath(path, pageLocale, langs.defaultLanguage) : path)
   }
-  const [origin, localizer] = await Promise.all([siteOrigin(creator.creatorId, username), siteLocalizer(creator.creatorId, locale).catch(() => null)])
+  const [origin, localizer, langs, shop] = await Promise.all([
+    siteOrigin(creator.creatorId, username),
+    siteLocalizer(creator.creatorId, locale).catch(() => null),
+    siteLanguages(creator.creatorId).catch(() => null),
+    publishedShopByName(username).catch(() => null),
+  ])
+  /* The page's language as ThemePage sets its lang, for the JSON-LD (lib/seo/page-language.ts); unknown, left out. */
+  const language = websitePageLanguage(langs, locale, shop?.kind === "site" ? (shop.site.themeSettings as Record<string, unknown>) : null)
   const [page, structured] = await Promise.all([
     renderProduct(slug, { creatorId: creator.creatorId, locale, market }),
-    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId, inLanguage: localizer ? (p) => localizer.product(p) : undefined }),
+    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId, inLanguage: localizer ? (p) => localizer.product(p) : undefined, language }),
   ])
   /* Where the product sits on the website (Home › Shop › the product), which a search result shows in place of the bare address. */
   const productName = structured ? String((JSON.parse(structured) as { name?: unknown }).name ?? "") : ""
