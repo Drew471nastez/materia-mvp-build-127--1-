@@ -104,6 +104,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/onepage/product": () => import("@/app/api/onepage/product/route"),
   "/api/stripe/revenue-chart": () => import("@/app/api/stripe/revenue-chart/route"),
   "/api/stripe/payouts": () => import("@/app/api/stripe/payouts/route"),
+  /* Reliability (commerce, wave 2): the bank Stripe could not list is "unknown", not "none" (tests/rel-commerce2.test.ts). */
+  "/api/stripe/payout-method": () => import("@/app/api/stripe/payout-method/route"),
   /* Reliability (commerce): the draft earnings summary past 1,000 orders a year (tests/rel-commerce.test.ts). */
   "/api/stripe/tax-summary": () => import("@/app/api/stripe/tax-summary/route"),
   "/api/settings/payments": () => import("@/app/api/settings/payments/route"),

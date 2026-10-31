@@ -17,6 +17,9 @@
  *      today reaches it (every session creator is read), and if an old
  *      session does, its payment is read through latest_charge, so the order
  *      keeps its transfer and card (PAY-11)
+ *   4  /api/stripe/payout-method: a bank list Stripe did not give is
+ *      bankUnknown, never "no bank", and the page says it could not check
+ *      instead of asking for a bank (PAY-5 follow-up)
  */
 import "./_journey/env"
 import { Journey } from "./_journey/harness"
@@ -269,6 +272,49 @@ async function main() {
     check("  its payment read through latest_charge, never `charges`", asked.length > 0 && asked.every((e) => !e.includes("charges")) && asked.some((e) => e.includes("latest_charge")), asked)
     check("  the order keeps the transfer and the card (they were empty when the expand failed)", order?.transfer_id === transfer && order?.card_brand === "mastercard" && order?.card_last4 === "5555" && order?.application_fee_cents === 150, { transfer_id: order?.transfer_id, transfer, card: order?.card_last4 })
     check("  and the path says it was reached", warned.some((w) => /legacy product Checkout Session reached/.test(w) && w.includes("cs_legacy_test1")), warned)
+  }
+
+
+  /* ── 4. payout-method bankUnknown ──────────────────────────────────── */
+  section("4. A bank Stripe could not list is unknown, not missing (PAY-5 follow-up)")
+  {
+    const seller = await j.signUp("bank@example.com", { name: "Bo Bank" })
+    await j.call("POST /api/onboarding/finalize", { as: seller, body: { role: "creator", creatorSlug: "bobank" } })
+    const none = await j.call("GET /api/stripe/payout-method", { as: seller })
+    check("no payments account: no bank, and that is known (bankUnknown false)", none.status === 200 && none.json?.bankAccount === null && none.json?.bankUnknown === false, none.json)
+    await j.call("POST /api/payments/start", { as: seller, body: { agree: true, kind: "individual", country: "US" } })
+    const acct = j.rows("creators").find((r) => r.user_id === seller.id)!.stripe_account_id as string
+    j.world.activate(acct)
+    const ok = await j.call("GET /api/stripe/payout-method", { as: seller })
+    check("Stripe answers: the bank, bankUnknown false", ok.status === 200 && ok.json?.bankAccount?.last4 === "6789" && ok.json?.bankUnknown === false, ok.json)
+    const realList = s.accounts.listExternalAccounts
+    s.accounts.listExternalAccounts = async () => {
+      throw Object.assign(new Error("Request rate limit exceeded."), { type: "StripeRateLimitError", statusCode: 429 })
+    }
+    const embedded = await j.call("GET /api/stripe/payout-method", { as: seller })
+    check("the bank list failed but the account carries its bank: that bank, not unknown", embedded.status === 200 && embedded.json?.bankAccount?.last4 === "6789" && embedded.json?.bankUnknown === false, embedded.json)
+    const a = j.world.account(acct)
+    const keptBanks = a.external_accounts
+    a.external_accounts = undefined
+    const unknown = await j.call("GET /api/stripe/payout-method", { as: seller })
+    check("the bank list failed and nothing else says: bankAccount null WITH bankUnknown true", unknown.status === 200 && unknown.json?.bankAccount === null && unknown.json?.bankUnknown === true, unknown.json)
+    a.external_accounts = { object: "list", data: [] }
+    s.accounts.listExternalAccounts = realList
+    const empty = await j.call("GET /api/stripe/payout-method", { as: seller })
+    check("Stripe says there is no bank: bankAccount null, bankUnknown false (Add bank stays)", empty.status === 200 && empty.json?.bankAccount === null && empty.json?.bankUnknown === false, empty.json)
+    a.external_accounts = keptBanks
+
+    const ui = readFileSync(join(process.cwd(), "app/app/payouts/payouts-client.tsx"), "utf8")
+    const card = ui.slice(ui.indexOf("function PayoutMethodCard("), ui.indexOf("function SwitchAccountPanel("))
+    check("the card: unknown is not \"needs a bank\"", /const bankUnknown = !bank && !!data\?\.bankUnknown;/.test(card) && /const needsBank = data && !bank && !bankUnknown;/.test(card))
+    check("  it says \"We couldn't check your bank account right now\" instead of \"No bank account yet\"", /bankUnknown \? \([\s\S]{0,160}tt\("We couldn't check your bank account right now"\)/.test(card))
+    check("  a failed read (no answer or a 5xx) keeps what was shown, or is unknown; never \"no bank\"", /r\.status >= 500\) throw/.test(card) && /prev \?\? \{ \.\.\.UNKNOWN_PAYOUT_METHOD \}/.test(card) && /bankUnknown: true/.test(ui.slice(ui.indexOf("const UNKNOWN_PAYOUT_METHOD"), ui.indexOf("const UNKNOWN_PAYOUT_METHOD") + 200)))
+    const details = ui.slice(ui.indexOf("function BalanceDetails("), ui.indexOf("const footer", ui.indexOf("function BalanceDetails(")))
+    check("the details panel: unknown says it could not check, and offers Update bank, not Add a bank account", /bankUnknown \? \([\s\S]{0,120}We couldn't check your bank account right now/.test(details) && /bank \|\| bankUnknown \? tt\("Update bank"\) : tt\("Add a bank account"\)/.test(details))
+    for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
+      const cat = readFileSync(join(process.cwd(), `lib/i18n/catalog/${lang}.ts`), "utf8")
+      check(`  the sentence is translated (${lang})`, /"We couldn't check your bank account right now": "[^"]+"/.test(cat))
+    }
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)

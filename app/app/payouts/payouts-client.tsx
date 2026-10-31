@@ -1207,6 +1207,7 @@ function BalanceDetails({
   upcomingLoading,
   settleDays,
   bank,
+  bankUnknown,
   bankLoading,
   onUpdateBank,
   payoutsEnabled,
@@ -1224,6 +1225,8 @@ function BalanceDetails({
   upcomingLoading: boolean;
   settleDays: number | null;
   bank: { bankName: string | null; last4: string; currency: string } | null;
+  /** The bank could not be read: say so, never "Add a bank account". */
+  bankUnknown?: boolean;
   bankLoading: boolean;
   onUpdateBank: () => void;
   payoutsEnabled: boolean;
@@ -1275,6 +1278,8 @@ function BalanceDetails({
                 </span>
                 .{" "}
               </>
+            ) : bankUnknown ? (
+              <span data-bank-unknown="">{tt("We couldn't check your bank account right now")}. </span>
             ) : null}
             {canManage ? (
               <button
@@ -1282,7 +1287,7 @@ function BalanceDetails({
                 onClick={onUpdateBank}
                 className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
               >
-                {bank ? tt("Update bank") : tt("Add a bank account")}
+                {bank || bankUnknown ? tt("Update bank") : tt("Add a bank account")}
               </button>
             ) : null}
           </p>
@@ -2711,6 +2716,8 @@ type PayoutMethodData = {
     accountHolderName: string | null;
     status: string | null;
   } | null;
+  /** Stripe could not say whether there is a bank (or the read failed): bankAccount null is then unknown, not none. */
+  bankUnknown?: boolean;
   payoutSchedule: {
     interval: string;
     weeklyAnchor: string | null;
@@ -2723,6 +2730,15 @@ type PayoutMethodData = {
   requirementsDue?: string[];
   requirementsPastDue?: string[];
   requirementsEventuallyDue?: string[];
+};
+
+/* What the card shows when the first read failed: nothing known, the bank included. */
+const UNKNOWN_PAYOUT_METHOD: PayoutMethodData = {
+  bankAccount: null,
+  bankUnknown: true,
+  payoutSchedule: null,
+  payoutsEnabled: true,
+  detailsSubmitted: true,
 };
 
 // Storelib model: every account is manual, and sellers cash out with the button
@@ -2801,11 +2817,20 @@ function PayoutMethodCard({
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
+  /*
+    A read that failed (no answer, or the server's 5xx) keeps what was last
+    shown; with nothing shown yet it is "could not check", never "no bank"
+    (PAY-5): that would ask for a new bank in the middle of an outage.
+  */
   const loadData = useCallback(() => {
     fetch("/api/stripe/payout-method")
-      .then((r) => r.json())
-      .then((json) => setData(json))
-      .catch(() => setData(null))
+      .then(async (r) => {
+        if (r.status >= 500) throw new Error(`payout-method ${r.status}`);
+        return r.json();
+      })
+      /* A bank Stripe could not list this time keeps the one already on screen. */
+      .then((json: PayoutMethodData) => setData((prev) => (json?.bankUnknown && !json.bankAccount && prev?.bankAccount ? { ...json, bankAccount: prev.bankAccount, bankUnknown: false } : json)))
+      .catch(() => setData((prev) => prev ?? { ...UNKNOWN_PAYOUT_METHOD }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -2825,7 +2850,8 @@ function PayoutMethodCard({
   }, [loadData]);
 
   const bank = data?.bankAccount;
-  const needsBank = data && !bank;
+  const bankUnknown = !bank && !!data?.bankUnknown;
+  const needsBank = data && !bank && !bankUnknown;
   // Requirements straight from Stripe: a notice only when something is actually due
   const hasPastDueRequirements = data && (data.requirementsPastDue?.length ?? 0) > 0;
   const hasVerificationNeeded = data && !data.payoutsEnabled && data.detailsSubmitted && !needsBank;
@@ -2907,6 +2933,8 @@ function PayoutMethodCard({
                   </span>
                 ) : null}
               </p>
+            ) : bankUnknown ? (
+              <p className="text-[14px] leading-5 text-[#4b5563]" data-bank-unknown="">{tt("We couldn't check your bank account right now")}</p>
             ) : (
               <p className="text-[14px] leading-5 text-[#4b5563]">{tt("No bank account yet")}</p>
             )}
@@ -3534,17 +3562,24 @@ export function PayoutsClient({
   const closeDetails = useCallback(() => setDetailsOpen(false), []);
   const [detailsBank, setDetailsBank] = useState<{ bankName: string | null; last4: string; currency: string } | null>(null);
   const [detailsBankRead, setDetailsBankRead] = useState(false);
+  const [detailsBankUnknown, setDetailsBankUnknown] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const openDetails = async () => {
     setDetailsOpen(true);
     if (detailsBankRead) return; // already read
     setDetailsLoading(true);
     try {
-      const methodRes = await fetch("/api/stripe/payout-method").then((r) => r.json());
+      const res = await fetch("/api/stripe/payout-method");
+      if (res.status >= 500) throw new Error(`payout-method ${res.status}`);
+      const methodRes = await res.json();
       if (methodRes.bankAccount) setDetailsBank(methodRes.bankAccount);
-      setDetailsBankRead(true);
+      /* Unknown is asked again the next time the panel opens; a real answer is kept. */
+      const unknown = !methodRes.bankAccount && !!methodRes.bankUnknown;
+      setDetailsBankUnknown(unknown);
+      setDetailsBankRead(!unknown);
     } catch {
-      // non-fatal: the panel still shows the balance
+      // non-fatal: the panel still shows the balance, and says the bank could not be checked
+      if (!detailsBank) setDetailsBankUnknown(true);
     } finally {
       setDetailsLoading(false);
     }
@@ -4049,6 +4084,7 @@ export function PayoutsClient({
         upcomingLoading={!payoutsRead}
         settleDays={settleDays}
         bank={detailsBank}
+        bankUnknown={detailsBankUnknown}
         bankLoading={detailsLoading}
         onUpdateBank={() => {
           closeDetails();
