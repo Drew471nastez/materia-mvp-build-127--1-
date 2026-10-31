@@ -157,7 +157,7 @@ section("Home: three trips, and its title shares them")
   /* Changed on purpose: Home reads no order rows now. Its figures are the Analytics answer (app/api/analytics/reports),
      and a read of every order here stopped at 1,000 rows. The sales are counted over every order, in the same batch. */
   check("then the products, the domain, the live website and the sales count go together",
-    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(second))
+    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /* Changed on purpose (round rel-db): with a ceiling and no ECB download from the render. */ /creatorSalesTotals\(adminSupabase, creator\.id(, \{ noFetch: true \})?\)/.test(second))
   check("no orders are read for the figures, and never by a list of product ids",
     !/\.from\("orders"\)/.test(body) && !/\.in\("product_id"/.test(body) && !/initialOrders=/.test(body))
   check("still on the service role, as before, never the caller's client swapped in or out", /createAdminClient\(\)/.test(body) && !/createClient\(\)/.test(home))

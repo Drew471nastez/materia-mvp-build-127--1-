@@ -71,7 +71,7 @@ export const ownRows = <T,>(rows: T[]): T[] => rows.map((row) => {
  * Analytics' figures, run-now parts 25 and 32), else from every order read a
  * page at a time.
  */
-export async function creatorSalesTotals(admin: Admin, creatorId: string): Promise<{ sales: number; revenueCents: number }> {
+export async function creatorSalesTotals(admin: Admin, creatorId: string, opts: { noFetch?: boolean } = {}): Promise<{ sales: number; revenueCents: number }> {
   /*
     IN THE STORE'S CURRENCY. The database's count adds every order's cents as
     they are, which is only a total while every order is in the store's
@@ -101,7 +101,7 @@ export async function creatorSalesTotals(admin: Admin, creatorId: string): Promi
       /* An admin's test sale is not a sale (lib/analytics/test-sales). */
       return withoutTestSales(ownRows(read.rows))
     })
-    const { totalOrders, totalRevenue } = homeTotals((await inStoreCurrency(admin, creatorId, rows, storeCurrency)).rows)
+    const { totalOrders, totalRevenue } = homeTotals((await inStoreCurrency(admin, creatorId, rows, storeCurrency, { noFetch: opts.noFetch })).rows)
     return { sales: totalOrders, revenueCents: Math.max(0, totalRevenue) }
   } catch (error) {
     console.error("[creator-orders] sales not counted:", (error as Error).message)
@@ -115,7 +115,7 @@ export async function creatorSalesTotals(admin: Admin, creatorId: string): Promi
  * the first few the creator ever had, for the first sale. Never every order:
  * the totals come from creatorSalesTotals.
  */
-export async function creatorSalesRows(admin: Admin, creatorId: string, now: number): Promise<{ recent: OrderRow[]; earliest: OrderRow[] }> {
+export async function creatorSalesRows(admin: Admin, creatorId: string, now: number, opts: { noFetch?: boolean } = {}): Promise<{ recent: OrderRow[]; earliest: OrderRow[] }> {
   const since = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString()
   try {
     return await byCreator(async (scope) => {
@@ -138,7 +138,7 @@ export async function creatorSalesRows(admin: Admin, creatorId: string, now: num
       ])
       /* In the store's currency, each at its own day's rate (lib/money/report-currency), as every figure is. */
       const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
-      const [r, e] = await Promise.all([inStoreCurrency(admin, creatorId, ownRows(recent.rows), storeCurrency), inStoreCurrency(admin, creatorId, ownRows(earliest as OrderRow[]), storeCurrency)])
+      const [r, e] = await Promise.all([inStoreCurrency(admin, creatorId, ownRows(recent.rows), storeCurrency, { noFetch: opts.noFetch }), inStoreCurrency(admin, creatorId, ownRows(earliest as OrderRow[]), storeCurrency, { noFetch: opts.noFetch })])
       return { recent: r.rows, earliest: e.rows }
     })
   } catch (error) {

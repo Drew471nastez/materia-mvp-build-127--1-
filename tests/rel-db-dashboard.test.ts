@@ -11,6 +11,7 @@
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { readCode } from "./_source"
+import { inStoreCurrency } from "../lib/money/report-currency-server"
 import { AnalyticsUnavailable, countVisits, isAnalyticsUnavailable, readAll, readAudience, readNavClicks, type Admin, type CountQuestion } from "../lib/analytics/report-read"
 
 let passed = 0
@@ -79,6 +80,7 @@ async function run() {
   if (raw.some((f) => OWNED_ELSEWHERE.has(f))) console.log(`  note  still raw, owned by another area: ${raw.filter((f) => OWNED_ELSEWHERE.has(f)).join(", ")}`)
 
   await analytics()
+  await homeTotals()
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
@@ -181,6 +183,35 @@ async function analytics() {
   check("the reports route has maxDuration = 60", /export const maxDuration = 60\b/.test(route))
   check("  and says unavailable (503, stream line) when the function failed", /isAnalyticsUnavailable\(error\)/.test(route) && /status: 503/.test(route))
   check("  Home's all time line drops out on a failed function instead of failing the report", /allTimeOf\(admin, q\.creatorId\)\.catch\(\(e\) => \{ if \(isAnalyticsUnavailable\(e\)\) return null/.test(readCode("lib/analytics/report-answer.ts")))
+}
+
+async function homeTotals() {
+  console.log("\n3. Home renders without the all time sales")
+  const realFetch = globalThis.fetch
+  const asked: string[] = []
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    asked.push(String(input))
+    return new Promise<Response>(() => {})
+  }) as typeof fetch
+  try {
+    const t0 = Date.now()
+    const out = await Promise.race([
+      inStoreCurrency({}, "c1", [{ created_at: "2019-03-01T10:00:00Z", currency: "eur", amount_cents: 1000 }], "USD", { rates: async () => [], noFetch: true }),
+      new Promise<null>((r) => setTimeout(() => r(null), 2_000)),
+    ])
+    check("a page render's conversion never downloads the ECB history (noFetch)", !!out && asked.length === 0, { asked, out: !!out })
+    check("  the sale with no kept rate is left unconverted and counted, not guessed", !!out && out.unconverted === 1, out ? { unconverted: out.unconverted } : null)
+    check("  and it answers at once", Date.now() - t0 < 1_000)
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const home = readCode("app/app/page.tsx")
+  check("Home's all time totals have a ceiling", /within<[^>]*>\(creatorSalesTotals\(adminSupabase, creator\.id, \{ noFetch: true \}\), HOME_TOTALS_MS, null\)/.test(home))
+  check("  HOME_TOTALS_MS is a few seconds", /const HOME_TOTALS_MS = 3_000/.test(home))
+  check("  the banner's rows never download the ECB history either", /creatorSalesRows\(adminSupabase, creator\.id, now, \{ noFetch: true \}\)/.test(home))
+  check("  past the ceiling a first sale still counts", /salesTotals \?\? \{ sales: Math\.max\(bannerSales\.count, bannerSales\.first \? 1 : 0\)/.test(home))
+  check("  and no milestone is counted from 30 days of rows", /salesTotals \? counted : \{ \.\.\.counted, milestone: null \}/.test(home))
+  check("creatorSalesTotals passes noFetch through", /inStoreCurrency\(admin, creatorId, rows, storeCurrency, \{ noFetch: opts\.noFetch \}\)/.test(readCode("lib/analytics/creator-orders.ts")))
 }
 
 run().catch((e) => {
