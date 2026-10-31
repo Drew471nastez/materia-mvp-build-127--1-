@@ -6,6 +6,7 @@ import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { publicHelpUrl } from "@/lib/help/paths"
+import { SELL_PAGES, useCasePath } from "@/lib/marketing/sell-links"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -67,6 +68,14 @@ const PRODUCT = [
   { label: "Features", href: "/features" },
   { label: "Developers", href: "/developers" },
 ]
+
+/*
+  The /sell/<use case> pages (lib/marketing/sell-links), so every one is a
+  link on every marketing page. One behind a platform switch (communities)
+  is linked from the pages that know the switch (/features, /alternatives)
+  instead: this footer is drawn in the browser and cannot ask.
+*/
+const SELL = SELL_PAGES.filter((u) => !("flag" in u)).map((u) => ({ label: u.nav, href: useCasePath(u.slug) }))
 
 const SUPPORT = [
   /* The Help Center's own address: storelib.com/help is a 308 to it, a hop on every page's footer link. */
@@ -134,7 +143,7 @@ export function MarketingFooter() {
       }}
     >
       <div className="relative mx-auto max-w-[1400px] px-4 pb-6 pt-12 sm:px-6 md:pb-8 md:pt-16 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5 lg:gap-12">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-6 lg:gap-12">
           <div className="col-span-2 space-y-6 md:col-span-1">
             <Link href={logoHref} scroll={true} className="flex flex-wrap items-center gap-3 transition-opacity hover:opacity-80">
               <StorelibLogo size={40} />
@@ -169,6 +178,17 @@ export function MarketingFooter() {
             <div className="space-y-3">
               {PRODUCT.map((l) => (
                 <Link key={l.label} href={l.href} className={linkClass}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+
+          <nav aria-label="Sell" className="space-y-4">
+            <h4 className="text-sm font-semibold text-white">Sell</h4>
+            <div className="space-y-3">
+              {SELL.map((l) => (
+                <Link key={l.href} href={l.href} className={linkClass}>
                   {l.label}
                 </Link>
               ))}
