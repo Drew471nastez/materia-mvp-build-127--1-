@@ -771,7 +771,9 @@ export async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer
   const mine = fresh.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file" && m.store === "community")
   let named = new Map<string, string>()
   if (mine.length) {
-    const found = await communityFilesExist(db, community, String(viewer.userId), mine.map((f) => ({ fileId: f.assetId, name: f.name })))
+    /* The same size and content checks the upload's complete step runs, at the poster's own limit (staff may send more). */
+    const staff = viewer.active && meetsRole(viewer.role, "moderator")
+    const found = await communityFilesExist(db, community, String(viewer.userId), mine.map((f) => ({ fileId: f.assetId, name: f.name })), { staff })
     if (!found.ok) return refused(found, 400)
     named = found.value
   }

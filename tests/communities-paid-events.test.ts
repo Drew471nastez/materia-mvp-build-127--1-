@@ -780,7 +780,7 @@ async function main() {
     check("charge.refunded frees the seat", /revokeRefundedTicket/.test(webhook))
     const cron = code("app/api/cron/community/route.ts")
     check("the holds sweep runs in the job cron that already runs every five minutes", /releaseDeadHolds\(db\)/.test(cron) && /seatsFreed/.test(cron))
-    check("and never while communities are switched off", /on \? await releaseDeadHolds\(db\)/.test(cron))
+    check("and never while communities are switched off", /on && run\.share\(10_000\) > 0 \? await releaseDeadHolds\(db\)/.test(cron) /* Changed on purpose (rel-shared): skipped only when the run has no time left */)
     const routes = [
       "app/api/community/[communityId]/events/[eventId]/checkout/route.ts",
       "app/api/community/[communityId]/events/[eventId]/checkout/confirm/route.ts",

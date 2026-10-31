@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { requireBearerSecret } from "@/lib/api/require-secret"
@@ -71,11 +71,14 @@ const REVIEWS_BUDGET_MS = 25_000
 const REVIEWS_DEADLINE_MS = 255_000
 const COURSE_DEADLINE_MS = 290_000
 
-// Create admin client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+/*
+ * The service role client every server path uses (lib/supabase/admin.ts): the
+ * same key, plus a deadline on every database and storage request (reads 20 s,
+ * writes 30 s, RPC 60 s) and a read asked again on PostgREST's schema reload.
+ * It was a bare supabase-js client with neither, so one request that never
+ * answered held the run until the platform stopped it.
+ */
+const supabaseAdmin = createAdminClient()
 
 const PLATFORM_BRAND_NAME = "Storelib"
 const DEFAULT_SUPPORT = EMAIL_REPLY_TO

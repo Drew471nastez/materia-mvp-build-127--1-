@@ -111,7 +111,7 @@ console.log("\nEvery published website is drawn before its first visitor after a
   check("the front page and the products page are the pages warmed", JSON.stringify(WARM_PATHS) === JSON.stringify(["/", "/products"]))
   const cron = JSON.parse(readFileSync("vercel.json", "utf8")) as { crons: { path: string; schedule: string }[]; regions?: string[] }
   check("it runs every five minutes, and costs nothing once the deploy is warmed", cron.crons.some((c) => c.path === "/api/cron/warm-sites" && c.schedule === "*/5 * * * *") && /already-warmed/.test(code("lib/website-builder/warm-sites.ts")))
-  check("the warm asks through the public address, a few at a time, each with a timeout", /const AT_ONCE = 6/.test(code("lib/website-builder/warm-sites.ts")) && /setTimeout\(\(\) => ctl\.abort\(\), EACH_MS\)/.test(code("lib/website-builder/warm-sites.ts")))
+  check("the warm asks through the public address, a few at a time, each with a timeout", /const AT_ONCE = 6/.test(code("lib/website-builder/warm-sites.ts")) && /return Math\.min\(EACH_MS, hardStop - Date\.now\(\)\)/.test(code("lib/website-builder/warm-sites.ts")) && /setTimeout\(\(\) => ctl\.abort\(\), Math\.max\(MIN_REQUEST_MS, limitFor\(hardStop\)\)\)/.test(code("lib/website-builder/warm-sites.ts")) /* Changed on purpose (rel-shared): EACH_MS, or less when the run has less left */)
   check("functions run next to the database (iad1 only)", JSON.stringify(cron.regions) === JSON.stringify(["iad1"]))
 }
 

@@ -36,6 +36,20 @@ function pageFor(data: Record<string, string> | undefined): string {
 }
 
 /**
+ * How long a browser's push service may take to answer one send. Without it
+ * a push service that accepted the connection and never answered held the
+ * send (and the notify worker's batch, and Settings' test notification)
+ * until the function's own limit. web-push ends the request at this and the
+ * send counts as failed.
+ */
+export const WEB_PUSH_TIMEOUT_MS = 8_000
+
+/** The options every Web Push send is made with. */
+export function webPushOptions(keys: NonNullable<ReturnType<typeof vapidKeys>>, timeoutMs = WEB_PUSH_TIMEOUT_MS): webpush.RequestOptions {
+  return { vapidDetails: keys, TTL: 60 * 60 * 24, timeout: timeoutMs }
+}
+
+/**
  * A browser (platform "web", the token is its subscription's JSON), through
  * Web Push signed with lib/push/web-vapid. "gone" when the browser has
  * dropped the subscription, so the row can go.
@@ -53,7 +67,7 @@ async function sendToBrowser(token: string, payload: PushPayload): Promise<"sent
     await webpush.sendNotification(
       subscription,
       JSON.stringify({ title: payload.title, body: payload.body, url: pageFor(payload.data), tag: payload.collapseKey ?? (payload.data?.type === "inbox" ? payload.data.url : undefined) ?? payload.data?.orderId ?? payload.data?.kind ?? payload.data?.type }),
-      { vapidDetails: keys, TTL: 60 * 60 * 24 },
+      webPushOptions(keys),
     )
     return "sent"
   } catch (err: any) {

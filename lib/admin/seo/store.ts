@@ -223,8 +223,21 @@ const WRITE_BATCH = 500
  * sitemap. Google's answer and the score are kept: an address that comes
  * back has its history.
  */
-export async function recordFile(admin: Admin, source: string, addresses: ListedAddress[], seenAt: string): Promise<{ written: number; left: number }> {
+export async function recordFile(
+  admin: Admin,
+  source: string,
+  addresses: ListedAddress[],
+  seenAt: string,
+  until = Number.POSITIVE_INFINITY,
+): Promise<{ written: number; left: number; complete: boolean }> {
   const unique = [...new Map(addresses.map((a) => [a.url, a])).values()]
+  /*
+    UNFINISHED BY THE RUN'S DEADLINE (`until`): no more batches, and no row is
+    marked as left the sitemap (that needs every address of the file written
+    first). The caller does not move past this file, so the next run writes it
+    again from the start; an upsert written twice is the same row.
+  */
+  let written = 0
   /*
     Two kinds of batch, because an upsert writes every column any row of the
     batch names: an address with no property is marked so, and one with a
@@ -243,8 +256,10 @@ export async function recordFile(admin: Admin, source: string, addresses: Listed
         ...(a.property ? {} : { google_status: "no_property" }),
         updated_at: seenAt,
       }))
+      if (Date.now() >= until) return { written, left: 0, complete: false }
       const { error } = await admin.from("seo_index_status").upsert(batch, { onConflict: "url" })
       if (error) throw error
+      written += batch.length
     }
   }
   const { data, error } = await admin
@@ -255,7 +270,7 @@ export async function recordFile(admin: Admin, source: string, addresses: Listed
     .lt("last_seen_at", seenAt)
     .select("url")
   if (error) throw error
-  return { written: unique.length, left: (data ?? []).length }
+  return { written: unique.length, left: (data ?? []).length, complete: true }
 }
 
 /**
