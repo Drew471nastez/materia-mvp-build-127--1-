@@ -8,6 +8,7 @@
  *
  *   AI sites (<slug>.storelib.com)   503 + Retry-After on a failed read, never 404 or 301; the last live copy held
  *   Creator Pages (storelib.com/<h>)  a failed profile/creator read throws (error screen), never the gate's 308 or a 404
+ *   OnePages (storelib.me/<name>)     a failed or slow lookup serves the last answer or throws, never "missing"
  *
  * Every true "missing" answer stays what it was.
  */
@@ -209,11 +210,55 @@ async function creatorPages() {
   check("  and a failed username-history read is not a 404", /if \(historyError\) throw new SiteReadError/.test(page))
 }
 
+async function onePages() {
+  console.log("\nC. A OnePage lookup that failed is never \"not found\" (HIGH-4)")
+  const { resolveOnePage } = await import("@/lib/onepage/published-page")
+  const { isSiteReadError } = await import("@/lib/website-builder/site-read")
+  const thrown = async (f: () => Promise<unknown>) => f().then(() => null, (e: unknown) => e)
+
+  {
+    fakeSupabase({ onepages: () => TIMEOUT(), profiles: () => json(200, []), creators: () => json(200, []) })
+    const e = await thrown(() => resolveOnePage("kilo"))
+    check("a failed lookup THROWS (the error screen), never { kind: missing }", isSiteReadError(e), String(e))
+  }
+  {
+    fakeSupabase({ onepages: () => json(200, []), profiles: () => json(200, []), creators: () => json(200, []), username_history: () => json(200, []), onepage_slug_history: () => json(200, []) })
+    const a = await resolveOnePage("lima")
+    check("a name that answered nothing is still missing", a.kind === "missing", a)
+  }
+  {
+    let down = false
+    fakeSupabase({
+      onepages: (url) => (down ? TIMEOUT() : url.searchParams.get("slug") === "eq.mike" ? json(200, [{ id: "o1", slug: "mike", status: "published", published_blocks: [] }]) : json(200, [])),
+      profiles: () => json(200, []),
+    })
+    const first = await resolveOnePage("mike")
+    check("a published page resolves", first.kind === "page", first.kind)
+    down = true
+    const held = await resolveOnePage("mike")
+    check("with the database away, the last answer for the name is served", held.kind === "page" && (held as { page: { id: string } }).page.id === "o1", held.kind)
+  }
+  {
+    /* A query that never answers: ended at its own deadline, and the lookup at its budget, not held for the database's time. */
+    const started = Date.now()
+    fakeSupabase({ onepages: (_url, init) => new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))) })
+    /* A guard of our own: without one, a lookup that never settles leaves node nothing to wait for and it exits as if green. */
+    let guard: ReturnType<typeof setTimeout> | undefined
+    const e = await Promise.race([thrown(() => resolveOnePage("november")), new Promise((r) => { guard = setTimeout(() => r("still waiting after 12s"), 12_000) })])
+    clearTimeout(guard)
+    const took = Date.now() - started
+    check("a lookup that hangs ends within its budget and throws", isSiteReadError(e) && took < 9000, [String(e), took])
+  }
+  const routes = ["app/(marketing)/[sellername]/links/share.png/route.tsx", "app/(marketing)/[sellername]/links/photo.jpg/route.ts"].map(read)
+  check("the share image and photo answer 503 for a failed lookup, not a held 404", routes.every((r) => /findPublishedOnePage\(slug\)\.catch\(\(\) => undefined\)/.test(r) && /status: 503/.test(r)))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
     await aiSites()
     await creatorPages()
+    await onePages()
   } finally {
     globalThis.fetch = realFetch
   }

@@ -48,6 +48,12 @@ export async function readPublicRow<T = any>(
  * shows its error screen with Try again. Only a read that answered and found
  * nothing is null. Same views, same fallback before part 63, same columns.
  */
+/* The read's deadline; supabase-js always takes one, a hand-made client may not. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function bounded(query: any, signal: AbortSignal): any {
+  return typeof query?.abortSignal === "function" ? query.abortSignal(signal) : query
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function readPublicRowStrict<T = any>(
   client: Client,
@@ -56,7 +62,7 @@ export async function readPublicRowStrict<T = any>(
 ): Promise<T | null> {
   let viewMissing = false
   const first = await siteRead<T>(`${table}_public`, async (signal) => {
-    const r = await filter(client.from(`${table}_public`).select("*")).abortSignal(signal).maybeSingle()
+    const r = await bounded(filter(client.from(`${table}_public`).select("*")), signal).maybeSingle()
     if (r.error && MISSING.has(String((r.error as { code?: string }).code ?? ""))) {
       viewMissing = true
       return { data: null, error: null }
@@ -65,7 +71,7 @@ export async function readPublicRowStrict<T = any>(
   })
   if (!viewMissing) return (first ?? null) as T | null
   const old = await siteRead<Record<string, unknown>>(table, (signal) =>
-    filter(client.from(table).select("*")).abortSignal(signal).maybeSingle(),
+    bounded(filter(client.from(table).select("*")), signal).maybeSingle(),
   )
   if (!old) return null
   return (table === "creators" ? publicCreator(old) : publicProfile(old)) as T

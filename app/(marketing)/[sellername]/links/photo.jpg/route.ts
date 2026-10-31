@@ -33,7 +33,9 @@ const SHORT = "public, max-age=60, s-maxage=60, stale-while-revalidate=300"
 export async function GET(request: Request, { params }: { params: Promise<{ sellername: string }> }) {
   const { sellername } = await params
   const slug = decodeURIComponent(sellername || "").toLowerCase()
-  const onepage = slug ? await findPublishedOnePage(slug) : null
+  /* A lookup that failed is "try again", never a 404 the CDN holds for a minute. */
+  const onepage = slug ? await findPublishedOnePage(slug).catch(() => undefined) : null
+  if (onepage === undefined) return new Response("Try again", { status: 503, headers: { "cache-control": "no-store", "retry-after": "5" } })
   if (!onepage) return new Response("Not found", { status: 404, headers: { "cache-control": SHORT } })
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
   if (owner.banned) return new Response("Not found", { status: 404, headers: { "cache-control": SHORT } })
