@@ -1,4 +1,6 @@
 import type React from "react"
+import type { Metadata } from "next"
+import { PRIVATE_PAGE_METADATA } from "@/lib/seo/private-metadata"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
@@ -25,6 +27,9 @@ import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
  * None of it prints: Print is one of the receipt's own buttons, and the
  * paper should be the receipt alone.
  */
+/* One buyer's receipt: noindex and no canonical for every page under it (lib/seo/private-metadata.ts). */
+export const metadata: Metadata = PRIVATE_PAGE_METADATA
+
 export default async function ReceiptLayout({ children }: { children: React.ReactNode }) {
   const [initialWishlistCount, onPlatformDomain, buyerHeaderLight] = await Promise.all([
     readWishlistCount(),

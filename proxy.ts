@@ -35,6 +35,7 @@ import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
+import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -1410,10 +1411,26 @@ export async function proxy(request: NextRequest) {
   const res = forgetStaleCountry(request, await routeRequest(request))
   try {
     res.headers.set(REQUEST_ID_HEADER, rid)
+    /*
+      A PRIVATE ADDRESS ON storelib.com SAYS NOINDEX IN ITS OWN ANSWER (round 45,
+      lib/seo/indexing.ts privatePlatformPath): the checkout, a receipt, the app,
+      logging in. Here, after the routing, so a redirect, a route handler and a
+      page added under one of those routes later all carry it. An answer that
+      already says something about robots keeps its own.
+    */
+    if (onStorelibHost(request.headers.get("host")) && privatePlatformPath(request.nextUrl.pathname) && !res.headers.has("X-Robots-Tag")) {
+      res.headers.set("X-Robots-Tag", PRIVATE_ROBOTS_HEADER)
+    }
   } catch {
     /* an immutable response: it goes without the id */
   }
   return res
+}
+
+/** storelib.com or www.storelib.com: where the private addresses are Storelib's own. */
+function onStorelibHost(host: string | null): boolean {
+  const bare = (host || "").split(":")[0].toLowerCase()
+  return bare === MAIN_DOMAIN || bare === `www.${MAIN_DOMAIN}`
 }
 
 async function routeRequest(request: NextRequest) {
