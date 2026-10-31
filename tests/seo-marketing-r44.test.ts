@@ -87,7 +87,8 @@ console.log("\nEach page in scope sets its own")
 {
   const uses = (p: string, re: RegExp) => re.test(code(p))
   check("/pricing", uses("app/(marketing)/pricing/page.tsx", /export const metadata: Metadata = pageMetadata\(\{\s*path: "\/pricing"/))
-  check("/features, a client page, from a layout of its own", existsSync(join(process.cwd(), "app/(marketing)/features/layout.tsx")) && uses("app/(marketing)/features/layout.tsx", /path: "\/features"/) && /^"use client"/.test(read("app/(marketing)/features/page.tsx")))
+  /* Round 45: /features is a server page now (Storelib in one page, lib/marketing/features-seo); its metadata stays in its layout. */
+  check("/features, from a layout of its own", existsSync(join(process.cwd(), "app/(marketing)/features/layout.tsx")) && uses("app/(marketing)/features/layout.tsx", /path: FEATURES_PATH/) && /FEATURES_PATH = "\/features"/.test(read("lib/marketing/features-seo.ts")))
   check("/faq", uses("app/(marketing)/faq/page.tsx", /pageMetadata\(\{\s*path: "\/faq"/))
   check("/themes and a theme", uses("app/(marketing)/themes/page.tsx", /path: "\/themes"/) && uses("app/(marketing)/themes/[slug]/page.tsx", /return pageMetadata\(\{\s*path: listingPath\(listing\.slug\)/))
   check("/terms and /privacy", uses("app/terms/page.tsx", /legalMetadata\("terms"\)/) && uses("app/privacy/page.tsx", /legalMetadata\("privacy"\)/))
