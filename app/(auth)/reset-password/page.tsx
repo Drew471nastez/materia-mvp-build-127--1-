@@ -273,28 +273,17 @@ function ResetPasswordContent() {
 
       const { accessToken, refreshToken } = tokens
 
-      // ── App handoff logic (legacy hash-fragment flow) ──────────────
-      if (isMobileBrowser() && !isInCapacitor) {
-        const link = `storelib://auth/callback?type=recovery&access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`
-        setDeepLink(link)
-        setPhase("handoff")
-        window.location.href = link
-
-        const timer = setTimeout(async () => {
-          await establishSessionAndShowForm(accessToken, refreshToken)
-        }, 1200)
-
-        const handleVisibility = () => {
-          if (document.hidden) clearTimeout(timer)
-        }
-        document.addEventListener("visibilitychange", handleVisibility)
-        return () => {
-          clearTimeout(timer)
-          document.removeEventListener("visibilitychange", handleVisibility)
-        }
-      }
-
-      // ── Direct flow (web desktop, or already inside Capacitor) ─────
+      /*
+        NO APP HANDOFF WITH LIVE TOKENS (SEC-9). This legacy link carries a
+        recovery session itself. It used to be passed on as
+        storelib://auth/callback?access_token=...&refresh_token=..., and any
+        Android app can declare the storelib scheme and receive it. The reset
+        finishes here in the browser instead. The bridge code handoff above
+        stays, because the app's storelib://reset-password handler depends
+        on it; its risk and the App Link alternative are in
+        docs/reliability/SECURITY.md.
+      */
+      // ── Direct flow (web, or already inside Capacitor) ─────
       await establishSessionAndShowForm(accessToken, refreshToken)
     }
 

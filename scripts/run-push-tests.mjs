@@ -53,6 +53,8 @@ const SUITES = [
   "tests/auth-continue-outage.test.ts",
   /* Round rel2-security2 (SEC-10): an App Link bridge token is deleted and read in one statement, so two requests at once never both get the session; the stored path is checked; redirects are no-store. */
   "tests/bridge-token-once.test.ts",
+  /* Round rel2-security2 (SEC-9): no live session token is handed to the storelib:// scheme, which any Android app can claim; the legacy reset link finishes in the browser. */
+  "tests/custom-scheme-tokens.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
   /* Round rel-shared: community files checked at posting (size and bytes, not only at the optional complete step), the payout push to the user and awaited, run-wide deadlines for the community, physical, seo-index, warm-sites and notify crons, deadline-wrapped Supabase clients in the email cron and Mailgun webhook, cron partial failures reported, a Web Push timeout. */
