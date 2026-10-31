@@ -6,11 +6,14 @@ import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
-import { createClient, isNativePlatform } from "@/lib/supabase/client"
+/* The client itself is fetched when the session is first read, not with the page (lib/supabase/browser-lazy.ts, round 46). */
+import { browserSupabase, loadBrowserSupabase, type BrowserSupabase } from "@/lib/supabase/browser-lazy"
+import { isNativePlatform } from "@/lib/supabase/native-platform"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { BUYER_HEADER_DARK_BG, hasConcaveEdge, headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
@@ -28,12 +31,11 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check, Bookmark, IdCard } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
-/* The words t() reads (lib/i18n/locale-words.ts): imported where they are used, not by the provider every page has. */
-import "@/lib/i18n/locale-words"
-import { LanguageModal } from "@/components/platform/language-modal"
+/* The words t() reads, imported where they are used, not by the provider every page has: the base keys this header says (lib/i18n/locale-words-shell.ts), not every screen's (lib/i18n/locale-words.ts, round 46). */
+import "@/lib/i18n/locale-words-shell"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
-import { signedOutForSure } from "@/lib/auth/session-read"
+import { hasStoredSessionToken, signedOutForSure, storedSessionKey } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -41,7 +43,6 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { useSearchCategories } from "@/lib/explore/search-categories"
 import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE, HEADER_FIELD_ON_DARK } from "@/lib/explore/search-field-look"
-import { SearchCategoriesButton } from "@/components/explore/search-categories-button"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
 import { needsDocumentLoad } from "@/lib/native-links"
@@ -51,6 +52,14 @@ import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { useCommunityContextMeta } from "@/lib/nav/community-context"
 import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
+
+/* The language list is fetched when it is first opened (round 46): it brings the choice list and every screen's words, which no page needs before then. */
+const LanguageModal = dynamic(() => import("@/components/platform/language-modal").then((m) => m.LanguageModal), { ssr: false })
+/*
+  The categories icon in the field is only ever drawn while Explore's hero publishes its categories (lib/explore/search-categories:
+  null on the server and on every other page), so its browser and its panel are fetched then, not with /features or /pricing (round 46).
+*/
+const SearchCategoriesButton = dynamic(() => import("@/components/explore/search-categories-button").then((m) => m.SearchCategoriesButton), { ssr: false })
 
 
 
@@ -311,7 +320,7 @@ function SheetLogOut({ onPress }: { onPress: () => void }) {
  * native app still opens welcome.
  */
 export async function endStorelibSession(router: { push: (href: string) => void; refresh: () => void }) {
-  const supabase = createClient()
+  const supabase = await browserSupabase()
   await supabase.auth.signOut({ scope: "local" })
   /*
     EVERY READER OF "WHO IS SIGNED IN" HEARS IT NOW, not when a header that
@@ -1200,6 +1209,11 @@ export function PlatformHeaderClient({
    * left open behind a modal reappears when the modal closes.
    */
   const [languageOpen, setLanguageOpen] = useState(false)
+  /* Once asked for, the list stays built (it is fetched on demand, round 46). */
+  const [languageAsked, setLanguageAsked] = useState(false)
+  useEffect(() => {
+    if (languageOpen) setLanguageAsked(true)
+  }, [languageOpen])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1256,6 +1270,8 @@ export function PlatformHeaderClient({
       setSearchLoading(true)
       searchTimeoutRef.current = setTimeout(async () => {
         try {
+          /* The client, fetched with the first word typed if the header has not read the session yet (lib/supabase/browser-lazy.ts). */
+          const { createClient } = await loadBrowserSupabase()
           const answer = await quickSearch(createClient(), term, { communities: communitiesOn, creators: false })
           if (seq !== searchSeq.current) return
           setSearchResults(topHits(answer))
@@ -1331,7 +1347,34 @@ export function PlatformHeaderClient({
 
   useEffect(() => {
     mountedRef.current = true
-    const supabase = createClient()
+    /*
+      THE CLIENT ARRIVES WITH THE FIRST READ, NOT WITH THE PAGE (round 46).
+      supabase-js was in every marketing page's first script; it is fetched
+      by the first read below that needs it, and everything waits for it the
+      way it already waited for the network. What is drawn first is
+      unchanged: the last known person, from the snapshot, in the layout
+      effect above. Its listener is subscribed as soon as it is here, so a
+      sign in or out in another tab is heard as before.
+    */
+    let alive = true
+    let data: { subscription?: { unsubscribe: () => void } } | null = null
+    let client: Promise<BrowserSupabase> | null = null
+    const getClient = (): Promise<BrowserSupabase> => {
+      if (client) return client
+      const asked = browserSupabase()
+      client = asked
+      asked.then(
+        (supabase) => {
+          if (!alive) return
+          ;({ data } = supabase.auth.onAuthStateChange(onAuthEvent))
+        },
+        () => {
+          /* The chunk did not arrive: the read that asked says it could not tell and keeps what is drawn; the next read asks again. */
+          if (client === asked) client = null
+        },
+      )
+      return asked
+    }
 
     const failSafe = window.setTimeout(() => {
       if (!mountedRef.current) return
@@ -1349,6 +1392,7 @@ export function PlatformHeaderClient({
           setLoading(true)
         }
 
+        const supabase = await getClient()
         const {
           data: { user },
           error,
@@ -1482,9 +1526,70 @@ export function PlatformHeaderClient({
       audit.mjs). Now an event reads again only when it names somebody
       other than the last read found, or the user's own details changed.
     */
-    let loadedFor: Promise<string | null> = loadUser(true).then((id) => id ?? null)
+    /*
+      NOBODY TO READ, ON THE WEB: NO CLIENT AT ALL (round 46). A visitor with
+      no session cookie, no stored token and no last known person is signed
+      out for sure, and getUser() said so without asking the network; it is
+      the reader of /features and /pricing, and for them the read cost a
+      180 KB script and nothing else. They get what that read gave them (the
+      guest's buttons, and no badge of somebody else's), without it. Not in
+      the app (its session can be in Preferences only), and not with a sign
+      in arriving in the address (?code=, which the client exchanges).
+      Anything that could change the answer still reads, and that fetches
+      the client: a record written by another header (subscribeAuthSnapshot
+      below), a page back from the cache (pageshow below), a search, and a
+      sign in or out in another tab, which Supabase announces on its
+      BroadcastChannel, named after the session key; that is listened to
+      here until the client is here to listen itself.
+    */
+    const nobodyHere = isInitialNobody()
+    let loadedFor: Promise<string | null> = nobodyHere ? Promise.resolve(signedOutWithoutReading()) : loadUser(true).then((id) => id ?? null)
+    let otherTabs: BroadcastChannel | null = null
+    if (nobodyHere) {
+      try {
+        const key = storedSessionKey()
+        if (key && typeof BroadcastChannel !== "undefined") {
+          otherTabs = new BroadcastChannel(key)
+          otherTabs.onmessage = (e: MessageEvent<{ event?: string; session?: { user?: { id?: string } } | null }>) => {
+            /* The client, once here, hears the same message itself. */
+            if (client) return
+            onAuthEvent(e.data?.event ?? "SIGNED_IN", e.data?.session ?? null)
+          }
+        }
+      } catch {
+        /* No channel: the snapshot and pageshow below still ask. */
+      }
+    }
 
-    const { data } = supabase.auth.onAuthStateChange((event: string, session: { user?: { id?: string } } | null) => {
+    function isInitialNobody(): boolean {
+      if (isNativePlatform() || readAuthSnapshot() !== null || hasStoredSessionToken()) return false
+      try {
+        const here = new URL(window.location.href)
+        if (here.searchParams.has("code") || /(access_token|refresh_token|error_description)=/.test(here.hash)) return false
+      } catch {
+        return false
+      }
+      return true
+    }
+
+    /** What loadUser(true) did for a session that is not there, without the client. */
+    function signedOutWithoutReading(): null {
+      /* As the read's signed out answer: this device's saves and follows are nobody's now, and every reader hears it. */
+      clearAuthSnapshot()
+      try {
+        document.cookie = "storelib_wishlist_count=0; path=/; max-age=0; samesite=lax"
+      } catch { /* ignore */ }
+      setUser(null)
+      setProfile(null)
+      setIsCreator(false)
+      setHasCompletedSellerOnboarding(false)
+      setSellerState("none")
+      setLoading(false)
+      setInitialLoadDone(true)
+      return null
+    }
+
+    function onAuthEvent(event: string, session: { user?: { id?: string } } | null) {
       const id = session?.user?.id ?? null
       loadedFor = loadedFor.then((was) => {
         if (event !== "USER_UPDATED" && was === id) return was
@@ -1504,7 +1609,7 @@ export function PlatformHeaderClient({
           return nowId
         })
       })
-    })
+    }
 
     /*
       A PAGE BROUGHT BACK FROM THE BACK/FORWARD CACHE asks again. It was
@@ -1552,6 +1657,8 @@ export function PlatformHeaderClient({
     })
 
     return () => {
+      alive = false
+      otherTabs?.close()
       mountedRef.current = false
       window.clearTimeout(failSafe)
       data?.subscription?.unsubscribe()
@@ -2832,7 +2939,8 @@ export function PlatformHeaderClient({
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}
-      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
+      {/* Built the first time it is asked for, then kept, so it closes with its own motion as before. */}
+      {languageAsked || languageOpen ? <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} /> : null}
     </header>
       </div>
       {/* The fixed bar's room in the app, in the flow under it (app/globals.css .native-header-spacer): every layout that draws this header gets it, not only the marketing one. */}
