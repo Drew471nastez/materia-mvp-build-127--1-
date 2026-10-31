@@ -6531,30 +6531,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         }
       : null
     setSections(next)
+    setSelectedPanel({ type: "section", sectionId: newSection.id })
     quietPanel.current = `section:${newSection.id}`
     /* Its settings are where the sidebar is looking, whichever tab it was on. */
-    const openItsPanel = () => {
-      setSelectedPanel({ type: "section", sectionId: newSection.id })
-      setPageBrowserOpen(false)
-      setSidebarMode("sections")
-    }
-    /*
-      THE SECTION AND ITS RING FIRST, ITS SETTINGS WHEN THEY ARE READY, on a
-      computer, as a section clicked in the canvas is (pickSection, round
-      36). The new section's panel was mounted in the same render as the
-      section itself, and that mount held the section back from the canvas:
-      on a Storelib theme, 145 to 200ms from the click to its first pixel at
-      1x and 650 to 1200ms at a quarter speed (scripts/check-section-insert-
-      smooth.mjs). The pick is said at once, so the canvas draws it selected
-      in the frame it arrives, and the panel follows in a transition. A
-      phone's sheet rises on that panel once the canvas is still
-      (riseOnAdded), so there it is opened with the section as before.
-    */
-    if (isMobileView) openItsPanel()
-    else {
-      pickStore.set({ id: newSection.id, from: selectedPanelNow.current })
-      startTransition(openItsPanel)
-    }
+    setPageBrowserOpen(false)
+    setSidebarMode("sections")
     setIsDirty(true)
     /*
       An imported theme's canvas is a frame the arrival cannot measure: told
