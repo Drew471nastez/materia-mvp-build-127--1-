@@ -20,6 +20,7 @@
  *   6  the payouts page: one read for both lists, kept half a minute per
  *      person, and a part Stripe did not give is "unavailable", never an
  *      empty list (MEDIUM-4/5)
+ *   7  the plan sync reads every page of a customer's subscriptions (LOW-10)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -31,6 +32,7 @@ import { CHECKING_MESSAGE, rereadIntent, settledFrom } from "../lib/checkout/con
 import { confirmOutcomeUnknown, intentKey, nextPress, paidIntentInError, stripeJsOutcomeUnknown } from "../lib/checkout/pay-retry"
 import { accountGoneFromPlatform, resetPlatformKeyCheck } from "../lib/payments/stripe/connect"
 import { forgetPayoutsRead, payoutsReadKey, readPayoutsKept } from "../lib/payments/payouts-read-cache"
+import { planCreatorSync, stripeListForSync, SYNC_MAX_PAGES } from "../lib/billing/subscription-sync"
 
 let passed = 0
 let failed = 0
@@ -424,6 +426,35 @@ async function main() {
   for (const code6 of ["de", "es", "fr", "it", "pl", "pt-BR"]) {
     const cat = readFileSync(join(process.cwd(), `lib/i18n/catalog/${code6}.ts`), "utf8")
     check(`  the new words in ${code6}`, cat.includes(`"Couldn't refresh just now. Showing the last list we had."`) && cat.includes(`"Payouts couldn't be loaded just now. They'll show here in a moment."`))
+  }
+
+  /* ── 7. LOW-10 ─────────────────────────────────────────────────────── */
+  section("7. The plan sync reads every page of a customer's subscriptions (LOW-10)")
+  {
+    const GROWTH = "price_1SzBWaBYevnBVyznNCTOXDoS"
+    const planSub = (id: string, status: string, created: number) => ({ id, status, customer: "cus_many", created, cancel_at_period_end: false, metadata: { creator_id: "11111111-1111-4111-8111-111111111111", plan_id: "growth" }, items: { data: [{ price: { id: GROWTH }, current_period_start: 1_760_000_000, current_period_end: 1_762_600_000 }] } })
+    /* Newest first, as Stripe lists them: 21 cancelled ones, then the one still paying. */
+    const all = [...Array.from({ length: 21 }, (_, i) => planSub(`sub_old${String(i).padStart(2, "0")}`, "canceled", 1_760_000_000 - i)), planSub("sub_paying", "active", 1_700_000_000)]
+    const asked: Obj[] = []
+    const pages = async (params: Obj) => {
+      asked.push(params)
+      const from = params.starting_after ? all.findIndex((x) => x.id === params.starting_after) + 1 : 0
+      const data = all.slice(from, from + params.limit)
+      return { data, has_more: from + params.limit < all.length }
+    }
+    const listed = await stripeListForSync(pages as any, 5_000)("cus_many")
+    check("22 subscriptions are read across two pages, the second after the first's last", listed.length === 22 && asked.length === 2 && asked[1].starting_after === "sub_old19", { n: listed.length, asked: asked.map((a) => a.starting_after ?? null) })
+    const db = { from: () => ({}) } as any
+    const plan = await planCreatorSync({ db, listSubscriptions: stripeListForSync(pages as any, 5_000) }, { id: "11111111-1111-4111-8111-111111111111", stripe_customer_id: "cus_many", subscription_plan_id: "growth", subscription_status: "active", row: null })
+    check("  so the one still paying behind 21 cancelled is found: paid, never Free", plan.outcome === "paid" && plan.chosenSubscriptionId === "sub_paying", { outcome: plan.outcome, chosen: plan.chosenSubscriptionId })
+    const endless = async (params: Obj) => ({ data: [planSub(`sub_e${params.starting_after ?? ""}x`, "canceled", 1)], has_more: true })
+    let threw = false
+    try {
+      await stripeListForSync(endless as any, 5_000)("cus_many")
+    } catch {
+      threw = true
+    }
+    check(`  a list longer than ${SYNC_MAX_PAGES} pages is an error, never a partial answer`, threw)
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
