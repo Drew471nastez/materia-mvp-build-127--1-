@@ -12,6 +12,7 @@
  *   AI site publish                   a switch that did not take puts the live version back
  *   AI site address                   a check that failed is "taken" (fail closed), never "free"
  *   Theme publish                     a cancelled publish (57014, PGRST002) is asked once more; two minutes, stated
+ *   AI spend limits                   a count that cannot be read refuses the run (503, Try again), never unlimited
  *
  * Every true "missing" answer stays what it was.
  */
@@ -471,6 +472,34 @@ async function themePublish() {
   check("the publish route asks through it, and states its two minutes", /publishWithOneRetry\(\s*\(\) =>\s*admin\.rpc\("publish_theme_install"/.test(route) && /^export const maxDuration = 120$/m.test(route))
 }
 
+async function aiLimits() {
+  console.log("\nE3. AI spend limits fail closed when the count cannot be read (MEDIUM-3)")
+  const { agentRateLimit, publishRateLimit, themeAgentLimit, limitStatus, AI_LIMIT_UNREADABLE } = await import("@/lib/sites/rate-limit")
+  const head = (count: number) => new Response(null, { status: 200, headers: { "content-range": `*/${count}` } })
+  const quiet = console.warn
+  console.warn = () => {}
+  try {
+    fakeSupabase({ site_agent_runs: () => new Response(null, { status: 500, statusText: "canceling statement due to statement timeout" }), site_deployments: () => new Response(null, { status: 500 }) })
+    const refused = await agentRateLimit("c1")
+    check("the code agent's count that failed refuses the run", refused === AI_LIMIT_UNREADABLE, refused)
+    check("  answered 503 with a plain Try again, not a 429", limitStatus(refused ?? "") === 503 && /Try again/.test(AI_LIMIT_UNREADABLE))
+    check("  a publish (no model) still goes on a failed count, as before", (await publishRateLimit("s1")) === null)
+    fakeSupabase({ site_agent_runs: () => head(0) })
+    check("  a count that answered under the limit lets the run go", (await agentRateLimit("c1")) === null)
+    fakeSupabase({ site_agent_runs: () => head(6) })
+    const over = await agentRateLimit("c1")
+    check("  and one over it is still the 429 it was", over !== null && over !== AI_LIMIT_UNREADABLE && limitStatus(over) === 429)
+  } finally {
+    console.warn = quiet
+  }
+  const failing = { from: () => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: null, error: { message: "timeout" } }) }) }) }) }
+  check("the website builder's own count that failed refuses the run too", (await themeAgentLimit("c1", failing)) === AI_LIMIT_UNREADABLE)
+  const none = { from: () => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: [], error: null }) }) }) }) }
+  check("  a creator with no website yet is not refused", (await themeAgentLimit("c1", none)) === null)
+  const sitesAgent = read("app/api/sites/[siteId]/agent/route.ts")
+  check("every AI route answers the limit's own status, and the one-run-per-site read that failed refuses", [sitesAgent, read("app/api/website-builder/themes/[installId]/agent/route.ts"), read("app/api/website-builder/themes/[installId]/sections/code/route.ts")].every((r) => /status: limitStatus\((limited|busy)\)/.test(r) && !/\{ error: (limited|busy) \}, \{ status: 429 \}/.test(r)) && /if \(activeError\) return NextResponse\.json\(\{ error: AI_LIMIT_UNREADABLE \}, \{ status: 503 \}\)/.test(sitesAgent))
+}
+
 async function run() {
   const realFetch = globalThis.fetch
   try {
@@ -480,6 +509,7 @@ async function run() {
     await aiSitePublish()
     await slugCheck()
     await themePublish()
+    await aiLimits()
   } finally {
     globalThis.fetch = realFetch
   }
