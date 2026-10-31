@@ -5,14 +5,17 @@ import { stripe } from "@/lib/stripe"
 import { handleConnectAccountEvent, isConnectStatusEvent, resyncConnectedAccount } from "@/lib/stripe/connect-webhook"
 import { handleConnectPayoutEvent, isConnectPayoutEvent } from "@/lib/stripe/connect-payout-webhook"
 import { claimStripeEvent, noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { reportError } from "@/lib/observability/report"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
+/* A ceiling on one delivery; Stripe sends it again (as /api/stripe/webhook). */
+export const maxDuration = 60
 
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+/* The shared admin client: every database call with the request deadline of lib/net/deadline.ts, never undici's 300s. */
+const supabaseAdmin = createAdminClient()
 
 async function handlePOST(request: Request) {
   const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET

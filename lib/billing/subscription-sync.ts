@@ -273,15 +273,39 @@ export async function syncFromSubscriptionEvent(deps: SyncDeps, sub: StripeSubLi
   return { creator, plan }
 }
 
-/** Stripe's subscriptions.list for the sync: every status, bounded in time. */
-export function stripeListForSync(list: (params: any, options: any) => Promise<{ data: StripeSubLike[] }>, timeoutMs = WEBHOOK_STRIPE_TIMEOUT_MS) {
+/** At most this many pages of 20 per customer (LOW-10); a customer with more is an error, never a partial list. */
+export const SYNC_MAX_PAGES = 10
+
+/**
+ * Stripe's subscriptions.list for the sync: every status, EVERY PAGE, bounded in time.
+ *
+ * It read the first 20 only (LOW-10): a paying subscription older than 20
+ * newer ones (cancelled, incomplete) was not seen, and the sync could write
+ * Free. Now it follows has_more with starting_after, all pages within the
+ * one deadline. A list it could not finish (out of time, or more than
+ * SYNC_MAX_PAGES pages) throws like any Stripe failure: the sync writes Free
+ * only from a complete answer, so the webhook answers 500 and Stripe retries.
+ * One page, as before, for nearly every customer.
+ */
+export function stripeListForSync(list: (params: any, options: any) => Promise<{ data: StripeSubLike[]; has_more?: boolean }>, timeoutMs = WEBHOOK_STRIPE_TIMEOUT_MS, now: () => number = Date.now) {
   return async (customer: string): Promise<StripeSubLike[]> => {
-    const res = await withDeadline(
-      list({ customer, status: "all", limit: 20, expand: ["data.latest_invoice"] }, { timeout: timeoutMs }),
-      timeoutMs + 500,
-      "subscriptions.list",
-    )
-    return Array.isArray(res?.data) ? res.data : []
+    const deadline = now() + timeoutMs
+    const out: StripeSubLike[] = []
+    let after: string | undefined
+    for (let page = 0; page < SYNC_MAX_PAGES; page++) {
+      const left = deadline - now()
+      if (left <= 0) throw new Error("subscriptions.list: out of time before every page was read")
+      const res = await withDeadline(
+        list({ customer, status: "all", limit: 20, expand: ["data.latest_invoice"], ...(after ? { starting_after: after } : {}) }, { timeout: left }),
+        left + 500,
+        "subscriptions.list",
+      )
+      const data = Array.isArray(res?.data) ? res.data : []
+      out.push(...data)
+      if (!res?.has_more || data.length === 0) return out
+      after = data[data.length - 1].id
+    }
+    throw new Error(`subscriptions.list: more than ${SYNC_MAX_PAGES} pages for one customer`)
   }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

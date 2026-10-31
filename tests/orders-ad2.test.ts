@@ -207,7 +207,7 @@ async function main() {
     const hook = strip(read("app/api/stripe/webhook/route.ts"))
     check("the Checkout Session path no longer writes order_count 1 over the customer", !/order_count: 1,/.test(hook) && /await recordCustomer\(supabaseAdmin, \{ creatorId, email: buyerEmail/.test(hook))
     const customers = strip(read("app/app/customers/page.tsx"))
-    check("Customers matches an order to its customer whatever the address's case", /sameEmail\(o\.buyer_email, email\)/.test(customers) && !/o\.buyer_email === email/.test(customers) && /toLowerCase\(\)/.test(customers))
+    check("Customers matches an order to its customer whatever the address's case", /* Changed on purpose (round rel-db): one map by lower case address */ /ordersByEmail\.get\(emailKey\(email\)\)/.test(customers) && /trim\(\)\.toLowerCase\(\)/.test(customers) && !/o\.buyer_email === email/.test(customers) && /toLowerCase\(\)/.test(customers))
   }
 
   console.log("\n6. What can be refunded, and by whom")

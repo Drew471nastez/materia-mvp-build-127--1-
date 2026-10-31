@@ -39,8 +39,24 @@ const SUITES = [
   "tests/net-resilience.test.ts",
   /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
   "tests/auth-reliability.test.ts",
+  /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
+  "tests/auth-email-code.test.ts",
+  /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
+  "tests/auth-refresh-outage.test.ts",
+  /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
+  "tests/auth-sync-session-get.test.ts",
+  /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */
+  "tests/device-code-guard.test.ts",
+  /* Round rel-security (F2): the admin login is limited per caller address and warns loudly while its fallback credential is in use (the owner's fallback is kept). */
+  "tests/admin-login-limit.test.ts",
+  /* Round rel-security (F8): /auth/continue checks the token signature when Auth does not answer, so a signed in person is not sent to the login form during an outage. */
+  "tests/auth-continue-outage.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
+  /* Round rel-shared: community files checked at posting (size and bytes, not only at the optional complete step), the payout push to the user and awaited, run-wide deadlines for the community, physical, seo-index, warm-sites and notify crons, deadline-wrapped Supabase clients in the email cron and Mailgun webhook, cron partial failures reported, a Web Push timeout. */
+  "tests/rel-shared.test.ts",
+  /* Round rel-sites: public sites when the database is slow or away: an AI site's failed lookup is a 503 with Retry-After (never a 404 or a 301) and its last live copy is held; a Creator Page's failed profile or creator read is the error screen, never the gate's 308 or a 404; a OnePage lookup that failed or ran out serves the last answer for the name or the error screen, never "missing"; an AI site publish whose switch did not take puts the live version back; an AI site address check that failed stops the publish (fail closed); a theme publish the database cancelled (57014, PGRST002) is asked once more, within a stated two minutes; Storelib AI limits whose count cannot be read refuse the run (503, Try again); a theme's draft stylesheets, scripts and settings are served only with the install's signed pass; a theme site's last good copy is kept by use and its held name and install entries outlive a deploy; a creator name is matched literally (`_` and `%` escaped). */
+  "tests/rel-sites.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
@@ -939,6 +955,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
   "tests/db-load-isolation.test.ts",
+  /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
+  "tests/rel-db-dashboard.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
@@ -1095,6 +1113,8 @@ const STRICT_SUITES = [
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /* Reliability (commerce): money paths under a failing Stripe or database, through the real routes (tests/_journey): a confirm that failed is never "nothing was charged" and Pay again reuses the same intent; a payout whose wallet step failed is retried by Stripe, and posted once; a library entry whose write failed is retried by the sweep; webhook database errors answer 500, and an early invoice is kept; a Connect PermissionError disconnects nobody while the platform key fails its own check; the payouts page makes one read, kept half a minute per person, and keeps what it showed when Stripe is unavailable; the plan sync reads every page of subscriptions; a hung database call ends at the shared deadline instead of holding a webhook. */
+  "tests/rel-commerce.test.ts",
   /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
   "tests/e2e-personalization.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */

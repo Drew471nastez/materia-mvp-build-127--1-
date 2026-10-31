@@ -3,6 +3,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
 import { isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
+import { declineMessage, isCardDecline, rereadIntent, settledFrom, UNKNOWN_BODY } from "@/lib/checkout/confirm-outcome"
 
 export const runtime = "nodejs"
 
@@ -21,7 +22,12 @@ export const runtime = "nodejs"
  * 3-D Secure return address has to be on this site.
  *
  * Answers { status: "succeeded" }, { status: "requires_action", actionUrl },
- * { status } or { error } (4xx).
+ * { status } or { error } (4xx). A Stripe error that is not a declined card
+ * (a timeout, a 5xx, a dropped connection, an idempotency conflict) is never
+ * answered "nothing was charged": the PaymentIntent is read again and the
+ * answer is its real status, or 503 { status: "unknown" } when Stripe still
+ * cannot say, which the page answers by keeping this same PaymentIntent for
+ * the next press (lib/checkout/confirm-outcome.ts).
  */
 export async function POST(request: Request) {
   let body: { paymentIntentId?: unknown; clientSecret?: unknown; paymentMethodId?: unknown; returnUrl?: unknown }
@@ -49,12 +55,18 @@ export async function POST(request: Request) {
   const site = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
   const returnUrl = sameSite(body.returnUrl, site, request) ?? `${site.replace(/\/$/, "")}/checkout`
 
+  let current: Stripe.PaymentIntent
   try {
-    const current = await stripe.paymentIntents.retrieve(paymentIntentId)
-    if (current.client_secret !== clientSecret || !isCheckoutIntent(current)) {
-      return NextResponse.json({ error: "That payment could not be found." }, { status: 404 })
-    }
+    current = await stripe.paymentIntents.retrieve(paymentIntentId)
+  } catch {
+    /* Nothing was confirmed yet, so nothing was charged by this request; the page may press again with the same intent. */
+    return NextResponse.json({ error: "We couldn't reach our payment partner just now. Nothing was charged. Try again in a moment." }, { status: 503 })
+  }
+  if (current.client_secret !== clientSecret || !isCheckoutIntent(current)) {
+    return NextResponse.json({ error: "That payment could not be found." }, { status: 404 })
+  }
 
+  try {
     const pi = await stripe.paymentIntents.confirm(paymentIntentId, { payment_method: paymentMethodId, return_url: returnUrl })
     if (pi.status === "succeeded") return NextResponse.json({ status: "succeeded" })
     if (pi.status === "requires_action") {
@@ -63,10 +75,16 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ status: pi.status })
   } catch (err) {
-    const e = err as { type?: string; raw?: { message?: string }; message?: string }
-    /* The bank's words for a declined card are the useful ones; anything else is plumbing. */
-    const message = e?.type === "StripeCardError" ? e.raw?.message || e.message : null
-    return NextResponse.json({ error: message || "The payment did not go through. Nothing was charged." }, { status: 400 })
+    /* The bank's words for a declined card are the useful ones, and only a declined card is a sure "no". */
+    if (isCardDecline(err)) return NextResponse.json({ error: declineMessage(err) }, { status: 400 })
+    /* Anything else may sit over a payment that went through: Stripe is asked again what this one did. */
+    const again = await rereadIntent(() => stripe.paymentIntents.retrieve(paymentIntentId, {}, { timeout: 5_000, maxNetworkRetries: 0 }))
+    const settled = settledFrom(again)
+    console.warn("[confirm-with-pm] confirm error, read again:", (err as { type?: string })?.type ?? "unknown", settled.kind)
+    if (settled.kind === "paid") return NextResponse.json({ status: settled.status })
+    if (settled.kind === "action") return NextResponse.json({ status: "requires_action", actionUrl: settled.actionUrl })
+    if (settled.kind === "canceled") return NextResponse.json({ error: "This payment was cancelled. Nothing was charged. Reload the page to pay again." }, { status: 409 })
+    return NextResponse.json(UNKNOWN_BODY, { status: 503 })
   }
 }
 

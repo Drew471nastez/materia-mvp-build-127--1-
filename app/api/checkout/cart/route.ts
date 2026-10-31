@@ -8,7 +8,7 @@ import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
-import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
+import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
@@ -583,7 +583,7 @@ async function handlePOST(request: Request) {
     */
     const destination = String(creator.stripe_account_id || "")
     if (destination && (/destination/i.test(error?.param ?? "") || /destination|connected account/i.test(error?.message ?? ""))) {
-      const gone = await stripe.accounts.retrieve(destination).then(() => false, (e: unknown) => accountIsGone(e))
+      const gone = await stripe.accounts.retrieve(destination).then(() => false, (e: unknown) => accountGoneFromPlatform(e))
       if (gone) {
         await releaseConnectedAccount(creator.id, destination, "legacy_platform").catch((e) =>
           console.error("[checkout/cart] release", e instanceof Error ? e.message.slice(0, 160) : "unknown"),

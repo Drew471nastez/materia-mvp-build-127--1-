@@ -207,7 +207,9 @@ async function main() {
   check("over a member's limit: refused with the limit; staff may", !big.ok && (big as { status?: number }).status === 413 && (await prepareCommunityFile(storageStub() as never, { community, viewer: viewer(), staff: true, fileName: "big.zip", fileSize: MEMBER_FILE_MAX_BYTES + 1, contentType: "application/zip" })).ok)
   check("no creator account, no files", !(await prepareCommunityFile(storageStub() as never, { community: { ...community, creator_id: null } as CommunityRow, viewer: viewer(), staff: false, fileName: "a.pdf", fileSize: 10, contentType: "application/pdf" })).ok)
   const there = storageStub({ [`${U(800)}/community-files/${U(900)}/${U(1)}/${U(7)}.pdf`]: 1000 })
-  const exists = await communityFilesExist(there as never, community, U(1), [{ fileId: U(7), name: "Plan.pdf" }])
+  /* Posting also inspects the stored bytes (tests/rel-shared.test.ts covers that); here an inspection that passes, as for a real PDF. */
+  const passing = { checks: { inspect: (async () => ({ ok: true, code: "accepted", userMessage: "", detail: "", detectedType: "application/pdf", safeName: "Plan.pdf", notes: [] })) as never } }
+  const exists = await communityFilesExist(there as never, community, U(1), [{ fileId: U(7), name: "Plan.pdf" }], passing)
   check("at posting, the file must be in the poster's own folder", exists.ok && exists.value.get(U(7)) === "Plan.pdf")
   check("somebody else's file id is not found under my id", !(await communityFilesExist(there as never, community, U(2), [{ fileId: U(7), name: "Plan.pdf" }])).ok)
   check("renaming it to another kind at posting finds nothing", !(await communityFilesExist(there as never, community, U(1), [{ fileId: U(7), name: "Plan.exe" }])).ok)

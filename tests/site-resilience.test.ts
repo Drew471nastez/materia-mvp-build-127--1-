@@ -36,7 +36,7 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
   console.log("\nWhere it is used\n")
   const site = read("lib/website-builder/published-site.ts")
   check("the native site reads its name, install and pages this way", (site.match(/siteRead\(/g) ?? []).length >= 5 && site.includes('siteRead("published install"') && site.includes('siteRead("pages"'))
-  check("  and serves the last good copy when a read throws", /const lastGood = new Map/.test(site) && /served the last good copy/.test(site))
+  check("  and serves the last good copy when a read throws", /* Changed on purpose (round rel-sites): kept by use, not arrival (lib/website-builder/last-good.ts). */ /const lastGood = new LastGood</.test(site) && /served the last good copy/.test(site))
   const compat = read("lib/website-builder/compat-site.ts")
   check("an imported theme's files are never held half read", compat.includes('throw new SiteReadError("theme files"'))
   check("  its install and pages are read this way, with a last good copy", compat.includes('siteRead("published install"') && compat.includes('siteRead("pages"') && compat.includes("lastGoodSite"))

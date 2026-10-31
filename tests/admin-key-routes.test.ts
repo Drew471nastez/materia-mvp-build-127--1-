@@ -65,6 +65,8 @@ const PROOFS: [string, RegExp][] = [
   ["the signed-in creator's own site", /await ownInstall\(/],
   /* GitHub's HMAC over the exact body, checked before the body is parsed. */
   ["GitHub's signature on the payload", /verifySignature\(raw, req\.headers\.get\("x-hub-signature-256"\)/],
+  /* Mailgun's HMAC (timestamp + token, the account's signing key, constant time), refused before anything is read or written; tests/mailgun-signature.test.ts. Listed since the route moved to createAdminClient (rel-shared). */
+  ["Mailgun's signature on the delivery", /if \(!verifyWebhookSignature\(body\?\.signature\)\)/],
   /* lib/automations/flow-io.ts: auth.getUser(), then the creator by user id,
      and every flow read by that creator id. */
   ["the signed-in creator, for an automation", /await signedInCreator\(\)[\s\S]*\.eq\("creator_id", me\.creatorId\)/],
@@ -112,6 +114,10 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round rel-db: these three always used the service role through a hand-built client, which this check did not see; they now use createAdminClient (a deadline on every request), so they are listed with what guards them. Unchanged behaviour. */
+  "domains/cleanup/route.ts": "the domain cleanup job: a POST whose body carries CRON_SECRET (or DOMAIN_CLEANUP_SECRET), compared with matchesSecret and failing closed with neither set; only then are expired domain_redirects read and removed",
+  "security/confirm-device/route.ts": "a buyer confirming a new device for a purchase, before any session: acts only when the order id and the unexpired, unused verification code sent to that order's email match",
+  "security/verify-email/route.ts": "a buyer asking for a device code for a purchase, before any session: the order is read by id and a code is sent only to the email the order was bought with, rate limited per order (claimVerificationSend)",
   "cart/prices/route.ts": "a website visitor's saved cart priced again after the store changed its currency: answers only the published prices of that store's own products, the same every product page shows, and changes nothing (checkout prices the order again)",
   // Sign-up and password recovery: the caller has no session yet, by definition.
   "team/join/sign-in/route.ts": "Log in to accept on a team invite: before there is a session by definition; reads only the invite the link's token names, keeps that token in a short lived httpOnly cookie for after sign in, and changes nothing",

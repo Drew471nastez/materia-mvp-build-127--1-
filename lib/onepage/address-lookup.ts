@@ -45,7 +45,30 @@ function history<T>(answer: Answer<T>): T | null {
   return must(answer)
 }
 
-export function supabaseOnePageLookup<Row = Record<string, unknown>>(supabase: SupabaseClient, columns = "*"): OnePageAddressLookup<Row> {
+/**
+ * `attemptMs`, when given, ends each query at that limit (its request
+ * aborted): a lookup that does not answer is a failed lookup, which throws,
+ * never one that holds the page for as long as the database takes. The proxy
+ * keeps its own race and passes none.
+ */
+export function supabaseOnePageLookup<Row = Record<string, unknown>>(
+  db: SupabaseClient,
+  columns = "*",
+  { attemptMs }: { attemptMs?: number } = {},
+): OnePageAddressLookup<Row> {
+  /* Every query's `from`, with its own deadline when one was asked for. */
+  const supabase = (attemptMs
+    ? {
+        /* Every query here is `from(table).select(...)`, so the deadline goes on at select. */
+        from: (table: string) => ({
+          select: (cols: string) => {
+            const q = db.from(table).select(cols)
+            /* supabase-js always has it; a hand-made client may not, and then has no deadline to give. */
+            return typeof q.abortSignal === "function" ? q.abortSignal(AbortSignal.timeout(attemptMs)) : q
+          },
+        }),
+      }
+    : db) as unknown as SupabaseClient
   const published = () => supabase.from("onepages").select(columns).eq("status", "published")
 
   return {

@@ -380,10 +380,18 @@ function byRecipient(jobs: readonly JobRow[]): JobRow[][] {
  * Events first, then due jobs, batch after batch until nothing is left or
  * the budget is spent. What is left is in the tables for the next run.
  */
-export async function runWork(deps: EngineDeps, budgetMs: number): Promise<WorkSummary> {
+export async function runWork(deps: EngineDeps, budgetMs: number, opts: { hardStopMs?: number } = {}): Promise<WorkSummary> {
   const summary = emptySummary()
   const started = Date.now()
   const left = () => budgetMs - (Date.now() - started)
+  /*
+    THE BATCH IN HAND ENDS TOO. `budgetMs` stops new claims, but a batch of 20
+    claimed just before it could still run past the function's limit (a
+    person's jobs one after another, each an email). Past `hardStopMs` no
+    further job is started: each is handed back as it was (not counted as an
+    attempt) for the next run, instead of waiting out its lease.
+  */
+  const pastHardStop = () => opts.hardStopMs !== undefined && Date.now() - started >= opts.hardStopMs
   const batch = deps.batch ?? 20
   const concurrency = deps.concurrency ?? CONCURRENCY
 
@@ -413,6 +421,11 @@ export async function runWork(deps: EngineDeps, budgetMs: number): Promise<WorkS
      */
     await pool(byRecipient(jobs), concurrency, async (lane) => {
       for (const job of lane) {
+        if (pastHardStop()) {
+          await deps.store.rescheduleJob(job.id, deps.worker, iso(Date.now()), null, false).catch(() => false)
+          summary.stoppedForTime = true
+          continue
+        }
         let outcome: JobOutcome
         try {
           outcome = await processJob(deps, job)
@@ -429,7 +442,7 @@ export async function runWork(deps: EngineDeps, budgetMs: number): Promise<WorkS
       }
     })
   }
-  summary.stoppedForTime = left() <= 2_000
+  summary.stoppedForTime = summary.stoppedForTime || left() <= 2_000
   return summary
 }
 

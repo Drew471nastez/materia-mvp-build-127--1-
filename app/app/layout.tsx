@@ -154,7 +154,8 @@ export default async function AppLayout({
     const creator = team?.store ?? own
     if (!creator) return null
     return Promise.all([
-      supabase.from("products").select("id").eq("creator_id", creator.id),
+      /* One row is enough: the ring asks only whether there is a product (lib/home/progress, products > 0). */
+      supabase.from("products").select("id").eq("creator_id", creator.id).limit(1),
       supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
       supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
       supabase
@@ -182,9 +183,10 @@ export default async function AppLayout({
   const shellReads = Promise.all([
     profileOrThrowForRequest(user.id),
     creatorOrThrowForRequest(user.id),
+    /* Whether the OnePage is published, nothing more: its whole draft document (draft_blocks) was read here on every navigation and dropped. */
     supabase
       .from("onepages")
-      .select("id, avatar_url, published, draft_blocks, bio")
+      .select("id, status")
       .eq("owner_id", user.id)
       .maybeSingle(),
     /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
@@ -313,7 +315,7 @@ export default async function AppLayout({
           displayName={displayName}
           stripeConnected={!!creator.stripe_account_id}
           stripeStatus={creator.stripe_onboarding_status || "not_connected"}
-          onePagePublished={!!onepage}
+          onePagePublished={onepage?.status === "published"}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
           communitiesEnabled={communitiesOn}

@@ -124,7 +124,7 @@ export async function publishPreflight(): Promise<string | null> {
  * silently move a page somebody has already linked to; changing the address is
  * a separate, deliberate action.
  */
-async function ensureSlug(site: Site): Promise<string> {
+export async function ensureSlug(site: Site): Promise<string> {
   if (site.slug && !siteSlugError(site.slug)) return site.slug
 
   const admin = createAdminClient()
@@ -135,10 +135,12 @@ async function ensureSlug(site: Site): Promise<string> {
      * would report every taken address as free — and then the unique index
      * would reject the insert with an error nobody could explain.
      */
-    const { count } = await admin
+    const { count, error } = await admin
       .from("sites")
       .select("id", { count: "exact", head: true })
       .eq("slug", candidate.toLowerCase())
+    /* A count that failed is not zero: the address is not known to be free, so the publish stops (fail closed). */
+    if (error) throw new SlugCheckFailed(error.message)
     if ((count ?? 0) > 0) return true
 
     /**
@@ -151,25 +153,38 @@ async function ensureSlug(site: Site): Promise<string> {
      * — and it would shadow the redirect that keeps that creator's old
      * subdomain links working.
      */
-    const { count: usernameCount } = await admin
+    const { count: usernameCount, error: usernameError } = await admin
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("username", candidate.toLowerCase())
+    if (usernameError) throw new SlugCheckFailed(usernameError.message)
     if ((usernameCount ?? 0) > 0) return true
 
     // ...and by creator slug, the OTHER way storelib.com/<name> resolves.
     // Reserving only usernames would leave every slug-addressed creator's
     // name free for a stranger to publish on.
-    const { count: creatorCount } = await admin
+    const { count: creatorCount, error: creatorError } = await admin
       .from("creators")
       .select("id", { count: "exact", head: true })
       .eq("slug", candidate.toLowerCase())
+    if (creatorError) throw new SlugCheckFailed(creatorError.message)
     return (creatorCount ?? 0) > 0
   })
 
-  await admin.from("sites").update({ slug }).eq("id", site.id)
+  /* Kept, or the next publish allocates again and the address moves. */
+  const { error: keepError } = await admin.from("sites").update({ slug }).eq("id", site.id)
+  if (keepError) throw new SlugCheckFailed(keepError.message)
   return slug
 }
+
+/** The address could not be checked or kept: the publish stops before anything goes up. */
+export class SlugCheckFailed extends Error {
+  constructor(why?: string) {
+    super(`site address check failed: ${why || "the read failed"}`)
+    this.name = "SlugCheckFailed"
+  }
+}
+export const SLUG_CHECK_FAILED = "Could not check this site's address right now, so nothing was published. Try again in a moment."
 
 /** The built site, as files ready to upload. */
 export async function buildStatic(
@@ -302,7 +317,14 @@ export async function publishSite(site: Site): Promise<PublishResult> {
     }
   }
 
-  const slug = await ensureSlug(site)
+  let slug: string
+  try {
+    slug = await ensureSlug(site)
+  } catch (e) {
+    if (!(e instanceof SlugCheckFailed)) throw e
+    console.error("[sites/publish] address not checked", { siteId: site.id, message: e.message })
+    return { ok: false, error: SLUG_CHECK_FAILED }
+  }
 
   const { data: created, error: createError } = await admin
     .from("site_deployments")
@@ -373,50 +395,159 @@ export async function publishSite(site: Site): Promise<PublishResult> {
     return { ok: false, error: "Could not upload the site.", details: [detail] }
   }
 
-  /**
-   * THE SWITCH. Old pointer down, new pointer up.
-   *
-   * Between these two statements a site has no live deployment for a few
-   * milliseconds, which serves a 404 — the alternative is setting the new one
-   * first, which trips the unique index and leaves the OLD one live and the
-   * new one marked failed. A brief miss is recoverable; a publish that
-   * silently did not take is not.
-   */
-  await admin
-    .from("site_deployments")
-    .update({ is_live: false })
-    .eq("site_id", site.id)
-    .eq("is_live", true)
-
   const publishedAt = new Date().toISOString()
-  const { error: liveError } = await admin
-    .from("site_deployments")
-    .update({
-      status: "ready",
-      is_live: true,
-      storage_prefix: prefix,
-      file_count: Object.keys(built.output).length,
-      bytes,
-      published_at: publishedAt,
-      finished_at: publishedAt,
-    })
-    .eq("id", deploymentId)
-
-  if (liveError) {
-    return { ok: false, error: "The site built but could not go live. Try again." }
+  const switched = await goLive(admin as unknown as SwitchDb & RpcDb, site.id, deploymentId, {
+    status: "ready",
+    storage_prefix: prefix,
+    file_count: Object.keys(built.output).length,
+    bytes,
+    published_at: publishedAt,
+    finished_at: publishedAt,
+  })
+  if (switched.ok === false) {
+    return { ok: false, error: switched.error }
   }
 
-  await admin
-    .from("sites")
-    .update({
-      status: "published",
-      published_deployment_id: deploymentId,
-      published_revision: revision,
-      published_at: publishedAt,
-    })
-    .eq("id", site.id)
+  const siteFields = {
+    status: "published",
+    published_deployment_id: deploymentId,
+    published_revision: revision,
+    published_at: publishedAt,
+  }
+  /* The site is live by now; this row only says so. Asked again once, and logged if it still does not take: the next publish writes it. */
+  let { error: siteError } = await admin.from("sites").update(siteFields).eq("id", site.id)
+  if (siteError) ({ error: siteError } = await admin.from("sites").update(siteFields).eq("id", site.id))
+  if (siteError) {
+    console.error("[sites/publish] live, but the site row was not updated", { siteId: site.id, deploymentId, code: siteError.code, message: siteError.message })
+  }
 
   return { ok: true, url: publishedUrl(slug), slug, deploymentId, revision }
+}
+
+/* The few calls the switch makes, so it can be driven by a fake in tests. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SwitchDb = { from: (table: string) => any }
+type DbError = { code?: string; message?: string } | null
+
+export const SWITCH_FAILED = "The site built but could not go live. Nothing that was live has changed. Try again."
+export const SWITCH_RESTORE_FAILED = "The site built but could not go live, and the version that was live could not be put back. Publish again to bring it back."
+
+/**
+ * ===========================================================================
+ *  THE SWITCH: OLD POINTER DOWN, NEW POINTER UP, AND BACK IF IT DID NOT TAKE
+ * ===========================================================================
+ * Two statements, because the unique index on (site_id) WHERE is_live
+ * refuses the new pointer while the old one is up. Between them a site has no
+ * live deployment for a few milliseconds, which the serving route answers
+ * with the held copy or a 503.
+ *
+ * Neither result used to be read. If "new up" failed (a statement timeout
+ * when the database is slow), the old pointer stayed down and the site
+ * answered "Site not found" until the creator published again. Now:
+ *
+ *   - which deployment is live is read first, so it can be put back;
+ *   - "old down" failing changes nothing (one statement), so the publish stops;
+ *   - "new up" failing puts the old pointer back (asked twice), unless the
+ *     new one did go live after all (the unique index refuses the old one
+ *     with 23505, and a re-read confirms it), and marks the new one failed.
+ *
+ * A single-transaction switch needs a database function (SQL part 348,
+ * switch_site_deployment): until it has run, this is the path.
+ */
+export async function switchLiveDeployment(
+  db: SwitchDb,
+  siteId: string,
+  deploymentId: string,
+  fields: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const liveNow = async (): Promise<{ id: string | null; error: DbError }> => {
+    const { data, error } = await db.from("site_deployments").select("id").eq("site_id", siteId).eq("is_live", true).maybeSingle()
+    return { id: (data as { id?: string } | null)?.id ?? null, error }
+  }
+  const markFailed = (why: string) =>
+    db
+      .from("site_deployments")
+      .update({ status: "failed", error: why, finished_at: new Date().toISOString() })
+      .eq("id", deploymentId)
+      .eq("is_live", false)
+
+  const before = await liveNow()
+  if (before.error) {
+    await markFailed("could not read the live deployment")
+    console.error("[sites/publish] switch not started: live read failed", { siteId, code: before.error.code, message: before.error.message })
+    return { ok: false, error: SWITCH_FAILED }
+  }
+  const previousId = before.id
+
+  if (previousId) {
+    const { error: downError } = await db.from("site_deployments").update({ is_live: false }).eq("site_id", siteId).eq("is_live", true)
+    if (downError) {
+      await markFailed("could not take the old version down")
+      console.error("[sites/publish] switch not started: old pointer kept", { siteId, code: downError.code, message: downError.message })
+      return { ok: false, error: SWITCH_FAILED }
+    }
+  }
+
+  const { error: liveError } = await db.from("site_deployments").update({ ...fields, is_live: true }).eq("id", deploymentId)
+  if (!liveError) return { ok: true }
+
+  console.error("[sites/publish] new pointer did not go up", { siteId, deploymentId, code: liveError.code, message: liveError.message })
+  if (!previousId) {
+    await markFailed(liveError.message || "could not go live")
+    return { ok: false, error: SWITCH_FAILED }
+  }
+
+  let restoreError: DbError = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    ;({ error: restoreError } = await db.from("site_deployments").update({ is_live: true }).eq("id", previousId))
+    if (!restoreError) break
+    if (restoreError.code === "23505") {
+      /* Something is live already: the new one, if its update took after all. */
+      const after = await liveNow()
+      if (after.id === deploymentId) return { ok: true }
+      if (after.id) break
+    }
+  }
+  if (!restoreError) {
+    await markFailed(liveError.message || "could not go live")
+    return { ok: false, error: SWITCH_FAILED }
+  }
+  console.error("[sites/publish] OLD POINTER NOT RESTORED: site has no live deployment", { siteId, previousId, code: restoreError.code, message: restoreError.message })
+  return { ok: false, error: SWITCH_RESTORE_FAILED }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RpcDb = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: any; error: DbError }> }
+
+/** The database has no such function yet (its SQL part has not run): PostgREST's code, or Postgres's. */
+function noSuchFunction(error: DbError): boolean {
+  return !!error && (error.code === "PGRST202" || error.code === "42883")
+}
+
+/**
+ * THE SWITCH IN ONE TRANSACTION when SQL part 348 has run
+ * (switch_site_deployment), and the two-step switch with its way back when it
+ * has not. The function's failure changes nothing, so the old version is
+ * still live; an answer that was lost is checked by reading what is live.
+ */
+export async function goLive(
+  db: SwitchDb & RpcDb,
+  siteId: string,
+  deploymentId: string,
+  fields: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await db.rpc("switch_site_deployment", { p_site: siteId, p_deployment: deploymentId, p_fields: fields })
+  if (!error) return { ok: true }
+  if (noSuchFunction(error)) return switchLiveDeployment(db, siteId, deploymentId, fields)
+  const { data: live } = await db.from("site_deployments").select("id").eq("site_id", siteId).eq("is_live", true).maybeSingle()
+  if ((live as { id?: string } | null)?.id === deploymentId) return { ok: true }
+  console.error("[sites/publish] switch in one step failed; nothing changed", { siteId, deploymentId, code: error.code, message: error.message })
+  await db
+    .from("site_deployments")
+    .update({ status: "failed", error: error.message || "could not go live", finished_at: new Date().toISOString() })
+    .eq("id", deploymentId)
+    .eq("is_live", false)
+  return { ok: false, error: SWITCH_FAILED }
 }
 
 /** Take a site offline without deleting anything it built. */

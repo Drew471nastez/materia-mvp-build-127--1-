@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { ROLLUP } from "@/lib/analytics/events"
 import { recordCronRun } from "@/lib/observability/report"
+import { rollupFailures, statusForFailures } from "@/lib/observability/step-failures"
 import { rollupAndScorePerfDay, type DailyPerfResult } from "@/lib/perf/daily"
 import { rollupPendingSiteDays } from "@/lib/website-builder/web-performance-read"
 
@@ -171,7 +172,10 @@ export async function POST(request: Request) {
       results.push({ date, rows: null, properties: property.error ? null : (property.data as number), propertiesError: property.error?.message, backfill: true })
     }
 
-    return NextResponse.json({ success: true, results, perf, sites })
+    /* A step that failed makes the run fail (500), so recordCronRun records it and alerts (lib/observability/step-failures.ts). */
+    const failed = rollupFailures(results, perf, sites)
+    if (failed.length) console.error(`[cron/rollup-daily] ${failed.length} steps failed: ${failed.slice(0, 5).join("; ")}`)
+    return NextResponse.json({ success: failed.length === 0, failed, results, perf, sites }, { status: statusForFailures(failed) })
   } catch (error) {
     console.error("[cron/rollup-daily] Error:", error)
     return NextResponse.json(

@@ -3082,69 +3082,51 @@ function SwitchAccountPanel({
 
 // ─── Payouts History List ─────────────────────────────────────────────────────
 
+/**
+ * The payouts list, drawn from the one read PayoutsClient makes (MEDIUM-4: it used to fetch /api/stripe/payouts
+ * itself, beside PayoutsClient's own fetch of the same answer). null: not read yet. `stale`: the last refresh could
+ * not reach Stripe, so these are the rows last shown, with a quiet note (MEDIUM-5), never an empty list.
+ */
 function PayoutsHistoryList({
-  refreshKey,
+  payouts,
+  loadError,
+  stale = false,
   page = 0,
   pageSize = 10,
-  onCountChange,
 }: {
-  refreshKey: number;
+  payouts: StripePayout[] | null;
+  loadError: string | null;
+  stale?: boolean;
   page?: number;
   pageSize?: number;
-  onCountChange?: (count: number) => void;
 }) {
-  const [payouts, setPayouts] = useState<StripePayout[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const hasLoadedOnce = useRef(false);
+  if (payouts === null && !loadError) {
+    return <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} />;
+  }
 
-  const load = useCallback(async () => {
-    // Only the first load waits visibly; later refreshes are silent
-    if (!hasLoadedOnce.current) setLoading(true);
-    setError(null);
-    try {
-      const r = await fetch("/api/stripe/payouts");
-      const json = await r.json();
-      if (json.error) throw new Error(json.error);
-      setPayouts(json.payouts || []);
-      hasLoadedOnce.current = true;
-    } catch (e: any) {
-      // Only show error on first load; a background refresh fails quietly
-      if (!hasLoadedOnce.current) setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load, refreshKey]);
-
-  useEffect(() => {
-    onCountChange?.(payouts.length);
-  }, [payouts.length, onCountChange]);
+  if (payouts === null) {
+    return (
+      <div className="flex items-center justify-center gap-2 px-6 py-12 text-center">
+        <AlertCircle className="h-4 w-4 text-[#b42318]" />
+        <p className="text-[13px] text-[#b42318]">{loadError}</p>
+      </div>
+    );
+  }
 
   const visiblePayouts = payouts.slice(
     page * pageSize,
     page * pageSize + pageSize,
   );
-
-  if (loading) {
-    return <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} />;
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-center">
-        <AlertCircle className="h-4 w-4 text-[#b42318]" />
-        <p className="text-[13px] text-[#b42318]">{error}</p>
-      </div>
-    );
-  }
+  const staleNote = stale ? (
+    <p data-payouts-stale="" role="status" className="px-4 pb-1 pt-3 text-[12px] text-[#6b7280]">
+      {tt("Couldn't refresh just now. Showing the last list we had.")}
+    </p>
+  ) : null;
 
   if (!payouts.length) {
     return (
       <div data-empty="" className="flex flex-col items-center px-6 py-14 text-center">
+        {staleNote}
         <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No payouts yet")}</p>
         <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">
           {tt("Every cash out to your bank shows up here, with the day it arrives.")}
@@ -3158,6 +3140,7 @@ function PayoutsHistoryList({
 
   return (
     <>
+      {staleNote}
       {/* A phone: one 64px row per payout, the amount and its days, the status at the right. */}
       <ul aria-label={tt("Payouts")} className="md:hidden">
         {visiblePayouts.map((p) => {
@@ -3297,10 +3280,14 @@ export function PayoutsClient({
   const [salesFilter, setSalesFilter] = useState<SalesFilter>("all");
   const [recentPage, setRecentPage] = useState(0);
   const [isPageLoading, setIsPageLoading] = useState(false);
-  const [payoutCount, setPayoutCount] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null);
   const [refundOnOpen, setRefundOnOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  /* The payouts list: null until the first read answers; kept as last shown when a refresh cannot reach Stripe. */
+  const [payoutRows, setPayoutRows] = useState<StripePayout[] | null>(null);
+  const [payoutsLoadError, setPayoutsLoadError] = useState<string | null>(null);
+  /* The last refresh did not get everything from Stripe: the page shows what it had, with a quiet note. */
+  const [refreshStale, setRefreshStale] = useState(false);
+  const payoutsShown = useRef(false);
   /* Raised by a notice or Update bank: opens the Storelib Payments card's account form on this page. */
   const [manageRequest, setManageRequest] = useState(0);
   /* A notice opens Stripe's setup for what is still due. Update bank does not. */
@@ -3363,14 +3350,28 @@ export function PayoutsClient({
   const payoutsEnabled = creator.payouts_enabled !== false;
   const { toast } = useToast();
 
-  const refreshBalances = useCallback(async () => {
-    setRefreshKey((k) => k + 1);
-
+  /*
+    ONE READ FOR THE WHOLE PAGE (MEDIUM-4). The figures and the payouts list come from this one answer; the list no
+    longer fetches its own. A user action (a cash out, a refund, pull to refresh) asks the server for a fresh read;
+    a background tick takes the server's half minute answer. A part Stripe did not give this time (`unavailable`,
+    MEDIUM-5) keeps what the page last showed, and a failed refresh keeps everything, with a quiet note.
+  */
+  const refreshBalances = useCallback(async (opts?: { fresh?: boolean }) => {
     try {
-      const r = await fetch("/api/stripe/payouts");
+      const r = await fetch(opts?.fresh ? "/api/stripe/payouts?fresh=1" : "/api/stripe/payouts");
       const json = await r.json();
+      if (!r.ok || json.error) throw new Error("payouts read failed");
+      const missing = (json.unavailable ?? {}) as { payouts?: boolean; balance?: boolean; account?: boolean; pending?: boolean };
+      setRefreshStale(!!(missing.payouts || missing.balance || missing.account || missing.pending));
+      if (!missing.payouts) {
+        setPayoutRows(Array.isArray(json.payouts) ? json.payouts : []);
+        setPayoutsLoadError(null);
+        payoutsShown.current = true;
+      } else if (!payoutsShown.current) {
+        setPayoutsLoadError(tt("Payouts couldn't be loaded just now. They'll show here in a moment."));
+      }
       /* Stripe's balance, in the currency it holds it in: below zero stays below zero. */
-      const picked = pickBalance(json.balance, json.balanceCurrency);
+      const picked = missing.balance ? null : pickBalance(json.balance, json.balanceCurrency);
       const shownCurrency = picked?.currency ?? (typeof json.balanceCurrency === "string" ? json.balanceCurrency : null);
       if (picked) {
         setBalanceCurrency(picked.currency);
@@ -3379,10 +3380,10 @@ export function PayoutsClient({
       } else if (shownCurrency) {
         setBalanceCurrency(shownCurrency);
       }
-      if (Array.isArray(json.upcoming)) setUpcoming(json.upcoming);
+      if (Array.isArray(json.upcoming) && !missing.pending) setUpcoming(json.upcoming);
       if (typeof json.payoutScheduleDelay === "number") setSettleDays(json.payoutScheduleDelay);
       // Payout status for the notice and the On the way figure, in the balance's currency
-      if (json.payouts) {
+      if (json.payouts && !missing.payouts) {
         const payouts = json.payouts as Array<{ status: string; amount: number; currency?: string }>;
         const same = (p: { currency?: string }) => !shownCurrency || (p.currency || "").toLowerCase() === shownCurrency.toLowerCase();
         setLatestPayoutStatus({
@@ -3408,11 +3409,14 @@ export function PayoutsClient({
       setBalanceReady(true);
       setPayoutsRead(true);
     } catch {
-      // On error, still show values so the figures do not stay soft forever
+      /* On error the figures and the list stay as last shown (never emptied), so they do not stay soft forever either. */
       setBalanceReady(true);
       setPayoutsRead(true);
+      setRefreshStale(true);
+      if (!payoutsShown.current) setPayoutsLoadError(tt("Payouts couldn't be loaded just now. They'll show here in a moment."));
     }
   }, []);
+  const payoutCount = payoutRows?.length ?? 0;
 
   const openOrderDetails = useCallback((order: OrderPayment, refund = false) => {
     setRefundOnOpen(refund);
@@ -3483,7 +3487,7 @@ export function PayoutsClient({
   const onPullRefresh = useCallback(
     () =>
       Promise.all([
-        refreshBalances(),
+        refreshBalances({ fresh: true }),
         new Promise<void>((resolve) => {
           ordersArrived.current = resolve;
           router.refresh();
@@ -3495,7 +3499,7 @@ export function PayoutsClient({
 
   /* ── The cash out ─────────────────────────────────────────────────────── */
   const onWithdrawn = useCallback(() => {
-    refreshBalances();
+    refreshBalances({ fresh: true });
     setRecentTab("payouts");
     setRecentPage(0);
   }, [refreshBalances]);
@@ -3873,10 +3877,11 @@ export function PayoutsClient({
         >
           {recentTab === "payouts" ? (
             <PayoutsHistoryList
-              refreshKey={refreshKey}
+              payouts={payoutRows}
+              loadError={payoutsLoadError}
+              stale={refreshStale}
               page={recentPage}
               pageSize={PAGE_SIZE}
-              onCountChange={setPayoutCount}
             />
           ) : pagedOrders.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-14 text-center">
@@ -4070,8 +4075,8 @@ export function PayoutsClient({
           setAvailableBalance((prev) => Math.max(0, prev - refundedAmountCents));
           // Then re-read the real Stripe balances: now, and again after 3s
           // in case the transfer reversal takes a moment to show.
-          refreshBalances();
-          setTimeout(() => refreshBalances(), 3000);
+          refreshBalances({ fresh: true });
+          setTimeout(() => refreshBalances({ fresh: true }), 3000);
         }}
       />
     </div>

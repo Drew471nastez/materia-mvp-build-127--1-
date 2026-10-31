@@ -208,7 +208,7 @@ async function main() {
     check("a row shows the post's first picture", /scheduledThumb\(r\.media\)/.test(code("components/community/creator/scheduled-posts-panel.tsx")) && /data-scheduled-thumb/.test(code("components/community/creator/scheduled-posts-panel.tsx")))
     const orphans = code("lib/communities/server/orphans.ts")
     check("the daily sweep keeps pictures and files a scheduled post or a draft carries", (orphans.match(/community_scheduled_posts/g) ?? []).length >= 2 && /missing\(waiting\.error\)/.test(orphans) && /missing\(scheduled\.error\)/.test(orphans))
-    check("the job that publishes them is the community cron's", /publishDuePosts\(db, Date\.now\(\), 10_000\)/.test(code("app/api/cron/community/route.ts")))
+    check("the job that publishes them is the community cron's", /publishDuePosts\(db, Date\.now\(\), postsMs\)/.test(code("app/api/cron/community/route.ts")) && /run\.share\(10_000\)/.test(code("app/api/cron/community/route.ts")) /* Changed on purpose (rel-shared): ten seconds at most, from what the run has left */)
   }
 
   console.log("\nB1: PART 222")

@@ -17,6 +17,15 @@ import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { publishWithOneRetry } from "@/lib/website-builder/publish-retry"
+
+/**
+ * Two minutes, stated rather than inherited. The publish itself is one
+ * database call (asked at most twice); the history, backup, release, warm-up
+ * and mirror run after the answer, inside this same limit, and none of them
+ * may hold the function for the platform's five minutes.
+ */
+export const maxDuration = 120
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -137,13 +146,18 @@ export async function POST(req: Request, { params }: Params) {
       sections: sanitizeSections(page.draft_sections as SectionInstance[], own),
       draft: page.draft_sections,
     }))
-    const oneStep = await admin.rpc("publish_theme_install", {
-      p_install: installId,
-      p_creator: creator.id,
-      p_settings: settingsRow?.draft_settings ? sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>) : null,
-      p_settings_draft: settingsRow?.draft_settings ?? null,
-      p_pages: pages,
-    })
+    /* Asked once more when the database cancelled it or was reloading (lib/website-builder/publish-retry): nothing changed either time. */
+    const oneStep = await publishWithOneRetry(
+      () =>
+        admin.rpc("publish_theme_install", {
+          p_install: installId,
+          p_creator: creator.id,
+          p_settings: settingsRow?.draft_settings ? sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>) : null,
+          p_settings_draft: settingsRow?.draft_settings ?? null,
+          p_pages: pages,
+        }),
+      (error) => console.warn("[theme publish] asked once more", { installId, code: error.code }),
+    )
     let movedFiles: { path: string; content: string }[] = []
     if (oneStep.error && !publishStepMissing(oneStep.error)) {
       return failed("Could not publish. Nothing changed: the website that was live still is.", oneStep.error.message)

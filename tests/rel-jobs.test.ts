@@ -35,7 +35,7 @@ import { resultOf } from "@/lib/notify/providers/mailgun"
 import { call as providerCall, ProviderError } from "@/lib/integrations/fulfilment/http"
 import { GITHUB_BREAKER, setGitHubTransport, timing as githubTiming, compareStatus } from "@/lib/github-sync/github"
 import { CRON_LEASE_MARGIN_MS, heldByEarlierRun, recordCronRun } from "@/lib/observability/report"
-import { THEME_AGENT_AT_ONCE, THEME_AGENT_BUSY, themeAgentLimit, themeAgentVerdict } from "@/lib/sites/rate-limit"
+import { AI_LIMIT_UNREADABLE, THEME_AGENT_AT_ONCE, THEME_AGENT_BUSY, themeAgentLimit, themeAgentVerdict } from "@/lib/sites/rate-limit"
 import { MIN_LOOP_MS, TAIL_RESERVE_MS, loopDeadlineMs } from "@/lib/website-builder/agent/limits"
 import { agentLoop, type LoopResult } from "@/lib/sites/agent/loop"
 import { ProjectWorkspace } from "@/lib/sites/agent/tools"
@@ -329,9 +329,10 @@ console.log("\nThe theme agent: a deadline from the request's start, a limit fro
   check("120 in an hour: try again shortly", /in an hour/.test(themeAgentVerdict(hour, now) ?? ""))
 
   const failing = { from: () => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: null, error: { message: "timeout" } }) }) }) }) }
-  check("a count that cannot be read lets the run go", (await themeAgentLimit("c1", failing)) === null)
+  /* Changed on purpose (round rel-sites): a count that cannot be read refuses the run with a Try again (503), so model spend is never unlimited during a database incident (tests/rel-sites.test.ts). */
+  check("a count that cannot be read refuses the run, with a Try again", (await themeAgentLimit("c1", failing)) === AI_LIMIT_UNREADABLE)
   const throwing = { from: () => { throw new Error("no database") } }
-  check("so does a database that throws", (await themeAgentLimit("c1", throwing)) === null)
+  check("so does a database that throws", (await themeAgentLimit("c1", throwing)) === AI_LIMIT_UNREADABLE)
   const chain = (result: unknown) => {
     const q: Record<string, unknown> = {}
     for (const k of ["select", "eq", "in", "gte", "order"]) q[k] = () => q

@@ -68,7 +68,7 @@ import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
-import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { draftAssetVersion, forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
@@ -328,7 +328,8 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   mediaHeld.set(files, media)
   return themeOfInstall(files, values, {
     /* By what the file holds (THEME CODE THAT CHANGED): a push that changes it is a new address in the page. */
-    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
+    /* The draft with its pass (lib/storelib-theme/compat/draft-version.ts): the frame has no origin and sends no session, so the address carries it. */
+    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
     assetText: (name) => files[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),

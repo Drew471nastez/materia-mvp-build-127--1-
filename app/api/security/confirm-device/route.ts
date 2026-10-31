@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies, headers } from "next/headers"
 import { MAX_DEVICES_PER_ORDER, generateFingerprint } from "@/lib/security"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
+import { checkDeviceCode } from "@/lib/auth/code-guard"
 
 // Create admin client that bypasses RLS
 function getAdminClient() {
@@ -16,16 +18,8 @@ function getAdminClient() {
     throw new Error("Missing Supabase configuration")
   }
 
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    db: {
-      schema: "public",
-    },
-  })
+  /* The shared factory (same auth options, schema public by default): every request carries a deadline (lib/net/deadline.ts). */
+  return createAdminClient()
 }
 
 export async function POST(request: Request) {
@@ -58,65 +52,33 @@ export async function POST(request: Request) {
     const headersList = await headers()
     const cookieStore = await cookies()
 
-    console.log("[confirm-device] Looking up verification code for order:", orderId)
+    /*
+      FIVE GUESSES PER CODE (lib/auth/code-guard.ts). A device code is six
+      digits and nothing counted wrong ones, so the per-order device lock
+      could be walked. Limited per caller address too.
+    */
+    const limited = await rateLimit({
+      bucket: "confirm-device-address",
+      subjects: [addressSubject(request)],
+      windows: [{ limit: 30, seconds: 900 }, { limit: 200, seconds: 86_400 }],
+      message: "Too many tries just now. Wait a few minutes and try again.",
+    })
+    if (limited) return limited
 
-    // Find valid verification code
-    let verification = null
-    let verifyError = null
-
-    try {
-      const result = await admin
-        .from("verification_codes")
-        .select("*")
-        .eq("order_id", orderId)
-        .eq("code", code)
-        .is("used_at", null)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle()
-
-      verification = result.data
-      verifyError = result.error
-    } catch (err: any) {
-      console.error("[confirm-device] Exception looking up verification code:", err?.message || err)
-      verifyError = err
-    }
-
-    if (verifyError) {
-      console.error("[confirm-device] Error looking up verification code:", verifyError?.message || verifyError)
-    }
-
-    if (!verification) {
+    const verdict = await checkDeviceCode(admin, orderId, code)
+    if (!verdict.ok) {
       console.log("[confirm-device] Invalid or expired code for order:", orderId)
       // Log failed attempt (don't fail if this fails)
       try {
         await admin.from("security_events").insert({
           order_id: orderId,
           event_type: "verification_failed",
-          metadata: { reason: "invalid_or_expired_code" },
+          metadata: { reason: verdict.locked ? "too_many_wrong_codes" : "invalid_or_expired_code" },
         })
       } catch (err: any) {
         console.warn("[confirm-device] Failed to log security event:", err?.message || err)
       }
-
-      return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
-    }
-
-    console.log("[confirm-device] ✅ Valid verification code found:", verification.id)
-
-    // Mark code as used
-    try {
-      const { error: updateErr } = await admin
-        .from("verification_codes")
-        .update({ used_at: new Date().toISOString() })
-        .eq("id", verification.id)
-
-      if (updateErr) {
-        console.warn("[confirm-device] Failed to mark code as used:", updateErr.message)
-      } else {
-        console.log("[confirm-device] ✅ Code marked as used")
-      }
-    } catch (err: any) {
-      console.warn("[confirm-device] Exception marking code as used:", err?.message || err)
+      return NextResponse.json({ error: verdict.error }, { status: verdict.status })
     }
 
     // Get order

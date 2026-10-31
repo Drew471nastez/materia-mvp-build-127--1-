@@ -15,6 +15,7 @@
  */
 import { useSyncExternalStore } from "react"
 import { deadline, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 
 /** One try at the theme's files, headers and body together. */
 export const FILES_WAIT_MS = 25_000
@@ -79,6 +80,14 @@ export function useCompatFilesVersion(installId: string | null): number {
   )
 }
 
+/* Each install's draft asset pass, from the files answer: one value per install, so an address never moves once drawn. */
+const passes = new Map<string, string>()
+
+/** The version a draft asset address of this install carries: `edit.<pass>`, or `edit` before the files have answered (served the published file). */
+export function draftAssetVersion(installId: string): string {
+  return withDraftPass("edit", passes.get(installId))
+}
+
 export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
   const version = versions.get(installId) ?? 0
   const hit = loading.get(installId)
@@ -89,7 +98,9 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
         (async () => {
           const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, { cache: "no-store" }, FILES_WAIT_MS)
           if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
-          const d = (await r.json()) as { files?: Record<string, string> }
+          const d = (await r.json()) as { files?: Record<string, string>; asset_pass?: unknown }
+          /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts), known before the first draw. */
+          if (typeof d.asset_pass === "string" && d.asset_pass) passes.set(installId, d.asset_pass)
           return d.files ?? {}
         })(),
         FILES_WAIT_MS,

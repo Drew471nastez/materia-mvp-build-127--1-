@@ -172,7 +172,8 @@ async function main() {
     const checkout = read("app/checkout/checkout-client.tsx")
     check("checkout's calls go through it, with the payment deadline", /requestJson<T & \{ error\?: string; field\?: string \}>\(url, \{ method: "POST", json: body, timeoutMs: WAIT_MS\.pay \}\)/.test(checkout))
     check("a card confirm with no answer asks the server what the payment did, never says nothing was charged",
-      /"\/api\/checkout\/confirm-payment", \{\n\s+paymentIntentId: intent\.paymentIntentId,/.test(checkout) && /Check your email for a receipt before you try again\./.test(checkout) && !/catch \{[^}]*Nothing was charged[^}]*\}\s*\n\s*if \(!confirmed\.ok\)/.test(checkout))
+      /* Changed on purpose (rel-commerce): a 5xx or "unknown" is treated as no answer too, the intent is kept for the next press, and the words are the checking ones (lib/checkout/confirm-outcome). */
+      /"\/api\/checkout\/confirm-payment", \{ paymentIntentId: held\.paymentIntentId, clientSecret: held\.clientSecret \}/.test(checkout) && /if \(confirmOutcomeUnknown\(confirmed\)\) \{/.test(checkout) && /throw new Error\(confirmed\?\.data\.status === "unknown" \? confirmed\.data\.error \|\| CHECKING_MESSAGE : CHECKING_MESSAGE\)/.test(checkout))
     check("Pay is released when Back restores the page from the browser's cache", /useBackFromCache\(\(\) => setBusy\(false\)\)/.test(checkout))
   }
 
