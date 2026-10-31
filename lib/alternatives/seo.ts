@@ -2,9 +2,10 @@
  * The title, description, canonical, share cards and structured data of the
  * comparison pages. Pure, so tests/alternatives.test.ts runs it.
  *
- * FAQPage is written from the questions the page shows, after the switches
- * have chosen each answer (resolveFaqs), never from a separate list: Google
- * asks that FAQ markup match what a reader can see, and so do we.
+ * NO FAQPage (round 45). Google shows FAQ results for a few authority sites
+ * only and asks other sites not to expect them; the questions stay on the
+ * page as plain HTML, for readers. The page is a WebPage with the day its
+ * words last changed, and its breadcrumbs.
  */
 import type { Metadata } from "next"
 import { absoluteUrl, pageMetadata, STORELIB_ORIGIN } from "@/lib/seo/page-metadata"
@@ -47,6 +48,7 @@ export function hubJsonLd() {
         name: HUB_TITLE,
         description: HUB_DESCRIPTION,
         inLanguage: "en",
+        dateModified: ALTERNATIVES.map((c) => c.updated).sort().at(-1),
         publisher: { "@type": "Organization", name: "Storelib", url: STORELIB_ORIGIN },
         mainEntity: {
           "@type": "ItemList",
@@ -61,7 +63,7 @@ export function hubJsonLd() {
   }
 }
 
-export function alternativeJsonLd(c: Competitor, faqs: { q: string; a: string }[]) {
+export function alternativeJsonLd(c: Competitor) {
   const url = absoluteUrl(alternativePath(c.slug))
   const graph: Record<string, unknown>[] = [
     {
@@ -80,12 +82,5 @@ export function alternativeJsonLd(c: Competitor, faqs: { q: string; a: string }[
       { name: c.name, path: alternativePath(c.slug) },
     ]),
   ]
-  if (faqs.length > 0) {
-    graph.push({
-      "@type": "FAQPage",
-      "@id": `${url}#faq`,
-      mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
-    })
-  }
   return { "@context": "https://schema.org", "@graph": graph }
 }
