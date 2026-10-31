@@ -15,8 +15,11 @@ import { ALTERNATIVES, HUB_PATH, alternativePath } from "./index"
 export type Flags = Record<StorelibFlag, boolean>
 
 export const HUB_TITLE = "Storelib alternatives and comparisons"
+/* Every platform by name while that fits a search result; past that, the count and the first four. */
 const names = ALTERNATIVES.map((c) => c.name)
-export const HUB_DESCRIPTION = `Storelib compared with ${names.slice(0, -1).join(", ")} and ${names.at(-1)}: fees per sale, monthly plans and features, with sources and the date each fact was checked.`
+const named = `Storelib compared with ${names.slice(0, -1).join(", ")} and ${names.at(-1)}: fees per sale, monthly plans and features, with sources and the date each fact was checked.`
+export const HUB_DESCRIPTION =
+  named.length <= 170 ? named : `Storelib next to ${names.length} platforms, among them ${names.slice(0, 3).join(", ")} and ${names[3]}: fees per sale, plans and features, each fact sourced and dated.`
 
 export function hubMetadata(): Metadata {
   return pageMetadata({ path: HUB_PATH, title: HUB_TITLE, description: HUB_DESCRIPTION, absolute: true })

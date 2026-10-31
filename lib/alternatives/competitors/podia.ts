@@ -1,0 +1,152 @@
+import type { Competitor } from "../types"
+import { STORELIB } from "../storelib"
+import { SL } from "../storelib-features"
+import { monthOfFees } from "../examples"
+
+const on = "2026-10-31" as const
+const stripeOrPaypal = "Stripe or PayPal, 2.9% + 30¢ (varies by country)"
+
+export const podia: Competitor = {
+  slug: "podia",
+  name: "Podia",
+  homepage: "https://www.podia.com",
+  categories: ["digital-products", "communities"],
+  summary: "Courses, downloads, coaching, a community, email and a website on one plan, for teachers and coaches who want one tool.",
+  pricingShort: "$49 to $179 a month billed monthly. 5% fee on Mover, none above",
+  seo: {
+    title: "Podia alternative: Storelib compared, from a free plan",
+    description: `Podia starts at $49 a month with a 5% fee on Mover. Storelib starts free at ${STORELIB.freeFee} a sale. Course, email and community tools side by side.`,
+    h1: "Storelib as a Podia alternative",
+  },
+  intro: [
+    "Podia puts a course platform, a store for downloads, coaching, a community, email marketing and a website with a blog into one account. The idea is one login and one bill instead of five tools stitched together.",
+    "Every plan has every product type. What changes between Mover, Shaker and Earthquaker is the room: products, videos, community spaces and email subscribers, plus a 5% transaction fee on Mover that the other two drop.",
+    "There is no free plan; Podia gives a 14 day trial with no card. Storelib Free has no monthly fee at all and takes a cut of each sale instead.",
+  ],
+  whyStorelib: [
+    { text: `Sell before you pay anything a month. Storelib Free takes ${STORELIB.freeFee} a sale with no plan; Podia's cheapest plan is $49 a month billed monthly and still takes 5%.`, code: "lib/billing/plans.ts" },
+    { text: "A link in bio page that sells. Your OnePage at storelib.me/yourname holds your links and your products, next to your store and courses.", code: "lib/onepage/address.ts" },
+    { text: "Physical products with stock and shipping, sold from the same store as your courses.", code: "lib/platform/physical-commerce.ts", flag: "physical", textOff: "A link in bio page at storelib.me/yourname that sells your products directly." },
+  ],
+  whenToStay: [
+    { text: "Your courses need quizzes, certificates and drip lessons, or you sell coaching that clients book and pay for. Podia does all of these; Storelib's courses have none of them and it has no booking.", sources: ["podia-pricing"], status: "verified" },
+    { text: "You want Podia to move your products for you. Its plans include migration help for up to 50 products on Mover and 150 on Shaker and Earthquaker.", sources: ["podia-pricing"], status: "verified" },
+    { text: "You run live workshops and events, or want PayPal at checkout, which Podia has on Shaker and Earthquaker.", sources: ["podia-pricing", "podia-payments"], status: "verified" },
+  ],
+  strengths: [
+    { text: "Courses with drip lessons, quizzes and certificates, and unlimited students.", sources: ["podia-pricing"], status: "verified" },
+    { text: "Coaching that clients book and pay for, and live and in person events.", sources: ["podia-pricing"], status: "verified" },
+    { text: "Email with newsletters, welcome sequences and automations built in.", sources: ["podia-pricing"], status: "verified" },
+    { text: "No transaction fee on Shaker and Earthquaker.", sources: ["podia-pricing", "podia-fees"], status: "verified" },
+    { text: "Sales tax collected at checkout for the places you register in, and your own domain on every plan.", sources: ["podia-pricing", "podia-tax", "podia-domain"], status: "verified" },
+  ],
+  limits: [
+    { text: "No free plan. Mover is $49 a month billed monthly, $42 billed yearly.", sources: ["podia-pricing"], status: "verified" },
+    { text: "Mover takes 5% of each sale on top of the plan, billed monthly or yearly.", sources: ["podia-fees"], status: "verified" },
+    { text: "Email subscribers are capped by plan at 100, 500 or 1,000, with more sold as an add on.", sources: ["podia-pricing"], status: "verified" },
+    { text: "PayPal, affiliate marketing and upsells need Shaker, $99 a month billed monthly.", sources: ["podia-pricing", "podia-payments"], status: "verified" },
+  ],
+  storelibStrengths: [
+    { text: "A free plan that sells, no card needed to start.", code: "lib/billing/plans.ts" },
+    { text: "Bundles, upsells and quantity breaks on every plan.", code: "app/app/offers" },
+    { text: "A website in more than one language, with every translation editable.", code: "lib/markets/auto-translate.ts" },
+  ],
+  storelibLimits: [
+    { text: "Courses have lessons, video, captions and progress, but no quizzes, certificates or drip schedule.", code: "lib/courses/types.ts" },
+    { text: "No booking calendar for coaching calls and no affiliate program.", code: "lib/onepage/types.ts" },
+    { text: `Every sale pays a fee, ${STORELIB.proFee} on Pro at the lowest. Past a certain volume Podia Shaker's flat price costs less.`, code: "lib/payments/fees/defaults.ts" },
+    { text: "Storelib is not a merchant of record, and neither is Podia: on both you set and file your own tax.", code: "lib/tax/rules.ts" },
+  ],
+  features: [
+    { id: "monthly", label: "Monthly fee", storelib: SL.monthlyFee, competitor: { value: "yes", text: "$49, $99 or $179 billed monthly", sources: ["podia-pricing"], status: "verified" } },
+    { id: "per-sale", label: "Platform fee per sale", storelib: SL.perSaleFee, competitor: { value: "yes", text: "5% on Mover, none on Shaker and Earthquaker", sources: ["podia-pricing", "podia-fees"], status: "verified" } },
+    { id: "free-plan", label: "Free plan", storelib: { value: "yes", text: "Free, no card needed", code: "lib/billing/plans.ts" }, competitor: { value: "no", text: "14 day trial", sources: ["podia-pricing"], status: "verified" } },
+    { id: "courses", label: "Courses", storelib: SL.courses, competitor: { value: "yes", text: "Drip lessons, quizzes, certificates", sources: ["podia-pricing"], status: "verified" } },
+    { id: "digital", label: "Digital products", storelib: SL.digitalProducts, competitor: { value: "yes", text: "50, 150 or unlimited products by plan", sources: ["podia-pricing"], status: "verified" } },
+    { id: "community", label: "Community", storelib: SL.communities, competitor: { value: "yes", text: "Spaces, group chats, free or paid tiers", sources: ["podia-pricing"], status: "verified" } },
+    { id: "coaching", label: "Coaching bookings", storelib: { value: "no", text: "Not offered", code: "lib/onepage/types.ts" }, competitor: { value: "yes", sources: ["podia-pricing"], status: "verified" } },
+    { id: "email", label: "Email campaigns", storelib: SL.email, competitor: { value: "yes", text: "100, 500 or 1,000 subscribers included", sources: ["podia-pricing"], status: "verified" } },
+    { id: "affiliates", label: "Affiliates", storelib: SL.affiliates, competitor: { value: "partial", text: "Shaker and Earthquaker", sources: ["podia-pricing"], status: "verified" } },
+    { id: "website", label: "Website and blog", storelib: SL.website, competitor: { value: "yes", sources: ["podia-pricing"], status: "verified" } },
+    { id: "domain", label: "Your own domain", storelib: SL.customDomain, competitor: { value: "yes", text: "Every plan", sources: ["podia-pricing", "podia-domain"], status: "verified" } },
+    { id: "tax", label: "Sales tax", storelib: SL.tax, competitor: { value: "partial", text: "Collected where you register; you file it", sources: ["podia-tax"], status: "verified" } },
+  ],
+  plans: [
+    {
+      id: "mover",
+      name: "Mover",
+      monthlyCents: 4900,
+      yearlyMonthlyCents: 4200,
+      fee: { percent: 5, fixedCents: 0 },
+      processing: { percent: 2.9, fixedCents: 30 },
+      processingKnown: true,
+      processingLabel: stripeOrPaypal,
+      sellsDigital: true,
+      claim: { text: "$49 a month billed monthly, $42 billed yearly, 5% transaction fee", sources: ["podia-pricing", "podia-fees"], status: "verified" },
+    },
+    {
+      id: "shaker",
+      name: "Shaker",
+      monthlyCents: 9900,
+      yearlyMonthlyCents: 8400,
+      fee: { percent: 0, fixedCents: 0 },
+      processing: { percent: 2.9, fixedCents: 30 },
+      processingKnown: true,
+      processingLabel: stripeOrPaypal,
+      sellsDigital: true,
+      claim: { text: "$99 a month billed monthly, $84 billed yearly, no transaction fee", sources: ["podia-pricing", "podia-fees"], status: "verified" },
+    },
+    {
+      id: "earthquaker",
+      name: "Earthquaker",
+      monthlyCents: 17900,
+      yearlyMonthlyCents: 15000,
+      fee: { percent: 0, fixedCents: 0 },
+      processing: { percent: 2.9, fixedCents: 30 },
+      processingKnown: true,
+      processingLabel: stripeOrPaypal,
+      sellsDigital: true,
+      claim: { text: "$179 a month billed monthly, $150 billed yearly, no transaction fee", sources: ["podia-pricing", "podia-fees"], status: "verified" },
+    },
+  ],
+  pricingNotes: [
+    { text: "Payments go straight to your own Stripe or PayPal account, and you withdraw them to your bank from there.", sources: ["podia-payments"], status: "verified" },
+    { text: "Podia cannot take its fee through Stripe for businesses in Brazil, Malaysia, India, Thailand or Mexico.", sources: ["podia-payments"], status: "verified" },
+    { text: "More email subscribers cost extra each month, from $10 a month on Mover for 500.", sources: ["podia-pricing"], status: "verified" },
+  ],
+  calculatorDefaults: { priceDollars: 29, sales: 25 },
+  examples: [
+    { who: "Educators", title: "A $29 course, twenty five students a month", text: monthOfFees({ priceDollars: 29, sales: 25, name: "Podia Mover", rate: { percent: 5, fixedCents: 0 }, monthlyCents: 4900 }) },
+    { who: "Creators", title: "Testing a first ebook", text: "A writer trying a first $9 ebook pays nothing a month on Storelib Free until it sells. On Podia, Mover's $49 a month starts when the trial ends, sales or not." },
+    { who: "Sellers", title: "Courses with a quiz at the end", text: "A trainer whose students need a quiz and a certificate to finish is better served by Podia, which has both. Storelib's courses track progress but have neither." },
+  ],
+  switching: [
+    { title: "Save your content", text: "Keep copies of your course videos, lesson text and download files, and note each product's price." },
+    { title: "Create a free Storelib account", text: "Sign up and choose your name. Your store is at storelib.com/yourname." },
+    { title: "Connect Stripe", text: "Storelib pays out through Stripe, so connect one before your first sale." },
+    { title: "Rebuild your courses and products", text: "Add each course as modules and lessons, and each download with its files." },
+    { title: "Tell your list", text: "Storelib has no list import, so email your Podia subscribers about the move before you cancel." },
+    { title: "Move your domain", text: "Connect your domain to a Storelib website on Pro once the new site is ready." },
+  ],
+  moving: {
+    products: "Courses come across as modules and lessons with their videos and files, and downloads as products. Quizzes, certificates and coaching have no Storelib version.",
+    customers: "Storelib has no customer or subscriber import. Send your Podia list one email about the new store, then build your Storelib list from there and set up automations for new subscribers.",
+    domain: "The domain you connected to Podia can be connected to a Storelib website on Pro. Switch its DNS when the new site is live.",
+  },
+  movingHelp: { customers: ["/help/email/automations"] },
+  faqs: [
+    { q: "Does Podia have a free plan like Storelib?", a: `No. Podia has a 14 day trial and then Mover at $49 a month billed monthly. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale.` },
+    { q: "Are Podia's course tools better than Storelib's?", a: "For quizzes, certificates and drip lessons, yes: Podia has them and Storelib does not. Storelib's courses have modules, lessons, video, captions and each student's progress." },
+    { q: "Which costs less, Podia Mover or Storelib?", a: `At small sales, Storelib Free, because it has no $49 plan. Mover also takes 5% a sale. The calculator above works out your own month.` },
+    { q: "Can I move a Podia community to Storelib?", a: "You can build a new Storelib community with posts, chat, events and paid plans, then invite your members to it. Members do not move across on their own.", flag: "communities", aOff: "Not today. Storelib does not offer communities right now." },
+  ],
+  visuals: ["course", "creator", "dashboard"],
+  sources: [
+    { id: "podia-pricing", title: "Podia pricing: plans, transaction fees and free trial", url: "https://www.podia.com/pricing", publisher: "Podia", checkedOn: on },
+    { id: "podia-fees", title: "Understanding Podia transaction fees (Help Center)", url: "https://help.podia.com/en/articles/11371138-understanding-podia-transaction-fees", publisher: "Podia", checkedOn: on },
+    { id: "podia-payments", title: "Accepting payments in Podia (Help Center)", url: "https://help.podia.com/en/articles/11370248-accepting-payments-in-podia", publisher: "Podia", checkedOn: on },
+    { id: "podia-tax", title: "Collecting sales taxes on Podia (Help Center)", url: "https://help.podia.com/en/articles/11370382-collecting-sales-taxes-on-podia", publisher: "Podia", checkedOn: on },
+    { id: "podia-domain", title: "Setting up a custom domain (Help Center)", url: "https://help.podia.com/en/articles/11553457-setting-up-a-custom-domain", publisher: "Podia", checkedOn: on },
+  ],
+  updated: "2026-10-31",
+}
