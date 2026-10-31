@@ -26,7 +26,7 @@ type CustomerOrder = {
   id: string
   created_at: string
   buyer_email: string | null
-  amount_cents: number | null
+  amount_cents: number
   currency: string | null
   status: string | null
   refund_amount_cents: number | null
