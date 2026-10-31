@@ -10,6 +10,7 @@ import { pickBalance } from "@/lib/payments/display-currency";
 import { ledgerCurrency } from "@/lib/payments/ledger-currency";
 import { readStoreCurrency } from "@/lib/store/selling-currency-read";
 import { disputedInStore, taxYearsInUsd } from "@/lib/money/payout-figures";
+import { latestCreatorOrders, readCreatorOrders } from "@/lib/analytics/creator-orders";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { noStorePage, teamPageStore } from "@/lib/team/server"
 import { PaneBar } from "@/app/app/orders/order-parts"
@@ -161,6 +162,8 @@ const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-whi
 
 /** The longest Stripe's balance may hold the page's first draw. */
 const STRIPE_WAIT_MS = 2_500;
+/** The sales list handed to the client: the latest orders, as the one unpaged read always gave it. */
+const PAYOUT_LIST_LIMIT = 1_000;
 
 async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any; paymentsReady: boolean; canManage: boolean }) {
   const { tt } = await getServerTt()
@@ -195,7 +198,8 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
   const previousYear = currentYear - 1;
 
   const [{ data: productsData }, stripeRead, ledger] = await Promise.all([
-    adminSupabase.from("products").select("*").eq("creator_id", creator.id),
+    /* Only what the sales list draws from a product (there is no gallery_images column: product.gallery_images below was always empty). */
+    adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creator.id),
     stripeAccount
       ? Promise.race([
           Promise.all([
@@ -224,40 +228,40 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
   ]);
 
   const products = productsData || [];
-  const productIds = products.map((p) => p.id);
+  /* A Map, not a find per order (was products × orders). */
+  const productById = new Map<string, any>(products.map((p: any) => [p.id, p]));
 
+  /*
+    BY THE ORDER'S OWN CREATOR, EVERY ROW (round rel-db). These were read by a
+    list of every product id in the address (too long for a large catalog)
+    and unpaged, so the tax year and the disputes stopped at 1,000 rows and
+    the 1099-K figures came out low. The tax year's and the disputed orders
+    are now read a page at a time (readCreatorOrders); the sales list stays
+    the latest PAYOUT_LIST_LIMIT, as the client has always been handed.
+  */
   const nothing = { data: null };
-  const [ordersRead, taxRead, disputedRead] = productIds.length > 0
-    ? await Promise.all([
-        adminSupabase
-          .from("orders")
-          .select("*")
-          .in("product_id", productIds)
-          .in("status", ["completed", "refunded", "disputed"])
-          .order("created_at", { ascending: false }),
-        Promise.resolve(
-          adminSupabase
-            .from("orders")
-            .select("amount_cents, created_at, status, currency")
-            .in("product_id", productIds)
-            .in("status", ["completed", "refunded", "disputed"])
-            .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
-        ).then((r) => r, () => nothing),
-        Promise.resolve(
-          adminSupabase
-            .from("orders")
-            .select("amount_cents, created_at, currency")
-            .in("product_id", productIds)
-            .eq("status", "disputed"),
-        ).then((r) => r, () => nothing),
-      ])
-    : [nothing, nothing, nothing];
+  const [ordersRead, taxRead, disputedRead] = await Promise.all([
+    latestCreatorOrders<any>(adminSupabase, creator.id, "*", { statuses: ["completed", "refunded", "disputed"], limit: PAYOUT_LIST_LIMIT }).then(
+      (data) => ({ data }),
+      (error: unknown) => {
+        console.error("[Payouts] orders not read:", error instanceof Error ? error.message.slice(0, 160) : "unknown");
+        return nothing;
+      },
+    ),
+    readCreatorOrders<{ id: string; amount_cents: number | null; created_at: string; status: string; currency: string | null }>(adminSupabase, creator.id, "id, amount_cents, created_at, status, currency", {
+      statuses: ["completed", "refunded", "disputed"],
+      since: `${previousYear}-01-01T00:00:00Z`,
+    }).then((r) => ({ data: r.rows }), () => nothing),
+    readCreatorOrders<{ id: string; amount_cents: number | null; created_at: string; currency: string | null }>(adminSupabase, creator.id, "id, amount_cents, created_at, currency", {
+      statuses: ["disputed"],
+    }).then((r) => ({ data: r.rows }), () => nothing),
+  ]);
 
   let allOrders: any[] = [];
   const ordersData = ordersRead.data as any[] | null;
   if (ordersData) {
     allOrders = ordersData.map((order) => {
-      const product = products.find((p) => p.id === order.product_id);
+      const product = productById.get(order.product_id);
       return {
         ...order,
         product: product
@@ -303,7 +307,7 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
 
   // ── 1099-K Tax Data ──────────────────────────────────────────────────────────
   /* In US dollars, each sale at its own day's rate: the form and its line are American (lib/money/payout-figures). */
-  const taxYears = productIds.length > 0
+  const taxYears = taxRead.data
     ? await taxYearsInUsd(adminSupabase, creator.id, (taxRead.data as { amount_cents: number | null; created_at: string; currency: string | null }[] | null) || [], currentYear)
     : null;
   const taxData: {

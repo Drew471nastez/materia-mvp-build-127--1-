@@ -950,6 +950,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
   "tests/db-load-isolation.test.ts",
+  /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
+  "tests/rel-db-dashboard.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */

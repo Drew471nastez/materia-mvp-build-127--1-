@@ -33,6 +33,7 @@ import { pressMark } from "@/lib/press-mark"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { readProductList } from "@/lib/products/list-read"
 
 interface Product {
   id: string
@@ -696,7 +697,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
       creatorId = (creator as { id: string } | null)?.id
     }
     if (!creatorId) return
-    const { data } = await supabase.from("products").select("*").eq("creator_id", creatorId).order("created_at", { ascending: false })
+    /* The same columns and pages as the server's list (lib/products/list-read). */
+    const { data } = await readProductList<Product & { community_id?: string | null }>(supabase, creatorId)
     if (data) setProducts(withChanges((data as (Product & { community_id?: string | null })[]).filter((p) => !p.community_id)))
     router.refresh()
   }, [router, storeId])

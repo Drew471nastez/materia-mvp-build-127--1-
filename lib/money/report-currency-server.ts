@@ -25,7 +25,15 @@ export async function inStoreCurrency<T extends ReportMoneyRow>(
   rows: T[],
   storeCurrency?: string | null,
   /** Where the day rates are read from: fx_rates through the admin client unless a caller names its own (Analytics passes its client, so a test's database answers). */
-  opts: { rates?: (from: string, to: string) => Promise<DayRates[]> } = {},
+  opts: {
+    rates?: (from: string, to: string) => Promise<DayRates[]>
+    /**
+     * A page render: never download the ECB history here (up to 60s for the
+     * full history). A day with no kept rate stays unconverted and counted;
+     * the daily rates job (app/api/cron/fx-rates) or a report route fills it.
+     */
+    noFetch?: boolean
+  } = {},
 ): Promise<StoreCurrencyReport<T>> {
   const currency = (storeCurrency || (await readStoreCurrency(db, creatorId)).currency).toUpperCase()
   /* Still counted as unknown for the reconciliation report, before they are given one. */
@@ -49,7 +57,7 @@ export async function inStoreCurrency<T extends ReportMoneyRow>(
     daily rate job had not filled the history yet. Fetch the ECB's own
     history once (this server, at most every 6 hours) and convert again.
   */
-  if (out.unconverted > 0 && span && (await fillHistoryOnce(span.from))) {
+  if (out.unconverted > 0 && span && !opts.noFetch && (await fillHistoryOnce(span.from))) {
     days = await dayRates(span.from, span.to)
     out = { ...inReportingCurrency(rows, currency, days), unknown }
   }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies, headers } from "next/headers"
 import { MAX_DEVICES_PER_ORDER, generateFingerprint } from "@/lib/security"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
@@ -18,16 +18,8 @@ function getAdminClient() {
     throw new Error("Missing Supabase configuration")
   }
 
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    db: {
-      schema: "public",
-    },
-  })
+  /* The shared factory (same auth options, schema public by default): every request carries a deadline (lib/net/deadline.ts). */
+  return createAdminClient()
 }
 
 export async function POST(request: Request) {

@@ -25,6 +25,7 @@ import {
   countVisits,
   creatorProperties,
   foldLegacy,
+  isAnalyticsUnavailable,
   onePageLinkLabels,
   readAll,
   readLegacyOnePage,
@@ -164,7 +165,8 @@ export async function countReportAnswer(
     const orders = readOrders(admin, spans, q.creatorId, q.product, q.window)
     const subscribers = q.product ? Promise.resolve(null) : readSubscribers(admin, spans, q.creatorId)
     const labels = q.selector.type === "onepage" || q.selector.type === "all" ? onePageLinkLabels(admin, q.properties.onePageId) : Promise.resolve({})
-    const allTime = q.selector.type === "all" && !q.product && (q.mode ?? "all") === "all" ? allTimeOf(admin, q.creatorId) : Promise.resolve(null)
+    /* The all time line is extra: its counting function failing leaves it out, never the report (and never reads every order instead). */
+    const allTime = q.selector.type === "all" && !q.product && (q.mode ?? "all") === "all" ? allTimeOf(admin, q.creatorId).catch((e) => { if (isAnalyticsUnavailable(e)) return null; throw e }) : Promise.resolve(null)
     /* Nothing is left unhandled while the others are awaited. */
     /*
       Systems, carts and page titles (part 253), for both periods. When the

@@ -61,6 +61,35 @@ const PAGE = 1000
 const CEILING = 200_000
 const DAY = 86_400_000
 
+/**
+ * THE RAW EVENTS ARE A FALLBACK FOR A DATABASE WITHOUT THE FUNCTIONS, NOT
+ * FOR A SLOW ONE. When the counting function is there and fails (a timeout,
+ * a 5xx, an overloaded database), the report says "unavailable right now"
+ * (AnalyticsUnavailable) instead of reading every raw row of both periods,
+ * which multiplied the load at the worst moment. A raw read that does run
+ * (an older database) stops after RAW_READ_BUDGET_MS and says truncated.
+ */
+export const RAW_READ_BUDGET_MS = 15_000
+/** How long one counting function is waited for: under the route's maxDuration, with room to answer. */
+export const RPC_BUDGET_MS = 45_000
+
+/** The database's counting function failed for a reason other than not being there. */
+export class AnalyticsUnavailable extends Error {
+  readonly unavailable = true
+  constructor(fn: string, detail: string) {
+    super(`${fn} unavailable: ${detail}`)
+    this.name = "AnalyticsUnavailable"
+  }
+}
+export const isAnalyticsUnavailable = (e: unknown): e is AnalyticsUnavailable =>
+  e instanceof AnalyticsUnavailable || (!!e && (e as { name?: string }).name === "AnalyticsUnavailable")
+
+/** "The function is not there" (PostgREST's PGRST202, Postgres' 42883): the one case the raw rows stand in for it. */
+export function functionMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message ?? "")
+}
+
 type Read<T> = PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>
 type After = { t: string; id: string } | null
 
@@ -71,10 +100,12 @@ type After = { t: string; id: string } | null
  * `created_at` then `id`, the next page asked for as "from this time, past
  * this id" (a keyset), never "skip the first n".
  */
-export async function readAll<T extends { created_at: string; id?: string }>(page: (after: After) => Read<T>) {
+export async function readAll<T extends { created_at: string; id?: string }>(page: (after: After) => Read<T>, opts: { until?: number } = {}) {
   const rows: T[] = []
   let after: After = null
   while (rows.length < CEILING) {
+    /* A wall clock for the raw event reads: what was read so far, said to be partial. */
+    if (opts.until !== undefined && after && Date.now() >= opts.until) return { rows, truncated: true }
     const { data, error } = await page(after)
     if (error) throw new Error(error.message)
     rows.push(...(data ?? []))
@@ -96,11 +127,11 @@ export function startingAt<Q extends KeysetQuery<Q>>(q: Q, start: string, after:
 }
 
 /** Every row of every stretch, in order; the stretches are read side by side. */
-export async function readSpans<T extends { created_at: string; id?: string }>(spans: Span[], page: (start: string, end: string, after: After) => Read<T>) {
+export async function readSpans<T extends { created_at: string; id?: string }>(spans: Span[], page: (start: string, end: string, after: After) => Read<T>, opts: { until?: number } = {}) {
   const reads = await Promise.all(
     spans.map((s) => {
       const iso = [new Date(s.start).toISOString(), new Date(s.end).toISOString()]
-      return readAll<T>((after) => page(iso[0], iso[1], after))
+      return readAll<T>((after) => page(iso[0], iso[1], after), opts)
     }),
   )
   return { rows: reads.flatMap((r) => r.rows), truncated: reads.some((r) => r.truncated) }
@@ -127,15 +158,28 @@ export async function withColumns<T>(columns: string, read: (columns: string) =>
    remembered for a while, so each request does not ask first. */
 let functionsMissingUntil = 0
 
+/**
+ * The function's answer; null when it is not there (counted from the rows
+ * instead). Any other failure (a timeout, a 5xx, a cancelled statement)
+ * throws AnalyticsUnavailable: the rows are NOT read in its place.
+ */
 export async function rpc<T>(admin: Admin, fn: string, args: Record<string, unknown>): Promise<T | null> {
   if (Date.now() < functionsMissingUntil) return null
-  const { data, error } = await admin.rpc(fn, args)
+  let answer: { data: unknown; error: { code?: string; message?: string } | null }
+  try {
+    const call = admin.rpc(fn, args) as unknown as { abortSignal?: (s: AbortSignal) => unknown } & PromiseLike<typeof answer>
+    answer = (await (typeof call.abortSignal === "function" ? (call.abortSignal(AbortSignal.timeout(RPC_BUDGET_MS)) as PromiseLike<typeof answer>) : call)) as typeof answer
+  } catch (error) {
+    console.warn(`[analytics] ${fn} did not answer:`, (error as Error).message)
+    throw new AnalyticsUnavailable(fn, (error as Error).message)
+  }
+  const { data, error } = answer
   if (!error && data) return data as T
-  if (error && (error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message ?? ""))) {
+  if (functionMissing(error)) {
     functionsMissingUntil = Date.now() + 5 * 60_000
   } else if (error) {
-    /* Anything else (a zone Postgres does not know, a timeout): counted from the rows, so the page still gets its figures. */
-    console.warn(`[analytics] ${fn} failed, counting from the rows:`, error.message)
+    console.warn(`[analytics] ${fn} failed, analytics unavailable right now:`, error.message)
+    throw new AnalyticsUnavailable(fn, error.message ?? String(error.code ?? "error"))
   }
   return null
 }
@@ -246,13 +290,14 @@ export async function countVisits(admin: Admin, q: CountQuestion, shared: { rows
 async function countFromRows(admin: Admin, q: CountQuestion): Promise<Counted> {
   /* The rows, a day before the earlier period (a visit that runs into it began there) to the end of the later one. */
   const spans = spansToRead({ start: q.window.start - DAY, end: q.window.end }, q.previous ? { start: q.previous.start - DAY, end: q.previous.end } : null)
+  const until = Date.now() + RAW_READ_BUDGET_MS
   const [views, steps] = await Promise.all([
     withColumns(VIEW_COLUMNS, (columns) =>
       readSpans<ViewRow & { id: string }>(spans, (start, end, after) => {
         let r = admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).eq("event_type", "view").lt("created_at", end)
         if (q.product) r = r.eq("product_id", q.product)
         return startingAt(r, start, after).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(PAGE) as unknown as Read<ViewRow & { id: string }>
-      }),
+      }, { until }),
     ),
     orNone<StepRow>(
       withColumns(STEP_COLUMNS, (columns) =>
@@ -261,6 +306,7 @@ async function countFromRows(admin: Admin, q: CountQuestion): Promise<Counted> {
             .order("created_at", { ascending: true })
             .order("id", { ascending: true })
             .limit(PAGE) as unknown as Read<StepRow & { id: string }>,
+          { until },
         ),
       ),
     ),
@@ -562,11 +608,17 @@ const AUDIENCE_CEILING = 50_000
  * say nothing rather than zero.
  */
 export async function readAudience(admin: Admin, q: CountQuestion, w: Span): Promise<{ audience: Audience | null; truncated: boolean }> {
-  const counted = await rpc<Audience>(admin, "analytics_audience", {
-    ...selectorArgs(q),
-    p_start: new Date(w.start).toISOString(),
-    p_end: new Date(w.end).toISOString(),
-  })
+  let counted: Audience | null
+  try {
+    counted = await rpc<Audience>(admin, "analytics_audience", {
+      ...selectorArgs(q),
+      p_start: new Date(w.start).toISOString(),
+      p_end: new Date(w.end).toISOString(),
+    })
+  } catch {
+    /* The function is there and failed: the cards say nothing, and no raw rows are read for them. */
+    return { audience: null, truncated: false }
+  }
   if (counted) return { audience: { os: counted.os ?? [], carts: Number(counted.carts) || 0, titles: counted.titles ?? [] }, truncated: false }
   try {
     const start = new Date(w.start).toISOString()
@@ -574,7 +626,9 @@ export async function readAudience(admin: Admin, q: CountQuestion, w: Span): Pro
     const read = async (columns: string) => {
       const rows: Array<ViewRow & StepRow & { id: string }> = []
       let after: After = null
+      const until = Date.now() + RAW_READ_BUDGET_MS
       while (rows.length < AUDIENCE_CEILING) {
+        if (after && Date.now() >= until) return { rows, truncated: true }
         let r = admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).in("event_type", ["view", "buy_click"]).lt("created_at", end)
         if (q.product) r = r.eq("product_id", q.product)
         const { data, error } = await (startingAt(r, start, after).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(PAGE) as unknown as Read<ViewRow & StepRow & { id: string }>)
@@ -652,7 +706,12 @@ export async function readNavClicks(admin: Admin, q: CountQuestion): Promise<Nav
     p_cur_end: new Date(q.window.end).toISOString(),
     p_prev_start: q.previous ? new Date(q.previous.start).toISOString() : null,
     p_prev_end: q.previous ? new Date(q.previous.end).toISOString() : null,
+  }).catch((error) => {
+    /* The function is there and failed: the card says nothing, and no raw rows are read for it. */
+    console.warn("[analytics] clicks between pages not counted:", (error as Error).message)
+    return "unavailable" as const
   })
+  if (counted === "unavailable") return null
   if (counted) return { cur: Number(counted.cur) || 0, prev: Number(counted.prev) || 0, rows: counted.rows ?? [] }
   try {
     const read = await withColumns(NAV_COLUMNS, (columns) =>
@@ -661,6 +720,7 @@ export async function readNavClicks(admin: Admin, q: CountQuestion): Promise<Nav
           .order("created_at", { ascending: true })
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<NavClickRow & { id: string }>,
+        { until: Date.now() + RAW_READ_BUDGET_MS },
       ),
     )
     return navWireFromRows({ rows: read.rows, window: q.window, previous: q.previous, selector: q.selector, defaultWebsite: q.properties.defaultWebsite })
@@ -689,6 +749,7 @@ export async function readStoredRowSeries(admin: Admin, q: CountQuestion, dim: S
   const clicks = dim === "link" || dim === "nav"
   if (clicks && q.product) return { series: {}, truncated: false }
   const spans = [{ start: clicks || dim === "page" ? q.window.start : q.window.start - DAY, end: q.window.end }]
+  const until = Date.now() + RAW_READ_BUDGET_MS
   const read = clicks
     ? await withColumns(dim === "nav" ? NAV_COLUMNS : STEP_COLUMNS, (columns) =>
         readSpans<StepRow & { id: string }>(spans, (start, end, after) =>
@@ -696,6 +757,7 @@ export async function readStoredRowSeries(admin: Admin, q: CountQuestion, dim: S
             .order("created_at", { ascending: true })
             .order("id", { ascending: true })
             .limit(PAGE) as unknown as Read<StepRow & { id: string }>,
+          { until },
         ),
       )
     : await withColumns(VIEW_COLUMNS, (columns) =>
@@ -703,7 +765,7 @@ export async function readStoredRowSeries(admin: Admin, q: CountQuestion, dim: S
           let r = admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).eq("event_type", "view").lt("created_at", end)
           if (q.product) r = r.eq("product_id", q.product)
           return startingAt(r, start, after).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(PAGE) as unknown as Read<ViewRow & { id: string }>
-        }),
+        }, { until }),
       )
   const series = storedRowSeries({
     views: clicks ? [] : (read.rows as ViewRow[]),

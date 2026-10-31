@@ -227,7 +227,7 @@ async function run() {
     const layout = read("app/app/layout.tsx")
     check("the account menu's businesses never hold the shell", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(layout))
     const home = read("app/app/page.tsx")
-    check("Home's banner sales never hold Home", /within\(creatorSalesRows\(adminSupabase, creator\.id, now\), HOME_EXTRA_MS, NO_BANNER_ROWS\)/.test(home))
+    check("Home's banner sales never hold Home", /within\(creatorSalesRows\(adminSupabase, creator\.id, now(, \{ noFetch: true \})?\), HOME_EXTRA_MS, NO_BANNER_ROWS\)/.test(home))
   }
 
   await auth.close()

@@ -8,6 +8,10 @@ import { getServerTt } from "@/lib/i18n/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { teamPageStore } from "@/lib/team/server"
 import { storeHandle } from "@/lib/team/store-handle"
+import { readProductList } from "@/lib/products/list-read"
+
+/* A row as the list reads it (lib/products/list-read PRODUCT_LIST_COLUMNS); typed by ProductsClient. */
+type ListedRow = Parameters<typeof ProductsClient>[0]["products"][number] & { community_id?: string | null }
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -31,7 +35,8 @@ export default async function ProductsPage() {
   if (team.kind === "store" && !team.isOwner) {
     const admin = createAdminClient()
     const [{ data: rows }, handle] = await Promise.all([
-      admin.from("products").select("*").eq("creator_id", team.creatorId).order("created_at", { ascending: false }),
+      /* Only the list's columns, every product a page at a time (lib/products/list-read). */
+      readProductList<ListedRow>(admin, team.creatorId),
       storeHandle(admin, team.creatorId, team.ownerUserId),
     ])
     const listed = (rows || []).filter((p: { community_id?: string | null }) => !p.community_id)
@@ -49,11 +54,8 @@ export default async function ProductsPage() {
   const creatorUsername = profile?.username || creator.slug || ""
 
   const supabase = await createClient()
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .eq("creator_id", creator.id)
-    .order("created_at", { ascending: false })
+  /* Only the list's columns, every product a page at a time (lib/products/list-read). */
+  const { data: products } = await readProductList<ListedRow>(supabase, creator.id)
 
   /* A product that sells a community's access is managed in Community settings
      (its price, its members), so it is not listed here as a second copy. */
