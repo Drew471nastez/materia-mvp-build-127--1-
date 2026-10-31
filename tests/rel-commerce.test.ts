@@ -23,6 +23,8 @@
  *   7  the plan sync reads every page of a customer's subscriptions (LOW-10)
  *   8  a database call that never answers ends at the shared client's
  *      deadline, so it cannot hold a Stripe webhook (database audit F1)
+ *   9  the Orders page's missed-refund check runs once per creator per six
+ *      hours and applies refunds through refund-sync (database audit F8)
  */
 import "./_journey/env"
 import { readFileSync } from "node:fs"
@@ -36,6 +38,7 @@ import { accountGoneFromPlatform, resetPlatformKeyCheck } from "../lib/payments/
 import { forgetPayoutsRead, payoutsReadKey, readPayoutsKept } from "../lib/payments/payouts-read-cache"
 import { planCreatorSync, stripeListForSync, SYNC_MAX_PAGES } from "../lib/billing/subscription-sync"
 import { SUPABASE_DEADLINE_MS } from "../lib/net/deadline"
+import { REFUND_CHECK_EVERY_MS, refundCheckDue } from "../lib/orders/refund-check"
 
 let passed = 0
 let failed = 0
@@ -485,6 +488,19 @@ async function main() {
     }
     for (const f of ["app/api/stripe/webhook/route.ts", "app/api/stripe/webhook/connect/route.ts"]) check(`${f}: maxDuration 60`, /export const maxDuration = 60\b/.test(code(f)))
     j.serverErrors.splice(0, j.serverErrors.length, ...j.serverErrors.filter((x) => !/\/api\/stripe\/webhook/.test(x.route) || x.status !== 500))
+  }
+
+  /* ── 9. Orders page refund check (database audit F8) ───────────────── */
+  section("9. The Orders page's missed-refund check: once per creator per six hours, through refund-sync")
+  {
+    const t = 1_800_000_000_000
+    check("the first visit runs it", refundCheckDue("creator-r1", t) === true)
+    check("  a refresh a minute later does not (no 60 PaymentIntent reads per visit)", refundCheckDue("creator-r1", t + 60_000) === false)
+    check("  another creator's visit is their own", refundCheckDue("creator-r2", t + 60_000) === true)
+    check("  six hours later it runs again", refundCheckDue("creator-r1", t + REFUND_CHECK_EVERY_MS) === true)
+    const page = code("app/app/orders/sales/page.tsx")
+    const sweep = page.slice(page.indexOf("async function catchMissedRefunds"))
+    check("a refund found is applied by refund-sync (ledger line, each refund once), never by raw order updates", /if \(!refundCheckDue\(creatorId\)\) return/.test(sweep) && /await syncChargeRefund\(admin, stripe, charge\)/.test(sweep) && !/from\("orders"\)\s*\.update/.test(sweep))
   }
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
