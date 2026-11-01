@@ -290,23 +290,41 @@ export function authorOf(byline: string | null | undefined): BlogAuthor {
 
 export type CtaVariant = "digital" | "physical" | "community"
 
-/** What each box says. Facts from the product: a free plan with no monthly fee (lib/billing/plans). */
-export const BLOG_CTA: Record<CtaVariant, { title: string; body: string; card: string }> = {
+/**
+ * What the box inside an article says, by what the post is about (ctaVariant).
+ * Facts from the product: a free plan with no monthly fee, unlimited digital
+ * products and courses, websites and a creator page on it (lib/billing/plans).
+ * Changed on purpose (round 47, the owner: "Storelib is about many things"):
+ * each box names its own kind of selling first, then the rest of Storelib.
+ */
+export const BLOG_CTA: Record<CtaVariant, { title: string; body: string }> = {
   digital: {
-    title: "Start selling digital products",
-    body: "Upload a file, set a price and share one link. Free to start, no monthly fee.",
-    card: "Sell your first digital product today.",
+    title: "Sell your digital products on Storelib",
+    body: "Upload a file, set a price and share one link. Courses, a community and your own website live in the same place. Free to start, no monthly fee.",
   },
   physical: {
-    title: "Start selling physical products",
-    body: "Add photos, stock and shipping rates, then take orders from one link. Free to start.",
-    card: "Sell physical products from one link.",
+    title: "Sell physical products on Storelib",
+    body: "Add photos, stock and shipping rates, then take orders from your own store. Sell digital products and courses beside them. Free to start.",
   },
   community: {
-    title: "Start your own community",
-    body: "Posts, members and paid access in one place, on a page of your own. Free to start.",
-    card: "Run a paid community on Storelib.",
+    title: "Start your community on Storelib",
+    body: "Posts, members and paid access on a page of your own, next to your products and courses. Free to start.",
   },
+}
+
+/**
+ * THE CARD UNDER "ON THIS PAGE": everything Storelib does, in one line, the
+ * same on every post. Physical products only while physical commerce is
+ * switched on (lib/platform/physical-commerce), so it never offers what the
+ * platform does not sell.
+ */
+export function blogRailCta(physicalEnabled: boolean): { title: string; body: string } {
+  return {
+    title: "Sell anything from one place.",
+    body: physicalEnabled
+      ? "Digital products, physical products, courses, communities, a link in bio and your own website. Free to start."
+      : "Digital products, courses, communities, a link in bio and your own website. Free to start.",
+  }
 }
 
 /**

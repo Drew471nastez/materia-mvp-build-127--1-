@@ -36,9 +36,10 @@ function copyLine(r: CopyReport): string {
 type StatusFilter = "all" | "draft" | "scheduled" | "published"
 type Sort = "edited" | "published" | "title" | "views"
 
+/* Short enough for a phone's third of a row: the select says "Sort" to a screen reader. */
 const SORTS: { id: Sort; label: string }[] = [
-  { id: "edited", label: "Last edited" },
-  { id: "published", label: "Publish date" },
+  { id: "edited", label: "Edited" },
+  { id: "published", label: "Published" },
   { id: "title", label: "Title" },
   { id: "views", label: "Views" },
 ]
@@ -56,7 +57,7 @@ export default function BlogListClient({ rows, error, categories, authors, full,
   const [deleting, setDeleting] = React.useState<AdminListRow | null>(null)
   const [copying, setCopying] = React.useState<{ done: number; of: number } | null>(null)
   const [copyReports, setCopyReports] = React.useState<CopyReport[] | null>(null)
-  const [, startTransition] = React.useTransition()
+  const [refreshing, startTransition] = React.useTransition()
 
   const counts = React.useMemo(() => {
     const c = { all: rows.length, draft: 0, scheduled: 0, published: 0 }
@@ -64,8 +65,10 @@ export default function BlogListClient({ rows, error, categories, authors, full,
     return c
   }, [rows])
 
+  /* The field answers every key at once; the list follows a beat behind on a long list, never holding a key up. */
+  const query = React.useDeferredValue(q)
   const shown = React.useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    const needle = query.trim().toLowerCase()
     const out = rows.filter(
       (r) =>
         (status === "all" || r.status === status) &&
@@ -80,7 +83,7 @@ export default function BlogListClient({ rows, error, categories, authors, full,
       views: (a, b) => b.views - a.views,
     }
     return out.sort(by[sort])
-  }, [rows, q, status, category, author, sort])
+  }, [rows, query, status, category, author, sort])
 
   const pickedRows = rows.filter((r) => picked.has(r.id))
   const allShownPicked = shown.length > 0 && shown.every((r) => picked.has(r.id))
@@ -209,7 +212,14 @@ export default function BlogListClient({ rows, error, categories, authors, full,
             {message.text}
           </p>
         ) : null}
-        {error ? <p className="rounded-[10px] border border-[#f47067]/40 px-4 py-2.5 text-[13px] text-[#f47067]">{error}</p> : null}
+        {error ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-[#f47067]/40 px-4 py-2">
+            <p className="text-[13px] text-[#f47067]">{error}</p>
+            <Button variant="plain" onClick={() => startTransition(() => router.refresh())} disabled={refreshing}>
+              {refreshing ? "Trying…" : "Try again"}
+            </Button>
+          </div>
+        ) : null}
         {copyReports ? (
           <section aria-label="Copy external images" className="rounded-[10px] border border-white/[0.08] px-4 py-2.5" data-copy-report="">
             <div className="flex items-center justify-between gap-3">
@@ -261,14 +271,27 @@ export default function BlogListClient({ rows, error, categories, authors, full,
             ))}
           </div>
 
-          {!shown.length ? (
-            <div className="px-4 py-12 text-center">
-              <p className="text-[13px] text-[#9b9ba6]">{rows.length ? "No post matches." : "No posts yet."}</p>
-              {!rows.length ? (
-                <a href="/admin/blog/posts/new" className="mt-3 inline-block text-[13px] text-[#ededf0] underline decoration-white/30 underline-offset-2">
-                  Write the first one
+          {!shown.length && error && !rows.length ? null : !shown.length ? (
+            <div className="px-4 py-14 text-center">
+              <p className="text-[14px] text-[#ededf0]">{rows.length ? "No post matches." : "No posts yet."}</p>
+              {rows.length ? (
+                <Button
+                  variant="plain"
+                  className="mt-3"
+                  onClick={() => {
+                    setQ("")
+                    setStatus("all")
+                    setCategory("")
+                    setAuthor("")
+                  }}
+                >
+                  Clear the search and filters
+                </Button>
+              ) : (
+                <a href="/admin/blog/posts/new" className="mt-3 inline-flex h-8 items-center rounded-[7px] bg-[#ededf0] px-3 text-[13px] font-medium text-[#0b0b0f] outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70">
+                  Write the first post
                 </a>
-              ) : null}
+              )}
             </div>
           ) : (
             shown.map((r) => <Row key={r.id} row={r} cols={cols} picked={picked.has(r.id)} onPick={() => toggle(r.id)} onDelete={() => setDeleting(r)} />)
@@ -297,7 +320,7 @@ function Row({ row, cols, picked, onPick, onDelete }: { row: AdminListRow; cols:
         <div className="flex min-w-0 items-center gap-3">
           <Thumb url={row.cover_image_url} />
           <div className="min-w-0">
-            <a href={href} className="block truncate text-[13px] font-medium text-[#ededf0] outline-none after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:underline">
+            <a href={href} className="block truncate text-[13px] font-medium text-[#ededf0] outline-none after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:underline focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-[#8b5cf6]/70">
               {row.title || "Untitled"}
             </a>
             <p className="truncate text-[12px] text-[#6b6b76]">/blog/{row.slug}</p>
@@ -309,9 +332,10 @@ function Row({ row, cols, picked, onPick, onDelete }: { row: AdminListRow; cols:
         <span className="truncate text-[13px] text-[#9b9ba6]" title={formatWhen(row.edited_at)}>
           {formatAgo(row.edited_at)}
         </span>
-        <span className="flex items-center justify-end gap-2 text-right text-[13px] tabular-nums text-[#c9c9d1]">
-          <span className="group-hover/row:hidden">{row.views.toLocaleString("en-US")}</span>
-          <button type="button" onClick={onDelete} className="relative z-10 hidden text-[12px] text-[#f47067] hover:underline group-hover/row:inline">
+        {/* Views, and Delete in their place on hover or keyboard focus: always in the page, so Tab reaches it. */}
+        <span className="relative flex items-center justify-end text-right text-[13px] tabular-nums text-[#c9c9d1]">
+          <span className="group-hover/row:invisible group-focus-within/row:invisible">{row.views.toLocaleString("en-US")}</span>
+          <button type="button" onClick={onDelete} aria-label={`Delete ${row.title || "Untitled"}`} className="absolute right-0 z-10 rounded-[4px] text-[12px] text-[#f47067] opacity-0 outline-none hover:underline focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 group-hover/row:opacity-100 group-focus-within/row:opacity-100">
             Delete
           </button>
         </span>
@@ -319,25 +343,28 @@ function Row({ row, cols, picked, onPick, onDelete }: { row: AdminListRow; cols:
       <div className="flex min-w-0 items-start gap-3 lg:hidden">
         <span className="relative z-10 pt-0.5">{check}</span>
         <div className="min-w-0 flex-1">
-          <a href={href} className="block truncate text-[14px] font-medium text-[#ededf0] after:absolute after:inset-0 after:content-['']">
+          <a href={href} className="line-clamp-2 text-[14px] font-medium leading-[19px] text-[#ededf0] outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-[#8b5cf6]/70">
             {row.title || "Untitled"}
           </a>
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#9b9ba6]">
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12px] text-[#9b9ba6]">
             <PostStatusDot status={row.status} label={statusLabel} />
             <span>{row.category}</span>
-            <span>Edited {formatAgo(row.edited_at)}</span>
+            <span>{row.author.split(" - ")[0]}</span>
           </div>
+          <p className="mt-0.5 text-[12px] tabular-nums text-[#6b6b76]">
+            Edited {formatAgo(row.edited_at)} · {row.views.toLocaleString("en-US")} {row.views === 1 ? "view" : "views"}
+          </p>
         </div>
-        <span className="shrink-0 pt-0.5 text-[12px] tabular-nums text-[#6b6b76]">{row.views.toLocaleString("en-US")}</span>
+        <Thumb url={row.cover_image_url} small />
       </div>
     </div>
   )
 }
 
-function Thumb({ url }: { url: string | null }) {
+function Thumb({ url, small }: { url: string | null; small?: boolean }) {
   const [broken, setBroken] = React.useState(false)
   return (
-    <span className="relative block h-9 w-[64px] shrink-0 overflow-hidden rounded-[5px] border border-white/[0.06] bg-white/[0.03]">
+    <span className={cx("relative block shrink-0 overflow-hidden rounded-[5px] border border-white/[0.06] bg-white/[0.03]", small ? "mt-0.5 h-[42px] w-[72px]" : "h-9 w-[64px]")}>
       {url && !broken ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover" />

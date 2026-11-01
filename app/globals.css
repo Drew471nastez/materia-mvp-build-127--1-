@@ -1575,6 +1575,23 @@ html.capacitor body {
   }
 
   /*
+    ROUND 47, THE BLOG'S LISTS: "moving between categories must be smooth".
+    The new list fades up from a little under full (opacity only, as
+    .settings-panel above, so nothing fixed inside it is disturbed), only
+    after a pill was pressed (app/(marketing)/blog/_components/blog-nav.tsx).
+  */
+  .blog-list-swap {
+    animation: blog-list-swap 180ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+  }
+  @keyframes blog-list-swap {
+    from { opacity: 0.35; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blog-list-swap { animation: none; }
+  }
+
+  /*
     THE ONEPAGE ONBOARDING'S LAST STEP: two thin rings in the logo's shape
     grow out of it and fade, 1.2s apart, while the page is built
     (components/onepage/onboarding-modal.tsx). Transform and opacity on

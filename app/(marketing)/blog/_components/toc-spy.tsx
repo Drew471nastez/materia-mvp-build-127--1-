@@ -3,13 +3,9 @@
 /**
  * Marks the heading being read in the contents list (./toc), with an
  * IntersectionObserver rather than a scroll listener: the browser says when
- * a heading crosses a band near the top of the screen, and nothing is
- * measured while the page scrolls.
- *
- *   a heading entering the band (from 96px down to a third of the screen)
- *   becomes the current one;
- *   a heading leaving it downwards (scrolling back up) hands over to the
- *   heading before it.
+ * a heading crosses a band near the top of the screen (from 96px down to a
+ * third of it), and nothing is measured while the page scrolls. The current
+ * heading is the last one above that third; see `pick` below.
  *
  * aria-current="true" on every link to it (the side list and the folded one
  * on a phone). A tap on a link in the folded list closes it, so the reader
@@ -19,8 +15,10 @@ import { useEffect } from "react"
 
 export function TocSpy({ body = "[data-blog-body]", links = "[data-blog-toc] a" }: { body?: string; links?: string }) {
   useEffect(() => {
-    const headings = [...document.querySelectorAll<HTMLElement>(`${body} h2[id], ${body} h3[id]`)]
     const anchors = [...document.querySelectorAll<HTMLAnchorElement>(links)]
+    /* Only headings the list links to: the sign up box inside the body has an h2 with an id of its own (round 47: it was picked, and cleared every link). */
+    const listed = new Set(anchors.map((a) => decodeURIComponent(a.hash.slice(1))))
+    const headings = [...document.querySelectorAll<HTMLElement>(`${body} h2[id], ${body} h3[id]`)].filter((h) => listed.has(h.id))
     if (headings.length < 2 || !anchors.length) return
 
     let current = ""
@@ -33,18 +31,28 @@ export function TocSpy({ body = "[data-blog-body]", links = "[data-blog-toc] a" 
       }
     }
 
-    const index = new Map(headings.map((h, i) => [h, i]))
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          const i = index.get(e.target as HTMLElement) ?? 0
-          if (e.isIntersecting) mark(headings[i].id)
-          else if (e.rootBounds && e.boundingClientRect.top >= e.rootBounds.bottom && headings[i].id === current && i > 0) mark(headings[i - 1].id)
-        }
-      },
-      { rootMargin: "-96px 0px -66% 0px" },
-    )
+    /*
+      Round 47: the heading being read is the last one whose top has passed
+      a line a third of the way down the screen (the first one before any
+      has). Worked out again whenever the observer says a heading crossed
+      the band, and when a scroll ends, because a jump (a contents link, the
+      End key, a restored position) can carry every heading past the band
+      without one ever being inside it, and the observer stays silent.
+      Nothing is measured while the page is scrolling.
+    */
+    const pick = () => {
+      const line = window.innerHeight / 3
+      let at = 0
+      for (let i = 0; i < headings.length; i++) {
+        if (headings[i].getBoundingClientRect().top <= line) at = i
+        else break
+      }
+      mark(headings[at].id)
+    }
+    const io = new IntersectionObserver(pick, { rootMargin: "-96px 0px -66% 0px" })
     headings.forEach((h) => io.observe(h))
+    pick()
+    window.addEventListener("scrollend", pick, { passive: true })
 
     const folded = document.querySelector<HTMLDetailsElement>("[data-blog-toc-inline]")
     const close = (e: Event) => {
@@ -53,6 +61,7 @@ export function TocSpy({ body = "[data-blog-body]", links = "[data-blog-toc] a" 
     folded?.addEventListener("click", close)
     return () => {
       io.disconnect()
+      window.removeEventListener("scrollend", pick)
       folded?.removeEventListener("click", close)
     }
   }, [body, links])

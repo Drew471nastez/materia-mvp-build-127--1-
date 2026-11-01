@@ -6,7 +6,8 @@ import BlogEditor, { blankBlock } from "@/components/admin/blog-editor"
 import { Button, ConfirmDialog, cx } from "@/app/admin/_console/ui"
 import type { Block } from "@/lib/blog/blocks"
 import type { AdminPostView, BlogAuthor, BlogCategory, BlogSnippet } from "@/lib/blog/admin-store"
-import { META_DESCRIPTION_LIMIT, SEO_TITLE_LIMIT, emptyMeta, readTimeFor, slugify, type PostMeta } from "@/lib/blog/editor-model"
+import { emptyMeta, slugify, type PostMeta } from "@/lib/blog/editor-model"
+import { DESCRIPTION_FITS, TITLE_FITS, isFocusShortcut, isSaveShortcut, readMinutes, searchDescription, searchTitle, seoChecklist, wordCount, type Check } from "@/lib/blog/editor-tools"
 import { externalImagesOf, hostList, replaceImageUrls, type ExternalImage } from "@/lib/blog/external-images"
 
 import { BlogBar, Field, Needs345, PostStatusDot, Section, Switch, field, formatAgo, formatWhen, toLocalInput } from "../_ui"
@@ -27,7 +28,17 @@ import { BlogBar, Field, Needs345, PostStatusDot, Section, Switch, field, format
  * asks first. Cmd+S saves now and keeps a revision in History.
  *
  * Before SQL part 345 there is no draft copy: a live post is not saved as it
- * is typed, only on Update, and the page says so.
+ * is typed, only on Update, and the page says so, once, with the list of
+ * what part 345 adds; the fields that need it are left out rather than
+ * shown disabled.
+ *
+ * THE PAGE. One writing column at the article's own measure and sizes. The
+ * post's settings are a panel on the right that folds away (remembered in
+ * this browser), and a drawer on a phone. Focus mode (Shift+Cmd+F, Esc to
+ * leave) hides everything but the writing and the save state. What is
+ * worked out from the whole post (the word count, the checklist, pictures
+ * from other sites) follows the writing a moment after typing stops, so a
+ * key press only ever redraws the block it typed into.
  */
 
 type SaveState =
@@ -62,6 +73,30 @@ function byline(a: Pick<BlogAuthor, "name" | "role">) {
 
 const short345 = (note: string) => note.replace(/ to turn this on\.$/, "")
 
+/** `value`, a moment after it last changed: for what is worked out from the whole post, so typing never waits for it. */
+function useCalm<T>(value: T, ms = 400): T {
+  const [calm, setCalm] = React.useState(value)
+  React.useEffect(() => {
+    if (calm === value) return
+    const t = setTimeout(() => setCalm(value), ms)
+    return () => clearTimeout(t)
+  }, [value, calm, ms])
+  return calm
+}
+
+/** A callback that is always the latest `fn` and never a new function, so a memoised panel does not redraw for it. */
+function useStable<A extends unknown[], R>(fn: (...a: A) => R): (...a: A) => R {
+  const ref = React.useRef(fn)
+  React.useLayoutEffect(() => {
+    ref.current = fn
+  })
+  return React.useCallback((...a: A) => ref.current(...a), [])
+}
+
+const PANEL_KEY = "storelib.blog-editor.panel"
+
+type Done = { kind: "published" | "updated" | "scheduled"; slug: string; at: string | null }
+
 export default function BlogPostEditorClient({ initial, full, categories, authors, snippets, tags, note345 }: EditorProps) {
   const [postId, setPostId] = React.useState<string | null>(initial?.id ?? null)
   const [view, setView] = React.useState<AdminPostView | null>(initial)
@@ -69,7 +104,11 @@ export default function BlogPostEditorClient({ initial, full, categories, author
   const [blocks, setBlocksState] = React.useState<Block[]>(() => (initial?.blocks?.length ? initial.blocks : [blankBlock("p")]))
   const [editorKey, setEditorKey] = React.useState(0)
   const [save, setSave] = React.useState<SaveState>(() => (initial ? { kind: "saved", at: Date.parse(initial.draft_saved_at ?? initial.updated_at ?? "") || Date.now() } : { kind: "idle" }))
-  const [tab, setTab] = React.useState<"write" | "settings">("write")
+  /* The settings panel: open or folded on a wide screen (remembered), a drawer on a phone. */
+  const [panel, setPanel] = React.useState(true)
+  const [drawer, setDrawer] = React.useState(false)
+  const [focusMode, setFocusMode] = React.useState(false)
+  const [done, setDone] = React.useState<Done | null>(null)
   const [slugTouched, setSlugTouched] = React.useState(Boolean(initial))
   const [publishOpen, setPublishOpen] = React.useState(false)
   const [historyOpen, setHistoryOpen] = React.useState(false)
@@ -229,18 +268,58 @@ export default function BlogPostEditorClient({ initial, full, categories, author
     return () => window.removeEventListener("beforeunload", onLeave)
   }, [])
 
-  /* Cmd+S: save now, with a revision. */
+  /* Cmd+S: save now, whatever is waiting, with a revision. Shift+Cmd+F: focus mode; Esc leaves it. */
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "s") {
+      if (isSaveShortcut(e)) {
         e.preventDefault()
-        if (!autosaves) return flash("A live post saves on Update until SQL part 345 is run.")
+        if (!autosaves) return flash("This post is live: Update saves it. Drafts of live posts come with SQL part 345.")
         queue("save").then((ok) => ok && flash(full ? "Saved, and kept in History" : "Saved"))
+        return
+      }
+      if (isFocusShortcut(e)) {
+        e.preventDefault()
+        setFocusMode((f) => !f)
+        return
+      }
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        setFocusMode(false)
+        setDrawer(false)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [autosaves, full, queue, flash])
+
+  /* Wide enough for the panel beside the writing (the lg breakpoint), followed as the window changes. */
+  const [wide, setWide] = React.useState(true)
+  React.useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PANEL_KEY) === "closed") setPanel(false)
+    } catch {}
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const follow = () => setWide(mq.matches)
+    follow()
+    mq.addEventListener("change", follow)
+    return () => mq.removeEventListener("change", follow)
+  }, [])
+  const toggleSettings = React.useCallback(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setPanel((open) => {
+        try {
+          window.localStorage.setItem(PANEL_KEY, open ? "closed" : "open")
+        } catch {}
+        return !open
+      })
+    } else setDrawer((d) => !d)
+  }, [])
+  /** Opens the settings wherever they are on this screen, at one section. */
+  const showSettings = useStable((section?: string) => {
+    setFocusMode(false)
+    if (window.matchMedia("(min-width: 1024px)").matches) setPanel(true)
+    else setDrawer(true)
+    if (section) requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: "start", behavior: "smooth" }))
+  })
 
   async function act(action: Action, extra?: { publish_at?: string | null }) {
     if (!metaRef.current.title.trim()) {
@@ -255,7 +334,9 @@ export default function BlogPostEditorClient({ initial, full, categories, author
     setPublishOpen(false)
     setConfirmUnpublish(false)
     const v = viewRef.current
-    flash(action === "unpublish" ? "Unpublished. Its address answers 404 now." : v?.status === "scheduled" ? `Scheduled for ${formatWhen(v.live.published_at)}` : action === "update" ? "Updated. The live page shows it within a minute." : "Published")
+    if (action === "unpublish" || !v) return flash("Unpublished. Its address answers 404 now.")
+    /* Published, updated or scheduled: said with the address and a way to it. */
+    setDone({ kind: v.status === "scheduled" ? "scheduled" : action === "publish" ? "published" : "updated", slug: v.live.slug, at: v.live.published_at })
   }
 
   async function resolveConflict(choice: "theirs" | "mine") {
@@ -274,14 +355,22 @@ export default function BlogPostEditorClient({ initial, full, categories, author
     await queue(full || viewRef.current?.status === "draft" ? "autosave" : "update", { force: true })
   }
 
-  async function upload(file: File): Promise<string> {
+  const upload = React.useCallback(async (file: File): Promise<string> => {
     const fd = new FormData()
     fd.append("file", file)
     const res = await fetch("/api/admin/blog/upload", { method: "POST", body: fd })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.url) throw new Error(typeof data.error === "string" ? data.error : "The picture could not be uploaded.")
     return data.url as string
-  }
+  }, [])
+
+  /** A pasted picture address from another site, copied into Storelib as Copy to Storelib does. */
+  const importImage = React.useCallback(async (url: string): Promise<string> => {
+    const res = await fetch("/api/admin/blog/copy-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || typeof data.url !== "string") throw new Error(typeof data.error === "string" ? data.error : "Not copied.")
+    return data.url
+  }, [])
 
   /*
     COPY TO STORELIB. Each picture from another site is downloaded by the
@@ -290,7 +379,10 @@ export default function BlogPostEditorClient({ initial, full, categories, author
   */
   const [copyBusy, setCopyBusy] = React.useState<{ done: number; of: number } | null>(null)
   const [copyErrors, setCopyErrors] = React.useState<{ url: string; error: string }[]>([])
-  const externals = React.useMemo(() => externalImagesOf(meta, blocks), [meta, blocks])
+  /* Worked out from the whole post a moment after typing stops (useCalm), never on a key press. */
+  const calmBlocks = useCalm(blocks)
+  const externals = React.useMemo(() => externalImagesOf(meta, calmBlocks), [meta, calmBlocks])
+  const words = React.useMemo(() => wordCount(calmBlocks), [calmBlocks])
   async function copyToStorelib(list: ExternalImage[]) {
     const moved = new Map<string, string>()
     const errors: { url: string; error: string }[] = []
@@ -320,6 +412,7 @@ export default function BlogPostEditorClient({ initial, full, categories, author
   }
 
   async function openPreview() {
+    if (!autosaves && dirty) flash("The preview shows the live post. Changes here reach it on Update, until SQL part 345 adds drafts.")
     const w = window.open("about:blank", "_blank")
     if (autosaves && (editSeq.current !== savedSeq.current || !idRef.current)) await queue("autosave")
     await chain.current
@@ -350,63 +443,101 @@ export default function BlogPostEditorClient({ initial, full, categories, author
 
   const dirty = save.kind === "dirty" || save.kind === "saving" || (save.kind === "error" && save.retrying)
   const hasChanges = Boolean(view?.hasDraft) || (!full && isLiveish && dirty)
-  const saveWord = (() => {
-    switch (save.kind) {
-      case "saving":
-        return "Saving…"
-      case "saved":
-        return `Saved ${new Date(save.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
-      case "dirty":
-        return autosaves ? "Editing…" : "Not saved: Update saves it"
-      case "error":
-        return save.retrying ? "Couldn't save, retrying" : save.message
-      case "conflict":
-        return "Changed in another tab"
-      default:
-        return ""
-    }
-  })()
   const statusLabel = status === "scheduled" ? `Scheduled for ${formatWhen(view?.live.published_at)}` : status === "published" ? (view?.hasDraft ? "Published, with changes not live yet" : "Published") : "Draft"
 
   const liveSlug = view?.live.slug ?? ""
   const slugMoves = isLiveish && Boolean(liveSlug) && meta.slug !== liveSlug
+  const wordsLine = words ? `${words.toLocaleString("en-US")} ${words === 1 ? "word" : "words"} · ${readMinutes(words)} min read` : "No words yet"
 
+  const onSlugTouched = React.useCallback(() => setSlugTouched(true), [])
+  const onUnpublish = React.useCallback(() => setConfirmUnpublish(true), [])
+  const onHistory = React.useCallback(() => setHistoryOpen(true), [])
+  const onReschedule = useStable((at: string) => act("update", { publish_at: at }))
+  const focusTitle = React.useCallback(() => {
+    const t = document.querySelector<HTMLTextAreaElement>("textarea[aria-label='Title']")
+    if (!t) return
+    t.focus()
+    t.setSelectionRange(t.value.length, t.value.length)
+  }, [])
+
+  const publishButton =
+    status === "draft" ? (
+      <div className="relative">
+        <Button variant="primary" onClick={() => setPublishOpen((o) => !o)} aria-expanded={publishOpen} aria-haspopup="dialog" disabled={busy !== null}>
+          {busy === "publish" ? "Publishing…" : "Publish"}
+        </Button>
+        {publishOpen ? (
+          <PublishPopover
+            when={view?.live.published_at ?? null}
+            slug={meta.slug}
+            checks={() => seoChecklist(metaRef.current, blocksRef.current, { full })}
+            onReview={() => {
+              setPublishOpen(false)
+              showSettings("seo-checklist")
+            }}
+            onClose={() => setPublishOpen(false)}
+            onPublish={(at) => act("publish", { publish_at: at })}
+            busy={busy === "publish"}
+          />
+        ) : null}
+      </div>
+    ) : (
+      <Button variant="primary" onClick={() => act("update")} disabled={busy !== null || (!hasChanges && !dirty)} title={hasChanges || dirty ? "Make these changes live" : "Nothing to update"}>
+        {busy === "update" ? "Updating…" : "Update"}
+      </Button>
+    )
+
+  const settingsOpen = wide ? panel : drawer
   return (
     <div className="min-h-[100dvh] bg-[#0b0b0f] text-[#ededf0] [color-scheme:dark]">
-      <BlogBar
-        title={
-          <a href="/admin/blog" className="flex min-w-0 shrink-0 items-center gap-1 text-[13px] text-[#9b9ba6] hover:text-[#ededf0]">
-            <span aria-hidden>←</span> Posts
-          </a>
-        }
-      >
-        <span className={cx("hidden max-w-[240px] truncate text-[12px] tabular-nums md:block", save.kind === "error" ? "text-[#f47067]" : save.kind === "conflict" ? "text-[#d4a72c]" : "text-[#6b6b76]")} aria-live="polite" data-save-state={save.kind}>
-          {saveWord}
-        </span>
-        <Button variant="quiet" onClick={() => setHistoryOpen(true)} disabled={!postId} className="max-sm:hidden">
-          History
-        </Button>
-        <Button variant="quiet" onClick={openPreview}>
-          Preview
-        </Button>
-        {status === "draft" ? (
-          <div className="relative">
-            <Button variant="primary" onClick={() => setPublishOpen((o) => !o)} aria-expanded={publishOpen} disabled={busy !== null}>
-              {busy === "publish" ? "Publishing…" : "Publish"}
-            </Button>
-            {publishOpen ? <PublishPopover when={view?.live.published_at ?? null} onClose={() => setPublishOpen(false)} onPublish={(at) => act("publish", { publish_at: at })} busy={busy === "publish"} /> : null}
-          </div>
-        ) : (
-          <>
-            <Button variant="plain" onClick={() => setConfirmUnpublish(true)} disabled={busy !== null} className="max-sm:hidden">
-              Unpublish
-            </Button>
-            <Button variant="primary" onClick={() => act("update")} disabled={busy !== null || (!hasChanges && !dirty)} title={hasChanges || dirty ? "Make these changes live" : "Nothing to update"}>
-              {busy === "update" ? "Updating…" : "Update"}
-            </Button>
-          </>
-        )}
-      </BlogBar>
+      {focusMode ? (
+        /* Focus mode: the writing alone, the save state in a corner, a way out. */
+        <div className="fixed right-3 top-3 z-30 flex items-center gap-2 opacity-60 transition-opacity hover:opacity-100 focus-within:opacity-100" style={{ marginTop: "env(safe-area-inset-top)" }}>
+          <SaveStatus save={save} autosaves={autosaves} />
+          <Button variant="quiet" onClick={() => setFocusMode(false)} title="Esc">
+            Leave focus
+          </Button>
+        </div>
+      ) : (
+        <BlogBar
+          title={
+            <a href="/admin/blog" className="flex min-w-0 shrink-0 items-center gap-1 rounded-[6px] text-[13px] text-[#9b9ba6] outline-none hover:text-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70">
+              <span aria-hidden>←</span> Posts
+            </a>
+          }
+        >
+          <SaveStatus save={save} autosaves={autosaves} />
+          <span className="hidden w-[150px] truncate text-right text-[12px] tabular-nums text-[#6b6b76] xl:block" aria-label={wordsLine}>
+            {wordsLine}
+          </span>
+          <Button variant="quiet" onClick={() => setFocusMode(true)} title="Focus mode (Shift+Cmd+F)" className="max-md:hidden">
+            Focus
+          </Button>
+          <Button variant="quiet" onClick={openPreview} className="max-sm:px-2">
+            Preview
+          </Button>
+          <button
+            type="button"
+            onClick={toggleSettings}
+            aria-label={settingsOpen ? "Hide post settings" : "Show post settings"}
+            title="Post settings"
+            aria-controls="post-settings"
+            aria-expanded={settingsOpen}
+            className={cx(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70",
+              panel ? "lg:bg-white/[0.07] lg:text-[#ededf0]" : "lg:text-[#9b9ba6]",
+              drawer ? "max-lg:bg-white/[0.07] max-lg:text-[#ededf0]" : "max-lg:text-[#9b9ba6]",
+              "hover:bg-white/[0.07] hover:text-[#ededf0]",
+            )}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+              <rect x="1.75" y="2.25" width="12.5" height="11.5" rx="2" />
+              <path d="M10 2.5v11" />
+            </svg>
+          </button>
+          {publishButton}
+        </BlogBar>
+      )}
 
       {save.kind === "conflict" ? (
         <div className="border-b border-[#d4a72c]/30 bg-[#d4a72c]/[0.06] px-4 py-2.5 sm:px-6" role="alert">
@@ -427,40 +558,57 @@ export default function BlogPostEditorClient({ initial, full, categories, author
         </div>
       ) : null}
 
-      {/* A phone has one column: what is being written, or its settings. */}
-      <div className="sticky top-12 z-20 flex border-b border-white/[0.08] bg-[#0b0b0f] px-4 lg:hidden" role="tablist" aria-label="Editor">
-        {(["write", "settings"] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("-mb-px h-10 border-b-2 px-3 text-[13px] outline-none", tab === t ? "border-[#8b5cf6] text-[#ededf0]" : "border-transparent text-[#9b9ba6]")}>
-            {t === "write" ? "Write" : "Settings"}
-          </button>
-        ))}
-        <span className={cx("ml-auto min-w-0 self-center truncate pl-2 text-[12px]", save.kind === "error" ? "text-[#f47067]" : save.kind === "conflict" ? "text-[#d4a72c]" : "text-[#6b6b76]")}>{saveWord}</span>
-      </div>
-
       <div className="mx-auto flex max-w-[1440px] items-start">
-        <main className={cx("min-w-0 flex-1 px-4 pb-24 pt-7 sm:px-6 lg:pt-10", tab === "settings" && "hidden lg:block")}>
-          <div className="mx-auto max-w-[720px] pl-7 sm:pl-9">
-            <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#6b6b76]">
-              <PostStatusDot status={status} label={statusLabel} />
-              {status === "published" ? (
-                <a href={`/blog/${liveSlug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">
-                  storelib.com/blog/{liveSlug}
-                </a>
-              ) : null}
-            </div>
-            {!autosaves ? <p className="mb-5 rounded-[8px] border border-[#d4a72c]/30 px-3 py-2 text-[12px] text-[#d4a72c]">This post is live, so changes save only on Update. {short345(note345)} to save drafts of live posts as you type.</p> : null}
-            {externals.length || copyErrors.length ? <ExternalImagesNotice images={externals} busy={copyBusy} errors={copyErrors} onCopy={() => copyToStorelib(externals)} /> : null}
-            <TitleField value={meta.title} onChange={onTitle} />
-            <BlogEditor key={editorKey} blocks={blocks} onChange={setBlocks} onUpload={upload} snippets={snippets} snippetsNote={full ? null : `Snippets: ${note345}`} />
+        <main className={cx("min-w-0 flex-1 px-4 pb-24 sm:px-6", focusMode ? "pt-16 sm:pt-20" : "pt-7 lg:pt-10")}>
+          <div className="mx-auto max-w-[756px] pl-7 sm:pl-9">
+            {!focusMode ? (
+              <>
+                <div className="mb-5 flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#6b6b76]">
+                  <PostStatusDot status={status} label={statusLabel} />
+                  {status === "published" ? (
+                    <a href={`/blog/${liveSlug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">
+                      storelib.com/blog/{liveSlug}
+                    </a>
+                  ) : null}
+                  <span className="tabular-nums xl:hidden">{wordsLine}</span>
+                </div>
+                {!autosaves ? (
+                  <p className="mb-5 rounded-[8px] border border-[#d4a72c]/30 px-3 py-2 text-[12px] leading-[18px] text-[#d4a72c]">
+                    This post is live, so changes are saved when you press Update. Saving drafts of live posts as you type comes with SQL part 345 (Admin › SQL updates).
+                  </p>
+                ) : null}
+                {externals.length || copyErrors.length ? <ExternalImagesNotice images={externals} busy={copyBusy} errors={copyErrors} onCopy={() => copyToStorelib(externals)} /> : null}
+              </>
+            ) : null}
+            <TitleField value={meta.title} onChange={onTitle} autoFocus={!initial} />
+            <BlogEditor key={editorKey} blocks={blocks} onChange={setBlocks} onUpload={upload} onImport={importImage} onLeaveTop={focusTitle} snippets={snippets} snippetsNote={full ? null : `Snippets: ${note345}`} />
           </div>
         </main>
 
-        <aside className={cx("w-full shrink-0 border-white/[0.08] lg:sticky lg:top-12 lg:block lg:h-[calc(100dvh-48px)] lg:w-[340px] lg:overflow-y-auto lg:border-l", tab === "write" && "hidden")} aria-label="Post settings">
-          <Settings
+        {drawer ? <div aria-hidden className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setDrawer(false)} /> : null}
+        <aside
+          id="post-settings"
+          aria-label="Post settings"
+          className={cx(
+            "shrink-0 bg-[#0b0b0f]",
+            "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:w-full max-lg:max-w-[420px] max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:border-l max-lg:border-white/[0.1] max-lg:shadow-[0_0_48px_rgba(0,0,0,0.6)]",
+            !drawer && "max-lg:hidden",
+            panel && !focusMode ? "lg:sticky lg:top-12 lg:block lg:h-[calc(100dvh-48px)] lg:w-[340px] lg:overflow-y-auto lg:border-l lg:border-white/[0.08]" : "lg:hidden",
+          )}
+        >
+          <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-white/[0.08] bg-[#0b0b0f] px-4 lg:hidden" style={{ paddingTop: "env(safe-area-inset-top)", boxSizing: "content-box" }}>
+            <h2 className="text-[14px] font-semibold">Post settings</h2>
+            <Button variant="quiet" onClick={() => setDrawer(false)}>
+              Done
+            </Button>
+          </div>
+          <SettingsPanel
             meta={meta}
             setMeta={setMeta}
-            blocks={blocks}
+            blocks={calmBlocks}
+            words={words}
             view={view}
+            postId={postId}
             full={full}
             categories={categories}
             authors={authors}
@@ -468,11 +616,11 @@ export default function BlogPostEditorClient({ initial, full, categories, author
             note345={note345}
             slugMoves={slugMoves}
             liveSlug={liveSlug}
-            onSlugTouched={() => setSlugTouched(true)}
+            onSlugTouched={onSlugTouched}
             upload={upload}
-            onUnpublish={() => setConfirmUnpublish(true)}
-            onReschedule={(at) => act("update", { publish_at: at })}
-            onHistory={() => setHistoryOpen(true)}
+            onUnpublish={onUnpublish}
+            onReschedule={onReschedule}
+            onHistory={onHistory}
           />
         </aside>
       </div>
@@ -482,6 +630,8 @@ export default function BlogPostEditorClient({ initial, full, categories, author
           {toast}
         </div>
       ) : null}
+
+      <PublishedDialog done={done} onClose={() => setDone(null)} />
 
       <ConfirmDialog open={confirmUnpublish} title="Unpublish this post?" confirmLabel="Unpublish" danger busy={busy === "unpublish"} onClose={() => setConfirmUnpublish(false)} onConfirm={() => act("unpublish")}>
         <p>
@@ -511,7 +661,39 @@ export default function BlogPostEditorClient({ initial, full, categories, author
   )
 }
 
-function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** The save state, always in the same place and the same width, so nothing beside it moves when it changes. */
+function SaveStatus({ save, autosaves }: { save: SaveState; autosaves: boolean }) {
+  /* The words, and a shorter form for a phone's bar. */
+  const [word, short, tone] = ((): [string, string, "quiet" | "bad" | "warn"] => {
+    switch (save.kind) {
+      case "saving":
+        return ["Saving…", "Saving…", "quiet"]
+      case "saved":
+        return [`Saved ${new Date(save.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`, "Saved", "quiet"]
+      case "dirty":
+        return autosaves ? ["Saving…", "Saving…", "quiet"] : ["Unsaved: Update saves", "Unsaved", "warn"]
+      case "error":
+        return [save.retrying ? "Not saved, retrying" : save.message, "Not saved", "bad"]
+      case "conflict":
+        return ["Changed in another tab", "Conflict", "warn"]
+      default:
+        return ["", "", "quiet"]
+    }
+  })()
+  return (
+    <span
+      className={cx("block w-[64px] truncate text-right text-[12px] tabular-nums sm:w-[150px]", tone === "bad" ? "text-[#f47067]" : tone === "warn" ? "text-[#d4a72c]" : "text-[#6b6b76]")}
+      aria-live="polite"
+      title={save.kind === "error" ? save.message : undefined}
+      data-save-state={save.kind}
+    >
+      <span className="sm:hidden">{short}</span>
+      <span className="max-sm:hidden">{word}</span>
+    </span>
+  )
+}
+
+function TitleField({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   const ref = React.useRef<HTMLTextAreaElement>(null)
   React.useLayoutEffect(() => {
     const el = ref.current
@@ -519,6 +701,20 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
     el.style.height = "0px"
     el.style.height = `${el.scrollHeight}px`
   }, [value])
+  React.useEffect(() => {
+    if (autoFocus) ref.current?.focus()
+  }, [autoFocus])
+  const toBody = () => {
+    const first = document.querySelector<HTMLElement>("[data-blog-editor] [data-rt]")
+    if (!first) return
+    first.focus()
+    const sel = window.getSelection()
+    const r = document.createRange()
+    r.selectNodeContents(first.tagName === "UL" || first.tagName === "OL" ? (first.firstElementChild ?? first) : first)
+    r.collapse(true)
+    sel?.removeAllRanges()
+    sel?.addRange(r)
+  }
   return (
     <textarea
       ref={ref}
@@ -526,30 +722,55 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
       rows={1}
       onChange={(e) => onChange(e.target.value.replace(/\n/g, " "))}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        const el = e.currentTarget
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
           e.preventDefault()
-          document.querySelector<HTMLElement>("[data-blog-editor] [data-rt]")?.focus()
+          toBody()
+        }
+        if (e.key === "ArrowDown" && !e.shiftKey && el.selectionStart === el.value.length) {
+          e.preventDefault()
+          toBody()
         }
       }}
       placeholder="Title"
       aria-label="Title"
-      className="mb-5 block w-full resize-none overflow-hidden bg-transparent text-[30px] font-bold leading-[1.2] tracking-[-0.015em] text-[#ededf0] outline-none placeholder:text-[#3a3a44] max-md:!text-[28px] sm:text-[36px]"
+      className="mb-6 block w-full resize-none overflow-hidden bg-transparent text-[40px] font-bold leading-[1.15] tracking-[-0.025em] text-[#ededf0] outline-none placeholder:text-[#3a3a44] max-md:!text-[30px]"
     />
   )
 }
 
 /* ── Publish now or later ─────────────────────────────────────────────── */
 
-function PublishPopover({ when, onClose, onPublish, busy }: { when: string | null; onClose: () => void; onPublish: (at: string | null) => void; busy: boolean }) {
+function PublishPopover({
+  when,
+  slug,
+  checks,
+  onReview,
+  onClose,
+  onPublish,
+  busy,
+}: {
+  when: string | null
+  slug: string
+  checks: () => Check[]
+  onReview: () => void
+  onClose: () => void
+  onPublish: (at: string | null) => void
+  busy: boolean
+}) {
   const [later, setLater] = React.useState(false)
   const [at, setAt] = React.useState(() => toLocalInput(when && Date.parse(when) > Date.now() ? when : new Date(Date.now() + 86400_000).toISOString()))
   const ref = React.useRef<HTMLDivElement>(null)
+  const warnings = React.useMemo(() => checks().filter((c) => c.state === "warn"), [checks])
   React.useEffect(() => {
     const away = (e: MouseEvent) => {
       if (!ref.current?.parentElement?.contains(e.target as Node)) onClose()
     }
     const esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") {
+        e.preventDefault()
+        onClose()
+      }
     }
     document.addEventListener("mousedown", away)
     document.addEventListener("keydown", esc)
@@ -561,7 +782,7 @@ function PublishPopover({ when, onClose, onPublish, busy }: { when: string | nul
   const t = Date.parse(at)
   const future = Number.isFinite(t) && t > Date.now()
   return (
-    <div ref={ref} className="absolute right-0 top-10 z-40 w-[290px] max-w-[calc(100vw-32px)] rounded-[10px] border border-white/[0.1] bg-[#17171d] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+    <div ref={ref} role="dialog" aria-label="Publish" className="absolute right-0 top-10 z-40 w-[300px] max-w-[calc(100vw-32px)] rounded-[10px] border border-white/[0.1] bg-[#17171d] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
       <div className="flex gap-1 rounded-[8px] bg-[#0b0b0f] p-0.5" role="radiogroup" aria-label="When">
         {[
           { id: false, label: "Now" },
@@ -576,11 +797,20 @@ function PublishPopover({ when, onClose, onPublish, busy }: { when: string | nul
         <label className="mt-3 block">
           <span className="mb-1 block text-[12px] text-[#9b9ba6]">Goes live at, your time</span>
           <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} className={cx(field, "h-9")} />
-          {!future ? <span className="mt-1 block text-[12px] text-[#d4a72c]">Pick a time in the future.</span> : <span className="mt-1 block text-[12px] leading-4 text-[#6b6b76]">It appears on the blog, in the feed and in the sitemap then.</span>}
+          {!future ? <span className="mt-1 block text-[12px] text-[#d4a72c]">Pick a time in the future.</span> : null}
         </label>
-      ) : (
-        <p className="mt-3 text-[12px] leading-4 text-[#9b9ba6]">The post goes live at its address, on the blog, in the feed and in the sitemap.</p>
-      )}
+      ) : null}
+      <p className="mt-3 break-all text-[12px] leading-4 text-[#9b9ba6]">
+        {later ? "Then it goes live at" : "Goes live at"} <span className="text-[#ededf0]">storelib.com/blog/{slug || "…"}</span>, on the blog, in the feed and in the sitemap.
+      </p>
+      {warnings.length ? (
+        <p className="mt-2 text-[12px] leading-4 text-[#d4a72c]">
+          {warnings.length === 1 ? "1 search check is" : `${warnings.length} search checks are`} worth a look.{" "}
+          <button type="button" onClick={onReview} className="rounded-[4px] underline underline-offset-2 outline-none hover:text-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70">
+            Review
+          </button>
+        </p>
+      ) : null}
       <Button variant="primary" className="mt-3 w-full" disabled={busy || (later && !future)} onClick={() => onPublish(later ? new Date(at).toISOString() : null)}>
         {busy ? "Working…" : later ? "Schedule" : "Publish now"}
       </Button>
@@ -588,30 +818,76 @@ function PublishPopover({ when, onClose, onPublish, busy }: { when: string | nul
   )
 }
 
+/** After Publish, Update or Schedule: what happened, the address, and the post itself. */
+function PublishedDialog({ done, onClose }: { done: Done | null; onClose: () => void }) {
+  const ref = React.useRef<HTMLDialogElement>(null)
+  const [copied, setCopied] = React.useState(false)
+  React.useEffect(() => {
+    const d = ref.current
+    if (!d) return
+    if (done && !d.open) d.showModal?.()
+    if (!done && d.open) d.close()
+    setCopied(false)
+  }, [done])
+  const url = done ? `https://storelib.com/blog/${done.slug}` : ""
+  const title = done?.kind === "scheduled" ? "Scheduled" : done?.kind === "updated" ? "Updated" : "Published"
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      aria-label={title}
+      className="m-0 mt-auto w-full max-w-none rounded-t-[14px] border border-white/[0.1] bg-[#111116] p-0 text-[#ededf0] backdrop:bg-black/60 sm:m-auto sm:w-[440px] sm:rounded-[12px]"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      data-published={done?.kind ?? ""}
+    >
+      {done ? (
+        <div className="p-5">
+          <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+            <span aria-hidden className={cx("h-2 w-2 rounded-full", done.kind === "scheduled" ? "bg-[#d4a72c]" : "bg-[#3fb950]")} />
+            {title}
+          </h2>
+          <p className="mt-2 text-[13px] leading-5 text-[#9b9ba6]">
+            {done.kind === "scheduled" ? <>It goes live on {formatWhen(done.at)}, your time, at this address:</> : done.kind === "updated" ? <>The changes are live at this address:</> : <>The post is live at this address:</>}
+          </p>
+          <div className="mt-3 flex items-center gap-2 rounded-[8px] border border-white/[0.1] bg-[#0b0b0f] py-1 pl-3 pr-1">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-[#ededf0]" data-live-url>
+              storelib.com/blog/{done.slug}
+            </span>
+            <Button
+              variant="quiet"
+              onClick={() => {
+                navigator.clipboard?.writeText(url).then(() => setCopied(true), () => {})
+              }}
+            >
+              {copied ? "Copied" : "Copy link"}
+            </Button>
+          </div>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="quiet" onClick={onClose} className="h-10 sm:h-9">
+              Keep editing
+            </Button>
+            {done.kind !== "scheduled" ? (
+              <a href={`/blog/${done.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center justify-center rounded-[7px] bg-[#ededf0] px-3 text-[13px] font-medium text-[#0b0b0f] outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 sm:h-9">
+                View post
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </dialog>
+  )
+}
+
 /* ── The sidebar ──────────────────────────────────────────────────────── */
 
-function Settings({
-  meta,
-  setMeta,
-  blocks,
-  view,
-  full,
-  categories,
-  authors,
-  tags,
-  note345,
-  slugMoves,
-  liveSlug,
-  onSlugTouched,
-  upload,
-  onUnpublish,
-  onReschedule,
-  onHistory,
-}: {
+interface SettingsProps {
   meta: PostMeta
   setMeta: (p: Partial<PostMeta>) => void
+  /** The post as it was a moment ago (useCalm): what the read time and the checklist are worked out from. */
   blocks: Block[]
+  words: number
   view: AdminPostView | null
+  postId: string | null
   full: boolean
   categories: BlogCategory[]
   authors: BlogAuthor[]
@@ -624,34 +900,54 @@ function Settings({
   onUnpublish: () => void
   onReschedule: (at: string) => void
   onHistory: () => void
-}) {
+}
+
+/** Memoised: typing in the post never redraws it, only a change to the meta or the calm copy of the blocks does. */
+const SettingsPanel = React.memo(function Settings({ meta, setMeta, blocks, words, view, postId, full, categories, authors, tags, note345, slugMoves, liveSlug, onSlugTouched, upload, onUnpublish, onReschedule, onHistory }: SettingsProps) {
   const status = view?.status ?? "draft"
   const [when, setWhen] = React.useState(toLocalInput(view?.live.published_at))
-  const autoRead = readTimeFor(blocks)
+  const autoRead = `${readMinutes(words)} min read`
   const categoryNames = categories.map((c) => c.name)
   return (
     <div className="pb-16">
-      {status !== "draft" ? (
-        <Section title="Publishing">
-          <p className="text-[13px] text-[#c9c9d1]">{status === "scheduled" ? <>Goes live {formatWhen(view?.live.published_at)}.</> : <>Live since {formatWhen(view?.live.published_at)}.</>}</p>
-          {status === "scheduled" ? (
-            <div className="flex gap-2">
-              <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={cx(field, "h-9 flex-1")} aria-label="Go live at" />
-              <Button variant="plain" disabled={!when || Date.parse(when) <= Date.now() || toLocalInput(view?.live.published_at) === when} onClick={() => onReschedule(new Date(when).toISOString())}>
-                Move
-              </Button>
-            </div>
-          ) : null}
-          <div className="flex gap-2 sm:hidden">
-            <Button variant="plain" onClick={onUnpublish}>
-              Unpublish
-            </Button>
-            <Button variant="quiet" onClick={onHistory}>
-              History
+      {!full ? (
+        <div className="border-b border-white/[0.08] px-4 py-4">
+          <Needs345>
+            <span className="block text-[#ededf0]">Writing, saving and publishing work now.</span>
+            <span className="mt-1 block">
+              SQL part 345 adds tags, author profiles, cover alt text, canonical, share image, noindex, history, redirects, snippets and drafts of live posts. {short345(note345)} to turn them on.
+            </span>
+          </Needs345>
+        </div>
+      ) : null}
+
+      <Section title="Post">
+        <p className="text-[13px] leading-5 text-[#c9c9d1]">
+          {status === "scheduled" ? <>Goes live {formatWhen(view?.live.published_at)}.</> : status === "published" ? <>Live since {formatWhen(view?.live.published_at)}.</> : postId ? <>Draft. Only you can see it, in Preview.</> : <>Draft. Saved once you start writing.</>}
+        </p>
+        {status === "scheduled" ? (
+          <div className="flex gap-2">
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={cx(field, "h-9 flex-1")} aria-label="Go live at" />
+            <Button variant="plain" disabled={!when || Date.parse(when) <= Date.now() || toLocalInput(view?.live.published_at) === when} onClick={() => onReschedule(new Date(when).toISOString())}>
+              Move
             </Button>
           </div>
-        </Section>
-      ) : null}
+        ) : null}
+        {status !== "draft" || (full && postId) ? (
+          <div className="flex flex-wrap gap-2">
+            {full && postId ? (
+              <Button variant="plain" onClick={onHistory}>
+                History
+              </Button>
+            ) : null}
+            {status !== "draft" ? (
+              <Button variant="plain" onClick={onUnpublish} className="text-[#f47067]">
+                Unpublish
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </Section>
 
       <Section title="Address">
         <Field
@@ -661,7 +957,7 @@ function Settings({
               full ? (
                 <>The live address changes on Update. /blog/{liveSlug} will redirect here.</>
               ) : (
-                <>The live address changes on Update and /blog/{liveSlug} will stop working. {short345(note345)} for redirects.</>
+                <>The live address changes on Update and /blog/{liveSlug} will stop working: redirects come with SQL part 345.</>
               )
             ) : null
           }
@@ -682,7 +978,7 @@ function Settings({
         </Field>
       </Section>
 
-      <Section title="Post">
+      <Section title="Details">
         <Field label="Category">
           <select value={meta.category} onChange={(e) => setMeta({ category: e.target.value })} className={cx(field, "h-9")}>
             {!categoryNames.includes(meta.category) && meta.category ? <option value={meta.category}>{meta.category}</option> : null}
@@ -693,7 +989,7 @@ function Settings({
             ))}
           </select>
         </Field>
-        {full ? <TagsField value={meta.tags} suggestions={tags} onChange={(t) => setMeta({ tags: t })} /> : <Needs345>Tags: {note345}</Needs345>}
+        {full ? <TagsField value={meta.tags} suggestions={tags} onChange={(t) => setMeta({ tags: t })} /> : null}
         {full && authors.length ? (
           <Field label="Author" hint={<a href="/admin/blog/library?tab=authors" className="underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">Manage authors</a>}>
             <select
@@ -714,26 +1010,26 @@ function Settings({
             </select>
           </Field>
         ) : (
-          <Field label="Byline" hint={full ? <a href="/admin/blog/library?tab=authors" className="underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">Add author profiles</a> : `Author profiles: ${note345}`}>
-            <input value={meta.author_name} onChange={(e) => setMeta({ author_name: e.target.value })} placeholder="Name - Role" className={cx(field, "h-9")} />
+          <Field label="Byline" hint={full ? <a href="/admin/blog/library?tab=authors" className="underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">Add author profiles</a> : "Name - Role, as the article shows it."}>
+            <input value={meta.author_name} onChange={(e) => setMeta({ author_name: e.target.value })} placeholder="Storelib Team" className={cx(field, "h-9")} />
           </Field>
         )}
-        <Field label="Excerpt" hint="Shown on the blog's lists and in the feed." count={{ n: meta.excerpt.length, max: 300 }}>
+        <Field label="Excerpt" hint="Shown on the blog's lists and in the feed. Empty meta description: this too." count={{ n: meta.excerpt.length, max: 300 }}>
           <textarea value={meta.excerpt} onChange={(e) => setMeta({ excerpt: e.target.value })} rows={3} className={cx(field, "resize-y py-2 leading-5")} />
         </Field>
-        <Field label="Read time" hint={meta.read_time ? null : `Worked out from the words: ${autoRead}.`}>
+        <Field label="Read time" hint={meta.read_time ? null : `Worked out from ${words.toLocaleString("en-US")} words: ${autoRead}.`}>
           <input value={meta.read_time} onChange={(e) => setMeta({ read_time: e.target.value })} placeholder={autoRead} className={cx(field, "h-9")} />
         </Field>
       </Section>
 
-      <Section title="Featured image">
-        <ImageField value={meta.cover_image_url} onChange={(url) => setMeta({ cover_image_url: url })} upload={upload} alt={meta.cover_alt} onAlt={full ? (alt) => setMeta({ cover_alt: alt }) : undefined} altNote={full ? null : `Alt text for the featured image: ${note345}`} />
+      <Section title="Featured image" id="featured-image">
+        <ImageField value={meta.cover_image_url} onChange={(url) => setMeta({ cover_image_url: url })} upload={upload} alt={meta.cover_alt} onAlt={full ? (alt) => setMeta({ cover_alt: alt }) : undefined} />
       </Section>
 
-      <SearchSection meta={meta} setMeta={setMeta} full={full} note345={note345} upload={upload} />
+      <SearchSection meta={meta} setMeta={setMeta} blocks={blocks} full={full} upload={upload} />
     </div>
   )
-}
+})
 
 function TagsField({ value, suggestions, onChange }: { value: string[]; suggestions: string[]; onChange: (t: string[]) => void }) {
   const [draft, setDraft] = React.useState("")
@@ -904,14 +1200,39 @@ function ImageField({
   )
 }
 
-function SearchSection({ meta, setMeta, full, note345, upload }: { meta: PostMeta; setMeta: (p: Partial<PostMeta>) => void; full: boolean; note345: string; upload: (f: File) => Promise<string> }) {
-  const title = (meta.seo_title || meta.title || "Post title").replace(/ \| Storelib(?: Blog)?$/i, "")
-  const shownTitle = `${title} | Storelib`
-  const description = meta.seo_description || meta.excerpt
+/** A string's width in Google's result title font, to cut the preview where Google would (about 600 px at 20 px Arial). */
+function textWidth(text: string, font: string): number {
+  if (typeof document === "undefined") return text.length * 9
+  const c = (textWidth as unknown as { canvas?: HTMLCanvasElement }).canvas ?? ((textWidth as unknown as { canvas?: HTMLCanvasElement }).canvas = document.createElement("canvas"))
+  const ctx = c.getContext("2d")
+  if (!ctx) return text.length * 9
+  ctx.font = font
+  return ctx.measureText(text).width
+}
+
+function cutTo(text: string, px: number, font: string): string {
+  if (textWidth(text, font) <= px) return text
+  let lo = 0
+  let hi = text.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (textWidth(`${text.slice(0, mid).trimEnd()} ...`, font) <= px) lo = mid
+    else hi = mid - 1
+  }
+  return `${text.slice(0, lo).trimEnd()} ...`
+}
+
+const CHECK_DOT: Record<Check["state"], string> = { ok: "bg-[#3fb950]", warn: "bg-[#d4a72c]", info: "bg-[#6b6b76]" }
+
+function SearchSection({ meta, setMeta, blocks, full, upload }: { meta: PostMeta; setMeta: (p: Partial<PostMeta>) => void; blocks: Block[]; full: boolean; upload: (f: File) => Promise<string> }) {
+  const shownTitle = searchTitle(meta)
+  const description = searchDescription(meta)
   const canonicalBad = Boolean(meta.canonical_url) && !/^https?:\/\/\S+$/i.test(meta.canonical_url)
+  const checks = React.useMemo(() => seoChecklist(meta, blocks, { full }), [meta, blocks, full])
+  const titleFont = "20px Arial, sans-serif"
   return (
-    <Section title="Search and sharing">
-      <div className="rounded-[8px] bg-white px-3.5 py-3" role="img" aria-label="How a search result may show the post">
+    <Section title="Search and sharing" id="search">
+      <div className="rounded-[8px] bg-white px-3.5 py-3" role="img" aria-label={`How a Google result may show the post: ${shownTitle || "Post title"}`}>
         <div className="flex items-center gap-2">
           <span aria-hidden className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-[#dadce0] text-[11px] font-bold text-[#1a1a2e]">S</span>
           <span className="min-w-0 leading-[16px]">
@@ -919,16 +1240,37 @@ function SearchSection({ meta, setMeta, full, note345, upload }: { meta: PostMet
             <span className="block truncate text-[12px] text-[#4d5156]">https://storelib.com › blog › {meta.slug || "slug"}</span>
           </span>
         </div>
-        <p className="mt-1.5 line-clamp-2 text-[18px] leading-[23px] text-[#1a0dab]">{shownTitle.length > 63 ? `${shownTitle.slice(0, 60).trimEnd()}…` : shownTitle}</p>
-        <p className="mt-0.5 line-clamp-2 text-[13px] leading-[20px] text-[#4d5156]">{description ? (description.length > 158 ? `${description.slice(0, 155).trimEnd()}…` : description) : "Add a meta description, or the search engine picks a line from the post."}</p>
+        {/* Cut where a desktop result cuts it (about 600 px of 20 px Arial), then wrapped to this narrow box. */}
+        <p className="mt-1.5 line-clamp-2 text-[18px] leading-[23px] text-[#1a0dab]" style={{ fontFamily: "Arial, sans-serif" }}>
+          {shownTitle ? cutTo(shownTitle, 600, titleFont) : "Post title | Storelib"}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-[13px] leading-[20px] text-[#4d5156]" style={{ fontFamily: "Arial, sans-serif" }}>
+          {description ? (description.length > DESCRIPTION_FITS ? `${description.slice(0, DESCRIPTION_FITS - 3).trimEnd()} ...` : description) : "No meta description: the search engine picks a line from the post."}
+        </p>
       </div>
-      <Field label="SEO title" hint="Empty: the title. “| Storelib” is added after it." count={{ n: (meta.seo_title || meta.title).length, max: SEO_TITLE_LIMIT }}>
+
+      <div id="seo-checklist" className="scroll-mt-16">
+        <h3 className="mb-1.5 text-[12px] text-[#9b9ba6]">Checks</h3>
+        <ul className="space-y-1.5" aria-label="Search checks">
+          {checks.map((c) => (
+            <li key={c.id} className="flex gap-2 text-[12px] leading-[17px]" data-check={c.id} data-state={c.state}>
+              <span aria-hidden className={cx("mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full", CHECK_DOT[c.state])} />
+              <span className={cx("min-w-0 break-words", c.state === "warn" ? "text-[#ededf0]" : "text-[#9b9ba6]")}>
+                <span className="sr-only">{c.state === "ok" ? "Done: " : c.state === "warn" ? "To look at: " : ""}</span>
+                {c.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <Field label="SEO title" hint={`Empty: the title. “| Storelib” is added after it; the count includes it.`} count={{ n: shownTitle.length, max: TITLE_FITS }}>
         <input value={meta.seo_title} onChange={(e) => setMeta({ seo_title: e.target.value })} placeholder={meta.title || "SEO title"} className={cx(field, "h-9")} />
       </Field>
-      <Field label="Meta description" hint="Empty: the excerpt." count={{ n: (meta.seo_description || meta.excerpt).length, max: META_DESCRIPTION_LIMIT }}>
+      <Field label="Meta description" hint="Empty: the excerpt." count={{ n: description.length, max: DESCRIPTION_FITS }}>
         <textarea value={meta.seo_description} onChange={(e) => setMeta({ seo_description: e.target.value })} placeholder={meta.excerpt || "What a reader finds in the post"} rows={3} className={cx(field, "resize-y py-2 leading-5")} />
       </Field>
-      <Field label="Focus keyword" hint="Optional, for your own reference.">
+      <Field label="Focus keyword" hint="Optional. The checks say whether the title and the first paragraph use it.">
         <input value={meta.focus_keyword} onChange={(e) => setMeta({ focus_keyword: e.target.value })} className={cx(field, "h-9")} />
       </Field>
       {full ? (
@@ -942,9 +1284,7 @@ function SearchSection({ meta, setMeta, full, note345, upload }: { meta: PostMet
           </div>
           <Switch checked={meta.noindex} onChange={(v) => setMeta({ noindex: v })} label="Hide from search engines" hint="Adds noindex and leaves the sitemap. The page still opens for anyone with the link." />
         </>
-      ) : (
-        <Needs345>Canonical address, share image and noindex: {note345}</Needs345>
-      )}
+      ) : null}
     </Section>
   )
 }

@@ -2259,8 +2259,7 @@ export function PlatformHeaderClient({
                       : []),
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
-                    /* From 1024 only, like Home: at 768 the row is already full. The phone menu has it. */
-                    { href: "/alternatives", label: "Compare", active: isCompareRoute, wide: true },
+                    /* No Compare here (round 47, the owner): the comparison pages are linked from the footer, /sell pages and the blog. */
                     { href: "/faq", label: "FAQ", active: isFaqRoute },
                   ].map((item) => (
                     <Link
@@ -2817,14 +2816,6 @@ export function PlatformHeaderClient({
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Pricing</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                <Link
-                  href="/alternatives"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Compare</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link

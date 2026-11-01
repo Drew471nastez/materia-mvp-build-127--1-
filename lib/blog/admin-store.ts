@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 import type { Block } from "./blocks"
 import { DEFAULT_BYLINE, editorStateFromRow, liveColumns, metaFromRow, normalizeBlocks, normalizeMeta, slugify, type PostMeta } from "./editor-model"
-import { REVISION_CAP, isStaleSave, postVersion, revisionsToPrune, slugChangePlan } from "./save-rules"
+import { REVISION_CAP, editVersion, isStaleSave, revisionsToPrune, slugChangePlan } from "./save-rules"
 import { isPostLive, postStatus, type BlogPostStatus } from "./schedule"
 
 /**
@@ -79,7 +79,7 @@ export function adminView(row: Row): AdminPostView {
     live: { slug: String(row.slug ?? ""), title: String(row.title ?? ""), published_at: (row.published_at as string) ?? null, is_published: row.is_published === true },
     status: postStatus(row as { is_published?: boolean; published_at?: string }),
     hasDraft: row.is_published === true && state.hasDraft,
-    version: postVersion(row as { draft_saved_at?: string; updated_at?: string }),
+    version: editVersion(row),
     updated_at: (row.updated_at as string) ?? null,
     draft_saved_at: (row.draft_saved_at as string) ?? null,
     created_at: (row.created_at as string) ?? null,
@@ -274,14 +274,23 @@ export async function savePost(
   }
   if (full) update.draft_saved_at = now
 
-  let q = supabase.from("blog_posts").update(update).eq("id", id)
-  if (!force) {
-    /* The same version the check above read, so a save that landed in between finds no row. */
-    if (full && before.draft_saved_at) q = q.eq("draft_saved_at", before.draft_saved_at as string)
-    else if (full) q = q.is("draft_saved_at", null).eq("updated_at", before.updated_at as string)
-    else q = q.eq("updated_at", before.updated_at as string)
+  const write = (seen: Row) => {
+    let q = supabase.from("blog_posts").update(update).eq("id", id)
+    if (!force) {
+      /* The same version the check above read, so a save that landed in between finds no row. */
+      if (full && seen.draft_saved_at) q = q.eq("draft_saved_at", seen.draft_saved_at as string)
+      else if (full) q = q.is("draft_saved_at", null).eq("updated_at", seen.updated_at as string)
+      else q = q.eq("updated_at", seen.updated_at as string)
+    }
+    return q.select().maybeSingle()
   }
-  const { data, error } = await q.select().maybeSingle()
+  let { data, error } = await write(before)
+  /* Before 345 a reader's view moves updated_at between the read and the write. When the post itself is unchanged, write again over the new updated_at. */
+  for (let tries = 0; !full && !force && !error && !data && tries < 2; tries++) {
+    const fresh = await readAdminPost(supabase, id)
+    if (!fresh || editVersion(fresh) !== editVersion(before)) break
+    ;({ data, error } = await write(fresh))
+  }
   if (error) {
     if (error.code === "23505") return { ok: false, status: 409, code: "slug_taken", error: `Another post already uses /blog/${meta.slug}. Pick a different address.` }
     console.error("[admin] blog save:", error.message?.slice(0, 300))

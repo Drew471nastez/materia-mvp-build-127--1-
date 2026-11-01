@@ -27,7 +27,10 @@ export const fetchPost = cache(async (slug: string) => {
       .or(liveDateFilter())
       .single()
     if (!data) return null
-    for (const c of DRAFT_COLUMNS) delete (data as Record<string, unknown>)[c]
+    /* Before part 345 a view moves updated_at (lib/blog/trusted-modified.ts): the published date stands in. select("*") names draft_saved_at only once 345 has run. */
+    const row = data as Record<string, unknown>
+    if (!("draft_saved_at" in row)) row.updated_at = row.published_at ?? null
+    for (const c of DRAFT_COLUMNS) delete row[c]
     return data
   } catch {
     return null

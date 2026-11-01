@@ -4,6 +4,7 @@ import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { BLOG_LIST_COLUMNS, mergeBlogPosts, type BlogPost } from "./listing"
 import { liveDateFilter } from "./schedule"
+import { trustsUpdatedAt, withPublishedAsModified } from "./trusted-modified"
 
 /**
  * Every published post, newest first, merged with the four written in code
@@ -20,8 +21,8 @@ export const readBlogPosts = cache(async (category?: string): Promise<BlogPost[]
     const supabase = createAdminClient()
     let query = supabase.from("blog_posts").select(BLOG_LIST_COLUMNS).eq("is_published", true).or(liveDateFilter())
     if (category) query = query.eq("category", category)
-    const { data } = await query.order("published_at", { ascending: false }).range(0, 999)
-    return mergeBlogPosts((data || []) as unknown as BlogPost[], category)
+    const [{ data }, trusted] = await Promise.all([query.order("published_at", { ascending: false }).range(0, 999), trustsUpdatedAt()])
+    return mergeBlogPosts(withPublishedAsModified((data || []) as unknown as BlogPost[], trusted), category)
   } catch {
     return mergeBlogPosts([], category)
   }

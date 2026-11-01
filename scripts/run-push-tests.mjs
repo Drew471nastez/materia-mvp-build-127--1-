@@ -1041,8 +1041,12 @@ const SUITES = [
   "tests/blog-public-r45.test.ts",
   /* Round 45: the blog admin: the sanitiser, a post live only when published and its date has come (scheduling with no job), an old slug's 308, a save from an old version refused with 409 (savePost against an in-memory table), the snippet and preview routes admin checked and noindex, SQL part 345. */
   "tests/blog-admin-r45.test.ts",
+  /* Round 47: the blog redone after the owner looked at it live: one 720px reading column, 17/18px body, the byline as one row, no right rail or newsletter box, the rail's card naming everything Storelib sells, a typographic cover for posts with none, the category pills in the blog's own layout. */
+  "tests/blog-r47.test.ts",
   /* Round 45, leftovers B: blog author pages (/blog/author/<slug>: ProfilePage, breadcrumbs, live posts, noindex when empty, a 404 with no table, the sitemap), no FAQPage or HowTo in the Help Center, the product file limit from the upload policy, STORELIB_SOCIAL for the footer and sameAs, Copy to Storelib (the https and private address guard, type by bytes, 10 MB, a post's addresses swapped in place). */
   "tests/seo-leftovers-b-r45.test.ts",
+  /* Round 47: writing in the blog editor: markdown at the start of a line, undo and redo across blocks, Cmd+S, the search checklist (facts, no score) and its title counted as rendered, the writing page (panel, drawer, focus mode, the publish confirmation), and before SQL part 345 a reader's view no longer a false 409 (lib/blog/editor-tools.ts, lib/blog/save-rules.ts editVersion). */
+  "tests/blog-editor-r47.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
   /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */

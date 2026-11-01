@@ -45,7 +45,8 @@ export function sanitizeInline(html: string | null | undefined): string {
 export const INLINE =
   "[&_a]:font-medium [&_a]:text-[#1a1a2e] [&_a]:underline [&_a]:decoration-[#1a1a2e]/40 [&_a]:decoration-1 [&_a]:underline-offset-[3px] [&_a:hover]:decoration-[#1a1a2e] [&_strong]:font-semibold [&_strong]:text-[#1a1a2e] [&_b]:font-semibold [&_b]:text-[#1a1a2e] [&_code]:rounded-[5px] [&_code]:bg-[#f1f2f4] [&_code]:px-[5px] [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[0.88em] [&_code]:text-[#1a1a2e]"
 
-const BODY = `text-[17px] leading-[1.75] text-[#4b5563] sm:text-[18px] ${INLINE}`
+/* Round 47 ("the text is too small and cramped"): 17px on a phone, 18px from 640px, 1.7 line height, a darker grey than before. */
+const BODY = `text-[17px] leading-[1.7] text-[#374151] sm:text-[18px] ${INLINE}`
 
 const Html = ({ as: Tag, html, className, id }: { as: "p" | "h2" | "h3" | "li" | "div"; html: string | undefined; className?: string; id?: string }) => (
   <Tag id={id} className={className} dangerouslySetInnerHTML={{ __html: sanitizeInline(html) }} />
@@ -58,7 +59,7 @@ const TONES: Record<NonNullable<Block["tone"]>, { label: string; box: string }> 
 }
 
 function Caption({ children }: { children: ReactNode }) {
-  return <figcaption className="mt-3 text-[14px] leading-snug text-[#6b7280]">{children}</figcaption>
+  return <figcaption className="mt-3 text-[15px] leading-[1.5] text-[#6b7280]">{children}</figcaption>
 }
 
 function safeLink(url: string | undefined): string | null {
@@ -103,11 +104,11 @@ function BlockAt({ block, anchor, postTitle, snippets, after }: { block: Block; 
 function renderBlock(b: Block, anchor: string | undefined, postTitle: string, snippets?: Record<string, Block[]>): ReactNode {
   switch (b.type) {
     case "p":
-      return <Html as="p" html={b.html ?? (b.text ? escapeHtml(b.text) : "")} className={`mt-6 first:mt-0 ${BODY}`} />
+      return <Html as="p" html={b.html ?? (b.text ? escapeHtml(b.text) : "")} className={`mt-[1.25em] first:mt-0 ${BODY}`} />
     case "h2":
-      return <Html as="h2" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-14 scroll-mt-28 text-[26px] font-semibold leading-[1.2] tracking-[-0.022em] text-[#1a1a2e] first:mt-0 sm:text-[32px]" />
+      return <Html as="h2" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-14 scroll-mt-28 text-[27px] font-semibold leading-[1.2] tracking-[-0.022em] text-[#1a1a2e] first:mt-0 sm:mt-16 sm:text-[32px]" />
     case "h3":
-      return <Html as="h3" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-10 scroll-mt-28 text-[20px] font-semibold leading-[1.3] tracking-[-0.012em] text-[#1a1a2e] sm:text-[22px]" />
+      return <Html as="h3" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-10 scroll-mt-28 text-[21px] font-semibold leading-[1.3] tracking-[-0.012em] text-[#1a1a2e] sm:text-[23px]" />
     case "hr":
       return <hr className="mx-auto my-12 w-24 border-0 border-t border-[#d4d7dc]" />
     case "quote":
@@ -120,7 +121,7 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
     case "ol": {
       const List = b.type === "ul" ? "ul" : "ol"
       return (
-        <List className={`mt-6 space-y-2.5 pl-6 ${b.type === "ul" ? "list-disc" : "list-decimal"} marker:text-[#9ca3af] ${BODY}`}>
+        <List className={`mt-[1.25em] space-y-3 pl-6 ${b.type === "ul" ? "list-disc" : "list-decimal"} marker:text-[#9ca3af] ${BODY}`}>
           {(b.items ?? []).map((item, j) => (
             <Html key={j} as="li" html={item} className="pl-1.5" />
           ))}
@@ -132,7 +133,7 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       if (!src) return null
       return (
         <figure className="my-10">
-          <BlogImage src={src} alt={b.alt ?? ""} sizes="(min-width: 1024px) 660px, calc(100vw - 32px)" className="h-auto w-full rounded-xl bg-[#f1f2f4]" />
+          <BlogImage src={src} alt={b.alt ?? ""} sizes="(min-width: 768px) 720px, calc(100vw - 32px)" className="h-auto w-full rounded-2xl bg-[#f1f2f4]" />
           {b.caption ? <Caption>{b.caption}</Caption> : null}
         </figure>
       )
@@ -252,7 +253,7 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       return (
         <figure className="my-8">
           <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]">
-            {b.lang ? <div className="border-b border-[#e5e7eb] px-4 py-2 font-mono text-[12px] text-[#6b7280]">{b.lang}</div> : null}
+            {b.lang ? <div className="border-b border-[#e5e7eb] px-4 py-2 font-mono text-[14px] text-[#4b5563]">{b.lang}</div> : null}
             <pre className="overflow-x-auto p-4 text-[14px] leading-[1.65]">
               <code className="font-mono text-[#1a1a2e]">{b.text ?? ""}</code>
             </pre>
@@ -263,8 +264,8 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       const tone = TONES[b.tone ?? "note"] ?? TONES.note
       return (
         <aside className={`my-8 rounded-xl border-l-[3px] px-5 py-4 ${tone.box}`} data-blog-callout={b.tone ?? "note"}>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[#1a1a2e]">{b.title || tone.label}</p>
-          <Html as="div" html={b.html ?? escapeHtml(b.text ?? "")} className={`mt-1.5 text-[16px] leading-[1.7] text-[#374151] ${INLINE}`} />
+          <p className="text-[15px] font-semibold text-[#1a1a2e]">{b.title || tone.label}</p>
+          <Html as="div" html={b.html ?? escapeHtml(b.text ?? "")} className={`mt-1.5 text-[17px] leading-[1.65] text-[#374151] ${INLINE}`} />
         </aside>
       )
     }
@@ -272,11 +273,11 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       const href = safeLink(b.url)
       if (!b.title && !b.body) return null
       return (
-        <aside className="my-10 rounded-2xl bg-[#16161a] px-6 py-7 text-white sm:px-8" data-blog-cta-block="">
+        <aside className="my-10 rounded-2xl bg-[#1a1a2e] px-6 py-7 text-white sm:px-8" data-blog-cta-block="">
           {b.title ? <p className="text-[22px] font-semibold leading-tight tracking-[-0.015em]">{b.title}</p> : null}
           {b.body ? <p className="mt-2 text-[16px] leading-relaxed text-white/70">{b.body}</p> : null}
           {href && b.label ? (
-            <a href={href} className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#7c3aed] px-5 text-[15px] font-semibold text-white transition-colors hover:bg-[#6d28d9]">
+            <a href={href} className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#ede9fe]">
               {b.label}
               <span aria-hidden>&rarr;</span>
             </a>

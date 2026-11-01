@@ -6,6 +6,7 @@ import type { Block, BlockType } from "@/lib/blog/blocks"
 import { EMBED_PROVIDERS, embedTarget, parseChapter, youtubeIdFrom } from "@/lib/blog/embed"
 import { blocksFromHtmlDocument, blocksFromPlainText, looksLikeImageUrl, pastedUrl } from "@/lib/blog/paste"
 import { sanitizeInlineHtml, safeHref } from "@/lib/blog/sanitize"
+import { createHistory, isRedoShortcut, isUndoShortcut, markdownShortcut, recordChange, redoStep, undoStep } from "@/lib/blog/editor-tools"
 
 export type { Block, BlockType }
 
@@ -23,6 +24,16 @@ export type { Block, BlockType }
  *   Cmd B I U, Cmd Shift S, Cmd E, Cmd K bold, italic, underline, strike, code, link
  *   Alt Up / Alt Down                    move the block
  *   Cmd D                                duplicate the block
+ *   Cmd Z, Shift Cmd Z (Ctrl Y)          undo and redo, across blocks
+ *   Up / Down on a first or last line    the block above or below, at the
+ *                                        same place across; a picture or
+ *                                        a table is stepped onto as a whole
+ *
+ * UNDO. Every change goes through commit(), which keeps the list before it
+ * (lib/blog/editor-tools.ts history): typing in one block is one step until
+ * a pause, anything else a step of its own. An undo hands the list back and
+ * bumps an epoch, which makes every text block write its HTML into the page
+ * even where the caret is.
  *
  * Paste keeps structure and drops looks (lib/blog/paste.ts): Google Docs'
  * headings, lists, bold and links come through, its fonts and colours do
@@ -99,6 +110,41 @@ function menuMatches(query: string) {
 
 /* ── Caret helpers ────────────────────────────────────────────────────── */
 
+/** Where the caret is across the page, to keep it there when it moves to the block above or below. */
+function caretX(el: HTMLElement): number {
+  const sel = window.getSelection()
+  if (sel?.rangeCount) {
+    const r = sel.getRangeAt(0).getClientRects()[0]
+    if (r) return r.left
+  }
+  return el.getBoundingClientRect().left
+}
+
+/** Whether the caret is on the element's first (or last) line, where Up (or Down) leaves it. */
+function caretOnEdgeLine(el: HTMLElement, edge: "start" | "end"): boolean {
+  const sel = window.getSelection()
+  if (!sel || !sel.rangeCount || !sel.isCollapsed) return false
+  const range = sel.getRangeAt(0)
+  if (!el.contains(range.startContainer)) return false
+  if (caretAtEdge(el, edge)) return true
+  const rect = range.getClientRects()[0]
+  if (!rect) return false
+  const box = el.getBoundingClientRect()
+  const line = parseFloat(getComputedStyle(el).lineHeight) || 28
+  return edge === "start" ? rect.top - box.top < line * 0.75 : box.bottom - rect.bottom < line * 0.75
+}
+
+function caretFromPoint(x: number, y: number): Range | null {
+  const d = document as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null }
+  if (typeof d.caretRangeFromPoint === "function") return d.caretRangeFromPoint(x, y)
+  const pos = d.caretPositionFromPoint?.(x, y)
+  if (!pos) return null
+  const r = document.createRange()
+  r.setStart(pos.offsetNode, pos.offset)
+  r.collapse(true)
+  return r
+}
+
 function placeCaret(el: HTMLElement, where: "start" | "end") {
   el.focus()
   const sel = window.getSelection()
@@ -148,16 +194,25 @@ export function cx(...p: (string | false | null | undefined)[]) {
 
 /* ── The API every block is handed ────────────────────────────────────── */
 
+/** Where the caret goes in a block: its start, its end, a character offset, or a picture's alt text. */
+type FocusWhere = "start" | "end" | "alt" | number
+
 interface EditorApi {
   update: (id: string, patch: Partial<Block>) => void
-  insertAfter: (id: string | null, blocks: Block[], focus?: "start" | "end") => void
-  replaceWith: (id: string, blocks: Block[], focus?: "start" | "end") => void
+  insertAfter: (id: string | null, blocks: Block[], focus?: FocusWhere) => void
+  replaceWith: (id: string, blocks: Block[], focus?: FocusWhere) => void
   remove: (id: string, focusPrev?: boolean) => void
   move: (id: string, dir: -1 | 1) => void
   duplicate: (id: string) => void
-  convert: (id: string, type: BlockType) => void
+  /** `keepCaret`: the selection stays where it is (the selection bar's heading buttons). */
+  convert: (id: string, type: BlockType, keepCaret?: boolean) => void
   mergeIntoPrevious: (id: string, html: string) => boolean
-  focusNeighbour: (id: string, dir: -1 | 1) => boolean
+  /** `x`: where the caret was across the page, kept on the line it lands on. */
+  focusNeighbour: (id: string, dir: -1 | 1, x?: number) => boolean
+  /** Pictures from a paste or a drop: in place of an empty line, else beside `id`; each uploaded, the first one's alt text focused. */
+  insertImages: (id: string, pos: "before" | "after", files: File[]) => void
+  /** A picture address from another site: copied into Storelib when it can be; kept as it is when it cannot. */
+  importInto: (id: string, url: string) => void
   openSlash: (id: string, query: string, rect: DOMRect) => void
   closeSlash: () => void
   slashKey: (e: React.KeyboardEvent) => boolean
@@ -168,38 +223,45 @@ interface EditorApi {
 const ApiContext = React.createContext<EditorApi | null>(null)
 const useApi = () => React.useContext(ApiContext)!
 
+/** Bumped by undo and redo: a text block then writes its HTML into the page even while the caret is in it. */
+const EpochContext = React.createContext(0)
+
+/** Whether the epoch moved since this block last wrote itself. */
+function useEpochChanged(): () => boolean {
+  const epoch = React.useContext(EpochContext)
+  const seen = React.useRef(epoch)
+  return React.useCallback(() => {
+    const moved = seen.current !== epoch
+    seen.current = epoch
+    return moved
+  }, [epoch])
+}
+
 /* ── Rich text (p, h2, h3, quote, callout) ────────────────────────────── */
 
+/* Sizes and spacing as the live article draws them (app/(marketing)/blog/_components/article-blocks.tsx), in the console's colours. */
 const TEXT_STYLE: Record<string, string> = {
-  p: "text-[16px] leading-[1.7] text-[#dcdce2]",
-  h2: "text-[24px] max-md:!text-[22px] leading-[1.3] font-semibold tracking-[-0.01em] text-[#ededf0]",
-  h3: "text-[19px] max-md:!text-[18px] leading-[1.35] font-semibold text-[#ededf0]",
-  quote: "border-l-2 border-white/25 pl-4 text-[17px] max-md:!text-[17px] leading-[1.65] italic text-[#c9c9d1]",
-  callout: "text-[15px] leading-[1.6] text-[#dcdce2]",
+  p: "text-[18px] max-md:!text-[17px] leading-[1.75] text-[#dcdce2]",
+  h2: "text-[30px] max-md:!text-[25px] leading-[1.25] font-semibold tracking-[-0.022em] text-[#ededf0]",
+  h3: "text-[22px] max-md:!text-[20px] leading-[1.3] font-semibold tracking-[-0.012em] text-[#ededf0]",
+  quote: "border-l-2 border-white/25 pl-5 text-[20px] max-md:!text-[19px] leading-[1.55] tracking-[-0.01em] text-[#ededf0]",
+  callout: "text-[16px] leading-[1.7] text-[#dcdce2]",
 }
-const PLACEHOLDER: Record<string, string> = { p: "Type / for blocks", h2: "Heading", h3: "Subheading", quote: "Quote", callout: "Write the note" }
+const PLACEHOLDER: Record<string, string> = { p: "Write, or type / for a block", h2: "Heading", h3: "Subheading", quote: "Quote", callout: "Write the note" }
 const INLINE_CSS =
   "[&_a]:text-[#c4b5fd] [&_a]:underline [&_a]:decoration-[#c4b5fd]/40 [&_a]:underline-offset-2 [&_code]:rounded-[4px] [&_code]:bg-white/[0.08] [&_code]:px-1 [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[0.88em] [&_b]:font-semibold [&_b]:text-[#ededf0]"
-
-const MARKDOWN: { re: RegExp; type: BlockType }[] = [
-  { re: /^###\s$/, type: "h3" },
-  { re: /^##\s$/, type: "h2" },
-  { re: /^[-*]\s$/, type: "ul" },
-  { re: /^1[.)]\s$/, type: "ol" },
-  { re: /^>\s$/, type: "quote" },
-  { re: /^```$/, type: "code" },
-  { re: /^---$/, type: "hr" },
-]
 
 function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholder?: boolean }) {
   const api = useApi()
   const ref = React.useRef<HTMLDivElement>(null)
   const html = block.html ?? ""
+  const epochChanged = useEpochChanged()
 
   React.useLayoutEffect(() => {
     const el = ref.current
-    if (el && el.innerHTML !== html && document.activeElement !== el) el.innerHTML = html
-  }, [html])
+    const forced = epochChanged()
+    if (el && el.innerHTML !== html && (forced || document.activeElement !== el)) el.innerHTML = html
+  }, [html, epochChanged])
 
   const sync = React.useCallback(() => {
     const el = ref.current
@@ -214,15 +276,13 @@ function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholde
     const el = ref.current!
     cleanEmpty(el)
     const t = (el.textContent ?? "").replace(/\u00a0/g, " ")
-    if (block.type === "p" && el.children.length === 0) {
-      for (const m of MARKDOWN) {
-        if (m.re.test(t)) {
-          const fresh = blankBlock(m.type)
-          if (m.type === "hr") api.replaceWith(block.id, [fresh, blankBlock("p")], "end")
-          else api.replaceWith(block.id, [fresh], "start")
-          return
-        }
-      }
+    const shortcut = block.type === "p" && el.children.length === 0 ? markdownShortcut(t) : null
+    if (shortcut) {
+      const fresh = blankBlock(shortcut)
+      /* A divider is followed by a fresh line, where the caret goes. */
+      if (shortcut === "hr") api.replaceWith(block.id, [fresh, blankBlock("p")], "end")
+      else api.replaceWith(block.id, [fresh], "start")
+      return
     }
     if (block.type === "p" && /^\/[a-z0-9 ]{0,24}$/i.test(t) && el.children.length === 0) api.openSlash(block.id, t.slice(1), el.getBoundingClientRect())
     else api.closeSlash()
@@ -282,8 +342,10 @@ function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholde
       if (api.mergeIntoPrevious(block.id, el.innerHTML)) e.preventDefault()
       return
     }
-    if (e.key === "ArrowUp" && !e.shiftKey && caretAtEdge(el, "start") && api.focusNeighbour(block.id, -1)) e.preventDefault()
-    if (e.key === "ArrowDown" && !e.shiftKey && caretAtEdge(el, "end") && api.focusNeighbour(block.id, 1)) e.preventDefault()
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey && !mod && !e.altKey) {
+      const up = e.key === "ArrowUp"
+      if (caretOnEdgeLine(el, up ? "start" : "end") && api.focusNeighbour(block.id, up ? -1 : 1, caretX(el))) e.preventDefault()
+    }
   }
 
   const placeholder = PLACEHOLDER[block.type] ?? ""
@@ -352,11 +414,7 @@ function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api
   const files = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"))
   if (files.length) {
     e.preventDefault()
-    for (const f of files) {
-      const img = blankBlock("img")
-      api.insertAfter(block.id, [img])
-      api.uploadInto(img.id, f)
-    }
+    api.insertImages(block.id, "after", files)
     return
   }
   const html = cd.getData("text/html")
@@ -376,7 +434,12 @@ function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api
       if (yt) return api.replaceWith(block.id, [{ ...blankBlock("youtube"), videoId: yt }])
       const target = embedTarget(url)
       if (target) return api.replaceWith(block.id, [{ ...blankBlock("embed"), url, provider: target.provider }])
-      if (looksLikeImageUrl(url)) return api.replaceWith(block.id, [{ ...blankBlock("img"), url }])
+      if (looksLikeImageUrl(url)) {
+        const img = { ...blankBlock("img"), url }
+        api.replaceWith(block.id, [img], "alt")
+        api.importInto(img.id, url)
+        return
+      }
     }
     const safe = safeHref(url)
     if (safe) document.execCommand("insertHTML", false, `<a href="${safe.replace(/"/g, "&quot;")}">${url.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</a>&nbsp;`)
@@ -404,6 +467,7 @@ function ListBlock({ block }: { block: Block }) {
   const items = block.items?.length ? block.items : [""]
   const html = items.map((i) => `<li>${i || "<br>"}</li>`).join("")
 
+  const epochChanged = useEpochChanged()
   const read = React.useCallback((): string[] => {
     const el = ref.current
     if (!el) return [""]
@@ -416,8 +480,9 @@ function ListBlock({ block }: { block: Block }) {
   React.useLayoutEffect(() => {
     const el = ref.current
     /* Written here and never by React, so typing is never interrupted by a re-render putting the same list back. */
-    if (el && (!el.firstElementChild || (document.activeElement !== el && JSON.stringify(read()) !== JSON.stringify(items)))) el.innerHTML = html
-  }, [html, items, read])
+    const forced = epochChanged()
+    if (el && (!el.firstElementChild || ((forced || document.activeElement !== el) && JSON.stringify(read()) !== JSON.stringify(items)))) el.innerHTML = html
+  }, [html, items, read, epochChanged])
 
   const sync = React.useCallback(() => api.update(block.id, { items: read() }), [api, block.id, read])
   React.useEffect(() => api.registerSync(block.id, sync), [api, block.id, sync])
@@ -462,8 +527,8 @@ function ListBlock({ block }: { block: Block }) {
       else api.replaceWith(block.id, [{ ...blankBlock("p"), html: rest[0] }, { ...block, items: rest.slice(1) }], "start")
       return
     }
-    if (e.key === "ArrowUp" && li && li === el.firstElementChild && caretAtEdge(li, "start") && api.focusNeighbour(block.id, -1)) e.preventDefault()
-    if (e.key === "ArrowDown" && li && li === el.lastElementChild && caretAtEdge(li, "end") && api.focusNeighbour(block.id, 1)) e.preventDefault()
+    if (e.key === "ArrowUp" && !e.shiftKey && !mod && !e.altKey && li && li === el.firstElementChild && caretOnEdgeLine(li, "start") && api.focusNeighbour(block.id, -1, caretX(li))) e.preventDefault()
+    if (e.key === "ArrowDown" && !e.shiftKey && !mod && !e.altKey && li && li === el.lastElementChild && caretOnEdgeLine(li, "end") && api.focusNeighbour(block.id, 1, caretX(li))) e.preventDefault()
   }
 
   const Tag = block.type === "ol" ? "ol" : "ul"
@@ -489,7 +554,8 @@ function ListBlock({ block }: { block: Block }) {
         sync()
       }}
       onBlur={sync}
-      className={cx("space-y-1 pl-6 text-[16px] leading-[1.7] text-[#dcdce2] outline-none marker:text-[#6b6b76]", Tag === "ol" ? "list-decimal" : "list-disc", INLINE_CSS)}
+      aria-label={Tag === "ol" ? "Numbered list" : "Bulleted list"}
+      className={cx("space-y-2.5 pl-6 text-[18px] leading-[1.75] text-[#dcdce2] outline-none marker:text-[#6b6b76] max-md:!text-[17px]", Tag === "ol" ? "list-decimal" : "list-disc", INLINE_CSS)}
     />
   )
 }
@@ -534,9 +600,12 @@ function SmallButton({ children, className, ...rest }: React.ButtonHTMLAttribute
 
 /* ── Media and the other blocks ───────────────────────────────────────── */
 
-function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) {
+function ImageBlock({ block, uploading, preview }: { block: Block; uploading: boolean; preview?: string }) {
   const api = useApi()
-  const [broken, setBroken] = React.useState(false)
+  /* Broken is said of one address: a new one (an upload, a copy, an edit) is tried afresh. */
+  const [brokenUrl, setBrokenUrl] = React.useState<string | null>(null)
+  const broken = Boolean(block.url) && brokenUrl === block.url
+  const setBroken = (b: boolean) => setBrokenUrl(b ? (block.url ?? null) : null)
   const [drag, setDrag] = React.useState(false)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const set = (patch: Partial<Block>) => api.update(block.id, patch)
@@ -546,6 +615,14 @@ function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) 
       {block.url && !broken ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={block.url} alt={block.alt || ""} onError={() => setBroken(true)} className="mx-auto max-h-[420px] w-auto max-w-full rounded-[6px]" />
+      ) : uploading && preview ? (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt="" className="mx-auto max-h-[420px] w-auto max-w-full rounded-[6px] opacity-50" />
+          <p className="absolute inset-x-0 bottom-3 text-center text-[13px] text-[#ededf0]" role="status">
+            Uploading…
+          </p>
+        </div>
       ) : (
         <div
           onDragOver={(e) => {
@@ -567,7 +644,7 @@ function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) 
         >
           {broken ? <p className="text-[13px] text-[#f47067]">This picture did not load. Check the address or upload it.</p> : null}
           <p className="text-[13px] text-[#9b9ba6]">{uploading ? "Uploading…" : "Drop a picture here, paste one, or"}</p>
-          <SmallButton disabled={uploading} onClick={() => fileRef.current?.click()}>
+          <SmallButton data-autofocus="" disabled={uploading} onClick={() => fileRef.current?.click()}>
             Upload
           </SmallButton>
           <input
@@ -597,7 +674,7 @@ function ImageBlock({ block, uploading }: { block: Block; uploading: boolean }) 
         </label>
         <label className="block">
           <Label warn={altMissing ? "Required" : null}>Alt text</Label>
-          <Input value={block.alt ?? ""} placeholder="What the picture shows" onChange={(e) => set({ alt: e.target.value })} aria-invalid={altMissing} className={altMissing ? "border-[#d4a72c]/60" : ""} />
+          <Input data-alt="" value={block.alt ?? ""} placeholder="What the picture shows" onChange={(e) => set({ alt: e.target.value })} aria-invalid={altMissing} className={altMissing ? "border-[#d4a72c]/60" : ""} />
         </label>
         <label className="block">
           <Label>Caption</Label>
@@ -845,6 +922,7 @@ function CodeBlock({ block }: { block: Block }) {
           }
         }}
         spellCheck={false}
+        data-autofocus=""
         rows={Math.min(24, Math.max(3, (block.text ?? "").split("\n").length + 1))}
         placeholder="Code"
         aria-label="Code"
@@ -910,6 +988,7 @@ const BlockRow = React.memo(function BlockRow({
   index,
   count,
   uploading,
+  preview,
   snippets,
   snippetsNote,
   drop,
@@ -922,6 +1001,7 @@ const BlockRow = React.memo(function BlockRow({
   index: number
   count: number
   uploading: boolean
+  preview?: string
   snippets: SnippetOption[]
   snippetsNote?: string | null
   drop: "before" | "after" | null
@@ -957,7 +1037,7 @@ const BlockRow = React.memo(function BlockRow({
       content = <TableBlock block={block} />
       break
     case "img":
-      content = <ImageBlock block={block} uploading={uploading} />
+      content = <ImageBlock block={block} uploading={uploading} preview={preview} />
       break
     case "youtube":
       content = <YouTubeBlock block={block} />
@@ -976,26 +1056,19 @@ const BlockRow = React.memo(function BlockRow({
       break
     case "hr":
       content = (
-        <div
-          tabIndex={0}
-          data-hr={block.id}
-          aria-label="Divider"
-          onKeyDown={(e) => {
-            if (e.key === "Backspace" || e.key === "Delete") {
-              e.preventDefault()
-              api.remove(block.id, true)
-            }
-          }}
-          className="rounded-[4px] py-3 outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/50"
-        >
+        <div data-hr={block.id} className="py-3">
           <hr className="border-white/[0.14]" />
         </div>
       )
       break
   }
 
-  const spacing = first ? "" : block.type === "h2" ? "pt-7" : block.type === "h3" ? "pt-5" : TEXT_TYPES.has(block.type) && block.type !== "callout" ? "pt-2" : LIST_TYPES.has(block.type) ? "pt-2" : "pt-4"
-  const handleTop = block.type === "h2" ? (first ? 2 : 30) : block.type === "h3" ? (first ? 0 : 20) : first ? 0 : TEXT_TYPES.has(block.type) || LIST_TYPES.has(block.type) ? 8 : 16
+  /* The live article's gaps: 56 px before a heading, 40 before a subheading, 24 between the rest (a little less here, where every block also has a handle). */
+  const spacing = first ? "" : block.type === "h2" ? "pt-11" : block.type === "h3" ? "pt-8" : "pt-5"
+  /* The handle on the block's first line. */
+  const handleTop = block.type === "h2" ? 5 : block.type === "p" || block.type === "quote" || LIST_TYPES.has(block.type) ? 2 : 0
+  /* A picture, a table, a divider: stepped onto with the arrows as one thing (Enter goes in, Backspace deletes). */
+  const whole = !TEXT_TYPES.has(block.type) && !LIST_TYPES.has(block.type)
 
   return (
     <div
@@ -1013,9 +1086,12 @@ const BlockRow = React.memo(function BlockRow({
         e.preventDefault()
         onDropId(block.id)
       }}
-      className={cx("group/block relative", spacing)}
+      tabIndex={whole ? -1 : undefined}
+      aria-label={whole ? `${MENU.find((m) => m.type === block.type)?.label ?? "Block"}, block ${index + 1} of ${count}` : undefined}
+      className={cx("group/block relative outline-none", spacing)}
     >
-      {drop ? <div aria-hidden className={cx("pointer-events-none absolute -left-2 -right-2 z-10 h-[2px] rounded-full bg-[#8b5cf6]", drop === "before" ? "top-0" : "-bottom-[1px]")} /> : null}
+      {drop ? <div aria-hidden className={cx("pointer-events-none absolute -left-2 -right-2 z-10 h-[2px] rounded-full bg-[#8b5cf6]", drop === "before" ? (first ? "-top-1" : "top-[6px]") : "-bottom-[1px]")} /> : null}
+      <div className="relative rounded-[10px] group-focus-visible/block:ring-2 group-focus-visible/block:ring-[#8b5cf6]/60 group-focus-visible/block:ring-offset-4 group-focus-visible/block:ring-offset-[#0b0b0f]">
       <div className="absolute -left-7 z-20 sm:-left-9" style={{ top: handleTop }}>
         <button
           type="button"
@@ -1048,6 +1124,7 @@ const BlockRow = React.memo(function BlockRow({
         {menu ? <BlockMenu block={block} index={index} count={count} onClose={() => setMenu(false)} /> : null}
       </div>
       {content}
+      </div>
     </div>
   )
 })
@@ -1165,7 +1242,10 @@ function SlashMenu({ state, onPick, onHover }: { state: { query: string; index: 
 /* ── The bar over selected text, and the link editor ──────────────────── */
 
 function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }) {
+  const api = useApi()
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null)
+  /* The block the selection is in, for the heading buttons: only a line of text can be a heading. */
+  const [host, setHost] = React.useState<{ id: string; type: BlockType } | null>(null)
   const [mode, setMode] = React.useState<"format" | "link" | "bubble">("format")
   const [href, setHref] = React.useState("")
   const [blank, setBlank] = React.useState(false)
@@ -1225,6 +1305,8 @@ function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }
       const rect = sel.isCollapsed && link ? link.getBoundingClientRect() : range.getBoundingClientRect()
       if (!rect.width && !rect.height) return setPos(null)
       anchor.current = link
+      const row = editableOf(sel.anchorNode)?.closest<HTMLElement>("[data-block]")
+      setHost(row ? { id: row.dataset.block!, type: row.dataset.type as BlockType } : null)
       setMode(sel.isCollapsed ? "bubble" : "format")
       setActive({ bold: document.queryCommandState("bold"), italic: document.queryCommandState("italic"), underline: document.queryCommandState("underline"), strikeThrough: document.queryCommandState("strikeThrough") })
       setPos({ top: rect.top - 44, left: rect.left + rect.width / 2 })
@@ -1294,7 +1376,17 @@ function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }
     syncFrom(window.getSelection()?.anchorNode ?? null)
     setActive((a) => ({ ...a, [c]: !a[c] }))
   }
-  const width = mode === "link" ? 360 : mode === "bubble" ? 300 : 250
+  const headed = host && (host.type === "p" || host.type === "h2" || host.type === "h3" || host.type === "quote")
+  const level = (t: "h2" | "h3") => (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!host) return
+    const next = host.type === t ? "p" : t
+    api.convert(host.id, next, true)
+    setHost({ ...host, type: next })
+    /* The line changed size: the bar follows the selection. */
+    requestAnimationFrame(() => document.dispatchEvent(new Event("selectionchange")))
+  }
+  const width = mode === "link" ? 360 : mode === "bubble" ? 300 : headed ? 330 : 250
   return (
     <div
       role="toolbar"
@@ -1307,11 +1399,18 @@ function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }
     >
       {mode === "format" ? (
         <>
-          <button type="button" title={`Bold (${cmd}B)`} aria-pressed={active.bold} onMouseDown={run("bold")} className={cx(btn(active.bold), "font-bold")}>B</button>
-          <button type="button" title={`Italic (${cmd}I)`} aria-pressed={active.italic} onMouseDown={run("italic")} className={cx(btn(active.italic), "italic")}>I</button>
-          <button type="button" title={`Underline (${cmd}U)`} aria-pressed={active.underline} onMouseDown={run("underline")} className={cx(btn(active.underline), "underline underline-offset-2")}>U</button>
-          <button type="button" title={`Strike (${cmd}Shift S)`} aria-pressed={active.strikeThrough} onMouseDown={run("strikeThrough")} className={cx(btn(active.strikeThrough), "line-through")}>S</button>
-          <button type="button" title={`Code (${cmd}E)`} onMouseDown={run("code")} className={cx(btn(), "font-mono text-[12px]")}>{"</>"}</button>
+          {headed ? (
+            <>
+              <button type="button" aria-label="Heading" title="Heading (## at the start of a line)" aria-pressed={host?.type === "h2"} onMouseDown={level("h2")} className={cx(btn(host?.type === "h2"), "text-[12px] font-semibold")}>H2</button>
+              <button type="button" aria-label="Subheading" title="Subheading (### at the start of a line)" aria-pressed={host?.type === "h3"} onMouseDown={level("h3")} className={cx(btn(host?.type === "h3"), "text-[12px] font-semibold")}>H3</button>
+              <span aria-hidden className="mx-0.5 h-4 w-px bg-white/[0.12]" />
+            </>
+          ) : null}
+          <button type="button" aria-label="Bold" title={`Bold (${cmd}B)`} aria-pressed={active.bold} onMouseDown={run("bold")} className={cx(btn(active.bold), "font-bold")}>B</button>
+          <button type="button" aria-label="Italic" title={`Italic (${cmd}I)`} aria-pressed={active.italic} onMouseDown={run("italic")} className={cx(btn(active.italic), "italic")}>I</button>
+          <button type="button" aria-label="Underline" title={`Underline (${cmd}U)`} aria-pressed={active.underline} onMouseDown={run("underline")} className={cx(btn(active.underline), "underline underline-offset-2")}>U</button>
+          <button type="button" aria-label="Strikethrough" title={`Strike (${cmd}Shift S)`} aria-pressed={active.strikeThrough} onMouseDown={run("strikeThrough")} className={cx(btn(active.strikeThrough), "line-through")}>S</button>
+          <button type="button" aria-label="Inline code" title={`Code (${cmd}E)`} onMouseDown={run("code")} className={cx(btn(), "font-mono text-[12px]")}>{"</>"}</button>
           <span aria-hidden className="mx-0.5 h-4 w-px bg-white/[0.12]" />
           <button type="button" title={`Link (${cmd}K)`} onMouseDown={(e) => { e.preventDefault(); openLink() }} className={btn(Boolean(anchor.current))}>Link</button>
         </>
@@ -1360,10 +1459,15 @@ function SelectionBar({ root }: { root: React.RefObject<HTMLDivElement | null> }
 
 /* ── The editor ───────────────────────────────────────────────────────── */
 
+const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")
+const imageFiles = (list: FileList | null | undefined) => Array.from(list ?? []).filter((f) => f.type.startsWith("image/"))
+
 export default function BlogEditor({
   blocks,
   onChange,
   onUpload,
+  onImport,
+  onLeaveTop,
   snippets = [],
   snippetsNote,
 }: {
@@ -1371,6 +1475,10 @@ export default function BlogEditor({
   onChange: (blocks: Block[]) => void
   /** Uploads one picture and answers its address; throws with a reason the editor shows. */
   onUpload: (file: File) => Promise<string>
+  /** Copies a picture from another site into Storelib and answers its new address; throws when it cannot. */
+  onImport?: (url: string) => Promise<string>
+  /** Up from the first line: the title. */
+  onLeaveTop?: () => void
   snippets?: SnippetOption[]
   /** Set when the snippet library is off (before SQL part 345): said where a snippet would be picked. */
   snippetsNote?: string | null
@@ -1379,24 +1487,34 @@ export default function BlogEditor({
   const blocksRef = React.useRef(blocks)
   const onChangeRef = React.useRef(onChange)
   const uploadRef = React.useRef(onUpload)
+  const importRef = React.useRef(onImport)
+  const leaveTopRef = React.useRef(onLeaveTop)
   React.useLayoutEffect(() => {
     blocksRef.current = blocks
     onChangeRef.current = onChange
     uploadRef.current = onUpload
+    importRef.current = onImport
+    leaveTopRef.current = onLeaveTop
   })
-  const focusReq = React.useRef<{ id: string; where: "start" | "end" | number } | null>(null)
+  const focusReq = React.useRef<{ id: string; where: FocusWhere; x?: number; whole?: boolean } | null>(null)
   const syncs = React.useRef(new Map<string, () => void>())
+  const history = React.useRef(createHistory<Block[]>())
+  const [epoch, setEpoch] = React.useState(0)
   const [slash, setSlash] = React.useState<{ id: string; query: string; index: number; rect: DOMRect } | null>(null)
   const slashRef = React.useRef(slash)
+  const slashDismissed = React.useRef<string | null>(null)
   React.useLayoutEffect(() => {
     slashRef.current = slash
   }, [slash])
-  const [uploading, setUploading] = React.useState<ReadonlySet<string>>(new Set())
+  const [uploading, setUploading] = React.useState<ReadonlyMap<string, string>>(new Map())
   const [uploadError, setUploadError] = React.useState<string | null>(null)
   const [dragId, setDragId] = React.useState<string | null>(null)
   const [dropAt, setDropAt] = React.useState<{ id: string; pos: "before" | "after" } | null>(null)
+  const [fileDrop, setFileDrop] = React.useState<{ id: string; pos: "before" | "after" } | null>(null)
 
-  const commit = React.useCallback((next: Block[]) => {
+  /** Every change: the list before it kept for undo (`key` joins a run of typing in one field), then handed up. */
+  const commit = React.useCallback((next: Block[], key: string | null = null) => {
+    recordChange(history.current, blocksRef.current, key, Date.now())
     blocksRef.current = next
     onChangeRef.current(next)
   }, [])
@@ -1407,11 +1525,20 @@ export default function BlogEditor({
     const row = root.current?.querySelector<HTMLElement>(`[data-block="${req.id}"]`)
     if (!row) return
     focusReq.current = null
-    const rt = row.querySelector<HTMLElement>("[data-rt]")
-    if (!rt) {
-      row.querySelector<HTMLElement>("input, textarea, select, [data-hr]")?.focus()
+    if (req.where === "alt") {
+      row.querySelector<HTMLElement>("[data-alt]")?.focus()
       return
     }
+    const rt = row.querySelector<HTMLElement>("[data-rt]")
+    if (!rt) {
+      /* Arrived at with the arrows: the block as a whole. Otherwise its first field. */
+      if (req.whole) {
+        row.focus()
+        row.scrollIntoView({ block: "nearest" })
+      } else (row.querySelector<HTMLElement>("[data-autofocus]") ?? row.querySelector<HTMLElement>("input:not([type=file]), textarea, select"))?.focus()
+      return
+    }
+    const sel = window.getSelection()
     if (typeof req.where === "number") {
       rt.focus()
       const walker = document.createTreeWalker(rt, NodeFilter.SHOW_TEXT)
@@ -1421,7 +1548,6 @@ export default function BlogEditor({
         left -= (node.nodeValue ?? "").length
         node = walker.nextNode()
       }
-      const sel = window.getSelection()
       if (node && sel) {
         const r = document.createRange()
         r.setStart(node, Math.min(left, (node.nodeValue ?? "").length))
@@ -1431,9 +1557,23 @@ export default function BlogEditor({
       } else placeCaret(rt, "end")
       return
     }
-    const target = rt.tagName === "UL" || rt.tagName === "OL" ? ((req.where === "start" ? rt.firstElementChild : rt.lastElementChild) as HTMLElement | null) ?? rt : rt
+    const isList = rt.tagName === "UL" || rt.tagName === "OL"
+    const target = isList ? ((req.where === "start" ? rt.firstElementChild : rt.lastElementChild) as HTMLElement | null) ?? rt : rt
+    if (req.x !== undefined && sel) {
+      /* The same place across, on the line it lands on: the last line going up, the first going down. */
+      rt.focus({ preventScroll: true })
+      target.scrollIntoView({ block: "nearest" })
+      const box = target.getBoundingClientRect()
+      const x = Math.min(Math.max(req.x, box.left + 1), box.right - 1)
+      const at = caretFromPoint(x, req.where === "end" ? box.bottom - 6 : box.top + 6)
+      if (at && target.contains(at.startContainer)) {
+        sel.removeAllRanges()
+        sel.addRange(at)
+        return
+      }
+    }
     if (target !== rt) rt.focus()
-    placeCaret(target, req.where)
+    placeCaret(target, req.where === "start" ? "start" : "end")
   }, [])
 
   const pickSlash = React.useCallback(
@@ -1454,8 +1594,48 @@ export default function BlogEditor({
     [commit],
   )
 
+  /** Undo (-1) or redo (1): the list handed back, every text block rewritten, the caret in the first block that changed. */
+  const step = React.useCallback((dir: -1 | 1) => {
+    const cur = blocksRef.current
+    const target = dir < 0 ? undoStep(history.current, cur) : redoStep(history.current, cur)
+    if (!target) return
+    const byId = new Map(cur.map((b) => [b.id, b]))
+    /* A block that changed or came back; else, where one was taken away, the block before it. */
+    const gone = cur.findIndex((b, i) => target[i]?.id !== b.id)
+    const changed = target.find((b) => byId.get(b.id) !== b) ?? target[Math.max(0, Math.min(target.length, gone < 0 ? target.length : gone) - 1)]
+    if (changed) focusReq.current = { id: changed.id, where: "end" }
+    blocksRef.current = target
+    onChangeRef.current(target)
+    setSlash(null)
+    setEpoch((e) => e + 1)
+  }, [])
+
   const api = React.useMemo<EditorApi>(() => {
     const at = (id: string) => blocksRef.current.findIndex((b) => b.id === id)
+    const upload = (id: string, file: File) => {
+      const preview = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : ""
+      setUploading((u) => new Map(u).set(id, preview))
+      setUploadError(null)
+      uploadRef
+        .current(file)
+        .then((url) => {
+          const list = blocksRef.current
+          const i = list.findIndex((b) => b.id === id)
+          if (i < 0) return
+          const next = list.slice()
+          next[i] = { ...list[i], url }
+          commit(next)
+        })
+        .catch((e: Error) => setUploadError(e.message || "The picture could not be uploaded."))
+        .finally(() => {
+          if (preview) URL.revokeObjectURL(preview)
+          setUploading((u) => {
+            const n = new Map(u)
+            n.delete(id)
+            return n
+          })
+        })
+    }
     return {
       update: (id, patch) => {
         const list = blocksRef.current
@@ -1465,7 +1645,7 @@ export default function BlogEditor({
         if (Object.entries(patch).every(([k, v]) => JSON.stringify(cur[k]) === JSON.stringify(v))) return
         const next = list.slice()
         next[i] = { ...list[i], ...patch }
-        commit(next)
+        commit(next, `${id}:${Object.keys(patch).sort().join()}`)
       },
       insertAfter: (id, add, focus = "start") => {
         if (!add.length) return
@@ -1491,7 +1671,7 @@ export default function BlogEditor({
         list.splice(i, 1)
         if (!list.length) list.push(blankBlock("p"))
         const target = list[Math.max(0, i - 1)]
-        if (focusPrev && target) focusReq.current = { id: target.id, where: i === 0 ? "start" : "end" }
+        if (focusPrev && target) focusReq.current = { id: target.id, where: i === 0 ? "start" : "end", whole: true }
         commit(list)
       },
       move: (id, dir) => {
@@ -1514,7 +1694,7 @@ export default function BlogEditor({
         focusReq.current = { id: copy.id, where: "end" }
         commit(list)
       },
-      convert: (id, type) => {
+      convert: (id, type, keepCaret) => {
         syncs.current.get(id)?.()
         const list = blocksRef.current.slice()
         const i = list.findIndex((b) => b.id === id)
@@ -1524,7 +1704,7 @@ export default function BlogEditor({
         if (TEXT_TYPES.has(type)) fresh.html = cur.html ?? (cur.items ?? []).filter(Boolean).join("<br>")
         if (LIST_TYPES.has(type)) fresh.items = cur.items ?? (cur.html ? cur.html.split(/<br\s*\/?>/) : [""])
         list[i] = fresh
-        focusReq.current = { id: cur.id, where: "end" }
+        if (!keepCaret) focusReq.current = { id: cur.id, where: "end" }
         commit(list)
       },
       mergeIntoPrevious: (id, html) => {
@@ -1543,15 +1723,57 @@ export default function BlogEditor({
         commit(next)
         return true
       },
-      focusNeighbour: (id, dir) => {
+      focusNeighbour: (id, dir, x) => {
         const n = blocksRef.current[at(id) + dir]
-        if (!n) return false
-        focusReq.current = { id: n.id, where: dir < 0 ? "end" : "start" }
+        if (!n) {
+          if (dir < 0 && leaveTopRef.current) {
+            leaveTopRef.current()
+            return true
+          }
+          return false
+        }
+        focusReq.current = { id: n.id, where: dir < 0 ? "end" : "start", x, whole: true }
         applyFocus()
         return true
       },
-      openSlash: (id, query, rect) => setSlash((s) => ({ id, query, index: s && s.id === id && s.query === query ? s.index : 0, rect })),
-      closeSlash: () => setSlash((s) => (s ? null : s)),
+      insertImages: (id, pos, files) => {
+        if (!files.length) return
+        const imgs = files.map(() => blankBlock("img"))
+        const list = blocksRef.current.slice()
+        const i = list.findIndex((b) => b.id === id)
+        const target = list[i]
+        const empty = target && target.type === "p" && !(target.html ?? "").replace(/<br\s*\/?>/g, "").trim()
+        if (i < 0) list.push(...imgs)
+        else if (empty) list.splice(i, 1, ...imgs)
+        else list.splice(pos === "after" ? i + 1 : i, 0, ...imgs)
+        focusReq.current = { id: imgs[0].id, where: "alt" }
+        commit(list)
+        imgs.forEach((img, k) => upload(img.id, files[k]))
+      },
+      importInto: (id, url) => {
+        const copy = importRef.current
+        if (!copy || !/^https?:\/\//i.test(url) || /^https?:\/\/(www\.)?storelib\.com\//i.test(url)) return
+        copy(url)
+          .then((moved) => {
+            const list = blocksRef.current
+            const i = list.findIndex((b) => b.id === id)
+            if (i < 0 || list[i].url !== url) return
+            const next = list.slice()
+            next[i] = { ...list[i], url: moved }
+            commit(next)
+          })
+          /* Kept as it is: the notice over the post lists it, with Copy to Storelib. */
+          .catch(() => {})
+      },
+      openSlash: (id, query, rect) => {
+        /* Esc closed it on this line: it stays closed until the line no longer starts with "/". A query with a space that matches nothing is writing, not a block. */
+        if (slashDismissed.current === id || (/\s/.test(query) && !menuMatches(query).length)) return setSlash((s) => (s ? null : s))
+        setSlash((s) => ({ id, query, index: s && s.id === id && s.query === query ? s.index : 0, rect }))
+      },
+      closeSlash: () => {
+        slashDismissed.current = null
+        setSlash((s) => (s ? null : s))
+      },
       slashKey: (e) => {
         const s = slashRef.current
         if (!s) return false
@@ -1569,33 +1791,13 @@ export default function BlogEditor({
         }
         if (e.key === "Escape") {
           e.preventDefault()
+          slashDismissed.current = s.id
           setSlash(null)
           return true
         }
         return false
       },
-      uploadInto: (id, file) => {
-        setUploading((u) => new Set(u).add(id))
-        setUploadError(null)
-        uploadRef
-          .current(file)
-          .then((url) => {
-            const list = blocksRef.current
-            const i = list.findIndex((b) => b.id === id)
-            if (i < 0) return
-            const next = list.slice()
-            next[i] = { ...list[i], url }
-            commit(next)
-          })
-          .catch((e: Error) => setUploadError(e.message || "The picture could not be uploaded."))
-          .finally(() =>
-            setUploading((u) => {
-              const n = new Set(u)
-              n.delete(id)
-              return n
-            }),
-          )
-      },
+      uploadInto: upload,
       registerSync: (id, fn) => {
         syncs.current.set(id, fn)
         return () => {
@@ -1609,11 +1811,42 @@ export default function BlogEditor({
     applyFocus()
   })
 
+  /* Undo and redo from the Edit menu, or a phone's shake, arrive as beforeinput: the editor's own history, not the browser's, which knows one block at a time. */
+  React.useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const onBefore = (e: InputEvent) => {
+      if ((e.inputType === "historyUndo" || e.inputType === "historyRedo") && !isField(e.target)) {
+        e.preventDefault()
+        step(e.inputType === "historyUndo" ? -1 : 1)
+      }
+    }
+    /* With nothing focused (after a click on the page's margin), Cmd+Z is still the post's. */
+    const onKey = (e: KeyboardEvent) => {
+      if (document.activeElement !== document.body && document.activeElement !== null) return
+      if (isUndoShortcut(e) || isRedoShortcut(e)) {
+        e.preventDefault()
+        step(isRedoShortcut(e) ? 1 : -1)
+      }
+    }
+    el.addEventListener("beforeinput", onBefore)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      el.removeEventListener("beforeinput", onBefore)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [step])
+
   /* Keys that act on the block the caret is in, wherever in it. */
   function onKeyDownCapture(e: React.KeyboardEvent) {
     const row = (e.target as HTMLElement).closest<HTMLElement>("[data-block]")
     if (!row || !root.current?.contains(row)) return
     const id = row.dataset.block!
+    if ((isUndoShortcut(e) || isRedoShortcut(e)) && !isField(e.target)) {
+      e.preventDefault()
+      step(isRedoShortcut(e) ? 1 : -1)
+      return
+    }
     if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       e.preventDefault()
       syncs.current.get(id)?.()
@@ -1623,6 +1856,22 @@ export default function BlogEditor({
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "d") {
       e.preventDefault()
       api.duplicate(id)
+      return
+    }
+    /* A picture, a table or a divider stepped onto as a whole. */
+    if (e.target === row && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault()
+        api.focusNeighbour(id, e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1)
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault()
+        api.remove(id, true)
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        const field = row.querySelector<HTMLElement>("[data-autofocus]") ?? row.querySelector<HTMLElement>("input:not([type=file]), textarea, select")
+        if (field) field.focus()
+        else api.insertAfter(id, [blankBlock("p")])
+      }
     }
   }
 
@@ -1654,47 +1903,85 @@ export default function BlogEditor({
     [commit],
   )
 
+  /* A picture file dragged in from the desktop: a line shows where it lands, between two blocks. */
+  function fileDropTarget(e: React.DragEvent): { id: string; pos: "before" | "after" } | null {
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-block]")
+    if (row && root.current?.contains(row)) {
+      const r = row.getBoundingClientRect()
+      return { id: row.dataset.block!, pos: e.clientY < r.top + r.height / 2 ? "before" : "after" }
+    }
+    const last = blocksRef.current[blocksRef.current.length - 1]
+    return last ? { id: last.id, pos: "after" } : null
+  }
+
   return (
     <ApiContext.Provider value={api}>
-      <div ref={root} onKeyDownCapture={onKeyDownCapture} className="relative" data-blog-editor>
-        {uploadError ? (
-          <p role="alert" className="mb-3 rounded-[8px] border border-[#f47067]/40 px-3 py-2 text-[13px] text-[#f47067]">
-            {uploadError}
-          </p>
-        ) : null}
-        {blocks.map((b, i) => (
-          <BlockRow
-            key={b.id}
-            block={b}
-            index={i}
-            count={blocks.length}
-            uploading={uploading.has(b.id)}
-            snippets={snippets}
-            snippetsNote={snippetsNote}
-            dragging={Boolean(dragId)}
-            drop={dragId && dropAt?.id === b.id && dragId !== b.id ? dropAt.pos : null}
-            onDragStartId={onDragStartId}
-            onDragOverId={onDragOverId}
-            onDropId={onDropId}
-          />
-        ))}
-        <button
-          type="button"
-          onClick={() => {
-            const last = blocksRef.current[blocksRef.current.length - 1]
-            if (last && last.type === "p" && !(last.html ?? "").trim()) {
-              focusReq.current = { id: last.id, where: "start" }
-              applyFocus()
-              return
-            }
-            api.insertAfter(null, [blankBlock("p")])
+      <EpochContext.Provider value={epoch}>
+        <div
+          ref={root}
+          onKeyDownCapture={onKeyDownCapture}
+          onDragOver={(e) => {
+            if (dragRef.current || !e.dataTransfer.types.includes("Files")) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "copy"
+            const t = fileDropTarget(e)
+            setFileDrop((d) => (d?.id === t?.id && d?.pos === t?.pos ? d : t))
           }}
-          aria-label="Add a line at the end"
-          className="mt-2 block min-h-[96px] w-full cursor-text outline-none"
-        />
-        {slash ? <SlashMenu state={slash} onPick={pickSlash} onHover={(i) => setSlash((s) => (s ? { ...s, index: i } : s))} /> : null}
-        <SelectionBar root={root} />
-      </div>
+          onDragLeave={(e) => {
+            if (!root.current?.contains(e.relatedTarget as Node | null)) setFileDrop(null)
+          }}
+          onDrop={(e) => {
+            const files = imageFiles(e.dataTransfer.files)
+            const t = fileDrop ?? fileDropTarget(e)
+            setFileDrop(null)
+            if (dragRef.current || !files.length || !t) return
+            e.preventDefault()
+            api.insertImages(t.id, t.pos, files)
+          }}
+          className="relative"
+          data-blog-editor
+        >
+          {uploadError ? (
+            <p role="alert" className="mb-3 rounded-[8px] border border-[#f47067]/40 px-3 py-2 text-[13px] text-[#f47067]">
+              {uploadError}
+            </p>
+          ) : null}
+          {blocks.map((b, i) => (
+            <BlockRow
+              key={b.id}
+              block={b}
+              index={i}
+              count={blocks.length}
+              uploading={uploading.has(b.id)}
+              preview={uploading.get(b.id)}
+              snippets={snippets}
+              snippetsNote={snippetsNote}
+              dragging={Boolean(dragId)}
+              drop={fileDrop?.id === b.id ? fileDrop.pos : dragId && dropAt?.id === b.id && dragId !== b.id ? dropAt.pos : null}
+              onDragStartId={onDragStartId}
+              onDragOverId={onDragOverId}
+              onDropId={onDropId}
+            />
+          ))}
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => {
+              const last = blocksRef.current[blocksRef.current.length - 1]
+              if (last && last.type === "p" && !(last.html ?? "").trim()) {
+                focusReq.current = { id: last.id, where: "start" }
+                applyFocus()
+                return
+              }
+              api.insertAfter(null, [blankBlock("p")])
+            }}
+            aria-label="Add a line at the end"
+            className="mt-2 block min-h-[120px] w-full cursor-text outline-none"
+          />
+          {slash ? <SlashMenu state={slash} onPick={pickSlash} onHover={(i) => setSlash((s) => (s ? { ...s, index: i } : s))} /> : null}
+          <SelectionBar root={root} />
+        </div>
+      </EpochContext.Provider>
     </ApiContext.Provider>
   )
 }

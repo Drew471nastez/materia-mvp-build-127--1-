@@ -13,7 +13,8 @@
  * CATEGORIES       /blog/category/<slug>; the old address is a 308 to it;
  *                  the sitemap names the new one.
  * CTA, NEWSLETTER  the sign up box's address reads back as a source; the
- *                  newsletter route takes source "blog" and a honeypot.
+ *                  newsletter route takes source "blog" and a honeypot (the
+ *                  article's newsletter box itself is gone since round 47).
  */
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -48,6 +49,11 @@ import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { ArticleBlocks, sanitizeInline } from "@/app/(marketing)/blog/_components/article-blocks"
 import { GET as legacyCategoryGET } from "@/app/(marketing)/blog/explore/categories/[category]/route"
 import BlogListing from "@/app/(marketing)/blog/_blog-listing"
+import { blogListOf } from "@/app/(marketing)/blog/_components/blog-nav"
+
+/* Round 47: which paths draw the pills (the lists) and which do not (an article, an author). */
+const blogListOfOk = () =>
+  blogListOf("/blog").list && blogListOf("/blog/page/2").list && blogListOf("/blog/category/growth").slug === "growth" && blogListOf("/blog/category/growth/page/3").slug === "growth" && !blogListOf("/blog/some-post").list && !blogListOf("/blog/author/anisia").list && !blogListOf("/blog/page").list
 
 let passed = 0
 let failed = 0
@@ -235,7 +241,7 @@ async function main() {
     check("the old page is gone, the new pages exist with layouts deciding 404 and 308 before the stream", !existsSync(join(process.cwd(), "app/(marketing)/blog/explore/categories/[category]/page.tsx")) && existsSync(join(process.cwd(), "app/(marketing)/blog/category/[slug]/page.tsx")) && /permanentRedirect\(`\/blog\/category\/\$\{slug\}`\)/.test(code("app/(marketing)/blog/category/[slug]/page/[page]/layout.tsx")) && /notFound\(\)/.test(code("app/(marketing)/blog/category/[slug]/layout.tsx")))
     const cat = code("app/(marketing)/blog/_blog-category.tsx")
     check("a category page: its own canonical, BreadcrumbList, noindex while empty", /path: blogCategoryPath\(category\.name, page, categories\)/.test(cat) && /breadcrumbListJsonLd\(crumbs\)/.test(cat) && /: \{ index: false, follow: true \}/.test(cat))
-    const internal = ["app/(marketing)/blog/_blog-listing.tsx", "app/(marketing)/blog/_components/article-view.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/_blog-category.tsx"]
+    const internal = ["app/(marketing)/blog/_blog-listing.tsx", "app/(marketing)/blog/_components/blog-nav.tsx", "app/(marketing)/blog/_components/article-view.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/_blog-category.tsx"]
     check("no internal link names the old address", internal.every((p) => !code(p).includes("explore/categories")))
 
     const rows = [{ slug: "p1", category: "Tutorials", published_at: "2026-09-01T00:00:00Z", updated_at: null }]
@@ -247,9 +253,13 @@ async function main() {
     /* Changed on purpose (round 45): blogSitemapEntries also takes the authors with live posts (their /blog/author pages, tests/seo-leftovers-b-r45.test.ts). */
     check("sitemaps.ts uses it", /withBlogCategoryPages\(blogSitemapEntries\(posts, blogCategories\.map\(\(c\) => c\.name\), \(name\) => categorySlugOf\(name, blogCategories\), blogAuthors\), posts, blogCategories\)/.test(code("lib/seo/sitemaps.ts")))
 
-    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [], activeCategory: "Growth", title: "Growth", subtitle: "x", pagination: { page: 2, pages: 3 }, pagePath: (n: number) => blogCategoryPath("Growth", n) }))
+    /* Changed on purpose (round 47): the list no longer takes a title and a line; the blog's layout draws them. */
+    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [], activeCategory: "Growth", pagination: { page: 2, pages: 3 }, pagePath: (n: number) => blogCategoryPath("Growth", n) }))
     check("a category's pages are real links at its own addresses", /href="\/blog\/category\/growth"[^>]*rel="prev"|rel="prev"[^>]*href="\/blog\/category\/growth"/.test(html) && /href="\/blog\/category\/growth\/page\/3"/.test(html))
-    check("  the category navigation links the new addresses", /href="\/blog\/category\/getting-started"/.test(html) && /aria-current="page"[^>]*>Growth|>Growth<\/a>/.test(html))
+    /* Changed on purpose (round 47): the category pills moved out of the list into the blog's shared layout (app/(marketing)/blog/layout.tsx and _components/blog-nav.tsx), so they stay mounted between categories. Still real links at the new addresses. */
+    const nav = code("app/(marketing)/blog/_components/blog-nav.tsx")
+    check("  the category navigation links the new addresses, as real links", /href=\{`\/blog\/category\/\$\{c\.slug\}`\}/.test(nav) && /<Link href=\{href\}/.test(nav) && /aria-current=\{on \? "page" : undefined\}/.test(nav) && !nav.includes("explore/categories"))
+    check("  the layout draws it around every blog page", /<BlogNav categories=\{nav\}/.test(code("app/(marketing)/blog/layout.tsx")) && blogListOfOk())
   }
 
   console.log("\nThe sign up box and the newsletter")
@@ -261,8 +271,8 @@ async function main() {
     check("the variant follows the post", ctaVariant({ title: "How to run a paid community" }, true) === "community" && ctaVariant({ title: "Shipping rates for physical products" }, true) === "physical" && ctaVariant({ title: "Shipping rates for physical products" }, false) === "digital" && ctaVariant({ title: "Selling Notion templates" }, true) === "digital")
     const route = code("app/api/newsletter/route.ts")
     check("the newsletter route takes source blog and a honeypot that stores nothing", /body\.source === "blog" \? "blog" : "footer"/.test(route) && /body\.company/.test(route) && route.indexOf("body.company") < route.indexOf(".upsert("))
-    const card = code("app/(marketing)/blog/_components/newsletter-card.tsx")
-    check("  the card says done only after the server said ok", /if \(!res\.ok \|\| !data\?\.ok\)/.test(card) && /source: "blog"/.test(card))
+    /* Changed on purpose (round 47): the owner asked for the newsletter box to go from the article; the card is gone, the route above stays for the footer. */
+    check("  the article draws no newsletter box", !existsSync(join(process.cwd(), "app/(marketing)/blog/_components/newsletter-card.tsx")) && !/Newsletter/.test(code("app/(marketing)/blog/_components/article-view.tsx")))
   }
 
   console.log("\nWired to the editor's data layer (seo-blogadmin)")
