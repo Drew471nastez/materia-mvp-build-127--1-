@@ -75,7 +75,7 @@ function VerifyContent() {
     else if (!email) {
       void createClient()
         .auth.getSession()
-        .then(({ data }) => {
+        .then(({ data }: { data: { session: { user?: { id?: string; email?: string } } | null } }) => {
           const user = data.session?.user
           if (user?.id === userId && user.email) setEmail(user.email)
         })
