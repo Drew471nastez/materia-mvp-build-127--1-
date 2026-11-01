@@ -48,9 +48,23 @@ console.log("\nThe page the cards are placed on cannot be moved")
   const lockAt = rules.indexOf('"html,body{')
   check("the page's lock is inside the cards' layer, where no theme !important beats it", layerAt >= 0 && lockAt > layerAt)
   const lock = rules.slice(lockAt, rules.indexOf("\n", lockAt))
-  for (const prop of ["margin:0!important", "padding:0!important", "position:relative!important", "inset:auto!important", "zoom:1!important", "transform:none!important", "overflow:hidden!important", "scroll-snap-type:none!important", "contain:none!important"]) {
+  for (const prop of ["margin:0!important", "padding:0!important", "position:relative!important", "inset:auto!important", "zoom:1!important", "transform:none!important", "scroll-snap-type:none!important", "contain:none!important"]) {
     check(`  ${prop}`, lock.includes(prop))
   }
+  /*
+    After #392 the body was positioned (the cards' containing block), 0px
+    tall (nothing in its flow) and `overflow: hidden`: it cut every card away
+    whole, and each card was measured and marked shown with not a pixel of it
+    painted (scripts/check-section-preview-pixels.mjs).
+  */
+  const htmlLock = rules.slice(rules.indexOf('"html{'), rules.indexOf("\n", rules.indexOf('"html{')))
+  const bodyLock = rules.slice(rules.indexOf('"body{'), rules.indexOf("\n", rules.indexOf('"body{')))
+  check("the page never scrolls: <html> is overflow hidden, which is the viewport's", htmlLock.includes("overflow:hidden!important") && rules.indexOf('"html{') > layerAt)
+  check("  and keeps no scrollbar gutter that would cut each card's right edge", htmlLock.includes("scrollbar-gutter:auto!important"))
+  check("the body, which holds the cards and is 0px tall, never cuts them", bodyLock.includes("overflow:visible!important") && !lock.includes("overflow:hidden") && rules.indexOf('"body{') > layerAt)
+  check("  nor can a theme hide the page until a script that never runs here", ["opacity:1!important", "visibility:visible!important", "clip-path:none!important", "content-visibility:visible!important"].every((p) => bodyLock.includes(p)))
+  check("a card shown on screen is hit tested in its own page, put back once, and reported if it still cannot be seen", /window\.setTimeout\(\(\) => this\.verify\(key, false\), VERIFY_AFTER_MS\)/.test(sheet) && /const why = unseenBecause\(box\)/.test(sheet) && /reportLoadProblem\("section-preview", `a card marked shown cannot be seen/.test(sheet) && /doc\.elementsFromPoint\(x, y\)/.test(src) && /pointer-events:auto!important/.test(rules))
+  check("what a theme shows with a script is shown in a card: on insert and when a late stylesheet lands", /keepStylesInside\(w, key\)\s*\n\s*showRevealed\(w\)/.test(sheet) && /link\.addEventListener\("load", this\.sheetLoaded/.test(sheet))
   check("the page is put back at its top left if anything scrolled it", /page\.scrollTo\(0, 0\)/.test(sheet) && /const page = this\.doc\?\.scrollingElement/.test(sheet))
 }
 
