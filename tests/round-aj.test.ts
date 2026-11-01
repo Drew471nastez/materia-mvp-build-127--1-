@@ -74,7 +74,7 @@ async function main() {
     check("App embeds is always there", /data-app-embeds-toggle=""/.test(lib))
     check("it holds every app's sections and the apps themselves", /activeCategory === APP_EMBEDS \? !!e\.app/.test(lib) && /data-app-embeds=""/.test(lib) && /STORELIB_SECTION_APPS\.map/.test(lib))
     const compat = code("components/website-builder/compat/compat-section-preview.tsx")
-    check("an imported section's card is its own box, not what spills out of it", /const own = (?:w\.offsetHeight|Math\.max\(w\.offsetHeight, root\.offsetHeight\))/.test(compat) && /* Changed on purpose (round 45: heights are kept per version of the theme; 10e69cf32: a section's own box counts with its negative margins) */ /const HEIGHTS_PREFIX = "wb-compat-preview-h3:"/.test(compat))
+    check("an imported section's card is its own box, not what spills out of it", /const own = (?:w\.offsetHeight|Math\.max\(w\.offsetHeight, root\.offsetHeight\))/.test(compat) && /* Changed on purpose (round 45: heights are kept per version of the theme; 10e69cf32: a section's own box counts with its negative margins) */ /const HEIGHTS_PREFIX = "wb-compat-preview-h4:"/.test(compat) && /OLD_HEIGHTS_PREFIXES = \["wb-compat-preview-h2:", "wb-compat-preview-h3:"\]/.test(compat))
   }
 
   console.log("\nThe canvas glides")
