@@ -25,6 +25,7 @@ import { BLOG_CTA, blogRailCta } from "@/lib/blog/article"
 import { ArticleView } from "@/app/(marketing)/blog/_components/article-view"
 import { PostCard } from "@/app/(marketing)/blog/_components/post-card"
 import BlogListing from "@/app/(marketing)/blog/_blog-listing"
+import { withPublishedAsModified } from "@/lib/blog/trusted-modified"
 
 let passed = 0
 let failed = 0
@@ -112,8 +113,16 @@ function main() {
     check("the list's fade is opacity only, and off with reduced motion", /@keyframes blog-list-swap \{\s*from \{ opacity: 0\.35; \}\s*to \{ opacity: 1; \}\s*\}/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.blog-list-swap \{ animation: none; \}/.test(css))
   }
 
+  /* Round 47, lead: before SQL part 345 a reader's view moves updated_at, so the published date stands in wherever a reader or a crawler sees "updated". */
+  {
+    const rows = [{ slug: "a", published_at: "2026-04-02T00:00:00Z", updated_at: "2026-11-01T09:00:00Z" }]
+    check("before part 345 the published date stands in for updated_at; after it, the real one", withPublishedAsModified(rows, false)[0].updated_at === "2026-04-02T00:00:00Z" && withPublishedAsModified(rows, true)[0].updated_at === "2026-11-01T09:00:00Z")
+    check("  the post page, the lists and the sitemap all read it that way", /withPublishedAsModified\(\(data \|\| \[\]\)/.test(read("lib/blog/read.ts")) && /if \(!\("draft_saved_at" in row\)\) row\.updated_at = row\.published_at/.test(read("lib/blog/post.ts")) && /const trustedModified = await trustsUpdatedAt\(\)/.test(read("lib/seo/sitemaps.ts")))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)
 }
 
 main()
+
