@@ -6,8 +6,10 @@ import type { TocItem } from "@/lib/blog/article"
  * Plain links that work with no script; ./toc-spy marks the one being read
  * with aria-current, drawn as a thin ink rule on the list's hairline.
  *
- * Beside the article on a wide screen ("side"); on a phone and a tablet a
- * closed <details> under the header ("inline"), one tap to open.
+ * Beside the article from 1200px ("side"); narrower, a closed <details>
+ * above the body ("inline"), one tap to open, each link a 44px target.
+ * Round 47: 14px in the rail (it was 13.5px for the h3), the one being
+ * read in ink, semibold, with Storelib's violet rule.
  */
 function List({ items }: { items: TocItem[] }) {
   return (
@@ -16,7 +18,7 @@ function List({ items }: { items: TocItem[] }) {
         <li key={t.id}>
           <a
             href={`#${t.id}`}
-            className={`relative block py-[7px] pr-2 text-[14px] leading-snug text-[#6b7280] transition-colors before:absolute before:inset-y-[5px] before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#1a1a2e] max-lg:min-h-[44px] max-lg:flex max-lg:items-center ${t.level === 3 ? "pl-7 text-[13.5px]" : "pl-4"}`}
+            className={`relative block py-2 pr-2 text-[14px] leading-[1.45] text-[#4b5563] transition-colors before:absolute before:inset-y-[6px] before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-semibold aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#8b5cf6] max-[1199px]:flex max-[1199px]:min-h-[44px] max-[1199px]:items-center max-[1199px]:text-[16px] ${t.level === 3 ? "pl-8" : "pl-4"}`}
           >
             {t.text}
           </a>
@@ -31,14 +33,14 @@ export function OnThisPage({ items, variant }: { items: TocItem[]; variant: "sid
   if (variant === "side") {
     return (
       <nav aria-label="On this page">
-        <p className="mb-3 text-[15px] font-medium text-[#1a1a2e]">On this page</p>
+        <p className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">On this page</p>
         <List items={items} />
       </nav>
     )
   }
   return (
-    <details className="group border-y border-[#e5e7eb] lg:hidden" data-blog-toc-inline="">
-      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-2xl border border-[#e5e7eb] px-4 min-[1200px]:hidden" data-blog-toc-inline="">
+      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 text-[16px] font-semibold text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
         On this page
         <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4 text-[#6b7280] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 8l5 5 5-5" />

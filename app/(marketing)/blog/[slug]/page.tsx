@@ -184,6 +184,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           related: relatedPosts(posts, { slug, category: post.category }, 3),
           previous,
           next,
+          physical,
         }}
       />
     </>
