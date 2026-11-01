@@ -94,7 +94,7 @@ Trust boundaries that matter most:
 
 | Item | Status | Next step |
 | --- | --- | --- |
-| CSP | `Content-Security-Policy-Report-Only` in `vercel.json`, reports to `/api/csp-report` | review reports, then enforce on apex app routes (sites may need their own policy) |
+| CSP | `Content-Security-Policy-Report-Only` in `vercel.json`, reports to `/api/csp-report` (still report only, on purpose) | review reports, then enforce on apex app routes first; see section 6 for where reports go, how to read them and the exact switch |
 | Permissions-Policy | **sent on storelib.com and www only** (vercel.json, `tests/permissions-policy.test.ts`): `camera=(self "https://connect-js.stripe.com" "https://js.stripe.com"), microphone=(self), geolocation=(), payment=(self "https://js.stripe.com"), usb=(), display-capture=()`. Camera and microphone stay on because the ID photo and the builder's voice ask use them; payment for Apple Pay and Google Pay in Stripe's frame | creator sites and custom domains could get their own later (an AI site already sets one) |
 | HSTS | Vercel default; not explicit, custom domains UNPROVEN | add explicitly for apex after checking subdomain impact |
 | IDOR coverage | **done**: [IDOR_SWEEP.md](IDOR_SWEEP.md), no gap found | repeat the check for each new route that uses the service role with a request id |
@@ -102,7 +102,7 @@ Trust boundaries that matter most:
 | Admin identity | one shared login, no MFA, no per-person audit | longer term: per-person admin accounts on Supabase Auth with MFA |
 | Private community pictures in a public bucket | design trade-off, URLs hard to guess | owner decision whether to move to signed URLs |
 | `/auth/app-callback`, GET sync-session, custom-scheme reset | legacy; see section 5 | retire `/auth/app-callback` after Vercel logs show zero use |
-| Email address in `/signup/verify?email=` URLs | still in 10 redirects and the code email's link (request logs) | move it to the session (the page can read `user.email`), or to the `#` fragment; touches every sign-up redirect, so its own change |
+| Email address in `/signup/verify?email=` URLs | **done outside `lib/auth`** (rel3-leftovers): every redirect, the login and signup pages and the VERIFY_EMAIL email open the page by account id; the page shows the address from the tab or the session, still accepts an old link's `email` and takes it off the address bar | the code email's copy link (`lib/auth/email-code.ts`) and `sellDecision` (`lib/auth/continue.ts`) still add `&email=`; drop it there (owned by the auth branch) |
 
 ## 5. Native app links (SEC-9, SEC-10)
 
@@ -164,3 +164,64 @@ page's custom-scheme handoff can then go: on a phone browser, offer an
 on a verified App Link opens the app), and otherwise finish in the browser.
 That is a change to the app's reset path, to be made and tested on real
 devices together with the owner.
+
+## 6. CSP readiness (report only, not enforced)
+
+The policy is written once in `lib/security/csp.ts` (`CONTENT_SECURITY_POLICY`)
+and copied into `vercel.json` as `Content-Security-Policy-Report-Only` on every
+path of every host (`source: "/(.*)"`): storelib.com, creator subdomains,
+custom domains and imported themes. `tests/integrations-t.test.ts` fails if
+the two copies differ. Browsers evaluate it and block nothing.
+
+**Where reports go.** Each browser that sees a violation posts it to
+`/api/csp-report` (`report-uri` in the policy). The proxy answers 19 in 20 of
+those posts itself with a 204 (`CSP_REPORT_SAMPLE_RATE = 0.05`), so only a
+sample reaches the route. The route (`app/api/csp-report/route.ts`) stores
+nothing; it drops reports about browser extensions, cuts every URL at `?`
+or `#` (tokens never reach a log), and writes at most 30 lines a minute per
+instance, each one:
+
+    [csp] would have blocked <blocked uri> (<directive>) on <page path>
+
+at `warn` level in the Vercel runtime logs of the production deployment.
+
+**How to review them.** Over at least two weeks of real traffic that
+includes a checkout with a card and with Apple Pay or Google Pay, Stripe's
+onboarding forms, the website builder and code editor, a creator site, an
+imported theme, a OnePage with embeds and a community video upload:
+
+1. Vercel dashboard, the project, Logs, production, search
+   `[csp] would have blocked` (or `vercel logs <deployment> | grep "\[csp\]"`).
+2. Group the lines by blocked host and directive. Multiply counts by 20 for
+   the real volume (the sample).
+3. For each group decide: a host Storelib really uses (add it to the
+   directive in `DIRECTIVES` in `lib/security/csp.ts` and paste the new
+   `CONTENT_SECURITY_POLICY` string into `vercel.json`), or something that
+   should be blocked (leave it). `inline`/`eval` lines on storelib.com are
+   expected under `'unsafe-inline'`/`'unsafe-eval'` and should not appear.
+4. Ready when a week passes with no new group on storelib.com.
+
+**The exact switch, later.** Not done now.
+
+- Storelib's own app hosts first (recommended). Creator sites and imported
+  themes run a creator's or a theme's own scripts and may need their own
+  policy, so leave the report only header on every host and add, in
+  `vercel.json` `headers`, one entry like the existing `Permissions-Policy`
+  one:
+
+      { "source": "/(.*)",
+        "has": [{ "type": "host", "value": "^(www\\.)?storelib\\.com$" }],
+        "headers": [{ "key": "Content-Security-Policy", "value": "<CONTENT_SECURITY_POLICY>" }] }
+
+  Reports keep coming from the report only copy everywhere.
+- Every host at once: in `vercel.json` rename the key
+  `"Content-Security-Policy-Report-Only"` to `"Content-Security-Policy"`.
+  That is the whole switch (see the header of `lib/security/csp.ts`).
+
+Either way, update the pins that expect the report only key
+(`tests/vercel-runtime-costs.test.ts`, `tests/visitors25.test.ts`), deploy,
+run `scripts/smoke-deploy.mjs` and walk the same flows as in the review.
+Rolling back is the same edit reversed. The Capacitor app already gets an
+enforced `frame-src` from the proxy; an enforced policy is applied together
+with it (both must allow a frame), which is fine because the proxy's list is
+a subset of this one.

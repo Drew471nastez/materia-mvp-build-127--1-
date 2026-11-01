@@ -13,6 +13,8 @@
  *              from its last good copy (or drawn without products, unheld).
  *   SITE-8     a cold server that cannot read which renderer a subdomain
  *              needs answers 503 "One moment" with Retry-After, never a guess.
+ *   CSP        still report only on every host, nothing enforced, and the
+ *              readiness note says where reports go and the exact switch.
  *
  * Each section names the finding it pins (docs/reliability/AUDIT.md).
  */
@@ -197,11 +199,28 @@ async function coldRoutingSaysTryAgain() {
   check("every other caller still reads it as no, as before", /return \(await rememberedAnswer\(key, ask\)\) === true/.test(proxySource) && /return \(await liveAiSiteAnswer\(slug\)\) === true/.test(proxySource) && /return \(await compatSiteAnswer\(username, fresh\)\) === true/.test(proxySource))
 }
 
+/* ── CSP ─────────────────────────────────────────────────────────────────── */
+
+async function cspStaysReportOnly() {
+  console.log("\nCSP. Report only, with a written way to enforce it later")
+  const vercel = JSON.parse(read("vercel.json")) as { headers: { source: string; headers: { key: string; value: string }[] }[] }
+  const keys = vercel.headers.flatMap((h) => h.headers.map((x) => x.key))
+  const { CONTENT_SECURITY_POLICY, CSP_REPORT_PATH } = await import("@/lib/security/csp")
+  check("vercel.json sends the policy report only, and enforces none", keys.includes("Content-Security-Policy-Report-Only") && !keys.includes("Content-Security-Policy"))
+  check("  the same policy as lib/security/csp.ts, reporting to /api/csp-report", read("vercel.json").includes(CONTENT_SECURITY_POLICY) && CONTENT_SECURITY_POLICY.endsWith(`report-uri ${CSP_REPORT_PATH}`))
+  const doc = read("docs/reliability/SECURITY.md")
+  const note = doc.slice(doc.indexOf("## 6. CSP readiness"))
+  check("SECURITY.md has the readiness note: where reports go, how to review them, the switch",
+    doc.includes("## 6. CSP readiness") && note.includes("/api/csp-report") && note.includes("[csp] would have blocked") && note.includes("CSP_REPORT_SAMPLE_RATE") && /rename the key[\s\S]*"Content-Security-Policy"/.test(note) && /\^\(www\\\\\.\)\?storelib/.test(note))
+  check("  and the log line it names is the one the route writes", read("app/api/csp-report/route.ts").includes("[csp] would have blocked"))
+}
+
 async function run() {
   await signedOutRedirectsArePrivate()
   await verifyLinksCarryNoAddress()
   await failedShopReadsAreNotHeld()
   await coldRoutingSaysTryAgain()
+  await cspStaysReportOnly()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     for (const f of failures) console.log(`  - ${f}`)
