@@ -246,7 +246,7 @@ export function isBreakerRefusal(error: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 /** JSON with object keys sorted, so the same params always hash the same. Undefined is left out, as Stripe leaves it out. */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value ?? null)
   if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : stableJson(v))).join(",")}]`
   const entries = Object.entries(value as Record<string, unknown>)

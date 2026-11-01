@@ -38,7 +38,8 @@ import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
-import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { stripeIdempotencyKey, stripeIdentityKey } from "@/lib/stripe/resilience"
+import { applyAttemptTokens, attemptIdFrom, isIdempotencyMismatch, openCheckoutAttempt, orderHash, pruneExpiredAttempts, recordAttemptIntent, renewCheckoutAttempt, type AttemptScope, type AttemptTokens, type CheckoutAttempt } from "@/lib/checkout/checkout-attempts"
 import { trustedRequestOrigin } from "@/lib/billing/return-url"
 
 /**
@@ -49,7 +50,7 @@ import { trustedRequestOrigin } from "@/lib/billing/return-url"
  *
  * Body: { productId, variantId?, customPriceCents?, tipCents?, couponCode?,
  *         firstName, lastName, email, emailOptIn?, agreedToTerms,
- *         business?, origin? }
+ *         business?, origin?, attemptId? }
  * Answers { clientSecret, paymentIntentId, amountCents }.
  *
  * The amount is the server's (lib/checkout/pricing.ts): the product or
@@ -59,6 +60,12 @@ import { trustedRequestOrigin } from "@/lib/billing/return-url"
  * on the PaymentIntent, because the order is made from it
  * (lib/checkout/fulfil-payment.ts), by this buyer's browser or by Stripe's
  * webhook, whichever comes first.
+ *
+ * `attemptId` is one id per checkout page view (lib/checkout/attempt-id).
+ * With run-now part 352, the same order sent again under it (a second press,
+ * a retried request) gets the same PaymentIntent back from Stripe rather than
+ * a second one (lib/checkout/checkout-attempts). Without the part, or without
+ * an id, every request is its own, as before.
  */
 async function handlePOST(request: Request) {
   let body: Record<string, unknown>
@@ -189,22 +196,26 @@ async function handlePOST(request: Request) {
 
   const { data: creatorProfile } = await admin.from("profiles").select("display_name").eq("id", creator.user_id).maybeSingle()
 
-  const accessToken = nanoid(32)
-  const sessionFingerprint = nanoid(32)
-  const receiptToken = generateReceiptToken()
+  /* Made here for every request. With an attempt for this order already on file (below), its own are used instead, so the request is the same one again. */
+  const freshTokens = (): AttemptTokens => ({ accessToken: nanoid(32), sessionFingerprint: nanoid(32), receiptToken: generateReceiptToken(), agreedAt: new Date().toISOString() })
+  const fresh = freshTokens()
+  const { accessToken, sessionFingerprint, receiptToken } = fresh
   const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
 
   const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
   const isLocalhost = mainDomain.includes("localhost")
   const cookieStore = await cookies()
-  cookieStore.set("materia_session", sessionFingerprint, {
-    httpOnly: true,
-    secure: !isLocalhost,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/",
-    domain: isLocalhost ? undefined : `.${mainDomain}`,
-  })
+  const setSessionCookie = (fingerprint: string) =>
+    cookieStore.set("materia_session", fingerprint, {
+      httpOnly: true,
+      secure: !isLocalhost,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
+    })
+  let cookieFingerprint = sessionFingerprint
+  setSessionCookie(cookieFingerprint)
 
   const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
@@ -292,7 +303,7 @@ async function handlePOST(request: Request) {
     /* Only a box the store shows can be ticked (Settings › Checkout): with it off, a sent yes is not one. */
     email_opt_in: checkoutConfig.marketingOptIn && body.emailOptIn === true ? "true" : "false",
     agreed_to_terms: "true",
-    agreed_at: new Date().toISOString(),
+    agreed_at: fresh.agreedAt,
     ...(business?.ok ? businessToMetadata(business.value) : {}),
   }
   /*
@@ -337,6 +348,42 @@ async function handlePOST(request: Request) {
     /* no platform descriptor configured: Stripe's account default is used */
   }
 
+  /*
+    ONE ORDER, ONE PAYMENTINTENT (PAY-9, lib/checkout/checkout-attempts). The
+    attempt for this page's id and exactly this order (its amount, currency
+    and choices) gives back the tokens the first request put on the
+    PaymentIntent, and its row id is the idempotency key, so Stripe answers
+    the first PaymentIntent. A changed order is a new attempt. No attempt (no
+    id sent, no table yet, the database slow): fresh tokens and the short key,
+    as before.
+  */
+  const attemptId = attemptIdFrom(body.attemptId)
+  const scopeFor = (kind: string, sent: unknown): AttemptScope | null =>
+    attemptId ? { attemptId, kind, creatorId: creator.id, productId: product.id, email, paramsHash: orderHash(kind, sent) } : null
+  const att: { current: CheckoutAttempt | null } = { current: null }
+  const adopt = (a: CheckoutAttempt | null, t: AttemptTokens) => {
+    att.current = a
+    const use = a ?? t
+    applyAttemptTokens(metadata, use, !!user)
+    if (use.sessionFingerprint !== cookieFingerprint) {
+      cookieFingerprint = use.sessionFingerprint
+      setSessionCookie(cookieFingerprint)
+    }
+  }
+  /* Stripe refused the key, or its PaymentIntent cannot be paid any more: a new attempt with new tokens, never an error for the buyer. */
+  const renew = async (scope: AttemptScope) => {
+    const t = freshTokens()
+    adopt(att.current ? await renewCheckoutAttempt(admin, att.current, scope, t) : null, t)
+  }
+  const afterAttempt = (madeId: string) => {
+    const a = att.current
+    if (!a) return
+    after(async () => {
+      await recordAttemptIntent(admin, a.id, madeId)
+      if (Math.random() < 0.05) await pruneExpiredAttempts(admin)
+    })
+  }
+
   try {
     /*
       THE APP'S APPLE PAY AND GOOGLE PAY. The Capacitor webview cannot show
@@ -371,25 +418,61 @@ async function handlePOST(request: Request) {
           ...(params.on_behalf_of ? { on_behalf_of: params.on_behalf_of } : {}),
         },
       }
-      /* The same request twice inside a minute (a double tap, a retried request) is one payment form (lib/stripe/resilience). */
-      const session = await stripe.checkout.sessions.create(walletParams, { idempotencyKey: stripeIdempotencyKey("product-wallet", [creator.id, product.id], walletParams) })
+      /* The same request twice inside a minute (a double tap, a retried request) is one payment form (lib/stripe/resilience); the same order under the page's attempt, for 24 hours. */
+      const walletScope = scopeFor("wallet", walletParams)
+      if (walletScope) adopt(await openCheckoutAttempt(admin, walletScope, fresh), fresh)
+      const createSession = () =>
+        stripe.checkout.sessions.create(walletParams, {
+          idempotencyKey: att.current ? stripeIdentityKey("product-wallet", [att.current.id], walletParams) : stripeIdempotencyKey("product-wallet", [creator.id, product.id], walletParams),
+        })
+      let session: Stripe.Checkout.Session
+      try {
+        session = await createSession()
+      } catch (e) {
+        if (!walletScope || !att.current || !isIdempotencyMismatch(e)) throw e
+        await renew(walletScope)
+        session = await createSession()
+      }
+      if (walletScope && att.current && session.status === "expired") {
+        await renew(walletScope)
+        session = await createSession()
+      }
+      afterAttempt(session.id)
       return NextResponse.json({ url: session.url, sessionId: session.id })
     }
 
+    const intentScope = scopeFor("intent", params)
+    if (intentScope) adopt(await openCheckoutAttempt(admin, intentScope, fresh), fresh)
+    const intentIdempotencyKey = () =>
+      att.current ? stripeIdentityKey("product-intent", [att.current.id], params) : stripeIdempotencyKey("product-intent", [creator.id, product.id], params)
+    const createIntent = async (): Promise<Stripe.PaymentIntent> => {
+      try {
+        return await stripe.paymentIntents.create(params, { idempotencyKey: intentIdempotencyKey() })
+      } catch (e) {
+        /* Stripe refused the statement's part (a suffix it will not take, or an
+           account it will not charge on behalf of): the sale goes through with
+           Storelib's own line rather than not at all. */
+        const message = String((e as Error)?.message || "").toLowerCase()
+        const statementPart = (params.statement_descriptor_suffix && message.includes("statement_descriptor")) || (params.on_behalf_of && message.includes("on_behalf_of"))
+        if (!statementPart) throw e
+        delete params.statement_descriptor_suffix
+        delete params.on_behalf_of
+        return await stripe.paymentIntents.create(params, { idempotencyKey: intentIdempotencyKey() })
+      }
+    }
     let intent: Stripe.PaymentIntent
     try {
-      intent = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("product-intent", [creator.id, product.id], params) })
+      intent = await createIntent()
     } catch (e) {
-      /* Stripe refused the statement's part (a suffix it will not take, or an
-         account it will not charge on behalf of): the sale goes through with
-         Storelib's own line rather than not at all. */
-      const message = String((e as Error)?.message || "").toLowerCase()
-      const statementPart = (params.statement_descriptor_suffix && message.includes("statement_descriptor")) || (params.on_behalf_of && message.includes("on_behalf_of"))
-      if (!statementPart) throw e
-      delete params.statement_descriptor_suffix
-      delete params.on_behalf_of
-      intent = await stripe.paymentIntents.create(params, { idempotencyKey: stripeIdempotencyKey("product-intent", [creator.id, product.id], params) })
+      if (!intentScope || !att.current || !isIdempotencyMismatch(e)) throw e
+      await renew(intentScope)
+      intent = await createIntent()
     }
+    if (intentScope && att.current && intent.status === "canceled") {
+      await renew(intentScope)
+      intent = await createIntent()
+    }
+    afterAttempt(intent.id)
     /* The checkout reached Pay: written down after the answer goes back, so
        the button is not slower for it. The start is what a checkout
        reminder is made from (lib/automations/abandoned), and a ticked box

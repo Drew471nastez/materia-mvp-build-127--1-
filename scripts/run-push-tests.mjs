@@ -1145,6 +1145,8 @@ const STRICT_SUITES = [
   "tests/rel-commerce.test.ts",
   /* Reliability (commerce, wave 2): the memberships job never cancels a trial whose buyer saved a card or one Stripe has as paid (PAY-8); the payment webhook answers once the order, library entry and ledger are written and runs the fee read, receipt PDF, emails and notifications after the answer, once each, a failed one left for the sweep (PAY-12); the legacy Checkout Session product path is unreachable from any session made today and reads latest_charge if an old one comes (PAY-11); a bank Stripe could not list is bankUnknown and the Payouts page says it could not check instead of Add bank (PAY-5). */
   "tests/rel-commerce2.test.ts",
+  /* Reliability (wave 3, PAY-9): one product checkout order, one PaymentIntent: the page's attempt id and run-now part 352 (checkout_attempts) give the same PaymentIntent for Pay pressed again, a new one for a changed order or another buyer, a new attempt when Stripe refuses the key or the PaymentIntent was canceled, and the route exactly as before without the table (tests/_journey). */
+  "tests/pay9-checkout-attempts.test.ts",
   /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
   "tests/e2e-personalization.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */

@@ -372,8 +372,10 @@ async function main() {
     check("a membership confirm that cannot reach Stripe says try again (503), never 'not found'", /if \(!isStripeNotFound\(error\)\) return NextResponse\.json\([^)]*\{ status: 503 \}\)/.test(code("app/api/memberships/confirm/route.ts")))
     check("a creator's payout account is opened once per press", /stripe\.accounts\.create\(params, options\.keyParts \? \{ idempotencyKey: stripeIdempotencyKey\("connect-account"/.test(code("lib/payments/stripe/connect.ts")))
     const keyed: [string, RegExp][] = [
-      ["app/api/checkout/stripe-session/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("product-intent"/g],
-      ["app/api/checkout/stripe-session/route.ts", /checkout\.sessions\.create\(walletParams, \{ idempotencyKey: stripeIdempotencyKey\("product-wallet"/g],
+      /* PAY-9: the product checkout's key is the attempt's (stripeIdentityKey of its row and the exact params) or, with no attempt, the short one from the exact params. */
+      ["app/api/checkout/stripe-session/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: intentIdempotencyKey\(\) \}\)/g],
+      ["app/api/checkout/stripe-session/route.ts", /const intentIdempotencyKey = \(\) =>\s+att\.current \? stripeIdentityKey\("product-intent", \[att\.current\.id\], params\) : stripeIdempotencyKey\("product-intent", \[creator\.id, product\.id\], params\)/g],
+      ["app/api/checkout/stripe-session/route.ts", /checkout\.sessions\.create\(walletParams, \{\s+idempotencyKey: att\.current \? stripeIdentityKey\("product-wallet", \[att\.current\.id\], walletParams\) : stripeIdempotencyKey\("product-wallet", \[creator\.id, product\.id\], walletParams\)/g],
       ["app/api/checkout/site/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("site-intent"/g],
       ["app/api/checkout/cart/route.ts", /checkout\.sessions\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("cart-session"/g],
       ["lib/communities/server/event-checkout.ts", /sessions\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("community-event"/g],

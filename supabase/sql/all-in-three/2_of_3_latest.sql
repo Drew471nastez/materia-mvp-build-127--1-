@@ -4232,5 +4232,14 @@ REVOKE ALL ON FUNCTION public.bump_platform_ai_visit(text, text) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.bump_platform_ai_visit(text, text) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('350', '350_platform_ai_visits.sql', 'e9ee47d3bc1bb18da779e0e6eab8a2b8a3ddd6c2fdb7cfdb268ed9381afc6836') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 352_checkout_attempts.sql
+/* Product checkout attempts (reliability PAY-9). checkout_attempts keeps, for one press of Pay on one order (the page's attempt id, the store, the product, the buyer's email and a hash of what is charged: amount, currency, choices), the tokens that order's PaymentIntent carries (access token, session fingerprint, receipt token, the time the terms were agreed) and the PaymentIntent made for it. A second press or a retried request for the same order reads the same tokens back, so Stripe gets the same request under the same idempotency key and answers the first PaymentIntent instead of making a second one; a changed order is a new row and a new PaymentIntent. Rows expire after 24 hours (as Stripe forgets a key) and are deleted by the checkout itself. Until this part runs the checkout works exactly as before. Service role only: row level security on, no policy for anyone else, nothing granted to anon or authenticated. No rows change. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.checkout_attempts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), attempt_key text NOT NULL UNIQUE CHECK (char_length(attempt_key) BETWEEN 16 AND 128), creator_id uuid NOT NULL, product_id uuid NOT NULL, buyer_email text NOT NULL, access_token text NOT NULL DEFAULT '', session_fingerprint text NOT NULL, receipt_token text NOT NULL, agreed_at timestamptz NOT NULL, params_hash text NOT NULL, payment_intent_id text, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT (now() + interval '24 hours'));
+CREATE INDEX IF NOT EXISTS checkout_attempts_expires_at_idx ON public.checkout_attempts (expires_at);
+ALTER TABLE public.checkout_attempts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.checkout_attempts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_attempts TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('352', '352_checkout_attempts.sql', '5d1d6c2f2adf66df535efe1aa47b648181f9b8b2044835dcb742aaa6d77e5ce8') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
