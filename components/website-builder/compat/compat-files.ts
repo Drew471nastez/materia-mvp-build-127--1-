@@ -121,3 +121,8 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
 export function forgetCompatFiles(installId: string): void {
   loading.delete(installId)
 }
+
+/** The install's draft asset pass, once the files have answered: what the canvas shell's address carries (lib/website-builder/canvas-origin.ts). */
+export function draftAssetPassOf(installId: string): string | undefined {
+  return passes.get(installId)
+}

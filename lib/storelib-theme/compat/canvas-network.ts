@@ -59,14 +59,14 @@ export const CANVAS_SHOWN = `<script data-sl-shown>(function(){
 var hold=document.createElement("style");hold.setAttribute("data-sl-hold","");hold.textContent="*,*::before,*::after{animation-play-state:paused!important}";(document.head||document.documentElement).appendChild(hold);
 var sent=false,later=function(f,ms){return new Promise(function(r){setTimeout(r,ms)}).then(f)},frames=function(f){requestAnimationFrame(function(){requestAnimationFrame(function(){setTimeout(f,0)})})};
 var seen=function(el){if(!el||!el.getBoundingClientRect)return false;var r=el.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight};
-var post=function(){try{parent.postMessage({storelib:1,type:"loaded",scrollY:scrollY},"*")}catch(e){}};
+var post=function(){try{parent.postMessage({storelib:1,type:"loaded",scrollY:scrollY},typeof __slTo==="string"?__slTo:"*")}catch(e){}};
 var replayed=false;
 var replay=function(){if(replayed)return;replayed=true;hold.remove();var all=document.getAnimations?document.getAnimations():[];all.forEach(function(a){try{var t=a.effect&&a.effect.getComputedTiming();if(!t||!isFinite(t.endTime)||t.endTime<=0||!seen(a.effect.target))return;if(a.playState==="running"||a.playState==="finished"){a.currentTime=0;a.play()}}catch(e){}})};
 var quiet=0,quietEnd=0,quietY=null;
 var fin=function(){(document.getAnimations?document.getAnimations():[]).forEach(function(a){try{var t=a.effect&&a.effect.getComputedTiming();if(a.playState==="running"&&t&&isFinite(t.endTime)&&seen(a.effect.target))a.finish()}catch(e){}})};
 addEventListener("animationstart",function(e){if(!quiet||Date.now()>quietEnd||!e.target||!e.target.getAnimations)return;if(quietY!==null&&Math.abs(scrollY-quietY)>1)return;if(!seen(e.target))return;try{e.target.getAnimations().forEach(function(a){var t=a.effect&&a.effect.getComputedTiming();if(t&&isFinite(t.endTime))a.finish()})}catch(x){}},true);
 var settle=function(){if(!replayed){replayed=true;hold.remove()}quiet=1;quietEnd=Date.now()+5000;quietY=null;fin();frames(fin)};
-addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="scroll"&&m.settle&&quiet)frames(function(){quietY=scrollY});if(m.type==="shown"){if(m.instant)settle();else if(quiet)frames(function(){fin();quiet=0});else replay()}});
+addEventListener("message",function(e){if(typeof __slFrom==="string"&&e.origin!==__slFrom)return;var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="scroll"&&m.settle&&quiet)frames(function(){quietY=scrollY});if(m.type==="shown"){if(m.instant)settle();else if(quiet)frames(function(){fin();quiet=0});else replay()}});
 setTimeout(function(){if(!replayed){replayed=true;hold.remove()}},12000);
 var send=function(){if(sent)return;sent=true;var pics=Array.prototype.filter.call(document.images,function(i){return i.complete&&i.naturalWidth>0&&seen(i)});Promise.race([Promise.all(pics.map(function(i){return i.decode?i.decode().catch(function(){}):0})),later(null,300)]).then(function(){frames(function(){requestAnimationFrame(function(){requestAnimationFrame(post)})})})};
 document.addEventListener("DOMContentLoaded",function(){setTimeout(function(){
