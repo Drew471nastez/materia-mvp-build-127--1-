@@ -1614,6 +1614,23 @@ export const CANVAS_BRIDGE = `
     is answered between two swaps, never after all of them.
   */
   var nextTurn = function () { return new Promise(function (done) { setTimeout(done, 0); }); };
+  /*
+    NO CHANGE HOLDS THE ONES AFTER IT FOR GOOD. Every change waits its turn
+    in the queue, so one whose wait never ended (a stylesheet, a load, a
+    promise of a theme's that never settles) held every later change: a
+    section added, the page drawn again, all listed in the editor and none
+    on the page. A change gets STEP_MS; past that the next goes on, and the
+    builder is told ("slow-step") so the error log hears of it.
+  */
+  var STEP_MS = 4000;
+  var bounded = function (p, what) {
+    if (!p || typeof p.then !== "function") return p;
+    return new Promise(function (done, fail) {
+      var over = false;
+      var t = setTimeout(function () { over = true; post({ type: "slow-step", what: what }); done(); }, STEP_MS);
+      p.then(function () { if (!over) { clearTimeout(t); done(); } }, function (e) { if (!over) { clearTimeout(t); fail(e); } });
+    });
+  };
   var kept = {}, keptLink = {};
   /* The same file at another version (?v=, its text changed: a push) takes the old one's place once it has loaded, never both (round 13). */
   var fileOf = function (href) { return String(href).replace(/[?&]v=[^&#]*/, ""); };
@@ -1935,7 +1952,7 @@ export const CANVAS_BRIDGE = `
         if (drawn[id] !== html) return;
         var inPlace = false;
         try { inPlace = restartInPlace(id, html, els); } catch (e) { inPlace = false; }
-        if (!inPlace) return swap(id, html);
+        if (!inPlace) return bounded(swap(id, html), "restart");
       }).catch(function () {});
     }, restartIn);
   };
@@ -2965,7 +2982,7 @@ export const CANVAS_BRIDGE = `
     if (m.type === "patch" || m.type === "edits" || m.type === "section") holdStill();
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
-      queue = queue.then(function () { return Promise.resolve(patch(m)).then(function () { holdStill(true); }); }).catch(function (err) { reload(String(err)); });
+      queue = queue.then(function () { return bounded(Promise.resolve(patch(m)), "patch").then(function () { holdStill(true); }); }).catch(function (err) { reload(String(err)); });
     } else if (m.type === "edits") {
       /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
       queue = queue.then(function () {
@@ -2992,7 +3009,7 @@ export const CANVAS_BRIDGE = `
         if (m.edit) { try { done = edit(m.id, m.edit, html); } catch (err) { done = false; } }
         if (!done) { try { done = restyle(m.id, html, before); } catch (err) { done = false; } }
         if (!done) { try { done = morph(m.id, html, before); } catch (err) { done = false; } }
-        if (!done) return Promise.resolve(swap(m.id, html, before)).then(function () { sectionLoaded(m.id); });
+        if (!done) return bounded(Promise.resolve(swap(m.id, html, before)), "section").then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});
     } else if (m.type === "section") {
@@ -3005,7 +3022,7 @@ export const CANVAS_BRIDGE = `
         try { done = restyle(m.id, m.html, m.prev); } catch (err) { done = false; }
         if (!done) try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
         restartIn = 700;
-        if (!done) return Promise.resolve(swap(m.id, m.html, m.prev)).then(function () { sectionLoaded(m.id); });
+        if (!done) return bounded(Promise.resolve(swap(m.id, m.html, m.prev)), "section").then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});
     } else if (m.type === "preview-order") {

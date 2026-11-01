@@ -66,7 +66,8 @@ console.log("\nA section's linked stylesheet reaches only the cards that link it
 
 console.log("\nA push swaps the document cleanly")
 {
-  check("a document is a sheet's only once it has loaded that sheet's srcdoc", /if \(loaded\) loadedFrom\.set\(doc, frame\.getAttribute\("srcdoc"\) \?\? ""\)/.test(sheet) && /if \(loadedFrom\.get\(doc\) !== this\.srcDoc\) return/.test(sheet) && /onLoad=\{\(e\) => sheet\.attach\(e\.currentTarget, true\)\}/.test(src))
+  /* By the tag its srcdoc wrote in its head, read from the document itself: its load event can be held for good by a stylesheet that never answers (tests/compat-stalls.test.ts). */
+  check("a document is a sheet's only once it holds that sheet's own srcdoc", /this\.docTag = sheetTag\(made\.html\)/.test(sheet) && /<meta name="sl-sheet" content="\$\{this\.docTag\}">/.test(sheet) && /if \(!this\.isMine\(doc\)\) return/.test(sheet) && /onLoad=\{\(e\) => sheet\.attach\(e\.currentTarget\)\}/.test(src))
   check("  nothing of another sheet's is left in a document a sheet takes", /doc\.querySelectorAll\(`body>\$\{CARD_TAG\}, style\[data-sl-shared\]`\)/.test(sheet))
   check("  a section drawn the same as before is shown at once, not faded in again", /if \(this\.donor\?\.get\(key\) === html\) this\.instant\.add\(key\)/.test(sheet) && /shownBefore\.set\(this\.doc, drawn\)/.test(sheet))
   check("an open library takes a burst of changes once", /export const LIVE_ADOPT_QUIET_MS = 250/.test(src) && /export const LIVE_ADOPT_CAP_MS = 1_200/.test(src) && /behindSince\.current \+ LIVE_ADOPT_CAP_MS - now/.test(src))

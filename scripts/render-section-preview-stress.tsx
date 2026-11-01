@@ -19,7 +19,12 @@ const liveFiles: Record<string, string> = { ...data.files }
 const realFetch = window.fetch.bind(window)
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input)
-  if (url.includes(`/themes/${INSTALL}/files`)) return Promise.resolve(new Response(JSON.stringify({ files: liveFiles }), { headers: { "Content-Type": "application/json" } }))
+  /* STRESS_PASS: the draft asset pass the real files route hands the editor; STRESS_FILES_MS: how long that answer takes (scripts/check-compat-stalls.mjs). */
+  const knobs = window as unknown as { STRESS_PASS?: string; STRESS_FILES_MS?: number }
+  if (url.includes(`/themes/${INSTALL}/files`)) {
+    const body = JSON.stringify({ files: liveFiles, ...(knobs.STRESS_PASS ? { asset_pass: knobs.STRESS_PASS } : {}) })
+    return new Promise<Response>((ok) => setTimeout(() => ok(new Response(body, { headers: { "Content-Type": "application/json" } })), knobs.STRESS_FILES_MS ?? 0))
+  }
   if (url.startsWith("/api/")) return Promise.resolve(new Response("{}", { headers: { "Content-Type": "application/json" } }))
   return realFetch(input, init)
 }) as typeof fetch
