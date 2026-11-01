@@ -39,6 +39,8 @@ const SUITES = [
   "tests/net-resilience.test.ts",
   /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
   "tests/auth-reliability.test.ts",
+  /* Round rel3-auth: an access token checked here when Supabase Auth does not answer: HS256 with SUPABASE_JWT_SECRET (the project is on the legacy shared secret, JWKS empty) or ES256 with the JWKS; forged, altered, expired, wrong issuer, audience or role, alg none or confusion all refused; the secret never in a client file. */
+  "tests/auth-local-verify.test.ts",
   /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
   "tests/auth-email-code.test.ts",
   /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
