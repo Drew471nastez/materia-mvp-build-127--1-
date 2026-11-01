@@ -119,7 +119,7 @@ async function main() {
   check("the receipt's links carry it as the page to come back to", /`\$\{authBase\}\/signup\?redirect=\$\{encodeURIComponent\(receiptPath\)\}`/.test(receiptView) && /`\$\{authBase\}\/login\?redirect=\$\{encodeURIComponent\(receiptPath\)\}`/.test(receiptView))
   check("  and no longer the claim and token for the sign up form to act on", !/autoBuyer=1&claim=1&receiptToken/.test(receiptView))
   check("sign up always goes through the email code, with the carry", /withCarry\(\s*`\/signup\/verify\?userId=\$\{data\.user\.id\}/.test(signup))
-  check("the library's verify gate keeps the way back", /\/signup\/verify\?userId=\$\{user\.id\}&email=\$\{encodeURIComponent\(user\.email \|\| ""\)\}&next=\$\{encodeURIComponent\(LIBRARY_HOME\)\}/.test(readCode("app/account/library/layout.tsx")))
+  check("the library's verify gate keeps the way back (by account id, no address in the URL: rel3-leftovers SEC-11)", /\/signup\/verify\?userId=\$\{encodeURIComponent\(user\.id\)\}&next=\$\{encodeURIComponent\(LIBRARY_HOME\)\}/.test(readCode("app/account/library/layout.tsx")))
   check("withCarry adds next beside what the path had", withCarry("/login?exists=1", { next: "/x" }) === "/login?exists=1&next=%2Fx")
 
   section("EXISTS: Create account with an address that has an account is a sign in, and says so")

@@ -4,11 +4,15 @@
  * ===========================================================================
  *   SMOKE-APP  the signed out redirect from /app (and /sell) is never kept by
  *              a shared cache: "private, no-store", through the real proxy.
+ *   SEC-11     /signup/verify carries the account id, never the email
+ *              address: every redirect and the VERIFY_EMAIL email link; the
+ *              page shows the address from this tab or the session, still
+ *              takes an old link's `email` and takes it off the address bar.
  *
  * Each section names the finding it pins (docs/reliability/AUDIT.md).
  */
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readFileSync, readdirSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
 
 let passed = 0
 let failed = 0
@@ -24,7 +28,6 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-void read
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://fixture.supabase.co"
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-fixture-key"
@@ -58,8 +61,58 @@ async function signedOutRedirectsArePrivate() {
   check("/sell signed out: a 307 to sign up, private, no-store", sell.status === 307 && /\/signup\?intent=sell/.test(sell.location ?? "") && sell.cache === "private, no-store", sell)
 }
 
+/* ── SEC-11 ──────────────────────────────────────────────────────────────── */
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f)
+    if (f === "node_modules" || f.startsWith(".")) return []
+    return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : []
+  })
+}
+
+async function verifyLinksCarryNoAddress() {
+  console.log("\nSEC-11. The sign up code page is opened by account id, never with the email address in its URL")
+  const v = await import("@/lib/account/verify-address")
+  const mem = new Map<string, string>()
+  const fake = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, val: string) => void mem.set(k, val) }
+  v.rememberVerifyAddress("u-1", "maya@example.com", fake)
+  check("the address typed on signup or login is kept in this tab for that account", v.recallVerifyAddress("u-1", fake) === "maya@example.com")
+  check("  and never handed to another account id", v.recallVerifyAddress("u-2", fake) === "")
+  check("  no storage (private mode): nothing, no throw", v.recallVerifyAddress("u-1", null) === "" && (v.rememberVerifyAddress("u-1", "a@b.co", null), true))
+  check("an old link's email comes off the address bar, the account id, code and carry stay",
+    v.addressWithoutEmail("https://storelib.com/signup/verify?userId=u-1&email=maya%40example.com&code=123456&intent=sell") === "/signup/verify?userId=u-1&code=123456&intent=sell")
+  check("  a link without one is left alone", v.addressWithoutEmail("https://storelib.com/signup/verify?userId=u-1") === null)
+  check("the page shows the address masked", v.maskedAddress("maya@example.com") === "ma**@example.com")
+  check("signupVerifyPath is the account id only", v.signupVerifyPath("u 1") === "/signup/verify?userId=u%201")
+
+  const { CATALOG, Data } = await import("@/lib/notify/templates/catalog")
+  const mail = CATALOG.VERIFY_EMAIL(new Data({ userId: "u-1", email: "maya@example.com" }) as never, {} as never) as { action?: { path: string }; inApp?: { actionPath?: string } }
+  check("the VERIFY_EMAIL email's button opens the code page by account id, even when sent an address",
+    mail.action?.path === "/signup/verify?userId=u-1" && mail.inApp?.actionPath === "/signup/verify?userId=u-1", mail.action)
+
+  /* Every place that writes the address outside lib/auth (which the auth branch owns, see the log). */
+  const writers = [...walk(join(process.cwd(), "app")), ...walk(join(process.cwd(), "lib")), ...walk(join(process.cwd(), "components"))]
+    .map((f) => relative(process.cwd(), f))
+    .filter((f) => !f.startsWith("lib/auth/"))
+    .filter((f) => /signup\/verify\?[^`"'\n]*email=/.test(read(f)))
+  check("no redirect or link outside lib/auth puts email= on /signup/verify", writers.length === 0, writers)
+
+  const page = read("app/(auth)/signup/verify/page.tsx")
+  check("the page asks for a code by account id only (the server mails the account's own address)",
+    (page.match(/JSON\.stringify\(\{ userId \}\)/g) ?? []).length === 2 && !/JSON\.stringify\(\{ userId, email \}\)/.test(page))
+  check("  opens without an address in its URL (only the account id is required)", /if \(!userId\) \{/.test(page) && !/!userId \|\| !email/.test(page))
+  check("  still reads an old link's email once, then replaces the address without it",
+    /useState\(\(\) => searchParams\.get\("email"\) \?\? ""\)/.test(page) && /addressWithoutEmail\(window\.location\.href\)/.test(page) && /window\.history\.replaceState/.test(page))
+  check("  shows the session's address only when the session is this account", /user\?\.id === userId && user\.email/.test(page))
+  check("  logs nothing about it", !/console\.(log|warn|error|info)\([^)]*email/.test(page))
+  check("signup and login remember the typed address before opening the page",
+    /rememberVerifyAddress\(data\.user\.id, trimmedEmail\)/.test(read("app/(auth)/signup/page.tsx")) && /rememberVerifyAddress\(userData\.id, trimmedEmail\)/.test(read("app/(auth)/login/page.tsx")))
+}
+
 async function run() {
   await signedOutRedirectsArePrivate()
+  await verifyLinksCarryNoAddress()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     for (const f of failures) console.log(`  - ${f}`)

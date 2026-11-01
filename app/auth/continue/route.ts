@@ -96,7 +96,7 @@ export async function GET(request: Request) {
   if (!(profile as { email_verified?: boolean | null } | null)?.email_verified) {
     /* No `sent`: the verify page sends a fresh code when it opens without one. */
     return go(
-      withCarry(`/signup/verify?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email ?? "")}`, carry),
+      withCarry(`/signup/verify?userId=${encodeURIComponent(user.id)}`, carry),
     )
   }
 
