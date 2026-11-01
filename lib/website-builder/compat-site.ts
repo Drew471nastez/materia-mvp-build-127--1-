@@ -435,7 +435,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
   const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null, "compat-pages:v1")).then((data) => ({ data })),
-    siteCatalogue(creator.creatorId, { cached: !draft }),
+    /* A failed read is no longer held as an empty shop (it throws); this page draws [] for this request only, as it did. */
+    siteCatalogue(creator.creatorId, { cached: !draft }).catch(() => [] as Awaited<ReturnType<typeof siteCatalogue>>),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
     draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),
     collectionsOf(creator.creatorId),

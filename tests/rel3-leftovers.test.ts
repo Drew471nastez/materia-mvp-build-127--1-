@@ -8,6 +8,9 @@
  *              address: every redirect and the VERIFY_EMAIL email link; the
  *              page shows the address from this tab or the session, still
  *              takes an old link's `email` and takes it off the address bar.
+ *   SHOP-EMPTY a shop read that failed is never held as an empty shop: the
+ *              held readers throw, a cache keeps nothing, the site is served
+ *              from its last good copy (or drawn without products, unheld).
  *
  * Each section names the finding it pins (docs/reliability/AUDIT.md).
  */
@@ -110,9 +113,62 @@ async function verifyLinksCarryNoAddress() {
     /rememberVerifyAddress\(data\.user\.id, trimmedEmail\)/.test(read("app/(auth)/signup/page.tsx")) && /rememberVerifyAddress\(userData\.id, trimmedEmail\)/.test(read("app/(auth)/login/page.tsx")))
 }
 
+/* ── SHOP-EMPTY ─────────────────────────────────────────────────────────── */
+
+/** A Supabase stand-in: every query chain resolves to `answer`, whatever it was asked. */
+function fakeDb(answer: () => { data: unknown; error: unknown; count?: number | null }) {
+  const chain: any = new Proxy(function () {}, {
+    get(_t, prop) {
+      if (prop === "then") return (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) => Promise.resolve().then(answer).then(ok, bad)
+      return () => chain
+    },
+    apply() {
+      return chain
+    },
+  })
+  return { from: () => chain, rpc: () => chain }
+}
+
+async function failedShopReadsAreNotHeld() {
+  console.log("\nSHOP-EMPTY. A failed shop read is never held as an empty shop")
+  const shop = await import("@/lib/website-builder/shop-products")
+  const down = fakeDb(() => ({ data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } }))
+  const creator = "5b1f3c1e-8a1b-4c55-9a3e-1f2d3c4b5a69"
+  check("shopProducts (a section drawn once) still answers [] when the read failed", (await shop.shopProducts(down as never, creator)).length === 0)
+  const threw = async (p: Promise<unknown>) => p.then(() => null, (e: unknown) => e)
+  const e1 = await threw(shop.heldShopProducts(down as never, creator))
+  check("heldShopProducts throws ShopReadFailed instead (so unstable_cache keeps nothing)", e1 instanceof shop.ShopReadFailed && /57014/.test((e1 as Error).message), String(e1))
+  const e2 = await threw(shop.heldShopCatalogue(down as never, creator))
+  check("  and heldShopCatalogue", e2 instanceof shop.ShopReadFailed, String(e2))
+  const broken = { from: () => { throw new Error("socket hang up") } }
+  const e3 = await threw(shop.heldShopProducts(broken as never, creator))
+  check("  a read that threw is a ShopReadFailed too", e3 instanceof shop.ShopReadFailed && /socket hang up/.test((e3 as Error).message), String(e3))
+  const none = fakeDb(() => ({ data: [], error: null }))
+  check("a shop that really has no products is still [] (held, as before)", (await shop.heldShopProducts(none as never, creator)).length === 0)
+  check("no creator id: [] without a read, as before", (await shop.heldShopProducts(down as never, "")).length === 0)
+
+  const site = read("lib/website-builder/published-site.ts")
+  /* The reader named in the 160 characters before each cache key. */
+  const readersFor = (key: string) =>
+    [...site.matchAll(new RegExp(`\\["${key}"`, "g"))].map((m) => (site.slice(Math.max(0, m.index! - 160), m.index).match(/(\w*[sS]hop(?:Products|Catalogue))\(/g) ?? []).pop()?.slice(0, -1) ?? "?")
+  const products = readersFor("shop-products")
+  check("every cache entry named shop-products is filled by heldShopProducts", products.length >= 2 && products.every((r) => r === "heldShopProducts"), products)
+  const catalogue = readersFor("shop-catalogue")
+  check("  and shop-catalogue by heldShopCatalogue", catalogue.length === 1 && catalogue[0] === "heldShopCatalogue", catalogue)
+  check("the site lookup turns a failed shop into SiteWithoutShop, which resolveSite answers only after the last good copies",
+    /if \(e instanceof ShopReadFailed\) throw new SiteWithoutShop/.test(site)
+      && site.indexOf("if (e instanceof SiteWithoutShop)") > site.indexOf("sharedCopy<ShopLookup>(SHARED_SITE")
+      && site.indexOf("if (e instanceof SiteWithoutShop)") > site.indexOf("const held = lastGood.get(lower)"))
+  check("  and never remembers that site as a last good copy", !/lastGood\.remember\([^)]*e\.lookup/.test(site))
+  check("every caller of the held catalogue falls back to what it has",
+    /siteCatalogue\(creator\.creatorId, \{ cached: !draft \}\)\.catch\(/.test(read("lib/website-builder/compat-site.ts"))
+      && ["app/(site)/w/[username]/search/page.tsx", "app/(site)/w/[username]/products/shop-page.tsx", "app/(site)/w/[username]/collections/[handle]/collection-page.tsx"].every((f) => /siteCatalogue\(site\.creatorId\)[^\n]*\.catch\(\(\) => products \?\? \[\]\)/.test(read(f))))
+}
+
 async function run() {
   await signedOutRedirectsArePrivate()
   await verifyLinksCarryNoAddress()
+  await failedShopReadsAreNotHeld()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     for (const f of failures) console.log(`  - ${f}`)
