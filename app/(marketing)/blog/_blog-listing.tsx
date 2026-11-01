@@ -119,7 +119,8 @@ export default function BlogListing({
               {activeCategory ? `Articles in ${activeCategory}` : lead ? "More articles" : "Articles"}
             </h2>
             <div className={`grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 ${lead ? "mt-8" : ""}`}>
-              {rest.map((post) => (post ? <PostCard key={post.id} post={post} headingLevel="h3" /> : null))}
+              {/* With no large post above, the first card is the first screen's picture: loaded first, the rest lazily. */}
+              {rest.map((post, i) => (post ? <PostCard key={post.id} post={post} headingLevel="h3" priority={!lead && i === 0} /> : null))}
             </div>
           </section>
         ) : null}

@@ -379,6 +379,13 @@ export const LIMITS = {
    */
   track: [{ limit: 120, seconds: 60 }, { limit: 2000, seconds: 3600 }],
   /**
+   * A visit from an AI assistant to one of Storelib's own pages
+   * (/api/track/ai-visit), per address. A page sends it once per tab
+   * session per landing, so a person sends a handful in a day; more than
+   * twenty in ten minutes is a script adding to an assistant's count.
+   */
+  aiVisit: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
+  /**
    * Storelib's own search over published products (/api/v2/search), per
    * address. A person types a few searches a minute; a script walking the
    * catalogue asks hundreds. Each one is a full text query.

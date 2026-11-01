@@ -114,7 +114,8 @@ export const STORELIB_GLOBALS = `window.PROBE_PAGES={home:["header","hero_center
 /** The editor open on `kind`, drawn and quiet. */
 /* `init`: a script run in the editor's document before anything else (a devtools hook, an observer). `width`/`height`: the window. `settle`: ms left alone after the first draw. */
 /* `serve`: a function given a request's address, answering it ({ status, contentType, body }) or null (scripts/materia-live-kit.mjs: the real theme's pictures). `touch`: a phone's touch screen. */
-export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500, serve = null, touch = false }) {
+/* `assetDelay`: a function given a theme asset's name, answering how many ms it takes to arrive (0: at once); one that waits is served uncached (scripts/check-section-insert-smooth.mjs, a slow network). */
+export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500, serve = null, touch = false, assetDelay = null }) {
   const all = kind === "imported" ? `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};${globals}` : globals
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -133,8 +134,13 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
       const name = decodeURIComponent(asset[1])
       const text = compat.all[`shopify/assets/${name}`]
       if (text === undefined) { res.writeHead(404, { "Access-Control-Allow-Origin": "*" }); res.end(); return }
-      res.writeHead(200, { "Content-Type": name.endsWith(".css") ? "text/css" : name.endsWith(".js") ? "text/javascript" : "text/plain", "Access-Control-Allow-Origin": "*" })
-      res.end(text)
+      const wait = assetDelay ? Number(assetDelay(name)) || 0 : 0
+      const answer = () => {
+        res.writeHead(200, { "Content-Type": name.endsWith(".css") ? "text/css" : name.endsWith(".js") ? "text/javascript" : "text/plain", "Access-Control-Allow-Origin": "*", ...(wait > 0 ? { "Cache-Control": "no-store" } : {}) })
+        res.end(text)
+      }
+      if (wait > 0) setTimeout(answer, wait)
+      else answer()
       return
     }
     res.writeHead(404)

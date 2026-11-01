@@ -35,6 +35,19 @@ export const ARRIVAL_SCROLL_MS = 320
 
 const BOX = '[id^="wb-section-"]'
 
+/*
+  The arrivals playing now, by the section's element id. The editor takes a
+  section just added into its own state once its arrival has played, so the
+  frames of the slide are not the frames it renders in (the editor's
+  addSection, A SECTION JUST ADDED, CANVAS FIRST).
+*/
+const playing = new Map<string, Promise<void>>()
+
+/** The arrival of the section with this element id, while it plays. */
+export function arrivalPlaying(elementId: string): Promise<void> | null {
+  return playing.get(elementId) ?? null
+}
+
 /** Where each section's box starts, in the canvas's own scroll coordinates. */
 export function measureSectionTops(scroller: HTMLElement): Map<string, number> {
   const out = new Map<string, number>()
@@ -190,7 +203,10 @@ export function playArrival(
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVAL_MS, delay, easing: EASE, fill: "backwards" }),
   )
 
-  return Promise.all(animations.map((a) => a.finished.catch(() => undefined))).then(() => {
+  const done = Promise.all(animations.map((a) => a.finished.catch(() => undefined))).then(() => {
     el.setAttribute("data-arrival", "done")
+    if (playing.get(el.id) === done) playing.delete(el.id)
   })
+  playing.set(el.id, done)
+  return done
 }

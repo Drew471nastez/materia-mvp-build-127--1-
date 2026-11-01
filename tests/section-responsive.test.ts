@@ -1477,7 +1477,8 @@ check(
     /* The Overlay group, when the theme has a floating section, has the fourth. */
     (sectionsList.match(/<AddSectionButton /g) ?? []).length === 4 &&
     /\{overlayAddable && <AddSectionButton onClick=\{\(\) => onAdd\(null, "overlay"\)\} \/>\}/.test(sectionsList) &&
-    /setPendingInsertIndex\(at === null \|\| group !== "template" \? null : splitGroups\(sections\)\.header\.length \+ at\)/.test(editor),
+    /* Changed on purpose (round AI2): read from sectionsRef, after an add still on its way in has gone in (openLibrary). */
+    /setPendingInsertIndex\(at === null \|\| group !== "template" \? null : splitGroups\((sections|sectionsRef\.current)\)\.header\.length \+ at\)/.test(editor),
 )
 
 check(
@@ -2331,7 +2332,9 @@ check(
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /* Changed on purpose (round canvas-1023): it also lets go of a place in the header or footer group an imported theme's canvas pointed at (setGroupInsertAt). */
-    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setGroupInsertAt\(null\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
+    (/const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setGroupInsertAt\(null\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) ||
+      /* Changed on purpose (round AI2): opened through openLibrary, stable on a stable callback, so a dialog closed on its own element opens again. */
+      /const openAddSection = useCallback\(\(\) => \{\s*openLibrary\(\(\) => \{\s*setAddGroup\("template"\)\s*setGroupInsertAt\(null\)\s*\}\)\s*\}, \[openLibrary\]\)/.test(editor) && /const openLibrary = useCallback\(\(place: \(\) => void\) => \{[\s\S]{0,300}\}, \[flushPendingAdd\]\)/.test(editor) && /const flushPendingAdd = useCallback\(\(\) => \{[\s\S]{0,400}\}, \[\]\)/.test(editor)) &&
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section, and which field the click was
     // for (tests/builder-click-edit.test.ts): see selectSectionFromCanvas.

@@ -181,8 +181,8 @@ export function BlogAuthorView({ author, posts, total, page, pages }: BlogAuthor
           </h2>
           {posts.length ? (
             <div className="mt-8 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} headingLevel="h3" />
+              {posts.map((post, i) => (
+                <PostCard key={post.id} post={post} headingLevel="h3" priority={i === 0} />
               ))}
             </div>
           ) : (

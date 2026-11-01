@@ -227,6 +227,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",
+  "track/ai-visit/route.ts": "one more visit from an AI assistant to one of Storelib's own public pages, by day, assistant and path through bump_platform_ai_visit (part 350); same origin only, the assistant decided on the server, limited per address, nothing about the visitor written",
   "profile/activity/route.ts": "a person's public activity on their profile (lib/profile/activity.ts reads only public communities, open spaces, published reviews and products), nothing when they hid it unless the session is theirs; limited per address",
 }
 

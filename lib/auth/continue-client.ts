@@ -1,7 +1,6 @@
 "use client"
 
 import { goToAuthHref } from "@/lib/auth/session-sync"
-import { createClient } from "@/lib/supabase/client"
 import { readSellerAccess, hasSellerAccess } from "@/lib/account/seller-access"
 import { cacheNativeHome } from "@/lib/native-bridge"
 import {
@@ -90,9 +89,10 @@ export async function goOnAfterAuth(carry: Partial<AuthCarry>, session: Tokens):
   if (native && session?.user?.id) {
     const userId = session.user.id
     await Promise.race([
-      readSellerAccess(createClient(), userId).then((access) =>
-        cacheNativeHome(hasSellerAccess(access) ? SELLER_HOME : NATIVE_BUYER_HOME),
-      ),
+      /* The client is fetched here, in the app only (round 46): this file is in every Storelib page's warmed sign in bridge. */
+      import("@/lib/supabase/client")
+        .then(({ createClient }) => readSellerAccess(createClient(), userId))
+        .then((access) => cacheNativeHome(hasSellerAccess(access) ? SELLER_HOME : NATIVE_BUYER_HOME)),
       new Promise((resolve) => window.setTimeout(resolve, 1500)),
     ]).catch(() => {})
   }

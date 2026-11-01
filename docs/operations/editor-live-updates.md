@@ -16,6 +16,8 @@ The cards' document is their coordinate space, so nothing in a theme may move it
 
 On an imported theme, an agent's saved section file (Storelib AI, MCP, the agent API) draws only the sections of that type on the page and swaps them in place (`syncFileChange` in `compat-canvas.tsx`), the same way a section setting is applied. It does this only when nothing else changed: not a snippet, layout, asset, setting or the page's sections, and not the theme's stylesheet or script bundles. It also needs a page that is not a product page, not loading behind, not asking for a fresh document, not having most of its sections swapped at once, and not worn by many swaps. Any of those draws the whole page as before. While a page loads behind the one on screen, files saved meanwhile are not each a new page behind: they are drawn into it once it comes forward (`behindStale`). A change to the theme's files is drawn in one task and parsed in the next (`prepareDraw`). The editor waits out a scroll between them. A closed library takes such changes 10s after the last one (`CLOSED_ADOPT_MS`), and an open library takes them at once. After the first warm-up, a closed Storelib library draws again only the first 12 cards still to draw (`REWARM_FIRST`). It draws the rest when opened.
 
+A section picked in Add a section lands in one piece on both kinds of theme. On a computer the dialog is marked closed on its own element in the click, so its exit starts in the next frame; the editor hears of the close and the add together, one render in a task just after that frame. On an imported theme the patch that adds a section carries the text of the stylesheets it links, read from the theme's files and passed through the asset route's own `fixThemeCss` (`linkedSheets` in `lib/storelib-theme/compat/preview-styles.ts`); the frame writes them as `<style>` and only then puts the section in, and waits for any stylesheet it was not handed. A draft asset is never cached in the editor, so before this every new section's stylesheet was a round trip with the section already on screen unstyled. The frame then plays the same arrival a Storelib theme's canvas plays (`section-arrival.ts` times and curve): the sections below slide from where they were by transform, the new one fades up, and the page scrolls once, smoothly, only when the section's top is not already on screen. A sticky header counts only when it is a painted bar, so a hidden drawer fixed over the window no longer sends the glide 850px above the section.
+
 `scripts/big-theme-kit.mjs` builds the store-size fixture these were measured on, from a Shopify theme zip (`BIG_THEME_ZIP`; Dawn made 156 sections with a 39 section home page). Each probe below takes it the same way.
 
 Regression checks (no live account, GitHub, or AI credentials required):
@@ -44,6 +46,10 @@ BIG_THEME_ZIP=/path/to/dawn.zip CPU=4 pnpm dlx tsx@4.20.6 scripts/check-editor-p
 # Section files saved one by one (and while a page loads behind) end as the page drawn whole shows them.
 pnpm dlx tsx@4.20.6 scripts/check-editor-section-file-sync.mjs
 CHROMIUM=/path/to/chromium N=4 EDITS=0 pnpm dlx tsx@4.20.6 scripts/check-wb-stability-r13.mjs
+# A section picked in Add a section, frame by frame from the click, on a Storelib and an imported theme:
+# first pixel, unstyled and resized frames, sections above and below, scrolls, inserts, long tasks, the ring.
+# Randomised CPU, slow stylesheets, an agent's edit, two picks in a row, reduced motion. EDITOR_BUNDLE= for a before.
+RUNS=30 npx tsx scripts/check-section-insert-smooth.mjs
 pnpm test:push
 pnpm lint
 pnpm typecheck:ratchet

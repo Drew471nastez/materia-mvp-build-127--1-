@@ -54,7 +54,12 @@ console.log("\nTheme code that changed (a push)\n")
   check("  a script added or kept is not", !scriptFileChanged(["/x/theme.js?v=a"], ["/x/theme.js?v=a", "/x/search.js?v=c"]) && !scriptFileChanged([], ["/x/a.js?v=1"]))
   check("  such a page is loaded again (never the new script run over the old one)", planPatch(shape(), shape({ srcs: ["/api/site-theme/assets/i/edit/theme.js?v=b2"] })) === null)
   check("  the same scripts: changed in place as before", !!planPatch(shape(), shape({ styles: [] })))
-  check("a section's own stylesheet at a new version takes the old one's place once loaded", /var old = keptLink\[fileOf\(href\)\];/.test(bridge) && /if \(old\) kept\[href\]\.then\(function \(\) \{ if \(old\.href && kept\[old\.href\]\) delete kept\[old\.href\]; old\.remove\(\); \}\);/.test(bridge))
+  /*
+    Changed on purpose (scripts/check-section-insert-smooth.mjs): a kept stylesheet can now be a <style>
+    holding the text the builder handed over, which has no href, so the old one is found by the address
+    it was kept under (__slHref) as well as by its href. The old version still goes once the new is in.
+  */
+  check("a section's own stylesheet at a new version takes the old one's place once loaded", /var old = keptLink\[fileOf\(href\)\];/.test(bridge) && /if \(old\) kept\[href\]\.then\(function \(\) \{ var was = old\.__slHref \|\| old\.href; if \(was && kept\[was\]\) delete kept\[was\]; old\.remove\(\); \}\);/.test(bridge))
 }
 
 console.log("\nA change to every section, and a page worn by edits\n")
