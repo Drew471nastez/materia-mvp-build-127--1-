@@ -53,6 +53,11 @@ export function writeConsent(c: Consent) {
           const k = localStorage.key(i)
           if (k && k.startsWith("materia_attr_")) localStorage.removeItem(k)
         }
+        /* And this tab's note of the AI visit counts it sent (lib/attribution/ai-visit-browser). */
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i)
+          if (k && k.startsWith("materia_attr_")) sessionStorage.removeItem(k)
+        }
       } catch {
         /* storage blocked: nothing was stored there either */
       }

@@ -355,6 +355,8 @@ const SUITES = [
   "tests/marketing-weight.test.ts",
   "tests/product-cache-scope.test.ts",
   "tests/icon-weight.test.ts",
+  /* Round 46: what every marketing page carries before it can answer a tap (supabase-js, every screen's words, the lightbox, the phone's search screen, the language list), fetched when used. */
+  "tests/shell-weight-r46.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/jsx-comments.test.ts",
@@ -1023,6 +1025,8 @@ const SUITES = [
   "tests/seo-leftovers-b-r45.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
+  /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */
+  "tests/alternatives-r46.test.ts",
   /* Round 45 (content): lib/marketing/facts read from the code (prices, fees, limits), the /sell pages, /features as Storelib in one page, the comparison pages' checked prices and moving guides, the YouTube video registry and its VideoObject. */
   "tests/content-r45.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
@@ -1082,12 +1086,16 @@ const SUITES = [
   "tests/admin-seo-console-r44.test.ts",
   /* Round 45: AI assistant sources on touches and Storelib's own sign ups (SQL part 346), the Audience view's AI assistants group, a spec-correct robots.txt matcher held to Google's examples, the sitemap file check, Search Console performance and Bing in /admin/seo with nothing called indexed without Google's answer, verification meta only when set, and the labels and landmarks the public journeys need; scripts/check-admin-seo.mjs and scripts/check-agent-journeys.mjs drive them in a browser. */
   "tests/seo-tracking-r45.test.ts",
+  /* Round 46: visits to storelib.com's own pages from an AI assistant, counted by Storelib (SQL part 350): which paths and which assistant, one count per tab session only with analytics consent, the route with the database stubbed (only the assistant and the path reach it, always 204, quiet before 347), service role only grants, the Audience view's storelib.com visits and top pages; scripts/check-admin-ai-visits.mjs renders the panel. */
+  "tests/ai-visits-r46.test.ts",
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
   /* Round 45: every page a creator publishes, as a search engine reads it: page 2 of a shop or collection its own canonical and a page past the last a 404, an imported theme's shop at one address and a gone product a 404, /collections and /reviews and a community's public posts in the sitemaps, a website behind a password out of storelib.com's, IndexNow for collections and public posts, and every route of a website or a creator page held to a sitemap or a noindex. */
   "tests/seo-sites-r45.test.ts",
   /* Round 45 leftovers (a): a creator's contact address asked for on the click (/api/creator-contact, rate limited, noindex, no-store) and in no page's payload, nor a website contact form's inbox; Explore's cards without sign in ids; IndexNow for moderation, admin takedowns and bans; a product's JSON-LD in the page's language; one noindex on a 404; www and a trailing slash in one 308; the imported theme's 303 kept on purpose. */
   "tests/seo-leftovers-a-r45.test.ts",
+  /* Round 46: Core Web Vitals of the SEO round's pages measured live (scripts/check-live-vitals.mjs): a list's first card eager when no large post is above it, covers with priority and sizes, no YouTube frame or script before a press, the phone's search strip drawn once the header is measured (a 63px shift), no preconnect to an unused host. */
+  "tests/perf-r46.test.ts",
 ]
 
 /**

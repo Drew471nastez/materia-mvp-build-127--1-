@@ -53,7 +53,7 @@
  * closes it too (on the black, beside it), the same way back as Escape, the
  * close button and a swipe down. With reduced motion it fades in and out.
  */
-import { markLayerBack } from "@/lib/nav/layer-back"
+import { isHistoryLayerRestoring, markLayerBack, setHistoryLayerRestoring } from "@/lib/nav/layer-back"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Play, X } from "lucide-react"
@@ -76,13 +76,8 @@ import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sam
  * post is a second entry. The entry carries Next's own state with it, so
  * the router sees the page it already has and loads nothing.
  */
-/** True while this layer is putting the address back, so that pop is not a second close. */
-let historyLayerRestoring = false
-
-/** Route loading must ignore popstate while a layer is stepping back over its entry. */
-export function isHistoryLayerRestoring(): boolean {
-  return historyLayerRestoring
-}
+/* True while this layer is putting the address back, so that pop is not a second close. Kept in lib/nav/layer-back.ts, so the route loading bar reads it without this file. */
+export { isHistoryLayerRestoring }
 
 /**
  * `stillOpen`: whether the layer is still on screen as far as its owner is concerned. The entry is stepped back over when the
@@ -123,7 +118,7 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
       mine = false
     }
     const onPop = () => {
-      if (historyLayerRestoring) return
+      if (isHistoryLayerRestoring()) return
       if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer === marker) return
       mine = false
       close.current()
@@ -136,11 +131,11 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
       if (openRef.current) return
       if (!mine) return
       if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer !== marker) return
-      historyLayerRestoring = true
+      setHistoryLayerRestoring(true)
       markLayerBack()
       window.history.back()
       window.setTimeout(() => {
-        historyLayerRestoring = false
+        setHistoryLayerRestoring(false)
       }, 80)
     }
   }, [open, url])

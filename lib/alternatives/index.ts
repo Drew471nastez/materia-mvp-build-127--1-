@@ -16,8 +16,12 @@ import { stanStore } from "./competitors/stan-store"
 import { whop } from "./competitors/whop"
 import { shopify } from "./competitors/shopify"
 import { linktree } from "./competitors/linktree"
+import { payhip } from "./competitors/payhip"
+import { kajabi } from "./competitors/kajabi"
+import { podia } from "./competitors/podia"
+import { skool } from "./competitors/skool"
 
-export const ALTERNATIVES: readonly Competitor[] = [gumroad, stanStore, whop, linktree, shopify]
+export const ALTERNATIVES: readonly Competitor[] = [gumroad, stanStore, whop, linktree, shopify, payhip, kajabi, podia, skool]
 
 export const CATEGORIES: readonly { id: CategoryId; label: string }[] = [
   { id: "digital-products", label: "Digital products" },

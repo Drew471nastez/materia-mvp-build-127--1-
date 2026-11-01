@@ -44,6 +44,8 @@ export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolea
   analytics_events: { columns: ["id", "created_at", "visitor_id", "source_category", "country_code", "country_name", "event_type", "referrer_domain", "utm_source"] },
   /* Part 346: where Storelib's own accounts came from (the Audience view's AI assistants). */
   account_attribution: { columns: ["user_id", "first_ai_source", "last_ai_source", "created_at"], later: true },
+  /* Part 350: visits to storelib.com's own pages from an AI assistant, counted by Storelib (the same group). */
+  platform_ai_visits: { columns: ["day", "ai_source", "landing_path", "visits"], later: true },
   analytics_daily_rollups: { columns: ["id", "updated_at"] },
   email_events: { columns: ["id", "created_at", "event_type", "email", "metadata"] },
   email_campaigns: { columns: ["id", "subject", "status", "audience_count", "scheduled_at", "created_at", "sent_at"] },

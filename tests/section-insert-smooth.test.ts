@@ -29,6 +29,7 @@ import { inlineStylesheets, linkedSheets } from "@/lib/storelib-theme/compat/pre
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { CANVAS_BRIDGE } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { ARRIVAL_MS, ARRIVAL_SCROLL_MS } from "@/lib/website-builder/section-arrival"
+import { createAddedSectionStore, neighboursOf, withAdded } from "@/lib/website-builder/added-section-store"
 
 let passed = 0
 let failed = 0
@@ -105,8 +106,43 @@ console.log("\nThe builder's side")
   check("a section added from the library is announced as arriving",/window\.dispatchEvent\(new CustomEvent\(REVEAL_EVENT, \{ detail: \{ id: newSection\.id, arrival: true \} \}\)\)/.test(editor))
   const lib = read("components/website-builder/editor/section-library.tsx")
   check("on a computer the dialog starts closing on its own element, and stops taking clicks", /layer\.setAttribute\("data-state", "closed"\)\s*layer\.setAttribute\("inert", ""\)/.test(lib))
-  check("  the editor is drawn once for the close and the add, just after that frame", /requestAnimationFrame\(\(\) => setTimeout\(\(\) => \{\s*onOpenChange\(false\)\s*onAddSection\(type, presetIndex\)\s*\}, 0\)\)/.test(lib))
+  check("  the editor is drawn once for the close and the add, just after that frame", /requestAnimationFrame\(\(\) => setTimeout\(\(\) => \{\s*onAddSection\(type, presetIndex\)\s*onOpenChange\(false\)\s*\}, 0\)\)/.test(lib))
   check("  a phone's sheet closes as before", /onOpenChange\(false\)\s*requestAnimationFrame\(\(\) => onAddSection\(type, presetIndex\)\)/.test(lib))
+}
+
+console.log("\nA Storelib theme's canvas draws the section before the editor has it (added-section-store.ts)")
+{
+  const page = [{ id: "h" }, { id: "a" }, { id: "b" }, { id: "f" }]
+  const entry = (id: string, afterId: string | null, beforeId: string | null, p = "home|") => ({ section: { id }, page: p, afterId, beforeId })
+  const ids = (l: { id: string }[]) => l.map((s) => s.id).join(",")
+  check("it goes after the section it was drawn after", ids(withAdded(page, [entry("n", "a", "b")], "home|")) === "h,a,n,b,f")
+  check("  before the next one when the one above has gone", ids(withAdded(page, [entry("n", "x", "b")], "home|")) === "h,a,n,b,f")
+  check("  at the start or the end when that is where it was", ids(withAdded(page, [entry("n", null, "h")], "home|")) === "n,h,a,b,f" && ids(withAdded(page, [entry("n", "f", null)], "home|")) === "h,a,b,f,n")
+  check("  not in a guessed place when both neighbours are gone", withAdded(page, [entry("n", "x", "y")], "home|") === page)
+  check("  not on another page", withAdded(page, [entry("n", "a", "b", "about|")], "home|") === page)
+  check("  once: the page that has it is drawn as it is, the same array", withAdded([...page.slice(0, 2), { id: "n" }, ...page.slice(2)], [entry("n", "a", "b")], "home|").length === 5)
+  check("  two picked in a row both show, in order", ids(withAdded(page, [entry("n", "a", "b"), entry("m", "n", "b")], "home|")) === "h,a,n,m,b,f")
+  check("neighbours are read from the page drawn with it", JSON.stringify(neighboursOf([{ id: "h" }, { id: "n" }, { id: "a" }], "n")) === '{"afterId":"h","beforeId":"a"}' && neighboursOf(page, "n") === null)
+  const store = createAddedSectionStore<{ id: string }>()
+  let heard = 0
+  store.subscribe(() => heard++)
+  store.add(entry("n", "a", "b"))
+  store.add(entry("m", "n", "b"))
+  store.drop(new Set(["n"]))
+  check("the store keeps each until the canvas's own page has it", store.get().map((a) => a.section.id).join() === "m" && heard === 3)
+  store.drop(new Set(["zzz"]))
+  check("  and says nothing when nothing left it", heard === 3)
+
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("the add tells the canvas and the ring first, then the editor once the arrival has played, or at the first press or key", /addedStore\.add\(\{ section: drawnNew, page: sectionsOnPage\.page, \.\.\.between \}\)/.test(editor) && /selectedSectionId=\{added\.last \?\? shownSectionId\}/.test(editor) && /const arriving = arrivalPlaying\(`wb-section-\$\{newSection\.id\}`\)\s*if \(!arriving\) \{ go\(\); return \}\s*void arriving\.then\(go\)/.test(editor) && /window\.addEventListener\("pointerdown", now, true\)/.test(editor) && /playing\.set\(el\.id, done\)/.test(read("lib/website-builder/section-arrival.ts")))
+  check("  drawn through the same steps as the canvas's page", /drawForCanvas\.current = \(list\) =>\s*pricedStep\(\s*optionsStep\(\s*filledStep\(inLanguageStep\(list/.test(editor) && /const drawnShown = useMemo\(\(\) => pricedStep\(drawnInLanguage/.test(editor))
+  check("  Undo, Redo and another add take a waiting add in first, rendered", /aiOps\.flush\(\)\s*\/\*[^*]*\*\/\s*if \(afterAddLands\(\(\) => handleUndo\(\)\)\) return\s*flushPendingAdd\(\)/.test(editor) && /const handleRedo = useCallback\(\(\) => \{\s*if \(afterAddLands\(\(\) => handleRedo\(\)\)\) return\s*flushPendingAdd\(\)/.test(editor) && /if \(flushPendingAdd\(\)\) \{\s*addSectionRef\.current\(type, presetIndex, replaceConfirmed, extra\)/.test(editor) && /flushSync\(pending\.commit\)/.test(editor))
+  check("  the history entry is taken when the editor takes the add in, and nothing that came in since is written over", /const commit = \(\) => \{\s*pushUndo\(\)\s*\/\*[^*]*\*\/\s*setSections\(\(prev\) => \(prev === placedFrom \? next : prev\.some/.test(editor))
+  check("  the editor takes it in a transition, and Undo, Redo and another add wait for it to land", /landingAdd\.current = \{ id: newSection\.id, then: \[\], timer: setTimeout\(landAdd, 4000\) \}\s*startTransition\(pending\.commit\)/.test(editor) && /if \(afterAddLands\(\(\) => handleUndo\(\)\)\) return/.test(editor) && /if \(afterAddLands\(\(\) => handleRedo\(\)\)\) return/.test(editor) && /if \(afterAddLands\(\(\) => addSectionRef\.current\(type, presetIndex, replaceConfirmed, extra\)\)\) return/.test(editor) && /if \(landing && sections\.some\(\(s\) => s\.id === landing\.id\)\) landAdd\(\)/.test(editor))
+  check("  opened again straight after a pick, the dialog opens: the close goes in first, then the open", /if \(libraryClosedByHand\.current\) flushSync\(\(\) => setAddSectionOpen\(false\)\)\s*place\(\)\s*setAddSectionOpen\(true\)/.test(editor) && (editor.match(/openLibrary\(\(\) => \{/g) ?? []).length === 4 && !/setAddSectionOpen\(true\)/.test(editor.replace(/if \(libraryClosedByHand[\s\S]*?setAddSectionOpen\(true\)/, "")))
+  check("  not onto a page opened in the meantime", /commit: \(\) => \{ if \(currentPageRef\.current === page\) commit\(\) \}/.test(editor))
+  check("  the library's close goes with the add", /if \(!o && pending\) \{\s*const add = pending\.commit/.test(editor))
+  check("  an imported theme's canvas is told as before", /scroller && !canvasCompat \? drawForCanvas\.current\(next\) : null/.test(editor))
 }
 
 console.log("\nThe probe")

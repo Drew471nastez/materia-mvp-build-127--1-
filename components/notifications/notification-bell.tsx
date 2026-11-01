@@ -82,7 +82,8 @@ import { INBOX_EVENT, realtimeAuth } from "@/components/community/member/realtim
 import { relativeTime } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem, type InboxPage } from "@/lib/notifications/user-inbox-shared"
-import { createClient } from "@/lib/supabase/client"
+/* The client is fetched when the bell first reads the session, not with every page the header is on (lib/supabase/browser-lazy.ts, round 46). */
+import { browserSupabase, type BrowserSupabase } from "@/lib/supabase/browser-lazy"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { cn } from "@/lib/utils"
 import { NOTIFICATION_BADGE } from "./badge-tone"
@@ -314,7 +315,7 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     let gone = false
     void (async () => {
       try {
-        const { data } = await createClient().auth.getSession()
+        const { data } = await (await browserSupabase()).auth.getSession()
         if (gone) return
         takeUser(data.session?.user?.id ?? null)
       } catch {
@@ -384,8 +385,8 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     if (!userId || !active) return
     let gone = false
     let timer: number | null = null
-    let supabase: ReturnType<typeof createClient> | null = null
-    const channels: ReturnType<ReturnType<typeof createClient>["channel"]>[] = []
+    let supabase: BrowserSupabase | null = null
+    const channels: ReturnType<BrowserSupabase["channel"]>[] = []
     const arrived = (payload: { new?: { read_at?: string | null } }) => {
       if (payload.new && !payload.new.read_at) setUnread((n) => n + 1)
       /* Kept warm: open or not, a list already read is read again, so the next open shows the new row at once. */
@@ -404,7 +405,8 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     }
     void (async () => {
       try {
-        supabase = createClient()
+        supabase = await browserSupabase()
+        if (gone) return
         await realtimeAuth(supabase)
         if (gone) return
         for (const table of ["user_notifications", "community_notifications"]) {

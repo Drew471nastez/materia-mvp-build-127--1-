@@ -1711,6 +1711,11 @@ export const SectionLibrary = memo(function SectionLibrary({
     with it, so a second click cannot add twice), and the editor hears of the
     close and the add together, in one render, just after that frame. A phone's
     sheet closes as before: its movement belongs to the sheet.
+
+    The add is said first. On a Storelib theme the canvas draws the section
+    at once and the editor takes in the add, and the close with it, once
+    the section has arrived (the editor's addSection, A SECTION JUST ADDED,
+    CANVAS FIRST).
   */
   const handleAdd = useCallback((type: string, presetIndex = 0) => {
     hapticTap("light")
@@ -1720,8 +1725,8 @@ export const SectionLibrary = memo(function SectionLibrary({
       layer.setAttribute("inert", "")
       /* In a task after that frame, so the editor's render cannot hold the frame the exit starts in. */
       requestAnimationFrame(() => setTimeout(() => {
-        onOpenChange(false)
         onAddSection(type, presetIndex)
+        onOpenChange(false)
       }, 0))
       return
     }

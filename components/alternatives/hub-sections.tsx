@@ -29,12 +29,14 @@ const MATRIX_ROWS: readonly { id: string; label: string; storelib: StorelibCell 
   { id: "per-sale", label: "Fee per sale", storelib: SL.perSaleFee },
   { id: "digital", label: "Digital products", storelib: SL.digitalProducts },
   { id: "courses", label: "Courses", storelib: SL.courses },
+  { id: "community", label: "Community", storelib: SL.communities },
   { id: "memberships", label: "Memberships", storelib: SL.memberships },
   { id: "bio", label: "Link in bio page", storelib: SL.linkInBio },
   { id: "website", label: "Website builder", storelib: SL.website },
   { id: "domain", label: "Your own domain", storelib: SL.customDomain },
   { id: "email", label: "Email to buyers", storelib: SL.email },
   { id: "affiliates", label: "Affiliates", storelib: SL.affiliates },
+  { id: "tax", label: "Sales tax and VAT", storelib: SL.tax },
 ]
 
 const WORD: Record<CellValue, string> = { yes: "Yes", no: "No", partial: "Partly", unknown: "Not confirmed" }
@@ -81,7 +83,7 @@ export function HubGroups({ list, flags }: { list: readonly Competitor[]; flags:
 export function HubMatrix({ list, flags }: { list: readonly Competitor[]; flags: Flags }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-hub-matrix tabIndex={0} aria-label="Comparison table, scrolls sideways on small screens">
-      <table className="w-full min-w-[880px] border-collapse text-left">
+      <table className="w-full border-collapse text-left" style={{ minWidth: 150 + 120 * (list.length + 1) }}>
         <caption className="sr-only">Storelib and {list.map((c) => c.name).join(", ")}, feature by feature</caption>
         <thead>
           <tr className="border-b border-[#eef0f2] bg-[#f8f9fa] text-[13px]">

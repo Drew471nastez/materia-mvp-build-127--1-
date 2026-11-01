@@ -79,7 +79,9 @@ import { AddSquareIcon as ComposeBold } from "@solar-icons/react/bold/add-square
 
 import { NAV_ICONS, FILL_MS, FILL_CURVE, type NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { PERSON_ICONS, SEARCH_ICONS } from "@/components/nav/buyer-tab-icons"
-import { SearchOverlay, openSearchOverlay, refocusSearchOverlay } from "@/components/search/search-overlay"
+/* The screen is fetched once the page is up, on a phone (round 46); opening it is the small handle. */
+import { SearchOverlay } from "@/components/search/search-overlay-lazy"
+import { openSearchOverlay, refocusSearchOverlay } from "@/components/search/search-overlay-handle"
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 import { LIFT, NO_TRAVEL, NavIcon, useTabLens } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"

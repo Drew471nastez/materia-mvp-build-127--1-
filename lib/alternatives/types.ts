@@ -109,6 +109,12 @@ export interface CompetitorPlan {
   /** The platform's own cut of each sale. */
   fee: Rate
   /**
+   * A different cut for a sale priced above a line, when the platform
+   * publishes one: Skool Pro charges 2.9% + 30¢ up to $899 and 3.9% + 30¢
+   * above. A sale of `overCents` or less pays `fee`; a dearer one pays this.
+   */
+  feeAbove?: { overCents: number; fee: Rate }
+  /**
    * Card processing on top of `fee`. null when the platform's fee already is
    * its processing (Whop) or when no official rate could be found
    * (`processingKnown` false), and the calculator says which.
@@ -172,6 +178,13 @@ export interface Competitor {
    * the Help Center articles in MOVING_HELP (lib/alternatives/moving.ts).
    */
   moving: { products: string; customers: string; domain: string }
+  /**
+   * More Help Center articles for one part of "Moving to Storelib", after the
+   * ones every page shows (MOVING_HELP): automations for a page whose
+   * readers run email sequences, payouts for one whose readers are paid
+   * weekly. Each is a real article; tests/alternatives-r46.test.ts checks it.
+   */
+  movingHelp?: Partial<Record<"products" | "customers" | "domain", string[]>>
   /** A Storelib importer for this platform, when one exists: named above the steps. */
   importer?: { href: string; label: string; text: string }
   faqs: Faq[]
