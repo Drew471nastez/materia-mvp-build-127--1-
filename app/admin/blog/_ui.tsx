@@ -29,10 +29,10 @@ export function BlogBar({ current, children, title }: { current?: string; childr
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#0b0b0f]/95 backdrop-blur-[6px]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-2 px-4 sm:gap-3 sm:px-6">
-        <a href="/admin" className={cx("shrink-0 text-[13px] font-semibold text-[#ededf0]", !title && "max-sm:hidden")} aria-label="Storelib admin">
+        <a href="/admin" className="shrink-0 text-[13px] font-semibold text-[#ededf0] max-sm:hidden" aria-label="Storelib admin">
           Admin
         </a>
-        <span aria-hidden className={cx("text-[#3a3a44]", !title && "max-sm:hidden")}>
+        <span aria-hidden className="text-[#3a3a44] max-sm:hidden">
           /
         </span>
         {title ?? (

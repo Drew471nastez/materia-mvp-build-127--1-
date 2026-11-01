@@ -1037,6 +1037,8 @@ const SUITES = [
   "tests/blog-r47.test.ts",
   /* Round 45, leftovers B: blog author pages (/blog/author/<slug>: ProfilePage, breadcrumbs, live posts, noindex when empty, a 404 with no table, the sitemap), no FAQPage or HowTo in the Help Center, the product file limit from the upload policy, STORELIB_SOCIAL for the footer and sameAs, Copy to Storelib (the https and private address guard, type by bytes, 10 MB, a post's addresses swapped in place). */
   "tests/seo-leftovers-b-r45.test.ts",
+  /* Round 47: writing in the blog editor: markdown at the start of a line, undo and redo across blocks, Cmd+S, the search checklist (facts, no score) and its title counted as rendered, the writing page (panel, drawer, focus mode, the publish confirmation), and before SQL part 345 a reader's view no longer a false 409 (lib/blog/editor-tools.ts, lib/blog/save-rules.ts editVersion). */
+  "tests/blog-editor-r47.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
   /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */

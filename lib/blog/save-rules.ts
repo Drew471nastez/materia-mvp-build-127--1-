@@ -21,10 +21,43 @@ export function postVersion(row: Versioned | null | undefined): string | null {
   return row?.draft_saved_at || row?.updated_at || null
 }
 
+/**
+ * BEFORE SQL PART 345 a reader's view adds one to blog_posts.views, and the
+ * table's original trigger moves updated_at on every update, so updated_at
+ * changes each time somebody reads a live post. Used as the version it made
+ * every Update on a read post a false "changed somewhere else". Without
+ * part 345 (a row read with select("*") that has no draft_saved_at column)
+ * the version is a fingerprint of what the editor writes instead: what a
+ * reader sees, never the view count.
+ */
+const EDITED_COLUMNS = ["title", "slug", "excerpt", "content", "category", "read_time", "author_name", "cover_image_url", "seo_title", "seo_description", "seo_keywords", "is_published", "published_at"] as const
+
+function fnv1a(text: string, seed: number): string {
+  let h = seed >>> 0
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(16).padStart(8, "0")
+}
+
+/** A fingerprint of the columns the editor writes, for a table without part 345. */
+export function contentFingerprint(row: Record<string, unknown>): string {
+  const text = JSON.stringify(EDITED_COLUMNS.map((c) => (c === "published_at" && typeof row[c] === "string" ? Date.parse(row[c] as string) || row[c] : row[c] ?? null)))
+  return `c:${fnv1a(text, 0x811c9dc5)}${fnv1a(text, 0x01000193)}`
+}
+
+/** The version the editor is handed and sends back: postVersion with part 345, the content's fingerprint without it. */
+export function editVersion(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null
+  if (!("draft_saved_at" in row) && "content" in row) return contentFingerprint(row)
+  return postVersion(row as Versioned)
+}
+
 /** Whether a save made from `clientVersion` is out of date against `row`. A save that names no version is out of date. */
-export function isStaleSave(clientVersion: string | null | undefined, row: Versioned | null | undefined, force = false): boolean {
+export function isStaleSave(clientVersion: string | null | undefined, row: (Versioned & { [column: string]: unknown }) | null | undefined, force = false): boolean {
   if (force) return false
-  const current = postVersion(row)
+  const current = row && !("draft_saved_at" in row) && "content" in row ? editVersion(row as Record<string, unknown>) : postVersion(row)
   if (!current) return false
   return !clientVersion || clientVersion !== current
 }
