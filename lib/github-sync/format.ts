@@ -29,7 +29,7 @@
  *
  * Pure: tests/github-format-z4.test.ts runs it.
  */
-import { COMPAT_ATTR, isCompatSource, isNativeSectionSource, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
+import { COMPAT_ATTR, compatTemplateEnd, isCompatSource, isNativeSectionSource, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 
 export type FormatResult =
   | { ok: true; text: string; converted: boolean; note: string | null }
@@ -58,9 +58,8 @@ function splitWrapped(text: string): { markup: string; rest: string } | null {
   const lines = text.split("\n")
   const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
   if (start < 0) return null
-  let end = start + 1
-  while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
-  if (end >= lines.length) return null
+  const end = compatTemplateEnd(lines, start)
+  if (end < 0) return null
   return { markup: lines.slice(start + 1, end).join("\n"), rest: lines.slice(end + 1).join("\n") }
 }
 

@@ -17,6 +17,7 @@
  *                 per problem per tab, with nothing about the person in it
  */
 import { buildReport } from "@/lib/client-errors"
+import { SEALED_NOTE } from "@/lib/storelib-theme/compat/seal"
 
 /** The request took longer than it was given. */
 export class LoadTimeout extends Error {
@@ -119,5 +120,18 @@ export function reportLoadProblem(where: string, error: unknown): void {
     }).catch(() => {})
   } catch {
     /* a report is never worth breaking the page over */
+  }
+}
+
+/**
+ * The sections of a drawn page that left an element open and were closed
+ * where they end (lib/storelib-theme/compat/seal.ts), said once each: the
+ * section's id and what it left open.
+ */
+export function reportSealed(where: string, errors: Record<string, string[]> | undefined): void {
+  if (!errors) return
+  for (const [id, list] of Object.entries(errors)) {
+    const said = list.find((e) => e.startsWith(SEALED_NOTE))
+    if (said) reportLoadProblem(where, `section ${id}: ${said}`)
   }
 }

@@ -1031,6 +1031,8 @@ const SUITES = [
   "tests/section-insert-smooth.test.ts",
   /* 1 Nov 2026 (andrewrullz): no page of the builder waits for good on a stylesheet that does not answer: the Add a section cards' page draws after SHEET_WAIT_MS without its load event, the canvas page's bridge is let through by CANVAS_SHEET_GUARD, every queued change has STEP_MS, and each wait cut short is said to /api/client-errors (scripts/check-compat-stalls.mjs, scripts/check-canvas-stalls.mjs) */
   "tests/compat-stalls.test.ts",
+  /* 1 Nov 2026 (andrewrullz, Materia): a theme file's own </template> line inside its markup no longer ends the file's block (theme.ts compatTemplateEnd), and whatever a section leaves open (a <template>, a <textarea>, a comment) is closed where it ends (seal.ts), so the footer and the canvas bridge after it stay in the page; reported to /api/client-errors */
+  "tests/compat-template-seal.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
