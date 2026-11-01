@@ -378,8 +378,24 @@ function sheetRules(width: number): string {
       viewport's, and the list scrolled at 23ms a frame instead of 17
       (scripts/check-section-preview-stress.mjs PROFILE=1).
     */
-    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:relative!important;inset:auto!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
-    `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important}`,
+    "html,body{background:transparent!important;background-image:none!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:relative!important;inset:auto!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
+    /*
+      THE PAGE NEVER SCROLLS, AND THE BODY NEVER CUTS. The cards are the
+      body's (it is positioned), and the body holds nothing in its flow, so
+      it is 0px tall: with `overflow: hidden` on it as well as on <html>,
+      every card was cut away whole. Each card was measured, sized and
+      marked shown, and not one pixel of it painted: the owner's empty grey
+      boxes after #392 (scripts/check-section-preview-pixels.mjs). <html>
+      keeps `hidden`, which is the viewport's (no scrollbar); the body is
+      `visible`, so it cuts nothing. Nor may a theme hide the page until its
+      scripts run (`body { opacity: 0 }` until a load class, a preloader's
+      `visibility: hidden`): the cards run no script, so it would never be
+      shown.
+    */
+    /* No gutter kept for a scrollbar it never has (a theme's `scrollbar-gutter: stable`): it cut every card's right edge 15px short. */
+    "html{overflow:hidden!important;scrollbar-gutter:auto!important;scrollbar-width:none!important}",
+    "body{overflow:visible!important;display:block!important;opacity:1!important;visibility:visible!important;clip-path:none!important;mask:none!important;content-visibility:visible!important}",
+    `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important;pointer-events:auto!important}`,
     /* Layout containment includes child margins and floats in the natural height,
        instead of measuring a short box with its content spilling below it. */
     `${card}>[data-sl-pv]{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;box-sizing:border-box!important;contain:layout style!important}`,
@@ -639,6 +655,12 @@ class PreviewSheet {
     this.queueRefresh()
     for (const k of this.onScreen.keys()) this.arriving.add(k)
     this.checkOnScreen()
+  }
+
+  /* A stylesheet of the head that came late may hide what moves in (showRevealed), as well as change heights. */
+  private readonly sheetLoaded = () => {
+    for (const w of this.wrappers.values()) if (w.isConnected) showRevealed(w)
+    this.fontsLoaded()
   }
 
   constructor(
@@ -942,7 +964,7 @@ class PreviewSheet {
     doc.fonts?.addEventListener?.("loadingdone", this.fontsLoaded)
     /* And so does a stylesheet of the head that came after the cards were drawn (one let go of above, or one still on its way). */
     for (const link of Array.from(doc.head?.querySelectorAll<HTMLLinkElement>("link[rel~='stylesheet']") ?? [])) {
-      if (!link.sheet) link.addEventListener("load", this.fontsLoaded, { once: true })
+      if (!link.sheet) link.addEventListener("load", this.sheetLoaded, { once: true })
     }
     this.sync()
     this.schedule()
@@ -1095,6 +1117,7 @@ class PreviewSheet {
     w.innerHTML = html
     this.hoistSheets(w)
     keepStylesInside(w, key)
+    showRevealed(w)
     if (this.open) {
       for (const img of Array.from(w.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
         img.setAttribute("fetchpriority", "low")
@@ -1109,6 +1132,7 @@ class PreviewSheet {
       out of content-visibility for a frame once the list is still (queueRefresh).
     */
     const again = () => {
+      if (w.isConnected) showRevealed(w)
       this.stale.add(key)
       this.queueRefresh()
       if (this.onScreen.has(key)) {
@@ -1413,6 +1437,38 @@ class PreviewSheet {
     if (reshown) this.queueRefresh()
   }
 
+  /**
+   * ===========================================================================
+   *  A CARD SAID SHOWN IS LOOKED AT, NOT ONLY MEASURED
+   * ===========================================================================
+   * After #392 every card was measured, sized and marked shown while the
+   * body of the cards' document, 0px tall and `overflow: hidden`, cut all
+   * of them away: empty grey boxes, and nothing anywhere said so. A card
+   * shown on screen is checked a moment later in the cards' document
+   * itself: the browser's own hit test at a few points of its box (which
+   * honours every clip, opacity and visibility above it) must reach the
+   * card. If it does not, the card is put over its box again once; if it
+   * still cannot be reached, the error log is told what cut it.
+   */
+  private reportedUnseen = false
+  private verify(key: string, retried: boolean) {
+    const inner = this.wrappers.get(key)
+    if (!inner?.isConnected || !this.doc || !this.open || !this.onScreen.has(key)) return
+    const box = frameOf(inner)
+    if (box.hidden || !box.hasAttribute("data-on")) return
+    const why = unseenBecause(box)
+    if (!why) return
+    if (!retried) {
+      placedAt.delete(box)
+      this.sync()
+      requestAnimationFrame(() => this.verify(key, true))
+      return
+    }
+    if (this.reportedUnseen) return
+    this.reportedUnseen = true
+    reportLoadProblem("section-preview", `a card marked shown cannot be seen in the cards' page (${why}): ${key}`)
+  }
+
   /** Shown once its pictures are decoded and any stylesheet it still links has come: faded in if somebody is looking, simply there otherwise. */
   private reveal(key: string, inner: HTMLElement, box: HTMLElement) {
     const w = frameOf(inner)
@@ -1429,6 +1485,7 @@ class PreviewSheet {
       /* Said on the section's own <main> as well, for what reads a drawn card (scripts/check-preview-reliability.ts). */
       inner.setAttribute("data-on", "")
       this.setState(key, { state: "shown" })
+      window.setTimeout(() => this.verify(key, false), VERIFY_AFTER_MS)
     }
     if (!imgs.length && !links.length) return show()
     if (this.instant.delete(key)) {
@@ -1569,6 +1626,76 @@ function somethingToSee(root: HTMLElement): boolean {
     if (sized(el)) return true
   }
   return false
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   WHAT A THEME SHOWS WITH A SCRIPT IS SHOWN
+  ═══════════════════════════════════════════════════════════════════════
+  A card runs no script, and its document has every animation off. A theme
+  that hides a piece until its script reveals it (Materia's
+  `<motion-element class="opacity-0">` with a failsafe animation that never
+  plays, a countdown's `[data-cd-reveal]:not(.is-revealed) { opacity: 0 }`,
+  a `.reveal` that waits for an IntersectionObserver) left that piece
+  invisible for good: a slideshow whose heading and text were there, sized,
+  and never seen. The preview's own rules (fullPreview) cover the usual
+  class names; this covers the rest. Only an element whose tag, class or
+  attribute names says it moves in, that is hidden, and that holds words or
+  a picture, is shown, inline and `!important`, as the script would have.
+*/
+const MOTION_NAME = /reveal|motion|aos|animat|scroll-trigger|opacity-0|wow|appear|in-?view|fade-?(?:in|up|down|left|right)|data-sal|lazy-?show/i
+function showRevealed(w: HTMLElement): void {
+  const v = w.ownerDocument.defaultView
+  if (!v) return
+  for (const el of Array.from(w.querySelectorAll<HTMLElement>("*"))) {
+    const names = `${el.localName} ${typeof el.className === "string" ? el.className : ""} ${el.getAttributeNames().join(" ")}`
+    if (!MOTION_NAME.test(names)) continue
+    const c = v.getComputedStyle(el)
+    const hidden = Number.parseFloat(c.opacity) < 0.05 || c.visibility === "hidden" || (c.clipPath !== "none" && /inset\(\s*(?:0[^)]*100%|100%)/.test(c.clipPath))
+    if (!hidden || (!(el.textContent ?? "").trim() && !el.querySelector("img, svg, picture, video"))) continue
+    el.style.setProperty("opacity", "1", "important")
+    el.style.setProperty("visibility", "visible", "important")
+    el.style.setProperty("clip-path", "none", "important")
+    el.style.setProperty("transform", "none", "important")
+    el.style.setProperty("translate", "none", "important")
+    el.style.setProperty("filter", "none", "important")
+  }
+}
+
+/** How long after a card is shown it is checked for being seen (PreviewSheet.verify): past its fade. */
+const VERIFY_AFTER_MS = 1200
+
+/**
+ * Why a card's box cannot be seen in its document, or null when it can: the
+ * browser's hit test at three points of it reaches the card (the cards'
+ * layer gives it pointer-events; the frame itself takes none). Exported for
+ * its test.
+ */
+export function unseenBecause(box: HTMLElement): string | null {
+  const doc = box.ownerDocument
+  const v = doc.defaultView
+  if (!v) return null
+  const own = v.getComputedStyle(box)
+  if (own.visibility !== "visible") return "card hidden"
+  if (Number.parseFloat(own.opacity) < 0.05) return "card transparent"
+  const r = box.getBoundingClientRect()
+  if (!(r.width > 0 && r.height > 0)) return "card has no size"
+  let tried = 0
+  for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8]]) {
+    const x = r.left + r.width * fx
+    const y = r.top + Math.min(r.height * fy, 400)
+    if (x < 0 || y < 0 || x >= v.innerWidth || y >= v.innerHeight) continue
+    tried++
+    if (doc.elementsFromPoint(x, y).some((e) => e === box || box.contains(e))) return null
+  }
+  if (!tried) return null
+  for (let e = box.parentElement; e; e = e.parentElement) {
+    const c = v.getComputedStyle(e)
+    const er = e.getBoundingClientRect()
+    if (Number.parseFloat(c.opacity) < 0.05 || c.visibility !== "visible") return `${e.localName} is not visible`
+    if (c.overflow !== "visible" && (er.bottom < r.bottom || er.right < r.left + 1)) return `${e.localName} cuts it: overflow ${c.overflow}, ${Math.round(er.height)}px tall`
+  }
+  return "covered"
 }
 
 /** When each of the frame's documents was first seen read but not loaded (PreviewSheet.attach, SHEET_WAIT_MS). */

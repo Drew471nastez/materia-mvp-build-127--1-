@@ -146,7 +146,7 @@ console.log("\nThe cards' page draws without its load event (compat-section-prev
   check("  it is this sheet's by the tag its srcdoc wrote, not by its load event", /if \(!this\.isMine\(doc\)\) return/.test(attach) && !/loadedFrom/.test(src))
   check("  its stylesheets are waited for SHEET_WAIT_MS, then let go of", /if \(now - seen < SHEET_WAIT_MS\) return/.test(attach) && /const late = releaseLateSheets\(doc\)/.test(attach))
   check("  and the error log is told", /reportLoadProblem\("section-preview", `the cards' page did not load/.test(attach))
-  check("  a stylesheet that comes after the cards are drawn has them measured again", /link\.addEventListener\("load", this\.fontsLoaded, \{ once: true \}\)/.test(attach))
+  check("  a stylesheet that comes after the cards are drawn has them measured again", /link\.addEventListener\("load", this\.sheetLoaded, \{ once: true \}\)/.test(attach) && /private readonly sheetLoaded = \(\) => \{[\s\S]{0,200}this\.fontsLoaded\(\)/.test(read("components/website-builder/compat/compat-section-preview.tsx")))
   check("the frame is looked at again until the sheet has its document, not only at its load event", /if \(sheet\.attached\) return window\.clearInterval\(t\)/.test(src) && /if \(frame\.current\) sheet\.attach\(frame\.current\)\n    \}, 250\)/.test(src))
   check("a kept theme is one drawn with the same asset version (the pass)", /const key = `\$\{installId\}\|\$\{assets\}\|/.test(src))
 }
