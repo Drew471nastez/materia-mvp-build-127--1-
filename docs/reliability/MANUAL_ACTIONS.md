@@ -53,6 +53,25 @@ Order of importance: 1, 2, 3, then the rest.
 - **Verify:** the source fallback credentials no longer work at
   `/admin`; the new ones do.
 
+## 2b. Stop the sign-in check errors for good (AUTH)
+
+- **Why:** the project still signs logins with the legacy shared secret, so
+  the public key list is empty and every sign-in check has to call Supabase
+  Auth over the network. When Auth is slow, people see "We could not check
+  your sign in just now" or "Cannot reach the server". The code can now check
+  logins locally, but only once it has a key to check with.
+- **Full steps:** `docs/reliability/AUTH_KEYS.md`.
+- **Option A (permanent):** Supabase Dashboard, Project Settings, JWT Keys,
+  Migrate JWT secret, confirm the standby key is ECC (P-256), wait about 20
+  minutes, then Rotate keys. Do not revoke the legacy secret (the anon and
+  service role keys still use it). Existing logins keep working.
+- **Option B (quick):** add `SUPABASE_JWT_SECRET` (the legacy JWT secret from
+  the same page) in Vercel, Production, marked Sensitive, then redeploy.
+  Never paste it into chat.
+- **Verify:** `https://skgtqglupjcnfhfscink.supabase.co/auth/v1/.well-known/jwks.json`
+  lists a key (A), or the next Auth slowdown no longer shows the screens.
+- **Cost:** none.
+
 ## 3. SQL parts prepared by the fix agents
 
 Run each in the Supabase SQL editor, one new tab per file, after reading it.
@@ -64,6 +83,7 @@ filled in by the lead.
 | 347 | SEC-1 | `supabase/sql/run-now/347_profiles_keep_email_verified.sql` | trigger `profiles_keep_email_verified`: the browser key can no longer set `email_verified` / `email_verified_at`; only the server can | run right after the deploy; additive; undo with `ALTER TABLE profiles DISABLE TRIGGER profiles_keep_email_verified` |
 | 348 | SITE-1 | `supabase/sql/run-now/348_site_switch_in_one_step.sql` | server only function `switch_site_deployment`: an AI site goes live in one transaction | until it runs, the code uses a two step switch that rolls back on failure; tested on a local Postgres 16 |
 | 349 | DB-7 | `supabase/sql/run-now/349_buyer_email_trigram_indexes.sql` | trigram indexes on `orders.buyer_email` and `commerce_checkouts.buyer_email` | on a large table, first run `supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql` one statement at a time (CONCURRENTLY cannot run in a transaction), then the part builds nothing |
+| 352 | PAY-9 | `supabase/sql/run-now/352_checkout_attempts.sql` | table `checkout_attempts` (server only, RLS on, no client access) so a retried Pay press gets the same Stripe payment | until it runs, checkout works exactly as before; additive; can be dropped if ever unwanted |
 
 - **Service:** Supabase. **Where:** Dashboard, SQL Editor.
 - **Changes production:** yes (schema, additive).
