@@ -69,7 +69,8 @@ export function BlogCategoryView({ category, categories, posts, page, pages }: {
         }}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbListJsonLd(crumbs)) }} />
-      <BlogListing posts={posts} categories={categories} activeCategory={category.name} title={category.name} subtitle={categoryDescription(category)} pagination={{ page, pages }} pagePath={path} />
+      {/* The category's name, its line and the pills are the blog's layout (./layout.tsx). */}
+      <BlogListing posts={posts} activeCategory={category.name} pagination={{ page, pages }} pagePath={path} />
     </>
   )
 }

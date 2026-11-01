@@ -75,7 +75,7 @@ function main() {
       runner (scripts/push-test-loader.mjs drops `priority`), so the Storelib
       file path is held by reading that BlogImage hands priority on.
     */
-    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, HOTLINK), post(2, HOTLINK), post(3, HOTLINK), post(4, HOTLINK)], activeCategory: "Growth", title: "Growth", subtitle: "x" }))
+    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, HOTLINK), post(2, HOTLINK), post(3, HOTLINK), post(4, HOTLINK)], activeCategory: "Growth" }))
     const tags = imgs(html)
     check("a category's first card is eager with fetchpriority high", tags.length === 4 && eager(tags[0]), tags[0])
     check("  and every other card stays lazy", tags.slice(1).every(lazy), tags.slice(1))
@@ -90,15 +90,16 @@ function main() {
 
   console.log("\n2. The index's large post, the article cover and the cards keep priority and sizes")
   {
-    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, HOTLINK), post(2, HOTLINK), post(3, HOTLINK)], activeCategory: null, title: "Blog", subtitle: "x", featured: true }))
+    const html = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, HOTLINK), post(2, HOTLINK), post(3, HOTLINK)], activeCategory: null, featured: true }))
     const tags = imgs(html)
     check("the large post's picture is the one with priority; the cards under it stay lazy", tags.length === 3 && eager(tags[0]) && tags.slice(1).every(lazy), tags)
-    const own = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, OWN), post(2, OWN)], activeCategory: null, title: "Blog", subtitle: "x", featured: true }))
+    const own = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, OWN), post(2, OWN)], activeCategory: null, featured: true }))
     check("  with its sizes, phone first at the full column", /sizes="\(min-width: 1240px\) 680px, \(min-width: 1024px\) 56vw, 100vw"/.test(imgs(own)[0] ?? ""), imgs(own))
     check("  the cards below it carry the three column sizes", /sizes="\(min-width: 1024px\) 380px, \(min-width: 640px\) 50vw, 100vw"/.test(imgs(own)[1] ?? ""))
     const view = code("app/(marketing)/blog/_components/article-view.tsx")
-    check("an article's cover has priority and its sizes", /<BlogImage src=\{cover\} alt=\{[^}]+\} fill priority sizes="\(min-width: 1240px\) 1176px, [^"]+calc\(100vw - 32px\)"/.test(view))
-    check("  in a box of a fixed shape, so it shifts nothing", /aspect-\[16\/9\][^"]*lg:aspect-\[21\/9\]/.test(view))
+    /* Changed on purpose (round 47): the cover is the reading column's width (720px), in the 1200x630 shape share cards are made in, so a cover with words on it is not cropped. */
+    check("an article's cover has priority and its sizes", /<BlogImage src=\{cover\} alt=\{[^}]+\} fill priority sizes="\(min-width: 768px\) 720px, calc\(100vw - 32px\)"/.test(view))
+    check("  in a box of a fixed shape, so it shifts nothing", /relative mt-8 aspect-\[40\/21\] overflow-hidden/.test(view))
     check("a hot-linked picture with priority is eager and fetchpriority high; without, lazy", /loading=\{priority \? "eager" : "lazy"\}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")) && /priority \? \{ fetchPriority: "high" as const \}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")))
   }
 

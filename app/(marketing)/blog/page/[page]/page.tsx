@@ -32,5 +32,5 @@ export default async function BlogOlderPage({ params }: Props) {
   if (n === 1) permanentRedirect("/blog")
   const page = n ? await blogIndexPage(n) : null
   if (!page) notFound()
-  return <BlogIndex posts={page.posts} page={page.page} pages={page.pages} categories={page.categories} />
+  return <BlogIndex posts={page.posts} page={page.page} pages={page.pages} />
 }

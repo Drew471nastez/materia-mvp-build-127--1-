@@ -185,11 +185,11 @@ const row = (i: number, o: Partial<BlogPost> = {}): BlogPost => ({
 
 console.log("\nThe blog's pages")
 {
-  const html = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1)], activeCategory: null, title: "Blog", subtitle: "x", pagination: { page: 2, pages: 3 } }))
+  const html = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1)], activeCategory: null, pagination: { page: 2, pages: 3 } }))
   check("older and newer posts are real links", /<a[^>]*href="\/blog"[^>]*rel="prev"|<a[^>]*rel="prev"[^>]*href="\/blog"/.test(html) && /href="\/blog\/page\/3"/.test(html) && /rel="next"/.test(html))
-  const one = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1)], activeCategory: null, title: "Blog", subtitle: "x", pagination: { page: 1, pages: 1 } }))
+  const one = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1)], activeCategory: null, pagination: { page: 1, pages: 1 } }))
   check("  and nothing when there is one page", !/data-blog-pages/.test(one))
-  const withCover = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1, { cover_image_url: "/c.jpg" })], activeCategory: null, title: "Blog", subtitle: "x" }))
+  const withCover = renderToStaticMarkup(createElement(BlogListing, { posts: [row(1, { cover_image_url: "/c.jpg" })], activeCategory: null }))
   /* Changed on purpose (round 45): the card's title is its link, so the picture beside it is decorative (alt="") rather than the title read twice; it goes through next/image. */
   check("a cover is drawn, decorative beside its titled link", /<img[^>]*alt=""[^>]*c\.jpg|<img[^>]*c\.jpg[^>]*alt=""/.test(withCover) && /<a[^>]*href="\/blog\/post-1"/.test(withCover))
 
