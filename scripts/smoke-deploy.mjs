@@ -63,7 +63,7 @@ export function plan(base, site, noDatabase = false) {
   const checks = [
     { path: "/", status: [200], cache: ["public"], why: "the home page is held by the CDN" },
     { path: "/pricing", status: [200], cache: ["public"], why: "pricing is held by the CDN" },
-    { path: "/explore", status: [200, 307, 308], cache: ["private", "public"], why: "explore is built per visitor (For you), a redirect may be public" },
+    { path: "/explore", status: [200, 307, 308], cache: ["no-store", "private", "public"], why: "explore is built per visitor (For you); its redirect may be public" },
     { path: "/features", status: [200], cache: ["public"], why: "features is held by the CDN" },
     { path: "/app", status: [200, 302, 303, 307, 308], cache: ["private", "no-store", "no-cache", "none"], why: "the dashboard is never shared" },
     { path: "/checkout/site", status: [200, 302, 303, 307, 308, 400, 404], cache: ["no-store"], why: "the website checkout is never stored" },
