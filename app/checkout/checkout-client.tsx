@@ -63,6 +63,7 @@ import { FAIL_COPY, WAIT_MS, fetchWithDeadline, requestJson } from "@/lib/net/re
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { confirmOutcomeUnknown, intentKey, nextPress, type Held } from "@/lib/checkout/pay-retry"
 import { CHECKING_MESSAGE } from "@/lib/checkout/confirm-outcome"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 
 interface CheckoutPageClientProps {
   product: {
@@ -282,6 +283,8 @@ export default function CheckoutPageClient({
    * confirms this same one rather than making a second, so a payment that did go through is never paid twice.
    */
   const heldIntent = React.useRef<Held<IntentResult> | null>(null)
+  /* One attempt id for this page view, sent with every PaymentIntent request: the same order pressed again gets the same PaymentIntent (lib/checkout/attempt-id). */
+  const attemptRef = React.useRef<string | null>(null)
 
   React.useEffect(() => setNativeApp(isNativeApp()), [])
   /* Touches a website's link carried here (`sl_at`): read once, then off the address (lib/attribution/browser). */
@@ -826,7 +829,7 @@ export default function CheckoutPageClient({
 
   const createIntent = async (contact?: { email?: string; name?: string }, methods?: string[]): Promise<IntentResult> => {
     /* The ways to pay the form loaded with: the PaymentIntent is made for exactly those (lib/checkout/payment-methods). */
-    const res = await postJson<IntentResult>("/api/checkout/stripe-session", { ...orderBody(contact), paymentMethods: methods })
+    const res = await postJson<IntentResult>("/api/checkout/stripe-session", { ...orderBody(contact), paymentMethods: methods, attemptId: attemptIdOf(attemptRef) })
     if (!res.ok || !res.data.clientSecret) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field) setBusinessErrors({ [field]: res.data.error || "Check this field." })
@@ -1277,7 +1280,7 @@ export default function CheckoutPageClient({
             start={async () => {
               const problem = check("card")
               if (problem) throw new Error(problem)
-              const res = await postJson<{ url?: string; sessionId?: string }>("/api/checkout/stripe-session", { ...orderBody(), walletSheet: true })
+              const res = await postJson<{ url?: string; sessionId?: string }>("/api/checkout/stripe-session", { ...orderBody(), walletSheet: true, attemptId: attemptIdOf(attemptRef) })
               if (!res.ok || !res.data.url || !res.data.sessionId) throw new Error(res.data.error || "Apple Pay and Google Pay could not be opened. Nothing was charged.")
               return { url: res.data.url, sessionId: res.data.sessionId }
             }}

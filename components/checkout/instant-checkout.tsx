@@ -40,6 +40,7 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { digitalTax, type CheckoutTax } from "@/lib/tax/rules"
 import { WAIT_MS, requestJson } from "@/lib/net/request"
 import { instantOrderBody } from "@/lib/onepage/product-block"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
@@ -233,6 +234,8 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
   }, [product])
 
   /* ── Paid: the checkout's own PaymentIntent, confirmed by Stripe, the order by confirm-payment ── */
+  /* One attempt id for this window, sent with every PaymentIntent request: the same order pressed again gets the same PaymentIntent (lib/checkout/attempt-id). */
+  const attemptRef = React.useRef<string | null>(null)
   const start = async (paymentMethodId: string): Promise<StartedPayment> => {
     void paymentMethodId
     if (preview) {
@@ -241,7 +244,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
     }
     const p = problem()
     if (p) throw new Error(p)
-    const res = await postJson<{ clientSecret?: string; paymentIntentId?: string }>("/api/checkout/stripe-session", order(false))
+    const res = await postJson<{ clientSecret?: string; paymentIntentId?: string }>("/api/checkout/stripe-session", { ...order(false), attemptId: attemptIdOf(attemptRef) })
     if (!res.ok || !res.data.clientSecret || !res.data.paymentIntentId) throw new Error(res.data.error || "The payment could not be started. Nothing was charged.")
     started.current = { paymentIntentId: res.data.paymentIntentId, clientSecret: res.data.clientSecret }
     return { clientSecret: res.data.clientSecret, type: "payment" }
