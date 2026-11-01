@@ -39,7 +39,7 @@ export type AddedSectionStore<S> = {
   subscribe(listener: () => void): () => void
 }
 
-const NONE: readonly never[] = []
+const NONE = [] as readonly never[]
 
 export function createAddedSectionStore<S>(): AddedSectionStore<S> {
   let value: readonly AddedSection<S>[] = NONE
