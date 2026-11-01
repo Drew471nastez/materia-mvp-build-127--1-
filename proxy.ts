@@ -1845,6 +1845,11 @@ async function routeRequest(request: NextRequest) {
       */
       const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       gateAsked?.catch(() => null)
+      /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
+      if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
+        const domain = await websiteDomainOf(subdomain)
+        if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
+      }
       /*
         WHICH RENDERER, OR "ONE MOMENT" (SITE-8). Every line below picks the
         renderer from these two answers. A server that holds neither and
@@ -1858,11 +1863,6 @@ async function routeRequest(request: NextRequest) {
         compatAnswers(pathname, request) ? compatSiteAnswer(subdomain, asksFresh(request)) : Promise.resolve<SiteAnswer>(false),
       ])
       if (aiKnown === "unavailable" || compatKnown === "unavailable") return siteUnavailable()
-      /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
-      if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
-        const domain = await websiteDomainOf(subdomain)
-        if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
-      }
       /*
         AND ITS SITEMAP. It lists the domain's addresses (the canonical ones),
         which a search engine refuses in a sitemap on another host. So the
