@@ -143,7 +143,7 @@ const plain = (s: string) => (isCompatSource(s) ? splitCompatFile(s).markup : s)
   console.log("\nTHE CANVAS")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    check("a value only CSS reads is written as the layout's styles that changed", /const edits = styles \? styleEdits\(plan\.shown, styles\) : null/.test(canvas) && /win\.postMessage\(\{ storelib: 1, type: "edits", edits, key \}, "\*"\)/.test(canvas))
+    check("a value only CSS reads is written as the layout's styles that changed", /const edits = styles \? styleEdits\(plan\.shown, styles\) : null/.test(canvas) && /sendTo\(win, \{ storelib: 1, type: "edits", edits, key \}\)/.test(canvas))
     check("which settings those are is read from the files at the first value, never after a page drawn whole", /if \(uses && onlyInCss\(uses, path\)\) \{/.test(canvas) && /const plan = cached && cached\.at === at \? cached : learnCss\(/.test(canvas))
     check("a setting the files do not vouch for is tried with values in the background, one drawing a task", /sameButStyles\(ahead\.page, \{ html: pagePure\(files, values, base\.page, base\.list\), styles \}\)/.test(canvas) && /if \(r === null && steps\.length\) window\.setTimeout\(next, 0\)/.test(canvas))
     check("what the frame holds is checked before the first value is written", /!shown\.every\(\(s\) => html\.includes\(s\)\)/.test(canvas))
