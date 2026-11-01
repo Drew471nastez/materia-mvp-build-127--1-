@@ -7,6 +7,7 @@ import { nativeAppReadyForce } from "@/lib/native-bridge"
 import { hasStoredSessionToken } from "@/lib/auth/session-read"
 import { isSignedOutAnswer } from "@/lib/auth/auth-error"
 import { postSessionSync } from "@/lib/auth/session-sync"
+import { BACKGROUND_MAX_TRIES, askServerState, backgroundDelayMs, retryQuietly } from "@/lib/auth/recovery-backoff"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -115,22 +116,50 @@ export function NativeAuthGate({
     /**
      * Already been round twice. Stop, keep the session, and let them choose.
      */
-    if (recoveryCount() >= MAX_RECOVERIES) {
-      setStuck(true)
-      why.current = "tries"
-      return
-    }
-
     let cancelled = false
+
+    if (recoveryCount() >= MAX_RECOVERIES) {
+      /*
+        Asked quietly first (lib/auth/recovery-backoff.ts): three tries over about six seconds behind the loading
+        screen. When the server can tell who this is again, the page is put back; only then the screen.
+      */
+      why.current = "tries"
+      void retryQuietly(async () => (await askServerState()) === "authenticated", { stopped: () => cancelled }).then((back) => {
+        if (cancelled) return
+        if (back) {
+          clearRecoveries()
+          window.location.reload()
+        } else setStuck(true)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
 
     async function checkNativeSession() {
       try {
         // Dynamic import so this only runs on the client in Capacitor
         const { createClient } = await import("@/lib/supabase/client")
         const supabase = createClient()
-        const { data: { session }, error } = await supabase.auth.getSession()
+        const read = async () => {
+          const { data: { session }, error } = await supabase.auth.getSession()
+          return { session, error }
+        }
+        let { session, error } = await read()
 
         if (cancelled) return
+
+        /* A renewal that could not reach Supabase: asked again quietly, three times over about six seconds, before any screen. */
+        if (!session && !isSignedOutAnswer(false, error)) {
+          await retryQuietly(
+            async () => {
+              ;({ session, error } = await read())
+              return !!session || isSignedOutAnswer(false, error)
+            },
+            { stopped: () => cancelled },
+          )
+          if (cancelled) return
+        }
 
         /**
          * NO SESSION IS NOT ALWAYS "SIGNED OUT". When the access token has
@@ -179,8 +208,9 @@ export function NativeAuthGate({
       }
     }
 
-    // Give Supabase client up to 10 s to restore from Preferences
-    // (slow devices + cold start + large session can take longer than 4s)
+    // Give Supabase client up to 16 s to restore from Preferences
+    // (slow devices + cold start + large session can take longer than 4s,
+    // and a renewal that failed is asked again quietly for about 6s first)
     const timeout = window.setTimeout(() => {
       if (cancelled) return
       why.current = "slow read"
@@ -192,7 +222,7 @@ export function NativeAuthGate({
        */
       if (hasStoredSessionToken()) setStuck(true)
       else router.replace("/login")
-    }, 10_000)
+    }, 16_000)
 
     checkNativeSession().then(() => window.clearTimeout(timeout))
 
@@ -260,6 +290,60 @@ export function NativeAuthGate({
       }).catch(() => {})
     } catch {
       /* reporting is never what breaks the screen */
+    }
+  }, [stuck])
+
+  /*
+    WHILE THE SCREEN IS UP, IT KEEPS TRYING (lib/auth/recovery-backoff.ts): ten tries, 2s apart and doubling to
+    30s, with jitter, and at once when the device comes back online. When the server can tell who this is again
+    the page is put back by itself. When it answers "nobody" while the device holds a session (the app keeps it
+    in its own storage, not in cookies), the session is written back once, as on the first load. Never a loop:
+    the tries end, and the sync is made once per screen.
+  */
+  useEffect(() => {
+    if (!stuck) return
+    let gone = false
+    let synced = false
+    let attempt = 0
+    let timer: number | undefined
+    const tryOnce = async () => {
+      if (gone) return
+      const state = await askServerState()
+      if (gone) return
+      if (state === "authenticated") {
+        clearRecoveries()
+        window.location.reload()
+        return
+      }
+      if (state === "anonymous" && !synced && hasStoredSessionToken()) {
+        synced = true
+        try {
+          const { createClient } = await import("@/lib/supabase/client")
+          const { data } = await createClient().auth.getSession()
+          if (!gone && data.session) {
+            postSessionSync(data.session, window.location.pathname + window.location.search)
+            return
+          }
+        } catch {
+          /* the next try asks again */
+        }
+      }
+      schedule()
+    }
+    const schedule = () => {
+      if (gone || attempt >= BACKGROUND_MAX_TRIES) return
+      timer = window.setTimeout(() => void tryOnce(), backgroundDelayMs(attempt++))
+    }
+    const online = () => {
+      window.clearTimeout(timer)
+      void tryOnce()
+    }
+    window.addEventListener("online", online)
+    schedule()
+    return () => {
+      gone = true
+      window.clearTimeout(timer)
+      window.removeEventListener("online", online)
     }
   }, [stuck])
 
