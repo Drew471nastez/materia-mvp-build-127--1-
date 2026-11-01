@@ -250,8 +250,9 @@ console.log("\nRoutes, sitemap, IndexNow")
 
 console.log("\nLinks into and out of the pages")
 {
-  check("the header draws on /alternatives and links Compare", code("components/marketing/conditional-header.tsx").includes('p.startsWith("/alternatives/")') && code("components/platform/platform-header-client.tsx").includes('href: "/alternatives", label: "Compare"'))
-  check("the phone menu has Compare", /href="\/alternatives"[\s\S]{0,300}<span>Compare<\/span>/.test(code("components/platform/platform-header-client.tsx")))
+  /* Changed on purpose (round 47, the owner): Compare left the header and the phone menu; the footer, /sell pages and the hub link it. */
+  check("the header draws on /alternatives and no longer links Compare", code("components/marketing/conditional-header.tsx").includes('p.startsWith("/alternatives/")') && !code("components/platform/platform-header-client.tsx").includes('label: "Compare"'))
+  check("the phone menu has no Compare either", !/<span>Compare<\/span>/.test(code("components/platform/platform-header-client.tsx")))
   check("the footer links Compare and draws on these pages", code("components/marketing/footer.tsx").includes('{ label: "Compare", href: "/alternatives" }') && code("components/marketing/conditional-footer.tsx").includes('pathname.startsWith("/alternatives/")'))
   check("/pricing carries the Compare Storelib line", code("app/(marketing)/pricing/page.tsx").includes("<CompareStrip />") && code("components/alternatives/compare-strip.tsx").includes("Compare Storelib"))
   const gum = getAlternative("gumroad")!

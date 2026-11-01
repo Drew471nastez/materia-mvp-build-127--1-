@@ -23,6 +23,7 @@
  * Installed means: a pixel with its ID saved, a provider with a key or an
  * address saved. Built in means it works with nothing to connect.
  */
+import { FILTER_PILL, FILTER_PILL_OFF, FILTER_PILL_ON, FILTER_PILL_ROW } from "@/components/app/filter-pills"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -814,7 +815,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       </div>
 
       <div className="flex items-start gap-2">
-        <div ref={pillsRef} className="relative -mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
+        <div ref={pillsRef} className={cn(FILTER_PILL_ROW, "flex-1")} role="tablist" aria-label={tt("Categories")} data-integration-pills="">
           {pills.map((f) => {
             const on = active === f
             return (
@@ -826,8 +827,9 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
                 onClick={() => chooseFilter(f)}
                 data-integration-pill={f}
                 className={cn(
-                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium [-webkit-tap-highlight-color:transparent]",
-                  on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
+                  /* One look with Customer emails' pills (components/app/filter-pills.tsx). */
+                  FILTER_PILL,
+                  on ? FILTER_PILL_ON : FILTER_PILL_OFF,
                 )}
               >
                 {f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}

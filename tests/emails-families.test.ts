@@ -86,7 +86,7 @@ async function main() {
   check("the old note that sent people to each community is gone", !/edited in each community/.test(panel + community))
   check("the family is in the address, so a link opens it", /searchParams\.set\("kind", v\)/.test(panel) && /get\("kind"\)/.test(panel))
   /* Changed on purpose (round 28, the owner: "restyle to Storelib UI, no grey segmented track that flashes"): Analytics' family chips, and the list is filtered in place, never remounted by the view. */
-  check("the switch is the shared family chips, with no grey track", /<SegmentedPills variant="chips" value=\{shown\}/.test(panel) && !/<SegmentedTabs value=\{shown\}/.test(panel))
+  check("the switch is the shared family chips, with no grey track", /* Changed on purpose (round 47): the Integrations pills */ /<FilterPills value=\{shown\}/.test(panel) && !/<SegmentedTabs value=\{shown\}/.test(panel))
   check("  the list is not keyed by the view, so a switch does not draw it again from nothing", !/key=\{shown\}/.test(panel) && !/animate-\[fade-in_180ms/.test(panel))
   const seg = read("components/app/segmented-tabs.tsx")
   check("  tabs with one stop, arrows, Home and End", /role="tablist"/.test(seg) && /tabIndex=\{on \? 0 : -1\}/.test(seg) && /ArrowRight/.test(seg) && /"Home"/.test(seg) && /"End"/.test(seg))
