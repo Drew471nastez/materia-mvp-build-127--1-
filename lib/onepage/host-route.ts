@@ -24,6 +24,11 @@
  *                            404 here, so the session, the dashboard and the
  *                            admin cannot be reached through this host
  *   /_next/..., fonts, media  as they are
+ *   /__canvas/{installId}    GET only: the builder's canvas shell
+ *                            (lib/website-builder/canvas-origin.ts), served
+ *                            by its route, which answers 404 unless the
+ *                            canvas origin is configured to be this host and
+ *                            the install's draft pass is given
  *   /app, /admin, /login,    308 to the same path on storelib.com: a
  *   /checkout, any platform  platform page is served where the session
  *   word                     lives, never on this host
@@ -55,6 +60,7 @@
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { getOnePageDomain } from "@/lib/onepage/address"
 import { isResolvableOnePageName } from "@/lib/onepage/username"
+import { CANVAS_FRAME_PATH, CANVAS_FRAME_ROUTE, CANVAS_INSTALL_ID } from "@/lib/website-builder/canvas-origin"
 
 export type OnePageRoute =
   /** Leave the request alone. */
@@ -253,6 +259,12 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   if (pathname === "/sitemap.xml") return { kind: "rewrite", path: "/sitemap/onepages.xml" }
   /* onepages-N-of-M.xml since round 44 (lib/seo/indexing.ts chunkIdRange); onepages-N.xml from an older index. */
   if (/^\/sitemap\/onepages-\d{1,6}(?:-of-\d{1,6})?\.xml$/.test(pathname)) return { kind: "next" }
+
+  /* The builder's canvas shell, one install id and nothing else; the route itself decides whether to answer (lib/website-builder/canvas-frame.ts). */
+  if (pathname.startsWith(CANVAS_FRAME_PATH) && (method === "GET" || method === "HEAD")) {
+    const id = pathname.slice(CANVAS_FRAME_PATH.length)
+    if (CANVAS_INSTALL_ID.test(id)) return { kind: "rewrite", path: `${CANVAS_FRAME_ROUTE}${id.toLowerCase()}${search}` }
+  }
 
   if (pathname === "/api" || pathname.startsWith("/api/")) {
     const allowed = ONEPAGE_HOST_API.some((a) => a.path.test(pathname) && a.methods.includes(method))
