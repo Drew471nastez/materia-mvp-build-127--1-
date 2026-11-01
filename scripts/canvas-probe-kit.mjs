@@ -115,13 +115,31 @@ export const STORELIB_GLOBALS = `window.PROBE_PAGES={home:["header","hero_center
 /* `init`: a script run in the editor's document before anything else (a devtools hook, an observer). `width`/`height`: the window. `settle`: ms left alone after the first draw. */
 /* `serve`: a function given a request's address, answering it ({ status, contentType, body }) or null (scripts/materia-live-kit.mjs: the real theme's pictures). `touch`: a phone's touch screen. */
 /* `assetDelay`: a function given a theme asset's name, answering how many ms it takes to arrive (0: at once); one that waits is served uncached (scripts/check-section-insert-smooth.mjs, a slow network). */
+/*
+  THE CANVAS ON A SITE OF ITS OWN (lib/website-builder/canvas-origin.ts): CANVAS_ORIGIN=<origin> (say http://storelib.me)
+  with an editor bundle built with it (editor-probe-harness.mjs reads the same variable). The shell document is
+  answered for that origin by the probe's own server, the name mapped to it (--host-resolver-rules), so the frame is
+  on that site as it would be in production.
+  SITE_PER_PROCESS=1 adds --site-per-process (desktop Chrome's default) should the headless build not have it.
+*/
+const CANVAS_ORIGIN = process.env.CANVAS_ORIGIN ?? ""
+const { canvasShellHtml } = CANVAS_ORIGIN ? await import("../lib/storelib-theme/compat/canvas-shell.ts") : { canvasShellHtml: null }
+
 export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500, serve = null, touch = false, assetDelay = null }) {
-  const all = kind === "imported" ? `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};${globals}` : globals
+  const pass = CANVAS_ORIGIN || process.env.PROBE_ASSET_PASS ? `window.PROBE_ASSET_PASS=${JSON.stringify("p".repeat(32))};` : ""
+  const all = kind === "imported" ? `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};${pass}${globals}` : globals
+  let editorBase = ""
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
     if (url.pathname === "/") {
       res.writeHead(200, { "Content-Type": "text/html" })
       res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;${all}</script><script src="/editor-probe.js"></script></body></html>`)
+      return
+    }
+    /* The canvas shell, asked on the canvas origin's host (mapped to this server below), as the real route answers it. */
+    if (CANVAS_ORIGIN && url.pathname.startsWith("/__canvas/") && req.headers.host === new URL(CANVAS_ORIGIN).host) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": `frame-ancestors ${editorBase}`, "Referrer-Policy": "strict-origin" })
+      res.end(canvasShellHtml(editorBase))
       return
     }
     if (url.pathname === "/editor-probe.js") {
@@ -148,9 +166,10 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
   })
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok))
   const base = `http://127.0.0.1:${server.address().port}`
+  editorBase = base
   const browser = await puppeteer.launch({
     executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", headless: true,
-    args: ["--no-sandbox", "--disable-gpu", `--force-device-scale-factor=${process.env.DSF ?? 1}`, "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"],
+    args: [...(process.env.SITE_PER_PROCESS ? ["--site-per-process"] : []), ...(CANVAS_ORIGIN ? [`--host-resolver-rules=MAP ${new URL(CANVAS_ORIGIN).hostname} 127.0.0.1:${server.address().port}`] : []), "--no-sandbox", "--disable-gpu", `--force-device-scale-factor=${process.env.DSF ?? 1}`, "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"],
   })
   const errors = []
   try {
@@ -165,13 +184,18 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
       const u = r.url()
       const served = serve && !u.startsWith(`${base}/api/site-theme/assets/`) && !u.startsWith(`${base}/editor-probe`) && u !== `${base}/` ? serve(u) : null
       if (served) return r.respond(served)
+      if (CANVAS_ORIGIN && u.startsWith(`${CANVAS_ORIGIN}/`)) return r.continue()
       if (/example\.invalid/.test(u) || /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(u)) return r.respond({ status: 200, contentType: "image/png", body: PNG })
       if (u.startsWith(base) || u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("about:")) return r.continue()
       return r.respond({ status: 200, contentType: "text/plain", body: "" })
     })
     if (beforeOpen) await beforeOpen(page)
     await page.goto(base, { waitUntil: "domcontentloaded" })
-    const front = async () => (await (await page.$("[data-compat-frame='front']"))?.contentFrame()) ?? null
+    /* The theme's own document: in the shell's frame when the canvas is on a site of its own. */
+    const front = async () => {
+      const f = (await (await page.$("[data-compat-frame='front']"))?.contentFrame()) ?? null
+      return f && CANVAS_ORIGIN && f.url().startsWith(CANVAS_ORIGIN) ? f.childFrames()[0] ?? null : f
+    }
     if (kind === "imported") {
       let f = null
       for (let i = 0; i < 160 && !f; i++) {

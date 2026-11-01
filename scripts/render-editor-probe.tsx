@@ -243,7 +243,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     }
     /* The theme's Storelib sections with any the writer saved since (PROBE_WRITER), as the files route answers. */
     const written = (window as unknown as { PROBE_FILES?: Record<string, string> }).PROBE_FILES
-    return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : { ...compat.sources, ...(written ?? {}) } })
+    /* PROBE_ASSET_PASS: the draft asset pass the real route hands the owner's editor with the theme's files (canvas-probe-kit.mjs sets it for CANVAS_ORIGIN). */
+    const pass = (window as unknown as { PROBE_ASSET_PASS?: string }).PROBE_ASSET_PASS
+    return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : { ...compat.sources, ...(written ?? {}) }, ...(pass ? { asset_pass: pass } : {}) })
   }
   if (/\/themes\/probe-install\/sections/.test(url)) {
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"
