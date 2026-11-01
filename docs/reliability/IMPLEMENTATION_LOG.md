@@ -172,3 +172,25 @@ after a rebase; nothing was lost and no shared branch was touched.
   the `storelib://reset-password?code=` app link (needs device testing),
   CSP enforcing, canvas on its own origin, a staging load test,
   Supabase capacity review (needs dashboard access).
+
+## Deploy 2 (live)
+
+Wave 2 merged with main (22 new commits; only the generated SQL catalog
+clashed; main's own new part became 350) and deployed on 2026-11-01 as
+`940fc71e0` (Vercel `dpl_3Nn662ARdyyNREnN1ap5yU1rBGna`, READY). Before the
+push: full `test:push` all suites passed, production build exit 0, error pages
+traced into 1058 of 1058 traces. After: public pages, the creator site, its
+robots.txt, OnePage on storelib.me and `/api/health` answer 200;
+`Permissions-Policy` is on storelib.com and absent on creator sites;
+`x-request-id` on responses; smoke: the same two pre-existing failures as
+deploy 1 (`/explore`, `/app` cache headers).
+
+First hour on the new deployment: a burst at 09:03–09:04 UTC of Supabase Auth
+`auth/v1/user` over 10s together with REST reads over 20s (`site_releases`,
+`community_members`): Supabase itself was slow. The new code handled it as
+designed (no sign outs; the theme site drew from rows; one "site unavailable").
+The proxy runs in the visitor's nearest region (fra1 for Europe) while
+functions run in iad1, so the proxy's session read crosses the Atlantic;
+creator site pages (`/collections/all` on a theme site) still do that read
+for owner previews. Candidate follow up: skip the proxy's session renewal on
+public theme site pages for visitors without a Storelib session cookie.
