@@ -48,7 +48,8 @@ export async function createClient({ fetch: underFetch }: { fetch?: typeof fetch
 
   return withMediaAddresses(createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     /* Every row read carries Storelib's own file addresses (lib/storage/media-url.ts). */
-    global: { fetch: underFetch ?? mediaFetch },
+    global: { fetch: mediaFetch },
+    ...(underFetch ? { global: { fetch: underFetch } } : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll()

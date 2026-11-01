@@ -141,7 +141,11 @@ export function NativeAuthGate({
         // Dynamic import so this only runs on the client in Capacitor
         const { createClient } = await import("@/lib/supabase/client")
         const supabase = createClient()
-        let { data: { session }, error } = await supabase.auth.getSession()
+        const read = async () => {
+          const { data: { session }, error } = await supabase.auth.getSession()
+          return { session, error }
+        }
+        let { session, error } = await read()
 
         if (cancelled) return
 
@@ -149,9 +153,7 @@ export function NativeAuthGate({
         if (!session && !isSignedOutAnswer(false, error)) {
           await retryQuietly(
             async () => {
-              const again = await supabase.auth.getSession()
-              session = again.data.session
-              error = again.error
+              ;({ session, error } = await read())
               return !!session || isSignedOutAnswer(false, error)
             },
             { stopped: () => cancelled },
