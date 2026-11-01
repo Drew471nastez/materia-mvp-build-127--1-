@@ -48,7 +48,7 @@ async function sign(key: CryptoKey, kid: string, payload: Record<string, unknown
 const now = () => Math.floor(Date.now() / 1000)
 const user = { id: "u1", aud: "authenticated", role: "authenticated" }
 
-function client(accessToken: string, jwks: unknown, calls: string[]) {
+function client(accessToken: string, jwks: unknown, calls: string[], authAccepts = true) {
   const session = { access_token: accessToken, refresh_token: "rt", token_type: "bearer", expires_in: 3600, expires_at: now() + 3600, user }
   const cookie = { name: "sb-abcd-auth-token", value: "base64-" + Buffer.from(JSON.stringify(session)).toString("base64url") }
   const fetch = async (url: string | URL) => {
@@ -57,6 +57,8 @@ function client(accessToken: string, jwks: unknown, calls: string[]) {
     if (u.endsWith("/.well-known/jwks.json")) return new Response(JSON.stringify(jwks), { status: 200, headers: { "content-type": "application/json" } })
     if (u.endsWith("/user")) {
       await new Promise((r) => setTimeout(r, SLOW_MS))
+      /* Supabase Auth refuses a token it did not sign (round rel3-auth: a token that fails the check here is Auth's to decide). */
+      if (!authAccepts) return new Response(JSON.stringify({ code: "bad_jwt", message: "invalid JWT" }), { status: 403, headers: { "content-type": "application/json" } })
       return new Response(JSON.stringify(user), { status: 200, headers: { "content-type": "application/json" } })
     }
     return new Response("{}", { status: 404 })
@@ -73,7 +75,7 @@ async function main() {
   const kid = "key-1"
   const publicJwk = { ...(await crypto.subtle.exportKey("jwk", real.publicKey)), kid, alg: "ES256", use: "sig" }
   const jwks = { keys: [publicJwk] }
-  const claims = { sub: "u1", aud: "authenticated", role: "authenticated", exp: now() + 3600, iat: now() }
+  const claims = { sub: "u1", aud: "authenticated", role: "authenticated", iss: `${URL_}/auth/v1`, exp: now() + 3600, iat: now() }
   const good = await sign(real.privateKey, kid, claims)
 
   /* The proxy's key fetch goes through the global fetch, the client's through its own. */
@@ -123,8 +125,9 @@ async function main() {
     ["a token whose claims were altered after signing", (() => { const [h, , s] = good.split("."); return `${h}.${b64url(JSON.stringify({ ...claims, sub: "someone-else" }))}.${s}` })()],
   ] as const) {
     const calls: string[] = []
-    const r = await readVerifiedSession(client(token, jwks, calls) as never, URL_)
+    const r = await readVerifiedSession(client(token, jwks, calls, false) as never, URL_)
     check(`${label} is not signed in`, r.state !== "authenticated", r)
+    check(`  ${label}: Supabase Auth, not the signature, decided (it said no: sign in)`, r.state === "anonymous" && calls.some((c) => c.endsWith("/user")), calls)
   }
 
   out("\nA project on the shared secret keeps the old check")

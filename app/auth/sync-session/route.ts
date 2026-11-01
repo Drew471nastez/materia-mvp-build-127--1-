@@ -8,6 +8,8 @@ import { CONTINUE_PATH, sameOriginPath } from "@/lib/auth/continue"
 import { classifyAuthError } from "@/lib/auth/auth-error"
 import { logLine } from "@/lib/net/log"
 import { REQUEST_ID_HEADER } from "@/lib/net/request-id"
+import { claimsBackedUserFetch } from "@/lib/auth/user-fetch-fallback"
+import { mediaFetch } from "@/lib/storage/media-url"
 
 /**
  * GET /auth/sync-session?...&next=/app  signs NOBODY in.
@@ -84,7 +86,15 @@ async function syncSession(request: Request, accessToken: string | null, refresh
     )
   }
 
-  const supabase = await createClient()
+  /*
+    SUPABASE AUTH SLOW IS NOT "CANNOT REACH THE SERVER" (lib/auth/user-fetch-fallback.ts). setSession asks Auth about
+    a token still in date; when Auth does not answer in AUTH_FIRST_TRY_MS the token's own signature is checked here
+    and the session written from its verified claims. A token Auth refused, or one that does not check out, is
+    handled exactly as before.
+  */
+  let fromClaims = false
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabase = await createClient(supabaseUrl ? { fetch: claimsBackedUserFetch(mediaFetch, supabaseUrl, { onFallback: () => { fromClaims = true } }) } : {})
   const { data, error } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -119,7 +129,9 @@ async function syncSession(request: Request, accessToken: string | null, refresh
     After the answer, so nobody waits for it; it never overwrites a photo
     they set and never fails the sign in.
   */
-  const signedIn = data.user
+  /* Written from the token's claims: the photo and name hooks wait for a sign in Auth itself answered. */
+  if (fromClaims) console.warn(logLine("sync_session_claims", { rid: request.headers.get(REQUEST_ID_HEADER) }))
+  const signedIn = fromClaims ? null : data.user
   if (signedIn) after(() => keepProviderPhoto(createAdminClient() as unknown as ProviderPhotoDb, signedIn).then(() => undefined))
   /* And the provider's name over a made up one, the same way (lib/profile/keep-name). */
   if (signedIn) after(() => keepProfileName(createAdminClient() as unknown as KeepNameDb, signedIn).then(() => undefined))

@@ -181,7 +181,8 @@ async function run() {
     /* What the skipped work would have cost: with no cookie the real client answers anonymous, but the keys were fetched first. */
     const written: string[] = []
     const before = await readVerifiedSession(client(auth.url, [], written), auth.url)
-    check("  (before: an anonymous visitor's read fetched the signing keys first)", before.state === "anonymous" && auth.state.hits.includes("/auth/v1/.well-known/jwks.json"), auth.state.hits)
+    /* Round rel3-auth: readVerifiedSession reads the token first, so even when asked it fetches no keys for nobody. */
+    check("  (and even asked, an anonymous visitor's read now fetches nothing)", before.state === "anonymous" && auth.state.hits.length === 0, auth.state.hits)
   }
 
   console.log("\n3b. Off /app, /dashboard and /sell the proxy only renews")

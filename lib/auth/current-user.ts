@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 import { classifyAuthError } from "./auth-error"
+import { canVerifyLocally, forgetSigningKeys, userFromClaims, verifyAccessToken } from "./verify-token"
 
 /**
  * ===========================================================================
@@ -79,15 +80,15 @@ export interface CurrentUser {
  */
 const classify = classifyAuthError
 
-/** getUser(), with a ceiling, because it goes to the network. */
-async function getUserBounded(supabase: SupabaseClient, ms: number) {
+/** getUser(), with a ceiling, because it goes to the network. With `jwt`, that token is asked about and supabase-js's session lock is not taken. */
+async function getUserBounded(supabase: SupabaseClient, ms: number, jwt?: string) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<{ timedOut: true }>((resolve) => {
     timer = setTimeout(() => resolve({ timedOut: true }), ms)
   })
   try {
     return await Promise.race([
-      supabase.auth.getUser().then((r) => ({ ...r, timedOut: false as const })),
+      (jwt ? supabase.auth.getUser(jwt) : supabase.auth.getUser()).then((r) => ({ ...r, timedOut: false as const })),
       timeout,
     ])
   } catch (error) {
@@ -96,6 +97,28 @@ async function getUserBounded(supabase: SupabaseClient, ms: number) {
     if (timer) clearTimeout(timer)
   }
 }
+
+/** getSession(), with a ceiling: no request unless the access token ran out and is renewed. */
+async function getSessionBounded(supabase: SupabaseClient, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<{ timedOut: true }>((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms)
+  })
+  try {
+    return await Promise.race([supabase.auth.getSession().then((r) => ({ ...r, timedOut: false as const })), timeout])
+  } catch (error) {
+    return { data: { session: null }, error, timedOut: false as const }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * How long Supabase Auth is given when the token can be checked here
+ * instead (lib/auth/verify-token.ts): one try, short, then the signature.
+ * Without that, the old three seconds and one retry.
+ */
+export const AUTH_FIRST_TRY_MS = 2_500
 
 /**
  * Who is making this request, and how sure are we.
@@ -110,10 +133,16 @@ export async function readCurrentUser(
   {
     timeoutMs = 3_000,
     retries = 1,
-    /** The Supabase URL, whose public keys verify the token when Auth does not answer. Off unless given. */
+    /** The Supabase URL: when Auth does not answer, the token is checked here (lib/auth/verify-token.ts). Off unless given. */
     fallbackClaims = null,
-  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null } = {},
+    /** Auth's one try when the fallback can check the token. */
+    firstTryMs = AUTH_FIRST_TRY_MS,
+  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null; firstTryMs?: number } = {},
 ): Promise<CurrentUser> {
+  if (fallbackClaims && typeof (supabase.auth as { getSession?: unknown }).getSession === "function") {
+    return readWithFallback(supabase, fallbackClaims, { timeoutMs, retries, firstTryMs })
+  }
+
   let reason = "unknown"
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -136,60 +165,74 @@ export async function readCurrentUser(
     if (attempt < retries) await new Promise((r) => setTimeout(r, 200 + Math.round(Math.random() * 150)))
   }
 
-  /*
-    SUPABASE AUTH DID NOT ANSWER: THE TOKEN CAN STILL BE CHECKED. This is
-    what put "Cannot reach the server" over /app/settings: getUser() is a
-    round trip to Supabase Auth on every page, every soft navigation and
-    every prefetch, and when it timed out the layout handed the screen to the
-    browser's recovery (components/native-auth-gate.tsx), which went through
-    /auth/sync-session (the same Auth again) and, twice later, gave up.
-
-    The access token in the cookie is a JWT Supabase signed. Checked against
-    Supabase's public keys (kept per instance, signingKeys below) it says who
-    this is without asking Auth: a forged, altered or expired token fails.
-    That is the same check Postgres row level security makes on every query,
-    so nothing is readable here that the token would not open anyway. What it
-    cannot see is a session revoked in the last hour (the token's life),
-    which row level security cannot see either; and user_metadata is as of
-    the token, which is why getUser stays the first question.
-
-    Only with asymmetric keys: on the shared secret getClaims would call
-    getUser again, which is the call that just failed.
-  */
-  if (fallbackClaims) {
-    const claimed = await userFromClaims(supabase, fallbackClaims)
-    if (claimed) return { user: claimed, state: "authenticated", verifiedBy: "claims", reason }
-  }
-
   return { user: null, state: "indeterminate", reason }
 }
 
-/** The fallback's own ceiling: the keys are normally in memory, so this is a signature check, not a request. */
-const CLAIMS_FALLBACK_MS = 1_500
+/*
+  ===========================================================================
+   SUPABASE AUTH DID NOT ANSWER: THE TOKEN CAN STILL BE CHECKED
+  ===========================================================================
+  This is what put "Cannot reach the server" over /app: getUser() is a round
+  trip to Supabase Auth on every page, and when it timed out the layout
+  handed the screen to the browser's recovery (components/native-auth-gate),
+  which went through /auth/sync-session (the same Auth again) and gave up.
 
-async function userFromClaims(supabase: SupabaseClient, supabaseUrl: string): Promise<User | null> {
-  try {
-    const jwks = await signingKeys(supabaseUrl)
-    if (!jwks.keys.length) return null
-    const result = await getClaimsBounded(supabase, jwks, CLAIMS_FALLBACK_MS)
-    if (result.timedOut) return null
-    const claims = (result as { data: { claims?: Record<string, unknown> } | null }).data?.claims
-    const sub = typeof claims?.sub === "string" ? claims.sub : null
-    if (!claims || !sub || (result as { error?: unknown }).error) return null
-    return {
-      id: sub,
-      aud: typeof claims.aud === "string" ? claims.aud : "authenticated",
-      role: typeof claims.role === "string" ? claims.role : undefined,
-      email: typeof claims.email === "string" ? claims.email : undefined,
-      phone: typeof claims.phone === "string" ? claims.phone : undefined,
-      app_metadata: (claims.app_metadata as User["app_metadata"]) ?? {},
-      user_metadata: (claims.user_metadata as User["user_metadata"]) ?? {},
-      is_anonymous: claims.is_anonymous === true,
-      created_at: "",
-    } as User
-  } catch {
-    return null
+  The fallback that was meant to stop it never ran in production, twice
+  over: it verified only with public keys, and this project signs with the
+  shared secret (its JWKS is empty); and it read the token through
+  getClaims(), which takes supabase-js's session lock, which the hung
+  getUser() was still holding, so it waited out its own ceiling.
+
+  So the token is read FIRST (getSession: the cookie, renewed only when it
+  ran out, exactly what getUser() reads), Auth is asked about that token
+  (getUser(jwt), no lock), and when Auth does not answer the same token is
+  checked here (lib/auth/verify-token.ts: HS256 with SUPABASE_JWT_SECRET, or
+  the JWKS). Same three answers as before: a definite "no" from Auth is
+  still a sign out, a forged or expired token is never a yes, and when the
+  token cannot be checked here it is "could not tell" exactly as before.
+  When it can, Auth gets one short try instead of two long ones.
+*/
+async function readWithFallback(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  { timeoutMs, retries, firstTryMs }: { timeoutMs: number; retries: number; firstTryMs: number },
+): Promise<CurrentUser> {
+  const read = await getSessionBounded(supabase, timeoutMs)
+  if (read.timedOut) return { user: null, state: "indeterminate", reason: "timed out" }
+  const { data: sessionData, error: sessionError } = read as { data: { session: { access_token?: string } | null }; error: unknown }
+  if (sessionError) {
+    const verdict = classify(sessionError)
+    if (verdict.signedOut) return { user: null, state: "anonymous" }
+    return { user: null, state: "indeterminate", reason: verdict.reason }
   }
+  const token = sessionData?.session?.access_token
+  /* No token: what getUser() answers with AuthSessionMissingError. */
+  if (!token) return { user: null, state: "anonymous" }
+
+  const local = await canVerifyLocally(supabaseUrl)
+  const tries = local ? 0 : retries
+  const ms = local ? Math.min(timeoutMs, firstTryMs) : timeoutMs
+  let reason = "unknown"
+  for (let attempt = 0; attempt <= tries; attempt++) {
+    const result = await getUserBounded(supabase, ms, token)
+    if ("timedOut" in result && result.timedOut) {
+      reason = "timed out"
+    } else {
+      const { data, error } = result as { data: { user: User | null }; error: unknown }
+      if (data?.user) return { user: data.user, state: "authenticated", verifiedBy: "user" }
+      if (!error) return { user: null, state: "anonymous" }
+      const verdict = classify(error)
+      if (verdict.signedOut) return { user: null, state: "anonymous" }
+      reason = verdict.reason
+    }
+    if (attempt < tries) await new Promise((r) => setTimeout(r, 200 + Math.round(Math.random() * 150)))
+  }
+
+  if (local) {
+    const claims = await verifyAccessToken(token, supabaseUrl)
+    if (claims) return { user: userFromClaims(claims), state: "authenticated", verifiedBy: "claims", reason }
+  }
+  return { user: null, state: "indeterminate", reason }
 }
 
 /**
@@ -207,105 +250,52 @@ export function shouldSendToLogin(current: CurrentUser): boolean {
  * ===========================================================================
  *  THE SAME QUESTION, VERIFIED WITHOUT A ROUND TRIP WHEN IT CAN BE
  * ===========================================================================
- * proxy.ts asks readCurrentUser on every matched request: each page, each
- * prefetch the router makes of a link on screen, each /api call. getUser()
- * is a round trip to Supabase Auth, so for anybody signed in every one of
- * those waited on Supabase before the page could start, and the page then
- * asked again (lib/auth/request-scope). On a slow minute for Supabase Auth
- * the proxy alone held a request for 3s, a pause, and 3s again.
+ * proxy.ts asks this for /app, /dashboard and /sell, where a signed out
+ * visitor is sent to sign in. It reads the token (getSession: the cookie,
+ * renewed when it ran out, which only the proxy can write back) and checks
+ * its signature here (lib/auth/verify-token.ts: HS256 with
+ * SUPABASE_JWT_SECRET, or ES256 with the JWKS kept per instance). A token
+ * that checks out is signed in with no request to Supabase Auth at all: the
+ * proxy runs in the visitor's region (fra1) and Auth is across the Atlantic.
  *
- * getClaims() checks the access token's signature with Supabase's public
- * signing keys when the project signs with asymmetric keys, which needs no
- * round trip once the keys are known. It is still a verification: a forged
- * or altered token fails it. A project that signs with the old shared
- * secret has no public key to check against, and getClaims falls back to
- * getUser() itself, so this is never weaker than readCurrentUser, only
- * faster where it can be.
- *
- * The keys are kept here, per server instance, because the proxy makes a
- * new Supabase client per request and the client's own copy would be
- * fetched again every time. Fetched with a ceiling; a failed fetch is
- * remembered briefly so a slow key endpoint is not asked on every request.
+ * A token that does NOT check out here is never called signed out on that
+ * alone (a missing or wrong secret must not sign anybody out): it goes to
+ * Supabase Auth, as before, and Auth's own answer decides. `user` is always
+ * null here; the layouts read the person themselves.
  */
-type Jwks = { keys: Array<Record<string, unknown> & { kid?: string }> }
-const JWKS_FRESH_MS = 10 * 60_000
-const JWKS_FAILED_MS = 60_000
-let jwksCache: { jwks: Jwks; until: number } | null = null
-let jwksLoading: Promise<Jwks> | null = null
+export { forgetSigningKeys }
 
-async function signingKeys(supabaseUrl: string): Promise<Jwks> {
-  const now = Date.now()
-  if (jwksCache && jwksCache.until > now) return jwksCache.jwks
-  if (jwksLoading) return jwksLoading
-  jwksLoading = (async () => {
-    try {
-      const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/.well-known/jwks.json`, { signal: AbortSignal.timeout(2_000) })
-      const body = res.ok ? ((await res.json()) as Partial<Jwks>) : null
-      const keys = body?.keys
-      const jwks: Jwks = { keys: Array.isArray(keys) ? keys : [] }
-      jwksCache = { jwks, until: Date.now() + (jwks.keys.length ? JWKS_FRESH_MS : JWKS_FAILED_MS) }
-      return jwks
-    } catch {
-      jwksCache = { jwks: { keys: [] }, until: Date.now() + JWKS_FAILED_MS }
-      return jwksCache.jwks
-    } finally {
-      jwksLoading = null
-    }
-  })()
-  return jwksLoading
-}
-
-/** For tests: forget the keys. */
-export function forgetSigningKeys() {
-  jwksCache = null
-  jwksLoading = null
-}
-
-async function getClaimsBounded(supabase: SupabaseClient, jwks: Jwks, ms: number) {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<{ timedOut: true }>((resolve) => {
-    timer = setTimeout(() => resolve({ timedOut: true }), ms)
-  })
-  try {
-    return await Promise.race([
-      supabase.auth.getClaims(undefined, jwks.keys.length ? ({ jwks } as Parameters<SupabaseClient["auth"]["getClaims"]>[1]) : {}).then((r) => ({ ...r, timedOut: false as const })),
-      timeout,
-    ])
-  } catch (error) {
-    return { data: null, error, timedOut: false as const }
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-}
-
-/**
- * The proxy's read: who is signed in, verified, with the same three answers
- * and the same one retry as readCurrentUser. `user` is always null here; the
- * proxy only decides whether to send a request to sign in, and the layouts
- * read the person themselves.
- */
 export async function readVerifiedSession(
   supabase: SupabaseClient,
   supabaseUrl: string,
   { timeoutMs = 3_000, retries = 1 }: { timeoutMs?: number; retries?: number } = {},
 ): Promise<CurrentUser> {
+  const read = await getSessionBounded(supabase, timeoutMs)
+  if (read.timedOut) return { user: null, state: "indeterminate", reason: "timed out" }
+  const { data: sessionData, error: sessionError } = read as { data: { session: { access_token?: string } | null }; error: unknown }
+  if (sessionError) {
+    const verdict = classify(sessionError)
+    if (verdict.signedOut) return { user: null, state: "anonymous" }
+    return { user: null, state: "indeterminate", reason: verdict.reason }
+  }
+  const token = sessionData?.session?.access_token
+  if (!token) return { user: null, state: "anonymous" }
+
+  if (await verifyAccessToken(token, supabaseUrl)) return { user: null, state: "authenticated", verifiedBy: "claims" }
+
   let reason = "unknown"
-  const jwks = await signingKeys(supabaseUrl)
-
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const result = await getClaimsBounded(supabase, jwks, timeoutMs)
-
-    if (result.timedOut) {
+    const result = await getUserBounded(supabase, timeoutMs, token)
+    if ("timedOut" in result && result.timedOut) {
       reason = "timed out"
     } else {
-      const { data, error } = result as { data: { claims?: { sub?: string } } | null; error: unknown }
-      if (data?.claims?.sub) return { user: null, state: "authenticated" }
+      const { data, error } = result as { data: { user: User | null }; error: unknown }
+      if (data?.user) return { user: null, state: "authenticated", verifiedBy: "user" }
       if (!error) return { user: null, state: "anonymous" }
       const verdict = classify(error)
       if (verdict.signedOut) return { user: null, state: "anonymous" }
       reason = verdict.reason
     }
-
     if (attempt < retries) await new Promise((r) => setTimeout(r, 250))
   }
 

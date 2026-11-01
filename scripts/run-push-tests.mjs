@@ -41,6 +41,8 @@ const SUITES = [
   "tests/auth-reliability.test.ts",
   /* Round rel3-auth: an access token checked here when Supabase Auth does not answer: HS256 with SUPABASE_JWT_SECRET (the project is on the legacy shared secret, JWKS empty) or ES256 with the JWKS; forged, altered, expired, wrong issuer, audience or role, alg none or confusion all refused; the secret never in a client file. */
   "tests/auth-local-verify.test.ts",
+  /* Round rel3-auth: Supabase Auth answering after 15s, never, or 503: /app's server render (currentUserForRequest, pageUser) still has the person from the token's verified HS256 claims in ~2.5s with one question to Auth; the proxy asks Auth nothing for a token that checks out; POST /auth/sync-session writes the session; a forged, altered, expired, wrong issuer or anon-role token is never a user; Auth's own "no" still signs out; a change (routeUser fresh) still never takes the signature alone. */
+  "tests/auth-hs256-outage.test.ts",
   /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
   "tests/auth-email-code.test.ts",
   /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */

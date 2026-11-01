@@ -37,7 +37,8 @@ function getCookieDomain(_requestHost: string, _mainDomain: string): undefined {
   return undefined
 }
 
-export async function createClient() {
+/** `fetch`: the fetch under this one client instead of mediaFetch (only /auth/sync-session's claims fallback passes one). */
+export async function createClient({ fetch: underFetch }: { fetch?: typeof fetch } = {}) {
   const cookieStore = await cookies()
   const headerStore = await headers()
   const mainDomain = getMainDomain()
@@ -47,7 +48,7 @@ export async function createClient() {
 
   return withMediaAddresses(createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     /* Every row read carries Storelib's own file addresses (lib/storage/media-url.ts). */
-    global: { fetch: mediaFetch },
+    global: { fetch: underFetch ?? mediaFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll()
