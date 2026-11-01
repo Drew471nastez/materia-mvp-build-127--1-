@@ -226,3 +226,14 @@ timed out and the error screens showed.
 Still open after wave 3: the owner's key migration (or `SUPABASE_JWT_SECRET`),
 SQL 347, 348, 349, 352, canvas staging check, the `storelib://` app link on a
 device, CSP enforcing, a staging load test, Supabase capacity review.
+
+## Deploy 3 (live)
+
+Wave 3 deployed on 2026-11-01 as `bdaae889d` (Vercel
+`dpl_B566bfbUcBN2i3UVPTeSL8uaFb8T`). Before: full `test:push` passed except
+one smoke pin the lead had changed (fixed, suite rerun 85/0); production build
+exit 0, error pages traced into 1060 of 1060. After: home, pricing, explore,
+health, `/api/auth/state`, the creator site and its robots.txt answer as
+expected; `/app` redirect is `private, no-store`; `smoke-deploy` all passed
+(first time with no failures); no runtime errors in the first 15 minutes.
+The sign-in errors only fully stop once the owner does MANUAL_ACTIONS 2b.
