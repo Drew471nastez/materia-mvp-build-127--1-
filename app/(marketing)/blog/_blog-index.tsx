@@ -4,8 +4,6 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 import { BLOG_FEED_ALTERNATE, BLOG_ORIGIN, blogPage, blogPagePath, type BlogPost } from "@/lib/blog/listing"
 import { blogJsonLd, breadcrumbListJsonLd } from "@/lib/blog/structured-data"
-import type { BlogCategory } from "@/lib/blog/article"
-import { readBlogCategories } from "@/lib/blog/categories"
 import { readBlogPosts } from "@/lib/blog/read"
 
 /*
@@ -29,29 +27,20 @@ export function blogIndexMetadata(page: number): Metadata {
   })
 }
 
-export function BlogIndex({ posts, page, pages, categories }: { posts: BlogPost[]; page: number; pages: number; categories?: BlogCategory[] }) {
+export function BlogIndex({ posts, page, pages }: { posts: BlogPost[]; page: number; pages: number }) {
   const crumbs = [{ name: "Blog", path: "/blog" }, ...(page > 1 ? [{ name: `Page ${page}`, path: blogPagePath(page) }] : [])]
   return (
     <>
       {/* The Blog with this page's posts as its blogPost items, and where the page sits. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(blogJsonLd(posts, { url: `${BLOG_ORIGIN}${blogPagePath(page)}`, description: DESCRIPTION })) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbListJsonLd(crumbs)) }} />
-      <BlogListing
-        posts={posts}
-        activeCategory={null}
-        title="Blog"
-        subtitle="Guides for creators who sell online: getting started, pricing, growth and what is new in Storelib."
-        pagination={{ page, pages }}
-        featured={page === 1}
-        categories={categories}
-      />
+      {/* The title, its line and the category pills are the blog's layout (./layout.tsx), the same on every list. */}
+      <BlogListing posts={posts} activeCategory={null} pagination={{ page, pages }} featured={page === 1} />
     </>
   )
 }
 
 /** Page `page`, or null when the blog has no such page. */
 export async function blogIndexPage(page: number) {
-  const [posts, categories] = await Promise.all([readBlogPosts(), readBlogCategories()])
-  const cut = blogPage(posts, page)
-  return cut ? { ...cut, categories } : null
+  return blogPage(await readBlogPosts(), page)
 }

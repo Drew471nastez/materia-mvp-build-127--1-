@@ -16,6 +16,6 @@ export const metadata: Metadata = blogIndexMetadata(1)
 
 /* Page 1 of the index; the rest are /blog/page/<n> (./page/[page]/page.tsx), linked from the foot of this one. */
 export default async function BlogPage() {
-  const first = (await blogIndexPage(1)) ?? { posts: [], page: 1, pages: 1, categories: undefined }
-  return <BlogIndex posts={first.posts} page={1} pages={first.pages} categories={first.categories} />
+  const first = (await blogIndexPage(1)) ?? { posts: [], page: 1, pages: 1 }
+  return <BlogIndex posts={first.posts} page={1} pages={first.pages} />
 }
