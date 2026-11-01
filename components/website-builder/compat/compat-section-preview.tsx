@@ -34,7 +34,7 @@ import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, 
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
 import { SHEET_WAIT_MS, releaseLateSheets } from "@/lib/storelib-theme/compat/sheet-guard"
-import { reportLoadProblem } from "@/lib/website-builder/load-guard"
+import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guard"
 import type { SectionSchema } from "@/lib/website-builder/types"
 import { markupLooksEmpty, rememberedHeightOk, rememberedHeightsFrom, sampleBlocks, textTag } from "@/lib/website-builder/preview-markup"
 import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
@@ -285,7 +285,9 @@ export function previewDocument(theme: CompatTheme, page: CompatPage, section: S
   const shell = previewShell(theme, page)
   if (shell.includes(PREVIEW_SLOT)) {
     const ctx = pageContextFor(theme, page, [section])
-    const { html } = drawSection(theme, ctx, section, 0)
+    const { html, errors } = drawSection(theme, ctx, section, 0)
+    /* Closed where it ends if it left a <template> or a comment open (lib/storelib-theme/compat/seal.ts); said once. */
+    reportSealed("section-preview", { [section.type]: errors })
     return shell.replace(PREVIEW_SLOT, () => cleanPreview(html))
   }
   return cleanPreview(fullPreview(theme, page, [section]))

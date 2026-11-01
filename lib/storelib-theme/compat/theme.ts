@@ -136,6 +136,7 @@ import { themeVars } from "@/lib/website-builder/theme-css"
 import { canonicalPageOf, pageQuery } from "@/lib/website-builder/tab-title"
 import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
+import { SEALED_NOTE, sealMarkup } from "./seal"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
@@ -253,6 +254,35 @@ const splitHeld = boundedCache<{ markup: string; schemaText: string | null }>(15
 const treesHeld = boundedCache<{ tree: Parsed | null; warning: string | null }>(1500)
 const bundlesHeld = boundedCache<string>(16)
 
+/*
+  WHERE A COMPATIBLE FILE'S OWN <template> ENDS (1 Nov 2026, andrewrullz).
+  A theme's markup may hold an HTML <template> of its own whose `</template>`
+  stands alone on its line: Materia's snippets/faq-live-accordion.storelib
+  keeps its icons in `<template data-faq-icons>`. A file Storelib writes
+  guards such a line (wrapCompatTemplate); a file written by hand on GitHub
+  may not. Read as "the first line that is only `</template>`", the snippet
+  ended inside its icons' <template>: the FAQ's questions were cut off, and
+  the page was left with a <template> open that took every section after it
+  (the footer, the phone's tab bar) and the canvas bridge out of the page.
+  So the file's own block ends at the first such line followed only by blank
+  lines and the file's `<schema>`; at the first such line at all when none
+  is, as before.
+*/
+const TEMPLATE_END = /^\s*<\/template>\s*$/
+
+/** The line a compatible file's own `<template compat="shopify">`, opened on line `start`, ends on, or -1. */
+export function compatTemplateEnd(lines: readonly string[], start: number): number {
+  let first = -1
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!TEMPLATE_END.test(lines[i])) continue
+    if (first < 0) first = i
+    let j = i + 1
+    while (j < lines.length && lines[j].trim() === "") j++
+    if (j >= lines.length || /^\s*<schema>/.test(lines[j])) return i
+  }
+  return first
+}
+
 /** The markup and the schema of a compatible file. The schema is a new object on every call. */
 function splitOf(source: string): { markup: string; schemaText: string | null } | null {
   let hit = splitHeld.get(source)
@@ -260,8 +290,8 @@ function splitOf(source: string): { markup: string; schemaText: string | null } 
     const lines = source.split("\n")
     const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
     if (start < 0) return null
-    let end = start + 1
-    while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
+    const found = compatTemplateEnd(lines, start)
+    const end = found < 0 ? lines.length : found
     const markup = lines.slice(start + 1, end).join("\n").split(GUARD).join("")
     const rest = lines.slice(end + 1).join("\n")
     const sm = rest.match(/<schema>\s*([\s\S]*?)\s*<\/schema>/)
@@ -1053,6 +1083,13 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
+    /* What the section left open is closed where it ends: an open <template> or <textarea> took every section after it, and the canvas bridge, out of the page (./seal.ts). */
+    const sealed = sealMarkup(html)
+    if (sealed.closed.length) {
+      html = sealed.html
+      errors.push(`${SEALED_NOTE} ${sealed.closed.join(", ")}`)
+      this.diagnostics.add(`The section "${instance.type}" left ${sealed.closed.join(", ")} open; it was closed where the section ends`)
+    }
     if (faqs.length && !FAQ_SHOWN.has(faqProduct as object)) {
       const placed = withFaqUnderDescription(html, String((faqProduct as O).description ?? ""), faqs)
       if (placed !== null) {

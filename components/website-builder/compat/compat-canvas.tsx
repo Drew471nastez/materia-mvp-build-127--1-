@@ -65,7 +65,7 @@ import { setShownCompatPage } from "@/lib/website-builder/compat-shown-page"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, liveSectionNow, liveThemeNow, onLiveChange, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 import { canvasScrolling, noteCanvasScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
-import { reportLoadProblem } from "@/lib/website-builder/load-guard"
+import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
@@ -834,6 +834,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const extra = { extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` }
     const account = !ahead && accountPath ? canvasAccountPage(canvasSite(), accountPath, extra) : null
     const drawn = account ?? drawPage(compatTheme!, drawnPage, list, { scripts: true, ...extra })
+    /* A section that left a <template> or a <textarea> open is closed where it ends (lib/storelib-theme/compat/seal.ts), and said, so it is found from the log rather than from a blank footer. */
+    if (!account) reportSealed("compat-canvas", (drawn as { errors?: Record<string, string[]> }).errors)
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */

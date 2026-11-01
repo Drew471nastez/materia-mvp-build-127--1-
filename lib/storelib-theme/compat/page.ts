@@ -15,6 +15,7 @@ import { parseCompat } from "./parser"
 import { CompatTheme, compatMarkupOf, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
+import { SEALED_NOTE, sealMarkup } from "./seal"
 import { withShopifyModules } from "./shims"
 import { withStorelibReviewsSection } from "./storelib-reviews"
 import { withNewTabAnchors } from "@/lib/website-builder/new-tab"
@@ -153,6 +154,12 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
         return r.html
       })
       .join("")
+  }
+  /* Each section is closed off where it ends (./seal.ts); the content as a whole too, a Liquid template's or a page's own, so what the layout prints after it (the footer group, the builder's bridge) stays in the page. */
+  const sealed = sealMarkup(content)
+  if (sealed.closed.length) {
+    content = sealed.html
+    errors.template = [...(errors.template ?? []), `${SEALED_NOTE} ${sealed.closed.join(", ")}`]
   }
   /* The fonts the theme's settings name, from a public font library (font_face draws no rule of its own). */
   const fonts = theme.fontStylesheets(ctx).map((href) => `<link rel="stylesheet" href="${href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" data-storelib-font>`).join("")
