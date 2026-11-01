@@ -347,7 +347,7 @@ async function main() {
     check("  one picture, or a few posts a request, each in turn", /copyExternalImage\(body\.url\)/.test(route) && /\.slice\(0, 10\)/.test(route) && /for \(const id of ids\)/.test(route) && /await copyPostImages\(supabase, id\)/.test(route))
     check("  both store where the editor's uploads go", /storeBlogPicture\(picture\)/.test(upload) && /store: storeBlogPicture/.test(code("lib/blog/copy-image.ts")) && /preparePublicImage\(bytes, COPY_IMAGE_MAX_BYTES\)/.test(code("lib/blog/copy-image.ts")))
     const editor = code("app/admin/blog/posts/_editor-client.tsx")
-    check("the editor shows the notice for the cover, the share image and picture blocks, and copies one at a time", /externalImagesOf\(meta, blocks\)/.test(editor) && /<ExternalImagesNotice/.test(editor) && /for \(const \[i, img\] of list\.entries\(\)\)/.test(editor) && /Copy to Storelib/.test(editor))
+    check("the editor shows the notice for the cover, the share image and picture blocks, and copies one at a time", /externalImagesOf\(meta, (calmBlocks|blocks)\)/.test(editor) && /<ExternalImagesNotice/.test(editor) && /for \(const \[i, img\] of list\.entries\(\)\)/.test(editor) && /Copy to Storelib/.test(editor))
     const list = code("app/admin/blog/_list-client.tsx")
     check("the list's bulk action sends one post a request, in turn, and lists what happened to each", /Copy external images/.test(list) && /for \(const \[i, id\] of ids\.entries\(\)\)/.test(list) && /body: JSON\.stringify\(\{ ids: \[id\] \}\)/.test(list) && /data-copy-report/.test(list))
   }
