@@ -44,7 +44,7 @@ import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/webs
 import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from "@/components/website-builder/editor/block-picker"
 import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
 import { insertIndexFor } from "@/lib/website-builder/block-gaps"
-import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
+import { ARRIVAL_MS, ARRIVAL_SCROLL_MS, afterAddSettles, arrivalPlaying, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary, deferPreviewsForChange, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -86,6 +86,7 @@ import { schemeColoursOnly, schemeVarWriter, type SchemeRoot } from "@/lib/websi
 import { deferLive, echoBlockSetting, echoSectionSetting, echoThemeSetting, isLive, reconcileEchoes, reconcileThemeEcho, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
 import { createPickStore, ShownSection } from "@/lib/website-builder/pick-store"
+import { createAddedSectionStore, neighboursOf, WithAddedSection } from "@/lib/website-builder/added-section-store"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
@@ -3279,8 +3280,95 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* An imported theme's scheme to open in its Theme settings (the Edit beside a section's scheme). */
   const [compatSchemeFocus, setCompatSchemeFocus] = useState<{ id: string; n: number } | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
+  /*
+    THE LIBRARY CLOSED ON ITS OWN ELEMENT, THE EDITOR NOT TOLD YET. A pick
+    closes the dialog's element at once and the editor hears of it with the
+    add, a frame or more later (section-library.tsx handleAdd). Opened again
+    before then (a gap pressed straight after), the editor's open state never
+    left true, so nothing redrew the element and it stayed closed. Opening
+    first puts the close in, then the open, so the element is drawn open.
+  */
+  const libraryClosedByHand = useRef(false)
+  useLayoutEffect(() => {
+    if (!addSectionOpen) libraryClosedByHand.current = false
+  }, [addSectionOpen])
   /** A section just added, and where the page's sections were before it: see addSection. */
   const arrivalRef = useRef<{ id: string; before: Map<string, number>; bottomInset?: number } | null>(null)
+  /*
+    A section the canvas is drawing and the editor has not taken in yet, and
+    what the canvas draws it from: see addSection, A SECTION JUST ADDED,
+    CANVAS FIRST.
+  */
+  const [addedStore] = useState(() => createAddedSectionStore<SectionInstance>())
+  const drawForCanvas = useRef<(list: SectionInstance[]) => SectionInstance[]>((list) => list)
+  const pendingAdd = useRef<{ commit: () => void; raf: number; timer: ReturnType<typeof setTimeout> | 0 } | null>(null)
+  /**
+   * Puts that add into the editor now, rendered before this returns, for
+   * anything that needs the page as it really is (Undo, Redo, another add).
+   * True when there was one: what the caller read before is out of date.
+   */
+  const flushPendingAdd = useCallback(() => {
+    const pending = pendingAdd.current
+    if (!pending) return false
+    pendingAdd.current = null
+    cancelAnimationFrame(pending.raf)
+    if (pending.timer) clearTimeout(pending.timer)
+    flushSync(pending.commit)
+    return true
+  }, [])
+  /*
+    Opens Add a section, with the gap set by `place`. An add still on its way
+    in goes in first, so its close and its clearing of the gap are not taken
+    for this opening's.
+  */
+  const openLibrary = useCallback((place: () => void) => {
+    flushPendingAdd()
+    if (libraryClosedByHand.current) flushSync(() => setAddSectionOpen(false))
+    place()
+    setAddSectionOpen(true)
+  }, [flushPendingAdd])
+  /*
+    An add the editor is taking in, in a transition so the frames of the
+    arrival keep coming while it renders: Undo, Redo and another add wait for
+    it to land (afterAddLands), and run in a task once it has.
+  */
+  const landingAdd = useRef<{ id: string; then: (() => void)[]; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const landAdd = useCallback(() => {
+    const landing = landingAdd.current
+    if (!landing) return
+    landingAdd.current = null
+    clearTimeout(landing.timer)
+    if (landing.then.length) setTimeout(() => { for (const fn of landing.then) fn() }, 0)
+  }, [])
+  /** Runs `fn` once the add being taken in has landed. True when it waits for one. */
+  const afterAddLands = useCallback((fn: () => void) => {
+    const landing = landingAdd.current
+    if (!landing) return false
+    landing.then.push(fn)
+    return true
+  }, [])
+  useLayoutEffect(() => {
+    const landing = landingAdd.current
+    if (landing && sections.some((s) => s.id === landing.id)) landAdd()
+  }, [sections, landAdd])
+  /* A press or a key while an add is on its way in: the editor takes it in first, so what is pressed acts on the page as it is drawn. */
+  useEffect(() => {
+    const now = () => { flushPendingAdd() }
+    window.addEventListener("pointerdown", now, true)
+    window.addEventListener("keydown", now, true)
+    return () => {
+      window.removeEventListener("pointerdown", now, true)
+      window.removeEventListener("keydown", now, true)
+    }
+  }, [flushPendingAdd])
+  useEffect(() => () => {
+    const pending = pendingAdd.current
+    if (pending) {
+      cancelAnimationFrame(pending.raf)
+      if (pending.timer) clearTimeout(pending.timer)
+    }
+    if (landingAdd.current) clearTimeout(landingAdd.current.timer)
+  }, [])
   /** Changed to send the phone's sections sheet back to its middle stop: see riseOnAdded. */
   const [sheetRestKey, setSheetRestKey] = useState(0)
   /** The sheet panel a section just added opens in, which arrives without its slide: see panelMove. */
@@ -3994,6 +4082,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const handleUndo = useCallback(() => {
     /* What a run streamed and is still waiting to be taken in is in first: Undo takes back the run as the person saw it. */
     aiOps.flush()
+    /* And a section the canvas already shows: Undo takes back the add the person saw (A SECTION JUST ADDED, CANVAS FIRST). */
+    if (afterAddLands(() => handleUndo())) return
+    flushPendingAdd()
     const stack = undoRef.current
     if (stack.length === 0) return
     /* An edit after an Undo is a step of its own, not the end of the run before it. */
@@ -4004,9 +4095,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSettingsDraft(last.settings)
     setUndoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [snapshotNow, endUndoRun, aiOps])
+  }, [snapshotNow, endUndoRun, aiOps, flushPendingAdd, afterAddLands])
 
   const handleRedo = useCallback(() => {
+    if (afterAddLands(() => handleRedo())) return
+    flushPendingAdd()
     const stack = redoRef.current
     if (stack.length === 0) return
     endUndoRun()
@@ -4016,7 +4109,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSettingsDraft(last.settings)
     setRedoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [snapshotNow, endUndoRun])
+  }, [snapshotNow, endUndoRun, flushPendingAdd, afterAddLands])
 
   /**
    * Bring a section into the CANVAS, and only when none of it is on screen.
@@ -6463,6 +6556,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   ) => {
     const schema = librarySchemas[type]
     if (!schema) return
+    /* One drawn in the canvas and not yet in the editor's page goes in first, and this one is placed on the page that has it. */
+    if (afterAddLands(() => addSectionRef.current(type, presetIndex, replaceConfirmed, extra))) return
+    if (flushPendingAdd()) {
+      addSectionRef.current(type, presetIndex, replaceConfirmed, extra)
+      return
+    }
     /**
      * WHERE IT GOES, BY WHAT IT IS (lib/storelib-theme/section-groups.ts). An
      * announcement bar goes in the Header group above the header from
@@ -6478,7 +6577,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return
       }
     }
-    pushUndo()
     const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
       id: `${type}-${Date.now()}`,
@@ -6500,21 +6598,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       extra ? extra.at : canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
     const before = splitGroups(sections)
     const requested: SectionGroup = extra || canvasInsertAt != null ? "template" : addGroup
-    const placed = placeSection(sections, newSection, {
+    const placeOpts = {
       groups,
       kind,
       group: requested,
       at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : requested !== "template" && groupInsertAt != null ? groupInsertAt : null,
       kindOfType,
-    })
-    const next = placed.sections
-    setPendingInsertIndex(null)
-    setCanvasInsertAt(null)
-    setGroupInsertAt(null)
-    if (kind) chromeRemoved.current[kind] = false
-    if (placed.replaced.length > 0) {
-      showNotification(`Replaced the ${kind}. Old one hidden.`)
     }
+    const placed = placeSection(sections, newSection, placeOpts)
+    const next = placed.sections
+    const placedFrom = sections
     /**
      * Where every section is BEFORE this one goes in, so the canvas can open
      * the page where it lands instead of jumping (lib/website-builder/
@@ -6530,21 +6623,98 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           bottomInset: isMobileView ? sheetCoverAbovePeek(document.documentElement.style) : undefined,
         }
       : null
-    setSections(next)
-    setSelectedPanel({ type: "section", sectionId: newSection.id })
-    quietPanel.current = `section:${newSection.id}`
-    /* Its settings are where the sidebar is looking, whichever tab it was on. */
-    setPageBrowserOpen(false)
-    setSidebarMode("sections")
-    setIsDirty(true)
+    /* The editor's own state for the add: the page, its history, the selection and the panel it opens. */
+    const commit = () => {
+      pushUndo()
+      /* Placed again on the page as it is now, should anything have reached it since the click (an agent's edit): nothing that came in is written over. */
+      setSections((prev) => (prev === placedFrom ? next : prev.some((s) => s.id === newSection.id) ? prev : placeSection(prev, newSection, placeOpts).sections))
+      setPendingInsertIndex(null)
+      setCanvasInsertAt(null)
+      setGroupInsertAt(null)
+      if (kind) chromeRemoved.current[kind] = false
+      if (placed.replaced.length > 0) {
+        showNotification(`Replaced the ${kind}. Old one hidden.`)
+      }
+      setSelectedPanel({ type: "section", sectionId: newSection.id })
+      quietPanel.current = `section:${newSection.id}`
+      /* Its settings are where the sidebar is looking, whichever tab it was on. */
+      setPageBrowserOpen(false)
+      setSidebarMode("sections")
+      setIsDirty(true)
+      /*
+        An imported theme's canvas is a frame the arrival cannot measure: told
+        the section is arriving, it plays the same arrival itself once the
+        section is drawn, styles and all (canvas-bridge.ts, A SECTION ADDED
+        ARRIVES). A Storelib theme's canvas has no listener for it.
+      */
+      window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id, arrival: true } }))
+      if (isMobileView) riseOnAdded(newSection.id)
+    }
     /*
-      An imported theme's canvas is a frame the arrival cannot measure: told
-      the section is arriving, it plays the same arrival itself once the
-      section is drawn, styles and all (canvas-bridge.ts, A SECTION ADDED
-      ARRIVES). A Storelib theme's canvas has no listener for it.
+      ═══════════════════════════════════════════════════════════════════════
+       A SECTION JUST ADDED, CANVAS FIRST (lib/website-builder/added-section-
+       store.ts)
+      ═══════════════════════════════════════════════════════════════════════
+      On a Storelib theme the canvas is told first: the section drawn as the
+      canvas draws the page, between the two it goes between, with the ring
+      on it. That renders the canvas and nothing else, so it is on screen in
+      the next frame. The editor's own state (the list, the settings panel,
+      the history) follows once the arrival has played, in a transition. A
+      press, a key, Undo, Redo or another add before then takes it in at once
+      (flushPendingAdd); one while the transition renders waits for it to
+      land (afterAddLands).
     */
-    window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id, arrival: true } }))
-    if (isMobileView) riseOnAdded(newSection.id)
+    const drawnNext = scroller && !canvasCompat ? drawForCanvas.current(next) : null
+    const drawnNew = drawnNext?.find((s) => s.id === newSection.id)
+    const between = drawnNext ? neighboursOf(drawnNext, newSection.id) : null
+    if (drawnNew && between) {
+      const page = currentPage
+      /* The canvas rings it as it draws it (WithAddedSection); the list and the toolbar follow with the editor. */
+      addedStore.add({ section: drawnNew, page: sectionsOnPage.page, ...between })
+      const pending: NonNullable<typeof pendingAdd.current> = {
+        /* Not onto a page opened in the meantime: that page's sections are not the ones it was placed among. */
+        commit: () => { if (currentPageRef.current === page) commit() },
+        raf: 0,
+        timer: 0,
+      }
+      pendingAdd.current = pending
+      /*
+        In a transition: the editor renders in slices with frames between
+        them, so the arrival's slide and fade are drawn while it does. The
+        list and the toolbar ring the section at once (the pick), and the
+        canvas goes on ringing it once its own page has it.
+      */
+      const run = () => {
+        if (pendingAdd.current !== pending) return
+        pendingAdd.current = null
+        /* Another page is open: nothing to place, the close still goes in. */
+        if (currentPageRef.current !== page) { pending.commit(); return }
+        pickStore.set({ id: newSection.id, from: selectedPanelNow.current })
+        landingAdd.current = { id: newSection.id, then: [], timer: setTimeout(landAdd, 4000) }
+        startTransition(pending.commit)
+      }
+      /*
+        After its arrival has played (or at once with reduced motion), two
+        frames on at the least: the first frames of the fade and the slide
+        are drawn with nothing else to do. Anything the person does first
+        takes the add in then (the pointer and key listener by flushPendingAdd).
+      */
+      const go = () => {
+        if (pendingAdd.current !== pending) return
+        if (pending.timer) clearTimeout(pending.timer)
+        pending.timer = setTimeout(run, 0)
+      }
+      pending.raf = requestAnimationFrame(() => {
+        pending.raf = requestAnimationFrame(() => {
+          const arriving = arrivalPlaying(`wb-section-${newSection.id}`)
+          if (!arriving) { go(); return }
+          void arriving.then(go)
+          pending.timer = setTimeout(go, ARRIVAL_SCROLL_MS + ARRIVAL_MS + 120)
+        })
+      })
+      return
+    }
+    commit()
   }
 
   /**
@@ -7421,10 +7591,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return sec ? sectionDisplayName(sec, librarySchemas) : ""
   }, [librarySchemas])
   const openAddSection = useCallback(() => {
-    setAddGroup("template")
-    setGroupInsertAt(null)
-    setAddSectionOpen(true)
-  }, [])
+    openLibrary(() => {
+      setAddGroup("template")
+      setGroupInsertAt(null)
+    })
+  }, [openLibrary])
   /**
    * STABLE, SO THE LIBRARY STAYS PUT. The library is mounted for the life of
    * the editor (its sheet keeps it, so opening it is instant), and it was
@@ -7435,6 +7606,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const addSectionOpenRef = useRef(addSectionOpen)
   addSectionOpenRef.current = addSectionOpen
   const onAddSectionOpenChange = useCallback((o: boolean) => {
+    /*
+      Closed by the section just picked, which the canvas is drawing ahead of
+      the editor: the editor hears of the close with the add, in one render
+      after that frame (the dialog's own element is already closed).
+    */
+    if (!o) libraryClosedByHand.current = true
+    const pending = pendingAdd.current
+    if (!o && pending) {
+      const add = pending.commit
+      pending.commit = () => {
+        add()
+        onAddSectionOpenChange(false)
+      }
+      return
+    }
     setAddSectionOpen(o)
     if (!o) {
       /**
@@ -7455,7 +7641,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }))
     }
   }, [])
-  const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
+  const addSectionRef = useRef<typeof addSection>(() => {})
   const addSectionStable = useCallback((type: string, presetIndex?: number) => addSectionRef.current(type, presetIndex), [])
   addSectionRef.current = addSection
 
@@ -7569,12 +7755,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the chrome is. Stable, for the same reason as the two above.
    */
   const openAddSectionAt = useCallback((at: number) => {
-    setAddGroup("template")
-    setGroupInsertAt(null)
-    setPendingInsertIndex(null)
-    setCanvasInsertAt(at)
-    setAddSectionOpen(true)
-  }, [])
+    openLibrary(() => {
+      setAddGroup("template")
+      setGroupInsertAt(null)
+      setPendingInsertIndex(null)
+      setCanvasInsertAt(at)
+    })
+  }, [openLibrary])
   /*
     AN IMPORTED THEME'S CANVAS POINTS AT A PLACE BY THE SECTIONS EITHER SIDE
     OF IT (round 1023, canvas-bridge.ts ADD A SECTION HERE): the page's own
@@ -7584,13 +7771,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const openAddSectionBetween = useCallback((place: { before: string | null; after: string | null }) => {
     const at = insertPlaceBetween(sectionsRef.current, place)
     if (!at) return
-    if (at.group === "template") { setGroupInsertAt(null); openAddSectionAt(at.at); return }
-    setAddGroup(at.group)
-    setPendingInsertIndex(null)
-    setCanvasInsertAt(null)
-    setGroupInsertAt(at.at)
-    setAddSectionOpen(true)
-  }, [openAddSectionAt])
+    if (at.group === "template") { openAddSectionAt(at.at); return }
+    openLibrary(() => {
+      setAddGroup(at.group)
+      setPendingInsertIndex(null)
+      setCanvasInsertAt(null)
+      setGroupInsertAt(at.at)
+    })
+  }, [openAddSectionAt, openLibrary])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
@@ -8686,11 +8874,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
                   /* `at` counts the page's own sections; the list index is after the Header group. */
-                  setAddGroup(group)
-                  setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sections).header.length + at)
-                  setCanvasInsertAt(null)
-                  setGroupInsertAt(null)
-                  setAddSectionOpen(true)
+                  openLibrary(() => {
+                    setAddGroup(group)
+                    setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sectionsRef.current).header.length + at)
+                    setCanvasInsertAt(null)
+                    setGroupInsertAt(null)
+                  })
                 }}
                 dnd={{ onReorder: reorderSection }}
                 pinned={pinnedSection}
@@ -9668,62 +9857,36 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
   )
   /*
-    The page in the language previewed: the text settings with an approved
-    translation, read with the same schemas the website reads, BEFORE its
-    placeholders are filled, as the website lays them over (published-site.ts:
-    localizer.sections, then dressPage). Filled first, a translation of
-    "Get {{ product.title }}" was drawn with its braces showing, and Storelib
-    AI's was compared with the filled words, read as outdated and hidden.
+    Each step the canvas's page is drawn through is a function below the
+    editor (CANVAS PAGE STEPS), called here and by drawForCanvas, which draws
+    a section just added through the same steps before the editor has it.
   */
   const sectionsInLanguage = useMemo(
-    () =>
-      previewMap
-        ? localizeSections(
-            canvasSections,
-            previewMap,
-            (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
-            /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
-            (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
-            { approvedOnly: true, fresh: true },
-          )
-        : canvasSections,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => inLanguageStep(canvasSections, previewMap, storelibSources, librarySchemas, blockCatalog),
     [canvasSections, previewMap, storelibSources, librarySchemas, blockCatalog],
   )
   /* What the canvas draws: the page with its placeholders filled, from the product and the theme in the language previewed. Never saved. */
   const drawnSections = useMemo(
-    () => withThemeBreadcrumbs(
-      withDynamicSources(searchListsTheShop(sectionsInLanguage), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
-      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
-      templateForPage(currentPage),
-    ),
+    () => filledStep(sectionsInLanguage, storelibSources, librarySchemas, canvasDynamic, { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign }, currentPage),
     [sectionsInLanguage, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
-  const drawnInLanguage = useMemo(
-    () =>
-      previewMap
-        ? drawnSections.map((s) => {
-            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx), unless it shows its own words everywhere. */
-            const data = (s.settings as Record<string, unknown> | undefined)?._product_data
-            const own = data && typeof data === "object" && previewOriginals.has(String((data as Record<string, unknown>).id))
-            return data && !own ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
-          })
-        : drawnSections,
-    [drawnSections, previewMap, previewOriginals],
-  )
+  const drawnInLanguage = useMemo(() => optionsStep(drawnSections, previewMap, previewOriginals), [drawnSections, previewMap, previewOriginals])
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
   /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */
   const canvasRating = useMemo(() => productRating(canvasReviews as unknown as StorefrontReviews | undefined), [canvasReviews])
-  const drawnShown = useMemo(() => {
-    if (!previewPricing && !canvasRating) return drawnInLanguage
-    const display = previewPricing ? { market: previewPricing.market, base: previewPricing.base, fx: previewPricing.fx, locale: moneyLocale } : null
-    return drawnInLanguage.map((sec) => {
-      const raw = (sec.settings as Record<string, unknown> | undefined)?._product_data
-      if (!raw || typeof raw !== "object") return sec
-      const data = canvasRating ? { ...(raw as Record<string, unknown>), rating: canvasRating } : raw
-      return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
-    })
-  }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
+  const drawnShown = useMemo(() => pricedStep(drawnInLanguage, previewPricing, moneyLocale, canvasRating), [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
+  /* A page (a section just added in it) drawn as the canvas would draw it, from this render's values: see A SECTION JUST ADDED, CANVAS FIRST. */
+  drawForCanvas.current = (list) =>
+    pricedStep(
+      optionsStep(
+        filledStep(inLanguageStep(list, previewMap, storelibSources, librarySchemas, blockCatalog), storelibSources, librarySchemas, canvasDynamic, { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign }, currentPage),
+        previewMap,
+        previewOriginals,
+      ),
+      previewPricing,
+      moneyLocale,
+      canvasRating,
+    )
   const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }, previewOriginals)), [shopCards, previewMap, cardsInMarket, previewOriginals])
   const compatLanguage = useMemo(
     /* The default language too: an English theme on a store whose default is Spanish is drawn in Spanish, as the live site draws it. */
@@ -12231,16 +12394,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   storeCurrency={previewMarket.base}
                 />
               ) : (
+              /* With a section just added, drawn before the editor has it (addSection, A SECTION JUST ADDED, CANVAS FIRST). */
+              <WithAddedSection store={addedStore} page={sectionsOnPage.page} sections={drawnShown}>{(drawnWithAdded, added) => (
               <EditorCanvasPage
                 theme={canvasThemeShown}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
-                sections={drawnShown}
+                sections={drawnWithAdded}
                 storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting && !fullSettled}
-                selectedSectionId={shownSectionId}
+                selectedSectionId={added.last ?? shownSectionId}
                 device={device}
                 headerDevice={headerDevice}
                 /**
@@ -12253,7 +12418,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  * is the chewed blue corner that was reported.
                  */
                 canvasRadiusPx={isMobileView ? 0 : device === "desktop" ? 20 : 16}
-                bodyCount={bodyCount + (writingShown ? 1 : 0)}
+                bodyCount={bodyCount + (writingShown ? 1 : 0) + added.count}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
@@ -12273,6 +12438,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 languagePreview={canvasSwitch}
                 storeCurrency={previewMarket.base}
               />
+              )}</WithAddedSection>
               )}</ShownSection>
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
               <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} label={aiWorkingLabel} />
@@ -13106,6 +13272,67 @@ function canvasThemePatcher(get: {
  * parent. `onSelectSection` and `onAddSection` take no closure over a
  * section; they are given the id.
  */
+/*
+  ── CANVAS PAGE STEPS ──
+  What the canvas draws, from the page's own sections, one step at a time.
+  The editor memoises each one on its own values, and draws a section just
+  added through all four with the same values (drawForCanvas), so the copy
+  the canvas shows first is the one it goes on showing.
+*/
+type PreviewMap = Parameters<typeof localizeSections>[1]
+type LibrarySchemas = Parameters<typeof schemaFor>[2]
+
+/*
+  The page in the language previewed: the text settings with an approved
+  translation, read with the same schemas the website reads, BEFORE its
+  placeholders are filled, as the website lays them over (published-site.ts:
+  localizer.sections, then dressPage). Filled first, a translation of
+  "Get {{ product.title }}" was drawn with its braces showing, and Storelib
+  AI's was compared with the filled words, read as outdated and hidden.
+*/
+function inLanguageStep(list: SectionInstance[], previewMap: PreviewMap | null | undefined, sources: Record<string, string>, schemas: LibrarySchemas, blockCatalog: ReturnType<typeof themeBlockCatalog>): SectionInstance[] {
+  if (!previewMap) return list
+  return localizeSections(
+    list,
+    previewMap,
+    (t) => schemaFor(t, sources, schemas)?.fields,
+    /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
+    (st, bt) => schemaFor(st, sources, schemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
+    { approvedOnly: true, fresh: true },
+  )
+}
+
+/* The page with its placeholders filled, a search listing the shop, and the theme's breadcrumbs under the header. */
+function filledStep(list: SectionInstance[], sources: Record<string, string>, schemas: LibrarySchemas, dynamic: ReturnType<typeof dynamicContext>, crumbs: Record<string, unknown>, page: PageKey): SectionInstance[] {
+  return withThemeBreadcrumbs(
+    withDynamicSources(searchListsTheShop(list), (type) => schemaFor(type, sources, schemas), dynamic),
+    crumbs,
+    templateForPage(page),
+  )
+}
+
+/* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx), unless it shows its own words everywhere. */
+function optionsStep(list: SectionInstance[], previewMap: PreviewMap | null | undefined, originals: ReadonlySet<string>): SectionInstance[] {
+  if (!previewMap) return list
+  return list.map((s) => {
+    const data = (s.settings as Record<string, unknown> | undefined)?._product_data
+    const own = data && typeof data === "object" && originals.has(String((data as Record<string, unknown>).id))
+    return data && !own ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+  })
+}
+
+/* The product in the market previewed, with its real stars. */
+function pricedStep(list: SectionInstance[], pricing: { market: unknown; base: unknown; fx: unknown } | null | undefined, locale: string | null | undefined, rating: ReturnType<typeof productRating>): SectionInstance[] {
+  if (!pricing && !rating) return list
+  const display = pricing ? { market: pricing.market, base: pricing.base, fx: pricing.fx, locale } : null
+  return list.map((sec) => {
+    const raw = (sec.settings as Record<string, unknown> | undefined)?._product_data
+    if (!raw || typeof raw !== "object") return sec
+    const data = rating ? { ...(raw as Record<string, unknown>), rating } : raw
+    return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
+  })
+}
+
 /** The canvas's scroller, and the id each section's element is given in it. */
 const CANVAS_ON_SCREEN = { rootId: "wb-preview-root", prefix: "wb-section-" }
 
