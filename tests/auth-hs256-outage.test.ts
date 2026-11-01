@@ -218,6 +218,41 @@ async function main() {
     check("a session Auth refused: no cookie, to /login as before", !written.some((w) => w.endsWith("=set")) && (res.headers.get("location") ?? "").includes("/login"), { written, at: res.headers.get("location") })
   }
 
+  console.log("\n8. Through the real proxy, Auth hanging")
+  {
+    auth.mode = "never"
+    process.env.SUPABASE_JWT_SECRET = SECRET
+    forgetSigningKeys()
+    const { proxy } = await import("@/proxy")
+    const { NextRequest } = await import("next/server")
+    const ask = async (url: string, cookie: string | null) => {
+      auth.hits = []
+      const headers: Record<string, string> = { host: new URL(url).host, accept: "text/html" }
+      if (cookie) headers.cookie = cookie
+      const t = Date.now()
+      const res = (await proxy(new NextRequest(url, { headers }) as never)) as Response
+      return { status: res.status, location: res.headers.get("location"), hits: [...auth.hits], took: Date.now() - t }
+    }
+    const c = sessionCookie(good)
+    const signed = `${c.name}=${c.value}`
+    const app = await ask("https://storelib.com/app/reviews", signed)
+    check(`/app/reviews, a good token: through, not to /login, no Auth call (${app.took}ms)`, !(app.location ?? "").includes("/login") && !app.hits.includes("/auth/v1/user") && app.took < 1_000, app)
+    const f = sessionCookie(hs256(claims(), "an-attacker-secret-of-enough-length-012345"))
+    auth.mode = "revoked"
+    const forged = await ask("https://storelib.com/app/reviews", `${f.name}=${f.value}`)
+    check("/app/reviews, a forged token: Auth asked, and its no sends to /login", (forged.location ?? "").includes("/login") && forged.hits.includes("/auth/v1/user"), forged)
+    auth.mode = "never"
+    const none = await ask("https://storelib.com/app", null)
+    check("/app, no cookie: to /login with no Supabase request at all", (none.location ?? "").includes("/login") && none.hits.length === 0, none)
+    /* Public creator pages: nothing asked of Supabase Auth, with or without a session (the token is only renewed once it has run out). */
+    for (const url of ["https://storelib.com/w/maya", "https://storelib.com/w/maya/collections/all", "https://storelib.com/andrewrullz"]) {
+      const anon = await ask(url, null)
+      check(`${new URL(url).pathname}, no cookie: no Supabase Auth request`, !anon.hits.some((h) => h.startsWith("/auth/v1/")), anon)
+      const with_ = await ask(url, signed)
+      check(`  ${new URL(url).pathname}, signed in, token in date: no Supabase Auth request`, !with_.hits.some((h) => h.startsWith("/auth/v1/")), with_)
+    }
+  }
+
   for (const t of timers) clearTimeout(t)
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1) }
