@@ -11,6 +11,8 @@
  *   SHOP-EMPTY a shop read that failed is never held as an empty shop: the
  *              held readers throw, a cache keeps nothing, the site is served
  *              from its last good copy (or drawn without products, unheld).
+ *   SITE-8     a cold server that cannot read which renderer a subdomain
+ *              needs answers 503 "One moment" with Retry-After, never a guess.
  *
  * Each section names the finding it pins (docs/reliability/AUDIT.md).
  */
@@ -165,10 +167,41 @@ async function failedShopReadsAreNotHeld() {
       && ["app/(site)/w/[username]/search/page.tsx", "app/(site)/w/[username]/products/shop-page.tsx", "app/(site)/w/[username]/collections/[handle]/collection-page.tsx"].every((f) => /siteCatalogue\(site\.creatorId\)[^\n]*\.catch\(\(\) => products \?\? \[\]\)/.test(read(f))))
 }
 
+/* ── SITE-8 ─────────────────────────────────────────────────────────────── */
+
+async function coldRoutingSaysTryAgain() {
+  console.log("\nSITE-8. A cold server that cannot read a subdomain's routing answers 503, never the wrong renderer")
+  const { proxy } = await import("@/proxy")
+  const { NextRequest } = await import("next/server")
+  const ask = async (url: string, accept = "text/html") => {
+    const before = network.length
+    const res = (await proxy(new NextRequest(url, { headers: { host: new URL(url).host, accept, "sec-fetch-dest": "document" } }) as never)) as Response
+    return { status: res.status, retry: res.headers.get("retry-after"), cache: res.headers.get("cache-control"), rewrite: res.headers.get("x-middleware-rewrite"), reads: network.length - before }
+  }
+  /* Every database read fails (the fixture's fetch answers 503) and this process has held nothing for this name. */
+  const home = await ask("https://maya-cold.storelib.com/")
+  check("the site's front page: 503, Retry-After, no-store (it was rewritten to the Storelib theme renderer)", home.status === 503 && home.retry === "5" && home.cache === "no-store" && !home.rewrite, home)
+  check("  the database was asked (a real cold read, not a short cut)", home.reads > 0, home)
+  const page = await ask("https://maya-cold.storelib.com/collections/all")
+  check("a page under it too", page.status === 503 && !page.rewrite, page)
+  const icon = await ask("https://maya-cold.storelib.com/favicon.ico", "image/*")
+  check("its icon too (an AI site keeps its own)", icon.status === 503, icon)
+  const api = await ask("https://maya-cold.storelib.com/api/cart", "application/json")
+  check("its /api is not a page and passes as before", api.status !== 503, api)
+  const own = await ask("https://storelib.com/pricing")
+  check("Storelib's own pages are not site routing and are untouched", own.status !== 503, own)
+
+  const proxySource = read("proxy.ts")
+  check("an answer held from before is still used when the read fails (only nothing held is unavailable)",
+    /if \(fresh\.failed\) return held \? held\.value : "unavailable"/.test(proxySource) && /if \(failed\) return hit \? hit\.value : "unavailable"/.test(proxySource))
+  check("every other caller still reads it as no, as before", /return \(await rememberedAnswer\(key, ask\)\) === true/.test(proxySource) && /return \(await liveAiSiteAnswer\(slug\)\) === true/.test(proxySource) && /return \(await compatSiteAnswer\(username, fresh\)\) === true/.test(proxySource))
+}
+
 async function run() {
   await signedOutRedirectsArePrivate()
   await verifyLinksCarryNoAddress()
   await failedShopReadsAreNotHeld()
+  await coldRoutingSaysTryAgain()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     for (const f of failures) console.log(`  - ${f}`)

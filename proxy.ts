@@ -238,15 +238,27 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
  */
 const answersHeld = new Map<string, { at: number; value: boolean }>()
 /* An answer being asked is shared, so the questions a visit asks at once (startSiteQuestions) cost one read each. */
-const answersAsked = new Map<string, Promise<boolean>>()
+const answersAsked = new Map<string, Promise<SiteAnswer>>()
+/*
+  YES, NO, OR NOT KNOWN (SITE-8). A read that failed with nothing held (a
+  cold server while the database is away) was "no", and on a subdomain "no"
+  is itself a routing decision: an AI site or an imported theme was sent to
+  the Storelib theme renderer, which drew the wrong page. The subdomain
+  branch now asks the three way answer and says "One moment" (503, Retry-
+  After) for "unavailable"; every other caller still reads it as "no".
+*/
+type SiteAnswer = boolean | "unavailable"
 async function remembered(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<boolean> {
+  return (await rememberedAnswer(key, ask)) === true
+}
+async function rememberedAnswer(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<SiteAnswer> {
   const held = answersHeld.get(key)
   if (held && Date.now() - held.at < 30_000) return held.value
   const asking = answersAsked.get(key)
   if (asking) return asking
-  const answer = (async () => {
+  const answer = (async (): Promise<SiteAnswer> => {
     const fresh = await ask().catch(() => ({ value: false, failed: true }))
-    if (fresh.failed) return held?.value ?? false
+    if (fresh.failed) return held ? held.value : "unavailable"
     if (answersHeld.size > 10_000) answersHeld.clear()
     answersHeld.set(key, { at: Date.now(), value: fresh.value })
     return fresh.value
@@ -256,10 +268,14 @@ async function remembered(key: string, ask: () => Promise<{ value: boolean; fail
 }
 
 async function hasLiveAiSite(slug: string): Promise<boolean> {
+  return (await liveAiSiteAnswer(slug)) === true
+}
+
+async function liveAiSiteAnswer(slug: string): Promise<SiteAnswer> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
-  return remembered(`ai:${slug.toLowerCase()}`, async () => {
+  return rememberedAnswer(`ai:${slug.toLowerCase()}`, async () => {
     const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const { data, error } = await supabase
       .from("site_deployments")
@@ -702,7 +718,7 @@ async function inSiteLanguage(username: string, pathname: string, request?: Next
  * page and the dozen requests its scripts make cost one read between them.
  */
 const compatHeld = new Map<string, { at: number; value: boolean }>()
-const compatAsked = new Map<string, Promise<boolean>>()
+const compatAsked = new Map<string, Promise<SiteAnswer>>()
 /*
   ASKED AGAIN WHEN A RENDERER SAYS THE ANSWER IS OLD: a Publish that
   switched between a Storelib theme and an imported one, seen by the
@@ -716,6 +732,11 @@ const FORCED_GAP_MS = 1_000
 /** The request came back from a renderer that found the other kind of theme live. */
 const asksFresh = (request: NextRequest) => request.nextUrl.searchParams.has(SITE_FRESH_PARAM)
 async function compatSiteFor(username: string, fresh = false): Promise<boolean> {
+  return (await compatSiteAnswer(username, fresh)) === true
+}
+
+/** compatSiteFor, with "unavailable" for a read that failed while nothing was held (SITE-8). */
+async function compatSiteAnswer(username: string, fresh = false): Promise<SiteAnswer> {
   const lower = username.toLowerCase()
   let hit = compatHeld.get(lower)
   if (fresh && hit && Date.now() - (compatForced.get(lower) ?? 0) > FORCED_GAP_MS && !compatAsked.has(lower)) {
@@ -737,9 +758,9 @@ async function compatSiteFor(username: string, fresh = false): Promise<boolean> 
     A read that failed is not "not imported": the answer before it stands,
     and nothing is remembered.
   */
-  const answer = (async () => {
+  const answer = (async (): Promise<SiteAnswer> => {
     const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey, PROXY_DB), lower)
-    if (failed) return hit?.value ?? false
+    if (failed) return hit ? hit.value : "unavailable"
     if (compatHeld.size > 5000) compatHeld.clear()
     compatHeld.set(lower, { at: Date.now(), value: facts.compat })
     return facts.compat
@@ -993,6 +1014,10 @@ const domainHeld = new Map<string, { at: number; value: ConnectedDomain | null }
 const DOMAIN_HELD_MS = 60_000
 
 /** A page that loads again by itself, for the moment a site cannot be looked up. */
+/** A site whose routing or lookup could not be read: try again in a moment, never a guess. */
+function siteUnavailable(): NextResponse {
+  return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
+}
 const SITE_UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
 
 async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null | "unavailable"> {
@@ -1806,7 +1831,9 @@ async function routeRequest(request: NextRequest) {
         its own files.
       */
       if (isSiteIconPath(pathname)) {
-        if (await hasLiveAiSite(subdomain)) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
+        const ai = await liveAiSiteAnswer(subdomain)
+        if (ai === "unavailable") return siteUnavailable()
+        if (ai) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
         return NextResponse.rewrite(new URL(`/w/${subdomain}${pathname}${search}`, request.url))
       }
       /*
@@ -1818,6 +1845,19 @@ async function routeRequest(request: NextRequest) {
       */
       const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       gateAsked?.catch(() => null)
+      /*
+        WHICH RENDERER, OR "ONE MOMENT" (SITE-8). Every line below picks the
+        renderer from these two answers. A server that holds neither and
+        cannot read them (a cold one while the database is away) used to
+        take both as "no" and draw an AI site or an imported theme with the
+        Storelib theme renderer. It says try again instead; an answer held
+        from before is still used as it was.
+      */
+      const [aiKnown, compatKnown] = await Promise.all([
+        liveAiSiteAnswer(subdomain),
+        compatAnswers(pathname, request) ? compatSiteAnswer(subdomain, asksFresh(request)) : Promise.resolve<SiteAnswer>(false),
+      ])
+      if (aiKnown === "unavailable" || compatKnown === "unavailable") return siteUnavailable()
       /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
       if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
         const domain = await websiteDomainOf(subdomain)
