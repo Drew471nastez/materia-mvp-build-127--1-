@@ -12,16 +12,22 @@ import { createClient } from "@/lib/supabase/client"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { goOnAfterAuth } from "@/lib/auth/continue-client"
 import { getMainDomain } from "@/lib/url-helpers"
+import { addressWithoutEmail, maskedAddress, recallVerifyAddress } from "@/lib/account/verify-address"
 
 /**
- * /signup/verify?userId=...&email=...
+ * /signup/verify?userId=...
+ *
+ * No email address in the URL (lib/account/verify-address.ts): the code is
+ * bound to the account, and the address shown is this tab's memory or the
+ * session's. An `email` in an old link still works and is taken off the
+ * address bar.
  *
  * Custom SMTP verification page for email signup.
  *
  * Flow:
  *  1. User signs up at /signup → a branded 6-digit code is sent via Mailgun
  *     from "Storelib <noreply@storelib.com>" using /api/auth/verify-email.
- *  2. User is redirected here with ?userId=...&email=... prefilled.
+ *  2. User is redirected here with ?userId=... (the account, not the address).
  *  3. User enters the 6-digit code → /api/auth/confirm-email verifies it
  *     and marks the profile email_verified = true.
  *  4. User is sent on through /auth/continue (lib/auth/continue.ts), with
@@ -31,7 +37,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 function VerifyContent() {
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId") ?? ""
-  const email = searchParams.get("email") ?? ""
+  /* An old link's address, read once; the page never puts one in the URL. */
+  const [email, setEmail] = useState(() => searchParams.get("email") ?? "")
 
   const sent = searchParams.get("sent") === "1"
   const mailCode = (searchParams.get("code") ?? "").replace(/\D/g, "").slice(0, 6)
@@ -60,6 +67,24 @@ function VerifyContent() {
     window.location.href = withCarry("/signup", carry)
   }
 
+  /* The address to show: this tab's memory, else the session's when it is this account. Then off the address bar. */
+  useEffect(() => {
+    if (!userId) return
+    const kept = recallVerifyAddress(userId)
+    if (!email && kept) setEmail(kept)
+    else if (!email) {
+      void createClient()
+        .auth.getSession()
+        .then(({ data }: { data: { session: { user?: { id?: string; email?: string } } | null } }) => {
+          const user = data.session?.user
+          if (user?.id === userId && user.email) setEmail(user.email)
+        })
+        .catch(() => null)
+    }
+    const clean = addressWithoutEmail(window.location.href)
+    if (clean) window.history.replaceState(window.history.state, "", clean)
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Forward-redirect: if email is already verified, skip to next step
   useEffect(() => {
     if (!userId) return
@@ -84,8 +109,8 @@ function VerifyContent() {
 
   // Auto-send email on mount if not already sent (e.g. direct navigation to this URL)
   useEffect(() => {
-    if (sent || !userId || !email) return
-    const onceKey = `storelib-code-sent:${userId}:${email}`
+    if (sent || !userId) return
+    const onceKey = `storelib-code-sent:${userId}`
     try {
       if (sessionStorage.getItem(onceKey) === "1") return
       sessionStorage.setItem(onceKey, "1")
@@ -95,7 +120,8 @@ function VerifyContent() {
     fetch("/api/auth/verify-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, email }),
+      /* The account only: the server mails the account's own address (lib/auth/email-code.ts). */
+      body: JSON.stringify({ userId }),
     })
       .then(async (res) => {
         if (res.ok) {
@@ -163,7 +189,7 @@ function VerifyContent() {
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, email }),
+        body: JSON.stringify({ userId }),
       })
 
       const data = await res.json()
@@ -184,7 +210,7 @@ function VerifyContent() {
     return <AuthResolvingScreen />
   }
 
-  if (!userId || !email) {
+  if (!userId) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center p-6">
         <div className="text-center">
@@ -204,10 +230,7 @@ function VerifyContent() {
   }
 
   // Mask email for display
-  const maskedEmail = email.replace(
-    /(.{2})(.*)(@.*)/,
-    (_, a, b, c) => a + "*".repeat(Math.min(b.length, 5)) + c
-  )
+  const maskedEmail = email ? maskedAddress(email) : "your email address"
 
   return (
     <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">

@@ -54,7 +54,7 @@ import { renderWithSources, sectionSources, sourcesFromFiles } from "@/lib/websi
 import { livePointer, releaseFiles, releaseManifest, type LivePointer } from "@/lib/website-builder/site-releases-server"
 import { pageRowsOf, settingsRowOf } from "@/lib/website-builder/site-releases"
 import { siteLocalizer, type Localizer } from "@/lib/markets/live"
-import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
+import { heldShopCatalogue, heldShopProducts, shopCatalogue, shopProducts, ShopReadFailed, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
@@ -491,8 +491,9 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
  * newest 24 from the site lookup.
  */
 export async function siteCatalogue(creatorId: string, opts: { cached: boolean } = { cached: true }): Promise<ProductCard[]> {
-  const read = () => shopCatalogue(createAdminClient() as never, creatorId)
-  return opts.cached ? unstable_cache(read, ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })() : read()
+  /* Held: a failed read throws (never a held []), and every caller falls back to the products it already has. */
+  if (opts.cached) return unstable_cache(() => heldShopCatalogue(createAdminClient() as never, creatorId), ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+  return shopCatalogue(createAdminClient() as never, creatorId)
 }
 
 /**
@@ -717,6 +718,10 @@ const resolveSite = cache(async function resolveSite(name: string): Promise<Shop
       console.error(`[published-site] served the copy every server kept of ${lower}:`, e instanceof Error ? e.message : e)
       return kept
     }
+    if (e instanceof SiteWithoutShop) {
+      logEvent("warn", "site_shop_unread", { msg: "[published-site] the shop could not be read and no copy was kept: drawn without products, held nowhere", site: lower })
+      return e.lookup
+    }
     throw e
   }
 })
@@ -745,8 +750,9 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     minute like any other shop read.
   */
   const shop = Promise.all([
+    /* A failed read throws rather than being held as an empty shop: resolveSite then serves the site's last good copy. */
     unstable_cache(
-      () => shopProducts(createAdminClient() as never, match.creatorId),
+      () => heldShopProducts(createAdminClient() as never, match.creatorId),
       ["shop-products", match.creatorId],
       { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
     )(),
@@ -785,9 +791,33 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
    * milliseconds and buys a shop that is never more than a minute behind.
    * Asked above, beside the site.
    */
-  const [products, productCount] = await shop
+  let products: ProductCard[]
+  let productCount: number | null
+  try {
+    ;[products, productCount] = await shop
+  } catch (e) {
+    /* Not held anywhere (it threw inside the cache): resolveSite serves the last good copy, or this site without its products. */
+    if (e instanceof ShopReadFailed) throw new SiteWithoutShop({ kind: "site", site: found.site, products: [], productCount: null }, e)
+    throw e
+  }
 
   return { kind: "site", site: found.site, products, productCount }
+}
+
+/*
+  THE SITE WAS READ AND ITS SHOP WAS NOT. resolveSite serves the last good
+  copy (this server's, then every server's) when there is one; only when
+  there is none is the site drawn without its products, for this request,
+  never kept as the last good copy nor held in a cache.
+*/
+class SiteWithoutShop extends Error {
+  constructor(
+    readonly lookup: ShopLookup,
+    cause: ShopReadFailed,
+  ) {
+    super(cause.message)
+    this.name = "SiteWithoutShop"
+  }
 }
 
 /**
@@ -798,7 +828,7 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 export async function cachedShopProducts(creatorId: string): Promise<ProductCard[]> {
   if (!creatorId) return []
   return unstable_cache(
-    () => shopProducts(createAdminClient() as never, creatorId),
+    () => heldShopProducts(createAdminClient() as never, creatorId),
     ["shop-products", creatorId],
     { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL },
   )()
@@ -954,7 +984,7 @@ export async function ownerOf(
       ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
       : readProfile(),
     opts.cached
-      ? unstable_cache(readProducts, ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      ? unstable_cache(() => heldShopProducts(createAdminClient() as never, creatorId), ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
       : readProducts(),
     opts.cached
       ? unstable_cache(readCount, ["shop-count", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()

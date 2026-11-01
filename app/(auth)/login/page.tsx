@@ -28,6 +28,7 @@ import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { EXISTS_PARAM, takeExistingEmail } from "@/lib/auth/existing-account"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { rememberVerifyAddress } from "@/lib/account/verify-address"
 
 /**
  * ===========================================================================
@@ -438,8 +439,9 @@ function LoginFormContent() {
             .catch(() => null)
 
           if (userData) {
+            rememberVerifyAddress(userData.id, trimmedEmail)
             navigateWithFallback(
-              withCarry(`/signup/verify?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`, carry)
+              withCarry(`/signup/verify?userId=${encodeURIComponent(userData.id)}`, carry)
             )
             router.refresh()
             return

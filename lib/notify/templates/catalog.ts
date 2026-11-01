@@ -172,7 +172,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
  *   /app/settings?tab=security        password and email
  *   /app/payouts                      balance, payouts, dispute figures
  *   /app/orders?order=<id>            what /app/orders/<id> redirects to; disputes show on the order
- *   /signup/verify?userId=&email=     the email code page
+ *   /signup/verify?userId=            the email code page (no address in the URL)
  *   /receipt/<token>                  the buyer's receipt with downloads (lib/email.tsx buyer receipt)
  *   /library, /library/products/<id>  the buyer's library
  *   /help                             help center
@@ -699,8 +699,8 @@ export const CATALOG: Record<NotificationType, Entry> = {
 
   VERIFY_EMAIL: (d) => {
     const userId = d.text("userId", 80)
-    const email = d.text("email", 200)
-    const query = userId ? `?userId=${encodeURIComponent(userId)}${email ? `&email=${encodeURIComponent(email)}` : ""}` : ""
+    /* The account only: the code page shows the address from the session, never from its URL (lib/account/verify-address.ts). */
+    const query = userId ? `?userId=${encodeURIComponent(userId)}` : ""
     const path = userId ? `/signup/verify${query}` : "/login"
     return {
       family: "action_required",

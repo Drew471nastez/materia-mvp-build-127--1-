@@ -32,6 +32,7 @@ import { goToAuthHref } from "@/lib/auth/session-sync"
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 import { readSignupSource } from "@/lib/alternatives/attribution"
 import { trackAlternatives } from "@/lib/alternatives/track"
+import { rememberVerifyAddress } from "@/lib/account/verify-address"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -376,8 +377,10 @@ function SignUpFormContent() {
           /auth/continue the moment the address is verified.
         */
         // Redirect to verify page
+        /* The address stays in this tab for the code page to show, never in its URL (lib/account/verify-address.ts). */
+        rememberVerifyAddress(data.user.id, trimmedEmail)
         navigateWithFallback(
-          withCarry(`/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}${codeSent ? "&sent=1" : ""}`, carry)
+          withCarry(`/signup/verify?userId=${data.user.id}${codeSent ? "&sent=1" : ""}`, carry)
         )
         router.refresh()
       }

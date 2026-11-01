@@ -277,7 +277,7 @@ function main() {
     check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
     check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
     /* A lookup that fails keeps the last answer it had (a live website stays up through a blip), and with none it is no website, which is the profile. */
-    check("a lookup that fails reads as the last answer, else no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?return remembered\(/.test(proxy) && /if \(fresh\.failed\) return held\?\.value \?\? false/.test(proxy))
+    check("a lookup that fails reads as the last answer, else no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?return remembered\(/.test(proxy) && /if \(fresh\.failed\) return held \? held\.value : "unavailable"/.test(proxy) && /return \(await rememberedAnswer\(key, ask\)\) === true/.test(proxy)) /* rel3-leftovers SITE-8: remembered() still reads "unavailable" as no. */
   }
 
   // ═══════════════════════════════════════════════════════════════════════

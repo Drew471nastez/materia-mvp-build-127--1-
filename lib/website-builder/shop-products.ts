@@ -766,8 +766,36 @@ export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductC
   return readCards(db, creatorId, MAX_CATALOGUE_PRODUCTS, true)
 }
 
-async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean): Promise<ProductCard[]> {
+/*
+  A FAILED READ IS NOT AN EMPTY SHOP, FOR A CACHE. shopProducts and
+  shopCatalogue answer [] when the products cannot be read, which is right
+  for a section drawn once, and wrong under unstable_cache: the [] was held
+  as the shop for SHOP_TTL (a minute), so one slow moment of the database
+  showed "no products" on a live site to every visitor for a minute after
+  it had recovered. The held readers below say so instead (ShopReadFailed),
+  and a cache keeps nothing that threw: the caller serves its last good
+  copy (published-site resolveSite) or the products it already has.
+*/
+export class ShopReadFailed extends Error {
+  constructor(reason: string) {
+    super(`shop products could not be read: ${reason}`)
+    this.name = "ShopReadFailed"
+  }
+}
+
+/** shopProducts for a cache: throws ShopReadFailed instead of answering [] when the read failed. */
+export async function heldShopProducts(db: Db, creatorId: string): Promise<ProductCard[]> {
+  return readCards(db, creatorId, MAX_SHOP_PRODUCTS, true, true)
+}
+
+/** shopCatalogue for a cache: throws ShopReadFailed instead of answering [] when the read failed. */
+export async function heldShopCatalogue(db: Db, creatorId: string): Promise<ProductCard[]> {
+  return readCards(db, creatorId, MAX_CATALOGUE_PRODUCTS, true, true)
+}
+
+async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean, strict = false): Promise<ProductCard[]> {
   if (!creatorId) return []
+  let lastError = ""
   try {
     /* The rows, the products kept off the Online store and the store's currency do not wait on each other. Neither read throws. */
     const hidden = offChannel(db, creatorId, "storefront")
@@ -781,15 +809,22 @@ async function readCards(db: Db, creatorId: string, n: number, listedOnly: boole
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(n)
-      if (error) continue
+      if (error) {
+        lastError = (error as { code?: string; message?: string }).code || (error as { message?: string }).message || "error"
+        continue
+      }
       rows = listedOnly ? withoutCommunityProducts((data ?? []) as ProductRow[]) : ((data ?? []) as ProductRow[])
       break
     }
-    if (!rows) return []
+    if (!rows) {
+      if (strict) throw new ShopReadFailed(lastError || "no rows")
+      return []
+    }
     /* Settings › Sales channels: a product taken off the Online store is in none of its lists (lib/store/channels). */
     rows = listedOn(rows, await hidden)
     return await cardsFromRows(db, rows, creatorId, currency)
-  } catch {
+  } catch (e) {
+    if (strict) throw e instanceof ShopReadFailed ? e : new ShopReadFailed(e instanceof Error ? e.message : String(e))
     return []
   }
 }

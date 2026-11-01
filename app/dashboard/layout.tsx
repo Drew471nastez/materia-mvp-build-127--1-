@@ -40,7 +40,7 @@ export default async function DashboardLayout({
 
   // Gate 1: email must be verified
   if (!gateCheck?.email_verified) {
-    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
+    redirect(`/signup/verify?userId=${encodeURIComponent(user.id)}`)
   }
 
   /*

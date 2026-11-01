@@ -21,8 +21,9 @@
  *   the marketing pages answer 200 and may be held by the CDN (public);
  *     /explore may redirect home instead, which it does while the
  *     marketplace is switched off;
- *   /app is never public, signed out included (its redirect to sign in
- *     carries no Cache-Control, which no shared cache stores);
+ *   /app is never public, signed out included (the proxy marks its
+ *     redirect to sign in "private, no-store"; with no header of its own,
+ *     Vercel sent it as "public, max-age=0, must-revalidate");
  *   the website checkout is no-store;
  *   the security headers from vercel.json are present (skipped on localhost,
  *     where `next start` does not apply vercel.json);
