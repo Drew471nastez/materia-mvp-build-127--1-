@@ -33,6 +33,8 @@ import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/inst
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
+import { SHEET_WAIT_MS, releaseLateSheets } from "@/lib/storelib-theme/compat/sheet-guard"
+import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import type { SectionSchema } from "@/lib/website-builder/types"
 import { markupLooksEmpty, rememberedHeightOk, rememberedHeightsFrom, sampleBlocks, textTag } from "@/lib/website-builder/preview-markup"
 import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
@@ -154,7 +156,13 @@ export function CompatPreviewProvider({
   const theme = useMemo(() => {
     if (!files || !rows) return null
     /* The same theme for every opening of the dialog while nothing it is made of changed: its parsed files and its drawn layout are kept with it. */
-    const key = `${installId}|${JSON.stringify(settings ?? {})}`
+    /*
+      And the asset version its addresses carry (edit.<pass>): the pass is in hand before the files are
+      (compat-files.ts sets it before they resolve), so this is the version of the first draw; a theme
+      kept from before a pass was known is never taken for one drawn with it.
+    */
+    const assets = draftAssetVersion(installId)
+    const key = `${installId}|${assets}|${JSON.stringify(settings ?? {})}`
     const kept = keptThemes.get(files)
     if (kept && kept.key === key && kept.sources === sources) return kept.theme
     const media = assetAddresses(rows)
@@ -640,6 +648,11 @@ class PreviewSheet {
     readonly renderWidth: number,
   ) {}
 
+  /** Whether it has its document (attach). */
+  get attached(): boolean {
+    return !!this.doc && this.doc === this.frame?.contentDocument
+  }
+
   get windowHeight(): number {
     return this.renderWidth < 640 ? WINDOW_HEIGHT_PHONE : WINDOW_HEIGHT_DESKTOP
   }
@@ -687,13 +700,25 @@ class PreviewSheet {
   /** The frame's whole document, built once. */
   get srcDoc(): string {
     if (!this.document_) {
+      let made: { html: string; main: string }
       try {
-        this.document_ = sheetDocument(this.theme, this.page, this.rows, this.renderWidth, this.windowHeight)
+        made = sheetDocument(this.theme, this.page, this.rows, this.renderWidth, this.windowHeight)
       } catch {
-        this.document_ = { html: "<!doctype html><html><head></head><body></body></html>", main: "" }
+        made = { html: "<!doctype html><html><head></head><body></body></html>", main: "" }
       }
+      /* Which document it is, read back from the document itself (attach): by what it holds, so a sheet drawn the same as the one before it takes the same document. */
+      this.docTag = sheetTag(made.html)
+      const tag = `<meta name="sl-sheet" content="${this.docTag}">`
+      this.document_ = { ...made, html: /<head\b[^>]*>/i.test(made.html) ? made.html.replace(/<head\b[^>]*>/i, (m) => `${m}${tag}`) : `${tag}${made.html}` }
     }
     return this.document_.html
+  }
+  private docTag = ""
+
+  /** Whether `doc` was loaded from this sheet's srcdoc (its tag, written first in its head). */
+  private isMine(doc: Document): boolean {
+    void this.srcDoc
+    return doc.querySelector('meta[name="sl-sheet"]')?.getAttribute("content") === this.docTag
   }
 
   /* ── what a card reads ── */
@@ -834,7 +859,7 @@ class PreviewSheet {
   /* ── the frame ── */
 
   /** The frame has (re)loaded its document: everything drawn before is put in again, nearest first. */
-  attach(frame: HTMLIFrameElement, loaded = false) {
+  attach(frame: HTMLIFrameElement) {
     this.frame = frame
     this.grid = frame.parentElement
     /* Watched again after a release (a sheet given up and asked for again keeps its cards). */
@@ -843,18 +868,38 @@ class PreviewSheet {
       this.watch(card.box.closest("[data-library-card]"), true)
     }
     const doc = frame.contentDocument
-    /* Not the blank page a new frame holds before its own document has loaded. */
-    if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    /* Not the blank page a new frame holds before its own document has loaded, nor one still being read. */
+    if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState === "loading") return
     /*
       NOT THE DOCUMENT ON ITS WAY OUT. A push that changes the theme's head
       gives the frame a new srcdoc, and until that has loaded the frame still
       holds the old document, complete and about:srcdoc. A newer sheet took
       it for its own and drew its sections into the old theme's styles,
       measured them there, and kept those heights. A document is this
-      sheet's only once it is known to have loaded this sheet's srcdoc.
+      sheet's only once it holds this sheet's own tag (srcDoc): read from
+      the document, not from its load event, which a stylesheet that never
+      answers holds back for good.
     */
-    if (loaded) loadedFrom.set(doc, frame.getAttribute("srcdoc") ?? "")
-    if (loadedFrom.get(doc) !== this.srcDoc) return
+    if (!this.isMine(doc)) return
+    /*
+      ITS STYLESHEETS ARE WAITED FOR, NEVER FOR GOOD (lib/storelib-theme/compat/
+      sheet-guard.ts). The cards are drawn once the document has loaded, so
+      none is ever measured without the theme's styles; but a stylesheet in
+      its head that does not answer (a web font host, the asset route held by
+      a database) held the load event, and with it every card, grey for good
+      (scripts/check-compat-stalls.mjs: all 157). After SHEET_WAIT_MS the
+      document is taken as it is, what has not come is let go of (it styles
+      the cards when it does arrive, and they are measured again), and the
+      error log is told.
+    */
+    if (doc.readyState !== "complete") {
+      const now = performance.now()
+      const seen = parsedAt.get(doc) ?? now
+      if (!parsedAt.has(doc)) parsedAt.set(doc, now)
+      if (now - seen < SHEET_WAIT_MS) return
+      const late = releaseLateSheets(doc)
+      reportLoadProblem("section-preview", `the cards' page did not load in ${SHEET_WAIT_MS / 1000}s; drawn without waiting${late.length ? `: ${late.slice(0, 6).join(", ")}` : ""}`)
+    }
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
     this.sizes?.disconnect()
@@ -893,6 +938,10 @@ class PreviewSheet {
     }
     /* A font that lands later changes heights: each drawn card is measured again then. */
     doc.fonts?.addEventListener?.("loadingdone", this.fontsLoaded)
+    /* And so does a stylesheet of the head that came after the cards were drawn (one let go of above, or one still on its way). */
+    for (const link of Array.from(doc.head?.querySelectorAll<HTMLLinkElement>("link[rel~='stylesheet']") ?? [])) {
+      if (!link.sheet) link.addEventListener("load", this.fontsLoaded, { once: true })
+    }
     this.sync()
     this.schedule()
     for (const key of this.onScreen.keys()) this.arriving.add(key)
@@ -1520,8 +1569,8 @@ function somethingToSee(root: HTMLElement): boolean {
   return false
 }
 
-/** The srcdoc each of the frame's documents was loaded from (PreviewSheet.attach). */
-const loadedFrom = new WeakMap<Document, string>()
+/** When each of the frame's documents was first seen read but not loaded (PreviewSheet.attach, SHEET_WAIT_MS). */
+const parsedAt = new WeakMap<Document, number>()
 /** What a document showed when its sheet was given up: each shown section's markup, by card. */
 const shownBefore = new WeakMap<Document, Map<string, string>>()
 /** The last size the browser reported for a section's box or its <main> (PreviewSheet.onSizes). */
@@ -1566,6 +1615,20 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     if (frame.current) sheet.attach(frame.current)
     return () => sheet.release()
   }, [sheet])
+  /*
+    NOT ONLY AT ITS LOAD EVENT. A document whose load never comes (a
+    stylesheet that does not answer) is looked at again a few times a second
+    until it is this sheet's, then taken as it is after SHEET_WAIT_MS
+    (attach). Nothing is looked at once the sheet has its document.
+  */
+  useEffect(() => {
+    if (!sheet) return
+    const t = window.setInterval(() => {
+      if (sheet.attached) return window.clearInterval(t)
+      if (frame.current) sheet.attach(frame.current)
+    }, 250)
+    return () => window.clearInterval(t)
+  }, [sheet])
   /* The list's width changes every card's size: put each section over its card again. */
   useEffect(() => {
     const grid = frame.current?.parentElement
@@ -1602,7 +1665,7 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
       data-compat-sheet=""
       /* Its scale is the whole picture: the touch rule that flattens transforms inside a .group must leave it alone. */
       data-keep-transform=""
-      onLoad={(e) => sheet.attach(e.currentTarget, true)}
+      onLoad={(e) => sheet.attach(e.currentTarget)}
       className="pointer-events-none absolute left-0 top-0 z-[1] border-0 bg-transparent"
       style={{ width: renderWidth, height: 0, transformOrigin: "0 0", overflowAnchor: "none", colorScheme: "normal" }}
     />

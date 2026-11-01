@@ -50,11 +50,17 @@ CHROMIUM=/path/to/chromium N=4 EDITS=0 pnpm dlx tsx@4.20.6 scripts/check-wb-stab
 # first pixel, unstyled and resized frames, sections above and below, scrolls, inserts, long tasks, the ring.
 # Randomised CPU, slow stylesheets, an agent's edit, two picks in a row, reduced motion. EDITOR_BUNDLE= for a before.
 RUNS=30 npx tsx scripts/check-section-insert-smooth.mjs
+# A stylesheet that never answers (a web font, the asset route held by the database, 228 sheets, a rewritten page):
+# Add a section's cards on screen within 8s, a section added drawn, a page rewritten by a push drawn with its footer.
+npx tsx scripts/check-compat-stalls.mjs
+npx tsx scripts/check-canvas-stalls.mjs
 pnpm test:push
 pnpm lint
 pnpm typecheck:ratchet
 ```
 
 The first browser check launches the packaged Chromium when CHROMIUM is unset. The scroll probe verifies a push during continuous scrolling, the final offset, the new stylesheet and JavaScript, hero visibility afterward, one remaining iframe, and browser errors. The activity check covers a writer connected after opening, a 45-event burst, application and recovery failures, navigation during an in-flight request, hidden tabs, and rapid repeated tab switches. The read check executes the real GET handler with database failures, including failure on the second page of a large theme.
+
+No page of the builder waits for good on a stylesheet (lib/storelib-theme/compat/sheet-guard.ts). The Add a section cards' page is taken by the tag its srcdoc writes, not by its load event, and after 3s is drawn with what it has. The canvas page's bridge, a script after the theme's stylesheets, is let through after 3s by a guard first in its head. Each change in the canvas page's queue has 4s before the next goes on. Each of these, when it happens, is sent to `/api/client-errors` as `[section-preview]` or `[compat-canvas]`.
 
 Measure browser timing without a production build or TypeScript compilation competing for the same CPUs. Inspect actual screenshots and failed budgets; do not treat merely receiving an event as a working canvas update. Fixture checks do not establish delivery of a live GitHub webhook or availability of production services.

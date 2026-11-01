@@ -48,6 +48,7 @@ import { useCanvasReviews } from "@/components/website-builder/use-canvas-review
 import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
+import { CANVAS_SHEET_GUARD, SHEET_WAIT_MS } from "@/lib/storelib-theme/compat/sheet-guard"
 import { linkedSheets } from "@/lib/storelib-theme/compat/preview-styles"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
@@ -836,7 +837,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
-    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
+    /* CANVAS_SHEET_GUARD first of all (lib/storelib-theme/compat/sheet-guard.ts): a stylesheet of the theme's that does not answer holds the bridge at the end of the page for SHEET_WAIT_MS at most, never for good. */
+    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_SHEET_GUARD}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
   }
 
   /*
@@ -2371,6 +2373,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (!heardFrom(e.source, e.origin)) return
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
       const m = e.data as { storelib?: number; type?: string; sectionId?: string; blockPath?: string[]; scrollY?: number }
+      /* A page of ours that went on without a stylesheet that did not answer (sheet-guard.ts), or a change that took too long (canvas-bridge.ts, bounded): said to the error log, so production tells us. */
+      if (m && m.storelib === 1 && (m.type === "slow-sheets" || m.type === "slow-step") && (slot || keptRef.current.some((x) => frames.current.get(x.n)?.contentWindow === e.source))) {
+        const said = m as { names?: unknown; what?: unknown }
+        if (m.type === "slow-sheets") reportLoadProblem("compat-canvas", `stylesheets did not answer in ${SHEET_WAIT_MS / 1000}s; drawn without waiting: ${Array.isArray(said.names) ? said.names.slice(0, 6).join(", ") : ""}`)
+        else reportLoadProblem("compat-canvas", `a change to the page took too long; the next went on: ${typeof said.what === "string" ? said.what.slice(0, 40) : ""}`)
+        return
+      }
       if (!slot) {
         /* A kept page (KEPT PAGES): what it says about itself is noted, its requests answered, and nothing else of it is heard. */
         const away = keptRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
