@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
+import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
 
 /**
  * ===========================================================================
@@ -56,6 +57,7 @@ export const AUTH_UNAVAILABLE_MESSAGE = "We could not check your sign in just no
 export function authUnavailableResponse(): NextResponse {
   return NextResponse.json(
     { error: AUTH_UNAVAILABLE_MESSAGE, retry: true },
-    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2" } },
+    /* X-Storelib-Auth: refused before anything was done, so lib/net/request.ts may ask again by itself (AUTH_UNAVAILABLE_HEADER). */
+    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2", [AUTH_UNAVAILABLE_HEADER]: "unavailable" } },
   )
 }
