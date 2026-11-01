@@ -1429,6 +1429,16 @@ export async function proxy(request: NextRequest) {
   return res
 }
 
+/*
+  A SIGN IN REDIRECT IS THIS VISITOR'S ANSWER. /app and /sell answer a
+  stranger with a 307 to /login or /signup, and a signed in person with the
+  page: the same address, two answers decided from the session cookie. With
+  no Cache-Control of its own, Vercel sent the redirect as
+  "public, max-age=0, must-revalidate", which allows a shared cache to keep
+  it. Said outright now, as every other per visitor answer here says it.
+*/
+const SIGNED_OUT_REDIRECT_CACHE = "private, no-store"
+
 /** storelib.com or www.storelib.com: where the private addresses are Storelib's own. */
 function onStorelibHost(host: string | null): boolean {
   const bare = (host || "").split(":")[0].toLowerCase()
@@ -2599,6 +2609,8 @@ async function routeRequest(request: NextRequest) {
     const redirect = NextResponse.redirect(url, 307)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
     retireDomainScopedCookies(redirect, request)
+    /* Decided from who is asking: never a shared cache's (SIGNED_OUT_REDIRECT_CACHE). */
+    redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
   }
 
@@ -2630,6 +2642,7 @@ async function routeRequest(request: NextRequest) {
     const redirect = NextResponse.redirect(url)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
     retireDomainScopedCookies(redirect, request)
+    redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
   }
 
