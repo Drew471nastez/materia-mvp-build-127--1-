@@ -171,7 +171,7 @@ function audit({ revs, settled }) {
       if (settled === "scrolling" && sl.hasAttribute("data-on") && natural > own.height + 2 && own.height < own.width * 1.1 - 2) out.cutScrolling++
       else if (settled === true && sl.hasAttribute("data-on") && natural > own.height + 2 && own.height < own.width * 1.1 - 2) { out.cut++; 
         let mem = null
-        try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk?.startsWith("wb-compat-preview-h3:")) { const v = JSON.parse(localStorage.getItem(lk) ?? "{}")[key]; if (v) mem = v } } } catch { /* none */ }
+        try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk?.startsWith("wb-compat-preview-h4:")) { const v = JSON.parse(localStorage.getItem(lk) ?? "{}")[key]; if (v) mem = v } } } catch { /* none */ }
         note("cut", { natural: Math.round(natural), card: Math.round(own.height), pvHeight: pv.offsetHeight, mem, skipped: sl.hasAttribute("data-measured"), fonts: frame.contentDocument.fonts.status, ro: (window.__ro ?? []).filter((r) => r.key === key).slice(-6), state: document.querySelector(`[data-library-card="${key.split(":")[0]}"] [data-preview-box]`)?.style.height }) }
       for (const [other, b] of hosts) {
         if (other === key) continue

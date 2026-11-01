@@ -476,7 +476,13 @@ export function blockMarkup(theme: CompatTheme, page: CompatPage, sectionType: s
 */
 type Heights = Record<string, number>
 const heightMemory = new Map<string, Heights>()
-const HEIGHTS_PREFIX = "wb-compat-preview-h3:"
+/*
+  h4: whatever an older build remembered (h2, h3) is dropped on the first
+  read rather than trusted, so no card opens at a height an earlier rule
+  for measuring or holding left behind. Each card is measured again once.
+*/
+const HEIGHTS_PREFIX = "wb-compat-preview-h4:"
+const OLD_HEIGHTS_PREFIXES = ["wb-compat-preview-h2:", "wb-compat-preview-h3:"]
 /* `heightsId` is the install and the tag of its files: `${installId}:${tag}`. */
 const heightsKey = (heightsId: string, renderWidth: number) => `${HEIGHTS_PREFIX}${heightsId}:${renderWidth}`
 const COMPAT_HEIGHT_KEY = /^[^:\s]+:\d{1,3}$/
@@ -494,7 +500,7 @@ function rememberedHeights(heightsId: string, renderWidth: number): Heights {
       for (let i = 0; i < window.localStorage.length; i++) {
         const other = window.localStorage.key(i)
         if (!other || other === k) continue
-        if (other.startsWith(`wb-compat-preview-h2:${install}:`) || (other.startsWith(`${HEIGHTS_PREFIX}${install}:`) && other.endsWith(`:${renderWidth}`))) stale.push(other)
+        if (OLD_HEIGHTS_PREFIXES.some((p) => other.startsWith(`${p}${install}:`)) || (other.startsWith(`${HEIGHTS_PREFIX}${install}:`) && other.endsWith(`:${renderWidth}`))) stale.push(other)
       }
       for (const other of stale) window.localStorage.removeItem(other)
     } catch {
@@ -1860,12 +1866,25 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     its height until then was remembered or a placeholder. Only a height
     from memory never grows a card in sight, and nothing ever shrinks one.
   */
+  /*
+    ONLY A HEIGHT THIS VISIT MEASURED IS HELD. A card still at its
+    placeholder (half its width: 324px on a 650px card) or at a height read
+    from this browser's memory was held there whenever its section measured
+    shorter while it was on screen, so the first cards of a fresh library
+    stayed big white boxes with a 50px button at their top until the
+    library was opened again (Quick Add to Cart, a scrolling announcement
+    bar on Materia; scripts/check-section-preview-pixels.mjs "over-tall").
+    Neither height was ever the section's: the first measurement replaces it
+    at once, smaller or larger. Only a card already showing its own measured
+    height keeps it while in sight when a later measurement is smaller.
+  */
   const fromMemory = remembered !== null && !named
-  const [kept, setKept] = useState(() => ({ h: wanted, w: width, mem: fromMemory }))
+  const live = snap.height !== undefined || named
+  const [kept, setKept] = useState(() => ({ h: wanted, w: width, mem: fromMemory, live }))
   const height = kept.w === width ? kept.h : wanted
   useLayoutEffect(() => {
     if (kept.w !== width) {
-      setKept({ h: wanted, w: width, mem: fromMemory })
+      setKept({ h: wanted, w: width, mem: fromMemory, live })
       return
     }
     /* A replacement sheet has not measured this section yet. Keep the
@@ -1873,11 +1892,11 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
        moved the list and then left that extra height held until reopening. */
     if (!named && drawnHeight === null) return
     if (kept.h === wanted) {
-      if (kept.mem && !fromMemory) setKept({ h: wanted, w: width, mem: false })
+      if ((kept.mem && !fromMemory) || kept.live !== live) setKept({ h: wanted, w: width, mem: fromMemory, live })
       return
     }
-    const take = () => setKept({ h: wanted, w: width, mem: fromMemory })
-    if ((wanted > kept.h && (!kept.mem || !fromMemory)) || !inSight(box.current)) {
+    const take = () => setKept({ h: wanted, w: width, mem: fromMemory, live })
+    if ((wanted > kept.h && (!kept.mem || !fromMemory)) || (wanted < kept.h && live && !kept.live) || !inSight(box.current)) {
       take()
       return
     }
@@ -1885,7 +1904,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     return () => {
       held.delete(take)
     }
-  }, [wanted, width, kept, fromMemory, named, drawnHeight])
+  }, [wanted, width, kept, fromMemory, named, drawnHeight, live])
   /* Its section goes where the card now is, in the same frame. */
   useLayoutEffect(() => {
     sheet?.requestSync()

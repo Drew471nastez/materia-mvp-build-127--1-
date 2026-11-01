@@ -17,7 +17,9 @@
  *
  * It walks the whole list a screen at a time. A card over its grey but
  * with nothing on it but one colour is EMPTY: a section whose theme hides
- * it until a script runs, and the cards run none.
+ * it until a script runs, and the cards run none. A card at least 150px
+ * tall whose drawn rows are under TALL_SHARE (30%) of it is OVER-TALL: a
+ * small button at the top of a big white box.
  *
  *   npx tsx scripts/check-section-preview-pixels.mjs
  *   THEME=/path/to/storelib/repo npx tsx scripts/check-section-preview-pixels.mjs
@@ -40,6 +42,15 @@ const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const STRICT = process.env.STRICT !== "0"
 const root = process.cwd()
 const THEME = process.env.THEME ?? null
+const TALL_SHARE = Number(process.env.TALL_SHARE ?? 0.3)
+const TALL_STRICT = process.env.TALL_STRICT !== "0"
+/*
+  Sections whose theme gives them their height, empty space and all: the
+  stress theme's Sticky promo (the sixth of its 16 kinds: stress-5,
+  stress-21, ...) is a bar and a heading in a body the theme makes 200 to
+  360px tall. Its card is right to be that tall. KNOWN_TALL=<regex> for a theme.
+*/
+const KNOWN_TALL = process.env.KNOWN_TALL ? new RegExp(process.env.KNOWN_TALL) : THEME ? /$^/ : { test: (type) => /^stress-\d+$/.test(type) && Number(type.slice(7)) % 16 === 5 }
 /*
   Section types allowed to show one colour. The stress theme's countdowns
   (the third of its 16 kinds: stress-2, stress-18, ...) are drawn 120px
@@ -148,6 +159,9 @@ try {
         }, delay)
       }
       if (url === "/" || url.startsWith("/?")) return res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(html)
+      /* The stress theme's pictures (/img/<n>-<w>x<h>.svg): a picture of that size, so a hero is drawn as tall as it is. */
+      const pic = /^\/img\/(\d+)-(\d+)x(\d+)\.svg/.exec(url)
+      if (pic) return res.writeHead(200, { "Content-Type": "image/svg+xml" }).end(`<svg xmlns="http://www.w3.org/2000/svg" width="${pic[2]}" height="${pic[3]}"><rect width="100%" height="100%" fill="hsl(${(Number(pic[1]) * 47) % 360} 45% 62%)"/><circle cx="50%" cy="50%" r="20%" fill="#fff" opacity=".5"/></svg>`)
       res.writeHead(404).end()
     })
     await new Promise((r) => server.listen(0, "127.0.0.1", r))
@@ -218,8 +232,22 @@ try {
             counts.set(q, (counts.get(q) ?? 0) + 1)
           }
           let top = 0
-          for (const v of counts.values()) if (v > top) top = v
-          return { placed: placed / n, ink: 1 - top / n }
+          let bg = 0
+          for (const [q, v] of counts) if (v > top) { top = v; bg = q }
+          /* The rows something is drawn on: the first and last with more than a few pixels off the picture's own background. */
+          let first = -1, last = -1
+          for (let row = 0; row < h; row++) {
+            let off = 0
+            for (let col = 0; col < w; col++) {
+              const i = (row * w + col) * 4
+              if ((((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4)) !== bg) off++
+            }
+            if (off > 2) {
+              if (first < 0) first = row
+              last = row
+            }
+          }
+          return { placed: placed / n, ink: 1 - top / n, drawn: first < 0 ? 0 : (last - first + 1) / h }
         })
       }, shot.toString("base64"), cards)
       cards.forEach((k, i) => {
@@ -230,7 +258,8 @@ try {
       const moved = await page.evaluate(() => {
         const list = document.querySelector("[data-section-library-layer] [data-library-scroll]")
         const before = list.scrollTop
-        list.scrollTop = before + list.clientHeight - 40
+        /* Half a screen at a time: every card up to half the list's height is seen whole on one of them. */
+        list.scrollTop = before + Math.round(list.clientHeight / 2)
         return list.scrollTop !== before
       })
       if (!moved) break
@@ -256,6 +285,17 @@ try {
     const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
     console.log(`  mean placed ${(avg(shown.map((r) => r.placed)) * 100).toFixed(1)}%, mean ink ${(avg(shown.map((r) => r.ink)) * 100).toFixed(1)}%`)
     for (const r of [...blank, ...empty].slice(0, 30)) console.log(`  ${blank.includes(r) ? "BLANK" : "EMPTY"} ${r.type} ${Math.round(r.full)}px placed ${(r.placed * 100).toFixed(1)}% ink ${(r.ink * 100).toFixed(2)}% (screen ${r.screen})`)
+    /*
+      OVER-TALL: a card seen whole, at least 150px tall, whose drawn rows
+      (first to last row with anything on its background) are under
+      TALL_SHARE of its height: a 50px button at the top of a 324px white
+      box. A short card under 150px is a bar or a heading with the theme's own
+      spacing round it (Materia's Text Heading: 92px, 26%), never a big empty
+      box. Failed by default; TALL_STRICT=0 only warns.
+    */
+    const tall = shown.filter((r) => r.h >= r.full - 1 && r.full >= 150 && r.drawn > 0 && r.drawn < TALL_SHARE && !KNOWN_TALL.test(r.type))
+    console.log(`  over-tall (drawn under ${Math.round(TALL_SHARE * 100)}% of the card): ${tall.length}${tall.length ? `: ${tall.slice(0, 20).map((r) => `${r.type} ${Math.round(r.full)}px ${(r.drawn * 100).toFixed(0)}%`).join(", ")}` : ""}`)
+    results.at(-1).tall = tall.length
     if (reports.length) console.log(`  reports: ${reports.slice(0, 3).join(" | ")}`)
     if (process.env.DEBUG) {
       const dbg = await page.evaluate(() => {
@@ -283,8 +323,8 @@ try {
   await browser.close()
 }
 if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(results, null, 2))
-const bad = results.filter((r) => r.blank > 0 || r.empty > 0 || r.shown === 0)
+const bad = results.filter((r) => r.blank > 0 || r.empty > 0 || r.shown === 0 || (TALL_STRICT && r.tall > 0))
 if (bad.length) {
-  console.log(`\nBLANK: cards drawn but showing nothing at ${bad.map((r) => `${r.width}px (${r.blank} blank, ${r.empty} empty of ${r.shown})`).join(", ")}`)
+  console.log(`\nFAIL: cards drawn but showing nothing, or over-tall, at ${bad.map((r) => `${r.width}px (${r.blank} blank, ${r.empty} empty, ${r.tall} over-tall of ${r.shown})`).join(", ")}`)
   if (STRICT) process.exit(1)
 } else console.log("\nPASS")
