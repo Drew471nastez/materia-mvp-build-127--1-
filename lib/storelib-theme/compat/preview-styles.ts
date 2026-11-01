@@ -58,6 +58,62 @@ function absoluteUrls(css: string, base: string): string {
   })
 }
 
+/** A linked stylesheet's file among the install's files, with its address made absolute; null for one that is not there (a CDN's, a picture). */
+function sheetInFiles(url: string, rows: Record<string, string>, base: string): { name: string; abs: string; text: string } | null {
+  if (!url || /^(https?:)?\/\//i.test(url)) return null
+  let name = ""
+  try {
+    name = decodeURIComponent(url.split(/[?#]/)[0].split("/").pop() ?? "")
+  } catch {
+    return null
+  }
+  const text = name ? rows[`shopify/assets/${name}`] : undefined
+  if (typeof text !== "string" || text.startsWith("base64:")) return null
+  let abs = base
+  try {
+    abs = new URL(url, base).href
+  } catch {
+    /* the page's own address then */
+  }
+  return { name, abs, text }
+}
+
+const LINK_TAG = /<link\b[^>]*>/gi
+const hrefOf = (tag: string) => {
+  const href = tag.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)
+  return (href?.[1] ?? href?.[2] ?? href?.[3] ?? "").replace(/&amp;/g, "&")
+}
+
+/**
+ * A NEW SECTION'S OWN STYLESHEETS, AS TEXT, FOR THE CANVAS (an imported theme).
+ * A Dawn style section links its own file (section-image-banner.css), and the
+ * canvas loaded it only once the section was on the page, so the section was
+ * drawn unstyled until the file came back (its padding, colours and pictures'
+ * sizes missing, everything under it jumping when they arrived); in the editor
+ * the file is asked for again every time (a draft asset is never cached). The
+ * install's files have the text already: each one a section links is handed
+ * to the frame with the section, by the address it is linked at, so the frame
+ * applies it before the section goes in (canvas-bridge.ts, keep). `fix` is the
+ * asset route's own pass over a stylesheet (css-fixes.ts fixThemeCss), so the
+ * text is the one the address would answer with. One not among the files is
+ * left out, and the frame waits for it instead.
+ */
+export function linkedSheets(htmls: string[], rows: Record<string, string> | null, fix: (css: string) => string = (c) => c, base?: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!rows) return out
+  const from = base ?? (typeof document !== "undefined" ? document.baseURI : "http://localhost/")
+  for (const html of htmls) {
+    for (const tag of html.match(LINK_TAG) ?? []) {
+      if (!/\brel\s*=\s*["']?stylesheet\b/i.test(tag)) continue
+      const url = hrefOf(tag)
+      if (!url || url in out) continue
+      const sheet = sheetInFiles(url, rows, from)
+      if (sheet) out[url] = absoluteUrls(fix(sheet.text), sheet.abs)
+    }
+  }
+  return out
+}
+
 /**
  * THE THEME'S STYLESHEETS, CARRIED IN THE DOCUMENT. Read from the install's
  * own files rather than fetched: the document has its styles the moment it
@@ -78,27 +134,13 @@ export function inlineStylesheets(html: string, rows: Record<string, string> | n
   const seen = new Map<string, number>()
   let at = 0
   const inlined: string[] = []
-  html = html.replace(/<link\b[^>]*>/gi, (tag) => {
+  html = html.replace(LINK_TAG, (tag) => {
     if (!/\brel\s*=\s*["']?stylesheet\b/i.test(tag)) return tag
-    const href = tag.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)
-    const url = (href?.[1] ?? href?.[2] ?? href?.[3] ?? "").replace(/&amp;/g, "&")
-    if (!url || /^(https?:)?\/\//i.test(url)) return tag
-    let name = ""
-    try {
-      name = decodeURIComponent(url.split(/[?#]/)[0].split("/").pop() ?? "")
-    } catch {
-      return tag
-    }
-    const text = name ? rows[`shopify/assets/${name}`] : undefined
-    if (typeof text !== "string" || text.startsWith("base64:")) return tag
+    const sheet = sheetInFiles(hrefOf(tag), rows, base)
+    if (!sheet) return tag
+    const { name, abs, text } = sheet
     const media = tag.match(/\bmedia\s*=\s*(?:"([^"]*)"|'([^']*)')/i)
     const m = media ? (media[1] ?? media[2] ?? "").trim() : ""
-    let abs = base
-    try {
-      abs = new URL(url, base).href
-    } catch {
-      /* the page's own address then */
-    }
     const css = freezeViewportUnits(absoluteUrls(text, abs), width, height).replace(/<\/style/gi, "\\3c /style")
     const media_ = m && m !== "all" ? ` media="${m.replace(/"/g, "")}"` : ""
     const n = at++
