@@ -107,7 +107,7 @@ async function main() {
     check("the arrival note sends it for a new account only", /if \(note\.arrival === "new"\) recordSignupTouches\(\)/.test(code("components/auth/arrival-note.tsx")))
     const browser = code("lib/attribution/browser.ts")
     check("Storelib's scope is kept apart, only on storelib.com, with its own arrival", /PLATFORM_SCOPE = "s:storelib"/.test(browser) && /platformHost\(window\.location\.hostname\)\) return/.test(browser) && /platformArrived/.test(browser))
-    check("  stored only with analytics consent, like every touch", /if \(!hasConsent\("analytics"\)\) return\s*const kept = readStore\(now\)\s*kept\[PLATFORM_SCOPE\]/.test(browser))
+    check("  stored only with analytics consent, like every touch", /if \(!hasConsent\("analytics"\)\) return(?: touch)?\s*const kept = readStore\(now\)\s*kept\[PLATFORM_SCOPE\]/.test(browser))
     check("the capture is mounted once, in the root layout, and never in /admin or a frame", /<CapturePlatformTouch \/>/.test(read("app/layout.tsx")) && /window\.self !== window\.top/.test(read("components/attribution/capture-platform-touch.tsx")) && /startsWith\("\/admin\/"\)/.test(read("components/attribution/capture-platform-touch.tsx")))
     check("no new third party script", !/<script[^>]*src=/.test(read("components/attribution/capture-platform-touch.tsx")) && !/https?:\/\//.test(code("lib/attribution/signup-browser.ts")))
   }

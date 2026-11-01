@@ -11,12 +11,18 @@
  * on the device only with a yes to analytics, otherwise in this document's
  * memory alone.
  *
- * Nothing on screen, nothing sent here, no third party: the touch travels
- * only with a new account. Not inside a frame, on a preview, or in /admin.
+ * The touch itself is never sent from here: it travels only with a new
+ * account. One thing is (round 46): when the arrival names an AI assistant
+ * and landed on one of Storelib's own public pages, ONE count of
+ * { assistant, path } per tab session goes to /api/track/ai-visit, with the
+ * same yes to analytics and nothing about the visitor
+ * (lib/attribution/ai-visit-browser). Not inside a frame, on a preview, or
+ * in /admin.
  */
 
 import { useEffect } from "react"
 import { keepOnConsent, notePlatformVisit } from "@/lib/attribution/browser"
+import { noteAiVisit } from "@/lib/attribution/ai-visit-browser"
 
 export function CapturePlatformTouch() {
   useEffect(() => {
@@ -28,7 +34,9 @@ export function CapturePlatformTouch() {
       return
     }
     try {
-      notePlatformVisit()
+      const touch = notePlatformVisit()
+      /* Not undone on unmount: the arrival is noted once per document, and a listener waiting for a yes removes itself when it hears one. */
+      if (touch?.ai_source) noteAiVisit(touch.ai_source, touch.landing_path)
     } catch {
       /* attribution never breaks a page */
     }

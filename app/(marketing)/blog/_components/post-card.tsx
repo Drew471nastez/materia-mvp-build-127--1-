@@ -30,11 +30,28 @@ export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/1
  * The whole card is one real <a href>, so a crawler and a keyboard both
  * reach the post from it.
  */
-export function PostCard({ post, headingLevel = "h2", sizes = "(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" }: { post: BlogPost; headingLevel?: "h2" | "h3"; sizes?: string }) {
+export function PostCard({
+  post,
+  headingLevel = "h2",
+  sizes = "(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw",
+  priority = false,
+}: {
+  post: BlogPost
+  headingLevel?: "h2" | "h3"
+  sizes?: string
+  /**
+   * The first card of a list with no large post above it (a category, an
+   * author, /blog/page/N): on a phone its picture is the largest thing on
+   * the first screen, so it is the page's LCP. Lazy, the browser only asked
+   * for it after layout; measured live on /blog/category/creator-tips
+   * (round 46) the LCP was this lazily loaded picture.
+   */
+  priority?: boolean
+}) {
   const H = headingLevel
   return (
     <article className="group relative">
-      <PostCover post={post} sizes={sizes} />
+      <PostCover post={post} sizes={sizes} priority={priority} />
       <p className="mt-4 text-[13px] text-[#6b7280]">
         {post.category ? <span className="font-medium text-[#1a1a2e]">{post.category}</span> : null}
         {post.category && post.published_at ? <span aria-hidden className="mx-1.5 text-[#c4c7cd]">/</span> : null}

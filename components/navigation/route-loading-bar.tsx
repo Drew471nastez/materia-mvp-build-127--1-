@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { settingsStaysHere } from "@/components/account/settings-subpage"
-import { isHistoryLayerRestoring } from "@/components/community/member/lightbox"
+import { isHistoryLayerRestoring } from "@/lib/nav/layer-back"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import { isOnePageHost } from "@/lib/onepage/address"
 import { pullRefreshVisualActive } from "@/hooks/use-pull-to-refresh"

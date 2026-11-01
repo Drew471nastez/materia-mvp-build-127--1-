@@ -44,7 +44,8 @@ import { Search, X } from "lucide-react"
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
 
 import { HeaderSearchResults, optionCount, optionId } from "@/components/platform/header-search-results"
-import { createClient } from "@/lib/supabase/client"
+/* Fetched with the first word typed, not with every page the tab bar is on (lib/supabase/browser-lazy.ts, round 46). */
+import { loadBrowserSupabase } from "@/lib/supabase/browser-lazy"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import {
   DEBOUNCE_MS,
@@ -148,6 +149,7 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
     setWaiting(true)
     timer.current = window.setTimeout(async () => {
       try {
+        const { createClient } = await loadBrowserSupabase()
         const answer = await quickSearch(createClient(), term, { communities: communitiesOn, creators: false })
         if (n !== ask.current) return
         setHits(topHits(answer, SCREEN_LIMIT))

@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr"
 import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { isNativePlatform } from "./native-platform"
 import { fresherSession, readSessionFromCookies, sessionCookieRemovals, sessionCookieWrites, storedSessionKey } from "./session-jar"
 
 /**
@@ -42,18 +43,8 @@ function getCookieDomain(): undefined {
   return undefined
 }
 
-/**
- * Detect Capacitor native platform synchronously.
- * window.Capacitor is injected by the native bridge before any JS runs,
- * so this is reliable as long as we're in a browser context.
- */
-export function isNativePlatform(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof (window as any).Capacitor?.isNativePlatform === "function" &&
-    (window as any).Capacitor.isNativePlatform()
-  )
-}
+/* Detect Capacitor native platform synchronously (lib/supabase/native-platform.ts, its own file so the header can ask it without this one). */
+export { isNativePlatform }
 
 /**
  * Capacitor Preferences storage adapter for Supabase auth.
