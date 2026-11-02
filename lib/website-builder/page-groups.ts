@@ -18,6 +18,7 @@
  *   Shop               /products, /search
  *   Products           the product page, as each of the store's products
  *   Pages              /about and the creator's own pages
+ *   Blog               the list of posts and one post, the blog's templates
  *   Customer accounts  /account, /account/login, /wishlist
  *   Contact            /contact
  *   Policies           /refund-policy, /privacy-policy, /terms-of-service
@@ -35,9 +36,9 @@ import { ACCOUNT_PAGE_PATHS } from "./account-pages"
 import { POLICY_PAGE_KEYS, SHIPPING_POLICY } from "./policy-pages"
 import { NOT_FOUND_PAGE_KEY } from "./site-pages"
 
-export type PageGroupKey = "home" | "shop" | "products" | "pages" | "accounts" | "contact" | "policies" | "other"
+export type PageGroupKey = "home" | "shop" | "products" | "pages" | "blog" | "accounts" | "contact" | "policies" | "other"
 
-export const PAGE_GROUP_ORDER: readonly PageGroupKey[] = ["home", "shop", "products", "pages", "accounts", "contact", "policies", "other"]
+export const PAGE_GROUP_ORDER: readonly PageGroupKey[] = ["home", "shop", "products", "pages", "blog", "accounts", "contact", "policies", "other"]
 
 /** The visitor's own pages, in the order account-pages.ts lists them. Contact is every visitor's, and has a group of its own. */
 const ACCOUNT_KEYS: readonly string[] = Object.keys(ACCOUNT_PAGE_PATHS).filter((k) => k !== "contact")
@@ -47,6 +48,7 @@ export const PAGE_GROUP_LABELS: Readonly<Record<PageGroupKey, string>> = {
   shop: "Shop",
   products: "Products",
   pages: "Pages",
+  blog: "Blog",
   accounts: "Customer accounts",
   contact: "Contact",
   policies: "Policies",
@@ -58,6 +60,8 @@ export function pageGroupOf(key: string): PageGroupKey {
   if (key === "home") return "home"
   if (key === "products" || key === "search" || key === "collections" || key === "collection") return "shop"
   if (key === "product") return "products"
+  /* The blog's templates: "blogs" on a Storelib theme, "blog" on an imported one, "article" on both (lib/site-blog/urls.ts blogTemplateKeys). */
+  if (key === "blogs" || key === "blog" || key === "article") return "blog"
   if (ACCOUNT_KEYS.includes(key)) return "accounts"
   if (key === "contact") return "contact"
   if (POLICY_PAGE_KEYS.includes(key) || key === SHIPPING_POLICY.key) return "policies"
@@ -78,6 +82,9 @@ const WITHIN: Readonly<Record<string, number>> = {
   collection: 1.5,
   search: 2,
   about: -1,
+  blogs: 0,
+  blog: 0,
+  article: 1,
   ...Object.fromEntries(ACCOUNT_KEYS.map((k, i) => [k, i])),
   ...Object.fromEntries(POLICY_PAGE_KEYS.map((k, i) => [k, i])),
   [SHIPPING_POLICY.key]: POLICY_PAGE_KEYS.length,

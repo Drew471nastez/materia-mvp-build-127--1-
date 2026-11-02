@@ -45,6 +45,8 @@ import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
+import { useCanvasBlog } from "./use-canvas-blog"
+import { canvasBlogPage, canvasBlogSource, wantsCanvasBlog } from "@/lib/storelib-theme/compat/canvas-blog"
 import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
@@ -678,6 +680,26 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const canvasReviews = useCanvasReviews(wantsReviews, reviewsProductId)
   const reviewsRef = useRef(canvasReviews)
   reviewsRef.current = canvasReviews
+  /*
+    THE WEBSITE'S BLOG (lib/site-blog), on the Blog and Post templates and on
+    a page with a featured blog section: its real posts, or Storelib's sample
+    posts while it has none (lib/storelib-theme/compat/canvas-blog.ts).
+  */
+  const sectionTypesKey = props.sections.map((s) => s.type).join(",")
+  const blogWanted = useMemo(() => {
+    const types = compatTheme
+      ? props.sections.flatMap((s) => {
+          const list = (compatTheme.schemaOf("sections", s.type) as { settings?: unknown }).settings
+          return Array.isArray(list) ? list.map((x) => String((x as { type?: unknown } | null)?.type ?? "")) : []
+        })
+      : []
+    return wantsCanvasBlog(templateOfPage(pageKey).template, types)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compatTheme, pageKey, sectionTypesKey])
+  const canvasBlog = useCanvasBlog(installId, blogWanted)
+  const blogKey = canvasBlog ? `${canvasBlog.settings.handle}:${canvasBlog.listing.posts.map((p) => `${p.id}@${p.updatedAt}`).join(",")}:${canvasBlog.post?.id ?? ""}` : ""
+  const blogRef = useRef(canvasBlog)
+  blogRef.current = canvasBlog
   const dataKey = JSON.stringify([products, catalog, collections, menus, shop, pageKeys])
   const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys, shop })
   dataRef.current = { products, catalog, collections, menus, shopName, pageKeys, shop }
@@ -724,7 +746,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, productId, dataKey])
-  const stockKey = stock ? `${JSON.stringify(stock)}:${showLeft}` : ""
+  /* And the blog's posts (useCanvasBlog): a page is drawn again when they arrive or change. */
+  const stockKey = `${stock ? `${JSON.stringify(stock)}:${showLeft}` : ""}${blogKey ? `|blog:${blogKey}` : ""}`
   /* The page a key draws, as the canvas draws it: the one in front (`page`), or one drawn ahead out of sight (KEPT PAGES). */
   const pageFor = (pageKey: string, productId: string | null): CompatPage => {
     const { products, catalog, collections, menus, pageKeys, shop } = dataRef.current
@@ -737,7 +760,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* The facts carry each variant's option values as saved: put in the language previewed again, as the live page's product is after its facts (compat.ts card). */
     const sample = facted && facted !== found && map ? ({ ...facted, settings: localizeOptions(facted.settings, map, { approvedOnly: true, fresh: true }) } as ProductCard) : facted
     const firstCollection = collections[0] ?? null
-    const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
+    const blogPart = canvasBlogPage(blogRef.current, template)
+    const path = blogPart.path ?? (pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`)
     return {
       template,
       suffix,
@@ -764,6 +788,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       ...(reviewsRef.current ? { reviews: reviewsRef.current } : {}),
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
+      ...(blogPart.siteBlog ? { siteBlog: blogPart.siteBlog } : {}),
+      ...(blogPart.blogData ? { blogData: blogPart.blogData, title: template === "article" ? String(blogPart.blogData.article?.title ?? "") || undefined : String(blogPart.blogData.blog.title ?? "") || undefined } : {}),
     }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -819,7 +845,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", ...canonicalOf(props.siteUrl), designMode: true, themeDesignMode: false, i18n }
+    const blog = canvasBlogSource(blogRef.current)
+    const site: SiteData = { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", ...canonicalOf(props.siteUrl), designMode: true, themeDesignMode: false, i18n }
+    return blog ? { ...site, blog } : site
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -2197,6 +2225,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       ...canonicalOf(props.siteUrl),
       designMode: true,
       themeDesignMode: false,
+      ...(canvasBlogSource(blogRef.current) ? { blog: canvasBlogSource(blogRef.current) } : {}),
       pricing: canvasPricing(installId),
       i18n,
       /* The product the page shows, with what is true now about its variants: a section drawn again on a choice (`?option_values=`, `?variant=`) says the same stock as the page did. */

@@ -852,6 +852,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             page, About, Contact and the rest as drafts (lib/website-builder/agent/page-builder-server.ts). Not in a locked edit.
           */
           pages: body.lockToSelection === true || body.codeFocus === true ? undefined : sitePages(supabase, installId, body.page),
+          /*
+            THE WEBSITE'S BLOG for read_blog (lib/website-builder/blog-page.ts describeBlog): its address, categories and
+            newest live posts, the same public facts its pages show, always this creator's. A Storelib theme's only: an
+            imported theme reads the blog through its own templates. Null without a blog or before SQL part 353.
+          */
+          readBlog: importedTheme
+            ? undefined
+            : async () => {
+                const { blogFor } = await import("@/lib/site-blog/public-read")
+                const { describeBlog } = await import("@/lib/website-builder/blog-page")
+                return describeBlog(await blogFor(creatorId).catch(() => null))
+              },
           history,
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.

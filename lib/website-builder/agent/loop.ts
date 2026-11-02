@@ -360,7 +360,7 @@ export function describeSchemaRules(opts: { imported: boolean; settingsSchema: b
   return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept.${opts.settingsSchema ? ` The theme settings (the whole site's colours, type, layout) are config/settings_schema.json, Shopify's format: a list of groups { "name", "settings": [ { "type", "id", "label", "default", "min", "max", "step", "unit", "options", "info" } ] }. To add a theme setting, reorder or regroup them, or change a label, default or range, read_theme_settings_schema, then edit_theme_settings_schema. Storelib's own settings keep their id, type and group. A section reads a setting the theme added as theme.settings.<id>. Change a value with update_theme.` : " The theme settings' values change with update_theme."}`
 }
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; settingsSchema?: boolean; themeGroups?: ThemeSettingsGroup[] } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; blog?: boolean; settingsSchema?: boolean; themeGroups?: ThemeSettingsGroup[] } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -745,6 +745,8 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     ...MENU_TOOLS,
     /* The site's other pages (./page-builder-server.ts): after the menus, so the tools above keep their place in the cached prefix. */
     ...(opts.pages ? PAGE_TOOLS : []),
+    /* The website's blog (lib/site-blog): after the pages, so every tool above keeps its place in the cached prefix. */
+    ...(opts.blog ? [READ_BLOG_TOOL] : []),
     /* Last, so every tool above it keeps its place in the cached prefix. */
     ASK_TOOL,
   ]
@@ -763,7 +765,7 @@ export function wholeSiteGuidance(archetype: string | null, openPage: string): s
     "A WHOLE SITE IS ASKED FOR, so it is more than this page. The size follows the brief: a one page landing for a launch stays one page; a brand, a store or a business site gets the pages a real one has.",
     `1. Finish the open page ("${openPage}") first. It sets the look (fonts, colour schemes, buttons, spacing) every other page follows.`,
     "2. list_pages, then build_page for each page the site needs that is not the open one, one call per page, in the order a visitor would meet them. Each page gets the sections its purpose needs, every one filled with real content about this business: an About with the real story, a FAQ with real questions as blocks, a contact page with the form. Reuse the colour schemes and section styles of the open page so the site reads as one.",
-    `3. The store's own pages ("products", "product", "collections") draw the real catalogue: build sections around the product section, never a product, price or stock level typed in by hand.`,
+    `3. The store's own pages ("products", "product", "collections") draw the real catalogue: build sections around the product section, never a product, price or stock level typed in by hand. The blog's templates ("blogs" and "article") draw the real posts the same way, around main_blog and main_article: read_blog first, and never type a post into a section.`,
     "4. edit_menu so the header's menu reaches every page you made (and the footer's, for the policies and contact).",
     "5. list_pages once more to check every page is there and filled. A page with only a header and footer is not done.",
     pages,
@@ -771,6 +773,23 @@ export function wholeSiteGuidance(archetype: string | null, openPage: string): s
     .filter(Boolean)
     .join("\n")
 }
+
+/**
+ * THE WEBSITE'S BLOG. Posts are written in the Blog manager (Website Settings
+ * › Blog), never typed into a section: the sections that show them read the
+ * live posts (themes/default/sections/main_blog, main_article,
+ * blog_featured). This tells the model what the blog holds, so a section
+ * about it is titled and linked for the real one.
+ */
+export const READ_BLOG_TOOL: ToolSpec<string> = {
+  name: "read_blog",
+  description: "Read the website's blog: its address, categories and the newest posts (title, excerpt, address). Do this before a section that shows posts.",
+  parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+}
+
+/** What read_blog answers when the site has no blog, or one with no published post. */
+export const NO_BLOG =
+  "This website has no blog with a published post yet. Posts are written in Website Settings › Blog, never typed into a section; a Blog posts section (blog_featured) shows them once one is published, and shows nothing until then."
 
 /**
  * THE SITE'S OTHER PAGES. The open page is changed with the tools above and
@@ -787,7 +806,7 @@ const PAGE_TOOLS: ToolSpec<string>[] = [
   {
     name: "build_page",
     description:
-      'Build or rebuild ONE page that is NOT the open page, as a draft, in one call: its sections in order, each with its settings and its blocks (blocks may hold blocks: a group\'s children). The site\'s header and footer are kept. Use it for every page a whole site needs beyond the open one: the shop ("products"), the product template ("product", built around its product section, which is kept), "collections", "about", "contact", a FAQ, a size guide, a lookbook, a landing page. Same section types and setting ids as add_section (read_section_type first for a type you have not used). Fill every section with real content the way you would on the open page: a FAQ with its questions as blocks, a story with real paragraphs, never a preset left as it came. A section type you wrote this run with create_section can be used here. Each call is checked, and refused with the reason if a type, setting or block is wrong: nothing is written then, so fix it and call again.',
+      'Build or rebuild ONE page that is NOT the open page, as a draft, in one call: its sections in order, each with its settings and its blocks (blocks may hold blocks: a group\'s children). The site\'s header and footer are kept. Use it for every page a whole site needs beyond the open one: the shop ("products"), the product template ("product", built around its product section, which is kept), "collections", the blog templates ("blogs", every list of posts, built around main_blog; "article", every post, built around main_article; both kept, and posts are never typed in: read_blog), "about", "contact", a FAQ, a size guide, a lookbook, a landing page. Same section types and setting ids as add_section (read_section_type first for a type you have not used). Fill every section with real content the way you would on the open page: a FAQ with its questions as blocks, a story with real paragraphs, never a preset left as it came. A section type you wrote this run with create_section can be used here. Each call is checked, and refused with the reason if a type, setting or block is wrong: nothing is written then, so fix it and call again.',
     parameters: {
       type: "object",
       properties: {
@@ -981,6 +1000,12 @@ export interface ThemeAgentInput {
    * being left to invent one.
    */
   readStore?: () => Promise<StoreFacts | null>
+  /**
+   * Reads the website's blog for read_blog: its address, categories and
+   * newest posts, as words for the model (lib/website-builder/blog-page.ts
+   * describeBlog). Absent, the tool is not offered; null, there is no blog.
+   */
+  readBlog?: () => Promise<string | null>
   /**
    * THE SITE'S OTHER PAGES (./page-builder-server.ts): list them, and build
    * one that is not open as a draft. Absent (a test, a locked edit), the run
@@ -1530,7 +1555,7 @@ export async function* themeAgent(
     return saved
   }
 
-  const runTools = toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() })
+  const runTools = toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, blog: !!input.readBlog, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() })
   /* Several parts: the tool that ticks one off (./task-list.ts), added once, so the list is still the same every turn. */
   if (tasks.length) runTools.push(TASK_TOOL)
 
@@ -1915,6 +1940,19 @@ export async function* themeAgent(
             })
           }
           yield { type: "step", id: call.id, label: stepLabel, state: store ? "done" : "failed" }
+          continue
+        }
+
+        /* The website's blog, read on the server like read_store (READ_BLOG_TOOL). Never typed into a section. */
+        if (call.name === "read_blog") {
+          let text: string | null = null
+          try {
+            text = input.readBlog ? await input.readBlog() : null
+          } catch {
+            text = null
+          }
+          results.push({ id: call.id, output: text ?? NO_BLOG })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           continue
         }
 

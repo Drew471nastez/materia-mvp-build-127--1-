@@ -1579,11 +1579,13 @@ check(
     // Code), so Backups and Navigation sit under their own headings.
     // Changed on purpose: Apps and integrations joined Content (the store's installed ones, each to its own page).
     // Changed on purpose (round V): Performance joined Going live, backed by real visitor data (part 210) and a lab test.
+    // Changed on purpose (creator blogs): Blog joined Content directly below Pages, backed by its own tables (SQL part 353) and routes.
     return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "live" \}/.test(list) &&
       /\{ id: "navigation", label: "Navigation", group: "content" \}/.test(list) &&
       /\{ id: "apps", label: "Apps and integrations", group: "content" \}/.test(list) &&
       /\{ id: "performance", label: "Performance", group: "live" \}/.test(list) &&
-      (list.match(/\{ id: "/g) ?? []).length === 12
+      /\{ id: "pages", label: "Pages", group: "content" \},\n  \{ id: "blog", label: "Blog", group: "content" \}/.test(list) &&
+      (list.match(/\{ id: "/g) ?? []).length === 13
   })(),
 )
 

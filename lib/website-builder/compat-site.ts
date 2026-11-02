@@ -64,6 +64,7 @@ import { LastGood, keyedAs } from "./last-good"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
 import { logEvent } from "@/lib/net/log"
+import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/site-blog/public-read"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -380,6 +381,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const originAsked = live ? quiet(siteOrigin(creator.creatorId, name).catch(() => null)) : Promise.resolve(null)
   /* The creator's photo, the share card's last resort (compatShareImage): held five minutes, asked beside the rest so it is never a round trip in a row. */
   const avatarAsked = live ? quiet(creatorAvatar(creator.creatorId, creator.userId).catch(() => null)) : Promise.resolve(null)
+  /*
+    THE WEBSITE'S BLOG (lib/site-blog): its settings and published posts, held
+    under the blog's own tag (siteBlogTag), which Publish, Update and the
+    rest expire. Null before SQL part 355, or with no blog: every /blogs
+    address is answered as before. A failed read is no blog for this page.
+  */
+  const blogAsked = quiet(blogFor(creator.creatorId).catch(() => null))
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -503,6 +511,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* The handle alone (the settings' own switch is pageSeoForSite's): the one rule a Storelib theme's pages read. */
   const heldBack = !builtSiteIndexable({}, name)
   const sold = await soldAsked
+  const blog = await blogAsked
+  const creatorId = creator.creatorId
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -607,6 +617,18 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
     /* At the site's own host, square (./site-favicon.ts, round 41). */
     icon: ownIconPath(siteIconUrl(settings as Record<string, unknown>)) || undefined,
+    /* A post's own page reads the post (held per slug under the blog's tag), its preview the draft (never held), and a slug that changed its new one. */
+    ...(blog
+      ? {
+          blog: {
+            settings: blog.settings,
+            cards: blog.cards,
+            post: (slug: string) => readLivePost(creatorId, slug),
+            preview: (token: string) => readPreviewPost(creatorId, token),
+            redirect: (slug: string) => siteBlogRedirect(creatorId, slug),
+          },
+        }
+      : {}),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }

@@ -31,6 +31,17 @@ export const SOURCES = [
     .filter((f) => f.endsWith(".tsx"))
     .sort()
     .map((f) => `${SETTINGS_DIR}/${f}`),
+  /* A page's own parts, in a folder of its own (blog/: the post list, the bulk bar, categories, authors). */
+  ...readdirSync(join(root, SETTINGS_DIR), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort()
+    .flatMap((dir) =>
+      readdirSync(join(root, SETTINGS_DIR, dir))
+        .filter((f) => f.endsWith(".tsx"))
+        .sort()
+        .map((f) => `${SETTINGS_DIR}/${dir}/${f}`),
+    ),
   "components/website-builder/project-settings.tsx",
   "components/website-builder/agent-connections-panel.tsx",
   "components/website-builder/github-sync-panel.tsx",

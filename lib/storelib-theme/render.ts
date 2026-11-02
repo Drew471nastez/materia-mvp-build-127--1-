@@ -220,6 +220,9 @@ export function renderSection(input: RenderInput): Rendered {
     product: data.product ?? null,
     collection: data.collection ?? null,
     reviews: data.reviews ?? null,
+    /* The creator's blog and the post the page is about (lib/website-builder/blog-page.ts). */
+    blog: data.blog ?? null,
+    article: data.article ?? null,
     /* The words a section draws itself, in the page's language: each English unless translated (lib/markets/ui-words.ts). */
     words: shopWords(data.words),
     request: {

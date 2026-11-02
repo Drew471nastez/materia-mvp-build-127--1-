@@ -85,6 +85,9 @@ const DIRECT: Record<string, string> = {
 export function editorPagePath(key: string, shopPath: string): string | null {
   if (key === "home") return "/"
   if (key === "product") return null
+  /* The blog's templates: the list answers at /blogs (308 to the blog); one post is a template for many addresses, like the product page. */
+  if (key === "blogs") return "/blogs"
+  if (key === "article") return null
   if (key === "products") return shopPath
   const direct = Object.entries(DIRECT).find(([, k]) => k === key)
   return direct ? direct[0] : `/${key}`
@@ -172,6 +175,18 @@ function resolvePath(href: string, ctx: EditorNavContext): EditorNavDecision {
 
   if (noSlash === ctx.shopPath) return { kind: "page", key: "products" }
   if (DIRECT[noSlash]) return { kind: "page", key: DIRECT[noSlash] }
+
+  /*
+    THE BLOG (lib/site-blog/urls.ts): /blogs, /blogs/<handle> and its pages,
+    tags and categories open the Blog template; /blogs/<handle>/<slug> opens
+    the Blog post template, which draws a post of the blog's.
+  */
+  const blog = /^\/blogs(?:\/([^/]+)(?:\/([^/]+)(?:\/.*)?)?)?$/.exec(noSlash)
+  if (blog) {
+    const second = blog[2]
+    if (!second || second === "page" || second === "tagged" || second === "category") return { kind: "page", key: "blogs" }
+    if (second !== "~preview") return { kind: "page", key: "article" }
+  }
 
   /*
     NOT A PAGE: an action. Signing in, signing out and the site's own API

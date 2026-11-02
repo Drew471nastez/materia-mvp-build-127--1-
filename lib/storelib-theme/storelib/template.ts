@@ -941,6 +941,9 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     collection: ctx.collection ?? null,
     /* Storelib Reviews: lib/reviews/storefront.ts. */
     reviews: ctx.reviews ?? null,
+    /* The creator's blog and the post a page is about: lib/website-builder/blog-page.ts. */
+    blog: ctx.blog ?? null,
+    article: ctx.article ?? null,
     /* The words a section draws itself (Price, Verified buyer), in the page's language; English wherever none was handed over. */
     words: ctx.words ?? shopWords(undefined),
     request: ctx.request ?? { page_type: typeof ctx.page?.template === "string" ? ctx.page.template : "", path: "", design_mode: ctx.page?.in_editor === true },

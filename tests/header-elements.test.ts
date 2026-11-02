@@ -190,8 +190,9 @@ function main() {
   /* The shop, the search page and the 404 page, and the account pages and
      contact (lib/website-builder/account-pages), named in one set. */
   /* And the collections page, Shopify's list-collections (lib/website-builder/shop-page). */
+  /* Changed on purpose (creator blogs): and the blog's two templates, the list of posts and one post (lib/website-builder/blog-page). */
   check("the generated keys are named once",
-    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection"\]\)/.test(sitePages))
+    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection", "blogs", "article"\]\)/.test(sitePages))
   check("and are built in, so they are not listed as pages somebody made",
     /BUILT_IN_PAGE_KEYS[^\n]*"products", "search"/.test(sitePages))
   check("the sections route generates them from the same builders the live site uses",
