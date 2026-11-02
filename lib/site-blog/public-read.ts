@@ -29,6 +29,7 @@ import { verifySitePostPreview } from "./preview-token"
 import { escapeHtml, renderBlocksHtml } from "./render-html"
 import { sanitizeSiteBlocks } from "./sanitize"
 import { isLive } from "./schedule"
+import { samplePosts } from "./sample"
 import { isPostSlug } from "./slug"
 import type { BlogListing, PublicPost, PublicPostCard, SiteBlogAuthor, SiteBlogCategory, SiteBlogSettings } from "./types"
 import { categoryPath, postPath } from "./urls"
@@ -72,8 +73,7 @@ interface BlogData {
   rows: Row[]
 }
 
-async function loadBlogData(creatorId: string): Promise<BlogData | null> {
-  const db = siteBlogReadDeps.db()
+async function loadBlogData(creatorId: string, db: Db = siteBlogReadDeps.db()): Promise<BlogData | null> {
   const [settings, cats, authors, posts] = await Promise.all([
     db.from("site_blog_settings").select("*").eq("creator_id", creatorId).maybeSingle(),
     db.from("site_blog_categories").select("*").eq("creator_id", creatorId).order("sort_order", { ascending: true }).order("name", { ascending: true }).limit(1000),
@@ -343,4 +343,50 @@ export async function blogFor(creatorId: string, now: number = Date.now()): Prom
   const data = await blogData(creatorId)
   if (!data?.configured) return null
   return { settings: data.settings, cards: liveRows(data, now).map((r) => cardOf(r, data)) }
+}
+
+/**
+ * What the builder's canvases draw for the Blog and Post templates: read
+ * fresh with the editor's own client (never the cache), live AND scheduled
+ * posts, or the three sample posts when nothing is published, flagged
+ * `sample: true`. Null before SQL part 353.
+ */
+export async function readCanvasBlog(db: Db, creatorId: string, slug: string | null, now: number = Date.now()): Promise<{ settings: SiteBlogSettings; listing: BlogListing; post: PublicPost | null; sample: boolean } | null> {
+  const data = await loadBlogData(creatorId, db)
+  if (!data) return null
+  const per = data.settings.postsPerPage || 12
+  const cards = data.rows.map((r) => cardOf(r, data))
+  if (!cards.length) {
+    const samples = samplePosts(data.settings.handle, now)
+    const cats = [...new Map(samples.filter((p) => p.category).map((p) => [p.category!.slug, p.category!])).values()]
+    const listing: BlogListing = {
+      blog: data.settings,
+      posts: samples.map(({ blocks: _b, html: _h, wordCount: _w, seo: _s, ...card }) => card),
+      page: 1,
+      pages: 1,
+      total: samples.length,
+      category: null,
+      tag: null,
+      categories: cats.map((c, i) => ({ id: `sample-${c.slug}`, slug: c.slug, name: c.name, description: "", sortOrder: i, seoTitle: "", seoDescription: "", postCount: 1 })),
+      allTags: [...new Set(samples.flatMap((p) => p.tags))].sort(),
+    }
+    return { settings: data.settings, listing, post: samples.find((p) => p.slug === slug) ?? samples[0], sample: true }
+  }
+  const counts = new Map<string, number>()
+  for (const c of cards) if (c.category) counts.set(c.category.slug, (counts.get(c.category.slug) ?? 0) + 1)
+  const listing: BlogListing = {
+    blog: data.settings,
+    posts: cards.slice(0, per),
+    page: 1,
+    pages: Math.max(1, Math.ceil(cards.length / per)),
+    total: cards.length,
+    category: null,
+    tag: null,
+    categories: data.categories.map((c) => ({ ...c, postCount: counts.get(c.slug) ?? 0 })),
+    allTags: [...new Set(cards.flatMap((c) => c.tags))].sort((a, b) => a.localeCompare(b)),
+  }
+  const want = slug && isPostSlug(slug) ? slug : cards[0].slug
+  const { data: row, error } = await db.from("site_blog_posts").select(POST_COLUMNS).eq("creator_id", creatorId).eq("slug", want).eq("status", "published").maybeSingle()
+  if (error && !missingTable(error)) throw new ReadFailed(error.message)
+  return { settings: data.settings, listing, post: row ? publicPostOf(row as Row, data, (row as Row).content) : null, sample: false }
 }
