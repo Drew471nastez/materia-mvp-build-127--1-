@@ -547,6 +547,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                 onMouseEnter={() => warmAccountPage(item.href)}
                 onFocus={() => warmAccountPage(item.href)}
@@ -709,6 +710,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                       onMouseEnter={() => warmAccountPage(item.href)}
                       onFocus={() => warmAccountPage(item.href)}
@@ -764,7 +766,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
           {/* Center: the search bar, which opens the search over the page. */}
           <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
-            <AppSearch ref={searchRef} />
+            <AppSearch ref={searchRef} communitiesEnabled={communitiesEnabled} />
           </div>
 
           {/* Right side: Nav icons + Storelib logo */}
@@ -790,6 +792,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </button>
               <Link
                 href="/app/settings"
+                prefetch={false}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title={tt("Settings")}
               >
@@ -799,7 +802,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             <div className="h-5 w-px bg-white/15" />
 
-            <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
+            <Link href="/app" prefetch={false} className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
               {/* 5% UNDER THE 27PX IT WAS, as in every header. components/app/shell-header-still.tsx draws the same number. */}
               <StorelibLogo size={25.65} priority />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
@@ -987,9 +990,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           startNavigationLoading(href)
           router.push(href)
         }}
-        onPrefetch={(href) => {
-          /* Asked again whenever a router.refresh() drops it (lib/ui/app-navigation KEPT WARM THROUGH A REFRESH). */
-          prefetchAppPage(router, href, { keepWarm: true })
+        onPrefetch={(href, phone) => {
+          /* Asked again whenever a router.refresh() drops it (lib/ui/app-navigation KEPT WARM THROUGH A REFRESH), on a
+             phone, where the bar is the way around. On a computer it is hidden: the page alone, once (round 48). */
+          prefetchAppPage(router, href, phone ? { keepWarm: true } : { pageOnly: true })
         }}
         icons={{
           home: NAV_ICONS.dashboard,
@@ -1148,11 +1152,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 type InstalledIntegration = { id: string; name: string; logo?: string | null; needsAttention: boolean }
 /* The last list read, kept for the visit: the sidebar draws again on every page, and the row should not empty and refill each time. */
 let installedHeld: InstalledIntegration[] = []
+/*
+  A RETURN TO THE TAB ASKS AGAIN AT MOST ONCE A MINUTE (round 48). Every
+  switch back to the browser tab asked the server for the list, which is a
+  signed in request with its own database reads, for a row that changes only
+  when an integration is installed. An install in this tab still says so at
+  once (storelib:integrations-changed); one made elsewhere shows within a
+  minute of coming back.
+*/
+const INSTALLED_AGAIN_MS = 60_000
+let installedReadAt = 0
 function useInstalledIntegrations(): InstalledIntegration[] {
   const [list, setList] = useState<InstalledIntegration[]>(installedHeld)
   useEffect(() => {
     let live = true
     const read = () => {
+      installedReadAt = Date.now()
       fetch("/api/store/integrations/installed", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { installed?: InstalledIntegration[] } | null) => {
@@ -1163,7 +1178,7 @@ function useInstalledIntegrations(): InstalledIntegration[] {
     }
     read()
     const onShow = () => {
-      if (document.visibilityState === "visible") read()
+      if (document.visibilityState === "visible" && Date.now() - installedReadAt >= INSTALLED_AGAIN_MS) read()
     }
     window.addEventListener("storelib:integrations-changed", read)
     document.addEventListener("visibilitychange", onShow)

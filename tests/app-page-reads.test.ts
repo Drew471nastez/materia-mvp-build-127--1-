@@ -238,8 +238,9 @@ section("Customers, Coupons, Analytics, Orders")
   /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
   check("its creator row is the layout's (teamPageStore reads the same per request cache)", /teamPageStore\("customers"\)/.test(customers) && /const own = await creatorForRequest\(user\.id\)/.test(code("lib/team/server.ts")))
   check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/app/coupons/load-coupons.ts")))
+  /* Changed on purpose (round 48): Analytics takes the store teamPageStore found (the owner's own row through the per request cache, as Customers does) and reads everything by its id in one round, instead of reading the creator row a second time. */
   for (const f of ["app/app/analytics/page.tsx"]) {
-    check(`${f} keeps its service role reads by the creator found from the user`, /\.from\("creators"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)/.test(code(f)))
+    check(`${f} keeps its service role reads by the creator found from the user`, /teamPageStore\("analytics"\)/.test(code(f)) && /const creatorId = access\.creatorId/.test(code(f)) && /\.from\("products"\)[\s\S]{0,80}\.eq\("creator_id", creatorId\)/.test(code(f)) && !/\.from\("creators"\)/.test(code(f)))
   }
   /* Changed on purpose (round AA, Team): Orders finds the creator from the user through
      lib/team/server creatorFor, which reads it by user_id for the owner, or the store a

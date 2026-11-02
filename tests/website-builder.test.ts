@@ -1710,7 +1710,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  the Website row warms them under the pointer or finger, with the page's data",
     /if \(href === "\/app\/website-builder"\) \{\s*import\("@\/lib\/website-builder\/cover-memory"\)\.then\(\(m\) => m\.warmCovers\(\)\)/.test(read("lib/ui/app-navigation.ts")))
   check("the server asks for the website's name beside its installs, not after its covers",
-    /const handle = websiteHandleOf\(creator\.id\)\s*let \{ data: rows \} = await load\(\)/.test(page) && /const siteHandle = await handle/.test(page))
+    /* Changed on purpose (round 48): the name and the installs now start with the creator and profile reads, by the store id websitePage found (tests/appperf-r48.test.ts). */
+    /const handle = websiteHandleOf\(storeId\)\s*const \[\{ data: creator \}, \{ data: profile \}, library\] = await Promise\.all\(\[[\s\S]*?load\(\),\s*\]\)/.test(page) && /const siteHandle = await handle/.test(page))
   check("  and lists the storage folder only for websites the column says nothing about",
     /const missing = installs\.filter\(\(i\) => !i\.snapshot_url\)\s*if \(missing\.length === 0\) return installs/.test(page))
   check("Browse themes waits for the page's first frame on a phone, as an attribute, with no render of the page for it",

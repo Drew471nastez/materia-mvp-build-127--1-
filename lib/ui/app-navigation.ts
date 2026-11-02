@@ -168,10 +168,13 @@ export function sameStageFrame(from: string | null | undefined, to: string | nul
  * width. The class is the one the native shell puts on <html> before the
  * first paint; nothing here reads a user agent.
  */
+/** The nav pill's breakpoint: below md (Tailwind's 768px). */
+export const PHONE_WIDTH_QUERY = "(max-width: 767px)"
+
 export function isPhoneShell(): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false
   if (document.documentElement.classList.contains("capacitor")) return true
-  return !!window.matchMedia?.("(max-width: 767px)").matches
+  return !!window.matchMedia?.(PHONE_WIDTH_QUERY).matches
 }
 
 /** How long a navigation to `href` runs before the spinner shows, or null for never. */
@@ -529,7 +532,8 @@ export function useShownSearch(): string {
 export function prefetchAppPage(
   router: { prefetch: (href: string, options?: never) => void },
   href: string,
-  options?: { keepWarm?: boolean },
+  /** `pageOnly`: the page alone, without the figures, covers or Stripe reads some pages warm with it (the hidden bar on a computer, round 48). */
+  options?: { keepWarm?: boolean; pageOnly?: boolean },
 ) {
   const onInvalidate = options?.keepWarm ? keepWarmListener(router, href) : undefined
   try {
@@ -539,6 +543,7 @@ export function prefetchAppPage(
     /* a prefetch that fails is a click that waits, nothing worse */
     if (onInvalidate) warmListening.delete(href)
   }
+  if (options?.pageOnly) return
   /* Analytics' page is quick; its numbers are what take the time. They are
      fetched ahead too, and kept for the page (lib/analytics/report-cache). */
   if (href === "/app/analytics" || href.startsWith("/app/analytics?")) {

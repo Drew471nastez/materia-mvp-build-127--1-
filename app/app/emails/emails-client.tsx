@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
-import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type MessageRow, type SubscriberRow } from "./emails-home"
 import type { CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
@@ -177,7 +177,14 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     refresh(...TABS.filter((t) => t !== tab).map(keyFor))
   }, [tab, keyFor, loaderFor])
 
-  /* Once the open tab has what it needs, the others are read while the browser is idle. */
+  /*
+    Once the open tab has what it needs, the others are read while the browser is idle.
+    ONCE PER FIVE MINUTES, NOT ONCE A MINUTE (round 48). A visit to Emails more than a minute after the last one
+    asked for all seven other tabs again, seven signed in requests, before anything on screen needed them. A tab
+    that is opened is read again behind what is kept whenever that is older than a few seconds (useCached), so
+    what is warmed only decides what is drawn in the frame of the press, and the router keeps the pages
+    themselves for the same five minutes (APP_PAGE_KEPT_MS).
+  */
   const warmed = React.useRef(false)
   React.useEffect(() => {
     if (warmed.current || current.loading) return
@@ -185,7 +192,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
     const idle = (fn: () => void) => (w.requestIdleCallback ? w.requestIdleCallback(fn, { timeout: 1500 }) : window.setTimeout(fn, 300))
     idle(() => {
-      for (const t of TABS) if (t !== tab) prefetch(keyFor(t), loaderFor(t), 60_000)
+      for (const t of TABS) if (t !== tab) prefetch(keyFor(t), loaderFor(t), APP_PAGE_KEPT_MS)
     })
   }, [current.loading, tab, keyFor, loaderFor])
 

@@ -98,7 +98,8 @@ async function main() {
     forgetKeptWarm()
 
     const shell = readCode("components/app/sidebar.tsx")
-    check("the pill's warm keeps its pages warm", /onPrefetch=\{\(href\) => \{[\s\S]{0,160}?prefetchAppPage\(router, href, \{ keepWarm: true \}\)/.test(shell))
+    /* Changed on purpose (round 48): kept warm where the bar is on screen; on a computer, where it is hidden, the page alone and once (tests/appperf-r48.test.ts). */
+    check("the pill's warm keeps its pages warm", /onPrefetch=\{\(href, phone\) => \{[\s\S]{0,260}?prefetchAppPage\(router, href, phone \? \{ keepWarm: true \} : \{ pageOnly: true \}\)/.test(shell))
   }
 
   console.log("\nThe menu closes on the tap")

@@ -39,7 +39,7 @@ export async function loadSettingsData() {
     store" and sent a seller to /onboarding; the profile read failing made a fresh profile row with an upsert.
     Both throw a ServiceUnavailable now, which SettingsForm (./_view) draws in Settings' own place with Try again.
   */
-  const [profileRead, creatorRead, { data: onepage }, newsletter, group] = await Promise.all([
+  const [profileRead, creatorRead, { data: onepage }, newsletter, group, actingTeam] = await Promise.all([
     createAdminClient().from("profiles").select("*").eq("id", user.id).maybeSingle(),
     createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle(),
     /* The share pill: whether the OnePage is live, and the platforms it links to. */
@@ -65,6 +65,9 @@ export async function loadSettingsData() {
       reads as "no others", which is what almost every account is.
     */
     businessGroup(user.id).catch(() => null),
+    /* The store a team member is working in (lib/team), beside the rest rather than after it (round 48): its
+       own reads are only made when the team cookie names a store, and the answer is the request's cached one. */
+    teamStoreForRequest(user.id).catch(() => null),
   ])
   const profile = dataOrThrow("settings profile", profileRead) // i18n-ignore: a label for the log
   const creator = dataOrThrow("settings creator", creatorRead) // i18n-ignore: a label for the log
@@ -75,12 +78,11 @@ export async function loadSettingsData() {
     would ask them to make a store they did not come here for.
   */
   if (!creator) {
-    const [acting, stores] = await Promise.all([teamStoreForRequest(user.id).catch(() => null), teamStoresForRequest(user.id)])
-    if (acting || stores.length > 0) return { memberOnly: true as const }
+    const stores = await teamStoresForRequest(user.id)
+    if (actingTeam || stores.length > 0) return { memberOnly: true as const }
     redirect("/onboarding")
   }
   /* Working in another store as a team member: Settings is about them (their account), not the store they work in, and (round 41) Store details too when they hold Store settings (lib/team/settings). */
-  const actingTeam = await teamStoreForRequest(user.id).catch(() => null)
   const teamActing = !!actingTeam
   const teamTabs = memberSettingsTabs(actingTeam ? actingTeam.acting.permissions : null)
 

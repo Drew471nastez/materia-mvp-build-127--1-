@@ -54,7 +54,7 @@ import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { onSearchStale, takeSearchStale, watchWrites } from "@/lib/search/search-freshness"
 import { readRecent, withRecent, writeRecent, type RecentItem } from "@/lib/search/recent-searches"
-import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search"
+import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search-groups"
 import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
 import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
 import { tt } from "@/lib/i18n/text"
@@ -102,7 +102,9 @@ function isPhone(): boolean {
 }
 
 export const AppSearch = memo(
-  forwardRef<AppSearchHandle, { className?: string }>(function AppSearch({ className }, ref) {
+  /* `communitiesEnabled` is the layout's own read (app/app/layout.tsx), handed down by the sidebar, so the
+     search does not ask GET /api/platform/flags for it again on every load of /app (round 48). Left out, it asks. */
+  forwardRef<AppSearchHandle, { className?: string; communitiesEnabled?: boolean }>(function AppSearch({ className, communitiesEnabled }, ref) {
     const router = useRouter()
     const pathname = usePathname()
     const [open, setOpen] = useState(false)
@@ -270,7 +272,7 @@ export const AppSearch = memo(
 
     /* ── What is drawn ─────────────────────────────────────────────────── */
     /* Community is offered only while the platform switch is on (lib/search/app-pages.ts flag). */
-    const communities = useCommunitiesEnabled()
+    const communities = useCommunitiesEnabled(communitiesEnabled)
     const physical = usePhysicalCommerceEnabled()
     const sections = useMemo<Section[]>(() => {
       if (!q) {

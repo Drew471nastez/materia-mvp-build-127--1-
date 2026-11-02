@@ -48,14 +48,24 @@ export default async function ProductsPage() {
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
 
+  const supabase = await createClient()
+  /*
+    THE LIST STARTS WHEN THE CREATOR ROW LANDS, beside the profile rather than
+    after it (round 48): on a move from another page the layout is not drawn
+    again, so the profile is a real read, and the list used to wait for it.
+    creatorForRequest is the per-request cache, so this is the same answer
+    the batch below gets, not a second read. Same client, same columns.
+  */
+  /* Only the list's columns, every product a page at a time (lib/products/list-read). */
+  const listRead = creatorForRequest(user.id).then((creator) => (creator ? readProductList<ListedRow>(supabase, creator.id) : null))
+  /* A redirect below leaves it unawaited: never an unhandled rejection. */
+  listRead.catch(() => {})
   const [creator, profile] = await Promise.all([creatorForRequest(user.id), profileForRequest(user.id)])
 
   if (!creator) redirect("/app")
   const creatorUsername = profile?.username || creator.slug || ""
 
-  const supabase = await createClient()
-  /* Only the list's columns, every product a page at a time (lib/products/list-read). */
-  const { data: products } = await readProductList<ListedRow>(supabase, creator.id)
+  const { data: products } = (await listRead) ?? { data: null }
 
   /* A product that sells a community's access is managed in Community settings
      (its price, its members), so it is not listed here as a second copy. */

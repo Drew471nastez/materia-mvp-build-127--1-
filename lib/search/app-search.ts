@@ -47,69 +47,15 @@ import { searchHelp } from "@/lib/help/search"
 import { helpArticlePath } from "@/lib/help/articles"
 import { APP_HELP_BASE, HELP_BASE } from "@/lib/help/paths"
 
-export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "offers" | "coupons" | "size_charts" | "emails" | "automations" | "communities" | "integrations" | "help"
-
 /*
-  ROUND 42: upsells and bundles, size charts, the communities a person runs,
-  the integrations and the Help Center's articles found too, beside what was
-  found before. The last two are read from the code (lib/integrations/catalog,
-  lib/help/articles), never a table: nothing of anybody's is in them.
+  The groups, their labels, the query rules and the result shapes live in
+  lib/search/app-search-groups.ts so the header's search box can import them
+  without this file's readers (and the Help Center they search). Re-exported
+  here unchanged for the route and the tests.
 */
-export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "collections", "offers", "coupons", "size_charts", "emails", "automations", "communities", "integrations", "help"]
-
-export const GROUP_LABELS: Record<SearchGroupId, string> = {
-  get orders() { return tt("Orders") },
-  get customers() { return tt("Customers") },
-  get products() { return tt("Products") },
-  get collections() { return tt("Collections") },
-  get offers() { return tt("Upsells and bundles") },
-  get coupons() { return tt("Coupons") },
-  get size_charts() { return tt("Size charts") },
-  get emails() { return tt("Emails") },
-  get automations() { return tt("Automations") },
-  get communities() { return tt("Communities") },
-  get integrations() { return tt("Integrations") },
-  get help() { return tt("Help") },
-}
-
-/** At most this many of each kind. A search is for finding one thing, not a list. */
-export const GROUP_LIMIT = 5
-
-/** Longer than any name, email or subject anybody types. */
-export const MAX_QUERY_LENGTH = 100
-
-export interface SearchHit {
-  id: string
-  title: string
-  /** One line under the title: who, what, how much, or where it stands. */
-  detail: string
-  href: string
-}
-
-export interface SearchResult {
-  groups: Record<SearchGroupId, SearchHit[]>
-  /** Groups whose table could not be read (not migrated yet, or failing). */
-  unavailable: SearchGroupId[]
-}
-
-export function emptyResult(): SearchResult {
-  return { groups: { orders: [], customers: [], products: [], collections: [], offers: [], coupons: [], size_charts: [], emails: [], automations: [], communities: [], integrations: [], help: [] }, unavailable: [] }
-}
-
-/** Trimmed, one space between words, and no longer than MAX_QUERY_LENGTH. */
-export function normalizeQuery(raw: unknown): string {
-  if (typeof raw !== "string") return ""
-  return raw.replace(/\s+/g, " ").trim().slice(0, MAX_QUERY_LENGTH)
-}
-
-/**
- * Worth asking the server: two characters, or an order number of any length
- * ("#7", "7"). One letter matches half of everything and tells nobody anything.
- */
-export function isSearchable(q: string): boolean {
-  const t = q.trim()
-  return t.length >= 2 || /^#?\d+$/.test(t)
-}
+import { GROUP_LIMIT, SEARCH_GROUPS, emptyResult, isSearchable, normalizeQuery, type SearchGroupId, type SearchHit, type SearchResult } from "@/lib/search/app-search-groups"
+export { GROUP_LABELS, GROUP_LIMIT, MAX_QUERY_LENGTH, SEARCH_GROUPS, emptyResult, isSearchable, normalizeQuery } from "@/lib/search/app-search-groups"
+export type { SearchGroupId, SearchHit, SearchResult } from "@/lib/search/app-search-groups"
 
 /**
  * `%`, `_` and `\` taken literally by `ilike`. Postgres's default escape
