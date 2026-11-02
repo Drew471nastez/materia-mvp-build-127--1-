@@ -287,7 +287,7 @@ function sql() {
   check("no policy is created for anon or public", !/TO (anon|public)\b/i.test(own))
 
   const after = read("supabase/sql/run-now/99_check_after.sql")
-  check("99_check_after has the p354 column", /as p354_builder_configs_private;\s*$/.test(after))
+  check("99_check_after has the p354 column", /as p354_builder_configs_private[,;]/.test(after))
   const col = after.slice(after.indexOf("as p353_rls_initplan_and_product_counters, ") + 43)
   check(
     "  true only when anon cannot select and no anon-readable policy remains",
