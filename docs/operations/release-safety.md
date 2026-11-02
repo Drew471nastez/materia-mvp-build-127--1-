@@ -19,6 +19,21 @@ Undoing something: [rollback.md](rollback.md).
 
 A red CI on GitHub is a broken commit on `main`: fix it before anything else.
 
+### The fast part, before a push
+
+`node scripts/pre-push.mjs` runs on this machine what a change can break, in
+a minute or two: ESLint on the changed `.js`/`.mjs` files, and the suites
+from `scripts/run-push-tests.mjs` that are changed or read a changed file.
+`--types` adds the type error ratchet, `--list` only prints the suites,
+`--base <branch>` compares with something other than `origin/main`. As a git
+hook, once per clone:
+
+```bash
+printf '#!/bin/sh\nexec node scripts/pre-push.mjs\n' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
+It is a shortcut, not a replacement: CI still runs everything.
+
 ### Run the type checks locally
 
 `pnpm typecheck` runs the complete strict check. It still exits with diagnostics
@@ -112,8 +127,19 @@ GitHub integration sends for every deployment). It runs
   content security policy are sent (vercel.json);
 - `/api/health` says ok and is never cached;
 - `robots.txt` and `sitemap.xml` answer with their content;
+- `/login` renders, and `/api/health` carries nothing that reads as a key or
+  a token;
 - with the repository variable `SMOKE_SITE` set (a username, or a full
-  address such as `https://demo.storelib.com`), that website opens.
+  address such as `https://demo.storelib.com`), that website opens;
+- the critical paths that need a real creator, each from a repository
+  variable, and each a visible `skip` line in the summary while unset:
+
+  | Variable | Example | Checks |
+  | --- | --- | --- |
+  | `SMOKE_CREATOR` | `satori` | `/<handle>` (the creator page) answers 200 |
+  | `SMOKE_PRODUCT` | `satori/loop-pack-1` | the product page answers 200 |
+  | `SMOKE_CHECKOUT_PRODUCT` | a published product's id | `/checkout?productId=<id>` renders (200) and is never `public` |
+  | `SMOKE_DOMAIN` | `https://shop.example.com` | a creator's custom domain answers 200 (production deploys only) |
 
 It is **advisory**: it runs after the deployment exists, so it cannot stop
 it. A failure is a warning on the run with the details in its summary, and
@@ -139,7 +165,19 @@ skipped on localhost, since `next start` does not apply vercel.json.
    add it in GitHub, Settings, Secrets and variables, Actions, as
    `VERCEL_AUTOMATION_BYPASS_SECRET`. Without it every preview answers 401
    and the smoke run says so.
-3. Optionally the variable `SMOKE_SITE` (above).
+3. Optionally the variable `SMOKE_SITE` (above), and `SMOKE_CREATOR`,
+   `SMOKE_PRODUCT`, `SMOKE_CHECKOUT_PRODUCT`, `SMOKE_DOMAIN` for a creator
+   who agrees to be the check (a demo account is best: the checks only read).
+
+### Rolling back when it fails
+
+The workflow does not roll back by itself: it has no Vercel token, and a
+rollback that a flaky check can trigger is worse than a warning. A failure
+posts to `ALERT_WEBHOOK_URL` with a link to the run; the rollback is one
+click, [rollback.md](rollback.md) section 1 (Vercel, Deployments, the
+previous production deployment, Instant Rollback). With `SMOKE_BLOCKING` and
+Deployment Checks (below) a failing production deploy is never promoted, so
+there is nothing to roll back.
 
 ### Make it blocking (if you want that)
 
@@ -169,6 +207,23 @@ To undo either, delete the variable or remove the check.
 | A crash in someone's browser (`/api/client-errors`) | `error_events` + you |
 | The site or database down, or a job late (`/api/health`, checked every 15 minutes from outside by `.github/workflows/uptime.yml`) | the GitHub run fails + you |
 | A nightly backup or the weekly restore drill failing | the GitHub run fails + you |
+
+### Alert routing
+
+| Alert | Sent by | Channel | How soon | Who acts, with what |
+| --- | --- | --- | --- | --- |
+| A new kind of server error (uncaught, or a route, webhook, job or account step that reports it) | `lib/observability/report.ts` | `ALERT_EMAIL` (Mailgun) and `ALERT_WEBHOOK_URL` | first occurrence, then at most hourly while it continues | the owner: Admin, Health, Errors; the `rid` in the alert finds the request in Vercel's logs |
+| A browser crash (an error boundary, `/api/client-errors`) | the same | the same | the same | the same; the digest in the report matches the server's `error_report` line |
+| `/api/health` not 200 three times in a row (site down, database down, a job late or failed) | `.github/workflows/uptime.yml`, every 15 minutes | `ALERT_WEBHOOK_URL`, and GitHub's failed-run email | within 15 to 20 minutes | the owner: [RECOVERY.md](../reliability/RECOVERY.md) for the dependency named in `checks` |
+| A deployment fails the smoke checks | `.github/workflows/post-deploy.yml` | `ALERT_WEBHOOK_URL`, a warning on the run | minutes after the deploy | the owner: roll back ([rollback.md](rollback.md) section 1) unless the failure is known |
+| A nightly backup or the weekly restore drill fails | `backup.yml`, `restore-drill.yml` | GitHub's failed-run email, `ALERT_WEBHOOK_URL` | the morning after | the owner: [backups.md](backups.md) |
+| The live database's structure differs from `supabase/schema/` | `schema-drift.yml`, nightly | a pull request showing the difference (GitHub notifies) | the morning after | the owner: merge it, or run the SQL part it shows is missing |
+
+Nothing pages a phone. If that is wanted, point `ALERT_WEBHOOK_URL` at a
+service that pages (a Slack channel with notifications on, or an incident
+tool's incoming webhook); every alert above already goes there. Keep
+`ALERT_EMAIL` on an address that is read daily: the Mailgun sender must be
+verified for it to arrive.
 
 "You" is an email to `ALERT_EMAIL` and a post to `ALERT_WEBHOOK_URL` (a Slack
 or Discord incoming webhook). Each kind of error is told the first time, then
@@ -220,7 +275,8 @@ can be looked up. The same id is in:
 | Where | As |
 | --- | --- |
 | An error row in `error_events` (Admin, Health, Errors) | `last_context.rid`, for errors from `onRequestError`, the scheduled jobs, both Stripe webhooks, `/api/client-errors` and membership checkout |
-| The `[source] where: message` log line `reportError` writes | `(rid ...)` at its end |
+| The `{"evt":"error_report",...}` log line `reportError` writes | `"rid"`, with `"route"`, `"method"`, `"status"` and `"digest"` for an uncaught error |
+| Any other `console.error` / `console.warn` on the server (the console guard, below) | `"rid"` and `"route"` |
 | JSON log lines from `lib/net/log.ts` (`logLine`, `logEvent`, `logServiceFailure`) and the proxy | `"rid"` |
 | Notification events, jobs and deliveries | `correlation_id` |
 
@@ -231,6 +287,40 @@ characters) is dropped. `reportError` does not read the request's headers by
 itself (that would turn a cached page dynamic): a caller passes
 `requestId: requestIdFrom(request.headers)`. Errors raised deep in a library
 with no request at hand are written without one.
+
+### Every server error line is JSON, with nothing private in it
+
+`instrumentation.ts` `register()` installs `lib/net/console-guard.ts` in the
+Node runtime. From then on every `console.error` and `console.warn` on the
+server, from any of the ~770 route handlers or any page, is written as one
+JSON line at the same level:
+
+```
+{"evt":"log","level":"error","route":"/api/orders/[id]","rid":"iad1::abc","msg":"[orders] read failed PGRST301 ...","stack":"Error: ..."}
+```
+
+- `route` is the route's pattern and `rid` the request id, read from
+  Next's own request storage when the line is written (left out outside a
+  request, for example at build time);
+- a line that already is JSON (`logEvent`, the proxy) keeps its fields and
+  gains `route` and `rid` when it had none;
+- every string goes through `lib/net/scrub.ts` `scrubSecrets`: JWTs,
+  `Bearer` values, Stripe/Resend/Supabase/webhook keys, Supabase session
+  cookies, whole `Cookie` headers, `password`/`token`/`secret`/`apikey`
+  values, `?code=` and `?token_hash=` in addresses and card numbers (Luhn
+  checked) are replaced; addresses are masked as `an***@example.com`. Ids,
+  PostgREST codes, amounts, times and routes stay;
+- an uncaught error is logged once: `onRequestError` writes the
+  `error_report` line (route, method, status 500, rid, digest) and marks
+  the error, and the guard drops Next's own print of the same object.
+
+`console.log` and `console.info` are not changed. `STORELIB_LOG_RAW=1`
+(an environment variable) turns the JSON shape off and keeps the scrubbing,
+if a log drain ever needs the old text.
+
+A route that catches its own error and answers 500 does not tell the log its
+status (only the response knows it). Vercel's request log has the status for
+every request under the same `x-vercel-id`, which is the `rid` here.
 
 ### Log levels
 

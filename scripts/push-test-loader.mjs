@@ -185,6 +185,7 @@ export const getImageProps = () => ({ props: {} })
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
+export const useParams = () => globalThis.__PUSH_TEST_PARAMS__ ?? {}
 export const redirect = () => {}
 export const notFound = () => {}
 export const permanentRedirect = () => {}

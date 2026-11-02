@@ -21,6 +21,7 @@
  */
 
 import { cleanRequestId, requestIdFrom } from "@/lib/net/request-id"
+import { scrubSecrets } from "@/lib/net/scrub"
 
 export type ErrorSource = "server" | "client" | "cron" | "webhook" | "payments" | "account" | "notify"
 
@@ -43,8 +44,9 @@ export interface ErrorReport {
 const EMAIL_LIKE = /[^\s@<>"',;]+@[^\s@<>"',;]+/g
 const SECRET_NAME = /token|secret|password|authorization|signature|api[_-]?key|cookie|card|iban/i
 
+/* Addresses masked, and no token, key, cookie or card number (lib/net/scrub.ts). */
 function mask(text: string): string {
-  return text.replace(EMAIL_LIKE, (m) => `${m.slice(0, 2)}***@${m.split("@")[1] ?? ""}`)
+  return scrubSecrets(text).replace(EMAIL_LIKE, (m) => (m.includes("***@") ? m : `${m.slice(0, 2)}***@${m.split("@")[1] ?? ""}`))
 }
 
 export function messageOf(error: unknown): string {
@@ -89,7 +91,13 @@ export async function reportError(report: ErrorReport): Promise<void> {
     const rid = cleanRequestId(report.requestId)
     const context = { ...cleanContext(report.context), ...(rid ? { rid } : {}) }
     const stack = report.error instanceof Error && report.error.stack ? mask(report.error.stack).split("\n").slice(0, 8).join("\n") : null
-    console.error(`[${report.source}] ${where}: ${message}${rid ? ` (rid ${rid})` : ""}`)
+    /*
+      ONE JSON LINE, so Vercel's log search can filter by route, status, digest
+      or request id: {"evt":"error_report","source":"server","where":"GET /p/[slug]",
+      "msg":"boom","rid":"iad1::abc","route":"/p/[slug]","status":500,"digest":"123"}.
+      The context is the cleaned one (no secret-named keys, addresses masked).
+    */
+    console.error(JSON.stringify({ evt: "error_report", source: report.source, where: mask(where), msg: message.slice(0, 500), ...context }))
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY

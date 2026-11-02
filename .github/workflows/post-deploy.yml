@@ -35,6 +35,12 @@ jobs:
     env:
       BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url || github.event.client_payload.url || inputs.url }}
       SMOKE_SITE: ${{ vars.SMOKE_SITE }}
+      # The critical paths that need a real creator (docs/operations/release-safety.md):
+      SMOKE_CREATOR: ${{ vars.SMOKE_CREATOR }}
+      SMOKE_PRODUCT: ${{ vars.SMOKE_PRODUCT }}
+      SMOKE_CHECKOUT_PRODUCT: ${{ vars.SMOKE_CHECKOUT_PRODUCT }}
+      # A custom domain only means something on production, so it is checked only there.
+      SMOKE_DOMAIN: ${{ (github.event.deployment_status.environment == 'Production' || github.event.client_payload.environment == 'production') && vars.SMOKE_DOMAIN || '' }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
     steps:
