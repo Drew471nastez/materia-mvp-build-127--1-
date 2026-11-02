@@ -224,7 +224,7 @@ export function PillRow<T extends string>({
             onClick={() => onChange(o.id)}
             data-blog-status={o.id}
             className={cn(
-              "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[14px] font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:h-8 md:text-[13.5px] [-webkit-tap-highlight-color:transparent]",
+              "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[14px] font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:h-8 md:text-[13.5px] [-webkit-tap-highlight-color:transparent]",
               on ? "bg-white/[0.1] text-white" : "text-white/60 hover:bg-white/[0.05] hover:text-white",
             )}
           >
