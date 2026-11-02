@@ -981,6 +981,8 @@ const SUITES = [
   "tests/db-load-isolation.test.ts",
   /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
   "tests/rel-db-dashboard.test.ts",
+  /* Round r48-db: SQL part 353 (every public policy reads auth.uid(), auth.jwt() and auth.role() once per query, each kept word for word otherwise, checked against pg_policies from local Postgres 16; a counted view or sale no longer moves products.updated_at), the Orders page's products read five columns a page at a time, and the /app shell's first sale read by the order's own creator. */
+  "tests/db-r48.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
