@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  * Settings › Taxes' overview (round AG): the store's own orders only, by its owner or team.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const days = taxPeriod(url.searchParams.get("days"))

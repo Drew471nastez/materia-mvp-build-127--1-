@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
  * the status and sends a test.
  */
 export async function GET() {
-  const c = await shopCaller("analytics")
+  const c = await shopCaller("analytics", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson({ ...(await loadDestinations(c.db, c.creatorId)), canEdit: c.isOwner !== false })
 }

@@ -386,7 +386,7 @@ async function main() {
   const builder = read("app/website-builder/editor/[installId]/page.tsx")
   check("the website builder: the notice in the editor's notice stack", /<PhysicalReadinessNotice \/>/.test(builder) && /r\.live === 0/.test(read("components/website-builder/editor/physical-readiness-notice.tsx")))
   const route = read("app/api/physical/readiness/route.ts")
-  check("the route is behind the physical switch, for the caller's own store", /physicalCaller\(\)/.test(route) && /c\.creatorId/.test(route))
+  check("the route is behind the physical switch, for the caller's own store", /physicalCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(route) && /c\.creatorId/.test(route))
   check("the editor's what-if answer is never recorded as the store's state", /if \(!asLive\) after\(/.test(route))
   const server = read("lib/physical/readiness-server.ts")
   check("cached per store and cleared by the settings saves", /unstable_cache\(/.test(server) && /revalidateTag\(readinessTag/.test(server))

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextRequest, NextResponse } from "next/server"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { readBlockStats, readPageClicks, type StatsPage } from "@/lib/onepage/link-stats-server"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 /**
  * THE ONEPAGE EDITOR'S FIGURES, the same as Analytics' (lib/onepage/
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     if (!onepageId) return NextResponse.json({ error: "Missing onepage_id" }, { status: 400 })
 
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     /* Whose page (lib/team/onepage): the owner's own, or for a team member with OnePage the store owner's. */

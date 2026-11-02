@@ -29,7 +29,7 @@ const REWRITE_MS = 270_000
  * reads no rules and PUT says what it needs.
  */
 export async function GET() {
-  const c = await shopCaller("website")
+  const c = await shopCaller("website", { read: true })
   if (c instanceof NextResponse) return c
   const r = await translationRulesOf(c.db, c.creatorId)
   return physicalJson({ ready: r.ready, rules: r.rules })

@@ -132,7 +132,7 @@ console.log("\nproxy.ts serves a community domain")
 console.log("\napp/api/domains: the session's creator, a community they own, one domain each")
 {
   const route = code("app/api/domains/route.ts")
-  check("every handler starts from the session", (route.match(/await domainOwner\(\)/g) ?? []).length >= 4)
+  check("every handler starts from the session", (route.match(/await domainOwner\((?:"store", \{ read: true \}|\{ read: true \})?\)/g) ?? []).length >= 4)
   check("adding to a community: owned by this creator, and without a domain already",
     /community = await ownedCommunity\(admin, creatorId, body\.communityId\)/.test(route) && /if \(!community\) return NextResponse\.json\(\{ error: "Community not found" \}, \{ status: 404 \}\)/.test(route) && /already has a domain, \$\{holder\.domain\}\. Remove it first\./.test(route))
   check("refused until the database has the columns", /if \(schema === "legacy" \|\| !targets\) return NextResponse\.json\(\{ error: COMMUNITY_NEEDS_UPDATE \}, \{ status: 409 \}\)/.test(route) && /if \(to === "community" && !communityOn\) return NextResponse\.json\(\{ error: COMMUNITY_NEEDS_UPDATE \}/.test(route))

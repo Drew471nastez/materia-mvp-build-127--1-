@@ -119,14 +119,16 @@ function statusWord(s: string): string {
   return tt("Waiting")
 }
 
+/*
+  Round 49: through lib/net/request requestJson, so a 503 "could not check
+  your sign in" is asked again quietly (a read over about 10s, a change twice)
+  behind the loading state, and every call has a deadline. It used to be a
+  bare fetch that showed the first 503's words at once.
+*/
 async function call<T>(input: string, init?: RequestInit): Promise<{ ok: boolean; data: T }> {
-  try {
-    const res = await fetch(input, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } })
-    const data = (await res.json().catch(() => ({}))) as T
-    return { ok: res.ok, data }
-  } catch {
-    return { ok: false, data: { error: tt("Storelib did not answer. Try again.") } as T }
-  }
+  const r = await requestJson<Record<string, unknown>>(input, { cache: "no-store", credentials: "same-origin", ...init, headers: { "Content-Type": "application/json", ...((init?.headers as Record<string, string> | undefined) ?? {}) } })
+  if (r.ok || r.status) return { ok: r.ok, data: r.data as T }
+  return { ok: false, data: { error: tt("Storelib did not answer. Try again.") } as T }
 }
 
 function Mark({ id }: { id: RowId }) {
@@ -530,6 +532,7 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
     },
     [onConnectedChange],
   )
+  const [attempt, setAttempt] = React.useState(0)
   React.useEffect(() => {
     let live = true
     void takeDestinations().then((r) => {
@@ -540,14 +543,29 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
     return () => {
       live = false
     }
-  }, [take])
+  }, [take, attempt])
 
   const views = new Map((answer?.destinations ?? []).map((d) => [d.provider, d]))
   const canEdit = answer?.canEdit !== false
 
   return (
     <div data-analytics-destinations="" data-destinations-state={answer ? "ready" : failed ? "failed" : "loading"} aria-busy={!answer && !failed}>
-      {failed ? <p className="mx-3 mb-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13px] text-[#b42318]">{failed}</p> : null}
+      {/* Only after requestJson's quiet tries (round 49, auth): the words, calm, and a way to ask again. */}
+      {failed ? (
+        <div className="mx-3 mb-2 flex flex-wrap items-center gap-3 rounded-lg bg-[#f8f9fa] px-3 py-2" data-destinations-failed="">
+          <p className="min-w-0 flex-1 text-[13px] text-[#6b7280]">{failed}</p>
+          <button
+            type="button"
+            className={cn(BUTTON_SECONDARY, "h-8 shrink-0")}
+            onClick={() => {
+              setFailed(null)
+              setAttempt((n) => n + 1)
+            }}
+          >
+            {tt("Try again")}
+          </button>
+        </div>
+      ) : null}
       {answer && !answer.ready ? <p className="mx-3 mb-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[13px] text-[#93370d]">{tt("Sending analytics needs SQL part 338 run in Supabase first.")}</p> : null}
       <ul className="divide-y divide-[#f1f2f4]">
         {ROWS.map((id) => {

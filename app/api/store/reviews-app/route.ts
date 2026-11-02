@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic"
  *   PUT { ... }   a change, laid over what is saved and checked again
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const { settings, ready } = await loadReviewsApp(c.db, c.creatorId)
   const [pending, published, asked] = await Promise.all([

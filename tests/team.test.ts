@@ -69,16 +69,16 @@ console.log("\nEvery way in asks the server")
   check("an owner's own team is managed from their own store, a member's from the store they work in", /const store = await ownStore\(db, userId\)/.test(server) && /if \(!permits\(acting\.permissions, "team"\)\)/.test(server))
 
   const auth = read("lib/physical/auth.ts")
-  check("physical routes default to the owner's area", /physicalCaller\(area: TeamArea = "store"\)/.test(auth) && /* Changed on purpose (round 41 team): a read the OnePage editor shows may name more than one area */
-/shopCaller\(area: TeamArea \| readonly TeamArea\[\] = "store"\)/.test(auth))
+  check("physical routes default to the owner's area", /physicalCaller\(area: TeamArea = "store"(?:, opts: CallerOptions = \{\})?\)/.test(auth) && /* Changed on purpose (round 41 team): a read the OnePage editor shows may name more than one area */
+/shopCaller\(area: TeamArea \| readonly TeamArea\[\] = "store"(?:, opts: CallerOptions = \{\})?\)/.test(auth))
   for (const p of ["app/api/physical/orders/route.ts", "app/api/physical/orders/[id]/route.ts", "app/api/physical/orders/export/route.ts"]) {
-    check(`${p} opens to orders`, /physicalCaller\("orders"\)/.test(read(p)))
+    check(`${p} opens to orders`, /physicalCaller\("orders"(?:, \{ read: true \})?\)/.test(read(p)))
   }
   for (const p of ["app/api/app/orders/[id]/resend/route.ts", "app/api/app/orders/[id]/email/route.ts", "app/api/app/orders/[id]/activity/route.ts"]) {
     const src = read(p)
-    check(`${p} reads the store through lib/team`, /storeIdFor\("orders"\)/.test(src) && !/currentCreatorId/.test(src))
+    check(`${p} reads the store through lib/team`, /storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(src) && !/currentCreatorId/.test(src))
   }
-  check("the orders export and invoices read the store through lib/team", /creatorFor\(admin, user\.id, "orders"\)/.test(read("app/api/app/orders/export/route.ts")) && /storeIdFor\("orders"\)/.test(read("app/api/invoice/route.ts")))
+  check("the orders export and invoices read the store through lib/team", /creatorFor\(admin, user\.id, "orders"\)/.test(read("app/api/app/orders/export/route.ts")) && /storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(read("app/api/invoice/route.ts")))
 
   const sales = read("app/app/orders/sales/page.tsx")
   check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(sales) && /onRefund=\{canRefund && /.test(read("app/app/orders/order-detail.tsx")) && /\.\.\.\(canRefund && refundable/.test(read("app/app/orders/order-detail.tsx")))

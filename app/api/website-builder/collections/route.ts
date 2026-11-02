@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic"
 
 /* Round 42: the builder's collection picker reads the store's for Website (and Products); making one is Products'. */
 export async function GET() {
-  const c = await shopCaller(["website", "products"])
+  const c = await shopCaller(["website", "products"], { read: true })
   if (c instanceof NextResponse) return c
   const { collections, choices } = await siteCollections(c.db, c.creatorId, { published: false })
   return physicalJson({ choices, cards: collections })

@@ -137,10 +137,20 @@ export async function readCurrentUser(
     fallbackClaims = null,
     /** Auth's one try when the fallback can check the token. */
     firstTryMs = AUTH_FIRST_TRY_MS,
-  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null; firstTryMs?: number } = {},
+    /**
+     * Round 49: read the token first and ask Auth about THAT token
+     * (getUser(jwt)), even with no fallback. getUser() with no token takes
+     * supabase-js's session lock, and a try that hung kept holding it, so a
+     * retry only queued behind it and could never answer sooner. With the
+     * token in hand every try is its own request.
+     */
+    tokenFirst = false,
+    /** The pause before retry `attempt` (1-based). Default: 200ms plus jitter, as before. */
+    pauseMs = defaultPause,
+  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null; firstTryMs?: number; tokenFirst?: boolean; pauseMs?: (attempt: number) => number } = {},
 ): Promise<CurrentUser> {
-  if (fallbackClaims && typeof (supabase.auth as { getSession?: unknown }).getSession === "function") {
-    return readWithFallback(supabase, fallbackClaims, { timeoutMs, retries, firstTryMs })
+  if ((fallbackClaims || tokenFirst) && typeof (supabase.auth as { getSession?: unknown }).getSession === "function") {
+    return readWithFallback(supabase, fallbackClaims, { timeoutMs, retries, firstTryMs, pauseMs })
   }
 
   let reason = "unknown"
@@ -162,7 +172,7 @@ export async function readCurrentUser(
     }
 
     /** A short pause, with jitter, so the retry lands after the blip rather than inside it, and not in step with every other request that hit it. */
-    if (attempt < retries) await new Promise((r) => setTimeout(r, 200 + Math.round(Math.random() * 150)))
+    if (attempt < retries) await new Promise((r) => setTimeout(r, pauseMs(attempt + 1)))
   }
 
   return { user: null, state: "indeterminate", reason }
@@ -192,10 +202,15 @@ export async function readCurrentUser(
   token cannot be checked here it is "could not tell" exactly as before.
   When it can, Auth gets one short try instead of two long ones.
 */
+function defaultPause(): number {
+  return 200 + Math.round(Math.random() * 150)
+}
+
 async function readWithFallback(
   supabase: SupabaseClient,
-  supabaseUrl: string,
-  { timeoutMs, retries, firstTryMs }: { timeoutMs: number; retries: number; firstTryMs: number },
+  /** null: no local check, Auth alone answers (tokenFirst). */
+  supabaseUrl: string | null,
+  { timeoutMs, retries, firstTryMs, pauseMs }: { timeoutMs: number; retries: number; firstTryMs: number; pauseMs: (attempt: number) => number },
 ): Promise<CurrentUser> {
   const read = await getSessionBounded(supabase, timeoutMs)
   if (read.timedOut) return { user: null, state: "indeterminate", reason: "timed out" }
@@ -209,7 +224,7 @@ async function readWithFallback(
   /* No token: what getUser() answers with AuthSessionMissingError. */
   if (!token) return { user: null, state: "anonymous" }
 
-  const local = await canVerifyLocally(supabaseUrl)
+  const local = supabaseUrl ? await canVerifyLocally(supabaseUrl) : false
   const tries = local ? 0 : retries
   const ms = local ? Math.min(timeoutMs, firstTryMs) : timeoutMs
   let reason = "unknown"
@@ -225,10 +240,10 @@ async function readWithFallback(
       if (verdict.signedOut) return { user: null, state: "anonymous" }
       reason = verdict.reason
     }
-    if (attempt < tries) await new Promise((r) => setTimeout(r, 200 + Math.round(Math.random() * 150)))
+    if (attempt < tries) await new Promise((r) => setTimeout(r, pauseMs(attempt + 1)))
   }
 
-  if (local) {
+  if (local && supabaseUrl) {
     const claims = await verifyAccessToken(token, supabaseUrl)
     if (claims) return { user: userFromClaims(claims), state: "authenticated", verifiedBy: "claims", reason }
   }

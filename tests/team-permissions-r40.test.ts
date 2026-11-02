@@ -236,15 +236,15 @@ async function main() {
   console.log("\nEvery page and route of an open area asks the one helper")
   {
     const routes: [string, RegExp][] = [
-      ["app/api/analytics/reports/route.ts", /requireTeamPermission\("analytics"\)/],
-      ["app/api/analytics/commerce/route.ts", /requireTeamPermission\("analytics"\)/],
-      ["app/api/analytics/summary/route.ts", /requireTeamPermission\("analytics"\)/],
-      ["app/api/analytics/layout/route.ts", /requireTeamPermission\("analytics"\)/],
+      ["app/api/analytics/reports/route.ts", /requireTeamPermission\("analytics"(?:, \{ read: true \})?\)/],
+      ["app/api/analytics/commerce/route.ts", /requireTeamPermission\("analytics"(?:, \{ read: true \})?\)/],
+      ["app/api/analytics/summary/route.ts", /requireTeamPermission\("analytics"(?:, \{ read: true \})?\)/],
+      ["app/api/analytics/layout/route.ts", /requireTeamPermission\("analytics"(?:, \{ read: true \})?\)/],
       ["app/api/analytics/export/route.ts", /creatorFor<[^>]+>\(admin, userId, "analytics"/],
-      ["app/api/coupons/write.ts", /requireTeamPermission\("marketing"\)/],
-      ["app/api/store/offers/route.ts", /shopCaller\("marketing"\)/],
-      ["app/api/store/offers/try/route.ts", /shopCaller\("marketing"\)/],
-      ["app/api/invoice/route.ts", /storeIdFor\("orders"\)/],
+      ["app/api/coupons/write.ts", /requireTeamPermission\("marketing"(?:, \{ read: true \})?\)/],
+      ["app/api/store/offers/route.ts", /shopCaller\("marketing"(?:, \{ read: true \})?\)/],
+      ["app/api/store/offers/try/route.ts", /shopCaller\("marketing"(?:, \{ read: true \})?\)/],
+      ["app/api/invoice/route.ts", /storeIdFor\("orders"(?:, \{ read: true \})?\)/],
       ["app/api/app/orders/export/route.ts", /creatorFor\(admin, user\.id, "orders"\)/],
     ]
     for (const [p, re] of routes) check(`${p} asks for its area`, re.test(read(p)))
@@ -262,7 +262,7 @@ async function main() {
       check(`${p} draws "You don't have access" when refused, not the page`, /<TeamAreaClosed area="[a-z_]+" store=\{[a-z.]+acting\.name\} permissions=\{[a-z.]+acting\.permissions\} \/>/.test(read(p)))
     }
     const server = read("lib/team/server.ts")
-    check("the helper answers 401 signed out and 403 without the permission", /export async function requireTeamPermission\(area: TeamArea\)/.test(server) && /status: 401/.test(server) && /error: NO_ACCESS \}, \{ status: 403/.test(server))
+    check("the helper answers 401 signed out and 403 without the permission", /export async function requireTeamPermission\(area: TeamArea(?:, opts: \{ read\?: boolean \} = \{\})?\)/.test(server) && /status: 401/.test(server) && /error: NO_ACCESS \}, \{ status: 403/.test(server))
     check("  and the permission is read from the database on each request (actingStoreIn)", /\.from\("store_team_members"\)\.select\(cols\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
     check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(read("app/app/orders/sales/page.tsx")) && !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
     /* Changed on purpose (round 42 team): Payouts reads the store for a member with Payouts (tests/team-areas-r42.test.ts); the old Billing address only redirects. */

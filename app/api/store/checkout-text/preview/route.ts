@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic"
  * store's (shopCaller). Reads only.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const langs = await siteLanguages(c.creatorId).catch(() => null)
   const all = langs ? [langs.defaultLanguage, ...langs.others] : ["en"]

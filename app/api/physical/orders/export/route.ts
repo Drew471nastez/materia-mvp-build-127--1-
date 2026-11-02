@@ -34,7 +34,7 @@ function offersText(raw: unknown): string {
 
 /** Orders still to ship (or all, with ?all=1; only some, with ?ids=), one row per item, for a warehouse or a spreadsheet. */
 export async function GET(request: Request) {
-  const c = await physicalCaller("orders")
+  const c = await physicalCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   const params = new URL(request.url).searchParams
   const all = params.get("all") === "1"

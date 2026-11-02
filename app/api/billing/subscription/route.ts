@@ -69,7 +69,7 @@ function getPlanObject(planId: string) {
 export async function GET(request: Request) {
   try {
     /* The owner, or a team member who may see the store's billing (round 42, lib/team/money): the store's own plan and Stripe customer, never the member's. */
-    const who = await moneyCaller("billing", "view")
+    const who = await moneyCaller("billing", "view", { read: true })
     if (!who.ok) return who.response
 
     const admin = createAdminClient()

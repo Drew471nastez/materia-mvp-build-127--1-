@@ -14,6 +14,7 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
 import { signupFileFor } from "@/lib/onepage/signup-file"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -297,7 +298,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

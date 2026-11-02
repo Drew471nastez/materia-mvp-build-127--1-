@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
  *   DELETE  { kind, value }                   remove one ("other" stays)
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await loadAllReasons(c.db, c.creatorId))
 }

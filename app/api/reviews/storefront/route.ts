@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  * product's own reviews, for a product page; only a product of theirs.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("productId")
   let product: { id: string; title: string | null } | null = null

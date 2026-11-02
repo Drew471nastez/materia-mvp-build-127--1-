@@ -652,14 +652,15 @@ export function viewerKey(userId: string, actingIn: string | null): string {
   return actingIn ? `${userId}:${actingIn}` : userId
 }
 
-export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | NextResponse> {
+export async function requireTeamPermission(area: TeamArea, opts: { read?: boolean } = {}): Promise<TeamGate | NextResponse> {
   /*
     WHO IS ASKING, WITH A CEILING AND THREE ANSWERS (lib/auth/route-user). This read getUser() and only its
     `user`, so Supabase Auth timing out came back as 401 "Sign in again" and the screen said a signed in person's
     session had ended. Now: a user, a 401 only when Auth said nobody, and a 503 with Try again when it did not
     answer. Nothing is allowed on that last answer; it is refused with a true reason.
   */
-  const who = await routeUser()
+  /* Round 49: a read-only GET passes { read: true } and takes a page's answer (lib/physical/auth CallerOptions). */
+  const who = await routeUser({ fresh: !opts.read })
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
   const user = who.user
@@ -708,8 +709,8 @@ export async function storeAccessOf(
  * For a route: the signed in person's store for this area, or why not, as
  * an answer to send. The session decides who; creatorFor decides whose store.
  */
-export async function storeIdFor(area: TeamArea): Promise<{ ok: true; creatorId: string; userId: string; role: TeamRole } | { ok: false; status: number; error: string }> {
-  const gate = await requireTeamPermission(area)
+export async function storeIdFor(area: TeamArea, opts: { read?: boolean } = {}): Promise<{ ok: true; creatorId: string; userId: string; role: TeamRole } | { ok: false; status: number; error: string }> {
+  const gate = await requireTeamPermission(area, opts)
   if (gate instanceof NextResponse) {
     const body = (await gate.clone().json().catch(() => ({}))) as { error?: string }
     return { ok: false, status: gate.status, error: body.error ?? NO_ACCESS }

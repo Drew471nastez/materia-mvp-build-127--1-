@@ -45,6 +45,8 @@ const SUITES = [
   "tests/auth-hs256-outage.test.ts",
   /* Round rel3-auth: "We could not check your sign in" and "Cannot reach the server" only after quiet tries: requestJson asks a 503 marked X-Storelib-Auth again twice with jitter inside its deadline (never an ordinary 503); the gate tries three times over ~6s before its screen and ten times in the background (2s..30s) while it is up, putting the page back when GET /api/auth/state says signed in (one word, no user data). */
   "tests/auth-client-retry.test.ts",
+  /* Round 49: "We could not check your sign in just now" inside /app (Send analytics): one Supabase Auth question per request in API routes too (request cookie store, not only React cache); a read-only GET takes a page's answer (Auth, then the token's verified signature) and, with no local verifier, one more Auth try with backoff; a change still needs Auth itself and asks it again (token first, so a hung try's lock no longer blocks the retry); Auth's own no stays final; X-Storelib-Auth-Check names the check and the verifier kind, never a key; the browser asks a read's marked 503 again three times; no POST, PUT, PATCH or DELETE takes the lenient answer. */
+  "tests/auth-r49.test.ts",
   /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
   "tests/auth-email-code.test.ts",
   /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */

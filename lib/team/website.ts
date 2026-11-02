@@ -42,9 +42,9 @@ function refused(error: string, status: number): WebsiteCaller {
 }
 
 /** The signed in person's store for the website builder. */
-export async function websiteCaller(): Promise<WebsiteCaller> {
+export async function websiteCaller(opts: { read?: boolean } = {}): Promise<WebsiteCaller> {
   const own = await createClient()
-  const { user, status, error } = await editorUser(own)
+  const { user, status, error } = await editorUser(own, opts)
   if (!user) return refused(error, status)
   const found = await areaStore(own, user.id, "website")
   if (found.kind === "denied") return refused(NO_ACCESS, 403)
@@ -56,8 +56,8 @@ export async function websiteCaller(): Promise<WebsiteCaller> {
 export type WebsiteInstallCaller<T> = (WebsiteCaller & { error: null; install: T }) | (Exclude<WebsiteCaller, { error: null }> & { install: null })
 
 /** The same, and the site in the URL checked to be the store's. */
-export async function websiteInstallCaller<T = { id: string; creator_id: string }>(installId: string, columns = "id, creator_id"): Promise<WebsiteInstallCaller<T>> {
-  const c = await websiteCaller()
+export async function websiteInstallCaller<T = { id: string; creator_id: string }>(installId: string, columns = "id, creator_id", opts: { read?: boolean } = {}): Promise<WebsiteInstallCaller<T>> {
+  const c = await websiteCaller(opts)
   if (c.error !== null) return { ...c, install: null }
   const found = await storeInstall<T>(c.supabase, c.creatorId, installId, columns)
   if (!found.ok) return { ...refused(found.status === 503 ? UNREACHABLE : "Theme not found", found.status), install: null } as WebsiteInstallCaller<T>

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  *   PUT { productId, chartId | null }   set after the product is saved
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller("products")
+  const c = await physicalCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const productId = new URL(request.url).searchParams.get("productId") ?? ""
   return physicalJson(await productSizeChartId(c.db, c.creatorId, productId))

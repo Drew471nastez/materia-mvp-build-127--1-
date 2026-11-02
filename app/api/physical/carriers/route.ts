@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
  * (app/api/physical/orders/[id]/label).
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller("orders")
+  const c = await physicalCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   if (new URL(request.url).searchParams.get("connected") === "1") return physicalJson(await connectedCarriers(c.db, c.creatorId))
   const prefs = await loadCarrierPrefs(c.db, c.creatorId)

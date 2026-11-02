@@ -100,7 +100,8 @@ check("their marks are inline SVG, not fetched images", /const MARK_PATH: Partia
 check("the list is drawn before the answer: no empty box while it waits", !/data-destinations-loading/.test(send) && !/if \(!answer\) return/.test(send) && /data-destinations-state=\{answer \? "ready" : failed \? "failed" : "loading"\}/.test(send))
 check("only where each stands waits, as a bar of its line's height", /function StatusPending\(\)[\s\S]*?h-\[18px\]/.test(send) && /block h-\[18px\] truncate text-\[12\.5px\] leading-\[18px\]/.test(send))
 check("the read starts as a pointer, a finger or the keyboard reaches the button, and is taken once", /onPointerEnter=\{warmDestinations\}/.test(send) && /onPointerDown=\{warmDestinations\}/.test(send) && /onFocus=\{warmDestinations\}/.test(send) && /function takeDestinations\(\)[\s\S]*?warm = null/.test(send))
-check("a failed read keeps the list and says so above it", /\{failed \? <p className="mx-3 mb-2 rounded-lg bg-\[#fef3f2\]/.test(send))
+/* Changed on purpose (round 49, merge with auth): the failure line is calm grey with Try again, still above the list that stays. */
+check("a failed read keeps the list and says so above it, calmly, with Try again", /\{failed \? \(\s*<div className="mx-3 mb-2 flex[^"]*bg-\[#f8f9fa\]/.test(send) && /setAttempt\(\(n\) => n \+ 1\)/.test(send) && /<ul className="divide-y/.test(send))
 
 console.log("\n4. HEAD")
 {

@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic"
  * The owner's alone, like the rest of Settings.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const asked = new URL(request.url).searchParams.get("id")?.toUpperCase() ?? ""
   if (!GA_ID.test(asked)) return physicalJson({ error: "That isn't a Measurement ID." }, 400)

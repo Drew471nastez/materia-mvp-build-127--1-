@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
  * `days` (the last 7, 30 or 90) is kept for anything that still asks that way.
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const q = new URL(request.url).searchParams
   const settings = await loadSettings(c.db, c.creatorId)

@@ -23,7 +23,7 @@ export const maxDuration = 30
  *                               when it did not go.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const p = new URL(request.url).searchParams
   const q = cleanSearch(p.get("q"))

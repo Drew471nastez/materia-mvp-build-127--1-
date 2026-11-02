@@ -270,6 +270,30 @@ Still open after wave 3: the owner's key migration (or `SUPABASE_JWT_SECRET`),
 SQL 347, 348, 349, 352, canvas staging check, the `storelib://` app link on a
 device, CSP enforcing, a staging load test, Supabase capacity review.
 
+## Round 49, auth inside /app (`r49-auth`)
+
+Owner report: "We could not check your sign in just now" in Integrations ›
+Send analytics › Set up. Production logs (Nov 2 07:40-07:54 UTC): pages had
+`auth_degraded "outcome":"claims"` (local verify active, from the HS256
+secret; the JWKS is empty), while `/api/analytics/destinations`,
+`/api/analytics/own/token`, `/api/store/markets`, `/api/store/translations`
+and others logged `auth/v1/user took longer than 10s`. 179 such lines in 24h.
+
+| ID | Status | What changed | Test |
+| --- | --- | --- | --- |
+| Reads take a page's answer | COMPLETE | `{ read: true }` on `shopCaller`, `physicalCaller`, `requireTeamPermission`, `storeIdFor`, `moneyCaller`, `domainOwner`, `websiteCaller`; 85 read-only GET routes pass it (GETs that write, rate limit or call Stripe, and helpers a write shares, left strict); 9 dashboard GETs that called `getUser()` themselves use `readUserForRoute()` (buyer and community routes left as they were); `/api/analytics/own/token` uses `routeUser({ fresh: false })` | auth-r49 §2, §8 |
+| One Auth question per request in API routes | COMPLETE | `oncePerRequest` keys the answer on the request's cookie store (React `cache` does not dedupe in route handlers) | auth-r49 §1 (3 asks: 3 calls before, 1 after) |
+| Changes: strict, with real retries | COMPLETE | `strictUserForRequest`: Auth must answer; after the first read, 2 more tries (3s, backoff 400ms/1s) reading the token first, so a hung try's session lock no longer blocks the retry | auth-r49 §3 (Auth hangs once: was refused at 6.3s, now through at 3.1s) |
+| No local verifier: reads ask again | COMPLETE | one more Auth try (2.5s) after a pause | auth-r49 §5 |
+| Client quiet retries | COMPLETE | `requestJson`: a GET's marked 503 asked 3 more times (0.8s, 2s, 3.5s, jitter) while time is left; changes as before; Send analytics' panel uses `requestJson` and has Try again | auth-r49 §7 |
+| Diagnostic header | COMPLETE | `X-Storelib-Auth-Check` on /app (proxy) and `/api/auth/state`; `verifier` in `auth_degraded` | auth-r49 §6; AUTH_KEYS.md |
+
+Before/after (stand-in Supabase, real routes and `requestJson`): Send
+analytics options with Auth silent: error after 14.0s, now options in 2.6s;
+Auth hanging once: 7.9s, now 2.6s; healthy: 237ms, now 221-255ms (1 Auth call
+both). Icons were already static (`/integrations/*.svg`, 1 day public cache,
+CDN HIT).
+
 ## Round 48, observability (`r48-obs`)
 
 | ID | Status | What changed | Test |

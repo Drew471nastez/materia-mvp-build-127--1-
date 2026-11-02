@@ -23,7 +23,7 @@ export const maxDuration = 60
  * Products (lib/team). The product row is only ever read here.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id")
   if (!isUuid(id)) return physicalJson({ error: "Bad request." }, 400)

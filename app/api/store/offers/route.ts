@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
  * and collection an offer names must be theirs (lib/offers/offers-server).
  */
 export async function GET() {
-  const c = await shopCaller("marketing")
+  const c = await shopCaller("marketing", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await offersArea(c.db, c.creatorId))
 }

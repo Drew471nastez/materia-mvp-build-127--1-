@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic"
  * screen a creator lands on after publishing is often the first to see it.
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const product = url.searchParams.get("product")

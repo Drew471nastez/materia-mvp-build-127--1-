@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic"
 
 /** One physical order, by its id or by any of its line's order ids (the Orders list opens lines). */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller("orders")
+  const c = await physicalCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

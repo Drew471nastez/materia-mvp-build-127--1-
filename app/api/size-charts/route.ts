@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic"
  * store's collections and its products' categories a chart can be set for.
  */
 export async function GET() {
-  const c = await physicalCaller("products")
+  const c = await physicalCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await listSizeCharts(c.db, c.creatorId))
 }

@@ -137,7 +137,7 @@ const EDITOR = read("app/website-builder/editor/[installId]/page.tsx")
     for (const f of ["themes/[installId]/route.ts", "themes/[installId]/settings/route.ts", "themes/[installId]/sections/route.ts", "themes/[installId]/files/route.ts", "themes/[installId]/sections/sync-global/route.ts", "menus/route.ts", "products/route.ts"]) {
       const src = read(`app/api/website-builder/${f}`)
       /* Changed on purpose (round 42 team): the routes ask lib/team/website, which asks editorUser. */
-      check(`${f}: a blip reading the sign in is a 503, not a 401`, (/await editorUser\(supabase\)/.test(src) || (/website(Install)?Caller/.test(src) && /await editorUser\(own\)/.test(read("lib/team/website.ts")))) && !/auth\.getUser\(\)/.test(src))
+      check(`${f}: a blip reading the sign in is a 503, not a 401`, (/await editorUser\(supabase\)/.test(src) || (/website(Install)?Caller/.test(src) && /await editorUser\(own(?:, opts)?\)/.test(read("lib/team/website.ts")))) && !/auth\.getUser\(\)/.test(src))
     }
     const owned = read("lib/website-builder/owned-install.ts")
     check("editorUser answers 401 only for Auth's nobody", /current\.state === "indeterminate"\) return \{ user: null, status: 503/.test(owned))

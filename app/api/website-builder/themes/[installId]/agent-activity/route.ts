@@ -22,6 +22,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isMissingActivityTable, type ConnectionsBrief } from "@/lib/agent-access/connection-mark"
 import { lateRows } from "@/lib/website-builder/live-follow"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,7 +35,7 @@ export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
   if (!/^[0-9a-f-]{36}$/i.test(installId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await readUserForRoute()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   /* Row-level security scopes every one of these rows to the creator's own installs. */

@@ -4,6 +4,8 @@ import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
 import { readSessionPresence, readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
+import { verifierKind } from "@/lib/auth/verify-token"
+import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
 import { deadlineFetch } from "@/lib/net/deadline"
 import { REQUEST_ID_HEADER, requestIdOf } from "@/lib/net/request-id"
 import { logLine } from "@/lib/net/log"
@@ -2682,6 +2684,19 @@ async function routeRequest(request: NextRequest) {
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     /* One JSON line (lib/net/log.ts): the path, why, and the request's id; never a cookie or a query. */
     console.warn(logLine("proxy_auth_indeterminate", { path: request.nextUrl.pathname, reason: current.reason ?? "unknown", rid: request.headers.get(REQUEST_ID_HEADER) }))
+  }
+
+  /*
+    WHICH CHECK RAN, ON THE RESPONSE (round 49). For /app, /dashboard and /sell
+    with a session cookie: "proxy-local" when the token's signature was checked
+    here, "proxy-network" when Supabase Auth was asked, and which local check
+    this server has ("verifier=jwks", "hs256" or "none"). The kind of check
+    only: never a key, a token or anybody's id. How the owner confirms the
+    signing key step worked (docs/reliability/AUTH_KEYS.md).
+  */
+  if (decidesHere && signedIn) {
+    const how = current.verifiedBy === "claims" ? "local" : current.verifiedBy === "user" ? "network" : current.state === "anonymous" ? "anonymous" : "none"
+    supabaseResponse.headers.set(AUTH_CHECK_HEADER, `proxy-${how}; verifier=${await verifierKind(supabaseUrl).catch(() => "none")}`)
   }
 
   /*

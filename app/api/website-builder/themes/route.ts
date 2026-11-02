@@ -5,7 +5,7 @@ import { websiteCaller } from "@/lib/team/website"
 // Returns all theme installs for the store (the owner's, or the one a team member with Website works in), with settings, pages, and username
 export async function GET() {
   /* The owner, or a team member with Website working in the store (lib/team/website). */
-  const site = await websiteCaller()
+  const site = await websiteCaller({ read: true })
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   const supabase = site.supabase
   const { data: creator } = await supabase.from("creators").select("id, slug, display_name").eq("id", site.creatorId).maybeSingle()

@@ -248,7 +248,7 @@ function allowServerOnly() {
       const src = code(route)
       const handlers = (src.match(/export async function (GET|POST|PUT|DELETE)/g) ?? []).length
       /* Changed on purpose (round 41 team): the physical commerce switch first, then the owner or a team member with Products */
-      check(`${route}: every handler starts with the physical commerce owner check`, handlers > 0 && (src.match(/await physicalCaller\("products"\)/g) ?? []).length === handlers && !/shopCaller/.test(src))
+      check(`${route}: every handler starts with the physical commerce owner check`, handlers > 0 && (src.match(/await physicalCaller\("products"(?:, \{ read: true \})?\)/g) ?? []).length === handlers && !/shopCaller/.test(src))
     }
     check("a changed chart or choice reaches the website at the next visit", /revalidateTag\(creatorShopTag\(creatorId\), "max"\)/.test(code("app/api/size-charts/changed.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/product/route.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/[id]/route.ts")))
     const page = code("app/app/products/size-charts/page.tsx")

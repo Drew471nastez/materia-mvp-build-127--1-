@@ -124,7 +124,7 @@ console.log("\nSaved per store, used by the senders\n")
   check("  a read that fails sends the default words, never nothing", /if \(error\) return \{\}/.test(server))
   const route = read("app/api/store/emails/route.ts")
   /* Changed on purpose (round 40 team permissions): shopCaller("marketing") is the owner as before, or a team member given Marketing, for the store they work in; both read on the server on each request (lib/team/server creatorFor). */
-  check("the API is the owner's (or Marketing's, shopCaller) and returns the shop and the words in one read", (route.match(/await shopCaller\("marketing"\)/g) ?? []).length === 2 && /shop: \{/.test(route) && /copy,/.test(route))
+  check("the API is the owner's (or Marketing's, shopCaller) and returns the shop and the words in one read", (route.match(/await shopCaller\("marketing"(?:, \{ read: true \})?\)/g) ?? []).length === 2 && /shop: \{/.test(route) && /copy,/.test(route))
   check("  a reset is copy: null", /body\.copy === null \? null : body\.copy/.test(route))
   check("the database part adds the column, a small object", /ADD COLUMN IF NOT EXISTS customer_emails jsonb NOT NULL DEFAULT '\{\}'::jsonb/.test(read("supabase/sql/run-now/129_customer_email_words_and_tax_on_receipts.sql")))
 }
@@ -145,7 +145,7 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
   check("Send test, on every email, with the words on screen", /data-email-test=""/.test(panel) && /\/api\/store\/emails\/test/.test(panel) && /copy: payloadOf\(draft, !!otherLang\)/.test(panel)) // Changed on purpose (round 28): another language sends only its written parts
   const test = read("app/api/store/emails/test/route.ts")
   /* Changed on purpose (round 40 team permissions): shopCaller("marketing"); c.userId is still the person who pressed it. */
-  check("  only to the inbox of the person who pressed it, rate limited, marked [Test]", /await shopCaller\("marketing"\)/.test(test) && /getUserById\(c\.userId\)/.test(test) && /bucket: "customer-email-test"/.test(test) && /subject: `\[Test\] \$\{mail\.subject\}`/.test(test) && /maskEmail\(to\)/.test(test))
+  check("  only to the inbox of the person who pressed it, rate limited, marked [Test]", /await shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(test) && /getUserById\(c\.userId\)/.test(test) && /bucket: "customer-email-test"/.test(test) && /subject: `\[Test\] \$\{mail\.subject\}`/.test(test) && /maskEmail\(to\)/.test(test))
   /* Changed on purpose: drawn by lib/emails/customer-preview-server.ts, where it was bought and in the language picked, as the preview on screen. */
   const previewServer = read("lib/emails/customer-preview-server.ts")
   check("  drawn by the same template as the real email, with the store's logo", /storePreview\(db, c\.creatorId, id, words,/.test(test) && /previewCustomerEmail\(\s*id,/.test(previewServer) && /logoUrl: store\?\.logoUrl/.test(previewServer))

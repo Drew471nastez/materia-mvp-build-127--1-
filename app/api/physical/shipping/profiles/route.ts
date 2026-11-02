@@ -7,7 +7,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   await ensureDefaultProfile(c.db, c.creatorId)
   return physicalJson({ profiles: await loadProfiles(c.db, c.creatorId) })

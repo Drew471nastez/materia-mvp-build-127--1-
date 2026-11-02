@@ -28,7 +28,7 @@ const RUN_MS = 270_000
  */
 export async function GET() {
   const started = Date.now()
-  const c = await shopCaller("website")
+  const c = await shopCaller("website", { read: true })
   if (c instanceof NextResponse) return c
   /*
     NEVER STUCK. A job whose run was cut off waits for the cron, which needs
