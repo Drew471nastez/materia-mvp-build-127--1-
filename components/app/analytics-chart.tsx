@@ -38,8 +38,8 @@
  *
  * A METRIC TAB MOVES THE LINE, IT DOES NOT REPLACE IT. The metric sits in
  * the first slot whatever it is, and a tab hands that slot other numbers.
- * The axis is as wide as the widest label of every metric the tabs can
- * show, so the plot never moves sideways, and its numbers cross-fade
+ * The axis numbers sit inside the plot on their grid lines (round 49), so
+ * there is no gutter to move the plot sideways, and they cross-fade
  * (chart-morph AxisLabels). A tab never asks the server for anything: every
  * metric is already in the series the page holds.
  */
@@ -47,7 +47,7 @@
 import { memo, useCallback, useMemo } from "react"
 import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart } from "recharts"
 
-import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
+import { compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
@@ -61,7 +61,9 @@ const XAXIS_H = 24
 /** The right margin: room for the last point's dot and its ring. */
 const PLOT_RIGHT = 10
 /** Room above for the active dot: six pixels of radius plus its white ring. */
-const PLOT_TOP = 10
+/* Room above the top grid line for its number, which sits on the line inside the plot (round 49). */
+const PLOT_TOP = 18
+const PLOT_LEFT = 0
 
 /** Storelib's accent for the line, and a quiet grey for what it is compared with. */
 export const CHART_COLORS = {
@@ -272,25 +274,6 @@ const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
 
 type AxisKind = "count" | "money" | "percent"
 
-/** Every metric a set of tabs can show, and how its axis is written. */
-const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKind }>> = {
-  store: [
-    { keys: ["views", "prev_views"], kind: "count" },
-    { keys: ["sales", "prev_sales"], kind: "count" },
-    { keys: ["revenue", "prev_revenue"], kind: "money" },
-    { keys: ["conversion", "prev_conversion"], kind: "percent" },
-    { keys: ["refunds", "prev_refunds"], kind: "money" },
-    { keys: ["pageViews", "prev_pageViews"], kind: "count" },
-    { keys: ["clicks", "prev_clicks"], kind: "count" },
-  ],
-  onepage: [
-    { keys: ["views"], kind: "count" },
-    { keys: ["clicks"], kind: "count" },
-    { keys: ["subscribers"], kind: "count" },
-    { keys: ["ctr"], kind: "percent" },
-  ],
-}
-
 const tickFor = (kind: AxisKind, step: number, currency?: string) => (v: number) =>
   kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step, currency) : compactCount(v)
 
@@ -312,7 +295,6 @@ function AnalyticsChartWithTooltipInner({
   compareLabel = null,
   color = CHART_COLORS.views,
   seriesLabels,
-  axisMax,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -339,8 +321,8 @@ function AnalyticsChartWithTooltipInner({
   /**
    * The highest number each kind of figure reaches across every tab, for a
    * page whose tabs hand the chart one figure at a time (a community's
-   * Analytics): the axis is made as wide as the widest of them, so a tab
-   * never moves the plot sideways. Left out, the series' own numbers decide.
+   * Analytics). It sized the axis gutter; with the numbers inside the plot
+   * (round 49) there is no gutter, so it is accepted and no longer read.
    */
   axisMax?: Partial<Record<AxisKind, number>>
 }) {
@@ -366,22 +348,15 @@ function AnalyticsChartWithTooltipInner({
   )
   const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
   /*
-    ONE WIDTH FOR EVERY TAB. The widest label of every metric this mode can
-    show, measured in the 11px it is drawn in, so choosing Revenue after
-    Views does not move the plot sideways. It changes with the data, which
-    is a new period, never with the tab.
+    NO GUTTER FOR THE NUMBERS (round 49, the owner: "the left column of
+    vertical axis numbers takes too much space"). They were a column of their
+    own, as wide as the widest label of every metric (axisWidth, 11px): 15px
+    for "0 2 4 6" and 40px or more for "$1.2k", taken from the plot on every
+    card. Now each sits inside the plot on its grid line (chart-morph
+    AxisLabels `inside`), so the line runs the card's full width, and no tab
+    can move it sideways because there is no gutter to change.
   */
-  const plotLeft = useMemo(() => {
-    const widths = METRICS_OF[analyticsMode].map(({ keys, kind }) => {
-      const sc = fixedScale(maxOf(chartDisplayData, keys), kind === "count")
-      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
-    })
-    const given = (Object.entries(axisMax ?? {}) as [AxisKind, number][]).map(([kind, max]) => {
-      const sc = fixedScale(Math.max(0, max || 0), kind === "count")
-      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
-    })
-    return Math.max(axisWidth(axisLabels, 11, 8), ...widths, ...given)
-  }, [analyticsMode, chartDisplayData, axisLabels, axisMax, currency])
+  const plotLeft = PLOT_LEFT
 
   /*
     THE LINES: the chosen metric in the first slot whatever it is, so a tab
@@ -449,7 +424,6 @@ function AnalyticsChartWithTooltipInner({
   return (
     <div data-chart-loading={isLoading ? "true" : "false"} style={{ position: "relative", height: CHART_H }}>
       <Frame dates={dates} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
-      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
 
       {/*
         THE LINE, WHAT IT IS COMPARED WITH, AND THE DOT AT ITS END:
@@ -469,6 +443,9 @@ function AnalyticsChartWithTooltipInner({
         color={color}
         comparedColor={CHART_COLORS.compared}
       />
+
+      {/* The numbers over the line, on their grid lines inside the plot, so a line that crosses one passes under it. */}
+      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} inside />
 
       {/*
         THE CROSSHAIR, THE DOTS AND THE READOUT: components/app/chart-scrub,

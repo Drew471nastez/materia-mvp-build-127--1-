@@ -53,6 +53,7 @@ import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analy
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
 import { percentText } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
+import { EmptyState } from "@/components/analytics/empty-state"
 import { ReportFill, ReportTabs } from "./analytics-reports"
 import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailRow, type DetailView } from "./report-detail"
 
@@ -91,6 +92,11 @@ const channelName = (c: ChannelRow) => (CHANNEL_NAME[c.key] ? CHANNEL_NAME[c.key
 const ACCENT = "#8b5cf6"
 const CHANNEL_ROWS = 5
 
+/** A figure card with nothing to show: its line in the figure's place, at the figure's height, so the card does not move when a number comes (round 49). */
+function FigureEmpty({ children }: { children: React.ReactNode }) {
+  return <span data-figure-empty="" className="text-[13px] font-normal tracking-normal text-[#6b7280]">{children}</span>
+}
+
 function Card({ title, help, children, className, card, tabs, detail }: { title: string; help: string; children: React.ReactNode; className?: string; card: string; tabs?: React.ReactNode; detail?: string }) {
   return (
     <section data-card={card} className={cn("flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]", className)}>
@@ -110,7 +116,8 @@ function Card({ title, help, children, className, card, tabs, detail }: { title:
 
 function Delta({ now, before, invert = false, compared }: { now: number; before: number; invert?: boolean; compared: boolean }) {
   if (!compared) return null
-  if (before === 0) return <span className="text-[12px] text-[#9ca3af]">{now > 0 ? tt("New") : "–"}</span>
+  /* Nothing then and nothing now: no change to show, and no dash beside the figure (round 49). */
+  if (before === 0) return now > 0 ? <span className="text-[12px] text-[#9ca3af]">{tt("New")}</span> : null
   const pct = Math.round(((now - before) / Math.abs(before)) * 100)
   if (pct === 0) return <span className="text-[12px] tabular-nums text-[#9ca3af]">0%</span>
   const good = invert ? pct < 0 : pct > 0
@@ -252,11 +259,12 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const shipping = showFulfillment && !!data && physicalOrders > 0
 
   const figures = [
-    { key: "aov", title: tt("Average order value"), value: b ? (b.orders ? money(b.aov) : "–") : null, delta: b && p && b.orders && p.orders ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
+    /* Nothing to divide by is said in words, not a dash (round 49). */
+    { key: "aov", title: tt("Average order value"), value: b ? (b.orders ? money(b.aov) : <FigureEmpty>{tt("No orders in this period.")}</FigureEmpty>) : null, delta: b && p && b.orders && p.orders ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
     {
       key: "returning",
       title: tt("Returning customer rate"),
-      value: b ? (b.customers ? percentText(b.returningRate) : "–") : null,
+      value: b ? (b.customers ? percentText(b.returningRate) : <FigureEmpty>{tt("No customers in this period.")}</FigureEmpty>) : null,
       delta: b && p ? (
         b.customers ? (
           <span className="inline-flex items-center gap-2">
@@ -275,18 +283,17 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const head = b && p ? (metric === "aov" ? { now: b.aov, before: p.aov, text: b.orders ? money(b.aov) : "–" } : metric === "orders" ? { now: b.orders, before: p.orders, text: b.orders.toLocaleString(appLocale()) } : { now: b.total, before: p.total, text: money(b.total) }) : null
 
   /* ── Each card, opened (./report-detail): its own panel, drawn from this answer. ── */
-  const [detailOpen, setDetailOpen] = React.useState(false)
-  const [detailId, setDetailId] = React.useState<string | null>(null)
-  const [detailMetric, setDetailMetric] = React.useState<Metric>("total")
-  const openDetail = React.useCallback(
-    (id: string) => {
-      setDetailId(id)
-      setDetailMetric(id === "aov" ? "aov" : metric)
-      setDetailOpen(true)
-    },
-    [metric],
-  )
-  const detailView = React.useMemo<DetailView | null>(() => {
+  /*
+    OPENING A CARD RENDERS THE PANEL, NOT THE CARDS (round 49, "no long tasks over 50ms during open"). The panel's
+    state was this component's, so a press rendered every sales card again under the opening panel: one 130ms task
+    at 1440 wide (scripts/check-analytics-r49.mjs). It is CommerceDetail's now; the cards hand it a way to build the
+    view from this answer (buildDetail) and open it through a stable callback, so they are not rendered by a press.
+  */
+  const opener = React.useRef<((id: string, metric: Metric) => void) | null>(null)
+  const metricNow = React.useRef(metric)
+  metricNow.current = metric
+  const openDetail = React.useCallback((id: string) => opener.current?.(id, id === "aov" ? "aov" : metricNow.current), [])
+  const buildDetail = React.useCallback((detailId: string | null, detailMetric: Metric, setDetailMetric: (m: Metric) => void): DetailView | null => {
     if (!detailId || !data || !b || !p) return null
     const count = (n: number) => Math.round(n).toLocaleString(appLocale())
     if (detailId === "sales-over-time" || detailId === "aov") {
@@ -366,8 +373,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailId, detailMetric, data, b, p, compared, money, grain, zone, kinds, showShipping])
-  const detailTitle = detailView?.title ?? ""
+  }, [data, b, p, compared, money, grain, zone, kinds, showShipping])
   const range = rangeText ? (againstText ? tt("{range} compared with {against}", { range: rangeText, against: againstText }) : rangeText) : null
 
   /*
@@ -458,7 +464,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
               ))}
             </div>
           ) : channels.length === 0 ? (
-            <p className="flex h-full min-h-[150px] items-center justify-center text-center text-[13px] text-[#6b7280]">{tt("No sales in this period.")}</p>
+            <EmptyState>{tt("No sales in this period.")}</EmptyState>
           ) : (
             <div className="space-y-3">
               {channels.map((c) => (
@@ -555,11 +561,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         <p className="text-[12px] text-[#6b7280] lg:col-span-3">{tt("Orders do not record their page on this store yet, so the sales reports count every page.")}</p>
       ) : null}
     </div>
-      <DetailPanel open={detailOpen} onClose={() => setDetailOpen(false)} title={detailTitle} sub={range} panelKey={detailId ?? undefined}>
-        <div data-detail-id={detailId ?? undefined} className={cn("transition-opacity duration-200", soft ? "opacity-60 delay-150" : "opacity-100")}>
-          {detailView ? <DetailBody view={detailView} compared={compared} /> : null}
-        </div>
-      </DetailPanel>
+      <CommerceDetail opener={opener} build={buildDetail} range={range} soft={soft} compared={compared} />
     </OpenDetailContext.Provider>
   )
 }
@@ -578,4 +580,29 @@ export function prefetchCommerce(q: { start: number; end: number; compare: { sta
   } catch {
     /* a read ahead that fails is a tap that asks for itself */
   }
+}
+
+/** The opened sales card: its own state, so opening, switching its tab and closing render the panel alone. */
+function CommerceDetail({ opener, build, range, soft, compared }: { opener: React.MutableRefObject<((id: string, metric: Metric) => void) | null>; build: (id: string | null, metric: Metric, setMetric: (m: Metric) => void) => DetailView | null; range: string | null; soft: boolean; compared: boolean }) {
+  const [open, setOpen] = React.useState(false)
+  const [id, setId] = React.useState<string | null>(null)
+  const [metric, setMetric] = React.useState<Metric>("total")
+  React.useEffect(() => {
+    opener.current = (next, m) => {
+      setId(next)
+      setMetric(m)
+      setOpen(true)
+    }
+    return () => {
+      opener.current = null
+    }
+  }, [opener])
+  const view = React.useMemo(() => build(id, metric, setMetric), [build, id, metric])
+  return (
+    <DetailPanel open={open} onClose={() => setOpen(false)} title={view?.title ?? ""} sub={range} panelKey={id ?? undefined}>
+      <div data-detail-id={id ?? undefined} className={cn("transition-opacity duration-200", soft ? "opacity-60 delay-150" : "opacity-100")}>
+        {view ? <DetailBody view={view} compared={compared} /> : null}
+      </div>
+    </DetailPanel>
+  )
 }

@@ -7214,26 +7214,11 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   color: #1a1a2e;
   box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08), 0 1px 2px rgba(17, 24, 39, 0.05);
 }
-/* EXPORT, THE ROW'S ONE ACTION (round 41, the owner: "Export looks broken, text overflowing a too-small circle"): a
-   button with its icon and its name on a computer, the chips' height and ring, and an icon in a 36px circle on a phone,
-   where the label is not drawn at all (app/app/analytics/export-button.tsx). It was a 36px circle at every width with
-   the name spilling out of it from 640px. */
-[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
-  padding: 0 16px 0 13px;
-  gap: 7px;
-  flex-shrink: 0;
-}
-@media (max-width: 639.98px) {
-  [data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-}
+/* Export and Send to were the row's last controls until round 49, when they moved to the heading's line as icons in
+   circles (components/app/analytics/head-button); their rules here went with them. */
 [data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
-[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] svg { color: #4b5563; }
 /* On a phone the chips are ONE row that scrolls sideways (the owner: "they wrap onto two rows ... put them all in one
-   row"), Export pinned at its right end. Where the row is cut it fades out (.edge-fade, below), so no chip is ever
+   row"). Where the row is cut it fades out (.edge-fade, below), so no chip is ever
    sliced at a hard edge, and the pickers open their sheets through a portal, so the scroller clips none of them. */
 
 [data-analytics-controls] button[aria-haspopup="dialog"][data-open],
@@ -7295,19 +7280,36 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 /* Round 43: a centred window, not a panel from the right. It keeps its place with `translate` (the dialog's -50% -50%),
    so the motion is `transform` and `opacity` only, on the compositor: up 8px and from 97% as it fades in, back the
    same way out, quicker. */
+/* Round 49, the owner: "smooth open/close: a quick scale and fade". In over 200ms from 96%, out over 180ms to 97%,
+   both on the compositor (transform and opacity only), so nothing is laid out again while it plays. */
 @keyframes analytics-detail-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 @keyframes analytics-detail-out {
   from { opacity: 1; transform: none; }
-  to { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 0; transform: scale(0.97); }
 }
-.analytics-detail { will-change: transform, opacity; }
-.analytics-detail[data-state="open"] { animation: analytics-detail-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.analytics-detail[data-state="closed"] { animation: analytics-detail-out 160ms cubic-bezier(0.4, 0, 1, 1) both; }
+.analytics-detail { will-change: transform, opacity; transform-origin: 50% 50%; }
+.analytics-detail[data-state="open"] { animation: analytics-detail-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.analytics-detail[data-state="closed"] { animation: analytics-detail-out 180ms cubic-bezier(0.4, 0, 1, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .analytics-detail[data-state="open"], .analytics-detail[data-state="closed"] { animation-duration: 1ms; }
+}
+/* ITS BODY SCROLLS UNDER A FADE, NOT A BAR (round 49, "the scrollbar is clunky"): no bar at all
+    (a wheel, a trackpad and the keys still scroll), and 28px of fade at the edge that has more past it (app/app/analytics/report-detail.tsx useScrollFade). */
+.detail-scroll {
+  scrollbar-width: none;
+  --fade-t: 0px;
+  --fade-b: 0px;
+}
+.detail-scroll::-webkit-scrollbar { width: 0; height: 0; }
+.detail-scroll[data-fade-top] { --fade-t: 28px; }
+.detail-scroll[data-fade-end] { --fade-b: 28px; }
+.detail-scroll[data-fade-top],
+.detail-scroll[data-fade-end] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
 }
 
 /* A ROW THAT SCROLLS SIDEWAYS FADES WHERE IT IS CUT (components/app/use-edge-fade): 24px at whichever end has more

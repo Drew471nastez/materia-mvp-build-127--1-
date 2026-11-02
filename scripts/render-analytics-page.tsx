@@ -171,6 +171,11 @@ w.fetch = (async (input: RequestInfo | URL) => {
   await new Promise((r) => setTimeout(r, w.__delay))
   const u = new URL(url, location.href)
   const q = u.searchParams
+  /* Analytics › Send to (round 49): GA4 connected, nothing else; answered after the same delay as the rest. */
+  if (u.pathname.endsWith("/api/analytics/destinations")) {
+    const none = (provider: string) => ({ provider, connected: false, label: null, hint: null, testEventCode: null, lastSentAt: null, lastEvent: null, waiting: 0, errors: [], log: [] })
+    return json({ ready: true, canEdit: true, destinations: [{ ...none("ga4"), connected: true, label: "G-8KQ2LM4XYZ", hint: "x9Qa", lastSentAt: new Date(now - 3 * 60_000).toISOString(), lastEvent: "purchase" }, none("meta"), none("posthog"), none("webhook")] })
+  }
   const selector = parseProperty(q.get("property"))
   /* As the server does: a place the creator does not have is nothing at all. */
   const known = selector.type === "all" || selector.type === "creator_page" || (selector.type === "onepage" && !!PLACES.onePageId) || (selector.type === "website" && PLACES.websites.some((x) => x.id === selector.id))
