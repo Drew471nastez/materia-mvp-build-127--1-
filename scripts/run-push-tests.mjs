@@ -75,6 +75,8 @@ const SUITES = [
   "tests/canvas-origin.test.ts",
   /* Round rel-obs: the request id on error rows and their log lines (onRequestError, crons, webhooks), informational lines at their real level, the load test refuses production, /api/health bounded. */
   "tests/rel-obs.test.ts",
+  /* Round r48-obs: every server error line is one scrubbed JSON line with its route and request id (console guard, onRequestError logged once), no token, key, cookie, code, card or full address in a log, an error boundary per major segment, /api/health carries no secret, every cron says its maxDuration inside the one-run lease, smoke checks cover the critical paths, the load scripts stay local or off production. */
+  "tests/obs-r48.test.ts",
   /* Round rel-sites2: published sites while the database is slow, on Next's real data cache. EVD-1: a server that never served a site (a new deploy, a scale-out) serves it from the copy every server can read when every read fails, and a Publish or a take down drops that copy. EVD-2: a gateway's HTML error page or a JSON body cut short is asked again and then a short 503 error, never data or the page as a message. EVD-3: robots.txt, sitemaps, the manifest, the icon, theme assets and the cover read no session through the real proxy (no Supabase Auth call), /app still does. EVD-5: the static /500 and /404 pages are added to every server trace after next build (scripts/trace-error-pages.mjs). */
   "tests/rel-sites2.test.ts",
   /* Round rel3-leftovers: the signed out redirect from /app and /sell is private, no-store through the real proxy (Vercel called it public). */
