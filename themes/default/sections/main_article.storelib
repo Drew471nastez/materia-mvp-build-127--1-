@@ -185,7 +185,7 @@
 .a__step-title { font-size: 16px; line-height: 1.35; font-weight: 600; color: var(--s-heading); }
 
 .rel { max-width: var(--theme-page-width, 1280px); margin: 72px auto 0; padding-top: 48px; border-top: 1px solid var(--s-border); }
-.rel__h { margin: 0 0 28px; font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--s-heading); font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif; }
+.rel__h { margin: 0 0 28px; font-size: var(--section-heading-size, 26px); line-height: var(--section-heading-line-height, 1.2); font-weight: var(--section-heading-weight, 700); letter-spacing: var(--section-heading-tracking, -0.01em); text-transform: var(--section-heading-transform, none); color: var(--s-heading); font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif); }
 .rel__grid { display: grid; gap: 32px 24px; grid-template-columns: minmax(0, 1fr); }
 @container (min-width: 640px) { .rel__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 900px) { .rel__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

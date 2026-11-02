@@ -9860,7 +9860,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* The blog's posts for the Blog and Blog post templates and a Blog posts section on any page: the blog's own, or sample ones while it has none, here only (use-canvas-blog.ts). */
   const canvasBlog = useCanvasBlog(installId, !compatInstall && (currentPage === "blogs" || currentPage === "article" || pageWantsBlog(canvasSections)), currentPage)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words, blog: canvasBlog?.blog, article: canvasBlog?.article }),
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, blog: canvasBlog?.blog, article: canvasBlog?.article, words: previewLang.words }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
   )
   /*

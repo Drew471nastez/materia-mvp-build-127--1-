@@ -568,7 +568,7 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean; localizer?: Localizer | null; blog?: BlogPageInput } = { cached: true },
+  opts: { cached: boolean; localizer?: Localizer | null } & { blog?: BlogPageInput } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const localizer = opts.localizer ?? null
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
