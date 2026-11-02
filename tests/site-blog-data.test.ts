@@ -475,7 +475,7 @@ async function main() {
     for (const r of routes) {
       const src = readFileSync(r, "utf8")
       const name = r.replace("app/api/website-builder/themes/[installId]/", "")
-      check(`${name}: nodejs, dynamic, the caller check, no table query of its own`, src.includes('runtime = "nodejs"') && src.includes('dynamic = "force-dynamic"') && src.includes("blogCaller(") && !src.includes('.from("site_blog_'))
+      check(`${name}: nodejs, dynamic, the caller check, no table query of its own`, src.includes('runtime = "nodejs"') && src.includes('dynamic = "force-dynamic"') && (src.includes("blogCaller(") || /const site = await websiteInstallCaller\(installId\)\n\s*if \(site\.error !== null\)/.test(src)) && !src.includes('.from("site_blog_'))
     }
     const post = readFileSync("app/api/website-builder/themes/[installId]/blog/posts/[postId]/route.ts", "utf8")
     const put = post.slice(post.indexOf("export async function PUT"), post.indexOf("export async function DELETE"))
