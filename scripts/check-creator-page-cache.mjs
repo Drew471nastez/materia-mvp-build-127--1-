@@ -20,6 +20,9 @@
  *     Referer from Storelib are answered `private, no-store`;
  *   - the personal address (?_pv=1) asked for by a stranger is still the
  *     stranger's page, publicly cacheable (the proxy takes it off).
+ * BROWSER=1 also opens the owner's page in Chromium (Playwright) and checks
+ * the address bar still says /<handle>: the personal address is the proxy's,
+ * never the visitor's.
  * Exits 1 on any failure.
  */
 import { spawn } from "node:child_process"
@@ -78,6 +81,18 @@ for (const path of ["/satori", "/satori/a3-print"]) {
   }
   const planted = await get(`${path}?_pv=1`)
   check("the personal address asked for by a stranger: still the stranger's page, shared", planted.status === 200 && planted.cc === SHARED && !OWNER_MARK.test(planted.html), planted.cc)
+}
+if (process.env.BROWSER) {
+  const { createRequire } = await import("node:module")
+  const { chromium } = createRequire(import.meta.url)("playwright")
+  const b = await chromium.launch({ args: ["--no-sandbox", "--no-proxy-server"] })
+  const ctx = await b.newContext()
+  await ctx.addCookies([{ name: owner.name, value: owner.value, url: BASE }])
+  const page = await ctx.newPage()
+  await page.goto(`${BASE}/satori`, { waitUntil: "load" })
+  await page.waitForTimeout(2500)
+  check("in a browser, the owner's address bar keeps /satori", page.url() === `${BASE}/satori`, page.url())
+  await b.close()
 }
 console.log(failed ? `\n${failed} failed` : "\nall passed")
 process.exit(failed ? 1 : 0)
