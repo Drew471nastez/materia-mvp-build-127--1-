@@ -232,4 +232,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "353", file: "353_rls_initplan_and_product_counters.sql", sha256: "f14cdf7db752e7d5df739d0c1885601420f833955a011eb5ca917906fcc8e287" },
   { part: "354", file: "354_builder_configs_private.sql", sha256: "d39f739ae5040c3f4b601b1e7e370b2587122d1948757ed840466d8cc3b1d44c" },
   { part: "355", file: "355_site_blog.sql", sha256: "aeeb522495c34dfd768ac77d692af55424f7fa106921e50fbc9a8d76d48d6ae9" },
+  { part: "356", file: "356_public_snapshots.sql", sha256: "dd4217a82405b79eafcbdaf98bb0f2033d02c9f80e95e415e9e2f762c8c30216" },
 ]

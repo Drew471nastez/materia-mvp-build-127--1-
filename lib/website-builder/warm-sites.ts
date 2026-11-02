@@ -23,6 +23,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { publishedWebsiteOrigins } from "@/lib/seo/sitemaps"
 import { websiteAddresses } from "@/lib/seo/announce"
+import { backfillSiteCopies } from "@/lib/edge/snapshot-capture"
 
 export const WARM_KEY = "website_cache_warmed"
 /** The pages asked for on each site: what a visitor lands on and goes to first. */
@@ -45,6 +46,8 @@ const MIN_REQUEST_MS = 1_000
  * function's 60 s. Now each request takes at most what is left before this.
  */
 export const WARM_HARD_STOP_MS = 7_000
+/** A site's copies are taken in a run only with at least this long left before its budget. */
+const BACKFILL_MIN_MS = 10_000
 
 /** And this many more of a site's own pages, from its sitemap, so the menu's About or FAQ is drawn too. */
 export const SITEMAP_PAGES = 4
@@ -172,10 +175,13 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
     }
     /* Each site's pages one after another, a few sites at a time; a site stops at the hard stop and is done again next run. */
     const finished = await some(origins, async (o) => {
-      for (const u of await warmListOf(o, fetcher, hardStop)) {
+      const list = await warmListOf(o, fetcher, hardStop)
+      for (const u of list) {
         if (hardStop - Date.now() < MIN_REQUEST_MS) return false
         pages[await ask(u, fetcher, hardStop)]++
       }
+      /* A site with no stored copies gets them now (lib/edge/snapshot-capture.ts backfillSiteCopies), inside the same run's time. */
+      if (!options.fetcher && until - Date.now() > BACKFILL_MIN_MS) await backfillSiteCopies(o, list, until).catch(() => false)
       return true
     }, until)
     if (finished < origins.length) {

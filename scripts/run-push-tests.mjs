@@ -1144,6 +1144,8 @@ const SUITES = [
   "tests/configs-r48.test.ts",
   /* Round 48: the public pages' speed: the home page's head preloads only the hero, the cookie card in the server's HTML (lib/consent/early-ask), the product page's buy box its final height during the purchase check, no owner or editor code (or Supabase, Swiper, the app wide react-icons/si) in a visitor's creator and product page, Explore's chip as tall before its measurement. */
   "tests/pubperf-r48.test.ts",
+  /* Round 49, edge: stored copies of public pages served while the database is away (lib/edge, docs/reliability/EDGE_FAILOVER.md). */
+  "tests/edge-r49.test.ts",
 ]
 
 /**

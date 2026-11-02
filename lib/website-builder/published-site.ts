@@ -86,6 +86,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import type { StorefrontCollection, StorefrontData } from "@/lib/storelib-theme/types"
 import { siteStoreName, siteTabTitle } from "./tab-title"
 import { logEvent } from "@/lib/net/log"
+import { refreshSiteSoon } from "@/lib/edge/snapshot-capture"
 
 /** The product a product page is about, as a section reads it. */
 type StorefrontProduct = StorefrontData["product"]
@@ -924,6 +925,8 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
    * below it, which is what a publish changes.
    */
   for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+  /* And the site's stored copies, asked again after the answer (lib/edge/snapshot-capture.ts): new pages kept, a taken down site's deleted. */
+  refreshSiteSoon(creatorId)
 }
 
 /**
@@ -950,6 +953,8 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
 export async function revalidatePublishedPages(creatorId: string): Promise<void> {
   if (!creatorId) return
   for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+  /* The stored copies show prices too (lib/edge/snapshot-capture.ts). */
+  refreshSiteSoon(creatorId)
 }
 
 export async function revalidatePublishedProduct(creatorId: string, slug: string): Promise<void> {
@@ -968,6 +973,11 @@ export async function revalidatePublishedProduct(creatorId: string, slug: string
  * ever purged a rendered page: a creator pressed Publish and watched the old
  * site until the minute ran out, which is the thing this purge exists to stop.
  */
+/** The names a creator's site answers to, the first its own (for lib/edge/snapshot-capture.ts). */
+export function siteNamesOf(creatorId: string): Promise<string[]> {
+  return siteNames(creatorId)
+}
+
 async function siteNames(creatorId: string): Promise<string[]> {
   try {
     const admin = createAdminClient()
