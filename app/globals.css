@@ -8356,6 +8356,16 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   visibility: hidden;
 }
 
+/*
+ * THE SERVER'S COOKIE CARD (round 48) shows before React has run only where
+ * the head script lib/consent/early-ask put data-cookie-ask on <html>: no
+ * consent yet, not framed, not the native app, on Storelib's own host.
+ * Everywhere else it stays out of the way until the live banner decides.
+ */
+html:not([data-cookie-ask]) [data-cookie-banner-early] {
+  display: none !important;
+}
+
 /* ─── HOME CARDS ──────────────────────────────────────────────────────────
  * Getting started, the guide and Your Plan (components/app/home/home-cards).
  *

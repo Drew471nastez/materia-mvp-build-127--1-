@@ -381,7 +381,12 @@ export function ExploreHero({
                left padding it always had, and the chevrons sit in the extra
                room on the right, inside the violet. */
             className={cn(
-              "relative inline-flex shrink-0 flex-col justify-center rounded-xl bg-violet-50 pl-2.5 align-middle",
+              /* py-2 is CHIP_PAD_Y. Round 48: the measured height below already counts it
+                 (box.height + 2 * CHIP_PAD_Y, border-box), so with it there the chip is that
+                 tall before the measurement too. Without it the server's chip was 16px
+                 shorter and the heading, the field and every product under them moved
+                 down 17px when the layout effect ran: 0.016 CLS on a phone, every visit. */
+              "relative inline-flex shrink-0 flex-col justify-center rounded-xl bg-violet-50 py-2 pl-2.5 align-middle",
               onModeChange ? "pr-[26px] sm:pr-[34px]" : "pr-2.5 sm:pr-3.5",
               "shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}

@@ -441,6 +441,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     profile: row?.user_id ? await loadCreatorProfile(row.user_id) : null,
   }))
 
+  /* The same person's communities for More from, asked for as soon as the creator is known (round 48: no longer a round trip after the rest). */
+  const moreCardsPromise = creatorWithProfile.then(({ creator }) => withOwnersCommunities(moreProductsPromise, creator?.user_id, product.creator_id, product.id))
+  /* Awaited further down; a failure there is the same as before, here it is only kept from being unhandled meanwhile. */
+  moreCardsPromise.catch(() => {})
+
   const [
     { creator, profile: creatorProfileRow },
     shopConfig,
@@ -739,7 +744,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   /* On the marketplace in dollars, each card with its creator's own dollar price when they set one, as its own page shows it. */
   /* With the same person's communities from their other stores (lib/commerce/owner-communities-server). */
-  const moreCards = await withOwnersCommunities(await moreProductsPromise, creator?.user_id, product.creator_id, product.id)
+  const moreCards = await moreCardsPromise
   const moreProducts = pageQuote.marketplace ? await withApprovedDollarPrices(createAdminClient(), moreCards) : moreCards
   timer.mark("moreProducts")
   timer.done()

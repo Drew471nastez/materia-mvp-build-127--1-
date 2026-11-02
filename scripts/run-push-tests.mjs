@@ -1136,6 +1136,8 @@ const SUITES = [
   "tests/security-r48.test.ts",
   /* Round 48, R48-6: the creator page configs are read by the server (service role, published_config only, no contact address) for every public page, never with the anon key; the owner screens keep their own session; SQL part 354 closes both tables to anon. */
   "tests/configs-r48.test.ts",
+  /* Round 48: the public pages' speed: the home page's head preloads only the hero, the cookie card in the server's HTML (lib/consent/early-ask), the product page's buy box its final height during the purchase check, no owner or editor code (or Supabase, Swiper, the app wide react-icons/si) in a visitor's creator and product page, Explore's chip as tall before its measurement. */
+  "tests/pubperf-r48.test.ts",
 ]
 
 /**

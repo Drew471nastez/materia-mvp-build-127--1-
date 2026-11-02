@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { NextResponse, after } from "next/server"
 import { announce, productAddresses, profileAddresses } from "@/lib/seo/announce"
@@ -521,6 +522,8 @@ export async function PUT(request: Request) {
   */
   revalidateTag(creatorTag(creator.id), "max")
   if (productId) revalidateTag(productTag(productId), "max")
+  /* And the CDN's minute-long copy of the creator page and its product pages (round 48). */
+  await creatorPagesChanged({ creatorId: creator.id })
 
   if (productId && pageType === "product") {
     console.log("[v0] Publishing product-specific config", { productId, creatorId: creator.id })

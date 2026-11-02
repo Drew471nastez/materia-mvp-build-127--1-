@@ -22,17 +22,10 @@
  * silhouette is not that.
  */
 
-import type { IconType } from "react-icons"
+import { GenIcon, type IconType } from "react-icons"
 import { FaLinkedin } from "react-icons/fa6"
-import {
-  SiFacebook,
-  SiInstagram,
-  SiSpotify,
-  SiTiktok,
-  SiTwitch,
-  SiX,
-  SiYoutube,
-} from "react-icons/si"
+/* The marks' trees, not `react-icons/si`: see components/social/simple-icon-marks.ts (round 48). */
+import * as marks from "@/components/social/simple-icon-marks"
 
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
@@ -73,12 +66,12 @@ function wrap(Icon: IconType): PlatformIcon {
 }
 
 export const SOCIAL_ICONS: Record<SocialPlatformKey, PlatformIcon> = {
-  tiktok: wrap(SiTiktok),
-  instagram: wrap(SiInstagram),
-  facebook: wrap(SiFacebook),
-  youtube: wrap(SiYoutube),
+  tiktok: wrap(GenIcon(marks.SiTiktok)),
+  instagram: wrap(GenIcon(marks.SiInstagram)),
+  facebook: wrap(GenIcon(marks.SiFacebook)),
+  youtube: wrap(GenIcon(marks.SiYoutube)),
   linkedin: wrap(FaLinkedin),
-  twitter: wrap(SiX),
-  twitch: wrap(SiTwitch),
-  spotify: wrap(SiSpotify),
+  twitter: wrap(GenIcon(marks.SiX)),
+  twitch: wrap(GenIcon(marks.SiTwitch)),
+  spotify: wrap(GenIcon(marks.SiSpotify)),
 }

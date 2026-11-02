@@ -235,7 +235,8 @@ export function build() {
 ${SCOPE} line[stroke="rgba(255,255,255,0.07)"] { stroke: rgba(16,24,40,0.08); }
 ${SCOPE} line[stroke="rgba(255,255,255,0.3)"] { stroke: rgba(16,24,40,0.3); }
 ${SCOPE} circle[stroke="#161616"] { stroke: #ffffff; }
-${SCOPE} ::selection { background-color: rgba(139,92,246,0.18); }
+/* Round 48: [data-ws-look="light"] ::selection, the same elements as the scoped :is() form (a descendant of the root or of any descendant of it is a descendant of the root) and the same specificity, but written so the browser can rule it out from the ancestors' attribute names: ::selection rules are tried on every element, and the :is() form walked every element's ancestors twice. Measured with Chromium's selector stats on storelib.com: the costliest rule of the 1,141 on the home page. */
+[data-ws-look="light"] ::selection { background-color: rgba(139,92,246,0.18); }
 `)
   out.push(states.map((r) => r.text).join("\n"))
   out.push(`\n@media ${HOVER_MEDIA} {\n${hover.map((r) => `  ${r.text}`).join("\n")}\n}`)

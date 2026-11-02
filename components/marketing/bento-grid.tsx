@@ -336,13 +336,14 @@ export function BentoGrid() {
                 Courses, digital products, communities, bookings. If you made it, you can sell it here on Storelib.
               </p>
               <div className="mt-3 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[100px] sm:min-h-[180px]">
-                {/* Mobile image */}
+                {/* Mobile image. Round 48: both lazy. Eager, React preloaded both from the head of the home page, and the
+                    one for a computer (display:none on a phone) was downloaded on every phone for nothing. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={optimizedImageUrl(SELL_ANYTHING_PHONE, 500, 75)}
                   alt="Digital products showcase"
                   className="w-[125%] rounded-xl object-cover sm:hidden"
-                  loading="eager"
+                  loading="lazy"
                   decoding="async"
                   width={500}
                   height={244}
@@ -353,7 +354,7 @@ export function BentoGrid() {
                   src={optimizedImageUrl(SELL_ANYTHING_WIDE, 800, 75)}
                   alt="Digital products showcase"
                   className="hidden sm:block w-[110%] rounded-xl object-cover"
-                  loading="eager"
+                  loading="lazy"
                   decoding="async"
                   sizes="800px"
                   width={800}

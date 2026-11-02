@@ -202,8 +202,6 @@ export function CookieConsentBanner() {
   const rejectAll = () => decide(everything(false, Date.now()))
   const save = () => decide({ version: CONSENT_VERSION, ...draft, at: Math.floor(Date.now() / 1000) })
 
-  if (!ready || isNativeApp()) return null
-
   /*
     TOOLS, NOT PAGES. The dashboard (/app), the builders and the admin are
     where a signed-in creator works; the banner belongs to the pages visitors
@@ -219,6 +217,25 @@ export function CookieConsentBanner() {
   /* The theme marketplace's preview draws a theme with nobody's shop in it (app/(site)/theme-preview): nothing to consent to. */
   const inThemePreview = pathname?.startsWith("/theme-preview/") ?? false
   const quiet = inSitesEditor || inBuilder || inApp || inThemePreview || embedded || site?.hidden === true
+  /* What the server knows of `quiet`: the address. The frame and the creator's switch are known after the effect. */
+  const quietPath = inSitesEditor || inBuilder || inApp || inThemePreview
+
+  /*
+    ROUND 48: THE CARD IS IN THE SERVER'S HTML. It used to appear only after
+    hydration (`!ready` drew nothing), and on a phone its paragraph is the
+    largest text on the first screen of /pricing, /explore/<category> and
+    search: their LCP waited for the JavaScript (2.4 to 2.8 s at 4x CPU).
+    Before the effect has run, the card is drawn in Storelib's own look and
+    marked data-cookie-banner-early; app/globals.css hides that one unless
+    the head script (lib/consent/early-ask COOKIE_ASK_BOOT) put
+    data-cookie-ask on <html>, which it does only where the effect would show
+    the card: no valid consent cookie, not in a frame, not the native app, on
+    Storelib's own host. Once the effect has run, the card is the live one,
+    decided exactly as before, in the same place in the tree.
+  */
+  if (ready && isNativeApp()) return null
+  const early = !ready
+  const showCard = early ? !quietPath : bannerOpen && !quiet && !prefsOpen
 
   /* Storelib's own look unless the site set its banner colours itself. */
   const bg = site?.background || "#ffffff"
@@ -229,11 +246,11 @@ export function CookieConsentBanner() {
 
   return (
     <>
-      {consent?.analytics === true && !inSitesEditor && !embedded && <Analytics />}
+      {!early && consent?.analytics === true && !inSitesEditor && !embedded && <Analytics />}
 
-      {bannerOpen && !quiet && !prefsOpen && (
+      {showCard && (
         /* Positions the card; the card itself takes the clicks. */
-        <div data-cookie-banner="" className="pointer-events-none fixed bottom-0 left-0 right-0 z-[9999] flex justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:justify-start sm:px-5 sm:pb-5">
+        <div data-cookie-banner="" data-cookie-banner-early={early ? "" : undefined} className="pointer-events-none fixed bottom-0 left-0 right-0 z-[9999] flex justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:justify-start sm:px-5 sm:pb-5">
           <section
             role="region"
             aria-label="Cookies"
@@ -245,12 +262,15 @@ export function CookieConsentBanner() {
               {site?.text ||
                 "Necessary cookies keep this site working. With your OK we also count returning visitors, so creators can see what works."}{" "}
               {/* Storelib's cookie policy: on a creator's website /privacy is not a page of theirs, so it is the full address there, and a plain link that nothing reads ahead. */}
-              {typeof window !== "undefined" && onCreatorSite(window.location.hostname) ? (
+              {!early && onCreatorSite(window.location.hostname) ? (
                 <a href={`https://${SITES_HOST}/privacy#cookies`} target="_blank" rel="noopener" className="underline underline-offset-2">
                   Cookie policy
                 </a>
               ) : (
-                <Link href="/privacy#cookies" className="underline underline-offset-2">
+                /* prefetch={false} (round 48): the card is on the first screen of every first visit, so the
+                   viewport prefetch fetched the whole privacy page (about 25 KB of RSC in five requests) on
+                   every one of them, measured live. A press still opens it. */
+                <Link href="/privacy#cookies" prefetch={false} className="underline underline-offset-2">
                   Cookie policy
                 </Link>
               )}

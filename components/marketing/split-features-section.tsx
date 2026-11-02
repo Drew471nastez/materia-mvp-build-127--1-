@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import Image from "next/image"
 import { AnimateOnScroll } from "./bento-grid"
 
@@ -25,18 +24,11 @@ const FEATURES = [
 ]
 
 export function SplitFeaturesSection() {
-  // Defer preloading to idle time so it doesn't block main thread
-  useEffect(() => {
-    if ("requestIdleCallback" in window) {
-      (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(() => {
-        FEATURES.forEach(({ src }) => {
-          const img = new window.Image()
-          img.decoding = "async"
-          img.src = src
-        })
-      })
-    }
-  }, [])
+  /*
+    Round 48: no idle Image() of each original upload. The <Image> below draws
+    the optimizer's resized file, so that was a second, larger download of
+    each picture that nothing painted.
+  */
 
   return (
     <div className="overflow-x-hidden">
@@ -66,7 +58,8 @@ export function SplitFeaturesSection() {
                     height={700}
                     sizes="(max-width: 768px) 95vw, 52vw"
                     className="w-full h-auto object-contain rounded-2xl"
-                    loading="eager"
+                    /* Round 48: lazy (it was eager, which put a preload for each in the head of the home page, ahead of the hero). */
+                    loading="lazy"
                     decoding="async"
                     /* `unoptimized` was here, so <Image> served the original
                        upload untouched: two screenshots, ~190 KB together, for

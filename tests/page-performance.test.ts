@@ -1423,7 +1423,10 @@ check(
      * Verified in a browser: all seven marks in the dialog render the exact
      * same path data as the seven on the page.
      */
-    if (!/from "react-icons\/si"/.test(icons))
+    /* Round 48: the seven trees are copied out of react-icons/si into simple-icon-marks.ts (so the app-wide
+       react-icons/si module, 61 marks, stays off the creator and product pages); tests/pubperf-r48 compares
+       each tree with the package byte for byte, so they are still Simple Icons' and nobody's hand. */
+    if (!/from "@\/components\/social\/simple-icon-marks"/.test(icons) || !/GenIcon\(marks\.SiX\)/.test(icons))
       missing.push("the brand marks are hand-drawn again instead of coming from Simple Icons")
     if (/<path d="M/.test(icons)) missing.push("there is hand-drawn path data in the icon module again")
     if (!/color = "currentColor"/.test(icons))
@@ -3421,7 +3424,8 @@ section("The product page does not ask one question at a time")
     "coursePromise",
   ]) {
     const started = src.indexOf(`const ${name}`, component)
-    const awaited = src.indexOf(`await ${name}`, component)
+    /* Changed on purpose (round 48): More from is awaited inside moreCardsPromise, which reads the owner's communities beside it (lib/commerce/owner-communities-server). */
+    const awaited = name === "moreProductsPromise" ? src.indexOf("withOwnersCommunities(moreProductsPromise", component) : src.indexOf(`await ${name}`, component)
     check(
       `${name} is started before the batch and awaited after it`,
       started > 0 && awaited > started && started < batch,

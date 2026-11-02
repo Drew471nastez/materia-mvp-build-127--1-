@@ -100,7 +100,7 @@ export function PricingSection({
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up" delay={120}>
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} />
+          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} pictureLoading={headingLevel === 1 ? "eager" : "lazy"} />
           {footnote}
         </AnimateOnScroll>
 
