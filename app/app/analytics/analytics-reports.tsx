@@ -68,6 +68,7 @@ import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatMinor } from "@/lib/markets/money"
 import { changeOf, percentText, ratio, roundShares } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
+import { EmptyState } from "@/components/analytics/empty-state"
 import { DetailBody, DetailPanel, OpenDetailContext, RowLinesContext, ViewReport, type DetailSection, type DetailView, type RowLines } from "./report-detail"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
@@ -240,12 +241,9 @@ function Change({ h }: { h: Pick<Headline, "change" | "value"> }) {
   )
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <div data-empty="" className="flex flex-1 items-center justify-center px-2 py-6 text-center text-[13px] text-[#6b7280]">
-      {children}
-    </div>
-  )
+/* A card with nothing in it: one short line and three ghost rows (components/analytics/empty-state, round 49). An error is the line alone. */
+function Empty({ children, ghost = "rows" }: { children: React.ReactNode; ghost?: "rows" | "none" }) {
+  return <EmptyState ghost={ghost}>{children}</EmptyState>
 }
 
 /**
@@ -760,9 +758,9 @@ const SOURCE_TABS: Array<{ value: SourceTab; label: string }> = [
   { value: "campaign", get label() { return tt("Campaign") } },
 ]
 const SOURCE_EMPTY: Record<SourceTab, string> = {
-  get source() { return tt("No visits in this period. Share your link to bring some in.") },
-  get social() { return tt("No visits from social apps. Add your link to your bio.") },
-  get campaign() { return tt("No visits from tagged links. Add utm_campaign to a link to see it here.") },
+  get source() { return tt("No visits in this period.") },
+  get social() { return tt("No visits from social apps in this period.") },
+  get campaign() { return tt("No visits from tagged links in this period.") },
 }
 
 /**
@@ -843,7 +841,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
         <Body blank={!lists} wait="list">
           {lists && b ? (() => {
             const referrers = fromBreakdown(b.referrer, visits)
-            return <List title={tt("Referrers")} rows={referrers.rows} previous={referrers.previous} format={fmtCount} lead={{ icon: "referrer" }} empty={tt("No visits from other websites or apps in this period.")} onAll={all("referrers")} />
+            return <List title={tt("Referrers")} rows={referrers.rows} previous={referrers.previous} format={fmtCount} lead={{ icon: "referrer" }} empty={tt("No referrers in this period.")} onAll={all("referrers")} />
           })() : null}
         </Body>
       </Card>
@@ -856,7 +854,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
                 title={tt("Top links")}
                 rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) }))}
                 format={fmtCount}
-                empty={tt("No link taps in this period. Add links to your OnePage.")}
+                empty={tt("No link taps in this period.")}
                 onAll={all("links")}
               />
             ) : null}
@@ -870,7 +868,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
                 title={tt("Top pages")}
                 rows={r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.title, p.place, plural(p.visitors, tt("visitor"), tt("visitors"))].filter(Boolean).join(" · ") }))}
                 format={fmtCount}
-                empty={tt("No pages opened in this period. Share a link to one of your pages.")}
+                empty={tt("No page views in this period.")}
                 onAll={all("pages")}
               />
             ) : null}
@@ -943,7 +941,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
           <Body blank={!lists} wait="figure">
             {lists && r ? (
               r.subscribers === null ? (
-                <Empty>{tt("Sign-ups could not be read. Refresh the page to try again.")}</Empty>
+                <Empty ghost="none">{tt("Sign-ups could not be read. Refresh the page to try again.")}</Empty>
               ) : (
                 (() => {
                   const signups = fromBreakdown(signupsByPage ? r.subscribers.byProperty : r.subscribers.bySource)
@@ -953,7 +951,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
                         <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(r.subscribers.value)}</span>
                         <Change h={r.subscribers} />
                       </div>
-                      <List key={signupTab} title={tt("Subscribers")} rows={signups.rows} previous={signups.previous} format={fmtCount} empty={tt("No sign-ups in this period. Add a sign-up form to your page.")} onAll={all("subscribers", signupsByPage ? "property" : "source")} />
+                      <List key={signupTab} title={tt("Subscribers")} rows={signups.rows} previous={signups.previous} format={fmtCount} empty={tt("No sign-ups in this period.")} onAll={all("subscribers", signupsByPage ? "property" : "source")} />
                     </>
                   )
                 })()
@@ -1427,9 +1425,9 @@ function AddedBody({ id, r, onAll }: { id: ReportId; r: Reports; onAll?: () => v
     )
   }
   if (id === "toplinks") {
-    return <List title={REPORT_COPY.toplinks.title} rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) }))} format={fmtCount} empty={tt("No link taps in this period. Add links to your OnePage.")} onAll={onAll} />
+    return <List title={REPORT_COPY.toplinks.title} rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) }))} format={fmtCount} empty={tt("No link taps in this period.")} onAll={onAll} />
   }
-  if (r.digital?.downloads == null) return <Empty>{r.digital && r.digital.downloads === null ? tt("Downloads could not be read. Refresh the page to try again.") : tt("No downloads in this period.")}</Empty>
+  if (r.digital?.downloads == null) return r.digital && r.digital.downloads === null ? <Empty ghost="none">{tt("Downloads could not be read. Refresh the page to try again.")}</Empty> : <Empty>{tt("No downloads in this period.")}</Empty>
   return (
     <>
       <div className="flex h-9 items-baseline gap-2.5" data-figure="">

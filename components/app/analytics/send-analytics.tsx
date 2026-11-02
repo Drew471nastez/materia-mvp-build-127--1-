@@ -29,6 +29,7 @@ import { formatRelative } from "@/lib/i18n/format"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
+import { HeadIconButton } from "./head-button"
 
 type Provider = "ga4" | "meta" | "posthog" | "webhook"
 type RowId = Provider | "google_ads" | "api"
@@ -76,11 +77,20 @@ const BUTTON_PRIMARY =
   "inline-flex h-9 cursor-pointer items-center justify-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13.5px] font-medium text-white outline-none hover:bg-[#2b2b42] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] active:bg-[#11111f] disabled:cursor-default disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
 const BUTTON_QUIET = "inline-flex h-9 cursor-pointer items-center rounded-lg px-2 text-[13.5px] font-medium text-[#b42318] outline-none hover:bg-[#fef3f2] focus-visible:shadow-[0_0_0_2px_rgba(180,35,24,0.25)] disabled:opacity-50"
 const INPUT = "h-10 w-full rounded-lg border border-[#e3e4e8] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#1a1a2e]/40 focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[13.5px]"
-const PICKER =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-1 sm:px-2.5"
 
-const LOGO: Partial<Record<RowId, string>> = { ga4: "/integrations/google-analytics.svg", meta: "/integrations/meta.svg", google_ads: "/integrations/google-ads.svg" }
-const ROWS: RowId[] = ["ga4", "meta", "google_ads", "posthog", "webhook", "api"]
+/*
+  THE MARKS ARE IN THE CODE (round 49, the owner: "its options and icons appear slowly"). They were images under
+  /integrations, asked for only once the dialog had opened and its answer had come, so each tool's mark popped in after
+  its name. Now the three brand marks are drawn inline from the same paths (public/integrations/*.svg), on the first
+  frame the dialog has, with nothing to fetch.
+*/
+const MARK_PATH: Partial<Record<RowId, { fill: string; d: string }>> = {
+  ga4: { fill: "#E37400", d: "M22.84 2.9982v17.9987c.0086 1.6473-1.3197 2.9897-2.967 2.9984a2.9808 2.9808 0 01-.3677-.0208c-1.528-.226-2.6477-1.5558-2.6105-3.1V3.1204c-.0369-1.5458 1.0856-2.8762 2.6157-3.1 1.6361-.1915 3.1178.9796 3.3093 2.6158.014.1201.0208.241.0202.3619zM4.1326 18.0548c-1.6417 0-2.9726 1.331-2.9726 2.9726C1.16 22.6691 2.4909 24 4.1326 24s2.9726-1.3309 2.9726-2.9726-1.331-2.9726-2.9726-2.9726zm7.8728-9.0098c-.0171 0-.0342 0-.0513.0003-1.6495.0904-2.9293 1.474-2.891 3.1256v7.9846c0 2.167.9535 3.4825 2.3505 3.763 1.6118.3266 3.1832-.7152 3.5098-2.327.04-.1974.06-.3983.0593-.5998v-8.9585c.003-1.6474-1.33-2.9852-2.9773-2.9882z" },
+  meta: { fill: "#0467DF", d: "M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z" },
+  google_ads: { fill: "#4285F4", d: "M3.9998 22.9291C1.7908 22.9291 0 21.1383 0 18.9293s1.7908-3.9998 3.9998-3.9998 3.9998 1.7908 3.9998 3.9998-1.7908 3.9998-3.9998 3.9998zm19.4643-6.0004L15.4632 3.072C14.3586 1.1587 11.9121.5028 9.9988 1.6074S7.4295 5.1585 8.5341 7.0718l8.0009 13.8567c1.1046 1.9133 3.5511 2.5679 5.4644 1.4646 1.9134-1.1046 2.568-3.5511 1.4647-5.4644zM7.5137 4.8438L1.5645 15.1484A4.5 4.5 0 0 1 4 14.4297c2.5597-.0075 4.6248 2.1585 4.4941 4.7148l3.2168-5.5723-3.6094-6.25c-.4499-.7793-.6322-1.6394-.5878-2.4784z" },
+}
+/** Every tool, in the dialog's order: a static list, drawn before anything is asked of the server. */
+export const ROWS: RowId[] = ["ga4", "meta", "google_ads", "posthog", "webhook", "api"]
 
 function rowName(id: RowId): string {
   if (id === "ga4") return "Google Analytics 4" // i18n-ignore
@@ -120,9 +130,13 @@ async function call<T>(input: string, init?: RequestInit): Promise<{ ok: boolean
 }
 
 function Mark({ id }: { id: RowId }) {
-  const src = LOGO[id]
-  // eslint-disable-next-line @next/next/no-img-element
-  if (src) return <img src={src} alt="" width={20} height={20} decoding="async" className="h-5 w-5 shrink-0 object-contain" />
+  const mark = MARK_PATH[id]
+  if (mark)
+    return (
+      <svg aria-hidden viewBox="0 0 24 24" width={20} height={20} data-mark={id} className="h-5 w-5 shrink-0">
+        <path fill={mark.fill} d={mark.d} />
+      </svg>
+    )
   const letter = id === "posthog" ? "P" : id === "webhook" ? "W" : "A"
   return (
     <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-[5px] bg-[#1a1a2e] text-[11px] font-semibold text-white">
@@ -464,7 +478,47 @@ function standing(id: RowId, views: Map<Provider, DestinationView>): { text: str
   return { text: v.lastSentAt ? tt("Connected · last event {when}", { when: formatRelative(v.lastSentAt) }) : tt("Connected"), tone: "on" }
 }
 
-/** Every tool, with its status and its form. Used in the dialog and on Integrations › Send analytics. */
+/*
+  THE ANSWER, ASKED FOR AHEAD (round 49, "the Send analytics modal must load faster"). A pointer coming to the button,
+  a finger landing on it or the keyboard reaching it starts the one read the dialog needs, so by the press it is
+  usually on its way or back. The dialog takes that read once (a later open reads afresh, so a tool connected in
+  between is never shown as it was), and a read older than WARM_MS is not used.
+*/
+type Read = { ok: boolean; data: Answer }
+let warm: { at: number; read: Promise<Read> } | null = null
+const WARM_MS = 15_000
+export function warmDestinations(): void {
+  if (typeof window === "undefined") return
+  if (warm && Date.now() - warm.at < WARM_MS) return
+  const read = call<Answer>("/api/analytics/destinations")
+  warm = { at: Date.now(), read }
+  void read.then((r) => {
+    if (!r.ok && warm?.read === read) warm = null
+  })
+}
+function takeDestinations(): Promise<Read> {
+  const w = warm && Date.now() - warm.at < WARM_MS ? warm.read : null
+  warm = null
+  return w ?? call<Answer>("/api/analytics/destinations")
+}
+
+/** Where a row's status line will be: a faint bar of the line's own height, so nothing moves when the words come. */
+function StatusPending() {
+  return (
+    <span aria-hidden className="flex h-[18px] items-center" data-status-pending="">
+      <span className="h-2 w-28 rounded-full bg-[#eef0f2]" />
+    </span>
+  )
+}
+
+/**
+ * Every tool, with its status and its form. Used in the dialog and on Integrations › Send analytics.
+ *
+ * THE LIST IS THERE AT ONCE (round 49). Each tool's name and mark are static (ROWS, MARK_PATH), so the six rows are
+ * drawn on the dialog's first frame; only where each stands (connected, last event, errors) waits for the server,
+ * as a faint bar the height of its line. A row opened before the answer shows what it sends and a quiet block where
+ * its fields will be.
+ */
 export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChange }: { initialOpen?: RowId | null; onConnectedChange?: (connected: boolean) => void }) {
   const [answer, setAnswer] = React.useState<Answer | null>(null)
   const [open, setOpen] = React.useState<RowId | null>(initialOpen)
@@ -477,24 +531,28 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
     [onConnectedChange],
   )
   React.useEffect(() => {
-    void call<Answer>("/api/analytics/destinations").then((r) => {
+    let live = true
+    void takeDestinations().then((r) => {
+      if (!live) return
       if (r.ok && r.data.destinations) take(r.data)
       else setFailed(r.data?.error ?? tt("Storelib did not answer. Try again."))
     })
+    return () => {
+      live = false
+    }
   }, [take])
 
   const views = new Map((answer?.destinations ?? []).map((d) => [d.provider, d]))
   const canEdit = answer?.canEdit !== false
 
-  if (failed) return <p className="px-3 py-4 text-[13.5px] text-[#b42318]">{failed}</p>
-  if (!answer) return <div className="h-[280px]" aria-busy="true" data-destinations-loading="" />
-
   return (
-    <div data-analytics-destinations="">
-      {!answer.ready ? <p className="mx-3 mb-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[13px] text-[#93370d]">{tt("Sending analytics needs SQL part 338 run in Supabase first.")}</p> : null}
+    <div data-analytics-destinations="" data-destinations-state={answer ? "ready" : failed ? "failed" : "loading"} aria-busy={!answer && !failed}>
+      {failed ? <p className="mx-3 mb-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13px] text-[#b42318]">{failed}</p> : null}
+      {answer && !answer.ready ? <p className="mx-3 mb-2 rounded-lg bg-[#fffaeb] px-3 py-2 text-[13px] text-[#93370d]">{tt("Sending analytics needs SQL part 338 run in Supabase first.")}</p> : null}
       <ul className="divide-y divide-[#f1f2f4]">
         {ROWS.map((id) => {
-          const s = standing(id, views)
+          /* The API row's line is the same whatever the answer says. */
+          const s = answer || id === "api" ? standing(id, views) : null
           const isOpen = open === id
           const view = id !== "google_ads" && id !== "api" ? views.get(id) : undefined
           return (
@@ -508,13 +566,24 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
                 <Mark id={id} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-medium text-[#1a1a2e]">{rowName(id)}</span>
-                  <span className={cn("block truncate text-[12.5px]", s.tone === "on" ? "text-[#067647]" : s.tone === "bad" ? "text-[#b42318]" : "text-[#6b7280]")}>{s.text}</span>
+                  {s ? (
+                    <span className={cn("block h-[18px] truncate text-[12.5px] leading-[18px]", s.tone === "on" ? "text-[#067647]" : s.tone === "bad" ? "text-[#b42318]" : "text-[#6b7280]")}>{s.text}</span>
+                  ) : failed ? (
+                    <span className="block h-[18px]" />
+                  ) : (
+                    <StatusPending />
+                  )}
                 </span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", isOpen && "rotate-180")} aria-hidden />
               </button>
               {isOpen ? (
                 id === "google_ads" ? (
                   <GoogleAdsBody gaConnected={!!views.get("ga4")?.connected} />
+                ) : !answer ? (
+                  <div className="space-y-3 px-3 pb-4 pt-1" data-destination-body={id} data-destination-pending="">
+                    {id !== "api" ? <p className="text-[13px] leading-5 text-[#6b7280]">{sendsLine(id)}</p> : null}
+                    <div aria-hidden className="h-10 rounded-lg bg-[#f8f9fa]" />
+                  </div>
                 ) : id === "api" ? (
                   <ApiBody canEdit={canEdit} />
                 ) : view ? (
@@ -530,18 +599,26 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
   )
 }
 
-/** Beside Export on Analytics: opens the list in the /app dialog, or the bottom sheet on a phone. */
+/** Beside Export, on the heading's line of Analytics: opens the list in the /app dialog, or the bottom sheet on a phone. */
 export function SendAnalyticsButton({ className }: { className?: string }) {
   const phone = usePhoneWidth()
   const [open, setOpen] = React.useState(false)
   const body = open ? <AnalyticsDestinationsPanel /> : null
   return (
     <span className="relative inline-flex shrink-0 items-center">
-      {/* In Analytics' control row it takes the row's pill look (app/globals.css, [data-analytics-controls]) like Export, and like Export it is a 36px circle on a phone. */}
-      <button type="button" aria-haspopup="dialog" aria-label={tt("Send to")} onClick={() => setOpen(true)} data-analytics-send="" className={cn(PICKER, "max-sm:!w-9 max-sm:!justify-center max-sm:!p-0", className)}>
-        <Send className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-        <span className="hidden sm:inline">{tt("Send to")}</span>
-      </button>
+      {/* Beside the heading, an icon in a 36px circle like Export (./head-button, round 49); a pointer or a finger arriving starts the read the dialog needs. */}
+      <HeadIconButton
+        label={tt("Send analytics")}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        onPointerEnter={warmDestinations}
+        onPointerDown={warmDestinations}
+        onFocus={warmDestinations}
+        data-analytics-send=""
+        className={className}
+      >
+        <Send className="h-4 w-4" aria-hidden />
+      </HeadIconButton>
       {phone ? (
         <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Send analytics")} aboveKeyboard>
           <div className="px-1 pb-[max(16px,env(safe-area-inset-bottom))]" data-send-sheet="">

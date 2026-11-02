@@ -321,8 +321,9 @@ check(
     return (
       /function plotLeftFor\(labels: string\[\]\): number/.test(home) &&
       /Math\.max\(22, Math\.min\(46, longest\.length \* 7 \+ 10\)\)/.test(home) &&
-      /axisWidth\(axisLabels, 11, 8\)/.test(analytics) &&
-      ![home, analytics].some((src) => /const PLOT_LEFT = \d+/.test(src))
+      /* Changed on purpose (round 49, the owner: "the left column of vertical axis numbers takes too much space"): the analytics chart keeps no gutter at all, its numbers drawn inside the plot on their grid lines (chart-morph AxisLabels `inside`). */
+      /<AxisLabels labels=\{axisLabels\}[^>]*\binside \/>/.test(analytics) && /const PLOT_LEFT = 0\n/.test(analytics) &&
+      !/const PLOT_LEFT = \d+/.test(home)
     )
   })(),
 )
@@ -340,13 +341,14 @@ check(
     /plotLeftFor\(axisLabels\)/.test(code("components/app/dashboard-client.tsx")) &&
     /<AxisLabels labels=\{axisLabels\}/.test(code("components/app/dashboard-client.tsx")) &&
     /const axisLabels = useMemo\(\(\) => scale\.ticks\.map\(axisTick\)/.test(code("components/app/analytics-chart.tsx")) &&
-    /axisWidth\(axisLabels, 11, 8\)/.test(code("components/app/analytics-chart.tsx")) &&
-    /<AxisLabels labels=\{axisLabels\}/.test(code("components/app/analytics-chart.tsx")),
+    /* Changed on purpose (round 49): nothing to measure on the analytics chart, whose numbers sit inside the plot. */
+    /<AxisLabels labels=\{axisLabels\}[^>]*\binside \/>/.test(code("components/app/analytics-chart.tsx")),
 )
 check(
   "and one width for every tab, taken from every metric the tabs can show",
   /const widths = \(Object\.keys\(widthFrom\) as Metric\[\]\)/.test(code("components/app/dashboard-client.tsx")) &&
-    /const widths = METRICS_OF\[analyticsMode\]\.map/.test(code("components/app/analytics-chart.tsx")),
+    /* Changed on purpose (round 49): the analytics chart has no gutter for a tab to widen, so no width is taken from any metric. */
+    !/axisWidth\(/.test(code("components/app/analytics-chart.tsx")) && /const plotLeft = PLOT_LEFT/.test(code("components/app/analytics-chart.tsx")),
 )
 check(
   "and the measured width is what the axis, the margin and the finger all read",
@@ -778,7 +780,8 @@ section("THE AUDIT: every chart request, on both charts")
     to hold on both charts.
   */
   const ANALYTICS_FORM: Record<string, RegExp> = {
-    "the axis is measured from its own labels": /axisWidth\(axisLabels, 11, 8\)/,
+    /* Changed on purpose (round 49): its numbers sit inside the plot, so there is no gutter to measure. */
+    "the axis is measured from its own labels": /<AxisLabels labels=\{axisLabels\}[^>]*\binside \/>/,
   }
   for (const [label, re] of required) {
     const missing = charts.filter(([name, src]) => !((name === "analytics" && ANALYTICS_FORM[label]) || re).test(src)).map(([name]) => name)
