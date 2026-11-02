@@ -13,6 +13,8 @@
  *            goes in one round by the store's id: no second creator read, no
  *            second wave for the products and the places.
  * SETTINGS   the team store is asked beside the first reads, not after them.
+ * SIDEBAR    the installed integrations are asked again on a return to the
+ *            tab at most once a minute (an install here still redraws at once).
  * PRODUCTS   the owner's list starts when the creator row lands, beside the
  *            profile, not after it (a move from another page reads both).
  * WEBSITE    the library, the website's name and the listings start with the
@@ -80,6 +82,14 @@ section("Search: the Community switch comes from the layout")
   const flags = code("lib/platform/use-flags.ts")
   check("useCommunitiesEnabled skips its request when given an answer", /if \(initial !== undefined\) return/.test(flags) && /return initial \?\? enabled/.test(flags))
   check("the layout reads the switch once and gives it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/app/layout.tsx")))
+}
+
+section("Sidebar: the installed integrations, not on every return to the tab")
+{
+  const sidebar = code("components/app/sidebar.tsx")
+  check("a return to the tab asks again only after a minute", /const INSTALLED_AGAIN_MS = 60_000/.test(sidebar) && /document\.visibilityState === "visible" && Date\.now\(\) - installedReadAt >= INSTALLED_AGAIN_MS\) read\(\)/.test(sidebar))
+  check("  every read stamps the time", /installedReadAt = Date\.now\(\)\s*fetch\("\/api\/store\/integrations\/installed"/.test(sidebar))
+  check("  an install in this tab still redraws the row at once", /window\.addEventListener\("storelib:integrations-changed", read\)/.test(sidebar))
 }
 
 section("Analytics: one read round once the store is known")

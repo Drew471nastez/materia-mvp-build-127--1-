@@ -488,7 +488,8 @@ async function main() {
   console.log("\nThe search box")
   const box = readCode("components/app/app-search.tsx")
   const shell = readCode("components/app/sidebar.tsx")
-  check("the header mounts the one search component", /<AppSearch ref=\{searchRef\} \/>/.test(shell))
+  /* Changed on purpose (round 48): it is handed the layout's Community switch, so it asks /api/platform/flags for nothing (tests/appperf-r48.test.ts). */
+  check("the header mounts the one search component", /<AppSearch ref=\{searchRef\} communitiesEnabled=\{communitiesEnabled\} \/>/.test(shell) && (shell.match(/<AppSearch /g) ?? []).length === 1)
   check("the old pages-only modal is gone from the sidebar", !/allSearchItems|searchShortcuts|setSearchOpen/.test(shell))
   /* The phone's header carried a magnifying glass beside Explore. That row is
      for who you are and what is waiting for you, and a third icon crowded

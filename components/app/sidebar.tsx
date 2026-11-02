@@ -1148,11 +1148,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 type InstalledIntegration = { id: string; name: string; logo?: string | null; needsAttention: boolean }
 /* The last list read, kept for the visit: the sidebar draws again on every page, and the row should not empty and refill each time. */
 let installedHeld: InstalledIntegration[] = []
+/*
+  A RETURN TO THE TAB ASKS AGAIN AT MOST ONCE A MINUTE (round 48). Every
+  switch back to the browser tab asked the server for the list, which is a
+  signed in request with its own database reads, for a row that changes only
+  when an integration is installed. An install in this tab still says so at
+  once (storelib:integrations-changed); one made elsewhere shows within a
+  minute of coming back.
+*/
+const INSTALLED_AGAIN_MS = 60_000
+let installedReadAt = 0
 function useInstalledIntegrations(): InstalledIntegration[] {
   const [list, setList] = useState<InstalledIntegration[]>(installedHeld)
   useEffect(() => {
     let live = true
     const read = () => {
+      installedReadAt = Date.now()
       fetch("/api/store/integrations/installed", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { installed?: InstalledIntegration[] } | null) => {
@@ -1163,7 +1174,7 @@ function useInstalledIntegrations(): InstalledIntegration[] {
     }
     read()
     const onShow = () => {
-      if (document.visibilityState === "visible") read()
+      if (document.visibilityState === "visible" && Date.now() - installedReadAt >= INSTALLED_AGAIN_MS) read()
     }
     window.addEventListener("storelib:integrations-changed", read)
     document.addEventListener("visibilitychange", onShow)
