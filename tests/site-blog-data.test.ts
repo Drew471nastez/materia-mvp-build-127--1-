@@ -281,7 +281,7 @@ async function main() {
     const { mem } = freshDb()
     for (const t of ["site_blog_settings", "site_blog_authors", "site_blog_categories", "site_blog_posts", "site_blog_post_revisions", "site_blog_redirects"]) check(`${t} exists`, mem.model.has(t))
     const sql = readFileSync("supabase/sql/run-now/355_site_blog.sql", "utf8")
-    check("the migration is byte-identical", sql === readFileSync("supabase/migrations/20271107_site_blog.sql", "utf8"))
+    check("the migration is byte-identical", sql === readFileSync("supabase/migrations/20271109_site_blog.sql", "utf8"))
     check("ends with notify pgrst", sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
     check("every policy is guarded and nothing is granted to anon", (sql.match(/CREATE POLICY/g) ?? []).length === 24 && (sql.match(/IF NOT EXISTS \(SELECT 1 FROM pg_policies/g) ?? []).length === 24 && !/TO anon/.test(sql) && (sql.match(/ENABLE ROW LEVEL SECURITY/g) ?? []).length === 6)
     check("99_check_after has p355_site_blog", readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8").includes("as p355_site_blog;"))
