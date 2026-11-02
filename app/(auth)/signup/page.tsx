@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
+import { safeReturnTarget } from "@/lib/auth/return-to"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
@@ -113,7 +114,8 @@ function SignUpFormContent() {
     if (signupSourceKey) trackAlternatives("Signup started", JSON.parse(signupSourceKey))
   }, [signupSourceKey])
 
-  const redirectUrl = searchParams.get("redirect")
+  /* Kept only when it is ours: it is followed after Google sign in (app/auth/complete). */
+  const redirectUrl = safeReturnTarget(searchParams.get("redirect"), { mainDomain: getMainDomain() })
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 

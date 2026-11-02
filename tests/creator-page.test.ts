@@ -1636,7 +1636,7 @@ function main() {
      */
     check("what is saved is sanitised", api.includes("sanitizeRichText(raw)"))
     check("through the allow list the rest of the product uses", api.includes('from "@/lib/website-builder/sanitize"'))
-    check("the renderer prints markup as markup", renderer.includes("dangerouslySetInnerHTML={{ __html: settings.aboutContent"))
+    check("the renderer prints markup as markup", renderer.includes("dangerouslySetInnerHTML={{ __html: cleanStoredHtml(settings.aboutContent") /* round 48: through the allow list at the sink too */)
     /** A story with no tags in it keeps its line breaks, which is all it has. */
     check("and a plain story still keeps its line breaks", renderer.includes('<p className="whitespace-pre-wrap">{settings.aboutContent}</p>'))
     /** Preflight flattens h2 and ul to nothing, so markup needs typography. */

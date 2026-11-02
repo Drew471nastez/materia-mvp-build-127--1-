@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 function pathOf(location: string): string {
   try {
@@ -34,9 +35,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { code } = body
 
-    if (!code || typeof code !== "string") {
+    if (!code || typeof code !== "string" || code.length > 200) {
       return NextResponse.json({ error: "Missing code" }, { status: 400 })
     }
+
+    /* A code is 64 random characters and cannot be guessed; this keeps a script from trying anyway (round 48). */
+    const limited = await rateLimit({ bucket: "reset-code", subjects: [addressSubject(request)], windows: [{ limit: 10, seconds: 600 }, { limit: 50, seconds: 86400 }], message: "Too many tries. Wait a few minutes and open the link again." })
+    if (limited) return limited
 
     const adminSupabase = createAdminClient()
 
@@ -70,11 +75,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Mark as used IMMEDIATELY (prevent replay)
-    await adminSupabase
+    /*
+      Mark as used IMMEDIATELY (prevent replay), and only if nobody else did
+      first: the row comes back to exactly one of two requests sent at once,
+      the same single use rule as lib/auth/bridge-token.ts (round 48).
+    */
+    const { data: claimed } = await adminSupabase
       .from("password_reset_requests")
       .update({ used: true })
       .eq("id", resetRequest.id)
+      .eq("used", false)
+      .select("id")
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json(
+        { error: "This reset link has already been used. Please request a new one." },
+        { status: 400 }
+      )
+    }
 
     // Generate a FRESH recovery link for this user so we get a valid OTP
     const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({

@@ -1130,6 +1130,8 @@ const SUITES = [
   "tests/perf-r46.test.ts",
   /* Round 48: live websites under a spike: a connected domain's lookup is one read per host however many visitors ask at once and is served stale while it refreshes, strangers arriving together on an imported theme's page share one draw, and the same deferred theme script written twice runs once. */
   "tests/sites-r48.test.ts",
+  /* Round 48 security: the About story drawn through the allow list, redirects after sign up kept on Storelib, the reset code routes limited and single use, the CSP enforced on /app, /admin and the sign in pages (through the real proxy), HSTS and a Permissions-Policy on every host, no public SVG. */
+  "tests/security-r48.test.ts",
 ]
 
 /**

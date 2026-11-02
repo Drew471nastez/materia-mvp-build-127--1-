@@ -41,8 +41,9 @@ function hostMatches(value: string, host: string): boolean {
 
 function main() {
   const config = JSON.parse(readFileSync("vercel.json", "utf8")) as { headers: Rule[] }
-  const rules = config.headers.filter((r) => r.headers.some((h) => h.key.toLowerCase() === "permissions-policy"))
-  check("one rule sends Permissions-Policy", rules.length === 1, rules)
+  /* Round 48: a second, narrower rule for every other host (creator sites, custom domains, storelib.me), matched by `missing`, so the two never both apply. */
+  const rules = config.headers.filter((r) => !("missing" in r) && r.headers.some((h) => h.key.toLowerCase() === "permissions-policy"))
+  check("one host rule sends storelib.com's Permissions-Policy", rules.length === 1, rules)
   const rule = rules[0]
   const host = rule?.has?.find((h) => h.type === "host")?.value ?? ""
   check("  only for a host condition", !!host)
