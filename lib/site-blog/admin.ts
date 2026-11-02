@@ -310,7 +310,7 @@ export async function createPost(db: Db, creatorId: string, userId: string, init
   const blocks = sanitizeSiteBlocks(init.blocks ?? [])
   const slug = await slugFor(db, creatorId, meta, null)
   const row = { creator_id: creatorId, status: "draft", ...liveColumns({ ...meta, slug }, blocks), published_at: meta.publishedAt, version: 1, created_by: userId, updated_by: userId }
-  const { data, error } = await db.from("site_blog_posts").insert(row).select("*").single()
+  const { data, error } = await db.from("site_blog_posts").insert({ ...row, creator_id: creatorId }).select("*").single()
   if (error || !data) fail(error, "create the post")
   return adminPostOf(data as Row, await blogHandle(db, creatorId))
 }
