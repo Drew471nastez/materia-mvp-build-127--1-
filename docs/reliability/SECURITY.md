@@ -56,7 +56,7 @@ Trust boundaries that matter most:
 | R48-3 | LOW | reset code routes: no rate limit, a reset code could be exchanged twice at once | `r48-security` |
 | R48-4 | LOW (hardening) | CSP report only everywhere | `r48-security`: enforced on /app, /admin, sign in pages |
 | R48-5 | LOW (hardening) | HSTS without includeSubDomains; no Permissions-Policy off storelib.com | `r48-security` |
-| R48-6 | MEDIUM (unproven in production) | `store_builder_configs` readable with the public anon key: `published_config.headerSettings.contactEmail` and, per the baseline, `draft_config` | open, owner check (section 7) |
+| R48-6 | MEDIUM (unproven in production) | `store_builder_configs` readable with the public anon key: `published_config.headerSettings.contactEmail` and, per the baseline, `draft_config` | code fixed in round 48 (public reads on the service role, `lib/store-builder/public-config.ts`); SQL part 354 to run after that deploy (section 7) |
 
 ## 3. Verified fine
 
@@ -244,7 +244,7 @@ a subset of this one.
 | R48-3 | LOW | `/api/auth/exchange-reset-code`, `complete-reset-password`, `validate-reset-token` had no rate limit and no type check; the exchange marked a code used without checking it was unused, so two requests at once both got a recovery session (the code is 384 random bits, so this needs the code) | source | `rateLimit` by address, string and length checks, `update ... eq("used", false) ... select` claim before the session or password change | R48-3 |
 | R48-4 | hardening | CSP report only on every page | live headers | enforced on Storelib's own pages, see below | R48-4 (real proxy) |
 | R48-5 | hardening | HSTS without includeSubDomains; no Permissions-Policy on creator hosts | live headers | vercel.json | R48-5 |
-| R48-6 | MEDIUM, unproven | the public pages read `store_builder_configs` with the anon role (`lib/store-builder/get-published-config.ts`), so the anon key (in every page) can read the table directly through PostgREST. The baseline policy (`RUN_CREATOR_PAGE_AND_SITES.sql`) allows anon SELECT on every row with a published config, which includes `draft_config` and `published_config.headerSettings.contactEmail`, the address round 45 took out of the page payload. Production's policies were made by hand and are not in the repository. | not run against production (no secrets, no production queries) | not changed: closing it needs the public reads moved to the service role first, then the anon grant removed. Owner check below | none |
+| R48-6 | MEDIUM, unproven | the public pages read `store_builder_configs` with the anon role (`lib/store-builder/get-published-config.ts`), so the anon key (in every page) can read the table directly through PostgREST. The baseline policy (`RUN_CREATOR_PAGE_AND_SITES.sql`) allows anon SELECT on every row with a published config, which includes `draft_config` and `published_config.headerSettings.contactEmail`, the address round 45 took out of the page payload. Production's policies were made by hand and are not in the repository. | not run against production (no secrets, no production queries); on the local harness (repo baseline) the anon role read both rows, drafts and contact emails, and any signed in user read every draft | round 48 (configs): every public read moved to the service role, `published_config` only, contact address taken out (`lib/store-builder/public-config.ts`; `/api/store-builder/published` was also answering the address to anybody); SQL part 354 drops every non-owner SELECT/ALL policy on both tables, keeps owner policies, revokes anon. After 354 on the harness: anon permission denied, owner reads 1 row, a stranger signed in 0, service role all. Run 354 only after the deploy | `tests/configs-r48.test.ts` |
 
 ### CSP enforcement
 
@@ -326,11 +326,18 @@ or a sign in page.
 
 ### Owner steps
 
-1. **R48-6 check.** In the Supabase SQL editor:
-   `select policyname, roles, cmd, qual from pg_policies where tablename in ('store_builder_configs','product_page_configs');`
-   If a SELECT policy names `anon` (or `public`) with a qual that does not
-   limit columns (RLS cannot), any visitor can read contact emails and
-   drafts. Tell the next round; the fix is code first, SQL after.
+1. **R48-6 check, then part 354.** In the Supabase SQL editor:
+   `select policyname, roles, cmd, permissive, qual from pg_policies where schemaname = 'public' and tablename in ('store_builder_configs','product_page_configs') order by tablename, policyname;`
+   and `select has_table_privilege('anon','public.store_builder_configs','SELECT') as sbc_anon, has_table_privilege('anon','public.product_page_configs','SELECT') as ppc_anon;`
+   A SELECT or ALL policy for `anon`, `public` or `authenticated` whose
+   qual is not "creator_id of a creator whose user_id is auth.uid()" (for
+   example `published_config <> '{}'`) means anybody with the page's key
+   reads drafts and contact emails. Round 48 moved every public read to the
+   server (`lib/store-builder/public-config.ts`, `tests/configs-r48.test.ts`).
+   Order: deploy that code first, open a creator page, a product page and a
+   OnePage signed out, then run `supabase/sql/run-now/354_builder_configs_private.sql`
+   (or the bundle that carries it); its notices name each policy dropped.
+   Run the two queries again: only owner policies left, both `false`.
 2. **HSTS preload** (optional, slow to undo). Confirm every DNS name under
    storelib.com serves HTTPS (`email.mg.storelib.com` does not: Mailgun
    tracking is off in `lib/mailgun.ts`, so nothing links to it), then add

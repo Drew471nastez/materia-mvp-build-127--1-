@@ -91,8 +91,11 @@ check(
       /loadStoreConfig\(product\.creator_id, "shop"\)/.test(src) &&
       /loadStoreConfig\(product\.creator_id, "product"\)/.test(src) &&
       /loadProductPageConfig\(product\.creator_id, product\.id\)/.test(src) &&
-      /store_builder_configs/.test(loaders) &&
-      /product_page_configs/.test(loaders)
+      /* Changed on purpose (round 48, R48-6): the table reads moved once more, to lib/store-builder/public-config.ts, which the loaders call. */
+      /readPublishedStoreConfig\(/.test(loaders) &&
+      /readPublishedProductPageConfig\(/.test(loaders) &&
+      /\.from\("store_builder_configs"\)/.test(code("lib/store-builder/public-config.ts")) &&
+      /\.from\("product_page_configs"\)/.test(code("lib/store-builder/public-config.ts"))
     )
   })(),
   "        app/(marketing)/p/[slug]/page.tsx",

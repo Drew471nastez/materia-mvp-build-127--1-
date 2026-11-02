@@ -29,6 +29,7 @@
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
+import { readPublishedProductPageConfig, readPublishedStoreConfig } from "@/lib/store-builder/public-config"
 import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import {
@@ -156,16 +157,10 @@ export const loadCreatorProfile = cache(async (userId: string) => {
 export const loadStoreConfig = cache(async (creatorId: string, pageType: string) => {
   const shared = await cachedStoreConfig(creatorId, pageType).catch(() => undefined)
   if (shared) return shared
-  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
+  /* Nothing published, and a visitor with no session cannot have just published it (lib/supabase/session-cookie.ts). */
   if (shared === null && !(await requestMayHaveSession())) return null
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", creatorId)
-    .eq("page_type", pageType)
-    .maybeSingle()
-  return data
+  /* Read fresh, the same narrow server read the cache makes (lib/store-builder/public-config.ts, round 48): a session no longer widens what a config read sees. */
+  return readPublishedStoreConfig(creatorId, pageType).catch(() => null)
 })
 
 /** The per-product override, which only the page reads. Here for symmetry. */
@@ -174,12 +169,5 @@ export const loadProductPageConfig = cache(async (creatorId: string, productId: 
   if (shared) return shared
   /* As above: no session, nothing more to find. */
   if (shared === null && !(await requestMayHaveSession())) return null
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("product_page_configs")
-    .select("published_config")
-    .eq("creator_id", creatorId)
-    .eq("product_id", productId)
-    .maybeSingle()
-  return data
+  return readPublishedProductPageConfig(creatorId, productId).catch(() => null)
 })
