@@ -1132,6 +1132,8 @@ const SUITES = [
   "tests/sites-r48.test.ts",
   /* Round 48 security: the About story drawn through the allow list, redirects after sign up kept on Storelib, the reset code routes limited and single use, the CSP enforced on /app, /admin and the sign in pages (through the real proxy), HSTS and a Permissions-Policy on every host, no public SVG. */
   "tests/security-r48.test.ts",
+  /* Round 48, R48-6: the creator page configs are read by the server (service role, published_config only, no contact address) for every public page, never with the anon key; the owner screens keep their own session; SQL part 354 closes both tables to anon. */
+  "tests/configs-r48.test.ts",
 ]
 
 /**
