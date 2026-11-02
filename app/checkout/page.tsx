@@ -66,11 +66,12 @@ function early<T>(read: Promise<T>): Promise<T> {
 }
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string; ctx?: string; fx?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string; ctx?: string; fx?: string; src?: string; ref?: string; utm_source?: string; utm_campaign?: string; sl_at?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, return: returnTo, cancel, site, interval, ctx, fx: fxParam } = await searchParams
+  const asked = await searchParams
+  const { productId, variantId, customPrice, return: returnTo, cancel, site, interval, ctx, fx: fxParam } = asked
 
   if (!productId) {
     redirect("/explore")
@@ -122,14 +123,26 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   /*
     A PRODUCT THAT SHIPS IS PAID FOR IN THE CART CHECKOUT, never this one: it
-    needs an address, a delivery choice and stock held, which only
-    /checkout/physical asks for. A Buy now from an older theme, a shared link
-    or a section that built its own address lands there, with the option
-    asked for and the page to come back to (checked again there).
+    needs an address, a delivery choice and stock held. Round 49: that is the
+    store's website's own checkout (lib/checkout/shipped-checkout-server), as
+    for every product that ships, with the option asked for (none named: the
+    buyer chooses it there), the page to come back to and where it began
+    (?src=onepage). A OnePage's Buy on a product that ships lands here first.
+    Only a shop with no published website keeps /checkout/physical.
   */
   if ((product as { type?: string }).type === "physical") {
     const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    redirect(physicalCheckoutHref(product.creator_id, [{ productId: product.id, variantId: variantId && ID.test(variantId) ? variantId : null, quantity: 1 }], typeof cancel === "string" && cancel ? cancel : typeof returnTo === "string" ? returnTo : null))
+    const items = [{ productId: product.id, variantId: variantId && ID.test(variantId) ? variantId : null, quantity: 1 }]
+    const back = typeof cancel === "string" && cancel ? cancel : typeof returnTo === "string" ? returnTo : null
+    const { websiteCheckoutFor } = await import("@/lib/checkout/shipped-checkout-server")
+    const website = await websiteCheckoutFor(checkoutAdmin(), {
+      shopId: product.creator_id,
+      items,
+      back,
+      src: asked.src ?? null,
+      visit: { from: asked.ref, utm_source: asked.utm_source, utm_campaign: asked.utm_campaign, touches: asked.sl_at },
+    })
+    redirect(website ?? physicalCheckoutHref(product.creator_id, items, back))
   }
 
   /*

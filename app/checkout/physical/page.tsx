@@ -11,6 +11,7 @@ import { redirect } from "next/navigation"
 import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
+import { websiteCheckoutFor } from "@/lib/checkout/shipped-checkout-server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { CheckoutCurrency } from "../parts/ui"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -123,6 +124,19 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
         redirect(legacyBasketTarget(site.origin, q, site.host))
       }
     }
+    /*
+      ANY OTHER LINK WITH ITS CART IN IT (round 49): a OnePage's Check out
+      made before it linked the website's checkout itself, an email, a saved
+      link. The same cart on the store's website checkout, Back to the
+      OnePage kept (lib/checkout/shipped-checkout-server). A cart kept only in
+      this browser on storelib.com (no ?items=) can't travel to another host,
+      and a shop with no published website has no other checkout: both keep
+      this page.
+    */
+    const website = linkItems.length
+      ? await websiteCheckoutFor(db, { shopId: shop, items: linkItems, back: asked ?? null, src: sp.src ?? null, code: sp.code ?? null, visit: { from: sp.ref, utm_source: sp.utm_source, utm_campaign: sp.utm_campaign, touches: sp.sl_at } })
+      : null
+    if (website) redirect(website)
   }
   /* Who is buying, for a store that asks for an account first (Settings › Checkout). */
   let buyer = { signedIn: false, confirmed: false }

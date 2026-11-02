@@ -82,6 +82,8 @@ export interface ProductFacts {
     ships: boolean
     /** Round 41: the shop a product that ships is checked out from, and the most one order may hold (null: no limit). */
     shopId?: string
+    /** Round 49: the store's website, whose checkout a product that ships is paid on (lib/onepage/shipped-checkout); null when it has none. */
+    siteOrigin?: string | null
     maxQuantity?: number | null
     /** Round 13: the product's own questions, plain text (lib/products/product-faqs.ts). */
     faqs?: { question: string; answer: string }[]

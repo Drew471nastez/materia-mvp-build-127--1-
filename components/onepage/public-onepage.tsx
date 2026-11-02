@@ -5022,9 +5022,9 @@ function PublicBlockRenderer({
       /*
         THE PRODUCT BLOCK IS ITS OWN COMPONENT (components/onepage/product-block, round 10): its eight layouts, the
         button's own hover, and what a tap does (the checkout, the product page, a sheet over this page, or the
-        checkout window). Where it points stays a buy link for a download or a course, the product page for a product
-        that ships (lib/onepage/product-block productHref, the owner: "buy buttons must open the product's checkout
-        directly").
+        checkout window). Where it points stays a buy link for a download or a course and, since round 49, for a
+        product that ships too, sent on to its store website's checkout (lib/onepage/product-block productHref,
+        lib/onepage/shipped-checkout; the owner: "buy buttons must open the product's checkout directly").
       */
       return (
         <ProductBlockWithQuickCheckout

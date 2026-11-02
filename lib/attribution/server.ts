@@ -105,8 +105,14 @@ function platformHost(host: string): boolean {
  * creator page: they are Storelib's pages for this creator's products.
  */
 export function purchaseProperty(source: OrderSource, origin: OrderOrigin | null | undefined): PropertyType {
+  /*
+    Round 49: a product that ships, bought from a OnePage, is paid for on the website's checkout (source website)
+    with the OnePage named as where it began. It is the OnePage's sale, as the order's Source detail says
+    (lib/analytics/properties placedOn reads the surface first).
+  */
+  if (origin?.surface === "onepage") return "onepage"
   if (source === "website") return "website"
-  return origin?.surface === "onepage" ? "onepage" : "creator_page"
+  return "creator_page"
 }
 
 /** The property a sign-up happened on, from where the server placed it. Null for an import, a manual add or the API. */

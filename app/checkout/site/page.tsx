@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { readSiteCheckoutParams, siteCheckoutBack, siteGate } from "@/lib/checkout/site-checkout"
+import { onePageNamed, readSiteCheckoutParams, siteCheckoutBack, siteGate } from "@/lib/checkout/site-checkout"
+import { onePageReturnFor } from "@/lib/checkout/site-hosts"
 import { siteBuyerFrom, siteOfThisHost, sessionCookieName } from "@/lib/checkout/site-checkout-server"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { checkoutBrandOf } from "@/lib/checkout/brand-server"
@@ -166,9 +167,16 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     .catch(() => null)
   /* Back goes exactly where the buyer came from (lib/checkout/site-checkout siteCheckoutBack): the page the link names, else the page of this site the browser came from. */
   const back = siteCheckoutBack(q, site.host, h.get("referer"))
+  /*
+    OPENED FROM THE CREATOR'S ONEPAGE (round 49, lib/onepage/shipped-checkout): Back and, after paying, Continue
+    shopping go to it. Only an address that is this creator's OnePage (lib/onepage/return-address); anything else
+    is dropped and Back stays on this site.
+  */
+  const named = onePageNamed(q)
+  const onePageRead = early(named ? onePageReturnFor(site.creatorId, named).catch(() => null) : Promise.resolve(null))
   /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
   const languageRead = checkoutLanguage(site.creatorId, back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
-  const [brand, config, buyer, ready, priced, currencies, language, market] = await Promise.all([
+  const [brand, config, buyer, ready, priced, currencies, language, market, onePage] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     brandRead,
     configRead,
@@ -178,13 +186,14 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     noteRead,
     languageRead,
     marketRead,
+    onePageRead,
   ])
   /* The first quote in the currency it is charged in (lib/checkout/site-quote-market), as the route answers every quote after it. */
   const answer = priced && priced.ok && market.charge ? { ...priced, quote: quoteInMarket(priced.quote, market.charge) } : priced
   const t = checkoutT(language.lang, language.words)
   const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are for reference. You'll pay in {charge}; your bank converts it."), currencies) : null
   const shopUrl = `${site.origin}/`
-  const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
+  const backTo = onePage ?? `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
   /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
@@ -222,7 +231,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
       initialCountry={countryOf(buyer)}
-      backIsDefault={!back}
+      backIsDefault={!back && !onePage}
+      onePage={onePage}
       lang={language.lang}
       languages={language.available && language.available.length > 1 ? language.available : undefined}
     />

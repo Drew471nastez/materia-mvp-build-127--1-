@@ -55,6 +55,14 @@ export interface SiteCheckoutLink {
   attributes?: Record<string, string> | null
   /** What the website knows about the visit, for the order's Source (lib/orders/checkout-origin). */
   visit?: { from?: string | null; utm_source?: string | null; utm_campaign?: string | null; touches?: string | null } | null
+  /**
+   * Round 49: opened from the creator's OnePage. The link says so (?src=onepage, the order's Source) and names the
+   * OnePage (?cancel=<its full address>) for Back and for Continue shopping after paying. The page checks the address
+   * (lib/checkout/site-hosts onePageReturnFor) before it goes anywhere near a link.
+   */
+  onePage?: string | null
+  /** Round 49: from a OnePage whose address is not known (an old link): ?src=onepage alone, for the order's Source. */
+  source?: "onepage" | null
 }
 
 /** A path on the site, or null: never another host, never the API. */
@@ -88,8 +96,24 @@ export function siteCheckoutHref(link: SiteCheckoutLink): string {
   for (const [key, value, max] of add) {
     if (typeof value === "string" && value.trim() && value.length <= max) params.set(key, value.trim())
   }
+  const onePage = typeof link.onePage === "string" && link.onePage.trim().length <= 2048 ? link.onePage.trim() : ""
+  if (onePage || link.source === "onepage") params.set("src", "onepage")
+  if (onePage) params.set("cancel", onePage)
   const q = params.toString()
   return `${link.origin ?? ""}${SITE_CHECKOUT_PATH}${q ? `?${q}` : ""}`
+}
+
+/** The OnePage address a website's checkout link names (?src=onepage&cancel=...), unchecked: the page checks it. */
+export function onePageNamed(q: { get(key: string): string | null }): string | null {
+  if (q.get("src") !== "onepage") return null
+  const raw = q.get("cancel") ?? q.get("back")
+  return raw && /^https?:\/\//i.test(raw) ? raw : null
+}
+
+/** The thank you page with the OnePage to continue to (checked again there). */
+export function withOnePageBack(thanks: string, onePage: string | null | undefined): string {
+  if (!onePage) return thanks
+  return `${thanks}${thanks.includes("?") ? "&" : "?"}src=onepage&back=${encodeURIComponent(onePage)}`
 }
 
 export interface SiteCheckoutParams {

@@ -305,7 +305,7 @@ async function main() {
   {
     const page = read("app/checkout/site/thanks/[token]/page.tsx")
     const thanks = read("app/checkout/site/thanks/[token]/thanks-view.tsx")
-    check("the page reads, ThanksView draws", /<ThanksView order=\{order\} shopUrl=\{shopUrl\} lang=\{language\.lang\}/.test(page) && /number: orderNumber\(String\(co\.id\)\)/.test(page) && /coupon: typeof co\.coupon_code === "string"/.test(page))
+    check("the page reads, ThanksView draws", /<ThanksView order=\{order\} shopUrl=\{onePage \?\? shopUrl\} lang=\{language\.lang\}/.test(page) && /number: orderNumber\(String\(co\.id\)\)/.test(page) && /coupon: typeof co\.coupon_code === "string"/.test(page))
     check("order number and day, subtotal, discount with its code, the full address, the method and its estimate apart", /ct\("Order \{number\}", \{ number: order\.shipped\.number \}\)/.test(thanks) && /ct\("Subtotal"\)/.test(thanks) && /ct\("Discount \(\{code\}\)", \{ code: order\.shipped\.coupon \}\)/.test(thanks) && /addressLines\(order\.shipped\.address/.test(thanks) && /ct\("Usually arrives \{estimate\} after it ships\."/.test(thanks))
     check("  money in the page's language, as the checkout wrote it", /formatMinor\(cents, orderCurrency \?\? PLATFORM_CURRENCY\.toUpperCase\(\), locale\)/.test(thanks))
     check("  never a client module's helper called on the server (estimateText from lib/checkout, not the client words module)", /from "@\/lib\/checkout\/estimate-text"/.test(thanks) && !/from "\.\.\/\.\.\/\.\.\/parts\/(words|ui)"/.test(thanks) && /export \{ estimateText \} from "@\/lib\/checkout\/estimate-text"/.test(read("app/checkout/parts/words.tsx")))

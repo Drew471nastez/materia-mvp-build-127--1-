@@ -162,7 +162,8 @@ section("Products: what a tap does, what the sheet's button does")
   check("a product that ships goes to the cart checkout with its option and quantity", /^\/checkout\/physical\?shop=shop1&items=/.test(href))
   const sheet = code("components/onepage/product-sheet.tsx")
   /* Changed on purpose, round 43: the line also carries what the buyer wrote (personalization), and the choice is made by lib/onepage/product-sheet. */
-  check("the sheet builds that address", /physicalCheckoutHref\(p\.shopId, \[\{ productId: p\.id, variantId: variant\?\.id \?\? null, quantity, \.\.\.\(properties \? \{ properties \} : \{\}\) \}\], back\)/.test(sheet))
+  /* Changed on purpose, round 49 (tests/checkout-r49): the store website's checkout with the same line, storelib.com's link only for a store with no website. */
+  check("the sheet builds that address", /onePageShippedCheckoutHref\(\{ siteOrigin: p\.siteOrigin, shopId: p\.shopId, items: \[\{ productId: p\.id, variantId: variant\?\.id \?\? null, quantity, \.\.\.\(properties \? \{ properties \} : \{\}\) \}\], onePage: back \}\)/.test(sheet))
   check("two or more options: none chosen for the buyer", /sheetStartChoice\(sheetModel\(f\.product\)\)/.test(sheet))
   check("an unpublished product says it is not for sale, with no button", /Not for sale right now/.test(sheet))
   /* Changed on purpose, round 43: the same room above on a phone, beside the words in two columns on a computer. */

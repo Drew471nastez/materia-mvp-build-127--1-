@@ -296,6 +296,11 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
 
 function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
   const sent = cleanOrigin(body.origin)
+  /* Round 49: opened from the creator's OnePage (?src=onepage, lib/orders/checkout-origin): the OnePage is where it began. Anything else on this host is the website's. */
+  if (sent?.surface === "onepage") {
+    const { site: _named, ...rest } = sent
+    return { ...rest, surface: "onepage" }
+  }
   return { ...(sent ?? {}), surface: "website", site: cleanHost(site.host.split(":")[0]) }
 }
 

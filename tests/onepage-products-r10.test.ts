@@ -64,8 +64,9 @@ async function main() {
   check("instantCheckoutOn needs the switch and the kind", instantCheckoutOn({ instant_checkout: true, product_type: "digital" }) && !instantCheckoutOn({ instant_checkout: false, product_type: "digital" }) && !instantCheckoutOn({ instant_checkout: true, product_type: "physical" }))
 
   console.log("\nWhere the link points (crawlers, long press, no script)")
-  check("checkout: /checkout for a download", productHref({ product_id: "p1", product_slug: "pack", product_type: "digital" }) === "/checkout?productId=p1")
-  check("checkout: the product page for a product that ships", productHref({ product_id: "p1", product_slug: "mug", product_type: "physical" }) === "/p/mug")
+  check("checkout: /checkout for a download (src=onepage since round 49)", productHref({ product_id: "p1", product_slug: "pack", product_type: "digital" }) === "/checkout?productId=p1&src=onepage")
+  /* Round 49 (tests/checkout-r49): a product that ships goes to the checkout too, which sends it on to its website's checkout. */
+  check("checkout: a product that ships goes to the checkout too (round 49)", productHref({ product_id: "p1", product_slug: "mug", product_type: "physical" }) === "/checkout?productId=p1&src=onepage")
   check("page and sheet: the product page", productHref({ product_id: "p1", product_slug: "pack", tap_action: "page" }) === "/p/pack" && productHref({ product_id: "p1", product_slug: "pack", tap_action: "sheet" }) === "/p/pack")
   check("the sheet's address", productSheetHash("tech house") === "#product-tech%20house" && productSheetHash("") === null)
 
