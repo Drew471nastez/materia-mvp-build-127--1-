@@ -131,7 +131,7 @@ export interface SiteData {
   /**
    * The website's blog (lib/site-blog, lib/website-builder/compat-site.ts):
    * its settings, its live posts, and the reads a post's own page makes.
-   * Absent (SQL part 353 not run, no blog set up): every /blogs address is
+   * Absent (SQL part 355 not run, no blog set up): every /blogs address is
    * answered as before.
    */
   blog?: CompatBlogSource

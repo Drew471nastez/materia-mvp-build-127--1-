@@ -58,7 +58,33 @@ export function strangerKey(username: string, path: readonly string[], search: s
  * drawn now (and held when it may be shared). `draw` runs at most once per
  * call, and its answer is the one returned whenever it ran.
  */
+/*
+  ONE DRAW FOR STRANGERS ARRIVING TOGETHER (round 48). The data cache
+  shares a page once it is held, but not while it is being drawn: fifty
+  strangers opening the same page on a cold server, or in the moment its
+  copy expired with no stale one left, each ran the whole Liquid draw (0.4
+  to 3 seconds of CPU each) and each wrote the same copy. Callers asking for
+  the same marked address while a read or a draw is under way on this
+  server now wait for it and take its page, when that page may be shared
+  (the same rule the hold keeps); one that may not be shared is drawn again
+  for each caller, as before.
+*/
+const underWay = new Map<string, Promise<DrawnPage & { held: boolean }>>()
+
 export async function heldStrangerPage(key: string[], tags: string[], draw: () => Promise<DrawnPage>): Promise<DrawnPage & { held: boolean }> {
+  const id = key.join("\u0000")
+  const going = underWay.get(id)
+  if (going) {
+    const page = await going.catch(() => null)
+    if (page && page.share) return { ...page, held: true }
+    return heldOnce(key, tags, draw)
+  }
+  const mine = heldOnce(key, tags, draw).finally(() => underWay.delete(id))
+  underWay.set(id, mine)
+  return mine
+}
+
+async function heldOnce(key: string[], tags: string[], draw: () => Promise<DrawnPage>): Promise<DrawnPage & { held: boolean }> {
   let fresh: DrawnPage | null = null
   const read = unstable_cache(
     async (): Promise<Held> => {

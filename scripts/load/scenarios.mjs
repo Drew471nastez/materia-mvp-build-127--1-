@@ -13,6 +13,8 @@
  *   onepage   GET /l/<onepage>                       --onepage <slug>  (or --onepage-path)
  *   creator   GET /<creator>                         --creator <handle>
  *   site      GET /w/<site>, or --site-path          --site <name>     (an imported theme: --site-path /api/site-theme/site/<name>/)
+ *   product   GET /<creator>/<slug>                  --product-path /<creator>/<slug>
+ *   pages     GET each of --pages in turn            --pages /,/pricing,/blog,/sitemap.xml   (each reported on its own as page:<path>)
  *   assets    GET each of --assets                   --assets /a.css,/b.js  (also /robots.txt, /favicon.ico when any scenario runs)
  *   collect   POST /api/track-view (analytics)       --creator-id <uuid>   WRITES a page view row on the target
  *   checkout  POST /api/checkout/stripe-session      --product <uuid> --checkout   CREATES a Stripe PaymentIntent, test mode only
@@ -20,7 +22,7 @@
  * Options (flag or environment):
  *   --base / BASE_URL                 target (required)
  *   --seconds / LOAD_SECONDS          default 30, at most 600
- *   --concurrency / LOAD_CONCURRENCY  requests in flight, default 10, at most 50
+ *   --concurrency / LOAD_CONCURRENCY  requests in flight, default 10, at most 50 (200 against a local server)
  *   --rate / LOAD_RATE                requests per second across all workers, default unlimited, at most 500
  *   --scenarios / LOAD_SCENARIOS      comma list to keep (default: every one that is configured)
  *   --json                            print the result as JSON as well
@@ -46,6 +48,8 @@ import { pathToFileURL } from "node:url"
 import { percentile } from "./storefront.mjs"
 
 const MAX_CONCURRENCY = 50
+/* A local `next start` (scripts/load/local-bench.mjs) costs nobody anything: 100 in flight is one of its levels. */
+const MAX_LOCAL_CONCURRENCY = 200
 const MAX_SECONDS = 600
 const MAX_RATE = 500
 const TIMEOUT_MS = 15_000
@@ -120,6 +124,8 @@ export function buildScenarios(cfg) {
   if (cfg.onepage || cfg.onepagePath) s.push(get("onepage", cfg.onepagePath || `/l/${encodeURIComponent(cfg.onepage)}`))
   if (cfg.creator) s.push(get("creator", `/${encodeURIComponent(cfg.creator)}`))
   if (cfg.site || cfg.sitePath) s.push(get("site", cfg.sitePath || `/w/${encodeURIComponent(cfg.site)}`))
+  if (cfg.productPath) s.push(get("product", cfg.productPath))
+  for (const p of cfg.pages ?? []) s.push(get(`page:${p}`, p))
   const assets = (cfg.assets ?? []).filter(Boolean)
   if (s.length || assets.length) {
     const list = [...assets, "/robots.txt", "/favicon.ico"]
@@ -238,6 +244,8 @@ async function main(argv = process.argv) {
     creator: opt("creator", "LOAD_CREATOR"),
     site: opt("site", "LOAD_SITE"),
     sitePath: opt("site-path", "LOAD_SITE_PATH"),
+    productPath: opt("product-path", "LOAD_PRODUCT_PATH"),
+    pages: String(opt("pages", "LOAD_PAGES") ?? "").split(",").map((p) => p.trim()).filter((p) => p.startsWith("/")),
     assets: String(opt("assets", "LOAD_ASSETS") ?? "").split(",").map((p) => p.trim()).filter(Boolean),
     creatorId: opt("creator-id", "LOAD_CREATOR_ID"),
     product: opt("product", "LOAD_PRODUCT"),
@@ -246,8 +254,9 @@ async function main(argv = process.argv) {
   }
   const seconds = clamp(opt("seconds", "LOAD_SECONDS") ?? 30, 1, MAX_SECONDS, 30)
   const askedC = opt("concurrency", "LOAD_CONCURRENCY") ?? 10
-  const concurrency = clamp(askedC, 1, MAX_CONCURRENCY, 10)
-  if (Number(askedC) > MAX_CONCURRENCY) console.warn(`load: concurrency capped at ${MAX_CONCURRENCY}`)
+  const cap = isLocalHost(new URL(base).hostname) ? MAX_LOCAL_CONCURRENCY : MAX_CONCURRENCY
+  const concurrency = clamp(askedC, 1, cap, 10)
+  if (Number(askedC) > cap) console.warn(`load: concurrency capped at ${cap}`)
   const askedR = opt("rate", "LOAD_RATE")
   const rate = askedR ? clamp(askedR, 1, MAX_RATE, null) : null
 
@@ -266,7 +275,7 @@ async function main(argv = process.argv) {
 
   const scenarios = buildScenarios(cfg)
   if (!scenarios.length) {
-    console.error("load: nothing to run. Give at least one of --onepage, --creator, --site, --assets, --creator-id, --product with --checkout")
+    console.error("load: nothing to run. Give at least one of --onepage, --creator, --site, --product-path, --pages, --assets, --creator-id, --product with --checkout")
     process.exit(2)
   }
 
@@ -292,7 +301,7 @@ async function main(argv = process.argv) {
   const fmt = (s) => `p50 ${s.p50 ?? "-"} ms  p95 ${s.p95 ?? "-"} ms  p99 ${s.p99 ?? "-"} ms  errors ${pct(s.errorRate)}  4xx ${s.client4xx}  429 ${s.limited429}`
   console.log(`\n${all.requests} requests in ${elapsed.toFixed(1)} s (${(all.requests / elapsed).toFixed(1)} per second)`)
   console.log(`all        ${fmt(all)}`)
-  for (const p of per) console.log(`  ${p.scenario.padEnd(9)} ${String(p.requests).padStart(6)}  ${fmt(p)}`)
+  for (const p of per) console.log(`  ${p.scenario.padEnd(Math.max(9, ...per.map((x) => x.scenario.length)))} ${String(p.requests).padStart(6)}  ${fmt(p)}`)
   const errorsByKind = {}
   for (const r of results) if (r.error || r.status >= 500) errorsByKind[`${r.name}:${r.error ?? r.status}`] = (errorsByKind[`${r.name}:${r.error ?? r.status}`] ?? 0) + 1
   if (Object.keys(errorsByKind).length) console.log(`errors by kind: ${JSON.stringify(errorsByKind)}`)

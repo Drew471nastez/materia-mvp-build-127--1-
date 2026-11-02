@@ -32,7 +32,9 @@
  * ---------------------------------------------------------------------------
  * The cached reads go through an anon client with no session (see
  * lib/supabase/public-read.ts), so row-level security applies to them as it
- * would to a stranger. If a table's policy turns out to need a session, the
+ * would to a stranger. The two config rows are the one exception
+ * (round 48): read by the server through lib/store-builder/public-config.ts,
+ * one column, nothing private in it, see cachedStoreConfig below. If a table's policy turns out to need a session, the
  * anon read comes back EMPTY rather than wrong — and an empty product page
  * is worse than a slow one.
  *
@@ -54,6 +56,7 @@ import { unstable_cache } from "next/cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { readPublicRow } from "@/lib/security/public-rows"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
+import { readPublishedProductPageConfig, readPublishedStoreConfig } from "@/lib/store-builder/public-config"
 
 /** The backstop, in seconds. Tag invalidation is the fast path. */
 export const PRODUCT_CACHE_TTL = 60
@@ -116,37 +119,27 @@ export const cachedCreatorProfile = (userId: string) =>
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(userId)] },
   )()
 
+/*
+  THE TWO CONFIG ROWS ARE READ BY THE SERVER, NOT THE ANON KEY (round 48,
+  R48-6). Read with the anon key they needed a policy that let the anon role
+  read the tables, and with it anybody holding the key read every row
+  directly, drafts and contact addresses included. They go through
+  lib/store-builder/public-config.ts: the service role, the published_config
+  column alone, the contact address taken out before it is returned. So what
+  is held here for everybody is what the anon read held, less the address.
+  Same keys, tags and minute as before.
+*/
 export const cachedStoreConfig = (creatorId: string, pageType: string) =>
   unstable_cache(
-    async () => {
-      const supabase = createPublicReadClient()
-      const { data } = await supabase
-        .from("store_builder_configs")
-        .select("published_config")
-        .eq("creator_id", creatorId)
-        .eq("page_type", pageType)
-        .maybeSingle()
-        /* A failed read is thrown, never held for a minute as "no config" (the loaders read again on the session). */
-        .throwOnError()
-      return data ?? null
-    },
+    /* A failed read is thrown, never held for a minute as "no config" (the loaders read again). */
+    async () => readPublishedStoreConfig(creatorId, pageType),
     ["store-config", creatorId, pageType],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId)] },
   )()
 
 export const cachedProductPageConfig = (creatorId: string, productId: string) =>
   unstable_cache(
-    async () => {
-      const supabase = createPublicReadClient()
-      const { data } = await supabase
-        .from("product_page_configs")
-        .select("published_config")
-        .eq("creator_id", creatorId)
-        .eq("product_id", productId)
-        .maybeSingle()
-        .throwOnError()
-      return data ?? null
-    },
+    async () => readPublishedProductPageConfig(creatorId, productId),
     ["product-page-config", creatorId, productId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId), productTag(productId)] },
   )()

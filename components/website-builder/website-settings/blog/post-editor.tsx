@@ -88,7 +88,7 @@ export function SitePostEditor({ ctx, postId, onClose }: { ctx: SettingsContext;
                 </p>
               ) : (
                 <div className="max-w-[420px]">
-                  <p className="text-[15px] font-medium text-white">{load.sql ? tt("Blog turns on after the database update (SQL part 353).") : load.message}</p>
+                  <p className="text-[15px] font-medium text-white">{load.sql ? tt("Blog turns on after the database update (SQL part 355).") : load.message}</p>
                   {!load.sql && (
                     <button
                       type="button"

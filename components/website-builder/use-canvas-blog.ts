@@ -12,7 +12,7 @@
  *
  * And GET blog, for the link picker: the blog's address and its categories,
  * once the blog has a post a visitor can open (lib/website-builder/
- * link-targets.ts). Before SQL part 353 both answer 503 and nothing here
+ * link-targets.ts). Before SQL part 355 both answer 503 and nothing here
  * changes the editor.
  */
 import { useEffect, useMemo, useState } from "react"

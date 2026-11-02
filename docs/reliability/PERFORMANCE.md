@@ -108,3 +108,73 @@ preview are not yet measured ([load-testing.md](../operations/load-testing.md)).
 | EVD-3 | no auth call on public routes | saves up to 10s per affected request during Auth slowness |
 | SHR-3, SHR-4, DB-11, EVD-4 | run-wide cron deadlines | crons finish inside their limit |
 | Batch 6 | load test on staging | real numbers for the targets above |
+
+## 4. Round 48: live websites under a spike
+
+Measured live on 2 November 2026 (curl through the session proxy, three
+requests each; `scripts/check-live-vitals.mjs`, mobile profile, two cold loads,
+median) and on a local production build reading the Supabase stub
+(`scripts/serve-site-stub-r48.mjs`).
+
+| Site | Kind | Cache (repeat) | TTFB warm | Mobile LCP | TBT | CLS | JS |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| andrewrullz.storelib.com | imported Materia | `private, no-cache`, MISS, held copy (`X-Storelib-Held: hit`) | 290-310 ms (1.0-1.6 s on a hold miss, 58 s once on a cold start) | 4.27 s | 7.46 s | 0 | 994 KB |
+| asgardshop.storelib.com | Storelib theme | `s-maxage=60, swr=300`, HIT/STALE | 270 ms | 1.68 s | 0.87 s | 0.193 | 575 KB |
+| materiathemes.storelib.com | Storelib theme | HIT/STALE | 320 ms | 1.11 s | 0.49 s | 0 | 582 KB |
+| trp8.storelib.com | Storelib theme | HIT/STALE | 540 ms | 1.71 s | 0.54 s | 0 | 589 KB |
+| self-kind-digital-products.storelib.com | Storelib theme | HIT/STALE | 600 ms | 1.62 s | 0.78 s | 0 | 582 KB |
+
+Theme assets (`/api/site-theme/assets/<install>/h-<hash>/<file>`) are
+content-hashed and `public, max-age=31536000, immutable`, CDN HIT on repeat.
+
+What was weak, and changed:
+
+- **A connected domain's lookup had no read in flight to share.** 200
+  visitors at once on a cold server: 148 `custom_domains` and 148 `profiles`
+  reads for one host; the same again for the first wave past each minute.
+  Now one read per host (`lib/website-builder/held-lookup.ts`), and past the
+  minute the held answer is served while one read refreshes it.
+- **Strangers arriving together on an imported theme's page each ran the
+  whole Liquid draw** until the first one was held. Now they share the one
+  draw under way (`lib/storelib-theme/compat/stranger-hold.ts`).
+- **The same deferred theme script written twice ran twice** (Materia:
+  `product-offers.js`, 85 KB, and `hero-benefits.js`). The later copy is
+  dropped (`lib/storelib-theme/compat/script-order.ts`, `once=` in
+  `X-Storelib-Scripts`).
+
+What Storelib's wrapper costs on the imported theme's first load (CPU profile,
+4x slower CPU): its own scripts do not appear among the top 25 functions. The
+time is the theme's (`docs/theme-contracts/materia-scroll-performance.md`):
+style recalculation from its `:has()` rules (most of 9 s of "(program)"),
+`hero-image-one.js` `prop` 0.75 s, the header's inline `update` 0.75 s,
+`live-announcements.js` 0.63 s, `materia-popups.js` `bottomInset` 0.32 s,
+Swiper 0.29 s, `product-block-runtime.js` 0.28 s, `animation.js` `armReveal`
+0.20 s.
+
+Before and after, local production build (`scripts/serve-site-stub-r48.mjs`,
+stub answers 20 ms late; 200 requests at once with `Host: www.lenashop.test`,
+a connected domain; machine shared with other builds, so latencies are noisy):
+
+| Spike | Reads before | Reads after | p50 / p95 before | p50 / p95 after |
+| --- | --- | --- | --- | --- |
+| cold server | 148 `custom_domains`, 148 `profiles` | 2, 4 | 2.37 / 2.99 s | 2.18 / 2.85 s |
+| 62 s later (answer expired) | 110, 111 | 1, 2 | 2.20 / 2.88 s | 1.44 / 1.89 s |
+
+`scripts/load/storefront.mjs` on `/w/lena`, `/w/lena/products`,
+`/w/lena/products/loop-pack-1`, 20 s, no errors either side; these paths do not
+go through the changed code, so the difference is the machine's load:
+
+| In flight | Before p50 / p95, req/s | After p50 / p95, req/s |
+| --- | --- | --- |
+| 10 | 84 / 162 ms, 108 | 69 / 151 ms, 125 |
+| 25 | 214 / 308 ms, 117 | 149 / 210 ms, 165 |
+| 50 | 332 / 562 ms, 140 | 308 / 434 ms, 157 |
+
+Left open: a Storelib theme website ships 453 KB of gzipped JavaScript
+(1,391 KB raw, 32 chunks; 210 KB of it the page's own client tree under
+`components/website-builder/theme/ThemePage.tsx`, 97 KB the root layout's app
+shell) and measures 0.49 to 0.87 s TBT on a phone live. Evaluating that many
+modules is most of it (CPU profile: the Turbopack module loader and React's
+hydration on top). Making the website's sections server components, or
+giving websites a root layout of their own, is the next lever; neither is a
+small change.

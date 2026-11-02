@@ -423,7 +423,7 @@ async function main() {
     check("the blog, each indexable post and each category, on the custom domain", JSON.stringify(locs) === JSON.stringify(["https://www.posturex.com/blogs/news", "https://www.posturex.com/blogs/news/post-1", "https://www.posturex.com/blogs/news/category/guides"]), locs)
     check("  with lastmod and the post's cover (full addresses only)", !!entries[0].lastmod && entries[1].images?.length === 1 && entries[1].images[0].loc === "https://cdn.example.com/cover-1.jpg")
     check("  written into the sitemap", sitemapXml(entries).includes("<loc>https://www.posturex.com/blogs/news/post-1</loc>") && sitemapXml(entries).includes("<image:loc>https://cdn.example.com/cover-1.jpg</image:loc>"))
-    check("nothing with no live post, or before SQL 353", blogSitemapEntries("https://x.com", { handle: "news", posts: [], categories: ["guides"], newest: null }).length === 0 && blogSitemapEntries("https://x.com", null).length === 0)
+    check("nothing with no live post, or before SQL 355", blogSitemapEntries("https://x.com", { handle: "news", posts: [], categories: ["guides"], newest: null }).length === 0 && blogSitemapEntries("https://x.com", null).length === 0)
     check("the templates are not pages of the sitemap, on either kind of site", !listedPageKeys(["home", "blogs", "article", "about"]).some((k) => k === "blogs" || k === "article") && !listedPageKeys(["home", "blog", "article"], { imported: true }).includes("blog"))
     check("  a creator's own page called blog on a Storelib theme still is", listedPageKeys(["home", "blog"]).includes("blog"))
     const data = read("lib/website-builder/site-seo-data.ts")

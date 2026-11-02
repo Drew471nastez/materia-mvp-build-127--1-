@@ -15,7 +15,7 @@ import "server-only"
  * scheduled for 9:00 is on the site at 9:00 (within the page's own minute)
  * with no job and no cache clear. Never cache anything keyed by "now".
  *
- * BEFORE SQL PART 353 every read answers null or nothing, so a site is drawn
+ * BEFORE SQL PART 355 every read answers null or nothing, so a site is drawn
  * exactly as it was. A read that fails for another reason serves the last
  * good copy this server holds (LastGood), else nothing.
  */
@@ -149,7 +149,7 @@ function cardOf(r: Row, data: BlogData): PublicPostCard {
 
 /* ── The public reads ────────────────────────────────────────────────────── */
 
-/** The blog's settings, or null when the creator has no blog (nothing set up, no post) or SQL 353 has not run. */
+/** The blog's settings, or null when the creator has no blog (nothing set up, no post) or SQL 355 has not run. */
 export async function readSiteBlog(creatorId: string): Promise<SiteBlogSettings | null> {
   const data = await blogData(creatorId)
   return data?.configured ? data.settings : null
@@ -349,7 +349,7 @@ export async function blogFor(creatorId: string, now: number = Date.now()): Prom
  * What the builder's canvases draw for the Blog and Post templates: read
  * fresh with the editor's own client (never the cache), live AND scheduled
  * posts, or the three sample posts when nothing is published, flagged
- * `sample: true`. Null before SQL part 353.
+ * `sample: true`. Null before SQL part 355.
  */
 export async function readCanvasBlog(db: Db, creatorId: string, slug: string | null, now: number = Date.now()): Promise<{ settings: SiteBlogSettings; listing: BlogListing; post: PublicPost | null; sample: boolean } | null> {
   const data = await loadBlogData(creatorId, db)

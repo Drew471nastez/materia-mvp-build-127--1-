@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  CREATOR WEBSITE BLOGS: THE DATA LAYER (lib/site-blog, SQL part 353)
+ *  CREATOR WEBSITE BLOGS: THE DATA LAYER (lib/site-blog, SQL part 355)
  * ===========================================================================
  * SANITIZER  a post's blocks and details cleaned on save and again on
  *            render: javascript: links, on* attributes, script and iframe in
@@ -15,7 +15,7 @@
  *            categories, settings, and one store never reaching another's.
  * LIVENESS   a scheduled post appears when its time comes while the cached
  *            read is still held: liveness is decided outside the cache.
- * BEFORE 353 every read is null or empty and every write a 503 { sql: 353 }.
+ * BEFORE 355 every read is null or empty and every write a 503 { sql: 355 }.
  * TOKENS     preview links signed, 24 hours, their own namespace.
  * ISOLATION  every `.from("site_blog_…")` in admin.ts and public-read.ts
  *            filters creator_id; no route queries the tables itself.
@@ -276,15 +276,15 @@ function freshDb(): { mem: MemoryDb; db: SupabaseClient } {
 }
 
 async function main() {
-  section("Schema: part 353 is what the memory database is built from")
+  section("Schema: part 355 is what the memory database is built from")
   {
     const { mem } = freshDb()
     for (const t of ["site_blog_settings", "site_blog_authors", "site_blog_categories", "site_blog_posts", "site_blog_post_revisions", "site_blog_redirects"]) check(`${t} exists`, mem.model.has(t))
-    const sql = readFileSync("supabase/sql/run-now/353_site_blog.sql", "utf8")
+    const sql = readFileSync("supabase/sql/run-now/355_site_blog.sql", "utf8")
     check("the migration is byte-identical", sql === readFileSync("supabase/migrations/20271107_site_blog.sql", "utf8"))
     check("ends with notify pgrst", sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
     check("every policy is guarded and nothing is granted to anon", (sql.match(/CREATE POLICY/g) ?? []).length === 24 && (sql.match(/IF NOT EXISTS \(SELECT 1 FROM pg_policies/g) ?? []).length === 24 && !/TO anon/.test(sql) && (sql.match(/ENABLE ROW LEVEL SECURITY/g) ?? []).length === 6)
-    check("99_check_after has p353_site_blog", readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8").includes("as p353_site_blog;"))
+    check("99_check_after has p355_site_blog", readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8").includes("as p355_site_blog;"))
   }
 
   section("Posts: create, save, 409, publish")
@@ -438,14 +438,14 @@ async function main() {
     check("no published post: the three samples, flagged", !!empty && empty.sample && empty.listing.posts.length === 3 && !!empty.post)
   }
 
-  section("Before SQL part 353")
+  section("Before SQL part 355")
   {
     const { mem: bare, db: bareDb } = freshDb()
     for (const t of ["site_blog_settings", "site_blog_authors", "site_blog_categories", "site_blog_posts", "site_blog_post_revisions", "site_blog_redirects"]) bare.model.delete(t)
     siteBlogReadDeps.db = () => bareDb
     const write = await refusal(createPost(bareDb, A, USER, { meta: { title: "x" } }))
     const list = await refusal(listAdminPosts(bareDb, A, {}))
-    check("writes and admin reads are 503 (the route answers { error, sql: 353 })", write?.status === 503 && list?.status === 503)
+    check("writes and admin reads are 503 (the route answers { error, sql: 355 })", write?.status === 503 && list?.status === 503)
     check("missingTable knows the error", missingTable({ code: "PGRST205", message: "Could not find the table 'public.site_blog_posts' in the schema cache" }) && missingTable({ message: 'relation "public.site_blog_posts" does not exist' }) && !missingTable({ message: "timeout" }))
     check("public reads are null or empty", (await readSiteBlog(A)) === null && (await liveCards(A)).length === 0 && (await readBlogListing(A, {})) === null && (await readLivePost(A, "x")) === null && (await blogFor(A)) === null && (await siteBlogRedirect(A, "x")) === null && (await listedBlogEntries(A)).posts.length === 0)
     check("the canvas is null (503)", (await readCanvasBlog(bareDb, A, null)) === null)
@@ -483,7 +483,7 @@ async function main() {
     const actions = readFileSync("app/api/website-builder/themes/[installId]/blog/posts/[postId]/actions/route.ts", "utf8")
     check("publish-type actions clear the blog's cache", /if \(liveChanged\) await revalidateSiteBlog\(creatorId\)/.test(actions))
     const http = readFileSync("lib/site-blog/http.ts", "utf8")
-    check("a missing table is 503 { error, sql: 353 }", /status: 503/.test(http) && /sql: SQL_PART/.test(http))
+    check("a missing table is 503 { error, sql: 355 }", /status: 503/.test(http) && /sql: SQL_PART/.test(http))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

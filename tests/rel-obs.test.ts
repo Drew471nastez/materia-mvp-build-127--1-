@@ -98,14 +98,16 @@ async function main() {
     const ctx = (row?.body?.p_context ?? {}) as Record<string, unknown>
     check("error_events context has rid", ctx.rid === "iad1::abc-12345", ctx)
     check("the rest of the context is unchanged", ctx.digest === "d1")
-    check("the console line names it", lines.some((l) => l === "[server] GET /p/[slug]: boom 42 (rid iad1::abc-12345)"), lines)
+    /* r48-obs: the line is one JSON object now (changed on purpose; tests/obs-r48.test.ts). */
+    const json = (l: string) => { try { return JSON.parse(l) as Record<string, unknown> } catch { return null } }
+    check("the console line names it", lines.some((l) => { const j = json(l); return j?.evt === "error_report" && j.source === "server" && j.where === "GET /p/[slug]" && j.msg === "boom 42" && j.rid === "iad1::abc-12345" }), lines)
 
     const sent2 = fakeSupabase()
     const lines2 = captureErrors()
     await reportError({ source: "server", where: "GET /p/[slug]", error: new Error("boom 42") })
     restore()
     const ctx2 = (sent2.find((s) => s.url.endsWith("/rest/v1/rpc/storelib_note_error"))?.body?.p_context ?? {}) as Record<string, unknown>
-    check("without one, the row and the line are as before", !("rid" in ctx2) && lines2.includes("[server] GET /p/[slug]: boom 42"), { ctx2, lines2 })
+    check("without one, the row and the line are as before", !("rid" in ctx2) && lines2.some((l) => { const j = json(l); return j?.msg === "boom 42" && !("rid" in j) }), { ctx2, lines2 })
     check("the id is not part of the fingerprint (one row per kind of error)", sent.find((s) => s.url.includes("note_error"))?.body?.p_fingerprint === sent2.find((s) => s.url.includes("note_error"))?.body?.p_fingerprint)
 
     const sent3 = fakeSupabase()
@@ -128,7 +130,7 @@ async function main() {
     const ctx = (sent.find((s) => s.url.includes("note_error"))?.body?.p_context ?? {}) as Record<string, unknown>
     check("the job's answer is unchanged", answer.status === 500)
     check("the error row carries the cron request's id", ctx.rid === "iad1::cron-98765", ctx)
-    check("and its log line", lines.some((l) => l.includes("(rid iad1::cron-98765)")), lines)
+    check("and its log line", lines.some((l) => l.includes('"rid":"iad1::cron-98765"')), lines)
   }
 
   console.log("\nEvery uncaught server error, and the routes that catch their own")

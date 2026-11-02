@@ -16,7 +16,7 @@
  * arranged in the builder, or the generated one (lib/website-builder/
  * blog-page.ts), dressed with the blog's live posts and drawn on the server.
  *
- * A site with no blog, before SQL part 353 or with no live post, answers
+ * A site with no blog, before SQL part 355 or with no live post, answers
  * 404 at every one of these, exactly as it did before there were blogs.
  * An old handle or an old slug answers 308 to the current one. The lists
  * and posts are held a minute like every published page (revalidate = 60);

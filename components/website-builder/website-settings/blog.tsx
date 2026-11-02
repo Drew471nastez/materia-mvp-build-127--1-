@@ -15,7 +15,7 @@
  * A post opens over all of this in its own full-screen writer
  * (blog/post-editor.tsx), loaded only when one is opened.
  *
- * Before SQL part 353 is run the routes answer 503 { sql: 353 }, and the
+ * Before SQL part 355 is run the routes answer 503 { sql: 355 }, and the
  * screen says so, once, instead of a list that cannot load.
  */
 import * as React from "react"
@@ -118,9 +118,9 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
 
       {load.kind === "sql" && (
         <Card footer={tt("Nothing on your website changes until then.")}>
-          <div className="px-4 py-5 md:px-6" data-blog-sql="353">
-            <p className="text-[15px] font-medium text-white">{tt("Blog turns on after the database update (SQL part 353).")}</p>
-            <p className="mt-1 text-[14px] leading-relaxed text-white/55">{tt("Your store's database is missing the blog's tables. Once SQL part 353 has been run, posts, categories and authors are kept here.")}</p>
+          <div className="px-4 py-5 md:px-6" data-blog-sql="355">
+            <p className="text-[15px] font-medium text-white">{tt("Blog turns on after the database update (SQL part 355).")}</p>
+            <p className="mt-1 text-[14px] leading-relaxed text-white/55">{tt("Your store's database is missing the blog's tables. Once SQL part 355 has been run, posts, categories and authors are kept here.")}</p>
             <button type="button" onClick={() => { setLoad({ kind: "loading" }); refresh() }} className={cn(buttonClass, "mt-4")}>
               {tt("Check again")}
             </button>

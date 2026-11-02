@@ -2,8 +2,8 @@
  * The Blog screen's calls to its routes (app/api/website-builder/themes/
  * [installId]/blog/**), typed by lib/site-blog/types.ts. Every call answers
  * the route's body or throws a BlogApiError that says why: the route's own
- * words, "offline", or `sql` when the tables of SQL part 353 are not there
- * yet (the routes answer 503 { sql: 353 }).
+ * words, "offline", or `sql` when the tables of SQL part 355 are not there
+ * yet (the routes answer 503 { sql: 355 }).
  *
  * A post's save is the one call that does not throw on a refusal: a 409 is
  * an answer the editor acts on (someone else saved since), so it comes back
@@ -72,7 +72,7 @@ export const POSTS_PER_PAGE = 20
 export class BlogApiError extends Error {
   /** 0 when nothing answered. */
   readonly status: number
-  /** The blog's tables are not there yet: SQL part 353 has not been run. */
+  /** The blog's tables are not there yet: SQL part 355 has not been run. */
   readonly sql: boolean
   constructor(message: string, status: number, sql = false) {
     super(message)
@@ -113,7 +113,7 @@ export function refusalMessage(status: number, data: unknown): string {
   return tt("Something went wrong. Try again.")
 }
 
-const sqlOf = (status: number, data: unknown) => status === 503 && !!data && typeof data === "object" && (data as { sql?: unknown }).sql === 353
+const sqlOf = (status: number, data: unknown) => status === 503 && !!data && typeof data === "object" && (data as { sql?: unknown }).sql === 355
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response
@@ -123,7 +123,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
     throw new BlogApiError(tt("You are offline or the server did not answer."), 0)
   }
   const data: unknown = await res.json().catch(() => null)
-  if (!res.ok) throw new BlogApiError(sqlOf(res.status, data) ? tt("Blog turns on after the database update (SQL part 353).") : refusalMessage(res.status, data), res.status, sqlOf(res.status, data))
+  if (!res.ok) throw new BlogApiError(sqlOf(res.status, data) ? tt("Blog turns on after the database update (SQL part 355).") : refusalMessage(res.status, data), res.status, sqlOf(res.status, data))
   return data as T
 }
 
@@ -166,7 +166,7 @@ export async function savePostDraft(installId: string, postId: string, body: { m
   const sql = sqlOf(res.status, data)
   return {
     ok: false,
-    error: sql ? tt("Blog turns on after the database update (SQL part 353).") : refusalMessage(res.status, data),
+    error: sql ? tt("Blog turns on after the database update (SQL part 355).") : refusalMessage(res.status, data),
     status: res.status,
     sql,
     /* Worth trying again by itself: nothing answered, the server stumbled, or a sign in that may come back. */

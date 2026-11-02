@@ -30,6 +30,17 @@
  *    never Storelib's own analytics and pixels: page views are counted as
  *    before.
  *
+ * 3. THE SAME DEFERRED FILE ONCE (round 48). A theme that writes a section's
+ *    script inside the section (or in its layout and again in the section)
+ *    asks for the same `<script src defer>` once per copy: the owner's
+ *    Materia home page runs product-offers.js (85KB) and hero-benefits.js
+ *    twice each. The browser runs every copy, and a deferred copy runs after
+ *    the page is read, as the first did, on the same page, so the second run
+ *    only binds what the first already bound (or throws on
+ *    `customElements.define`). A later copy whose opening tag is the same as
+ *    an earlier deferred one's, with nothing between its tags, is dropped.
+ *    A blocking or async copy, or one with any attribute of its own, stays.
+ *
  * WHEN NOTHING IS CHANGED, so a theme that depends on the old timing keeps it:
  *   - the theme says so: `<html data-storelib-scripts="as-written">` or
  *     `<meta name="storelib-scripts" content="as-written">` in its layout
@@ -126,6 +137,8 @@ export interface ScriptPlan {
   queued: number
   /** App scripts started after the page. */
   later: number
+  /** Later copies of a deferred script already on the page, dropped (3. above). */
+  dropped: number
   /** Why the page's blocking scripts were left as written, when they were. */
   asWritten: "flag" | "document.write" | "handler" | "svg" | "consent" | "order" | null
 }
@@ -225,7 +238,7 @@ export function themeKeepsScripts(html: string): boolean {
 
 /** The live page with its blocking scripts deferred in order and its app scripts started after load. */
 export function calmerScripts(html: string): ScriptPlan {
-  const none = (why: ScriptPlan["asWritten"]): ScriptPlan => ({ html, deferred: 0, queued: 0, later: 0, asWritten: why })
+  const none = (why: ScriptPlan["asWritten"]): ScriptPlan => ({ html, deferred: 0, queued: 0, later: 0, dropped: 0, asWritten: why })
   if (!/<\/body>/i.test(html)) return none(null)
   const { scripts, inSvg } = scriptsOf(html)
   const kinds = scripts.map(kindOf)
@@ -287,13 +300,27 @@ export function calmerScripts(html: string): ScriptPlan {
     }
   }
 
+  /* A later copy of a deferred script: the same opening tag, nothing between its tags. Not when the theme keeps its scripts as written. */
+  const dropAt = new Set<number>()
+  if (why !== "flag" && !themeKeepsScripts(html)) {
+    const seen = new Set<string>()
+    scripts.forEach((s, i) => {
+      if (kinds[i] !== "deferred" || /\S/.test(s.text) || OWN_STANDALONE.test(s.raw)) return
+      const key = sameTag(s.raw)
+      if (seen.has(key)) dropAt.add(i)
+      else seen.add(key)
+    })
+  }
+
   const out: string[] = []
   let copied = 0
   let deferred = 0
   let queued = 0
   scripts.forEach((s, i) => {
     let tag: string | null = null
-    if (laterAt.has(i)) {
+    if (dropAt.has(i)) {
+      tag = ""
+    } else if (laterAt.has(i)) {
       const src = attr(s.raw, "src") ?? ""
       const type = attr(s.raw, "type")
       const parked = withoutAttrs(s.raw, ["src", "type"])
@@ -321,7 +348,15 @@ export function calmerScripts(html: string): ScriptPlan {
     const at = result.search(/<\/body>(?![\s\S]*<\/body>)/i)
     result = `${result.slice(0, at)}<script data-storelib-later>${LATER_STARTER}</script>${result.slice(at)}`
   }
-  return { html: result, deferred, queued, later: laterAt.size, asWritten: why }
+  return { html: result, deferred, queued, later: laterAt.size, dropped: dropAt.size, asWritten: why }
+}
+
+/** An opening script tag compared as the browser reads it: spacing and `defer="defer"` against `defer` aside. */
+function sameTag(raw: string): string {
+  return raw
+    .replace(/\s+/g, " ")
+    .replace(/\sdefer(?:\s*=\s*(?:"defer"|'defer'|defer|""|''))?(?=[\s/>])/i, " defer")
+    .replace(/\s*\/?\s*>$/, ">")
 }
 
 /**

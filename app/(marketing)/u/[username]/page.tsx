@@ -11,6 +11,7 @@ import { loadAccountEmail, loadCreatorForUser, loadCreatorForUserStrict, loadPro
 import { SiteReadError } from "@/lib/website-builder/site-read"
 import { exactIlike } from "@/lib/onepage/username"
 import { withoutContactEmail } from "@/lib/commerce/contact-email"
+import { loadTypedContactEmail } from "@/lib/store-builder/public-config"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -508,6 +509,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* Whether the viewer follows this creator is no longer read: a creator page has no Follow (r40). */
   const placePromise = readProfileLocation(createAdminClient(), profile.id)
   const offPagePromise = offChannel(createAdminClient(), creator.id, "creator_page")
+  /*
+    THE ADDRESS THE CREATOR TYPED, read on its own (round 48, R48-6). The
+    published config the page reads has no contact address in it any more
+    (lib/store-builder/public-config.ts), so the two places below that need
+    it ask here: the Contact gate for a buyer, the owner's own About form.
+    Started with the batch, only for somebody signed in, since nobody else
+    can be either; a visitor with no session pays nothing for it.
+  */
+  const typedContactPromise = viewerPromise
+    .then(({ data }) => (data.user ? loadTypedContactEmail(creator.id) : null))
+    .catch(() => null)
   const [
     { data: catalogue, error: productsError },
     publishedConfig,
@@ -1021,7 +1033,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
-    const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
+    /* The typed address back in, on the server, only for a buyer or the owner: the two who are ever handed it (see typedContactPromise). */
+    const typedContactEmail = viewerBoughtFromCreator || viewerIsOwner ? await typedContactPromise : null
+    const publishedHeader = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
+    const headerSettings = typedContactEmail ? { ...publishedHeader, contactEmail: typedContactEmail } : publishedHeader
     /**
      * =====================================================================
      *  ONE ADDRESS, RESOLVED ONCE

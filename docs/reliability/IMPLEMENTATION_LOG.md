@@ -68,6 +68,49 @@ attached automatically. "Add to library" on the receipt still works.
 | DB-7 email ILIKE lookups | NEEDS APPROVAL | 63fdcb096 | SQL part 349 (trigram indexes) plus a standalone CONCURRENTLY file | §7 |
 | DB-8 bare `auth.uid()` in RLS, duplicate indexes | NEEDS APPROVAL (documented only) | | list in the db report; read-only check query before any drop | |
 
+## `r48-db` (round 48, database load; not merged yet)
+
+Measured on a local Postgres 16 built the way `scripts/sql-harness` builds
+production (base files, then `all-in-two` file 1 and 2), seeded with
+`scripts/sql-harness/scale-seed.sql` plus one big store: 400k orders,
+1.3M `analytics_events`, 53k products (3,000 in the big store), 120k
+entitlements, 200k subscribers. Times are the median of 7 `EXPLAIN ANALYZE`
+runs, JIT off for the RLS rows; RLS rows are paired (same database, same
+buffers, part 353 applied inside the measured transaction and rolled back).
+
+| ID | Status | What changed | Before | After | Test |
+| --- | --- | --- | --- | --- | --- |
+| DB-13 bare `auth.*()` in RLS | COMPLETE (code); SQL part 353 NEEDS APPROVAL | 172 policies on 101 tables call `(select auth.uid())` etc. through `ALTER POLICY`; read back and restored unless word for word the same | signed in `count(*)`: entitlements 186 ms, onepages 10.8, products 42.6, analytics_events 319, reviews 16.7 | 42.6, 1.3, 21.9, 261, 11.9 | `tests/db-r48.test.ts` §1-2 (fixture: pg_policies before and after) |
+| Product counters move `updated_at` | COMPLETE (code); SQL part 353 | `set_products_updated_at` keeps `updated_at` when only `views` or `sales_count` changed; every other change moves it as before | a counted view changed the product's sitemap lastmod | lastmod moves only for real edits; counter path speed unchanged (the trigger is not the cost) | §2, local trigger check |
+| Orders page products `select("*")` | COMPLETE | `readCreatorProducts`: 5 columns, pages of 1,000 up to 20k, `*` only when a column is refused | 1,000 products: 3.86 MB JSON, 38 ms to build it in Postgres; stopped at 1,000 products | 178 kB, 9.9 ms; every product (one read per 1,000) | §3 |
+| /app shell "first sale" | COMPLETE | one lookup by `orders.creator_id` on the server client (`byCreator` before part 32) instead of a join through products under every orders policy | on the harness schema the read fails: the policy "Buyers can view own orders" reads `auth.users`, which `authenticated` may not read (42501), so the ring never ticked the sale; with that policy dropped, 2 to 9 ms | 0.04 ms | §4 |
+
+Checked and left alone (already served by an index, times on the big store):
+Orders page list 0.14 ms, Customers keyset page 0.38, site products 0.08,
+Explore 0.5, Explore search 1.6 (trigram), sitemap chunk 2.2, checkout
+"already owned" 0.14 (part 349), webhook by session 0.06, view counter dedupe
+reads 0.5-1 ms. The 30 day analytics report for the big store is 200-270 ms,
+mostly the visitors CTE over 294k events; an index-only path would need one
+more index on the table that already has about 21 (DB-12), so it is not added.
+
+Not changed, owner decision (measured): `idx_products_views` and
+`idx_creators_views` index a counter every counted visit updates, so those
+updates can never be HOT and write every index of the row. Nothing in the
+code orders by either column. Dropping `idx_products_views` locally: bare
+`UPDATE products SET views = views + 1` 8 clients, 3.4 ms to 2.0 ms per update
+spread over 3,000 products, 9.6 to 6.7 ms on one hot product. Check
+`select idx_scan from pg_stat_user_indexes where indexrelname in ('idx_products_views', 'idx_creators_views')`
+first; `DROP INDEX CONCURRENTLY` one line per run if both read 0.
+
+Pins changed on purpose: `tests/orders-view.test.ts` (products read with
+named columns, `*` as the fallback) and `tests/home-progress.test.ts` (the
+layout's one server client read is the first sale). Suites run: db-r48,
+rel-db-dashboard, db-indexes, db-load-isolation, the sql, schema, analytics,
+orders, home, team and layout suites (74 suites), all green. SQL harness
+(`scripts/sql-harness/run.sh`, editor, owner, history, legacy, both clients):
+every scenario passes and the second run changes nothing; the check column
+`p353_rls_initplan_and_product_counters` is true in all of them.
+
 ## `claude/rel-shared` (merged as 4f9522a50)
 
 | ID | Status | Commit | What changed | Test |
@@ -226,3 +269,16 @@ timed out and the error screens showed.
 Still open after wave 3: the owner's key migration (or `SUPABASE_JWT_SECRET`),
 SQL 347, 348, 349, 352, canvas staging check, the `storelib://` app link on a
 device, CSP enforcing, a staging load test, Supabase capacity review.
+
+## Round 48, observability (`r48-obs`)
+
+| ID | Status | What changed | Test |
+| --- | --- | --- | --- |
+| Structured logs everywhere | COMPLETE | `lib/net/console-guard.ts`, installed from `instrumentation.ts` `register()` (Node): every server `console.error`/`console.warn` is one JSON line with `route` and `rid`; an uncaught error is one `error_report` line (route, method, status 500, rid, digest) from `onRequestError`, and Next's own print of it is held and dropped (measured on a production build: it came first) | `tests/obs-r48.test.ts`; probe routes on a local build |
+| No PII or tokens in logs | COMPLETE | `lib/net/scrub.ts`: JWTs, bearer values, keys, Supabase cookies, Cookie headers, secret-named values, `?code=`, Luhn card numbers; addresses masked. Used by the guard and `reportError` (row and line) | obs-r48 |
+| Error boundaries | COMPLETE | new `error.tsx` for `(marketing)`, `[sellername]`, `/w/[username]`, `checkout`, `(auth)`, `admin`, `sites/[siteId]`; Explore's reports its digest | obs-r48 (each rendered: Try again, the way back, the digest) |
+| Smoke covers the critical paths | COMPLETE (paths need repository variables) | `/login`; `SMOKE_CREATOR`, `SMOKE_PRODUCT`, `SMOKE_CHECKOUT_PRODUCT`, `SMOKE_DOMAIN` (a visible skip while unset); no secret shapes in `/api/health` | obs-r48, ops-safety-nets |
+| Cron bounding | COMPLETE | wave 2/3 had bounded every job; three still left `maxDuration` to the platform default (fx-rates, release-holds, purge-chat-attachments): now said and passed to the one-run lease | obs-r48 (every cron in vercel.json) |
+| Local load test | COMPLETE (local; staging still open) | `scripts/load/local-bench.mjs` + fixture; `scenarios.mjs --pages/--product-path`; numbers and CPU profile in `docs/operations/load-testing.md`; no app hot spot found, nothing changed for speed | obs-r48 |
+| Pre-push check | COMPLETE | `scripts/pre-push.mjs`: ESLint on changed scripts, the suites that read a changed file, `--types` | obs-r48 |
+| Alert routing | COMPLETE (docs) | `docs/operations/release-safety.md`, Alert routing | n/a |

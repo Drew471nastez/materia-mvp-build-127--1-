@@ -22,6 +22,12 @@ import { recordCronRun } from "@/lib/observability/report"
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+/*
+  Said here, not left to the platform's default (r48-obs); 500 removals a run end well inside it: recordCronRun's
+  one-run-at-a-time lease is this long plus 30s, so a run the platform ends
+  early never holds the job longer than one run could take.
+*/
+export const maxDuration = 120
 
 async function runJob(request: Request) {
   /* Was compared against `Bearer ${process.env.CRON_SECRET}`, which with the
@@ -39,5 +45,5 @@ async function runJob(request: Request) {
 
 /* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/purge-chat-attachments", request, () => runJob(request))
+  return recordCronRun("/api/cron/purge-chat-attachments", request, () => runJob(request), { maxDurationS: maxDuration })
 }

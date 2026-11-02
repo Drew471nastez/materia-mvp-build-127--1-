@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache"
+import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { NextResponse, after } from "next/server"
 import { announce, productAddresses, profileAddresses } from "@/lib/seo/announce"
@@ -280,6 +281,14 @@ export async function POST(request: Request) {
 
   if (!pageType || !config) {
     return NextResponse.json({ error: "Missing pageType or config" }, { status: 400 })
+  }
+
+  /* The About story is markup: cleaned on the way in, as app/api/creator-profile cleans it (round 48). */
+  if (Array.isArray(config.sections)) {
+    for (const section of config.sections as { type?: unknown; settings?: Record<string, unknown> }[]) {
+      const story = section?.type === "about" ? section.settings?.aboutContent : undefined
+      if (typeof story === "string" && /<[a-z][\s\S]*>/i.test(story)) section.settings!.aboutContent = sanitizeRichText(story).trim()
+    }
   }
 
   // Get creator

@@ -75,6 +75,8 @@ const SUITES = [
   "tests/canvas-origin.test.ts",
   /* Round rel-obs: the request id on error rows and their log lines (onRequestError, crons, webhooks), informational lines at their real level, the load test refuses production, /api/health bounded. */
   "tests/rel-obs.test.ts",
+  /* Round r48-obs: every server error line is one scrubbed JSON line with its route and request id (console guard, onRequestError logged once), no token, key, cookie, code, card or full address in a log, an error boundary per major segment, /api/health carries no secret, every cron says its maxDuration inside the one-run lease, smoke checks cover the critical paths, the load scripts stay local or off production. */
+  "tests/obs-r48.test.ts",
   /* Round rel-sites2: published sites while the database is slow, on Next's real data cache. EVD-1: a server that never served a site (a new deploy, a scale-out) serves it from the copy every server can read when every read fails, and a Publish or a take down drops that copy. EVD-2: a gateway's HTML error page or a JSON body cut short is asked again and then a short 503 error, never data or the page as a message. EVD-3: robots.txt, sitemaps, the manifest, the icon, theme assets and the cover read no session through the real proxy (no Supabase Auth call), /app still does. EVD-5: the static /500 and /404 pages are added to every server trace after next build (scripts/trace-error-pages.mjs). */
   "tests/rel-sites2.test.ts",
   /* Round rel3-leftovers: the signed out redirect from /app and /sell is private, no-store through the real proxy (Vercel called it public). */
@@ -981,6 +983,8 @@ const SUITES = [
   "tests/db-load-isolation.test.ts",
   /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
   "tests/rel-db-dashboard.test.ts",
+  /* Round r48-db: SQL part 353 (every public policy reads auth.uid(), auth.jwt() and auth.role() once per query, each kept word for word otherwise, checked against pg_policies from local Postgres 16; a counted view or sale no longer moves products.updated_at), the Orders page's products read five columns a page at a time, and the /app shell's first sale read by the order's own creator. */
+  "tests/db-r48.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
@@ -1130,6 +1134,12 @@ const SUITES = [
   "tests/site-blog-compat.test.ts",
   /* Creator blogs, package 2: one Blog item in Website Settings directly below Pages and no link anywhere else, the post list's query, selection, bulk actions and row menu, autosave one request at a time with its version and a 409 that stops and asks (blog/save-queue.ts on its own clock), scheduling in the app's time zone, the block editor's optional props only (the admin's menu word for word), every editor word translated, before SQL part 353. */
   "tests/site-blog-ui.test.ts",
+  /* Round 48: live websites under a spike: a connected domain's lookup is one read per host however many visitors ask at once and is served stale while it refreshes, strangers arriving together on an imported theme's page share one draw, and the same deferred theme script written twice runs once. */
+  "tests/sites-r48.test.ts",
+  /* Round 48 security: the About story drawn through the allow list, redirects after sign up kept on Storelib, the reset code routes limited and single use, the CSP enforced on /app, /admin and the sign in pages (through the real proxy), HSTS and a Permissions-Policy on every host, no public SVG. */
+  "tests/security-r48.test.ts",
+  /* Round 48, R48-6: the creator page configs are read by the server (service role, published_config only, no contact address) for every public page, never with the anon key; the owner screens keep their own session; SQL part 354 closes both tables to anon. */
+  "tests/configs-r48.test.ts",
 ]
 
 /**

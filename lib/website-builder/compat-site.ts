@@ -384,7 +384,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /*
     THE WEBSITE'S BLOG (lib/site-blog): its settings and published posts, held
     under the blog's own tag (siteBlogTag), which Publish, Update and the
-    rest expire. Null before SQL part 353, or with no blog: every /blogs
+    rest expire. Null before SQL part 355, or with no blog: every /blogs
     address is answered as before. A failed read is no blog for this page.
   */
   const blogAsked = quiet(blogFor(creator.creatorId).catch(() => null))

@@ -225,7 +225,7 @@ async function main() {
     const future = card(9, { slug: "tomorrow", path: "/blogs/journal/tomorrow", publishedAt: new Date(Date.now() + 86_400_000).toISOString() })
     const got = blogPageData({ settings, cards: [future, ...cards] }, undefined, "https://shop.example", null)
     check("a scheduled post held in the cache is not shown before its time", !!got.blog && !got.blog.recent.some((p) => p.handle === "tomorrow") && got.blog.recent.length === 5)
-    check("nothing without a blog (no SQL 353, no settings)", Object.keys(blogPageData(null, undefined, "", null)).length === 0)
+    check("nothing without a blog (no SQL 355, no settings)", Object.keys(blogPageData(null, undefined, "", null)).length === 0)
     const withPost = blogPageData({ settings, cards }, { post: post(2) }, "https://shop.example", null)
     check("a post's page is handed the post as article, with its neighbours", withPost.article?.handle === "post-2" && withPost.article?.previous?.handle === "post-3" && withPost.article?.next?.handle === "post-1")
     check("dates in the page's language", postDate("2026-03-12T10:00:00Z", "fr") === "12 mars 2026" && postDate("2026-03-12T10:00:00Z", null) === "12 March 2026" && postDate("nonsense") === "")

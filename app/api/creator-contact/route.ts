@@ -3,10 +3,11 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { loadAccountEmail, loadCreatorForUser, loadProfileByUsername, loadShopConfig } from "@/lib/commerce/creator-page-data"
+import { loadAccountEmail, loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { CONTACT_EMAIL_HEADERS, contactEmailFor } from "@/lib/commerce/contact-email"
 import { creatorIsBanned } from "@/lib/seo/bans"
+import { loadTypedContactEmail } from "@/lib/store-builder/public-config"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -52,11 +53,8 @@ export async function GET(request: NextRequest) {
     profile: (handle) => loadProfileByUsername(handle),
     creator: (userId) => loadCreatorForUser(userId),
     banned: (creatorId) => creatorIsBanned(creatorId),
-    typedEmail: async (creatorId) => {
-      const config = (await loadShopConfig(creatorId)) as { published_config?: { headerSettings?: { contactEmail?: unknown } } } | null
-      const typed = config?.published_config?.headerSettings?.contactEmail
-      return typeof typed === "string" ? typed : null
-    },
+    /* The published config the pages read carries no address (round 48); the typed one is read on its own, by the server. */
+    typedEmail: (creatorId) => loadTypedContactEmail(creatorId),
     accountEmail: (userId) => loadAccountEmail(userId),
     viewerBought: (viewerId, creatorId) => hasBoughtFromCreator(supabase, viewerId, creatorId),
   })

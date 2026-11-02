@@ -1,5 +1,5 @@
 /**
- * Creator website blogs: the shared contract. The tables (SQL part 353,
+ * Creator website blogs: the shared contract. The tables (SQL part 355,
  * site_blog_*), the server reads and writes (lib/site-blog), the Blog screen
  * in Website Settings, theme rendering and the native Blog templates all
  * speak these types.
@@ -136,4 +136,4 @@ export interface BlogListing {
   allTags: string[]
 }
 
-export type SiteBlogApiError = { error: string; sql?: 353 }
+export type SiteBlogApiError = { error: string; sql?: 355 }

@@ -30,8 +30,8 @@ export async function GET(_req: Request, { params }: Params) {
   } catch (e) {
     const res = blogFailure(e)
     if (res.status !== 503) return res
-    /* Before SQL 353: still say which templates this site has, so the screen can explain. */
-    return blogError(503, (await res.clone().json()).error, { sql: 353, templates })
+    /* Before SQL 355: still say which templates this site has, so the screen can explain. */
+    return blogError(503, (await res.clone().json()).error, { sql: 355, templates })
   }
 }
 

@@ -16,7 +16,7 @@
  *               storelib.com's admin passes none and gets the same menu,
  *               every word the creator's editor translates is in the
  *               catalogs, and gallery and button are offered only when asked.
- *   SQL 353     the screen and the editor say the blog turns on after it.
+ *   SQL 355     the screen and the editor say the blog turns on after it.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { join } from "node:path"
@@ -310,9 +310,9 @@ async function main() {
     answerWith(409, { error: "This post was changed somewhere else.", current: post({ version: 5 }) })
     const c409 = await savePostDraft("i", "p", { meta: post().meta, blocks: [], version: 4 })
     check("a 409 from the route comes back as a conflict with the post as it is now", !c409.ok && "conflict" in c409 && c409.conflict?.version === 5)
-    answerWith(503, { error: "The blog's tables are missing.", sql: 353 })
+    answerWith(503, { error: "The blog's tables are missing.", sql: 355 })
     const c503 = await savePostDraft("i", "p", { meta: post().meta, blocks: [], version: 4 })
-    check("a 503 { sql: 353 } is the database update, not retried", !c503.ok && "sql" in c503 && c503.sql && !c503.retry && /SQL part 353/.test(c503.error))
+    check("a 503 { sql: 355 } is the database update, not retried", !c503.ok && "sql" in c503 && c503.sql && !c503.retry && /SQL part 355/.test(c503.error))
     answerWith(500, { error: "Something went wrong. Try again." })
     const c500 = await savePostDraft("i", "p", { meta: post().meta, blocks: [], version: 4 })
     check("a 500 is tried again", !c500.ok && "retry" in c500 && c500.retry)
@@ -432,12 +432,12 @@ async function main() {
     check("  without metadata, in the owner's folder for a team member, signed when storage refuses, recorded", /withoutMetadata\(file\)/.test(up) && /websiteUploadOwner\(\)/.test(up) && /teamSignedUpload\(BLOG_BUCKET, filePath, body, file\.type\)/.test(up) && /confirmUpload\(BLOG_BUCKET, filePath\)/.test(up) && /BLOG_BUCKET = "store-builder-images"/.test(up))
   }
 
-  /* ── Before SQL 353, the rest of the screen, words ─────────────────── */
-  console.log("\nBefore SQL part 353, the blog's own card, templates, words\n")
+  /* ── Before SQL 355, the rest of the screen, words ─────────────────── */
+  console.log("\nBefore SQL part 355, the blog's own card, templates, words\n")
   {
     const blog = code(`${SETTINGS}/blog.tsx`)
-    check("before SQL 353 the screen says the blog turns on after it", /data-blog-sql="353"/.test(blog) && /tt\("Blog turns on after the database update \(SQL part 353\)\."\)/.test(blog) && /e instanceof BlogApiError && e\.sql/.test(blog))
-    check("  and the writer too", /tt\("Blog turns on after the database update \(SQL part 353\)\."\)/.test(code(`${SETTINGS}/blog/post-editor.tsx`)))
+    check("before SQL 355 the screen says the blog turns on after it", /data-blog-sql="355"/.test(blog) && /tt\("Blog turns on after the database update \(SQL part 355\)\."\)/.test(blog) && /e instanceof BlogApiError && e\.sql/.test(blog))
+    check("  and the writer too", /tt\("Blog turns on after the database update \(SQL part 355\)\."\)/.test(code(`${SETTINGS}/blog/post-editor.tsx`)))
     check("the title and its one action, New post", /<PageTitle/.test(blog) && /tt\("New post"\)/.test(blog) && /tt\("Blog"\)/.test(blog))
     check("Categories, Authors and Blog settings open in place, in one card", /<PartRow\s+label=\{tt\("Categories"\)\}/.test(blog) && /<PartRow\s+label=\{tt\("Authors"\)\}/.test(blog) && /<PartRow label=\{tt\("Blog settings"\)\}/.test(blog) && /<Reveal open=\{open\}/.test(blog))
     const tpl = code(`${SETTINGS}/blog/templates-card.tsx`)

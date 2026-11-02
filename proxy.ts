@@ -22,6 +22,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
+import { heldLookup } from "@/lib/website-builder/held-lookup"
 import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
@@ -32,7 +33,7 @@ import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
-import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
+import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
@@ -1010,8 +1011,16 @@ function servedAt(domain: string): string {
  * With no answer ever seen and the database away, the caller says
  * "unavailable" and the visitor is asked to try again in a moment.
  */
-const domainHeld = new Map<string, { at: number; value: ConnectedDomain | null }>()
-const DOMAIN_HELD_MS = 60_000
+/*
+  ONE READ PER HOST AT A TIME, AND NO VISITOR WAITS FOR A REFRESH (round 48,
+  lib/website-builder/held-lookup.ts). Visitors arriving together on a cold
+  server share the one lookup in flight, where each used to ask the same
+  three to five questions of the database. Past its minute an answer is
+  still served, for up to ten more, while one read refreshes it behind, so
+  a change (a domain removed, made primary) is seen by the first request
+  after the minute's refresh has come back.
+*/
+const domainHeld = heldLookup<ConnectedDomain | null>({ freshMs: 60_000, staleMs: 10 * 60_000, max: 5000 })
 
 /** A page that loads again by itself, for the moment a site cannot be looked up. */
 /** A site whose routing or lookup could not be read: try again in a moment, never a guess. */
@@ -1022,13 +1031,8 @@ const SITE_UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="ut
 
 async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null | "unavailable"> {
   const key = host.split(":")[0].toLowerCase()
-  const held = domainHeld.get(key)
-  if (held && Date.now() - held.at < DOMAIN_HELD_MS) return held.value
-  const fresh = await resolveCustomDomainFresh(host)
-  if (fresh.failed) return held ? held.value : "unavailable"
-  if (domainHeld.size > 5000) domainHeld.clear()
-  domainHeld.set(key, { at: Date.now(), value: fresh.value })
-  return fresh.value
+  const answer = await domainHeld.get(key, () => resolveCustomDomainFresh(host))
+  return answer.failed ? "unavailable" : answer.value
 }
 
 /* "No row" from `.single()` is an answer; anything else that comes back as an error is the database not answering. */
@@ -1448,6 +1452,16 @@ export async function proxy(request: NextRequest) {
     if (onStorelibHost(request.headers.get("host")) && privatePlatformPath(request.nextUrl.pathname) && !res.headers.has("X-Robots-Tag")) {
       res.headers.set("X-Robots-Tag", PRIVATE_ROBOTS_HEADER)
     }
+    /*
+      THE CONTENT SECURITY POLICY IS ENFORCED on Storelib's own pages: /app,
+      /admin and the sign in pages on storelib.com (round 48, lib/security/csp.ts
+      enforcesCsp says where and why only there). Here, after the routing, so
+      it is on whatever answer the routing made, joined to a policy the
+      routing already set rather than replacing it.
+    */
+    if (enforcesCsp(request.headers.get("host"), request.nextUrl.pathname, MAIN_DOMAIN)) {
+      res.headers.set("Content-Security-Policy", withEnforcedCsp(res.headers.get("Content-Security-Policy")))
+    }
   } catch {
     /* an immutable response: it goes without the id */
   }
@@ -1506,7 +1520,8 @@ async function routeRequest(request: NextRequest) {
     logged; the rest get the route's own answer, 204, from here. A browser
     does nothing with the answer either way.
   */
-  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !keepsCspReport(Math.random())) {
+  /* A report from the ENFORCED policy is something a person could not do: every one of them is kept. */
+  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !request.nextUrl.searchParams.has("enforced") && !keepsCspReport(Math.random())) {
     return new NextResponse(null, { status: 204 })
   }
   /*

@@ -425,11 +425,12 @@ async function main() {
     const page = read("app/app/orders/sales/page.tsx")
     const loader = read("lib/orders/load-rows.ts")
     check("the page reads its orders through the shared reader, a page at a time", /await readOrdersListing\(admin, creator\.id, /.test(page) && !/readCreatorOrders/.test(page))
+    /* Changed on purpose (round r48-db): five named columns a page at a time, and every column again when the database refuses one, so a missing one still never empties the list (tests/db-r48.test.ts drives it). */
     check(
-      "products are read with every column, so a missing one can never empty the list",
-      /\.from\("products"\)\s*\.select\("\*"\)/.test(loader) && !/gallery_images"\)/.test(loader),
+      "products are read with the columns the list draws, and with every column when one is missing, so a missing one can never empty the list",
+      /CREATOR_PRODUCT_COLUMNS = "id, title, type, thumbnail_url, gallery_urls"/.test(loader) && /answer = await read\("\*"\)/.test(loader) && !/gallery_images"\)/.test(loader),
     )
-    check("a failed read stops the page instead of drawing no orders", /if \(productsError\) throw/.test(loader) && /if \(ordersError\) throw/.test(loader))
+    check("a failed read stops the page instead of drawing no orders", /if \(answer\.error\) throw new OrdersReadError/.test(loader) && /if \(ordersError\) throw/.test(loader))
     check("every order is read, a thousand at a time", /\.range\(from, from \+ 999\)/.test(loader))
     check("the range the creator chose last time is read on the server", /initialRange=\{jar\.get\(RANGE_COOKIE\)/.test(page))
     check("the orders are read for the signed-in creator, by the order's own creator as Analytics reads them, so a deleted product's sales stay",

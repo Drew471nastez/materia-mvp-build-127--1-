@@ -10,7 +10,7 @@ import "server-only"
  * client can never reach another store's posts. tests/site-blog-data.test.ts
  * greps this file for a `.from("site_blog_…")` without it.
  *
- * DRAFT AND LIVE (SQL part 353). A post that is not published keeps its
+ * DRAFT AND LIVE (SQL part 355). A post that is not published keeps its
  * words in the row's own columns. A published post (live or scheduled) keeps
  * what visitors read in those columns and every save in draft_meta /
  * draft_content; Publish/Update copies the draft over the live columns. A
@@ -40,8 +40,8 @@ type Db = SupabaseClient<any, any, any>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>
 
-export const SQL_PART = 353 as const
-export const SQL_MISSING = "Blog turns on after the database update (SQL part 353)."
+export const SQL_PART = 355 as const
+export const SQL_MISSING = "Blog turns on after the database update (SQL part 355)."
 export const MAX_BULK = 200
 /** How often a plain save also leaves a revision: one per post per ten minutes, so fifty reach back further than one sitting. */
 export const SAVE_REVISION_EVERY_MS = 10 * 60 * 1000
@@ -58,7 +58,7 @@ export class SiteBlogError extends Error {
   }
 }
 
-/** The tables are not there yet: SQL part 353 has not been run. */
+/** The tables are not there yet: SQL part 355 has not been run. */
 export function missingTable(err: unknown): boolean {
   if (!err) return false
   const e = err as { message?: string; code?: string; details?: string }

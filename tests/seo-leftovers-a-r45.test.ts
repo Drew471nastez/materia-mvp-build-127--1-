@@ -103,7 +103,7 @@ async function main() {
     const route = code("app/api/creator-contact/route.ts")
     check("the route is rate limited with the shared helper", /await rateLimit\(\{/.test(route) && /bucket: "creator-contact"/.test(route) && /addressSubject\(request\)/.test(route))
     check("  every answer says noindex and private, no-store", CONTACT_EMAIL_HEADERS["X-Robots-Tag"] === "noindex" && CONTACT_EMAIL_HEADERS["Cache-Control"] === "private, no-store" && (route.match(/headers: CONTACT_EMAIL_HEADERS/g) ?? []).length === 2 && /limited\.headers\.set\(k, v\)/.test(route))
-    check("  it asks the page's own questions (published, banned, bought)", /contactEmailFor\(/.test(route) && /creatorIsBanned/.test(route) && /hasBoughtFromCreator/.test(route) && /loadShopConfig/.test(route))
+    check("  it asks the page's own questions (published, banned, bought)", /contactEmailFor\(/.test(route) && /creatorIsBanned/.test(route) && /hasBoughtFromCreator/.test(route) && /loadTypedContactEmail/.test(route))
     check("  and is not under /api/public, which reads no session", !/app\/api\/public/.test("app/api/creator-contact/route.ts"))
 
     /* Websites: the contact form's own inbox address, which only the builder shows. */

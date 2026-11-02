@@ -3,8 +3,8 @@ import "server-only"
  * What every route under app/api/website-builder/themes/[installId]/blog
  * does first: the install id's shape, the caller (the owner, or a team
  * member with Website, lib/team/website.ts), the per-person rate limit, and
- * how a refusal is answered. A missing table (SQL part 353 not run) is
- * `503 { error, sql: 353 }`, which the Blog screen shows as "Blog turns on
+ * how a refusal is answered. A missing table (SQL part 355 not run) is
+ * `503 { error, sql: 355 }`, which the Blog screen shows as "Blog turns on
  * after the database update".
  */
 import { NextResponse } from "next/server"
