@@ -114,6 +114,22 @@ function nextContextReader(): ContextReader {
   }
 }
 
+/*
+  NEXT PRINTS AN UNCAUGHT ERROR BEFORE IT CALLS onRequestError. Measured on
+  a production build (Next 16.1.7): a route handler that throws printed
+  "⨯ Error: ..." first and onRequestError's error_report line second, two
+  lines for one error. So Next's own print ("⨯" and the Error) is held for
+  NEXT_PRINT_HOLD_MS; onRequestError marks the error (lib/net/logged-once)
+  and the held line is dropped. If onRequestError never comes, the line is
+  written when the hold ends: nothing is lost, only late.
+*/
+export const NEXT_PRINT_HOLD_MS = 1_500
+
+/** Next's own print of an uncaught error: console.error("⨯", err) or ("⨯ ...", err). */
+export function isNextUncaughtPrint(level: Level, args: unknown[]): boolean {
+  return level === "error" && typeof args[0] === "string" && args[0].replace(/\x1b\[[0-9;]*m/g, "").trimStart().startsWith("⨯") && args.some((a) => a instanceof Error && !wasLogged(a))
+}
+
 /** Installs the guard once per process. Node runtime only (instrumentation.ts). */
 export function installConsoleGuard(read: ContextReader = nextContextReader()): void {
   const g = globalThis as unknown as Record<symbol, boolean>
@@ -125,7 +141,21 @@ export function installConsoleGuard(read: ContextReader = nextContextReader()): 
     console[level] = (...args: unknown[]) => {
       try {
         if (raw) return original(...args.map((a) => (typeof a === "string" ? scrubSecrets(a) : a instanceof Error ? scrubSecrets(a.stack ?? a.message) : a)))
-        const line = guardLine(level, args, read())
+        const ctx = read()
+        if (isNextUncaughtPrint(level, args)) {
+          /* Held briefly: onRequestError writes the richer line for this error and marks it, and then this one is dropped. */
+          const timer = setTimeout(() => {
+            try {
+              const line = guardLine(level, args, ctx)
+              if (line !== null) original(line)
+            } catch {
+              /* never fails anything */
+            }
+          }, NEXT_PRINT_HOLD_MS)
+          ;(timer as { unref?: () => void }).unref?.()
+          return
+        }
+        const line = guardLine(level, args, ctx)
         if (line !== null) original(line)
       } catch {
         try {

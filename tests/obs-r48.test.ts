@@ -18,7 +18,7 @@ import { pathToFileURL } from "node:url"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { scrubSecrets } from "@/lib/net/scrub"
-import { guardLine, installConsoleGuard } from "@/lib/net/console-guard"
+import { guardLine, installConsoleGuard, isNextUncaughtPrint, NEXT_PRINT_HOLD_MS } from "@/lib/net/console-guard"
 import { markLogged, wasLogged } from "@/lib/net/logged-once"
 import { heldByEarlierRun, recordCronRun, reportError } from "@/lib/observability/report"
 import { stripComments } from "./_source"
@@ -113,6 +113,19 @@ async function main() {
     installConsoleGuard(() => ({ route: "/[sellername]", rid: "req-abcdefgh" }))
     console.error("[shop] read failed", new Error(`with ${STRIPE}`))
     console.warn("slow")
+    /* Next's own print of an uncaught error comes BEFORE onRequestError (measured on a production build): held, then dropped once marked. */
+    const reported = new Error("thrown in a route")
+    const unreported = new Error("printed with nobody reporting it")
+    check("Next's print is told apart, coloured or not", isNextUncaughtPrint("error", ["\x1b[31m\x1b[1m⨯\x1b[22m\x1b[39m", reported]) && !isNextUncaughtPrint("error", ["[x] failed", reported]) && !isNextUncaughtPrint("warn", ["⨯", reported]))
+    const before2 = seen.length
+    console.error("⨯", reported)
+    console.error("⨯", unreported)
+    markLogged(reported)
+    check("  held, not written at once", seen.length === before2, seen.slice(before2))
+    await new Promise((r) => setTimeout(r, NEXT_PRINT_HOLD_MS + 200))
+    const held = seen.slice(before2)
+    check("  after the hold: the reported one is dropped, the other is written once", held.length === 1 && held[0].includes("printed with nobody reporting it"), held)
+    seen.length = 2
     const installedTwice = console.error
     installConsoleGuard(() => null)
     check("installed, console.error writes one scrubbed JSON line with the route", seen.length === 2 && seen[0].startsWith("E {") && json(seen[0].slice(2))?.route === "/[sellername]" && !seen[0].includes("sk_live"), seen)
