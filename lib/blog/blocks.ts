@@ -26,6 +26,9 @@ export type BlockType =
   | "embed"
   | "video"
   | "snippet"
+  /* Creator website blogs only (lib/site-blog). storelib.com's own blog never stores these: its sanitizer keeps an explicit list. */
+  | "gallery"
+  | "button"
 
 export interface Block {
   id: string
@@ -73,6 +76,10 @@ export interface Block {
   provider?: "youtube" | "vimeo" | "loom" | "x" | "spotify" | "figma" | "codepen"
   /** snippet: the id of a reusable block in blog_snippets. */
   snippetId?: string
+  /** gallery (creator blogs): up to 24 pictures. */
+  images?: { url: string; alt: string; caption?: string }[]
+  /** button (creator blogs): how the button looks; label and url carry its words and address. */
+  style?: "primary" | "secondary"
 }
 
 export const LEGACY_BLOCK_TYPES: readonly BlockType[] = ["p", "h2", "h3", "hr", "img", "youtube", "table", "quote", "ul", "ol", "code"]
