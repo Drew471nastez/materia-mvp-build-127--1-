@@ -39,7 +39,7 @@ import { storeNameFor } from "../seo"
 import type { SettingsContext } from "../types"
 import { BlogApiError, copyImage, getBlog, getPost, postAction, previewPost, savePostDraft, type BlogOverview, type PostAction } from "./api"
 import { editorLabel } from "./editor-words"
-import { statusLabel, statusTone } from "./model"
+import { slugFollowsTitle, statusLabel, statusTone } from "./model"
 import { PostPanel } from "./post-panel"
 import { PublishButton } from "./publish-popover"
 import { RevisionsDialog } from "./revisions"
@@ -149,12 +149,6 @@ function saveText(s: SaveState): string {
   }
 }
 
-/** Whether the slug should keep following the title: a post never published whose slug is still the title's, or a placeholder. */
-export function slugFollowsTitle(post: Pick<AdminPost, "firstPublishedAt">, meta: Pick<SitePostMeta, "slug" | "title">): boolean {
-  if (post.firstPublishedAt) return false
-  return !meta.slug || meta.slug === postSlugFrom(meta.title) || /^(post|untitled|new-post)(-\d+)?$/.test(meta.slug)
-}
-
 type Done = { action: PostAction; post: AdminPost }
 
 function Writer({ ctx, initial, overview, onClose }: { ctx: SettingsContext; initial: AdminPost; overview: BlogOverview; onClose: () => void }) {
@@ -177,6 +171,8 @@ function Writer({ ctx, initial, overview, onClose }: { ctx: SettingsContext; ini
   const blocksRef = React.useRef(blocks)
   const versionRef = React.useRef(initial.version)
   const queueRef = React.useRef<SaveQueue | null>(null)
+  /** The address the last save sent: when the server had to make it unique (my-post-2), the editor takes its answer, unless it was typed over since. */
+  const sentSlug = React.useRef(initial.meta.slug)
   const slugFollows = React.useRef(slugFollowsTitle(initial, initial.meta))
   const titleRef = React.useRef<HTMLTextAreaElement>(null)
   const siteName = storeNameFor(ctx)
@@ -185,11 +181,18 @@ function Writer({ ctx, initial, overview, onClose }: { ctx: SettingsContext; ini
   React.useEffect(() => {
     const q = createSaveQueue({
       version: versionRef.current,
-      save: (version) => savePostDraft(ctx.installId, initial.id, { meta: metaRef.current, blocks: blocksRef.current, version }),
+      save: (version) => {
+        sentSlug.current = metaRef.current.slug
+        return savePostDraft(ctx.installId, initial.id, { meta: metaRef.current, blocks: blocksRef.current, version })
+      },
       onState: setSave,
       onSaved: (p) => {
         versionRef.current = p.version
         setPost(p)
+        if (p.meta.slug && p.meta.slug !== metaRef.current.slug && metaRef.current.slug === sentSlug.current) {
+          metaRef.current = { ...metaRef.current, slug: p.meta.slug }
+          setMetaState(metaRef.current)
+        }
       },
     })
     queueRef.current = q

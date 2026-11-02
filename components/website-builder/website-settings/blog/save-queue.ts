@@ -120,11 +120,12 @@ export function createSaveQueue(o: SaveQueueOptions): SaveQueue {
     }
     inFlight = false
     if (disposed) return false
-    if (answer.ok) {
+    if (answer.ok === true) {
+      const landed = (answer as Extract<SaveAnswer, { ok: true }>).post
       retries = 0
-      version = answer.post.version
+      version = landed.version
       saved = Math.max(saved, seq)
-      o.onSaved?.(answer.post)
+      o.onSaved?.(landed)
       if (edits === saved) {
         set({ kind: "saved", at: now() })
         return true
@@ -136,19 +137,20 @@ export function createSaveQueue(o: SaveQueueOptions): SaveQueue {
     if ("conflict" in answer) {
       conflict = true
       clearTimer()
-      set({ kind: "conflict", current: answer.conflict })
+      set({ kind: "conflict", current: (answer as Extract<SaveAnswer, { conflict: AdminPost | null }>).conflict })
       return false
     }
-    if (answer.retry) {
+    const refused = answer as Extract<SaveAnswer, { error: string }>
+    if (refused.retry) {
       retries = Math.min(retries + 1, 5)
-      set({ kind: "error", message: answer.error, retrying: true, sql: false })
+      set({ kind: "error", message: refused.error, retrying: true, sql: false })
       retryTimer = timers.set(() => {
         retryTimer = null
         void flush()
       }, Math.min(RETRY_CAP_MS, 1000 * 2 ** (retries - 1)))
       return false
     }
-    set({ kind: "error", message: answer.error, retrying: false, sql: answer.sql })
+    set({ kind: "error", message: refused.error, retrying: false, sql: refused.sql })
     return false
   }
 

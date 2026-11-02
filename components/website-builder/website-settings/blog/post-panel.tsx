@@ -19,13 +19,12 @@ import type { AdminPost, SitePostMeta } from "@/lib/site-blog/types"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { Counter, DarkScope, SearchResultPreview, Toggle, inputClass, textAreaClass } from "../parts"
 import type { BlogOverview } from "./api"
-import { cleanSlugInput, instantFromInputs, zonedInputs } from "./model"
+import { TAGS_MAX, addTags, cleanSlugInput, instantFromInputs, zonedInputs } from "./model"
 import { SelectField } from "./ui"
 
 export const SEO_TITLE_FITS = 60
 export const SEO_DESCRIPTION_FITS = 160
 export const EXCERPT_FITS = 300
-const TAGS_MAX = 20
 
 const field = cn(inputClass, "md:w-full")
 
@@ -49,20 +48,6 @@ function Field({ label, htmlFor, aside, hint, children }: { label: string; htmlF
       {hint && <p className="mt-1.5 text-[12.5px] leading-snug text-white/50">{hint}</p>}
     </div>
   )
-}
-
-/** A tag as the post keeps it: its words, single spaced, at most 40 characters. */
-export function tidyTag(raw: string): string {
-  return raw.replace(/[,#]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40)
-}
-
-export function addTags(tags: readonly string[], raw: string): string[] {
-  const out = [...tags]
-  for (const part of raw.split(",")) {
-    const t = tidyTag(part)
-    if (t && !out.some((x) => x.toLowerCase() === t.toLowerCase()) && out.length < TAGS_MAX) out.push(t)
-  }
-  return out
 }
 
 function TagsField({ id, value, suggestions, onChange }: { id: string; value: string[]; suggestions: string[]; onChange: (tags: string[]) => void }) {

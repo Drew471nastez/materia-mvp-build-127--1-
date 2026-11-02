@@ -4,7 +4,8 @@
  * offers, the date a row shows, and selecting across a page. Kept apart so
  * tests/site-blog-ui.test.ts can hold each rule.
  */
-import type { AdminPostSummary, SitePostStatus } from "@/lib/site-blog/types"
+import type { AdminPost, AdminPostSummary, SitePostMeta, SitePostStatus } from "@/lib/site-blog/types"
+import { postSlugFrom } from "@/lib/site-blog/slug"
 import { tt } from "@/lib/i18n/text"
 import { formatDate, formatDateTime, instantAt, wallClockIn } from "@/lib/i18n/format"
 import type { BulkAction, PostCounts, PostStatusFilter } from "./api"
@@ -156,4 +157,29 @@ export function instantFromInputs(date: string, time: string, zone: string): Dat
   if (m < 0 || m > 11 || day < 1 || day > 31 || h > 23 || min > 59) return null
   const at = instantAt(y, m, day, h, min, zone)
   return Number.isFinite(at.getTime()) ? at : null
+}
+
+/* ── A post's slug and tags ────────────────────────────────────────────── */
+
+/** Whether the slug should keep following the title: a post never published whose slug is still the title's, or a placeholder. */
+export function slugFollowsTitle(post: Pick<AdminPost, "firstPublishedAt">, meta: Pick<SitePostMeta, "slug" | "title">): boolean {
+  if (post.firstPublishedAt) return false
+  return !meta.slug || meta.slug === postSlugFrom(meta.title) || /^(post|untitled|new-post)(-\d+)?$/.test(meta.slug)
+}
+
+export const TAGS_MAX = 20
+
+/** A tag as the post keeps it: its words, single spaced, at most 40 characters. */
+export function tidyTag(raw: string): string {
+  return raw.replace(/[,#]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40)
+}
+
+/** Tags typed (one, or several separated by commas) added to a post's, once each whatever their case, up to 20. */
+export function addTags(tags: readonly string[], raw: string): string[] {
+  const out = [...tags]
+  for (const part of raw.split(",")) {
+    const t = tidyTag(part)
+    if (t && !out.some((x) => x.toLowerCase() === t.toLowerCase()) && out.length < TAGS_MAX) out.push(t)
+  }
+  return out
 }

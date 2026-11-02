@@ -1126,6 +1126,8 @@ const SUITES = [
   "tests/seo-leftovers-a-r45.test.ts",
   /* Round 46: Core Web Vitals of the SEO round's pages measured live (scripts/check-live-vitals.mjs): a list's first card eager when no large post is above it, covers with priority and sizes, no YouTube frame or script before a press, the phone's search strip drawn once the header is measured (a 63px shift), no preconnect to an unused host. */
   "tests/perf-r46.test.ts",
+  /* Creator blogs, package 2: one Blog item in Website Settings directly below Pages and no link anywhere else, the post list's query, selection, bulk actions and row menu, autosave one request at a time with its version and a 409 that stops and asks (blog/save-queue.ts on its own clock), scheduling in the app's time zone, the block editor's optional props only (the admin's menu word for word), every editor word translated, before SQL part 353. */
+  "tests/site-blog-ui.test.ts",
 ]
 
 /**
