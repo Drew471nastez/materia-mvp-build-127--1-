@@ -4330,7 +4330,7 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('355', '3
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['application/json'])
 ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('356', '356_public_snapshots.sql', 'dd4217a82405b79eafcbdaf98bb0f2033d02c9f80e95e415e9e2f762c8c30216') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('356', '356_public_snapshots.sql', '7ac641a31e8cb0e76929c8fbee2317f22c5fc3c969abd8f8c46cf5fbf1bc3dbb') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

@@ -75,9 +75,16 @@ import { previousPath } from "@/lib/navigation/in-app-history"
 import { cameFromElsewhere } from "@/lib/profile/back"
 import { cn } from "@/lib/utils"
 
-/** Whether this page was reached from another page of ours. */
-export function useCameFromSomewhere(initiallyShown: boolean): boolean {
+/**
+ * Whether this page was reached from another page of ours. `ownPaths` are the
+ * other addresses this same page answers to (a creator page's /<handle>,
+ * /u/<handle>, /@<handle>): arriving from one of them is not "from
+ * elsewhere". Round 49: the creator page no longer reads the Referer on the
+ * server (one HTML for everybody), so its every-address rule lives here.
+ */
+export function useCameFromSomewhere(initiallyShown: boolean, ownPaths?: readonly string[]): boolean {
   const [shown, setShown] = useState(initiallyShown)
+  const ownKey = (ownPaths ?? []).join("\n")
   useEffect(() => {
     if (initiallyShown) return
     let from = previousPath()
@@ -89,8 +96,8 @@ export function useCameFromSomewhere(initiallyShown: boolean): boolean {
         from = null
       }
     }
-    if (cameFromElsewhere(from, window.location.pathname)) setShown(true)
-  }, [initiallyShown])
+    if (cameFromElsewhere(from, [window.location.pathname, ...(ownKey ? ownKey.split("\n") : [])])) setShown(true)
+  }, [initiallyShown, ownKey])
   return shown
 }
 
@@ -146,8 +153,8 @@ export function BackChevron({ fallback = "/explore", className }: { fallback?: s
 }
 
 /** For a bar that already exists (the creator's newsletter bar): the chevron, or nothing. */
-export function TopBarBack({ initiallyShown, fallback }: { initiallyShown: boolean; fallback?: string }) {
-  const shown = useCameFromSomewhere(initiallyShown)
+export function TopBarBack({ initiallyShown, fallback, ownPaths }: { initiallyShown: boolean; fallback?: string; ownPaths?: readonly string[] }) {
+  const shown = useCameFromSomewhere(initiallyShown, ownPaths)
   if (!shown) return null
   return (
     <span data-profile-back="" className="inline-flex">
@@ -169,6 +176,7 @@ export function ProfileTopBar({
   fallback,
   width = "max-w-[960px]",
   always = false,
+  ownPaths,
 }: {
   initiallyShown: boolean
   name: string
@@ -185,8 +193,10 @@ export function ProfileTopBar({
    * the name, with the chevron in front only when they came from somewhere.
    */
   always?: boolean
+  /** The other addresses this page answers to (useCameFromSomewhere). */
+  ownPaths?: readonly string[]
 }) {
-  const shown = useCameFromSomewhere(initiallyShown)
+  const shown = useCameFromSomewhere(initiallyShown, ownPaths)
   if (!shown && !always) return null
   return (
     <div

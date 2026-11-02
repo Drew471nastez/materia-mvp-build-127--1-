@@ -62,7 +62,7 @@ console.log("\nThe creator page draws it")
   check("  both branches (configured page and defaults) draw the bar when it says so", (page.match(/\{newsletterBar && \(/g) ?? []).length === 2)
   check("  and the slim bar otherwise, always, not only when there is a way back", (page.match(/\{!embedded && !newsletterBar \? \(\s*<ProfileTopBar\s+always/g) ?? []).length === 2)
   check("only the owner gets the bar with the pencil (LiveSubscribeBar), a visitor the plain one", /<OwnerOnly\s+fallback=\{\s*<SubscribeBar\s+settings=/.test(page) && /\}\s*>\s*<LiveSubscribeBar/.test(page)) /* Changed on purpose (round 49): the owner's bar replaces the plain one after load (OwnerOnly). */
-  check("  the way back is the bar's first thing when there is a page of ours behind", (page.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3)
+  check("  the way back is the bar's first thing when there is a page of ours behind", (page.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} ownPaths=\{ownPaths\} \/> : undefined\}/g) ?? []).length === 3) // Changed on purpose (round 49): with the page's other addresses (ownPaths), since the Referer is now read in the browser
   check("the bar's colours are the scheme's (chrome.bar), as before it went missing", /buildSubscribeBarSettings\(headerSettings, chrome\.bar\)/.test(page))
   check("the bar is above the cover: before the header renderer in the configured branch", page.indexOf("{newsletterBar && (") < page.indexOf("<ShopHeaderRenderer"))
 }

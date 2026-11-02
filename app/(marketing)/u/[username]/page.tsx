@@ -607,6 +607,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     and the HTML no longer depends on where anybody came from.
   */
   const backShown = !!backTarget || from === "community" || from === "explore"
+  /* Every address this page answers to, from the handle only (the same for every visitor): coming from one of them is not "from elsewhere" (useCameFromSomewhere). A creator's own website's "/" is the browser's own pathname there. */
+  const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
   /*
     WHICH TOP BAR (lib/storefront/subscribe-bar-visibility.ts). Every creator
     page has one. Opened on its own, and in the editor's frame, it is the
@@ -1330,14 +1332,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             <SubscribeBar
               settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
               creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
             />
             }
           >
             <LiveSubscribeBar
               settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
               creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
               editor={{
                 values: {
                   text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
@@ -1378,6 +1380,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <ProfileTopBar
             always
             initiallyShown={backShown}
+            ownPaths={ownPaths}
             name={profile.display_name || username}
             avatarUrl={profile.avatar_url ?? null}
             colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }}
@@ -1691,7 +1694,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <SubscribeBar
           settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }}
           creatorId={creator.id}
-          leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+          leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
         />
       )}
 
@@ -1712,7 +1715,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       */}
       <ProfileArrival />
       {!embedded && !newsletterBar ? (
-        <ProfileTopBar always initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
+        <ProfileTopBar always initiallyShown={backShown} ownPaths={ownPaths} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
       ) : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}

@@ -214,6 +214,20 @@ async function main() {
       return 200
     })
     check("  no second probe while the last word is fresh", probes === 1 && PROBE_EVERY_MS >= 10_000)
+    /* Round 49 integration: a server that has just started asks nothing of its own; its first requests' routing reads (noteDb) say how the database is (tests/live-speed-imported: no 4th foreground read on a cold request). */
+    resetDbHealth({ justStarted: true })
+    let cold = 0
+    probeIfStale(async () => {
+      cold++
+      return 200
+    })
+    check("  a server that has just started does not probe beside its own first reads", cold === 0 && dbState() === "unknown")
+    probeIfStale(async () => {
+      cold++
+      return 200
+    }, Date.now() + PROBE_EVERY_MS + 1)
+    await new Promise((r) => setTimeout(r, 10))
+    check("  but one that has made no read for PROBE_EVERY_MS since it started does", cold === 1 && dbState() === "up")
   }
 
   console.log("\n6. Where they are used")

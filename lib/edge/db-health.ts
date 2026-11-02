@@ -34,6 +34,17 @@ export const PROBE_MS = 2_500
 let lastOk = 0
 let lastFail = 0
 let probing: Promise<void> | null = null
+/*
+  When this server started counting. A server that has just started has had
+  no time to make reads of its own: its first requests' routing reads (every
+  one reported through noteDb) say how the database is, so a probe beside
+  them would only be one more round trip on every cold request (measured:
+  the 4th foreground read on a cold imported-theme page,
+  tests/live-speed-imported). The probe is for a server that has made no
+  read FOR A WHILE because every answer is held, so the while counts from
+  here too.
+*/
+let bornAt = Date.now()
 
 /** Say what a database call came back with. */
 export function noteDb(ok: boolean, now = Date.now()): void {
@@ -52,9 +63,9 @@ export function dbState(now = Date.now()): DbState {
   return "unknown"
 }
 
-/** Whether the last word is older than PROBE_EVERY_MS (or there is none). */
+/** Whether the last word is older than PROBE_EVERY_MS (or there is none and this server has been up that long). */
 export function stale(now = Date.now()): boolean {
-  return now - Math.max(lastOk, lastFail) > PROBE_EVERY_MS
+  return now - Math.max(lastOk, lastFail, bornAt) > PROBE_EVERY_MS
 }
 
 /**
@@ -84,8 +95,10 @@ export function supabaseProbe(url: string | undefined, key: string | undefined, 
 }
 
 /** For the tests. */
-export function resetDbHealth(): void {
+export function resetDbHealth(opts: { justStarted?: boolean } = {}): void {
   lastOk = 0
   lastFail = 0
   probing = null
+  /* By default a server that has been up for a while and has no word (the probe's own case); justStarted: a cold one. */
+  bornAt = opts.justStarted ? Date.now() : 0
 }

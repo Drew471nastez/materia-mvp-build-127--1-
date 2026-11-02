@@ -279,9 +279,24 @@ async function main() {
   check("the server decides the door from a CONFIRMED account for the order's address", /verifiedAccountForEmail\(admin, data\?\.buyer_email\)/.test(receiptPage))
   check("  and on a creator's website the doors go to Storelib, where the session is", /\(await isPlatformDomain\(\)\) \? "" : getCanonicalSiteUrl\(\)/.test(receiptPage))
   const product = readCode("app/(marketing)/p/[slug]/page.tsx")
-  check("the product page reads the guest grant on the server, for this product", /heldGrants\(createAdminClient\(\), guestAccessCookieFrom\(await cookies\(\)\), \{ productId: product\.id \}\)/.test(product))
-  check("  only when the account does not already own it", /if \(!hasPurchased && product\.type !== "physical"/.test(product))
-  check("  and shows Open receipt and Save it to your account in place of View in Library", (product.match(/guestOwned \? \(\s*<GuestOwnedActions/g) ?? []).length === 2)
+  /*
+    Changed on purpose (round 49, cdnpages): the product page is one HTML for
+    everybody (a CDN holds it, tests/cdnpages-r49), so it no longer reads the
+    sl_owned cookie on the server. The same rule now lives in
+    /api/purchases/guest-owned (private, no-store), asked by the buy box after
+    load, and OwnedActions draws Open receipt / Save it to your account there.
+  */
+  const guestRoute = readCode("app/api/purchases/guest-owned/route.ts")
+  const purchaseHook = readCode("components/checkout/use-purchase-status.tsx")
+  const ownedActions = readCode("components/checkout/owned-actions.tsx")
+  check("the guest grant is read from the signed cookie, for this product, by a private route (/api/purchases/guest-owned)",
+    /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(guestRoute) && /"Cache-Control": "private, no-store"/.test(guestRoute) &&
+    !/cookies\(\)|guestAccessCookieFrom|heldGrants/.test(product) && /fetch\(`\/api\/purchases\/guest-owned\?productId=\$\{encodeURIComponent\(productId\)\}`/.test(purchaseHook))
+  check("  only when the account does not already own it (and only once the check says owned, for a digital buy box)",
+    /\.from\("entitlements"\)\.select\("id"\)\.eq\("buyer_id", user\.id\)\.eq\("product_id", productId\)/.test(guestRoute) && /return NextResponse\.json\(\{ guest: null \}, \{ headers: PRIVATE \}\)\s*\}\s*return NextResponse\.json\(\{ guest: \{ orderId/.test(guestRoute) &&
+    /if \(data\.hasPurchased && mayOwnAsGuest\(\)\) \{/.test(purchaseHook))
+  check("  and shows Open receipt and Save it to your account in place of View in Library",
+    (product.match(/<OwnedActions/g) ?? []).length === 2 && /if \(guest\) \{\s*return \(\s*<GuestOwnedActions/.test(ownedActions) && /return <ViewInLibraryButton/.test(ownedActions))
   const guest = readSource("components/checkout/guest-owned-actions.tsx")
   check("  Open receipt goes through the grant, never a token in the page", /\/api\/receipt\/open\?order=\$\{encodeURIComponent\(orderId\)\}/.test(guest) && !/receipt_token|receiptToken/.test(readCode("components/checkout/guest-owned-actions.tsx")))
   check("  Save it to your account comes back to the product", /\/signup\?next=\$\{encodeURIComponent\(usePathname\(\) \|\| "\/"\)\}/.test(guest))
@@ -298,7 +313,17 @@ async function main() {
     /if \(session\?\.user\?\.id\) rememberSignedIn\(session\.user\.id\)/.test(cc) && /writeAuthSnapshot\(\{\s*signedIn: true,\s*userId,/.test(cc) && /localStorage\.getItem\('_sl_auth_v1'\)/.test(readSource("components/nav/buyer-tab-bar.tsx")))
   check("a sign in or out without a page load refreshes the page and the router's five minute copies",
     /if \(\(event === "SIGNED_IN" \|\| event === "SIGNED_OUT"\) && nowId !== was\) router\.refresh\(\)/.test(header) && /dynamic: 300/.test(readSource("next.config.mjs")))
-  check("the receipt and the product page hold the server's answer", /<ViewerSync serverSignedIn=\{viewer\.signedIn\} \/>/.test(receiptView) && (product.match(/<ViewerSync serverSignedIn=\{!!user\} \/>/g) ?? []).length === 2)
+  /*
+    Changed on purpose (round 49, cdnpages): the product page draws no
+    signed-in answer on the server any more (one HTML for everybody), so it
+    has nothing for ViewerSync to hold; its owned state is the browser's own
+    question (/api/purchases/verify, asked whenever a session, a guest
+    purchase or a stored receipt is in this browser). The receipt still
+    holds the server's answer.
+  */
+  check("the receipt holds the server's answer; the product page asks the browser's own session after load",
+    /<ViewerSync serverSignedIn=\{viewer\.signedIn\} \/>/.test(receiptView) && !/ViewerSync|currentUserForRequest/.test(product) &&
+    /if \(mayBeSignedIn\(\) \|\| mayOwnAsGuest\(\)\) return true/.test(purchaseHook) && /fetch\("\/api\/purchases\/verify"/.test(purchaseHook))
   const base = { native: false, lastMove: null, path: "/receipt/x" }
   check("  same answer: nothing", viewerSyncMove({ ...base, serverSignedIn: true, read: { signedIn: true, unsure: false } }).kind === "none")
   check("  the browser could not tell: nothing (a blip is not a sign out)", viewerSyncMove({ ...base, serverSignedIn: true, read: { signedIn: false, unsure: true } }).kind === "none")

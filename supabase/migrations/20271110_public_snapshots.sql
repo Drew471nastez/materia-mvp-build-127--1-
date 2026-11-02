@@ -2,3 +2,4 @@
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['application/json'])
 ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
+notify pgrst, 'reload schema';

@@ -515,8 +515,26 @@ async function creatorPage() {
   const page = read("app/(marketing)/u/[username]/page.tsx")
   check("  and the page passes it none", !/suggest=\{/.test(page) && /<CreatorLanguage code=\{pageLanguage\.code\}/.test(page))
   const cpl = read("lib/markets/creator-page-language.ts")
-  check("with the setting on, the browser's language is chosen silently (exact, else near), never the country", /visitorLanguageFor\(\{ acceptLanguage: h\.get\("accept-language"\), country: null, languages: all \}\)/.test(cpl) && /code = pick\.exact \?\? pick\.closest/.test(cpl) && !/x-vercel-ip-country/.test(cpl))
-  check("  still only with the setting on, never for a crawler or after a choice", /!code && !crawler && !jar\.get\("sl_lang"\)\?\.value && \(await visitorLanguageOn\(creatorId\)\)/.test(cpl))
+  /*
+    Changed on purpose (round 49, cdnpages): the creator page is one HTML for
+    everybody (a CDN holds it), so it no longer reads Accept-Language or
+    sl_lang itself. A language is an address (?lang=), and the proxy sends the
+    visitor there with a 307 nobody stores, by the same rule
+    (lib/markets/creator-page-language-step), asked here of the rule itself.
+  */
+  const { creatorPageLanguageStep } = await import("@/lib/markets/creator-page-language-step")
+  const step = read("lib/markets/creator-page-language-step.ts")
+  const proxySrc = read("proxy.ts")
+  const visit = { method: "GET", dest: "document", accept: "text/html", userAgent: "Mozilla/5.0", asked: false, chosen: null, visitorLanguage: true, defaultLanguage: "en", others: ["pt-BR", "fr"], acceptLanguage: "fr-FR,fr;q=0.9" }
+  check("with the setting on, the browser's language is chosen silently (exact, else near), never the country",
+    /visitorLanguageFor\(\{ acceptLanguage: r\.acceptLanguage, country: null, languages: all \}\)/.test(step) && /code = pick\.exact \?\? pick\.closest/.test(step) && !/x-vercel-ip-country/.test(step) &&
+    creatorPageLanguageStep(visit) === "fr" && creatorPageLanguageStep({ ...visit, acceptLanguage: "pt-PT" }) === "pt-BR" && creatorPageLanguageStep({ ...visit, acceptLanguage: "ja-JP" }) === null &&
+    /acceptLanguage: request\.headers\.get\("accept-language"\)/.test(proxySrc) && /to\.searchParams\.set\("lang", language\.toLowerCase\(\)\)/.test(proxySrc) && /NextResponse\.redirect\(to, 307\)/.test(proxySrc))
+  check("  still only with the setting on, never for a crawler or after a choice",
+    creatorPageLanguageStep({ ...visit, visitorLanguage: false }) === null && creatorPageLanguageStep({ ...visit, userAgent: "Googlebot/2.1" }) === null &&
+    creatorPageLanguageStep({ ...visit, chosen: "en" }) === null && creatorPageLanguageStep({ ...visit, chosen: "pt-BR" }) === "pt-BR" &&
+    /chosen: request\.cookies\.get\("sl_lang"\)\?\.value \|\| null/.test(proxySrc) && /visitorLanguage: !!loc\.visitorLanguage/.test(proxySrc) &&
+    !/cookies\(\)|headers\(\)/.test(cpl))
   const langs = ["en", "pt-BR", "fr"]
   const browserOnly = (a: string) => { const p = visitorLanguageFor({ acceptLanguage: a, country: null, languages: langs }); return p.exact ?? p.closest }
   check("  a French browser gets French, a Portuguese one Brazilian Portuguese, a Japanese one the store's own", browserOnly("fr-FR,fr;q=0.9") === "fr" && browserOnly("pt-PT") === "pt-BR" && browserOnly("ja-JP") === null)
