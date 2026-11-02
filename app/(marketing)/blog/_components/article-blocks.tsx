@@ -45,8 +45,8 @@ export function sanitizeInline(html: string | null | undefined): string {
 export const INLINE =
   "[&_a]:font-medium [&_a]:text-[#1a1a2e] [&_a]:underline [&_a]:decoration-[#1a1a2e]/40 [&_a]:decoration-1 [&_a]:underline-offset-[3px] [&_a:hover]:decoration-[#1a1a2e] [&_strong]:font-semibold [&_strong]:text-[#1a1a2e] [&_b]:font-semibold [&_b]:text-[#1a1a2e] [&_code]:rounded-[5px] [&_code]:bg-[#f1f2f4] [&_code]:px-[5px] [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[0.88em] [&_code]:text-[#1a1a2e]"
 
-/* Round 47 ("the text is too small and cramped"): 17px on a phone, 18px from 640px, 1.7 line height, a darker grey than before. */
-const BODY = `text-[17px] leading-[1.7] text-[#374151] sm:text-[18px] ${INLINE}`
+/* Round 47 ("the text is too small and cramped"): 17px on a phone, 18px from 640px, 1.7 line height, a darker grey than before. Round 49: 19px from 1200px, where the reading column is 760px wide, so a line stays near 80 characters. Both steps written min-[...] (640px is sm), because Tailwind sorts an arbitrary min-[1200px] before sm: and sm would win. */
+const BODY = `text-[17px] leading-[1.7] text-[#374151] min-[640px]:text-[18px] min-[1200px]:text-[19px] ${INLINE}`
 
 const Html = ({ as: Tag, html, className, id }: { as: "p" | "h2" | "h3" | "li" | "div"; html: string | undefined; className?: string; id?: string }) => (
   <Tag id={id} className={className} dangerouslySetInnerHTML={{ __html: sanitizeInline(html) }} />

@@ -298,32 +298,30 @@ export type CtaVariant = "digital" | "physical" | "community"
  * each box names its own kind of selling first, then the rest of Storelib.
  */
 export const BLOG_CTA: Record<CtaVariant, { title: string; body: string }> = {
+  /* Round 49, the owner: shorter, and never only about digital products. Each one names the whole of Storelib in one line. */
   digital: {
-    title: "Sell your digital products on Storelib",
-    body: "Upload a file, set a price and share one link. Courses, a community and your own website live in the same place. Free to start, no monthly fee.",
+    title: "Start selling on Storelib",
+    body: "Products, courses, communities and your website, all in one place.",
   },
   physical: {
-    title: "Sell physical products on Storelib",
-    body: "Add photos, stock and shipping rates, then take orders from your own store. Sell digital products and courses beside them. Free to start.",
+    title: "Start selling on Storelib",
+    body: "Physical and digital products, courses and your website, all in one place.",
   },
   community: {
     title: "Start your community on Storelib",
-    body: "Posts, members and paid access on a page of your own, next to your products and courses. Free to start.",
+    body: "Members, paid access, products and courses, all in one place.",
   },
 }
 
 /**
- * THE CARD UNDER "ON THIS PAGE": everything Storelib does, in one line, the
- * same on every post. Physical products only while physical commerce is
- * switched on (lib/platform/physical-commerce), so it never offers what the
- * platform does not sell.
+ * THE CARD UNDER "ON THIS PAGE": one line and a short subline, the same on
+ * every post (round 49, the owner: "too wordy"). It names no kind of
+ * product, so it never offers what the platform does not sell.
  */
-export function blogRailCta(physicalEnabled: boolean): { title: string; body: string } {
+export function blogRailCta(): { title: string; body: string } {
   return {
-    title: "Sell anything from one place.",
-    body: physicalEnabled
-      ? "Digital products, physical products, courses, communities, a link in bio and your own website. Free to start."
-      : "Digital products, courses, communities, a link in bio and your own website. Free to start.",
+    title: "Sell anything from one place",
+    body: "Products, courses, communities",
   }
 }
 

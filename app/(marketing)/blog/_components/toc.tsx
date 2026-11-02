@@ -9,7 +9,10 @@ import type { TocItem } from "@/lib/blog/article"
  * Beside the article from 1200px ("side"); narrower, a closed <details>
  * above the body ("inline"), one tap to open, each link a 44px target.
  * Round 47: 14px in the rail (it was 13.5px for the h3), the one being
- * read in ink, semibold, with Storelib's violet rule.
+ * read in ink, semibold, with Storelib's violet rule. Round 49: drawn
+ * heavier with a hairline stroke instead of a heavier weight, which is
+ * wider and rewrapped a heading in the 260px rail as the reader scrolled,
+ * moving everything under it (measured as layout shift).
  */
 function List({ items }: { items: TocItem[] }) {
   return (
@@ -18,7 +21,7 @@ function List({ items }: { items: TocItem[] }) {
         <li key={t.id}>
           <a
             href={`#${t.id}`}
-            className={`relative block py-2 pr-2 text-[14px] leading-[1.45] text-[#4b5563] transition-colors before:absolute before:inset-y-[6px] before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-semibold aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#8b5cf6] max-[1199px]:flex max-[1199px]:min-h-[44px] max-[1199px]:items-center max-[1199px]:text-[16px] ${t.level === 3 ? "pl-8" : "pl-4"}`}
+            className={`relative block py-2 pr-2 text-[14px] leading-[1.45] text-[#4b5563] transition-colors before:absolute before:inset-y-[6px] before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:text-[#1a1a2e] aria-[current=true]:[-webkit-text-stroke:0.4px_currentColor] aria-[current=true]:before:bg-[#8b5cf6] max-[1199px]:flex max-[1199px]:min-h-[44px] max-[1199px]:items-center max-[1199px]:text-[16px] ${t.level === 3 ? "pl-8" : "pl-4"}`}
           >
             {t.text}
           </a>

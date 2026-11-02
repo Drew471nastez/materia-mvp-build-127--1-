@@ -98,7 +98,8 @@ function main() {
     check("  the cards below it carry the three column sizes", /sizes="\(min-width: 1024px\) 380px, \(min-width: 640px\) 50vw, 100vw"/.test(imgs(own)[1] ?? ""))
     const view = code("app/(marketing)/blog/_components/article-view.tsx")
     /* Changed on purpose (round 47): the cover is the reading column's width (720px), in the 1200x630 shape share cards are made in, so a cover with words on it is not cropped. */
-    check("an article's cover has priority and its sizes", /<BlogImage src=\{cover\} alt=\{[^}]+\} fill priority sizes="\(min-width: 768px\) 720px, calc\(100vw - 32px\)"/.test(view))
+    /* Changed on purpose (round 49): the reading column is 760px from 1200px, so the cover asks for 760px there. */
+    check("an article's cover has priority and its sizes", /<BlogImage src=\{cover\} alt=\{[^}]+\} fill priority sizes="\(min-width: 1200px\) 760px, \(min-width: 768px\) 720px, calc\(100vw - 32px\)"/.test(view))
     check("  in a box of a fixed shape, so it shifts nothing", /relative mt-8 aspect-\[40\/21\] overflow-hidden/.test(view))
     check("a hot-linked picture with priority is eager and fetchpriority high; without, lazy", /loading=\{priority \? "eager" : "lazy"\}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")) && /priority \? \{ fetchPriority: "high" as const \}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")))
   }

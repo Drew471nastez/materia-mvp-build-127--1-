@@ -66,18 +66,22 @@ function main() {
   {
     const html = article(true)
     const view = code("app/(marketing)/blog/_components/article-view.tsx")
-    check("one grid: a rail, the 720px column and an empty column as wide as the rail, from 1200px", /min-\[1200px\]:grid-cols-\[minmax\(240px,1fr\)_minmax\(0,720px\)_minmax\(0,1fr\)\]/.test(view))
+    /* Changed on purpose (round 49): no empty right column; the 260px rail and a 760px column, the pair centred (tests/blog-r49.test.ts). */
+    check("one grid from 1200px: the rail and the reading column, the pair centred", /min-\[1200px\]:grid-cols-\[260px_minmax\(0,760px\)\] min-\[1200px\]:justify-center/.test(view))
     check("  header, cover and body all in the reading column", (view.match(/\$\{COLUMN\}/g) ?? []).length === 3 && /const COLUMN = "mx-auto w-full max-w-\[720px\]/.test(view))
     check("  no right rail and no newsletter box", !/xl:block/.test(view) && !/Newsletter|newsletter/.test(html) && !/New guides for creators/.test(html))
     check("the byline is one row under the dek, with the dates and Updated on one line", /<header[\s\S]*Dek[\s\S]*data-blog-byline=""[\s\S]*<\/header>/.test(html) && /data-blog-byline-dates=""[\s\S]*min read[\s\S]*Updated <time/.test(html))
     const body = code("app/(marketing)/blog/_components/article-blocks.tsx")
-    check("body 17px, 18px from 640px, line height 1.7, near black links underlined", /const BODY = `text-\[17px\] leading-\[1\.7\] text-\[#374151\] sm:text-\[18px\]/.test(body) && /\[&_a\]:underline/.test(body) && /\[&_a\]:text-\[#1a1a2e\]/.test(body))
+    /* Changed on purpose (round 49): 19px from 1200px, the 640px step written min-[640px] so it sorts before min-[1200px]. */
+    check("body 17px, 18px from 640px, line height 1.7, near black links underlined", /const BODY = `text-\[17px\] leading-\[1\.7\] text-\[#374151\] min-\[640px\]:text-\[18px\]/.test(body) && /\[&_a\]:underline/.test(body) && /\[&_a\]:text-\[#1a1a2e\]/.test(body))
     check("  nothing under 14px in the article's own text", !/text-\[1[0-3](\.\d)?px\]/.test(body) && !/text-\[1[0-3](\.\d)?px\]/.test(code("app/(marketing)/blog/_components/toc.tsx")) && !/text-\[1[0-2]px\]/.test(view))
-    check("the rail's card: everything Storelib sells, to /signup tagged src and ref", /data-blog-cta-card="digital"/.test(html) && /Sell anything from one place\./.test(html) && /physical products, courses, communities/.test(html) && /href="\/signup\?intent=sell&amp;src=blog-digital&amp;ref=blog-digital"/.test(html))
-    check("  physical products only while physical commerce is on", !/physical products/i.test(blogRailCta(false).body) && /physical products/i.test(blogRailCta(true).body) && /Digital products, courses, communities, a link in bio and your own website/.test(article(false)))
-    check("  in Storelib's ink, no gradient", /rounded-2xl bg-\[#1a1a2e\] p-6 text-white/.test(view) && !/gradient/.test(view))
-    check("the box in the article keeps its kind and names the rest", /data-blog-cta="digital"/.test(html) && /Courses, a community and your own website/.test(BLOG_CTA.digital.body))
-    const copy = [...Object.values(BLOG_CTA).flatMap((c) => [c.title, c.body]), blogRailCta(true).title, blogRailCta(true).body, read("app/(marketing)/blog/layout.tsx")].join("\n")
+    /* Changed on purpose (round 49): the card is one short line, a subline and a button on a light surface, and names no kind of product (tests/blog-r49.test.ts). */
+    check("the rail's card: one line, to /signup tagged src and ref", /data-blog-cta-card="digital"/.test(html) && /Sell anything from one place/.test(html) && /href="\/signup\?intent=sell&amp;src=blog-digital&amp;ref=blog-digital"/.test(html))
+    check("  the same with physical commerce on or off", article(false).includes(blogRailCta().body) && article(true).includes(blogRailCta().body))
+    check("  no gradient", !/gradient/.test(view))
+    /* Changed on purpose (round 49): the box names the whole of Storelib in one short line. */
+    check("the box in the article names the whole of Storelib", /data-blog-cta="digital"/.test(html) && /Products, courses, communities and your website/.test(BLOG_CTA.digital.body))
+    const copy = [...Object.values(BLOG_CTA).flatMap((c) => [c.title, c.body]), blogRailCta().title, blogRailCta().body, read("app/(marketing)/blog/layout.tsx")].join("\n")
     check("  no banned words, no em dash", !BANNED.test(copy), copy.match(BANNED))
     check("the contents fold above the body below 1200px, the rail from 1200px", /min-\[1200px\]:hidden/.test(view) && /data-blog-toc-inline=""/.test(html) && /aria-label="Contents and sign up"/.test(html))
     const spy = code("app/(marketing)/blog/_components/toc-spy.tsx")
@@ -105,12 +109,15 @@ function main() {
     check("  and asks nothing about the reader (the blog stays held at the edge)", !/cookies\(|headers\(|searchParams/.test(layout))
     check("  no loading.tsx beside it (404s and 308s stay decided before the stream)", !existsSync(join(process.cwd(), "app/(marketing)/blog/loading.tsx")))
     check("empty categories are left out, the one being read always shown", /categories\.filter\(\(c\) => c\.hasPosts \|\| c\.slug === slug\)/.test(nav))
-    check("pills are next/link, the pressed one current at once, the place kept", /scroll=\{false\}/.test(nav) && /setPressed\(\{ from: pathname, slug: to \}\)/.test(nav) && /window\.scrollTo\(0, restore\.current\)/.test(nav))
+    /* Changed on purpose (round 49): the stuck place is measured from the new page, after it is in. */
+    check("pills are next/link, the pressed one current at once, the place kept", /scroll=\{false\}/.test(nav) && /setPressed\(\{ from: pathname, slug: to \}\)/.test(nav) && /window\.scrollTo\(0, Math\.ceil\(window\.scrollY \+ mark\.getBoundingClientRect\(\)\.top - headerHeight\(\)\)\)/.test(nav))
     check("  modified clicks are left to the browser", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(nav))
     check("  sticky under the measured header, scrolls sideways with no scrollbar", /sticky top-\[var\(--blog-top,65px\)\]/.test(nav) && /\[scrollbar-width:none\]/.test(nav) && /\[&::-webkit-scrollbar\]:hidden/.test(nav))
-    check("  each pill a 44px target", /className="group flex h-11 items-center/.test(nav))
+    /* Changed on purpose (round 49): the pill is positioned, so its text sits over the sliding fill. */
+    check("  each pill a 44px target", /className="group relative flex h-11 items-center/.test(nav))
     const css = read("app/globals.css")
-    check("the list's fade is opacity only, and off with reduced motion", /@keyframes blog-list-swap \{\s*from \{ opacity: 0\.35; \}\s*to \{ opacity: 1; \}\s*\}/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.blog-list-swap \{ animation: none; \}/.test(css))
+    /* Changed on purpose (round 49): a crossfade with a 6px rise, opacity and transform only (tests/blog-r49.test.ts). */
+    check("the list's fade is opacity and transform only, and off with reduced motion", /@keyframes blog-list-swap \{\s*from \{ opacity: 0; transform: translate3d\(0, 6px, 0\); \}\s*to \{ opacity: 1; transform: none; \}\s*\}/.test(css) && /\.blog-list-swap, \.blog-title-swap \{ animation: none; \}/.test(css))
   }
 
   /* Round 47, lead: before SQL part 345 a reader's view moves updated_at, so the published date stands in wherever a reader or a crawler sees "updated". */

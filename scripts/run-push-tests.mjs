@@ -1053,6 +1053,8 @@ const SUITES = [
   "tests/blog-admin-r45.test.ts",
   /* Round 47: the blog redone after the owner looked at it live: one 720px reading column, 17/18px body, the byline as one row, no right rail or newsletter box, the rail's card naming everything Storelib sells, a typographic cover for posts with none, the category pills in the blog's own layout. */
   "tests/blog-r47.test.ts",
+  /* Round 49: the blog after the owner looked at the rebuilt article live: no empty right column (the 260px rail and a 760px column, the pair centred, 19px body there), a light one line card under the contents, a short box inside the article that names all of Storelib, and the category pills' sliding fill and crossfade (transform and opacity only, off with reduced motion). */
+  "tests/blog-r49.test.ts",
   /* Round 45, leftovers B: blog author pages (/blog/author/<slug>: ProfilePage, breadcrumbs, live posts, noindex when empty, a 404 with no table, the sitemap), no FAQPage or HowTo in the Help Center, the product file limit from the upload policy, STORELIB_SOCIAL for the footer and sameAs, Copy to Storelib (the https and private address guard, type by bytes, 10 MB, a post's addresses swapped in place). */
   "tests/seo-leftovers-b-r45.test.ts",
   /* Round 47: writing in the blog editor: markdown at the start of a line, undo and redo across blocks, Cmd+S, the search checklist (facts, no score) and its title counted as rendered, the writing page (panel, drawer, focus mode, the publish confirmation), and before SQL part 345 a reader's view no longer a false 409 (lib/blog/editor-tools.ts, lib/blog/save-rules.ts editVersion). */
