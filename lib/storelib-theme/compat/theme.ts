@@ -928,7 +928,7 @@ export class CompatTheme {
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
       /* The website's own address, as its built pages name it, whatever host this page was reached at. */
-      canonical_url: page.canonicalUrl ?? (page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}${pagedCanonical(page)}` : page.path),
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}${pagedCanonical(page)}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,
@@ -983,6 +983,8 @@ export class CompatTheme {
       gift_card: null,
       order: null,
     }
+    /* A blog post's own canonical (its SEO), when its writer named another address. */
+    if (page.canonicalUrl) globals.canonical_url = page.canonicalUrl
     const registers: CompatRegisters = {
       assetUrl: (name) => this.opts.assetUrl(name),
       /* A file from Shopify's Files page never comes in the zip: the theme's own asset or media file by that name. */
