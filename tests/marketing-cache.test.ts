@@ -82,8 +82,9 @@ check("fetchPost is one read per render: the layout, generateMetadata and the pa
 check("  and both still call it", (post.match(/await fetchPost\(slug\)/g) ?? []).length === 2)
 
 console.log("\nWhat stays per request, and why")
-check("/explore: the visitor's catalogue and session, and its search screen reads useSearchParams", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/layout.tsx")) && /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/page.tsx")) && /readInterests/.test(code("app/(marketing)/explore/page.tsx")))
-check("/p/[slug]: what the visitor owns and whether they made it", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/p/[slug]/page.tsx")) && /currentUserForRequest/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+/* Changed on purpose (round 49): both still render per request, but read nobody; the CDN holds one copy for everybody (next.config.mjs edgeRule) and For you and ownership are asked after load. */
+check("/explore: rendered per request (its search screen reads useSearchParams), For you asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/layout.tsx")) && /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/page.tsx")) && !/readInterests/.test(code("app/(marketing)/explore/page.tsx")) && /readInterests/.test(code("app/api/explore/interests/route.ts")))
+check("/p/[slug]: rendered per request, what the visitor owns asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/p/[slug]/page.tsx")) && !/currentUserForRequest/.test(code("app/(marketing)/p/[slug]/page.tsx")))
 check("/wishlist: the visitor's own list", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/wishlist/page.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

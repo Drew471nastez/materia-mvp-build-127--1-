@@ -46,6 +46,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
 import { heldGrants } from "@/lib/receipts/guest-access-server"
+import { membershipForProductPage } from "@/lib/memberships/product-page"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -57,12 +58,16 @@ export const dynamic = "force-dynamic"
  * is here to keep a pointless request from costing a hundred queries.
  */
 const MAX_TOKENS = 10
+/* This browser's own answer: never held by anybody's cache. */
+const PRIVATE = { "Cache-Control": "private, no-store" }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null)
     const productId: unknown = body?.productId
     const rawTokens: unknown = body?.receiptTokens
+    /* Round 49: the product page asks here for a membership's own link too (it is one HTML for everybody, so the server no longer draws it). */
+    const askMembership = body?.membership === true
 
     if (typeof productId !== "string" || !productId) {
       return NextResponse.json({ error: "Missing productId" }, { status: 400 })
@@ -79,6 +84,7 @@ export async function POST(request: NextRequest) {
        strongest proof there is and do not depend on this browser at all.
        ------------------------------------------------------------------ */
     let isLoggedIn = false
+    let signedInUser: { id: string; email?: string | null; email_confirmed_at?: string | null } | null = null
     const variantIds = new Set<string>()
     /* What each purchase covers, for the file list: a variant, or null for
        "the whole product". The same list decideAccess judges a download by. */
@@ -93,6 +99,7 @@ export async function POST(request: NextRequest) {
 
       if (user) {
         isLoggedIn = true
+        signedInUser = user
 
         /*
           JUDGED THE WAY THE DOWNLOAD ROUTE JUDGES (lib/receipts/rules
@@ -186,6 +193,8 @@ export async function POST(request: NextRequest) {
       covers.push(order.variant_id ?? null)
       if (order.variant_id) variantIds.add(order.variant_id)
     }
+    /* A member's own membership, in place of Join (lib/memberships/product-page), only for somebody signed in. */
+    const memberHref = askMembership && signedInUser ? ((await membershipForProductPage(productId, signedInUser).catch(() => null))?.memberHref ?? null) : null
 
     if (!hasPurchased) {
       return NextResponse.json({
@@ -195,7 +204,8 @@ export async function POST(request: NextRequest) {
         assets: [],
         validTokens: [],
         staleTokens,
-      })
+        memberHref,
+      }, { headers: PRIVATE })
     }
 
     /* ------------------------------------------------------------------
@@ -244,7 +254,8 @@ export async function POST(request: NextRequest) {
       assets,
       validTokens,
       staleTokens,
-    })
+      memberHref,
+    }, { headers: PRIVATE })
   } catch (error) {
     console.error("[purchases/verify] failed:", error)
     return NextResponse.json({ error: "Verification failed" }, { status: 500 })

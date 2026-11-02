@@ -605,8 +605,9 @@ function main() {
      * be: it edits the bar's colours now, the draft it produces is state, and
      * two siblings in a Server Component cannot share state.
      */
-    check("only the owner sees the pencil", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
-    check("and a visitor gets the plain bar", /\) : \(\s*<SubscribeBar\s+settings=/.test(page))
+    /* Round 49: one HTML for everybody; the owner's bar replaces the plain one after load (components/storefront/creator-page-viewer OwnerOnly). */
+    check("only the owner sees the pencil", /<OwnerOnly\s+fallback=\{\s*<SubscribeBar/.test(page) && page.includes("<LiveSubscribeBar"))
+    check("and a visitor gets the plain bar", /fallback=\{\s*<SubscribeBar\s+settings=/.test(page))
     /**
      * The bar generates its own sentence from a preset when nothing is
      * stored, so seeding the dialog from the raw value would open two empty
@@ -640,7 +641,8 @@ function main() {
       renderer.includes("<ContactReveal handle={contactHandle} />") &&
         read("components/storefront/contact-reveal.tsx").includes("href={`mailto:${email}`}"),
     )
-    check("only when one is set", /\{contactHandle && \(/.test(renderer))
+    /* Round 49: and only for a buyer, asked after load (useContactShown); the route asks again. */
+    check("only when one is set", /\{contactHandle && contactShown && \(/.test(renderer))
     check("it is validated as an address before being stored", /\^\[\^\\s@\]\+@/.test(api))
     check("and clearing it removes the link", api.includes("next.contactEmail = contactEmail || undefined"))
 
@@ -672,7 +674,8 @@ function main() {
     */
     check(
       "the typed address wins and the account's only stands in",
-      page.includes("const resolvedContactEmail = headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined"),
+      /* Round 49: resolved where the address is answered, /api/creator-contact (lib/commerce/contact-email.ts), not in the page. */
+      read("lib/commerce/contact-email.ts").includes('const email = (typeof typed === "string" && typed.trim()) || (await look.accountEmail(profile.id)) || null'),
     )
     check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
@@ -1071,8 +1074,9 @@ function main() {
       !/creator=\{creator\}/.test(page) && !/profile=\{profile\}/.test(page) &&
         (page.match(/creator=\{headerCreator\}/g) ?? []).length === 2,
     )
-    check("and the contact link falls back to it", page.includes("headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined"))
-    check("and the About editor opens on the same value", page.includes("headerSettings.contactEmail || (await loadAccountEmail(profile.id)) ||"))
+    /* Round 49: the fallback lives where the address is answered (lib/commerce/contact-email.ts); the owner's About form gets their typed address from /api/creator-page/viewer. */
+    check("and the contact link falls back to it", read("lib/commerce/contact-email.ts").includes("(await look.accountEmail(profile.id))"))
+    check("and the About editor opens on the same value", read("app/api/creator-page/viewer/route.ts").includes("const contactEmail = owner ? await loadTypedContactEmail(row.id) : null"))
   }
 
   /* ------------------------------------------------------------------ */
@@ -1226,7 +1230,7 @@ function main() {
      * only rendered for a framed owner, only this origin, only the window
      * that frames us.
      */
-    check("the live bar is only mounted for the owner", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
+    check("the live bar is only mounted for the owner", /<OwnerOnly\s+fallback=\{\s*<SubscribeBar/.test(page) && page.includes("<LiveSubscribeBar"))
     check("a visitor gets the plain bar", /<SubscribeBar\s+settings=/.test(page))
     check("the listener refuses another origin", live.includes("event.origin !== window.location.origin"))
     check("and any window that is not the one framing us", live.includes("event.source !== window.parent"))
@@ -1291,8 +1295,9 @@ function main() {
      */
     check(
       "and it is resolved once for the whole page",
-      /const resolvedContactEmail = headerSettings\.contactEmail \|\| \(await loadAccountEmail\(profile\.id\)\) \|\| undefined/.test(page) &&
-        (page.match(/headerSettings\.contactEmail \|\| \(await loadAccountEmail/g) ?? []).length === 1,
+      /* Round 49: once, where the address is answered (lib/commerce/contact-email.ts); the page resolves no address at all. */
+      !/loadAccountEmail|resolvedContactEmail/.test(page) &&
+        (read("lib/commerce/contact-email.ts").match(/await look\.accountEmail\(/g) ?? []).length === 1,
     )
     /**
      * About is a locked default section — hideable, not deletable — so this

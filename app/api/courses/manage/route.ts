@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productTag } from "@/lib/commerce/product-page-cache"
 import { uploadRateLimit } from "@/lib/storage/upload-guard"
@@ -63,6 +64,8 @@ export async function POST(request: Request) {
     } catch {
       /* Outside a request that can revalidate: the outline refreshes on its own timer. */
     }
+    /* The course's product page, which the CDN holds for everybody (round 49). */
+    await creatorPagesChanged({ creatorId: owner.creatorId, tags: [productTag(owner.productId)] })
     return NextResponse.json({ tree: await editorTree(db, owner.productId) }, { headers: PRIVATE })
   } catch (error) {
     return failure(error)

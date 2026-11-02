@@ -1,46 +1,27 @@
 /**
  * ===========================================================================
- *  A CREATOR PAGE OR A PRODUCT PAGE: THE STRANGER'S COPY, OR SOMEBODY'S (round 48)
+ *  A CREATOR PAGE OR A PRODUCT PAGE ON STORELIB.COM (rounds 48 and 49)
  * ===========================================================================
- * next.config.mjs lets the CDN hold storelib.com/<handle> and
- * /<handle>/<product> for a minute when the request carries none of the
- * cookies that make the page somebody's and no Referer from Storelib (see
- * CREATOR_PAGE_PERSONAL_COOKIES there), and answers every other request
- * `private, no-store`. That decides what is STORED. What a request is SERVED
- * is decided before that, by the address: the CDN looks up the address the
- * proxy hands on, and a signed in owner asking for /<handle> would be handed
- * the stranger's copy, without their Edit, a buyer's without their Download.
+ * storelib.com/<handle> and /<handle>/<product> are one HTML for everybody
+ * (round 49, tests/cdnpages-r49): nothing in their render reads a cookie or
+ * a request header, so next.config.mjs lets Vercel's CDN hold every request
+ * for them, and whatever is somebody's own (Edit, Download, the buyer's
+ * Contact) is asked for after the page loads.
  *
- * So the proxy (proxy.ts) sends a personal request to an address of its own,
- * the same page with PERSONAL_VIEW_PARAM, which nothing stores (its answer is
- * private by the rules above, which read the same cookies and Referer), and
- * takes the parameter off a request that arrives with it but is not personal,
- * so nobody can plant a stranger's copy at the personal address. The pages
- * read only the parameters they know, so they draw the same page either way.
+ * Round 48 held only a stranger's copy and sent everybody else's request to
+ * a personal address (?_pv=1) by a rewrite in the proxy. On Vercel the CDN
+ * keys its copy on the address the browser asked for, before any rewrite,
+ * so signed in visitors and buyers were served the stranger's copy; it was
+ * reverted (244bdca). What is left here is which addresses those are.
  *
- * The cookie names and the Referer test here and in next.config.mjs are the
- * same list; tests/pubperf-r48 holds them together.
+ * The first path segment is never one of Storelib's own routes
+ * (lib/routes/reserved-segments; next.config.mjs reads the same file) and
+ * never a file (a dot); the second never a OnePage (links).
  */
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
-export const PERSONAL_VIEW_PARAM = "_pv"
-
-/** The cookies that make the page somebody's, beside the Supabase session's (sessionCookieNames). */
-export const PERSONAL_PAGE_COOKIES = ["sl_owned", "sl_owned_hint", "sl_lang", "sl_country", "sl_team_store"] as const
-
-/** The Supabase session cookie and its first chunk, from the project address, as next.config.mjs names them. */
-export function sessionCookieNames(supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL): string[] {
-  try {
-    const key = `sb-${new URL(supabaseUrl || "").hostname.split(".")[0]}-auth-token`
-    return [key, `${key}.0`]
-  } catch {
-    return []
-  }
-}
-
 /** Storelib's own hosts, where the shared rule applies; the same pattern as next.config.mjs STORELIB_HOSTS. */
 export const STORELIB_HOST = /^(?:(?:www\.)?storelib\.com|localhost|127\.0\.0\.1)$/i
-const STORELIB_REFERER = /^https?:\/\/(?:(?:www\.)?storelib\.com|localhost|127\.0\.0\.1)(?::\d+)?\/.*$/
 
 /** /<handle> or /<handle>/<product> on storelib.com: not one of Storelib's own routes, not a file, not a OnePage. */
 export function isCreatorPagePath(pathname: string): boolean {
@@ -50,9 +31,16 @@ export function isCreatorPagePath(pathname: string): boolean {
   return parts.length === 1 || parts[1] !== "links"
 }
 
-/** The request is somebody's: a cookie of theirs, or a Referer from Storelib (the way back and the community bar read it). */
-export function isPersonalRequest(cookieNames: readonly string[], referer: string | null | undefined, supabaseUrl?: string): boolean {
-  const personal = new Set<string>([...sessionCookieNames(supabaseUrl), ...PERSONAL_PAGE_COOKIES])
-  if (cookieNames.some((n) => personal.has(n))) return true
-  return !!referer && STORELIB_REFERER.test(referer)
+/**
+ * A request whose answer the CDN may hold for everybody (round 49): the same
+ * test as next.config.mjs's edge rules, on storelib.com. The proxy reads no
+ * session and writes no cookie for it (proxy.ts): a Set-Cookie (a renewed
+ * session, the old domain cookie being retired) on an answer the CDN keeps
+ * would be handed to the next visitor. The page itself reads no session; the
+ * browser's own calls after load (/api/...) renew it as before.
+ */
+export function isEdgeHeldRequest(r: { method: string; pathname: string; rsc: boolean; search: URLSearchParams }): boolean {
+  if (r.method !== "GET" && r.method !== "HEAD") return false
+  if (r.rsc || r.search.has("embedded") || r.search.has("scheme")) return false
+  return isCreatorPagePath(r.pathname) || /^\/explore(?:\/|$)/.test(r.pathname)
 }

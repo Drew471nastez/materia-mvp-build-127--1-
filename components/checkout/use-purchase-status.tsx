@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { mayBeSignedIn, mayOwnAsGuest } from "@/lib/auth/session-hint"
 
 // localStorage key for purchased products
 const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
@@ -19,6 +20,12 @@ interface UsePurchaseStatusResult {
   receiptToken: string | null
   purchasedVariantIds: string[] // Array of all purchased variant IDs
   isChecking: boolean
+  /** Bought in this browser without an account (the signed sl_owned), and the account does not own it: the "save it to an account" offer. */
+  guest: { orderId: string; maskedEmail: string | null } | null
+  /** Somebody is signed in (the server's answer). */
+  signedIn: boolean
+  /** A membership the signed in person has: their own link, in place of Join. */
+  memberHref: string | null
   // Helper to check if a specific variant was purchased
   hasVariantAccess: (variantId: string | null) => boolean
   // Add a newly purchased variant to localStorage
@@ -34,13 +41,18 @@ export function usePurchaseStatus(
   productId: string,
   serverHasPurchased: boolean = false,
   serverAssetId: string | null = null,
-  serverPurchasedVariantIds: string[] = [] // Now an array
+  serverPurchasedVariantIds: string[] = [], // Now an array
+  opts: { membership?: boolean } = {},
 ): UsePurchaseStatusResult {
+  const membership = opts.membership === true
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
   const [assetId, setAssetId] = useState<string | null>(serverAssetId)
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
   const [purchasedVariantIds, setPurchasedVariantIds] = useState<string[]>(serverPurchasedVariantIds)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
+  const [guest, setGuest] = useState<{ orderId: string; maskedEmail: string | null } | null>(null)
+  const [signedIn, setSignedIn] = useState(false)
+  const [memberHref, setMemberHref] = useState<string | null>(null)
 
   useEffect(() => {
     // ── 1. URL-token path (Safari/WhatsApp/in-app-browser proof) ────────────────
@@ -132,7 +144,8 @@ export function usePurchaseStatus(
     } catch (e) {
       console.error("[usePurchaseStatus] Error checking localStorage:", e)
     } finally {
-      setIsChecking(false)
+      /* Settled here only when the server will not be asked below (round 49); otherwise its answer settles it. */
+      if (!worthAsking(productId)) setIsChecking(false)
     }
   }, [productId, serverHasPurchased, serverPurchasedVariantIds])
 
@@ -167,38 +180,34 @@ export function usePurchaseStatus(
     } catch { /* private mode: nothing stored, nothing to verify */ }
 
     /*
-      ONLY WHEN THERE IS SOMETHING UNVERIFIED TO CHECK.
-
-      A stored token is a claim this browser made that nothing has confirmed,
-      so it gets checked. Everything else is already settled: the server
-      computed `serverHasPurchased` from the session on this very request, and
-      a visitor with neither a token nor a session has not bought anything.
-
-      An earlier version asked on every product page view unless the browser
-      had no cookies at all, which is nearly never — that is a request per
-      visitor per page to re-derive an answer the page already had.
+      ONLY WHEN THERE IS SOMETHING TO ASK ABOUT (round 49): a stored token,
+      which is a claim this browser made that nothing has confirmed, a
+      Storelib session, or a guest purchase in this browser. The page no
+      longer computes ownership on the server, so a session alone is now
+      reason to ask; a stranger with none of the three has bought nothing
+      and asks nothing.
     */
-    if (tokens.length === 0) {
+    if (!worthAsking(productId)) {
       setIsChecking(false)
       return
     }
 
     ;(async () => {
       try {
-        const res = await fetch("/api/purchases/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, receiptTokens: tokens }),
-        })
-        if (!res.ok || cancelled) return
-        const data = await res.json()
-        if (cancelled) return
+        const data = await verifyPurchase(productId, tokens, membership)
+        if (!data || cancelled) return
 
         setHasPurchased(!!data.hasPurchased)
-        setPurchasedVariantIds(Array.isArray(data.variantIds) ? data.variantIds : [])
+        setSignedIn(!!data.isLoggedIn)
+        setPurchasedVariantIds(Array.isArray(data.variantIds) ? (data.variantIds as string[]) : [])
         if (Array.isArray(data.assets) && data.assets.length > 0) {
-          setAssetId(data.assets[0].id)
+          setAssetId((data.assets[0] as { id: string }).id)
         }
+        if (data.hasPurchased && mayOwnAsGuest()) {
+          const g = await guestOwned(productId)
+          if (!cancelled) setGuest(g)
+        }
+        setMemberHref(typeof data.memberHref === "string" && data.memberHref.startsWith("/") ? data.memberHref : null)
 
         /*
           SELF-HEALING. A token the server does not recognise is dropped, so
@@ -229,7 +238,7 @@ export function usePurchaseStatus(
     })()
 
     return () => { cancelled = true }
-  }, [productId, serverHasPurchased])
+  }, [productId, serverHasPurchased, membership])
 
   // Helper to check if a specific variant was purchased
   const hasVariantAccess = useCallback((variantId: string | null): boolean => {
@@ -301,7 +310,82 @@ export function usePurchaseStatus(
     receiptToken,
     purchasedVariantIds,
     isChecking,
+    guest,
+    signedIn,
+    memberHref,
     hasVariantAccess,
     addPurchasedVariant
   }
+}
+
+/*
+  ROUND 49: THE PRODUCT PAGE IS ONE HTML FOR EVERYBODY (a CDN holds it), so
+  the server no longer says who owns what: `serverHasPurchased` is false on
+  the creator's product page, and the answer comes from
+  /api/purchases/verify, asked after load whenever there is anything to ask
+  about: a receipt this browser holds, a Storelib session, or the guest
+  buyer's sl_owned (its readable companion sl_owned_hint says so;
+  lib/auth/session-hint). A stranger asks nothing. While the question is out
+  `isChecking` stays true, so the buy box keeps its Loading button and a
+  buyer goes from Loading to Download, never through Buy.
+
+  One question per product and page view, however many parts ask (the buy
+  box and the sticky bar both do).
+*/
+interface VerifyAnswer {
+  hasPurchased?: boolean
+  isLoggedIn?: boolean
+  variantIds?: unknown
+  assets?: unknown
+  staleTokens?: unknown
+  memberHref?: unknown
+}
+const verifying = new Map<string, Promise<VerifyAnswer | null>>()
+function verifyPurchase(productId: string, tokens: string[], membership: boolean): Promise<VerifyAnswer | null> {
+  const key = `${productId}|${tokens.join(",")}|${membership ? 1 : 0}`
+  const hit = verifying.get(key)
+  if (hit) return hit
+  const ask = fetch("/api/purchases/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ productId, receiptTokens: tokens, ...(membership ? { membership: true } : {}) }),
+  })
+    .then((res) => (res.ok ? (res.json() as Promise<VerifyAnswer>) : null))
+    .catch(() => null)
+  verifying.set(key, ask)
+  void ask.finally(() => setTimeout(() => verifying.delete(key), 0))
+  return ask
+}
+
+/** Whether this browser has anything worth asking the server about (a session, a guest purchase, a stored receipt). */
+function worthAsking(productId: string): boolean {
+  if (mayBeSignedIn() || mayOwnAsGuest()) return true
+  try {
+    const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+    if (stored && (JSON.parse(stored) as Record<string, PurchaseInfo>)[productId]?.receiptToken) return true
+  } catch {
+    /* private mode */
+  }
+  try {
+    return new URLSearchParams(window.location.search).has("purchaseToken")
+  } catch {
+    return false
+  }
+}
+
+/* The guest buyer's own row (/api/purchases/guest-owned), asked only by a browser whose sl_owned_hint says it bought here as a guest. */
+const guestAsked = new Map<string, Promise<{ orderId: string; maskedEmail: string | null } | null>>()
+function guestOwned(productId: string): Promise<{ orderId: string; maskedEmail: string | null } | null> {
+  const hit = guestAsked.get(productId)
+  if (hit) return hit
+  const ask = fetch(`/api/purchases/guest-owned?productId=${encodeURIComponent(productId)}`, { credentials: "same-origin", cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d: { guest?: { orderId?: unknown; maskedEmail?: unknown } | null } | null) =>
+      d?.guest && typeof d.guest.orderId === "string" ? { orderId: d.guest.orderId, maskedEmail: typeof d.guest.maskedEmail === "string" ? d.guest.maskedEmail : null } : null,
+    )
+    .catch(() => null)
+  guestAsked.set(productId, ask)
+  void ask.finally(() => setTimeout(() => guestAsked.delete(productId), 0))
+  return ask
 }

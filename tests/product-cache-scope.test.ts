@@ -102,18 +102,24 @@ check(
 
 console.log("\nAnd the personal half is still read per request\n")
 
+/*
+  Changed on purpose (round 49): the product page is one HTML for everybody
+  (the CDN holds it), so it reads nobody's entitlements or orders; the
+  browser asks /api/purchases/verify after load, per request, for the
+  session that asks. Neither is cached anywhere.
+*/
+const verifySrc = stripComments(readFileSync("app/api/purchases/verify/route.ts", "utf8"))
 for (const table of ["entitlements", "orders"]) {
   check(
-    `the product page still reads ${table} on the request's own client`,
-    new RegExp(`supabase\\s*\\n?\\s*\\.from\\(["']${table}["']\\)`).test(pageSrc) ||
-      new RegExp(`await supabase[\\s\\S]{0,40}from\\(["']${table}["']\\)`).test(pageSrc),
-    `${PAGE}: if this moved to the cache, ownership would be shared between visitors`,
+    `the product page reads no ${table}; the purchase check reads them per request`,
+    !new RegExp(`from\\(["']${table}["']\\)`).test(pageSrc) && new RegExp(`from\\(["']${table}["']\\)`).test(verifySrc),
+    `${PAGE}: ownership must never be drawn into a page the CDN shares`,
   )
 }
 
 check(
-  "the product page still asks who is looking",
-  /supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(pageSrc),
+  "the product page asks nobody who is looking; the purchase check does",
+  !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(pageSrc) && /supabase\.auth\.getUser\(\)/.test(verifySrc),
   PAGE,
 )
 

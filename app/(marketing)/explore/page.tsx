@@ -2,15 +2,11 @@ import { Metadata } from "next"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
-import { settleWithin } from "@/lib/net/request"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { offChannelAmong } from "@/lib/store/channel-filter"
-import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
-import { readInterests } from "@/lib/explore/read-interests"
+import { EMPTY_INTERESTS } from "@/lib/explore/interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { ExplorePullRefresh } from "@/components/explore/explore-pull-refresh"
 import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
@@ -34,7 +30,6 @@ import { LeaveCopy } from "@/components/navigation/leave-copy"
 import { logEvent } from "@/lib/net/log"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
-const INTERESTS_WAIT_MS = 1_500
 
 /*
   THE PRODUCTS, OR THE COMMUNITIES, EACH CANONICAL AT ITS OWN ADDRESS
@@ -113,23 +108,6 @@ export const dynamic = "force-dynamic"
  * nobody's purchases or wishlist shape what they are shown here. A column
  * that is not there yet, or a read that fails, is the default: on.
  */
-async function personalizationOn(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  kept?: boolean,
-): Promise<boolean> {
-  /* The viewer's own setting, a private column: read by the server for this signed in id (lib/security/public-columns). */
-  const { data: pref } = await createAdminClient()
-    .from("profiles")
-    .select("personalized_recommendations")
-    .eq("id", userId)
-    .maybeSingle()
-  const column = (pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
-  /* No column yet: the choice Settings kept on the account (app/api/account/preferences). */
-  return typeof column === "boolean" ? column : kept !== false
-}
-
-/** What the grid shows of a product. */
 const PRODUCT_COLUMNS =
   "id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
 /**
@@ -145,7 +123,8 @@ const CREATOR_EMBED = "creator:creators(id, user_id, slug, niche_tags)"
 /** The face a card draws, the same fields the separate read always asked for. */
 const PROFILE_FIELDS = "id, display_name, avatar_url, username"
 
-type Supabase = Awaited<ReturnType<typeof createClient>>
+/* The anon key, no session (lib/supabase/public-read): the catalogue is the same for everybody. */
+type Supabase = ReturnType<typeof createPublicReadClient>
 
 /*
   THE CATALOGUE IN TWO ROUND TRIPS, NEITHER OF THEM REFUSED. The products with
@@ -267,11 +246,10 @@ export default async function ExplorePage({
     used. The grid arrives one round trip after the slowest read instead of
     after the sum of them.
   */
-  const supabasePromise = createClient()
-  /* Browsing is the same catalogue for everybody, read as a stranger and held for a minute, cleared by a product save (lib/explore/catalogue-cache.ts); a search stays a live read. */
+  /* Browsing is the same catalogue for everybody, read as a stranger and held for a minute, cleared by a product save (lib/explore/catalogue-cache.ts); a search stays a live read, as a stranger too (round 49: one HTML for everybody). */
   const catalogRead = searchQuery
-    ? supabasePromise.then((supabase) => readCatalog(supabase, searchQuery))
-    : cachedExploreCatalogue(() => readCatalog(createPublicReadClient() as unknown as Supabase, ""))
+    ? readCatalog(createPublicReadClient(), searchQuery)
+    : cachedExploreCatalogue(() => readCatalog(createPublicReadClient(), ""))
   const catalogPromise = catalogRead.catch((error: unknown) => {
     console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
     return [] as any[]
@@ -305,47 +283,18 @@ export default async function ExplorePage({
 
   /*
     ═══════════════════════════════════════════════════════════════════════
-     WHO IS THIS, AND HAVE THEY SHOWN US ANYTHING
+     NOBODY IS ASKED WHO IS LOOKING (round 49)
     ═══════════════════════════════════════════════════════════════════════
-    Signed out, this is one cheap auth call that returns nobody and the page
-    is exactly what it was. Signed in with too little history, the same: the
-    threshold is in lib/explore/interests and nothing on screen changes until
-    it is met. Only past it does "All" become "For you".
-
-    It sits next to the catalogue query rather than in front of it, because
-    neither needs the other.
+    Explore is one HTML for everybody, which the CDN holds (next.config.mjs,
+    tests/cdnpages-r49). "For you" was decided here from the session, with a
+    1.5s ceiling every signed in visit paid in front of the first byte; the
+    page now opens on All for everybody, and for a browser with a session
+    ExplorePageClient asks /api/explore/interests after load (the same
+    rules, the same threshold) and moves to For you when there is enough.
   */
-  let interests: Interests = EMPTY_INTERESTS
   let productsWithCreators: any[] = []
-
   try {
-    const supabase = await supabasePromise
-
-    /*
-      Asked for beside the catalogue rather than before it: neither needs the
-      other, and this route is force-dynamic with nothing cached in front of
-      it, so a read in series is a round trip every visitor pays for.
-      A failure here is not a failure of the page: the catch leaves
-      `interests` empty and everybody gets the ordinary Explore.
-    */
-    /*
-      AND IT HAS A DEADLINE. It was a bare getUser() then two reads, none
-      bounded, and the grid waited on all of it: a slow minute for Supabase
-      Auth was a blank Explore for everybody signed in. Personal ordering is
-      worth INTERESTS_WAIT_MS and no more; after that the ordinary Explore.
-    */
-    const interestsPromise = settleWithin(
-      (async () => {
-        const { user } = await currentUserForRequest()
-        if (!user) return EMPTY_INTERESTS
-        if (!(await personalizationOn(supabase, user.id, user.user_metadata?.personalized_recommendations))) return EMPTY_INTERESTS
-        return readInterests(user.id, user.email)
-      })(),
-      INTERESTS_WAIT_MS,
-      EMPTY_INTERESTS,
-    )
-
-    ;[productsWithCreators, interests] = await Promise.all([catalogPromise, interestsPromise])
+    productsWithCreators = await catalogPromise
   } catch (error: any) {
     console.error("[ExplorePage] Exception:", error?.message || error)
   }
@@ -391,7 +340,7 @@ export default async function ExplorePage({
         <ExplorePageClient
           initialProducts={filteredProducts}
           initialCategory={category}
-          interests={interests}
+          interests={EMPTY_INTERESTS}
           searchQuery={searchQuery}
           discoverHeadlineSegmentEnabled={discoverModeSwitcherEnabled}
           initialDiscoverMode={initialDiscoverMode}

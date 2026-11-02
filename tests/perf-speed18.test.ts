@@ -372,11 +372,11 @@ async function profileByName() {
   /* Changed on purpose (round 38): a creator page reads no follower or following count, so there is no followingPromise to start. */
   /* Changed on purpose (round 40): "on creator pages there should be no follow button", so the page no longer asks whether the viewer follows the creator; location and channels still start with the first batch. */
   const started = ["const placePromise = readProfileLocation(", "const offPagePromise = offChannel("]
-  check("the creator page starts location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /\[requestHeaders, place\] = await Promise\.all\(\[\s*headers\(\),[\s\S]{0,200}placePromise,\s*\]\)/.test(page) && /await offPagePromise/.test(page) && !/followingPromise/.test(page))
+  check("the creator page starts location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /const place = await placePromise/.test(page) /* Changed on purpose (round 49): no headers() on this page any more. */ && /await offPagePromise/.test(page) && !/followingPromise/.test(page))
   check("and it never asks whether the viewer follows the creator", !/viewerFollowsPromise/.test(page) && !/from\("follows"\)/.test(page))
   const sales = code("lib/communities/server/public.ts")
   check("a community's sales page asks for its gallery and live numbers beside its tiers, not after its products", sales.indexOf("const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])") > 0 && sales.indexOf("const galleryAndStats") < sales.search(/const \[tiers, links, creators[^\]]*\] = await Promise\.all\(\[/) /* Changed on purpose (round 26): the summary and the staff deletion date join the same batch. */ && /galleryAndStats!\.then\(\(\[gallery\]\) => gallery\)/.test(sales) && sales.indexOf("if (community.status === \"draft\" && !staff) return null") < sales.indexOf("const galleryAndStats"))
-  check("the creator page and the member profile both read it this way", /* Changed on purpose (round rel-sites): the creator page reads it bounded and strict (a failed read throws), the same exact-name-first lookup. */ /publicProfileByNameStrict\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
+  check("the creator page and the member profile both read it this way", /* Changed on purpose (round rel-sites): the creator page reads it bounded and strict (a failed read throws), the same exact-name-first lookup. */ /publicProfileByNameStrict\(stranger\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) /* Changed on purpose (round 49): read as a stranger, the anon key with no session. */ && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
 }
 
 async function sharedConfigs() {
@@ -399,7 +399,8 @@ async function sharedConfigs() {
   check("nothing published: a signed out visitor asks once, then never again within the minute", none1.value === null && configReads(none1) === 1 && configReads(none2) === 0, [configReads(none1), configReads(none2)])
   const owner = await visit(() => loadStoreConfig(OTHER.creatorId, "product"), { cookies: signedInCookies(OTHER.userId) })
   /* Changed on purpose (round 48, R48-6): the fresh read is the server's narrow one (lib/store-builder/public-config.ts), not the session, so the tables can be closed to everyone but the owner. */
-  check("a signed in visitor still asks again, fresh, when the shared copy has nothing", configReads(owner) === 1 && owner.trips.some((t) => t.table === "store_builder_configs" && t.key === "service"))
+  /* Changed on purpose (round 49): the page is one HTML for everybody, so the shared answer is everybody's; a publish expires it (lib/storefront/creator-page-purge). */
+  check("a signed in visitor gets the same shared answer, asking nothing more", owner.value === null && configReads(owner) === 0)
 
   const anon1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
   const anon2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
@@ -407,10 +408,13 @@ async function sharedConfigs() {
   check("and never the draft", !JSON.stringify(anon1.value).includes(DRAFT_MARKER))
   const mine1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
   const mine2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
-  check("the creator, signed in, reads it fresh every time", configReads(mine1) === 1 && configReads(mine2) === 1 && mine1.trips.every((t) => t.table !== "store_builder_configs" || t.key === "service")) /* Changed on purpose (round 48): the server's narrow read, as above. */
+  /* Changed on purpose (round 49): the creator reads the shared copy too (one HTML for everybody); her publish expires it. */
+  check("the creator, signed in, reads the shared copy like everybody", configReads(mine1) === 0 && configReads(mine2) === 0 && JSON.stringify(mine1.value) === JSON.stringify(anon1.value))
 
   /* She publishes in the store builder (app/api/store-builder revalidates creatorTag): she sees it at once, visitors after the refresh. */
   fixture.tables.store_builder_configs[0].published_config = { globalSettings: { themePreset: "maya-new" } }
+  /* What creatorPagesChanged does on her publish: the shared rows expired, not marked stale. */
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), { expire: 0 })
   const mineNow = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
   check("her publish shows to her on the next load", (mineNow.value as { globalSettings?: { themePreset?: string } } | null)?.globalSettings?.themePreset === "maya-new")
   nextCache.revalidateTag(creatorTag(SITE.creatorId), "max")

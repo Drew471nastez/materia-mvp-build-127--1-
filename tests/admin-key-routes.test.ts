@@ -114,6 +114,10 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round 49: what the creator page, the product page and Explore used to decide per visitor on the server, now asked after load (they are one HTML for everybody, held by the CDN). */
+  "creator-page/viewer/route.ts": "the signed in person's own standing on one creator page (currentUserForRequest): owner or team member, bought from them, and the typed contact address to the owner only; a stranger is answered nobody; private, never stored",
+  "explore/interests/route.ts": "the signed in person's own For you interests (currentUserForRequest, their own setting first), nobody's for a stranger; private, never stored",
+  "purchases/guest-owned/route.ts": "the guest purchase this browser's own signed, httpOnly sl_owned cookie holds for one product (heldGrants checks each grant against its order), the order id and a masked address, nothing when the signed in account owns it; private, never stored",
   /* Round 48 (R48-6): public config reads moved off the anon key so part 354 can close the tables to anon. */
   "onepage/seller-avatar/route.ts": "a creator's public header avatar and favicon only: one JSON path of the published config, nothing else, read with the service role because part 354 closes the table to anon",
   "store-builder/published/route.ts": "a creator's published look, the same the public creator page draws: published_config only, never the draft, contactEmail stripped before it leaves the server",

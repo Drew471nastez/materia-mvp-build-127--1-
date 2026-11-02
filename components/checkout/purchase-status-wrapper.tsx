@@ -4,6 +4,7 @@ import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
 import { shopAmountIn } from "@/lib/store/shop-money"
 import { usePageMoney, usePriceCurrency } from "@/components/platform/price-currency"
 import { usePurchaseStatus } from "./use-purchase-status"
+import { PurchaseViewerContext } from "./owned-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Download as DownloadIcon } from "lucide-react"
@@ -144,13 +145,19 @@ function DigitalPurchaseStatus({
     receiptToken,
     purchasedVariantIds,
     isChecking,
+    guest,
+    signedIn,
+    memberHref: askedMemberHref,
     hasVariantAccess
   } = usePurchaseStatus(
     productId,
     serverHasPurchased,
     serverAssetId,
-    serverPurchasedVariantIds
+    serverPurchasedVariantIds,
+    { membership: !!membership }
   )
+  /* The member's own link: drawn by the server where it still decides (a website), else asked after load (round 49). */
+  const memberHref = membership?.memberHref ?? askedMemberHref
 
   // Find the initial variant to select:
   // 1. If user has purchased any variant, default to the first purchased one for instant Download button
@@ -292,10 +299,20 @@ function DigitalPurchaseStatus({
   if (membership) {
     return (
       <div className="relative z-10 space-y-3">
-        {membership.memberHref ? (
+        {isChecking ? (
+          /* Asking whether this is a member (round 49): the Join button's place, so a member never sees Join first. */
+          <Button
+            disabled
+            className="w-full min-h-[48px] cursor-pointer"
+            style={{ backgroundColor: buyButtonBgColor || undefined, color: buyButtonTextColor || undefined }}
+          >
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading...
+          </Button>
+        ) : memberHref ? (
           <>
             <a
-              href={membership.memberHref}
+              href={memberHref}
               data-open-membership=""
               className="flex min-h-[48px] w-full items-center justify-center rounded-md px-4 text-[15px] font-semibold"
               style={{ backgroundColor: paint(downloadButtonBgColor || "#1a1a2e", "bg"), color: downloadButtonTextColor || "#ffffff" }}
@@ -347,6 +364,8 @@ function DigitalPurchaseStatus({
   // Render the component with unified variant selector
   // Button changes based on whether user can download the CURRENT selected variant
   return (
+    /* What the check found about this browser, for the owned row under Download (./owned-actions, round 49). */
+    <PurchaseViewerContext.Provider value={{ guest, signedIn }}>
     <div className="space-y-3 relative z-10">
       {/* Price display OR PWYW input */}
       {checking ? null : isPwywActive ? (
@@ -576,5 +595,6 @@ function DigitalPurchaseStatus({
         </div>
       )}
     </div>
+    </PurchaseViewerContext.Provider>
   )
 }

@@ -1144,6 +1144,8 @@ const SUITES = [
   "tests/configs-r48.test.ts",
   /* Round 48: the public pages' speed: the home page's head preloads only the hero, the cookie card in the server's HTML (lib/consent/early-ask), the product page's buy box its final height during the purchase check, no owner or editor code (or Supabase, Swiper, the app wide react-icons/si) in a visitor's creator and product page, Explore's chip as tall before its measurement. */
   "tests/pubperf-r48.test.ts",
+  /* Round 49: creator pages, product pages and Explore are one HTML for everybody (no cookies() or headers() in their render), the owner's controls, Download, Contact and For you are asked after load, the CDN rule is the same for every request (never RSC, the editor's canvas or a scheme preview), a language is an address (?lang=, the proxy's 307), a save expires the data and the CDN copy by tag and path; scripts/check-creator-page-cache.mjs measures the bytes on a production build. */
+  "tests/cdnpages-r49.test.ts",
 ]
 
 /**

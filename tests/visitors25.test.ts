@@ -354,7 +354,9 @@ console.log("\nThe offer card, the setting, the creator page\n")
   const page = read("app/(marketing)/u/[username]/page.tsx")
   check("the creator page: products in the visitor's language, its language row, never in the editor", /creatorPageLanguage\(creator\.id, typeof lang === "string" \? lang : null\)/.test(page) && /pageLanguage\.product\(/.test(page) && /<CreatorLanguage code=\{pageLanguage\.code\}/.test(page) && /embedded \? null : await creatorPageLanguage/.test(page))
   const cpl = read("lib/markets/creator-page-language.ts")
-  check("  a crawler always gets the store's own language; the browser only with the setting on", /crawler \? null : find\(jar\.get\("sl_lang"\)/.test(cpl) && /!crawler && !jar\.get\("sl_lang"\)\?\.value && \(await visitorLanguageOn\(creatorId\)\)/.test(cpl))
+  /* Changed on purpose (round 49): the page draws the address's language only; the proxy sends a person (never a crawler) to ?lang= by sl_lang, or by the browser with the setting on (lib/markets/creator-page-language-step). */
+  const step = readFileSync(join(process.cwd(), "lib/markets/creator-page-language-step.ts"), "utf8")
+  check("  a crawler always gets the store's own language; the browser only with the setting on", /if \(LANGUAGE_CRAWLER\.test\(r\.userAgent \?\? ""\)\) return null/.test(step) && /if \(r\.chosen\) code = find\(r\.chosen\)\s*else if \(r\.visitorLanguage\) \{/.test(step) && /const code = find\(asked\) \?\? langs\.defaultLanguage/.test(cpl))
   const sql = read("supabase/sql/run-now/173_visitor_language_and_ga_status.sql")
   check("SQL part 173: one statement a line, safe to run again, schema reloaded last", sql.trim().split("\n").length === 4 && /ADD COLUMN IF NOT EXISTS visitor_language boolean NOT NULL DEFAULT false/.test(sql) && /ADD COLUMN IF NOT EXISTS tracking_seen jsonb/.test(sql) && /notify pgrst, 'reload schema';$/.test(sql.trim()) && /p173_visitor_language_and_ga_status/.test(read("supabase/sql/run-now/99_check_after.sql")))
 }

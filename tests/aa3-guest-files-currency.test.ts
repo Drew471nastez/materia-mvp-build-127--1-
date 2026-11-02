@@ -155,7 +155,8 @@ async function guest() {
   check("a built website's product block asks for a guest too, this site's shop only", /guestOwns\(db, raw, \{ creatorId: site\.creatorId \}, ids\)/.test(ownedRoute) && /siteOfRequest\(db, request\)/.test(ownedRoute))
   check("  and asks only when the hint says there is something", /sl_signed_in\|sl_owned_hint/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
   check("an imported theme's product page reads the grant", /guestOwns\(createAdminClient\(\), guestAccessFromCookieHeader/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
-  check("/p still reads it on the server", /heldGrants\(createAdminClient\(\), guestAccessCookieFrom\(await cookies\(\)\), \{ productId: product\.id \}\)/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+  /* Round 49: the product page is one HTML for everybody (a CDN holds it); the grant is read after load, by the purchase check and the guest row's own route, from the same cookie. */
+  check("/p reads it after load, from the same signed cookie", /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/guest-owned/route.ts")) && /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/verify/route.ts")) && !/heldGrants|cookies\(\)/.test(read("app/(marketing)/p/[slug]/page.tsx")))
   const helper = read("lib/receipts/guest-access-server.ts") + read("lib/receipts/guest-access.ts")
   check("no IP and no device fingerprint is ever proof", !/x-forwarded-for|x-real-ip|user-agent|materia_session/i.test(helper))
 }

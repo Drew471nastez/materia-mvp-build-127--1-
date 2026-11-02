@@ -85,9 +85,10 @@ async function main() {
 
     const page = code("app/(marketing)/u/[username]/page.tsx")
     check("the creator page hands the header withoutContactEmail(headerSettings)", /settings=\{withoutContactEmail\(headerSettings\)\}/.test(page) && !/settings=\{headerSettings\}/.test(page))
-    check("the About block gets the handle, gated, never the address", /sellerContactHandle=\{publicContactHandle\}/.test(page) && /const publicContactHandle = publicContactEmail \? profile\.username \|\| username : undefined/.test(page) && !/sellerContactEmail=/.test(page))
+    /* Round 49: the gate is the browser's (useContactShown, from /api/creator-page/viewer); the address is still answered only by /api/creator-contact. */
+    check("the About block gets the handle, gated, never the address", /sellerContactHandle=\{publicContactHandle\}/.test(page) && /const publicContactHandle = profile\.username \|\| username/.test(page) && /\{contactHandle && contactShown && \(/.test(code("components/store-builder/unified-section-renderer.tsx")) && !/sellerContactEmail=/.test(page))
     check("no client prop is handed the resolved or gated address", !/=\{(publicContactEmail|resolvedContactEmail)[^}]*\}/.test(page))
-    check("the owner's About form is given their own typed address (it saved \"\" over it)", /contactEmail=\{headerSettings\.contactEmail \?\? ""\}/.test(page) && /viewerIsOwner \? \(\s*<EditAboutButton/.test(page))
+    check("the owner's About form is given their own typed address (it saved \"\" over it)", /<OwnerOnly>\s*<EditAboutButtonForOwner/.test(page) && /contactEmail=\{contactEmail \?\? ""\}/.test(code("components/storefront/owner-controls-lazy.tsx")) && /const contactEmail = owner \? await loadTypedContactEmail\(row\.id\) : null/.test(code("app/api/creator-page/viewer/route.ts")))
 
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     check("the About block draws ContactReveal with the handle", renderer.includes("<ContactReveal handle={contactHandle} />") && (renderer.match(/<ContactReveal/g) ?? []).length === 1)

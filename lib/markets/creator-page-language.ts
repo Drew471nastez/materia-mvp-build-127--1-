@@ -4,18 +4,23 @@ import "server-only"
  * ===========================================================================
  *  THE CREATOR PAGE IN THE VISITOR'S LANGUAGE
  * ===========================================================================
- * storelib.com/<name> has one address, so a language is not a prefix there
- * as it is on the website: the page is drawn with the products' approved
- * translations (Translate in Settings › Markets and languages, the same
- * ones the website uses) in the language this request is for:
+ * storelib.com/<name> has one address per language: the page is drawn with
+ * the products' approved translations (Translate in Settings › Markets and
+ * languages, the same ones the website uses) in the language the ADDRESS
+ * names, ?lang=fr, and in the store's own without one. Round 49: never from
+ * a cookie or a request header, so every address is one HTML for everybody
+ * and a CDN may hold it. Who gets sent to which address is the proxy's
+ * (proxy.ts creatorPageLanguageStep, lib/markets/creator-page-language-step):
  *
  *   ?lang=fr        the visitor chose it (the language row at the foot of
- *                   the page, or the offer card): remembered in sl_lang
- *   sl_lang         what they chose before, on any creator page
+ *                   the page): remembered in sl_lang
+ *   sl_lang         what they chose before, on any creator page: sent to
+ *                   ?lang=<it> when the store publishes it
  *   their browser   with Show visitors their own language on: the first
  *                   language the browser asks for that the store published,
  *                   exactly or nearly ("pt-PT" reads the store's "pt-BR"),
- *                   chosen silently (lib/markets/visitor-language.ts)
+ *                   chosen silently (lib/markets/visitor-language.ts), sent
+ *                   to ?lang=<it>
  *
  * NEVER A CARD HERE. The creator page has no "View this site in ...?" offer
  * (the owner, round 27): the language is chosen as above or left as the
@@ -27,13 +32,8 @@ import "server-only"
  * one address search engines know. Only published languages, only approved
  * translations; what is not translated stays as written.
  */
-import { cookies, headers } from "next/headers"
-import { unstable_cache } from "next/cache"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { languageName } from "./locales"
 import { siteLanguages, siteLocalizer } from "./live"
-import { localizationTag, readLocalizationRow } from "./server"
-import { LANGUAGE_CRAWLER, visitorLanguageFor } from "./visitor-language"
 
 export interface CreatorPageLanguage {
   /** The language the page is drawn in. */
@@ -45,32 +45,13 @@ export interface CreatorPageLanguage {
   product<T extends Record<string, unknown>>(p: T): T
 }
 
-/** Show visitors their own language, on or off (part 173; off where it has not run). */
-function visitorLanguageOn(creatorId: string): Promise<boolean> {
-  return unstable_cache(
-    async () => {
-      const { data } = await readLocalizationRow(createAdminClient(), creatorId)
-      return data?.visitor_language === true
-    },
-    ["visitor-language", creatorId],
-    { tags: [localizationTag(creatorId)], revalidate: 300 },
-  )().catch(() => false)
-}
-
 export async function creatorPageLanguage(creatorId: string, asked: string | null | undefined): Promise<CreatorPageLanguage | null> {
   const langs = await siteLanguages(creatorId)
   if (!langs.saved || langs.others.length === 0) return null
   const all = [langs.defaultLanguage, ...langs.others]
   const find = (c: string | null | undefined) => (c ? (all.find((l) => l.toLowerCase() === c.toLowerCase()) ?? null) : null)
-  const [h, jar] = await Promise.all([headers(), cookies()])
-  const crawler = LANGUAGE_CRAWLER.test(h.get("user-agent") ?? "")
-  let code = find(asked) ?? (crawler ? null : find(jar.get("sl_lang")?.value))
-  if (!code && !crawler && !jar.get("sl_lang")?.value && (await visitorLanguageOn(creatorId))) {
-    /* The browser's languages only: no country, so `closest` is a near match of one of them. */
-    const pick = visitorLanguageFor({ acceptLanguage: h.get("accept-language"), country: null, languages: all })
-    code = pick.exact ?? pick.closest
-  }
-  code = code ?? langs.defaultLanguage
+  /* The address alone (round 49): ?lang= or the store's own. Never a cookie or a request header, so one address is one HTML. */
+  const code = find(asked) ?? langs.defaultLanguage
   /* The default language's translations too, as the website draws them. */
   const localizer = await siteLocalizer(creatorId, code === langs.defaultLanguage ? null : code)
   return {
