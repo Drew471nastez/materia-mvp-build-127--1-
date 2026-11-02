@@ -872,7 +872,8 @@ export function MobileNavPill({
   onCloseMenu: () => void
   onNavigate: (href: string) => void
   /** Warms a route so the first press on it does not stream from cold. */
-  onPrefetch?: (href: string) => void
+  /** `phone`: where the bar is on screen (isPhoneShell). Off it, the page alone and once. */
+  onPrefetch?: (href: string, phone: boolean) => void
   icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; analytics: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
@@ -908,22 +909,26 @@ export function MobileNavPill({
     not performance.now: a phone that sleeps may stop the second clock.
   */
   /*
-    ONLY WHERE THE BAR IS ON SCREEN (round 48). The bar is mounted at every
-    width and hidden from md up, and on a computer it still fetched its four
-    whole pages, Analytics' figures with them, on every load of /app and again
-    after every refresh: four server renders and two analytics reads nobody
-    had pointed at. A computer's rail fetches a page under the pointer
-    (prefetchAppPage on hover and focus), so the bar warms only on a phone or
-    in the apps (isPhoneShell), and starts the moment a window is narrowed to
-    one.
+    ON A COMPUTER, THE PAGES ALONE AND ONCE (round 48). The bar is mounted at
+    every width and hidden from md up. On a computer it fetched its four whole
+    pages and, with Analytics, Analytics' figures (two of the heaviest reads
+    there are), on every load of /app, and kept all of it warm through every
+    refresh (a save, a pull, PlanWatch): reads nobody had pointed at. The four
+    pages are still fetched there, so a first click on them lands on the next
+    frame as before, but `phone` false asks for the pages alone and once: the
+    rail fetches Analytics' figures under the pointer (prefetchAppPage on
+    hover), and a refresh drops them like any other page. On a phone and in
+    the apps (isPhoneShell) nothing changes. A window narrowed to a phone's
+    width is warmed as a phone.
   */
   useEffect(() => {
     if (!onPrefetch) return
     let warmedAt = 0
+    let warmedAsPhone = false
     const warm = () => {
-      if (!isPhoneShell()) return
       warmedAt = Date.now()
-      for (const item of items) onPrefetch(item.href)
+      warmedAsPhone = isPhoneShell()
+      for (const item of items) onPrefetch(item.href, warmedAsPhone)
     }
     warm()
     const onVisible = () => {
@@ -931,7 +936,7 @@ export function MobileNavPill({
     }
     const narrow = typeof window.matchMedia === "function" ? window.matchMedia(PHONE_WIDTH_QUERY) : null
     const onNarrow = () => {
-      if (!warmedAt) warm()
+      if (!warmedAsPhone && isPhoneShell()) warm()
     }
     document.addEventListener("visibilitychange", onVisible)
     narrow?.addEventListener?.("change", onNarrow)

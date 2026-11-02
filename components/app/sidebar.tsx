@@ -987,9 +987,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           startNavigationLoading(href)
           router.push(href)
         }}
-        onPrefetch={(href) => {
-          /* Asked again whenever a router.refresh() drops it (lib/ui/app-navigation KEPT WARM THROUGH A REFRESH). */
-          prefetchAppPage(router, href, { keepWarm: true })
+        onPrefetch={(href, phone) => {
+          /* Asked again whenever a router.refresh() drops it (lib/ui/app-navigation KEPT WARM THROUGH A REFRESH), on a
+             phone, where the bar is the way around. On a computer it is hidden: the page alone, once (round 48). */
+          prefetchAppPage(router, href, phone ? { keepWarm: true } : { pageOnly: true })
         }}
         icons={{
           home: NAV_ICONS.dashboard,

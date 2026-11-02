@@ -9,9 +9,9 @@
  *            lib/search/app-search-groups.ts, not the server's search module,
  *            which brought the whole Help Center, the integrations catalog
  *            and the orders grouping into every /app page's first load.
- * PILL       the phone's bar warms its four pages only where it is shown (a
- *            phone, the apps): on a computer it is hidden and the rail
- *            prefetches under the pointer.
+ * PILL       the phone's bar is hidden on a computer: there it still warms its
+ *            four pages (a first click lands at once) but alone and once, not
+ *            Analytics' figures and not again after every refresh.
  * SEARCH     the header's search takes the Community switch from the layout
  *            (through the sidebar), so a load of /app no longer asks
  *            GET /api/platform/flags for an answer the server already had.
@@ -95,14 +95,18 @@ section("Shell JS: the search box brings no server search code into /app")
   check("  and still searches the Help Center on the server", /import \{ searchHelp \} from "@\/lib\/help\/search"/.test(server))
 }
 
-section("Pill: its pages warmed only where it is on screen")
+section("Pill: on a computer, where it is hidden, the pages alone and once")
 {
   const nav = code("components/app/sidebar-mobile-nav.tsx")
-  check("the warm-up returns on a computer", /const warm = \(\) => \{\s*if \(!isPhoneShell\(\)\) return\s*warmedAt = Date\.now\(\)\s*for \(const item of items\) onPrefetch\(item\.href\)/.test(nav))
-  check("  and starts when a window is narrowed to a phone's width", /window\.matchMedia\(PHONE_WIDTH_QUERY\)/.test(nav) && /narrow\?\.addEventListener\?\.\("change", onNarrow\)/.test(nav))
-  check("  the same breakpoint isPhoneShell reads", /export const PHONE_WIDTH_QUERY = "\(max-width: 767px\)"/.test(code("lib/ui/app-navigation.ts")) && /window\.matchMedia\?\.\(PHONE_WIDTH_QUERY\)\.matches/.test(code("lib/ui/app-navigation.ts")))
+  const shell = code("components/app/sidebar.tsx")
+  const navigation = code("lib/ui/app-navigation.ts")
+  check("the bar still warms its four pages at every width", /warmedAsPhone = isPhoneShell\(\)\s*for \(const item of items\) onPrefetch\(item\.href, warmedAsPhone\)/.test(nav))
+  check("  a phone keeps them warm through a refresh, a computer asks for the page alone", /prefetchAppPage\(router, href, phone \? \{ keepWarm: true \} : \{ pageOnly: true \}\)/.test(shell))
+  check("  the page alone is no figures, covers or Stripe reads", /if \(options\?\.pageOnly\) return\s*if \(href === "\/app\/analytics"/.test(navigation))
+  check("  a window narrowed to a phone is warmed as one", /window\.matchMedia\(PHONE_WIDTH_QUERY\)/.test(nav) && /if \(!warmedAsPhone && isPhoneShell\(\)\) warm\(\)/.test(nav))
+  check("  the same breakpoint isPhoneShell reads", /export const PHONE_WIDTH_QUERY = "\(max-width: 767px\)"/.test(navigation) && /window\.matchMedia\?\.\(PHONE_WIDTH_QUERY\)\.matches/.test(navigation))
   check("  the bar is hidden from md up, which is why", /md:hidden/.test(nav))
-  check("the rail still fetches a page under the pointer", /prefetchAppPage\(router, href\)/.test(code("components/app/sidebar.tsx")))
+  check("the rail's hover still warms Analytics' figures with its page", /prefetchAppPage\(router, href\)/.test(shell) && /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(navigation))
 }
 
 section("Search: the Community switch comes from the layout")

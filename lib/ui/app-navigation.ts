@@ -532,7 +532,8 @@ export function useShownSearch(): string {
 export function prefetchAppPage(
   router: { prefetch: (href: string, options?: never) => void },
   href: string,
-  options?: { keepWarm?: boolean },
+  /** `pageOnly`: the page alone, without the figures, covers or Stripe reads some pages warm with it (the hidden bar on a computer, round 48). */
+  options?: { keepWarm?: boolean; pageOnly?: boolean },
 ) {
   const onInvalidate = options?.keepWarm ? keepWarmListener(router, href) : undefined
   try {
@@ -542,6 +543,7 @@ export function prefetchAppPage(
     /* a prefetch that fails is a click that waits, nothing worse */
     if (onInvalidate) warmListening.delete(href)
   }
+  if (options?.pageOnly) return
   /* Analytics' page is quick; its numbers are what take the time. They are
      fetched ahead too, and kept for the page (lib/analytics/report-cache). */
   if (href === "/app/analytics" || href.startsWith("/app/analytics?")) {
