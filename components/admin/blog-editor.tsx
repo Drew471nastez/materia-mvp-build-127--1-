@@ -965,7 +965,7 @@ function GalleryBlock({ block }: { block: Block }) {
               <input
                 value={im.alt ?? ""}
                 placeholder={L("Alt text")}
-                aria-label={L("Alt text for picture {n}").replace("{n}", String(i + 1))}
+                aria-label={`${L("Alt text")} ${i + 1}`}
                 aria-invalid={!(im.alt ?? "").trim()}
                 onChange={(e) => setImages(current().map((x, k) => (k === i ? { ...x, alt: e.target.value } : x)))}
                 className={cx(fieldCls, "h-8 text-[12px]", !(im.alt ?? "").trim() ? "border-[#d4a72c]/50" : "")}

@@ -13,6 +13,7 @@ import { DomainSettings } from "@/components/website-builder/website-settings/do
 import { GeneralSettings } from "@/components/website-builder/website-settings/general"
 import { NavigationSettings } from "@/components/website-builder/website-settings/navigation"
 import { PageSettings } from "@/components/website-builder/website-settings/pages"
+import { BlogSettings } from "@/components/website-builder/website-settings/blog"
 import { PolicySettings } from "@/components/website-builder/website-settings/policies"
 import { PublishingSettings } from "@/components/website-builder/website-settings/publishing"
 import { PerformanceSettings } from "@/components/website-builder/website-settings/performance"
@@ -184,8 +185,9 @@ export function ProjectSettings({
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled. */
-      if (e.key === "Escape" && !e.defaultPrevented) onClose()
+      /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled.
+         A blog post open over Settings (website-settings/blog/post-editor.tsx) is left only by its own Back, so its Escape never closes this page behind it. */
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-site-post-editor]")) onClose()
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
@@ -418,11 +420,12 @@ export function ProjectSettings({
             phone the push is the motion, and the fade is left out
             (`[data-settings-page] .wb-settings-swap` in globals.css). */}
         {/* Round AK: the speed page's charts and tables a little wider on a big screen. */}
-        <div key={section} className={cn("wb-settings-swap mx-auto w-full max-w-[860px] px-4 pb-[max(64px,calc(env(safe-area-inset-bottom)+32px))] pt-5 md:px-12 md:pb-14 md:pt-12", section === "performance" && "xl:max-w-[1040px]")} aria-label={current?.label}>
+        <div key={section} className={cn("wb-settings-swap mx-auto w-full max-w-[860px] px-4 pb-[max(64px,calc(env(safe-area-inset-bottom)+32px))] pt-5 md:px-12 md:pb-14 md:pt-12", section === "performance" && "xl:max-w-[1040px]", section === "blog" && "xl:max-w-[1040px]")} aria-label={current?.label}>
           {section === "general" && <GeneralSettings ctx={ctx} />}
           {section === "domains" && <DomainSettings ctx={ctx} />}
           {section === "seo" && <SeoSettings ctx={ctx} />}
           {section === "pages" && <PageSettings ctx={ctx} />}
+          {section === "blog" && <BlogSettings ctx={ctx} />}
           {section === "navigation" && <NavigationSettings ctx={ctx} />}
           {section === "commerce" && <CommerceSettings ctx={ctx} />}
           {section === "policies" && <PolicySettings ctx={ctx} />}

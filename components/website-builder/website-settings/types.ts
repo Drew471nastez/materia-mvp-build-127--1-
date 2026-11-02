@@ -18,6 +18,7 @@ export const SETTINGS_SECTIONS = [
   { id: "domains", get label() { return tt("Domains") }, group: "site" },
   { id: "seo", get label() { return tt("SEO & Social") }, group: "site" },
   { id: "pages", get label() { return tt("Pages") }, group: "content" },
+  { id: "blog", get label() { return tt("Blog") }, group: "content" },
   { id: "navigation", get label() { return tt("Navigation") }, group: "content" },
   { id: "commerce", get label() { return tt("Commerce") }, group: "content" },
   { id: "policies", get label() { return tt("Policies") }, group: "content" },
