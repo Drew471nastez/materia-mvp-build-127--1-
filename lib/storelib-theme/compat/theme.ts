@@ -128,6 +128,7 @@ function pageRatings(reviews: unknown): Resources["ratings"] {
 }
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
+import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 import { compileSection } from "../storelib/compile"
 import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
@@ -143,7 +144,8 @@ const linksOfPage = new WeakMap<object, (url: string) => string>()
 function pageLinks(page: CompatPage): (url: string) => string {
   const hit = linksOfPage.get(page)
   if (hit) return hit
-  const facts = linkFactsOf(page)
+  /* A website with a blog keeps its links to it, whether or not the theme has a blog template (./links.ts). */
+  const facts = linkFactsOf(page.siteBlog ? { ...page, blog: { handle: String(page.siteBlog.handle) } } : page)
   const seen = new Map<string, string>()
   const link = (url: string) => {
     let to = seen.get(url)
@@ -461,6 +463,28 @@ export interface CompatPage {
    * as the product's own page.
    */
   sizeCharts?: Record<string, SizeChart>
+  /**
+   * THE WEBSITE'S BLOG ON THIS PAGE (lib/site-blog, made Shopify's objects
+   * in ./objects.ts blogObject, articleObject): `blog` as this address
+   * narrows it (a tag, a category), the post on a post's page, and the tag
+   * the address names (`current_tags`). Absent: the theme's blog with no
+   * posts, as before (emptyBlog).
+   */
+  blogData?: {
+    blog: O
+    article?: O | null
+    tags?: string[]
+    /** What the page's search facts are made from (lib/website-builder/compat-search.ts): never handed to the theme. */
+    settings?: SiteBlogSettings
+    /** The posts the blog page lists (all its pages), newest first. */
+    cards?: PublicPostCard[]
+    /** The post on a post's page. */
+    post?: PublicPost
+  }
+  /** The whole blog, on every page of a website that has one: `blogs[handle]`, `articles`, and a featured blog section's `blog` setting. */
+  siteBlog?: O | null
+  /** The page's canonical address when it names another (a post's own canonical, from its SEO). */
+  canonicalUrl?: string
 }
 
 export interface CompatThemeOptions {
@@ -799,6 +823,7 @@ export class CompatTheme {
       link: pageLinks(page),
       sizeCharts: page.sizeCharts,
       ratings: pageRatings(page.reviews),
+      ...(page.siteBlog ? { blog: page.siteBlog } : {}),
     }
   }
 
@@ -920,17 +945,20 @@ export class CompatTheme {
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
-      /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
-      blog: page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null,
-      blogs: {},
-      articles: {},
+      /* The website's blog (lib/site-blog) where it has one; else a blog page draws the theme's blog with its title and no posts, never a white page with nothing in it. */
+      blog: page.blogData?.blog ?? (page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null),
+      article: page.blogData?.article ?? null,
+      /* A post's page shares its cover, as Shopify's page_image is the article's picture. */
+      ...(page.blogData?.article?.image ? { page_image: page.blogData.article.image } : {}),
+      blogs: page.siteBlog ? { [String(page.siteBlog.handle)]: page.siteBlog } : {},
+      articles: page.siteBlog ? articlesByAddress(page.siteBlog) : {},
       pages: {},
       images: {},
       metaobjects: {},
       powered_by_link: "",
       current_page: Number(page.query?.page ?? 1) || 1,
       /* Nil unless a collection or blog is narrowed by tag, as on Shopify: Dawn's <title> writes ` – tagged "…"` whenever it is anything else, and an empty list is not nothing in Liquid. */
-      current_tags: null,
+      current_tags: page.blogData?.tags?.length ? [...page.blogData.tags] : null,
       additional_checkout_buttons: false,
       content_for_additional_checkout_buttons: "",
       recommendations: page.recommendations
@@ -955,6 +983,8 @@ export class CompatTheme {
       gift_card: null,
       order: null,
     }
+    /* A blog post's own canonical (its SEO), when its writer named another address. */
+    if (page.canonicalUrl) globals.canonical_url = page.canonicalUrl
     const registers: CompatRegisters = {
       assetUrl: (name) => this.opts.assetUrl(name),
       /* A file from Shopify's Files page never comes in the zip: the theme's own asset or media file by that name. */
@@ -1849,6 +1879,13 @@ export function groupSections(json: string | undefined): CompatSectionInstance[]
   if (!g?.sections) return []
   const order = Array.isArray(g.order) ? g.order : Object.keys(g.sections)
   return order.filter((id) => g.sections![id]).map((id) => instanceFromJson(id, g.sections![id]))
+}
+
+/** Shopify's `articles['news/first-post']`: every post of the blog by its blog and its handle. */
+function articlesByAddress(blog: O): O {
+  const out: O = {}
+  for (const a of (blog.articles as O[] | undefined) ?? []) out[`${String(blog.handle)}/${String(a.handle)}`] = a
+  return out
 }
 
 /** A blog of no posts, named by its address (/blogs/news is News). */

@@ -1126,6 +1126,8 @@ const SUITES = [
   "tests/seo-leftovers-a-r45.test.ts",
   /* Round 46: Core Web Vitals of the SEO round's pages measured live (scripts/check-live-vitals.mjs): a list's first card eager when no large post is above it, covers with priority and sizes, no YouTube frame or script before a press, the phone's search strip drawn once the header is measured (a 63px shift), no preconnect to an unused host. */
   "tests/perf-r46.test.ts",
+  /* Creator blogs in an imported theme (P3): Dawn-style blog, article and featured blog sections drawn with real posts, pagination, tags, categories, 308s for old slugs and handles, a preview noindex and no-store, BlogPosting and Blog JSON-LD on the custom domain, the sitemap's blog entries, and nothing changed without a blog. */
+  "tests/site-blog-compat.test.ts",
 ]
 
 /**

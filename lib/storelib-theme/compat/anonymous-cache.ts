@@ -115,8 +115,8 @@ export function strangerCookies(header: string | null | undefined): boolean {
   return !cookieNames(header).some(pageCookie)
 }
 
-/** Paths that are always one visitor's, or carry what they typed. */
-const PRIVATE_PAGE = /^\/(?:cart|checkout|account|password|search|localization|wishlist|preview|challenge|apps|tools|services)(?:[/?#.]|$)/i
+/** Paths that are always one visitor's, or carry what they typed. A blog post's preview is its editor's (lib/storelib-theme/compat/site.ts). */
+const PRIVATE_PAGE = /^\/(?:cart|checkout|account|password|search|localization|wishlist|preview|challenge|apps|tools|services|blogs\/[^/?#]+\/~preview)(?:[/?#.]|$)/i
 
 /** Query keys that make an answer a script's, or change the visitor's cart. */
 const PRIVATE_QUERY = /^(?:section_id|sections|sections_url|sl_cart|preview|view|oseid|form_type|return_to|return)$/i

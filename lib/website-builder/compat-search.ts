@@ -20,7 +20,11 @@
  *                 (BreadcrumbList) on every page under the front one;
  *   noindex       the password page, and the addresses that are only a
  *                 template with nothing in it (/collection, /page, /article,
- *                 /blog with no posts: Storelib keeps none).
+ *                 /blog with no posts), and a post its writer kept out of
+ *                 search;
+ *   the blog      a post is a BlogPosting published by the store, with its
+ *                 picture, og:type article and Home › Blog › Post; the blog
+ *                 is a Blog listing its posts (lib/site-blog/seo.ts).
  *
  * Pure, so it is tested without a database. Every address is on the
  * website's own origin (its connected domain when it has one).
@@ -30,6 +34,8 @@ import type { SearchHead } from "@/lib/storelib-theme/compat/search-head"
 import { productObject } from "@/lib/storelib-theme/compat/objects"
 import { jsonLdScript, productJsonLd, websiteJsonLd } from "./site-seo"
 import { breadcrumbJsonLd } from "./breadcrumbs"
+import { articleJsonLd, blogJsonLd } from "@/lib/site-blog/seo"
+import { blogPath } from "@/lib/site-blog/urls"
 
 export interface CompatSearchSite {
   /** https://<the website's own host>. */
@@ -48,8 +54,10 @@ export interface CompatSearchSite {
   keyOf?: (path: string) => string | null
 }
 
-/** Template pages with nothing of their own to show: drawn, never a search result. */
+/** Template pages with nothing of their own to show: drawn, never a search result. A blog with posts, and a post, are (lib/site-blog). */
 const EMPTY_TEMPLATES = new Set(["article", "blog"])
+const emptyTemplate = (page: CompatPage): boolean =>
+  page.template === "article" ? !page.blogData?.post : page.template === "blog" ? !page.blogData?.cards?.length : EMPTY_TEMPLATES.has(page.template)
 
 /**
  * A picture's address as a share card and a search engine can fetch it: an
@@ -92,7 +100,9 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
   if (t === "password") return { noindex: true, description: site.siteDescription || `Visit ${site.storeName}'s website on Storelib` }
 
   const noindex =
-    EMPTY_TEMPLATES.has(t) ||
+    emptyTemplate(page) ||
+    /* A post its writer kept out of search (its SEO). */
+    page.blogData?.post?.seo.noindex === true ||
     (t === "collection" && !page.collection) ||
     (t === "product" && !page.product) ||
     /* The bare page template, reached at /page: a page with no page in it. */
@@ -142,6 +152,46 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
     const text = plain(page.collection.description)
     description = text ? text.slice(0, 320) : description
     jsonLd.push(jsonLdScript(breadcrumbJsonLd([home, { name: "Collections", url: `${site.origin}/collections` }, { name: page.collection.title, url }])))
+  } else if (t === "article" && page.blogData?.post && page.blogData.settings) {
+    const post = page.blogData.post
+    const blog = page.blogData.settings
+    const postUrl = `${site.origin}${post.path}`
+    const blogUrl = `${site.origin}${blogPath(blog.handle)}`
+    const pictures = [post.seo.ogImageUrl, post.coverImageUrl].map((u) => fullImageUrl(u, site.origin)).filter((u): u is string => !!u)
+    image = pictures[0]
+    description = (post.seo.description || post.excerpt || "").trim().slice(0, 320) || description
+    jsonLd.push(
+      jsonLdScript(
+        articleJsonLd({
+          /* Its own canonical, when its writer set one: what the page names as itself. */
+          url: post.seo.canonicalUrl || postUrl,
+          title: post.seo.title || post.title,
+          description: description ?? "",
+          images: pictures,
+          published: post.publishedAt,
+          modified: post.updatedAt,
+          author: post.author ? { name: post.author.name, role: post.author.role || null, links: post.author.links } : null,
+          publisher: { name: site.storeName, logo: site.logo ?? null, url: `${site.origin}/` },
+          category: post.category?.name ?? null,
+          tags: post.tags,
+          wordCount: post.wordCount,
+        }),
+      ),
+    )
+    jsonLd.push(jsonLdScript(breadcrumbJsonLd([home, { name: blog.title, url: blogUrl }, { name: post.title, url: postUrl }])))
+    return { description: description || `Visit ${site.storeName}'s website on Storelib`, image: image || fullImageUrl(blog.ogImageUrl, site.origin) || site.shareImage, noindex, jsonLd, ogType: "article" }
+  } else if (t === "blog" && page.blogData?.cards?.length && page.blogData.settings) {
+    const blog = page.blogData.settings
+    const blogUrl = `${site.origin}${blogPath(blog.handle)}`
+    const listed = path === blogPath(blog.handle)
+    description = (listed ? blog.seoDescription || blog.description : "").trim().slice(0, 320) || description
+    /* The posts this page shows (the theme cuts the list into pages; the first page's when it says nothing). */
+    const per = Math.max(1, blog.postsPerPage || 12)
+    const n = Math.max(1, Math.floor(Number(page.query?.page ?? 1)) || 1)
+    const shown = page.blogData.cards.slice((n - 1) * per, n * per)
+    jsonLd.push(jsonLdScript(blogJsonLd({ url: `${site.origin}${path}`, name: blog.title, description: listed ? blog.seoDescription || blog.description : "", posts: shown.map((c) => ({ url: `${site.origin}${c.path}`, title: c.title, publishedAt: c.publishedAt, updatedAt: c.updatedAt, image: fullImageUrl(c.coverImageUrl, site.origin) ?? null })) })))
+    jsonLd.push(jsonLdScript(breadcrumbJsonLd(listed ? [home, { name: blog.title, url: blogUrl }] : [home, { name: blog.title, url: blogUrl }, { name: page.title || blog.title, url }])))
+    image = fullImageUrl(blog.ogImageUrl, site.origin)
   } else if (path !== "/" && !noindex) {
     const name = page.pageObject?.title || page.title || ""
     if (name) jsonLd.push(jsonLdScript(breadcrumbJsonLd([home, { name, url }])))

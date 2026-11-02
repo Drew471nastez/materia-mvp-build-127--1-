@@ -44,6 +44,7 @@ import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compa
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
+import { siteBlogTag } from "@/lib/site-blog/cache"
 import { siteLanguages } from "@/lib/markets/live"
 
 /** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
@@ -378,7 +379,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const root = localeRoot(found.site.i18n)
   if (where && root && sitePath !== "/localization" && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
   headers.set("Content-Type", out.type)
-  headers.set("X-Robots-Tag", token ? "noindex" : "all")
+  /* A post's preview says noindex itself (lib/storelib-theme/compat/site.ts). */
+  headers.set("X-Robots-Tag", token || headers.get("X-Robots-Tag") === "noindex" ? "noindex" : "all")
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
@@ -502,7 +504,7 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   const creator = await creatorByName(username).catch(() => null)
   if (!creator) return handle(req, ctx)
   const url = new URL(req.url)
-  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId)], async () => {
+  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId), siteBlogTag(creator.creatorId)], async () => {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()

@@ -50,7 +50,8 @@ export const MAX_SITEMAP_URLS = 50000
  * sign in and Wishlist pages are one visitor's, and a creator who arranged
  * them in the builder has them stored like any page, so they are named here.
  */
-const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist", "password"])
+/* "blogs" and "article" are a Storelib theme's Blog and Post templates (lib/site-blog), listed at their real addresses (blogSitemapEntries). */
+const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist", "password", "blogs", "article"])
 
 /** The address of a page of the site, on the site's own origin. */
 export function pageUrl(origin: string, pageKey: string): string {
@@ -99,6 +100,41 @@ export function listedPageKeys(pageKeys: string[], opts: { imported?: boolean } 
   /* An imported theme's "products" is not a page at /products, which redirects to the shop (shopUrl). */
   const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && (TEMPLATE_PAGE_KEYS.has(k) || k === "products")))
   return [...(keys.includes("home") ? ["home"] : []), ...keys.filter((k) => k !== "home").sort()]
+}
+
+/** What the sitemap lists of a website's blog (lib/site-blog/public-read.ts listedBlogEntries). */
+export interface BlogSitemapSource {
+  handle: string
+  posts: { slug: string; lastmod: string; images: string[]; noindex: boolean }[]
+  categories: string[]
+  newest: string | null
+}
+
+/**
+ * THE BLOG'S ADDRESSES, the same on a Storelib theme and an imported one
+ * (lib/site-blog/urls.ts): the blog, each live post its writer did not keep
+ * out of search (when its words last changed, its pictures), and each
+ * category with a post in it. Pages past the first, tags and previews are
+ * not listed. Nothing while no post is live.
+ */
+export function blogSitemapEntries(origin: string, blog: BlogSitemapSource | null | undefined): SitemapEntry[] {
+  if (!blog || !blog.posts.length) return []
+  const seg = encodeURIComponent
+  const base = `${origin}/blogs/${seg(blog.handle)}`
+  const iso = (v: string | null | undefined) => {
+    const t = v ? Date.parse(v) : NaN
+    return Number.isFinite(t) ? new Date(t).toISOString() : undefined
+  }
+  const newest = iso(blog.newest)
+  const out: SitemapEntry[] = [{ loc: base, ...(newest ? { lastmod: newest } : {}) }]
+  for (const p of blog.posts) {
+    if (p.noindex) continue
+    const lastmod = iso(p.lastmod)
+    const images = [...new Set(p.images.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u)))].slice(0, MAX_IMAGES_PER_PAGE).map((loc) => ({ loc }))
+    out.push({ loc: `${base}/${seg(p.slug)}`, ...(lastmod ? { lastmod } : {}), ...(images.length ? { images } : {}) })
+  }
+  for (const c of blog.categories) out.push({ loc: `${base}/category/${seg(c)}` })
+  return out
 }
 
 /**
