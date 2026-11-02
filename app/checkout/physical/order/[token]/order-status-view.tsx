@@ -21,6 +21,7 @@ import { estimateText, useCheckoutLang, useCt } from "@/app/checkout/parts/words
 import { checkoutMsg, type CheckoutT } from "@/lib/markets/checkout-words"
 import { LiveStatus } from "./live-status"
 import { splitSavings } from "@/lib/receipts/discount"
+import { StoreLogo } from "@/components/brand/store-logo"
 
 interface Props {
   token: string
@@ -154,8 +155,7 @@ function ShopHeader({ shop }: { shop: Props["shop"] }) {
   const ct = useCt()
   const face =
     shop.avatarKind === "logo" && shop.avatar ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={shop.avatar} alt={shop.name} className="block h-8 w-auto max-w-[160px] object-contain sm:max-w-[200px]" data-shop-logo="" />
+      <StoreLogo src={shop.avatar} alt={shop.name} height={32} className="max-w-[160px] sm:max-w-[200px]" data-shop-logo="" />
     ) : (
       <>
         <AppAvatar src={shop.avatar} name={shop.name} alt="" size={30} className="shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]" />

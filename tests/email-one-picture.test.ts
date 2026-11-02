@@ -24,6 +24,7 @@
  *                    Outlook paints too, fluid to 600px, dark mode, the
  *                    house rules on words
  */
+import { STORE_LOGO_RADIUS } from "@/lib/brand/store-logo"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -153,7 +154,7 @@ console.log("\nThe receipt")
   check("each product's name is there, escaped", html.includes(">Autumn preset pack<") && html.includes("Night &lt;sky&gt; guide") && !html.includes("<sky>"))
   const avatar = imgs.find((i) => i.includes("e-store-logo")) ?? ""
   /* Beside the name, so its alt is empty: a reader hears the name once. */
-  check("the creator's photo, at its own shape up to 40px tall, never round, sized, beside the name", /height="40"/.test(avatar) && /max-height:40px/.test(avatar) && /alt=""/.test(avatar) && !/border-radius/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar) && />Luca Dragoste<\/td>/.test(html), avatar) // Changed on purpose (round 43): no picture is cut round in any email; a logo is drawn at its own shape (lib/emails/brand-mark.ts)
+  check("the creator's photo, at its own shape up to 40px tall, never round, sized, beside the name", /height="40"/.test(avatar) && /max-height:40px/.test(avatar) && /alt=""/.test(avatar) && (avatar.match(/border-radius:[^;"]*/g) ?? []).join() === `border-radius:${STORE_LOGO_RADIUS}px` && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar) && />Luca Dragoste<\/td>/.test(html), avatar) // Changed on purpose (round 43): no picture is cut round in any email; a logo is drawn at its own shape (lib/emails/brand-mark.ts)
   check("and it is the only picture of the creator: no logo beside it", !html.includes(LOGO) && imgs.length === 2)
   check("the Download button is a filled cell with the link, and Outlook gets a roundrect",
     /<td class="e-btn[^"]*"[^>]*bgcolor="#1a1a2e"/.test(html) && /<a class="e-btn-a[^"]*" href="https:\/\/storelib\.com\/receipt\/tok_123"[^>]*>Download your files<\/a>/.test(html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/receipt\/tok_123"/.test(html))
@@ -172,7 +173,8 @@ console.log("\nThe receipt")
   const bare = buyerReceiptEmailHtml({ ...model, sellerPicture: null })
   check("a creator with no picture gets their initial, no image", /class="e-tile-accent"[^>]*>L<\/td>/.test(bare) && !pictures(bare).some((i) => i.includes("e-avatar")))
   const logo = buyerReceiptEmailHtml({ ...model, sellerPicture: senderPicture({ logoUrl: LOGO }) })
-  check("a creator with only a logo gets the logo, not cut round", logo.includes(`src="${LOGO}"`) && !/src="https:\/\/cdn\.example\.com\/ld-logo\.png"[^>]*border-radius/.test(logo))
+  /* Round 49: the store logo's small corner is allowed, and no other (lib/brand/store-logo.ts). */
+  check("a creator with only a logo gets the logo, not cut round", logo.includes(`src="${LOGO}"`) && !new RegExp(`src="https://cdn\\.example\\.com/ld-logo\\.png"[^>]*border-radius:(?!${STORE_LOGO_RADIUS}px;)`).test(logo))
 
   const src = read("lib/email.tsx")
   check("the receipt model carries each product's thumbnail from the receipt loader", /thumbnailUrl: i\.thumbnailUrl,/.test(src))

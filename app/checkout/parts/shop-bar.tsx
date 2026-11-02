@@ -11,7 +11,8 @@
  * the left, the shop beside it, Continue shopping on the right.
  *
  * THE SHOP IS THE SERVER'S (lib/checkout/brand-server): the website's logo,
- * drawn as it is because a wordmark is wide, or the person's photo, round,
+ * drawn as it is because a wordmark is wide (with the store logo's small
+ * corner, components/brand/store-logo), or the person's photo, round,
  * beside the name. Back is the page the buyer came from, checked on the
  * server against the shop's own sites; with the page right behind this one
  * in the tab's history it is a history step, which is instant, and the press
@@ -24,6 +25,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { Spinner } from "./ui"
 import { backThen } from "@/lib/navigation/go-back"
 import { useCt } from "./words"
+import { StoreLogo } from "@/components/brand/store-logo"
 
 export interface ShopBrand {
   name: string
@@ -94,8 +96,8 @@ export function ShopBar({
 
   const face =
     brand.kind === "logo" && brand.imageUrl ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={brand.imageUrl} alt={brand.name} className="block h-8 w-auto max-w-[168px] object-contain sm:max-w-[200px]" />
+      /* The store logo's small corner and no shadow (round 49, components/brand/store-logo). */
+      <StoreLogo src={brand.imageUrl} alt={brand.name} height={32} className="max-w-[168px] sm:max-w-[200px]" />
     ) : (
       <>
         <AppAvatar src={brand.imageUrl} name={brand.name} alt="" size={28} className="shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]" />

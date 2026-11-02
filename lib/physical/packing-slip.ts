@@ -3,7 +3,8 @@
  *  THE PACKING SLIP: WHAT GOES IN THE BOX, AND WHERE IT GOES
  * ===========================================================================
  * One order's slip, as a whole printable page (app/api/physical/orders/[id]/
- * packing-slip): the store's name and logo, the order's reference (the one
+ * packing-slip): the store's name and logo (at its own shape inside 160 by 44, the store
+ * logo's small corner and no shadow, lib/brand/store-logo.ts), the order's reference (the one
  * the buyer's emails and order page use, so the slip in the box matches
  * them), the date, where it ships (or who picks it up), how it ships, each
  * item with its picture, variant, SKU and what the buyer asked for on it (an
@@ -39,6 +40,7 @@ import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 import { propertyText } from "@/lib/cart-uploads/rules"
 import { savingsOfLines } from "@/lib/offers/snapshot"
 import { splitSavings } from "@/lib/receipts/discount"
+import { storeLogoRadius } from "@/lib/brand/store-logo"
 
 export type SlipPaper = "a4" | "letter"
 
@@ -245,7 +247,7 @@ body{margin:0;font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe 
 .bar a{color:#1a1a2e;background:#fff;border:1px solid #e5e7eb}.bar button{color:#fff;background:#1a1a2e;border:0}
 .paper{max-width:760px;margin:8px auto 32px;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.05),0 12px 32px -16px rgba(17,24,39,.18);padding:32px}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:20px;border-bottom:1px solid #e5e7eb}
-.store{display:flex;align-items:center;gap:12px;min-width:0}.store img{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}.store b{font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.store{display:flex;align-items:center;gap:12px;min-width:0}.store img{display:block;width:auto;height:auto;max-width:160px;max-height:44px;border-radius:${storeLogoRadius(44)}px;flex:none}.store b{font-size:17px;font-weight:600;overflow-wrap:anywhere}
 .doc{text-align:right;flex:none}.doc .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}.doc .ref{font-size:20px;font-weight:700;margin-top:2px}.doc .muted{margin-top:2px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:20px 0;border-bottom:1px solid #e5e7eb}
 h2{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}p{margin:0}

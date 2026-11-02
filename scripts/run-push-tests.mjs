@@ -1114,7 +1114,7 @@ const SUITES = [
   "tests/view-online.test.ts",
   /* Round cn-1028: community emails and automations edited from Emails itself, Customer emails' family pills without the slide, the editor's preview drawn once per version and shown at once. */
   "tests/emails-community-in-place.test.ts",
-  /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round, the name beside a square icon; settled at send from the picture's size. */
+  /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round (round 49: the small shared corner), the name beside a square icon; settled at send from the picture's size. */
   "tests/email-logo-shape.test.ts",
   /* Round ana-1029: Storelib analytics sent on to GA4 (Measurement Protocol), Meta (Conversions API), PostHog and a signed webhook through a queued, idempotent, retrying sender with consent and hashing, the status view and Send test, GET /api/v1/analytics with read only keys, SQL part 338; scripts/check-send-analytics.mjs measures the dialog. */
   "tests/analytics-destinations.test.ts",
@@ -1144,6 +1144,8 @@ const SUITES = [
   "tests/configs-r48.test.ts",
   /* Round 48: the public pages' speed: the home page's head preloads only the hero, the cookie card in the server's HTML (lib/consent/early-ask), the product page's buy box its final height during the purchase check, no owner or editor code (or Supabase, Swiper, the app wide react-icons/si) in a visitor's creator and product page, Explore's chip as tall before its measurement. */
   "tests/pubperf-r48.test.ts",
+  /* Round 49: a store's logo with one small corner (lib/brand/store-logo.ts) and no shadow wherever a buyer sees it: every email, the checkout's shop bar, the order status page, the receipt, the order help page (components/brand/store-logo.tsx), the packing slip and the invoice PDF. */
+  "tests/logo-r49.test.ts",
 ]
 
 /**

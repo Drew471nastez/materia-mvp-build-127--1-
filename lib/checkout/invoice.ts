@@ -67,6 +67,7 @@ import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 import { checkoutT } from "@/lib/markets/checkout-words"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { emailImageSrc } from "@/lib/email-campaigns/sender"
+import { storeLogoRadius } from "@/lib/brand/store-logo"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -716,10 +717,25 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   let nameTop = 54
   if (logo) {
     try {
-      /* 32pt square at the right edge, corners rounded as the receipt's logo, the store's name under it. */
+      /*
+        At the right edge at its own shape, inside 120 by 32pt (a square
+        icon 32pt, a wordmark up to 120pt wide), the store's name under it.
+        Round 49: the store logo's small corner on the picture itself, so a
+        wordmark's own corners are the rounded ones, and no shadow
+        (lib/brand/store-logo.ts).
+      */
+      const img = doc.openImage(logo)
+      const turned = (img.orientation ?? 1) > 4
+      const iw = turned ? img.height : img.width
+      const ih = turned ? img.width : img.height
+      const scale = Math.min(PDF_LOGO_MAX_W / iw, PDF_LOGO_H / ih)
+      const w = iw * scale
+      const h = ih * scale
+      const x = right - w
+      const top = 46 + (PDF_LOGO_H - h) / 2
       doc.save()
-      doc.roundedRect(right - 32, 46, 32, 32, 7).clip()
-      doc.image(logo, right - 32, 46, { fit: [32, 32], align: "center", valign: "center" })
+      doc.roundedRect(x, top, w, h, storeLogoRadius(h)).clip()
+      doc.image(img, x, top, { width: w, height: h })
       doc.restore()
       nameTop = 84
     } catch {
@@ -907,8 +923,13 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
  * at the size asked, never a WebP or SVG. Checked by its first bytes; slow,
  * missing or anything else, the PDF goes without it.
  */
+/** The tallest and widest the store's logo is drawn in the PDF, in points. */
+const PDF_LOGO_H = 32
+const PDF_LOGO_MAX_W = 120
+
 async function logoBytes(url: string | null | undefined): Promise<Buffer | null> {
-  const src = url ? emailImageSrc(url, 96) : null
+  /* 240px: a wordmark at its widest (120pt) at twice its size, a square icon (32pt) at more than that. */
+  const src = url ? emailImageSrc(url, 240) : null
   if (!src) return null
   try {
     const res = await fetch(src, { signal: AbortSignal.timeout(2500) })

@@ -78,6 +78,8 @@ export interface ReceiptView {
     name: string
     username: string | null
     avatarUrl: string | null
+    /** "logo" when avatarUrl is the store's logo (drawn at its own shape, small corners), else a photo (round). */
+    avatarKind?: "logo" | "photo" | null
     supportEmail?: string | null
     /** The business that sells (Settings › Store details, SQL part 153): legal name, address lines, tax number. */
     legal?: { name: string; lines: string[]; taxId: string | null; taxIdLabel: string } | null

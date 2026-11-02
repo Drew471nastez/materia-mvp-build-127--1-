@@ -5,10 +5,13 @@
  * scripts/email-logo-samples.ts writes a refund (with its credit note), a
  * receipt, an order and a shipping confirmation, a review request and a
  * campaign, each with a 4:1 wordmark and with a square icon; this opens each
- * in Chromium at 390 and 640 wide and measures the logo as drawn:
+ * in Chromium at 390 and 640 wide (WIDTHS=390,1440 for others) and measures
+ * the logo as drawn:
  *
  *   - its shape is the picture's own (drawn width / height within 2% of the
- *     file's), never cut round (0px corners) and never cropped;
+ *     file's), never cut round and never cropped: its corners are the store
+ *     logo's small radius (round 49, lib/brand/store-logo.ts) and it has no
+ *     shadow;
  *   - it fits 200 by 40;
  *   - a wordmark stands alone; a square icon has the store's name beside
  *     it, on the same line.
@@ -25,6 +28,9 @@ import zlib from "node:zlib"
 import puppeteer from "puppeteer-core"
 
 const root = process.cwd()
+/* The store logo's corner (lib/brand/store-logo.ts STORE_LOGO_RADIUS), read from the source so this file stays plain JS. */
+const RADIUS = `${readFileSync(join(root, "lib/brand/store-logo.ts"), "utf8").match(/export const STORE_LOGO_RADIUS = (\d+(?:\.\d+)?)/)?.[1]}px`
+const WIDTHS = (process.env.WIDTHS || "390,640").split(",").map(Number)
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 if (!existsSync(CHROMIUM)) {
   console.error(`No browser at ${CHROMIUM}.`)
@@ -94,7 +100,7 @@ try {
   for (const [file, shape] of Object.entries(samples)) {
     console.log(`\n${file}.html (a ${shape === "wide" ? "4:1 wordmark" : "square icon"})`)
     const html = readFileSync(join(out, `${file}.html`), "utf8")
-    for (const width of [390, 640]) {
+    for (const width of WIDTHS) {
       const p = await browser.newPage()
       await p.setViewport({ width, height: 900, deviceScaleFactor: 2 })
       await p.setRequestInterception(true)
@@ -112,7 +118,7 @@ try {
         const cs = getComputedStyle(img)
         const row = img.closest("tr")
         const name = row ? [...row.querySelectorAll("td.e-mark")].map((td) => ({ text: td.textContent.trim(), top: Math.round(td.getBoundingClientRect().top), h: Math.round(td.getBoundingClientRect().height) })) : []
-        return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, top: Math.round(r.top), natural: [img.naturalWidth, img.naturalHeight], radius: cs.borderTopLeftRadius, fit: cs.objectFit, name }
+        return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, top: Math.round(r.top), natural: [img.naturalWidth, img.naturalHeight], radius: cs.borderTopLeftRadius, shadow: cs.boxShadow, fit: cs.objectFit, name }
       })
       const tag = `${width}`
       if (!m) {
@@ -124,7 +130,7 @@ try {
       const own = m.natural[0] / m.natural[1]
       expect(Math.abs(ratio / own - 1) < 0.02, `${tag}: its own shape, ${own.toFixed(2)}:1`, { drawn: [m.w, m.h], ratio: Number(ratio.toFixed(3)) })
       expect(m.w <= 200.5 && m.h <= 40.5 && (m.w >= 199.5 || m.h >= 39.5), `${tag}: as large as fits 200 by 40`, [m.w, m.h])
-      expect(m.radius === "0px" && m.fit === "fill", `${tag}: never cut round, never cropped`, [m.radius, m.fit])
+      expect(m.radius === RADIUS && m.fit === "fill" && m.shadow === "none", `${tag}: the store logo's small corner (${RADIUS}), no shadow, never cropped`, [m.radius, m.shadow, m.fit])
       if (shape === "wide") expect(m.name.length === 0, `${tag}: a wordmark alone, no name beside it`, m.name)
       else expect(m.name.length === 1 && m.name[0].text === "loud LIB." && Math.abs(m.name[0].top + m.name[0].h / 2 - (m.top + m.h / 2)) <= 2, `${tag}: a square icon with the name beside it, centred on it`, m.name)
       await p.screenshot({ path: join(shots, `${file}-${width}.png`), clip: { x: 0, y: 0, width, height: 140 } })
