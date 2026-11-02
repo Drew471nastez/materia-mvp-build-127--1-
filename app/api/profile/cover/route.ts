@@ -10,6 +10,7 @@
  * profiles.cover_url has not been added it answers 503 not_set_up and
  * Settings does not offer a cover.
  */
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -62,5 +63,7 @@ export async function PATCH(request: Request) {
     console.error("[profile] cover save failed", error.code, error.message)
     return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500, headers: NO_STORE })
   }
+  /* The cover is on the creator page: the CDN's minute-long copy goes with it (round 48). */
+  await creatorPagesChanged({ userId: user.id })
   return NextResponse.json({ coverUrl: picture, crop: parseProfileCover(coverUrl).crop }, { headers: NO_STORE })
 }

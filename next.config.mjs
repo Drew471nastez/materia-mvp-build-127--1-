@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 /**
  * The cookie a Supabase session is kept in (lib/supabase/session-jar.ts
  * storedSessionKey), and its first chunk when it is split: a request with
@@ -12,6 +13,74 @@ const EXPLORE_SIGNED_IN_COOKIES = (() => {
     return []
   }
 })()
+
+/**
+ * ===========================================================================
+ *  A CREATOR PAGE AND A PRODUCT PAGE, AT THE EDGE FOR A STRANGER (round 48)
+ * ===========================================================================
+ * Load-tested on a local production build with a Supabase stub, /<handle>
+ * and /<handle>/<product> were the platform's bottleneck: every visit a full
+ * render (about 55 ms of CPU, 11 database round trips), throughput flat at
+ * 16 to 20 a second per instance, p95 3 to 4 s at 50 in flight, against
+ * about 200 a second for /, /pricing and /w/<user>. They were answered
+ * `private, no-store` to everybody.
+ *
+ * Most of their visitors are strangers from a link in a bio, and for a
+ * stranger the page is the same page: what makes it somebody's is a cookie.
+ *   - the Supabase session (an owner's Edit, a buyer's Download, a team
+ *     member's controls, the contact address after a purchase);
+ *   - sl_owned / sl_owned_hint (a guest buyer's copy, lib/receipts/guest-access);
+ *   - sl_lang (the language somebody chose), sl_country (their country);
+ *   - sl_team_store (which store a team member acts for).
+ * The only request header the page reads besides those is the Referer (the
+ * way back in the top bar, and the community bar), and only one of
+ * Storelib's own addresses changes anything; and Accept-Language, for a
+ * store that shows visitors their own language, whose every request proxy.ts
+ * treats as somebody's (Next's own Vary replaces one set here, so a Vary on
+ * Accept-Language could not be relied on).
+ *
+ * So a request carrying none of those cookies and no Referer from Storelib
+ * may be held by the CDN for a minute, served stale for five while it is
+ * drawn again (the same as /w/<user>), and only on storelib.com: a
+ * creator's subdomain or own domain has rules of its own (proxy.ts). Every
+ * other request is `private, no-store`, so a person's page is never held,
+ * and proxy.ts sends such a request to an address of its own
+ * (PERSONAL_VIEW_PARAM, lib/storefront/shared-view) so the CDN, which looks
+ * after the proxy, never hands it the stranger's copy either.
+ *
+ * The first path segment is never one of Storelib's own routes
+ * (lib/routes/reserved-segments, read from the file so the two cannot drift)
+ * and never a file (a dot); the second never a OnePage (links).
+ */
+const RESERVED_FIRST_SEGMENTS = (() => {
+  try {
+    const src = readFileSync(new URL("./lib/routes/reserved-segments.ts", import.meta.url), "utf8")
+    const names = [...src.matchAll(/^\s*"([^"]+)",/gm)].map((m) => m[1].toLowerCase())
+    return names.length > 50 ? names : null
+  } catch {
+    return null
+  }
+})()
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+/* (?:/|$), not $: inside the address's pattern a $ is the end of the whole path, and /p/<slug> would have passed as a handle "p". */
+const HANDLE_SEGMENT = RESERVED_FIRST_SEGMENTS ? `(?!(?:${RESERVED_FIRST_SEGMENTS.map(reEscape).join("|")})(?:/|$))[^/.]+` : null
+export const CREATOR_PAGE_PERSONAL_COOKIES = [...EXPLORE_SIGNED_IN_COOKIES, "sl_owned", "sl_owned_hint", "sl_lang", "sl_country", "sl_team_store"]
+const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
+const SHARED_CREATOR_PAGE = "public, s-maxage=60, stale-while-revalidate=300"
+const creatorPageRules = (source) => [
+  {
+    source,
+    /* Next anchors these as ^value$, so the alternatives are grouped: unanchored, "localhost" would match any host containing it. */
+    has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }],
+    missing: [
+      ...CREATOR_PAGE_PERSONAL_COOKIES.map((key) => ({ type: 'cookie', key })),
+      { type: 'header', key: 'referer', value: `https?://(?:${STORELIB_HOSTS})(?::\\d+)?/.*` },
+    ],
+    headers: [{ key: 'Cache-Control', value: SHARED_CREATOR_PAGE }],
+  },
+  ...CREATOR_PAGE_PERSONAL_COOKIES.map((key) => ({ source, has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }, { type: 'cookie', key }], headers: [{ key: 'Cache-Control', value: 'private, no-store' }] })),
+  { source, has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }, { type: 'header', key: 'referer', value: `https?://(?:${STORELIB_HOSTS})(?::\\d+)?/.*` }], headers: [{ key: 'Cache-Control', value: 'private, no-store' }] },
+]
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -304,6 +373,10 @@ const nextConfig = {
        * cookie, so a signed in person may still be handed the stranger's
        * copy: the plain Explore, never anybody else's.)
        */
+      /* A creator page and a product page for a stranger (CREATOR_PAGE_PERSONAL_COOKIES above). Only with the session cookie's name known, as Explore. */
+      ...(EXPLORE_SIGNED_IN_COOKIES.length && HANDLE_SEGMENT
+        ? [...creatorPageRules(`/:handle(${HANDLE_SEGMENT})`), ...creatorPageRules(`/:handle(${HANDLE_SEGMENT})/:product((?!links$)[^/.]+)`)]
+        : []),
       ...(EXPLORE_SIGNED_IN_COOKIES.length
         ? [
             {

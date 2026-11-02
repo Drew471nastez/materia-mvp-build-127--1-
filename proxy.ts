@@ -1,4 +1,5 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
+import { isCreatorPagePath, isPersonalRequest, PERSONAL_VIEW_PARAM, STORELIB_HOST } from "@/lib/storefront/shared-view"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
@@ -2516,6 +2517,43 @@ async function routeRequest(request: NextRequest) {
      * so the header belongs here. `/l/` keeps its own caching: a link-in-bio
      * page has no per-viewer content.
      */
+  }
+  /*
+    A CREATOR PAGE OR A PRODUCT PAGE ON STORELIB.COM: somebody's request goes
+    to an address of its own, never the one the CDN holds the stranger's copy
+    at (lib/storefront/shared-view, round 48); a request that brings that
+    address without being somebody's is put back on the shared one.
+  */
+  if (!username && !isCustomDomain && !communityPath && (request.method === "GET" || request.method === "HEAD") && STORELIB_HOST.test(host.split(":")[0]) && isCreatorPagePath(pathname)) {
+    /* A cookie with no value counts for nothing, as in next.config.mjs's rules (Next's matcher skips an empty value). */
+    const byCookieOrReferer = isPersonalRequest(request.cookies.getAll().filter((c) => !!c.value).map((c) => c.name), request.headers.get("referer"))
+    /*
+      A STORE THAT SHOWS VISITORS THEIR OWN LANGUAGE draws its page in the
+      language the browser asks for (lib/markets/creator-page-language), so
+      for it every visit is drawn as before, privately, and none is shared:
+      the CDN would otherwise hand one browser's language to the next. The
+      same held read the subdomains use (thirty seconds a name). A read that
+      fails is answered as no languages, and the page, whose own read then
+      fails the same way, draws its default language either way.
+    */
+    const handle = pathname.split("/")[1] ?? ""
+    const personal =
+      byCookieOrReferer ||
+      (await siteLocalizationFor(handle).then(
+        (loc) => !!loc.visitorLanguage && loc.languages.length > 0,
+        () => true,
+      ))
+    const asked = request.nextUrl.searchParams.has(PERSONAL_VIEW_PARAM)
+    if (personal || asked) {
+      const to = request.nextUrl.clone()
+      if (personal) to.searchParams.set(PERSONAL_VIEW_PARAM, "1")
+      else to.searchParams.delete(PERSONAL_VIEW_PARAM)
+      respond = () => {
+        const r = NextResponse.rewrite(to, { request })
+        if (personal) r.headers.set("Cache-Control", "private, no-store")
+        return r
+      }
+    }
   }
   supabaseResponse = respond()
 

@@ -27,6 +27,7 @@
  * creator. The only caller is the product editor, which runs signed in as the
  * owner of the product it just saved, so nothing legitimate loses anything.
  */
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
 import { revalidatePath, revalidateTag } from "next/cache"
@@ -127,6 +128,8 @@ export async function POST(request: NextRequest) {
     if (typeof handle === "string" && handle.trim()) {
       revalidatePath(`/${handle.trim().toLowerCase()}/${slug}`)
     }
+    /* And the CDN's copy of the creator page whose grid shows it, and of this product page (round 48). The store's own name, from the database, never the body's. */
+    await creatorPagesChanged({ creatorId: owned.creator_id })
 
     /*
       A SAVE THAT PUT IT ON SALE TELLS THE CREATOR'S FOLLOWERS AND PAST

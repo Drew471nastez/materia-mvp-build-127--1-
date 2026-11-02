@@ -3421,7 +3421,8 @@ section("The product page does not ask one question at a time")
     "coursePromise",
   ]) {
     const started = src.indexOf(`const ${name}`, component)
-    const awaited = src.indexOf(`await ${name}`, component)
+    /* Changed on purpose (round 48): More from is awaited inside moreCardsPromise, which reads the owner's communities beside it (lib/commerce/owner-communities-server). */
+    const awaited = name === "moreProductsPromise" ? src.indexOf("withOwnersCommunities(moreProductsPromise", component) : src.indexOf(`await ${name}`, component)
     check(
       `${name} is started before the batch and awaited after it`,
       started > 0 && awaited > started && started < batch,
