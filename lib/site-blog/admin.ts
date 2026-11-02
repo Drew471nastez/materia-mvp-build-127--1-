@@ -580,11 +580,14 @@ export async function restoreRevision(db: Db, creatorId: string, userId: string,
   const rev = data as Row
   const saved = await savePostDraft(db, creatorId, userId, row.id, { meta: rev.meta, blocks: rev.content, version: Number(row.version) })
   if (!saved.ok) {
-    if (saved.status === 409) throw new SiteBlogError(409, "This post was changed somewhere else.", saved.current)
-    throw new SiteBlogError(saved.status, saved.error)
+    /* Spelled out so the narrowing also holds where strictNullChecks is off (the push runner's non-strict compile). */
+    const refused = saved as { ok: false; status: 409; current: AdminPost } | { ok: false; status: 400 | 404; error: string }
+    if (refused.status === 409) throw new SiteBlogError(409, "This post was changed somewhere else.", (refused as { current: AdminPost }).current)
+    throw new SiteBlogError(refused.status, (refused as { error: string }).error)
   }
-  await writeRevision(db, creatorId, userId, row.id, "restore", saved.post.meta, saved.post.blocks)
-  return saved.post
+  const ok = saved as { ok: true; post: AdminPost }
+  await writeRevision(db, creatorId, userId, row.id, "restore", ok.post.meta, ok.post.blocks)
+  return ok.post
 }
 
 /* ── Categories ──────────────────────────────────────────────────────────── */
