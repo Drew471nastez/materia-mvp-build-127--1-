@@ -1009,7 +1009,7 @@ export function MobileNavPill({
     },
     onPress: (index) => {
       const item = items[index]
-      if (item && index !== current) onPrefetch?.(item.href)
+      if (item && index !== current) onPrefetch?.(item.href, isPhoneShell())
     },
     /* A press the screen swallowed: whatever is moving ends now, so the rest
        of the gesture — and every other control — is live again at once. */
@@ -1169,6 +1169,7 @@ export function MobileNavPill({
                 key={item.key}
                 ref={(el) => { linkRefs.current[i] = el }}
                 href={item.href}
+                prefetch={false}
                 aria-label={item.label}
                 aria-current={on ? "page" : undefined}
                 /*

@@ -12,6 +12,11 @@
  * PILL       the phone's bar is hidden on a computer: there it still warms its
  *            four pages (a first click lands at once) but alone and once, not
  *            Analytics' figures and not again after every refresh.
+ * RAIL       the rail's and header's links say prefetch={false}: each one
+ *            fetched its route's outline as soon as it was on screen, about
+ *            thirty signed in requests on every load of /app that bring no
+ *            data (there is no loading boundary under /app). The rows fetch
+ *            their whole page under the pointer, children rows now too.
  * SEARCH     the header's search takes the Community switch from the layout
  *            (through the sidebar), so a load of /app no longer asks
  *            GET /api/platform/flags for an answer the server already had.
@@ -107,6 +112,19 @@ section("Pill: on a computer, where it is hidden, the pages alone and once")
   check("  the same breakpoint isPhoneShell reads", /export const PHONE_WIDTH_QUERY = "\(max-width: 767px\)"/.test(navigation) && /window\.matchMedia\?\.\(PHONE_WIDTH_QUERY\)\.matches/.test(navigation))
   check("  the bar is hidden from md up, which is why", /md:hidden/.test(nav))
   check("the rail's hover still warms Analytics' figures with its page", /prefetchAppPage\(router, href\)/.test(shell) && /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(navigation))
+}
+
+section("Rail links: fetched on intent, not by the router on sight")
+{
+  const rail = code("components/app/sidebar-desktop-nav.tsx")
+  const shell = code("components/app/sidebar.tsx")
+  const pill = code("components/app/sidebar-mobile-nav.tsx")
+  check("every rail row, its children, the upgrade card and Settings say prefetch={false}", (rail.match(/prefetch=\{false\}/g) ?? []).length === 5, (rail.match(/prefetch=\{false\}/g) ?? []).length)
+  check("  a row still fetches its whole page under the pointer and the keyboard", /const prefetch = \(\) => \{\s*if \(!item\.forceNavigation && !active\) onPrefetch\?\.\(item\.href\)/.test(rail))
+  check("  and a child row now does too (it fetched only the route's outline before)", /if \(!active\) onPrefetch\?\.\(child\.href\)/.test(rail) && /onPrefetch=\{onPrefetch\}\s*\/>/.test(rail))
+  check("the header's account links, Settings and logo say prefetch={false}", (shell.match(/prefetch=\{false\}/g) ?? []).length === 4 && /onMouseEnter=\{\(\) => warmAccountPage\(item\.href\)\}/.test(shell))
+  check("the phone's bar says prefetch={false}: it warms its four pages itself", /href=\{item\.href\}\s*prefetch=\{false\}/.test(pill) && /onPrefetch\?\.\(item\.href, isPhoneShell\(\)\)/.test(pill))
+  check("Settings is still fetched whole a moment after each page settles", /prefetchAppPage\(router, "\/app\/settings"\)/.test(shell))
 }
 
 section("Search: the Community switch comes from the layout")

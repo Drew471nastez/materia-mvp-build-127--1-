@@ -547,6 +547,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                 onMouseEnter={() => warmAccountPage(item.href)}
                 onFocus={() => warmAccountPage(item.href)}
@@ -709,6 +710,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                       onMouseEnter={() => warmAccountPage(item.href)}
                       onFocus={() => warmAccountPage(item.href)}
@@ -790,6 +792,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </button>
               <Link
                 href="/app/settings"
+                prefetch={false}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title={tt("Settings")}
               >
@@ -799,7 +802,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             <div className="h-5 w-px bg-white/15" />
 
-            <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
+            <Link href="/app" prefetch={false} className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
               {/* 5% UNDER THE 27PX IT WAS, as in every header. components/app/shell-header-still.tsx draws the same number. */}
               <StorelibLogo size={25.65} priority />
               <span className="text-[15px] font-semibold text-white">Storelib</span>

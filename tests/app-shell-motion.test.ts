@@ -370,7 +370,8 @@ section("The press answers on the press")
   check("on a phone a group's row opens its list, and its page is the list's first row",
     /onClick=\{\(\) => onToggle\(item\.href\)\}/.test(mobile) && /<MobileSubNavItem child=\{\{ href: item\.href, label: overview \}\}/.test(mobile) && /All products/.test(mobile))
   check("the pill fetches the page under the finger on the pointerdown, and warms its four again after the router's keep time",
-    /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
+    /* Changed on purpose (round 48): the warm says whether the bar is on screen (a phone keeps it warm, a computer asks for the page alone). */
+    /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href, isPhoneShell\(\)\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))
   const sidebarCode = code("components/app/sidebar.tsx")
   check("the desktop account menu fetches Billing whole under the pointer, like the rail",

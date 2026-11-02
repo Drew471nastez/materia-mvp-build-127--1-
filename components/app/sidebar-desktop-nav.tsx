@@ -574,24 +574,39 @@ function SubNavItem({
   child,
   onClick,
   onNavigate,
+  onPrefetch,
 }: {
   child: NavChild
   onClick?: () => void
   onNavigate?: (href: string) => void
+  onPrefetch?: (href: string) => void
 }) {
   const pathname = useShownPath()
   const search = useShownSearch()
   const active = isRouteActive(pathname, child.href, search)
   const { hovered, handlers } = useHover()
+  /* Under the pointer or the keyboard, whole, as the rows above it are (round 48), instead of the router's own read ahead of every row on screen. */
+  const prefetch = () => {
+    if (!active) onPrefetch?.(child.href)
+  }
 
   return (
     <Link
       href={child.href}
+      prefetch={false}
       onClick={(e) => {
         if (isPlainClick(e.nativeEvent)) onNavigate?.(child.href)
         onClick?.()
       }}
       {...handlers}
+      onMouseEnter={() => {
+        handlers.onMouseEnter()
+        prefetch()
+      }}
+      onFocus={() => {
+        handlers.onFocus()
+        prefetch()
+      }}
       className={cn(ROW, "h-[32px] text-[13px]")}
       style={rowStyle(active, hovered)}
     >
@@ -661,6 +676,7 @@ export function DesktopNavItem({
         <div className="relative">
           <Link
             href={item.href}
+            prefetch={false}
             onClick={(e) => {
               /* The row of the page on screen takes it to its top (lib/ui/scroll-app-top, round 24). */
         if (isPlainClick(e.nativeEvent) && onPageOf(item.href)) {
@@ -732,6 +748,7 @@ export function DesktopNavItem({
                 child={child}
                 onClick={onItemClick}
                 onNavigate={onNavigate}
+                onPrefetch={onPrefetch}
               />
             ))}
           </div>
@@ -743,6 +760,7 @@ export function DesktopNavItem({
   return (
     <Link
       href={item.href}
+      prefetch={false}
       onClick={(e) => {
         /* Only a press this tab follows starts the shell's record: a Cmd-click opens a new tab and moves nothing here. */
         /* The row of the page on screen takes it to its top (lib/ui/scroll-app-top, round 24). */
@@ -949,6 +967,7 @@ export function DesktopSidebarContent({
         <div className="py-2">
         <Link
           href={UPGRADE_HREF}
+          prefetch={false}
           data-upgrade-card=""
           onClick={(e) => { if (isPlainClick(e.nativeEvent)) onNavigate?.(UPGRADE_HREF) }}
           onMouseEnter={() => {
@@ -971,6 +990,7 @@ export function DesktopSidebarContent({
 
         <Link
           href="/app/settings"
+          prefetch={false}
           {...settingsHandlers}
           className={ROW}
           style={rowStyle(settingsActive, settingsHovered)}
