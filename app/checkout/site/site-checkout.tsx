@@ -42,7 +42,7 @@ import { ProductImg } from "@/components/media/missing-image"
 import { languageName } from "@/lib/markets/locales"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes, type SiteBuyerAddress } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes, withOnePageBack, type SiteBuyerAddress } from "@/lib/checkout/site-checkout"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
@@ -114,6 +114,8 @@ export interface SiteCheckoutProps {
   lang?: string
   /** The website's languages, when it has more than one: the checkout's own selector under the payment. */
   languages?: string[]
+  /** Round 49: the creator's OnePage this checkout was opened from (checked by ./page.tsx), where Continue shopping goes after paying. */
+  onePage?: string | null
 }
 
 const PAID_SCREEN_MS = 1100
@@ -227,6 +229,7 @@ export function SiteCheckout({
   backIsDefault = false,
   lang: pageLang,
   languages,
+  onePage = null,
 }: SiteCheckoutProps) {
   /* The store's own currency (<CheckoutCurrency> in ./page.tsx): every amount here is in it, and the card is charged in it. */
   const money = useMoney()
@@ -525,10 +528,12 @@ export function SiteCheckout({
         }
       }
       /* The thank you page in the language this page was in. */
-      const next = pageLang ? `${thanks}${thanks.includes("?") ? "&" : "?"}lang=${encodeURIComponent(pageLang)}` : thanks
+      const inLang = pageLang ? `${thanks}${thanks.includes("?") ? "&" : "?"}lang=${encodeURIComponent(pageLang)}` : thanks
+      /* From a OnePage: its Continue shopping goes back there (checked again by the thank you page). */
+      const next = withOnePageBack(inLang, onePage)
       window.setTimeout(() => window.location.replace(next), PAID_SCREEN_MS)
     },
-    [wholeCart, shopId, pageLang],
+    [wholeCart, shopId, pageLang, onePage],
   )
 
   const finish = React.useCallback(

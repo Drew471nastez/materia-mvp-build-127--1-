@@ -5,6 +5,8 @@ import { orderNumber } from "@/lib/physical/status"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPlausibleToken } from "@/lib/receipts/rules"
 import { siteOfHost } from "@/lib/checkout/site-checkout-server"
+import { onePageNamed } from "@/lib/checkout/site-checkout"
+import { onePageReturnFor } from "@/lib/checkout/site-hosts"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../../parts/shop-bar"
 import { ClearCart } from "./clear-cart"
@@ -151,17 +153,20 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
  * (the receipt and its downloads are served on this host too) and the way
  * back to the shop. The cart the order came from is emptied (?cart=1).
  */
-export default async function SiteThanksPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ cart?: string; lang?: string }> }) {
+export default async function SiteThanksPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ cart?: string; lang?: string; src?: string; back?: string }> }) {
   const [{ token }, sp] = await Promise.all([params, searchParams])
   if (!isPlausibleToken(token)) notFound()
   const admin = createAdminClient()
   const site = await siteOfHost(admin, (await headers()).get("host"))
   if (!site) notFound()
   /* In the language the checkout was in (kept with the order; ?lang names one), else the store's default (lib/markets/buyer-language.ts): never a cookie from another visit. */
-  const [brand, order, language] = await Promise.all([
+  /* Round 49: bought from the creator's OnePage (?src=onepage&back=, ../../site-checkout.tsx): Continue shopping goes back to it, only when it is theirs. */
+  const named = onePageNamed(new URLSearchParams({ src: typeof sp.src === "string" ? sp.src : "", back: typeof sp.back === "string" ? sp.back : "" }))
+  const [brand, order, language, onePage] = await Promise.all([
     checkoutBrand(admin, site.creatorId),
     shippedOrder(admin, site.creatorId, token).then((o) => o ?? basketOrder(admin, site.creatorId, token)),
     orderLanguageOf(admin, token).then((order) => buyerPageLanguage(site.creatorId, { channel: "website", named: sp.lang, order })).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null })),
+    named ? onePageReturnFor(site.creatorId, named).catch(() => null) : Promise.resolve(null),
   ])
   if (!order) notFound()
   const shopUrl = `${site.origin}/`
@@ -175,7 +180,7 @@ export default async function SiteThanksPage({ params, searchParams }: { params:
       {/* The store's own Google Analytics and pixels hear the purchase, once per order in this browser (lib/store/tracking.ts purchaseTags). */}
       <StoreTracking creatorId={site.creatorId} purchase={{ id: order.ga.id, valueCents: order.totalCents, currency: order.ga.currency ?? (await storeCurrencyFor(site.creatorId)), quantity: order.lines.reduce((n, l) => n + l.quantity, 0), items: order.ga.items }} />
       <ShopBar brand={brand} backTo={null} shopUrl={shopUrl} />
-      <ThanksView order={order} shopUrl={shopUrl} lang={language.lang} words={language.words} map={language.map} />
+      <ThanksView order={order} shopUrl={onePage ?? shopUrl} lang={language.lang} words={language.words} map={language.map} />
     </div>
     </CheckoutWords>
   )

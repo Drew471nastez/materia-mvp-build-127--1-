@@ -1102,6 +1102,8 @@ const SUITES = [
   "tests/editor-sections-r34.test.ts",
   /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
   "tests/onepage-products-r10.test.ts",
+  /* Round 49: every OnePage way to buy (the block's tap, the sheet's Check out, a download's link) opens the new checkout; a product that ships pays on its store website's checkout with its option, quantity, Back to the OnePage and src=onepage; old /checkout/physical and /checkout?productId=<ships> links go on to it. */
+  "tests/checkout-r49.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */

@@ -55,7 +55,8 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { backThen } from "@/lib/navigation/go-back"
-import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapPlan, sheetButtonPrice, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
+import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapAction, productTapPlan, sheetButtonPrice, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
+import { onePageTapCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { fontStack } from "@/lib/onepage/fonts"
 import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
@@ -150,9 +151,17 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const layout = productLayoutOf(data, theme)
   const plan = productTapPlan(data)
   const back = useOnePageBack()
+  /*
+    A product that ships, tapped to buy (round 49): its store website's checkout. The link drawn on the server is
+    storelib.com's, which sends it on there; once the product's facts are read (the block nearing the screen, below)
+    the link is that checkout itself, one navigation (lib/onepage/shipped-checkout).
+  */
+  const shipsToCheckout = plan === "navigate" && productTapAction(data) === "checkout" && shipsProduct(data.product_type) && !!data.product_id
+  const [shopSite, setShopSite] = React.useState<{ origin: string; shopId: string } | null>(null)
   /* The final address on storelib.com, with the OnePage to come back to once it is known (see useOnePageBack). */
   const path = productHref(data)
-  const href = onePageOutboundHref(path, back)
+  const direct = shipsToCheckout && shopSite && !isOnePagePreview() ? onePageTapCheckoutHref({ siteOrigin: shopSite.origin, shopId: shopSite.shopId, productId: data.product_id, onePage: back }) : null
+  const href = direct ?? onePageOutboundHref(path, back)
   const hash = productSheetHash(data.product_slug)
   const instant = instantCheckoutOn(data)
 
@@ -215,7 +224,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   }, [plan])
   React.useEffect(() => {
     const el = seen.current
-    if (!el || warm || plan === "navigate" || !data.product_id) return
+    if (!el || warm || (plan === "navigate" && !shipsToCheckout) || !data.product_id) return
     if (typeof IntersectionObserver === "undefined") return setWarm(true)
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
@@ -223,6 +232,10 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         const go = () => {
           setWarm(true)
           if (plan === "instant") void loadProductFacts(data.product_id).catch(() => undefined)
+          if (shipsToCheckout)
+            void loadProductFacts(data.product_id)
+              .then((f) => (f.product.siteOrigin && f.product.shopId ? setShopSite({ origin: f.product.siteOrigin, shopId: f.product.shopId }) : undefined))
+              .catch(() => undefined)
         }
         const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
         if (idle) idle(go, { timeout: 1200 })
@@ -231,7 +244,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     }, { rootMargin: "200px 0px" })
     io.observe(el)
     return () => io.disconnect()
-  }, [plan, warm, data.product_id])
+  }, [plan, warm, data.product_id, shipsToCheckout])
 
   if (!data.product_id && !data.product_title) return null
 
@@ -518,7 +531,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   return (
     <>
       {body}
-      {plan !== "navigate" ? <span ref={seen} aria-hidden className="block h-0 w-full" /> : null}
+      {plan !== "navigate" || shipsToCheckout ? <span ref={seen} aria-hidden className="block h-0 w-full" /> : null}
       {plan === "sheet" && data.product_id ? (
         <ProductSheet
           open={sheetOpen}

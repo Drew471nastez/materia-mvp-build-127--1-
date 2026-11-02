@@ -46,6 +46,12 @@ export type OrderSource = "storelib" | "website"
 /** The query parameter a website's Buy button adds to /checkout. */
 export const SOURCE_PARAM = "src"
 export const WEBSITE_SOURCE: OrderSource = "website"
+/**
+ * Round 49: what a OnePage's link to a website's checkout says (?src=onepage). The website's checkout is on the
+ * website's own host, so the host alone would call the order the website's; the OnePage it was pressed on is the
+ * page it began on (surface "onepage"), as Analytics counts it. The payment channel is still the website's.
+ */
+export const ONEPAGE_SOURCE = "onepage"
 
 /** Stripe metadata key that carries the source from checkout to fulfilment. */
 export const SOURCE_METADATA_KEY = "order_source"
@@ -334,7 +340,8 @@ export function originFromRequest(request: Request): OrderOrigin | null {
   const q = url.searchParams
   const origin: OrderOrigin = {}
   if (url.pathname === "/checkout" || url.pathname.startsWith("/checkout/")) {
-    if (q.get(SOURCE_PARAM) === WEBSITE_SOURCE) {
+    if (q.get(SOURCE_PARAM) === ONEPAGE_SOURCE) origin.surface = "onepage"
+    else if (q.get(SOURCE_PARAM) === WEBSITE_SOURCE) {
       origin.surface = "website"
       const site = cleanHost(q.get("site"))
       if (site) origin.site = site
