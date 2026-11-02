@@ -66,6 +66,8 @@ export async function POST(request: Request) {
       `report-uri` produces, and the newer Reporting API array. Only the
       first is expected here, and the second is read if it turns up.
     */
+    /* From the enforced policy (lib/security/csp.ts CSP_ENFORCED_REPORT_PATH), or a browser that says so: a load that really was refused. */
+    const enforcedAddress = new URL(request.url).searchParams.has("enforced")
     const bodies = Array.isArray(parsed)
       ? parsed.map((entry) => (entry as { body?: unknown })?.body).filter(Boolean)
       : [(parsed as { "csp-report"?: unknown })?.["csp-report"] ?? parsed]
@@ -78,8 +80,10 @@ export async function POST(request: Request) {
       const directive = pathOnly(report["effective-directive"] ?? report["violated-directive"] ?? report.effectiveDirective)
       const document = pathOnly(report["document-uri"] ?? report.documentURL)
 
+      const enforced = enforcedAddress || report.disposition === "enforce"
       if (!allowedBeacon("csp", Date.now(), LINES_PER_MINUTE, lines)) break
-      console.warn(`[csp] would have blocked ${blocked} (${directive}) on ${document}`)
+      if (enforced) console.warn(`[csp] blocked ${blocked} (${directive}) on ${document}`)
+      else console.warn(`[csp] would have blocked ${blocked} (${directive}) on ${document}`)
     }
   } catch {
     /* Malformed body. Nothing to report about a report. */

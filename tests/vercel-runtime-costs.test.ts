@@ -98,10 +98,11 @@ console.log("\n2. CSP reports: a sample reaches a function")
   for (let i = 0; i < 10_000; i++) if (keepsCspReport(i / 10_000)) kept++
   check(`over an even spread of rolls, 5% are kept (${kept} of 10,000)`, kept === 500)
   const proxy = read("proxy.ts")
-  const drop = proxy.indexOf("if (pathname === CSP_REPORT_PATH && request.method === \"POST\" && !keepsCspReport(Math.random()))")
+  /* Round 48: a report from the enforced policy (?enforced=1) is kept whole; every other one is sampled as before. */
+  const drop = proxy.indexOf("if (pathname === CSP_REPORT_PATH && request.method === \"POST\" && !request.nextUrl.searchParams.has(\"enforced\") && !keepsCspReport(Math.random()))")
   check("the proxy answers the rest with 204 before any lookup, on every host", drop > 0 && drop < proxy.indexOf("mcpHostRoute(bareHost") && /keepsCspReport\(Math\.random\(\)\)\) \{\s*return new NextResponse\(null, \{ status: 204 \}\)/.test(proxy))
   const route = read("app/api/csp-report/route.ts")
-  check("the route logs what reaches it, capped per instance a minute", /if \(!allowedBeacon\("csp", Date\.now\(\), LINES_PER_MINUTE, lines\)\) break\s*console\.warn/.test(route) && /const LINES_PER_MINUTE = 30/.test(route))
+  check("the route logs what reaches it, capped per instance a minute", /if \(!allowedBeacon\("csp", Date\.now\(\), LINES_PER_MINUTE, lines\)\) break\s*(?:if \(enforced\) )?console\.warn/.test(route) && /const LINES_PER_MINUTE = 30/.test(route))
   check("and still cuts the query and always answers 204", /const cut = raw\.split\(\/\[\?#\]\/\)\[0\]/.test(route) && (route.match(/status: 204/g) ?? []).length >= 2)
   const vercel = JSON.parse(read("vercel.json")) as { headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }> }
   const csp = vercel.headers.flatMap((h) => h.headers.map((x) => ({ source: h.source, ...x }))).find((x) => x.key === "Content-Security-Policy-Report-Only")

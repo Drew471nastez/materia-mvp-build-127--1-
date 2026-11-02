@@ -1,5 +1,6 @@
 "use client"
 
+import { cleanStoredHtml } from "@/lib/rich-text/html"
 import { personName } from "@/lib/profile/display-name"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { usePriceCurrency } from "@/components/platform/price-currency"
@@ -1153,7 +1154,14 @@ function UnifiedAboutSection({
                     <div
                       className="storelib-prose"
                       // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: settings.aboutContent || "" }}
+                      /*
+                        Cleaned HERE as well (round 48): the creator profile route
+                        cleans the story on save, but the page builder's own save
+                        (app/api/store-builder) stores its sections as sent, and a
+                        story with an onerror attribute ran on storelib.com/<handle>.
+                        The same allow list the product description renders through.
+                      */
+                      dangerouslySetInnerHTML={{ __html: cleanStoredHtml(settings.aboutContent || "") }}
                     />
                   ) : (
                     <p className="whitespace-pre-wrap">{settings.aboutContent}</p>

@@ -32,7 +32,7 @@ import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
-import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
+import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
@@ -1448,6 +1448,16 @@ export async function proxy(request: NextRequest) {
     if (onStorelibHost(request.headers.get("host")) && privatePlatformPath(request.nextUrl.pathname) && !res.headers.has("X-Robots-Tag")) {
       res.headers.set("X-Robots-Tag", PRIVATE_ROBOTS_HEADER)
     }
+    /*
+      THE CONTENT SECURITY POLICY IS ENFORCED on Storelib's own pages: /app,
+      /admin and the sign in pages on storelib.com (round 48, lib/security/csp.ts
+      enforcesCsp says where and why only there). Here, after the routing, so
+      it is on whatever answer the routing made, joined to a policy the
+      routing already set rather than replacing it.
+    */
+    if (enforcesCsp(request.headers.get("host"), request.nextUrl.pathname, MAIN_DOMAIN)) {
+      res.headers.set("Content-Security-Policy", withEnforcedCsp(res.headers.get("Content-Security-Policy")))
+    }
   } catch {
     /* an immutable response: it goes without the id */
   }
@@ -1506,7 +1516,8 @@ async function routeRequest(request: NextRequest) {
     logged; the rest get the route's own answer, 204, from here. A browser
     does nothing with the answer either way.
   */
-  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !keepsCspReport(Math.random())) {
+  /* A report from the ENFORCED policy is something a person could not do: every one of them is kept. */
+  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !request.nextUrl.searchParams.has("enforced") && !keepsCspReport(Math.random())) {
     return new NextResponse(null, { status: 204 })
   }
   /*

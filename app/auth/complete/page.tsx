@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { safeReturnTarget } from "@/lib/auth/return-to"
+import { getMainDomain } from "@/lib/url-helpers"
 import { Suspense } from "react"
 
 function AuthCompleteContent() {
@@ -53,8 +55,14 @@ function AuthCompleteContent() {
               localStorage.setItem("storelib_welcome_shown", "true")
             }
 
-            if (redirectData.url) {
-              let finalUrl = redirectData.url
+            /*
+              Checked again here, not only where it was written: the cookie is
+              set for .storelib.com, so a published site on a subdomain can
+              write it too (round 48).
+            */
+            const storedUrl = safeReturnTarget(redirectData.url, { mainDomain: getMainDomain() })
+            if (storedUrl) {
+              let finalUrl = storedUrl
               if (redirectData.pendingReview && !finalUrl.includes("pendingReview")) {
                 finalUrl += (finalUrl.includes("?") ? "&" : "?") + "pendingReview=true"
               }
@@ -68,7 +76,7 @@ function AuthCompleteContent() {
           }
         }
 
-        const fallback = searchParams.get("fallback") || "/app"
+        const fallback = safeReturnTarget(searchParams.get("fallback"), { mainDomain: getMainDomain() }) || "/app"
         const isNewUser = searchParams.get("new") === "1"
 
         if (isNewUser) {
