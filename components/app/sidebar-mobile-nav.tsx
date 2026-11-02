@@ -40,7 +40,7 @@ import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
 import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
-import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, PHONE_WIDTH_QUERY, isPhoneShell, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
 import { prefetchPlan } from "@/lib/nav/prefetch-policy"
 import {
@@ -907,10 +907,21 @@ export function MobileNavPill({
     four cold, and every first tap after that waited for the server. Date.now,
     not performance.now: a phone that sleeps may stop the second clock.
   */
+  /*
+    ONLY WHERE THE BAR IS ON SCREEN (round 48). The bar is mounted at every
+    width and hidden from md up, and on a computer it still fetched its four
+    whole pages, Analytics' figures with them, on every load of /app and again
+    after every refresh: four server renders and two analytics reads nobody
+    had pointed at. A computer's rail fetches a page under the pointer
+    (prefetchAppPage on hover and focus), so the bar warms only on a phone or
+    in the apps (isPhoneShell), and starts the moment a window is narrowed to
+    one.
+  */
   useEffect(() => {
     if (!onPrefetch) return
     let warmedAt = 0
     const warm = () => {
+      if (!isPhoneShell()) return
       warmedAt = Date.now()
       for (const item of items) onPrefetch(item.href)
     }
@@ -918,8 +929,16 @@ export function MobileNavPill({
     const onVisible = () => {
       if (document.visibilityState === "visible" && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
     }
+    const narrow = typeof window.matchMedia === "function" ? window.matchMedia(PHONE_WIDTH_QUERY) : null
+    const onNarrow = () => {
+      if (!warmedAt) warm()
+    }
     document.addEventListener("visibilitychange", onVisible)
-    return () => document.removeEventListener("visibilitychange", onVisible)
+    narrow?.addEventListener?.("change", onNarrow)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      narrow?.removeEventListener?.("change", onNarrow)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

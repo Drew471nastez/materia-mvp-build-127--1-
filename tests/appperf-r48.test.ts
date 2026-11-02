@@ -5,6 +5,13 @@
  * Measured in a local production build signed in against a fake Supabase that
  * logs every request (method in the round 48 appperf report). Held here:
  *
+ * SHELL JS   the header's search imports its groups and query rules from
+ *            lib/search/app-search-groups.ts, not the server's search module,
+ *            which brought the whole Help Center, the integrations catalog
+ *            and the orders grouping into every /app page's first load.
+ * PILL       the phone's bar warms its four pages only where it is shown (a
+ *            phone, the apps): on a computer it is hidden and the rail
+ *            prefetches under the pointer.
  * SEARCH     the header's search takes the Community switch from the layout
  *            (through the sidebar), so a load of /app no longer asks
  *            GET /api/platform/flags for an answer the server already had.
@@ -13,6 +20,9 @@
  *            goes in one round by the store's id: no second creator read, no
  *            second wave for the products and the places.
  * SETTINGS   the team store is asked beside the first reads, not after them.
+ * EMAILS     the seven other tabs are warmed again at most every five minutes
+ *            (the router's own keep), not every minute; an opened tab still
+ *            reads again behind what is kept.
  * SIDEBAR    the installed integrations are asked again on a return to the
  *            tab at most once a minute (an install here still redraws at once).
  * PRODUCTS   the owner's list starts when the creator row lands, beside the
@@ -72,6 +82,29 @@ function awaitsBetween(src: string, from: RegExp, to: RegExp): number {
   return (src.slice(a, b).match(/\bawait\b/g) ?? []).length
 }
 
+section("Shell JS: the search box brings no server search code into /app")
+{
+  const box = code("components/app/app-search.tsx")
+  check("the box imports the groups module, never lib/search/app-search", /from "@\/lib\/search\/app-search-groups"/.test(box) && !/from "@\/lib\/search\/app-search"/.test(box))
+  const groups = read("lib/search/app-search-groups.ts")
+  const imports = [...groups.matchAll(/^import [^\n]* from "([^"]+)"/gm)].map((m) => m[1])
+  check("  and that module imports nothing but the words", imports.length === 1 && imports[0] === "@/lib/i18n/text", imports)
+  check("  no help, catalog, orders or database code in it", !/lib\/help|lib\/integrations|lib\/orders|supabase/.test(code("lib/search/app-search-groups.ts")))
+  const server = code("lib/search/app-search.ts")
+  check("the server module re-exports the same names for the route and the tests", /export \{ GROUP_LABELS, GROUP_LIMIT, MAX_QUERY_LENGTH, SEARCH_GROUPS, emptyResult, isSearchable, normalizeQuery \} from "@\/lib\/search\/app-search-groups"/.test(server) && /export type \{ SearchGroupId, SearchHit, SearchResult \} from "@\/lib\/search\/app-search-groups"/.test(server))
+  check("  and still searches the Help Center on the server", /import \{ searchHelp \} from "@\/lib\/help\/search"/.test(server))
+}
+
+section("Pill: its pages warmed only where it is on screen")
+{
+  const nav = code("components/app/sidebar-mobile-nav.tsx")
+  check("the warm-up returns on a computer", /const warm = \(\) => \{\s*if \(!isPhoneShell\(\)\) return\s*warmedAt = Date\.now\(\)\s*for \(const item of items\) onPrefetch\(item\.href\)/.test(nav))
+  check("  and starts when a window is narrowed to a phone's width", /window\.matchMedia\(PHONE_WIDTH_QUERY\)/.test(nav) && /narrow\?\.addEventListener\?\.\("change", onNarrow\)/.test(nav))
+  check("  the same breakpoint isPhoneShell reads", /export const PHONE_WIDTH_QUERY = "\(max-width: 767px\)"/.test(code("lib/ui/app-navigation.ts")) && /window\.matchMedia\?\.\(PHONE_WIDTH_QUERY\)\.matches/.test(code("lib/ui/app-navigation.ts")))
+  check("  the bar is hidden from md up, which is why", /md:hidden/.test(nav))
+  check("the rail still fetches a page under the pointer", /prefetchAppPage\(router, href\)/.test(code("components/app/sidebar.tsx")))
+}
+
 section("Search: the Community switch comes from the layout")
 {
   const search = code("components/app/app-search.tsx")
@@ -90,6 +123,15 @@ section("Sidebar: the installed integrations, not on every return to the tab")
   check("a return to the tab asks again only after a minute", /const INSTALLED_AGAIN_MS = 60_000/.test(sidebar) && /document\.visibilityState === "visible" && Date\.now\(\) - installedReadAt >= INSTALLED_AGAIN_MS\) read\(\)/.test(sidebar))
   check("  every read stamps the time", /installedReadAt = Date\.now\(\)\s*fetch\("\/api\/store\/integrations\/installed"/.test(sidebar))
   check("  an install in this tab still redraws the row at once", /window\.addEventListener\("storelib:integrations-changed", read\)/.test(sidebar))
+}
+
+section("Emails: the other tabs warmed once per five minutes")
+{
+  const emails = code("app/app/emails/emails-client.tsx")
+  check("the idle warm-up keeps a tab for the router's five minutes", /for \(const t of TABS\) if \(t !== tab\) prefetch\(keyFor\(t\), loaderFor\(t\), APP_PAGE_KEPT_MS\)/.test(emails) && /export const APP_PAGE_KEPT_MS = 300_000/.test(code("lib/ui/app-navigation.ts")))
+  const cache = code("components/email/emails-cache.ts")
+  check("  a tab that is opened is still read again behind what is kept after a few seconds", /const FRESH_MS = 8_000/.test(cache) && /if \(!e \|\| e\.data === undefined \|\| Date\.now\(\) - e\.at > FRESH_MS\) void load\(key\)/.test(cache))
+  check("  and a write from the composer still marks every list old", /export function refreshMatching\(prefix: string\)/.test(cache) && /entries\.set\(key, \{ \.\.\.e, at: 0 \}\)/.test(cache))
 }
 
 section("Analytics: one read round once the store is known")
