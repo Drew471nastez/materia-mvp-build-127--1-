@@ -1126,6 +1126,8 @@ const SUITES = [
   "tests/seo-leftovers-a-r45.test.ts",
   /* Round 46: Core Web Vitals of the SEO round's pages measured live (scripts/check-live-vitals.mjs): a list's first card eager when no large post is above it, covers with priority and sizes, no YouTube frame or script before a press, the phone's search strip drawn once the header is measured (a 63px shift), no preconnect to an unused host. */
   "tests/perf-r46.test.ts",
+  /* Round 48: live websites under a spike: a connected domain's lookup is one read per host however many visitors ask at once and is served stale while it refreshes, strangers arriving together on an imported theme's page share one draw, and the same deferred theme script written twice runs once. */
+  "tests/sites-r48.test.ts",
 ]
 
 /**

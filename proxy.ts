@@ -22,6 +22,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
+import { heldLookup } from "@/lib/website-builder/held-lookup"
 import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
@@ -1010,8 +1011,16 @@ function servedAt(domain: string): string {
  * With no answer ever seen and the database away, the caller says
  * "unavailable" and the visitor is asked to try again in a moment.
  */
-const domainHeld = new Map<string, { at: number; value: ConnectedDomain | null }>()
-const DOMAIN_HELD_MS = 60_000
+/*
+  ONE READ PER HOST AT A TIME, AND NO VISITOR WAITS FOR A REFRESH (round 48,
+  lib/website-builder/held-lookup.ts). Visitors arriving together on a cold
+  server share the one lookup in flight, where each used to ask the same
+  three to five questions of the database. Past its minute an answer is
+  still served, for up to ten more, while one read refreshes it behind, so
+  a change (a domain removed, made primary) is seen by the first request
+  after the minute's refresh has come back.
+*/
+const domainHeld = heldLookup<ConnectedDomain | null>({ freshMs: 60_000, staleMs: 10 * 60_000, max: 5000 })
 
 /** A page that loads again by itself, for the moment a site cannot be looked up. */
 /** A site whose routing or lookup could not be read: try again in a moment, never a guess. */
@@ -1022,13 +1031,8 @@ const SITE_UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="ut
 
 async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null | "unavailable"> {
   const key = host.split(":")[0].toLowerCase()
-  const held = domainHeld.get(key)
-  if (held && Date.now() - held.at < DOMAIN_HELD_MS) return held.value
-  const fresh = await resolveCustomDomainFresh(host)
-  if (fresh.failed) return held ? held.value : "unavailable"
-  if (domainHeld.size > 5000) domainHeld.clear()
-  domainHeld.set(key, { at: Date.now(), value: fresh.value })
-  return fresh.value
+  const answer = await domainHeld.get(key, () => resolveCustomDomainFresh(host))
+  return answer.failed ? "unavailable" : answer.value
 }
 
 /* "No row" from `.single()` is an answer; anything else that comes back as an error is the database not answering. */
