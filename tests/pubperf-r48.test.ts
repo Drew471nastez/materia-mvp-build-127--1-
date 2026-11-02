@@ -326,12 +326,6 @@ async function main() {
     check("  a new name, photo or bio (identityChanged: Settings, the photo, the creator page's own fields)", pages.join() === "u1" && /expireCreatorPages: \(userId\) => creatorPagesChanged\(\{ userId \}\)/.test(code("lib/account/identity-caches.ts")))
   }
 
-  /* Round 48, lead (measured live): on Vercel a dynamic page's own private Cache-Control wins, so the stranger rule also names Vercel-CDN-Cache-Control, and only that rule does. */
-  {
-    const cfg = read("next.config.mjs")
-    check("the stranger rule also sends Vercel-CDN-Cache-Control, which Vercel's CDN reads first", /headers: \[\{ key: 'Cache-Control', value: SHARED_CREATOR_PAGE \}, \{ key: 'Vercel-CDN-Cache-Control', value: 's-maxage=60, stale-while-revalidate=300' \}\]/.test(cfg))
-    check("  and no personal rule does", (cfg.match(/key: 'Vercel-CDN-Cache-Control'/g) ?? []).length === 1 && !/private, no-store' \}, \{ key: 'Vercel-CDN-Cache-Control'/.test(cfg))
-  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)
 }

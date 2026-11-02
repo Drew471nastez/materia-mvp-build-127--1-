@@ -76,14 +76,7 @@ const creatorPageRules = (source) => [
       ...CREATOR_PAGE_PERSONAL_COOKIES.map((key) => ({ type: 'cookie', key })),
       { type: 'header', key: 'referer', value: `https?://(?:${STORELIB_HOSTS})(?::\\d+)?/.*` },
     ],
-    /*
-      Vercel-CDN-Cache-Control too (round 48, measured live): on Vercel a dynamic page's own
-      "private, no-store" wins over the Cache-Control set here, so the CDN never held a copy.
-      Vercel's CDN reads Vercel-CDN-Cache-Control first and nothing else sets it; browsers never see
-      it apply. Only on this stranger rule: a personal request matches none of it, keeps "private"
-      and is sent to its own address by proxy.ts (lib/storefront/shared-view).
-    */
-    headers: [{ key: 'Cache-Control', value: SHARED_CREATOR_PAGE }, { key: 'Vercel-CDN-Cache-Control', value: 's-maxage=60, stale-while-revalidate=300' }],
+    headers: [{ key: 'Cache-Control', value: SHARED_CREATOR_PAGE }],
   },
   ...CREATOR_PAGE_PERSONAL_COOKIES.map((key) => ({ source, has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }, { type: 'cookie', key }], headers: [{ key: 'Cache-Control', value: 'private, no-store' }] })),
   { source, has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }, { type: 'header', key: 'referer', value: `https?://(?:${STORELIB_HOSTS})(?::\\d+)?/.*` }], headers: [{ key: 'Cache-Control', value: 'private, no-store' }] },
