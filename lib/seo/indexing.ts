@@ -406,7 +406,7 @@ export function refusedCrawlerRules(crawlers: readonly CrawlerPolicy[] = KNOWN_C
 }
 
 /**
- * On a built site's host: its forms' API, previews, the shop's search results,
+ * On a built site's host: its forms' API, previews (a blog post's too), the shop's search results,
  * the basket, and the pages drawn for one visitor (the account, signing in
  * and the Wishlist, which also say noindex). Anchored like PLATFORM_DISALLOW,
  * so a creator's own page at /cartoons, /search-tips or /accounting stays
@@ -416,6 +416,8 @@ export function refusedCrawlerRules(crawlers: readonly CrawlerPolicy[] = KNOWN_C
 export const SITE_DISALLOW = [
   "/api/", "/preview/", "/search$", "/search?", "/search/", "/cart$", "/cart?", "/cart/",
   "/account$", "/account?", "/account/", "/wishlist$", "/wishlist?", "/wishlist/",
+  /* A blog post's private preview link (/blogs/<handle>/~preview/<token>): one person's look at a draft, never a page to crawl. */
+  "/blogs/*/~preview/",
 ]
 
 /**

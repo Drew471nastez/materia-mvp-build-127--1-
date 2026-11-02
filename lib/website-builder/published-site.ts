@@ -60,6 +60,8 @@ import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-me
 import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { notFoundSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
+import { pageWantsBlog, storefrontArticleFull, storefrontBlog } from "@/lib/website-builder/blog-page"
+import type { BlogListing, PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
@@ -496,6 +498,44 @@ export async function siteCatalogue(creatorId: string, opts: { cached: boolean }
   return shopCatalogue(createAdminClient() as never, creatorId)
 }
 
+/** What a blog page hands dressPage: the list it shows, or the post, and the blog it already read. */
+export interface BlogPageInput {
+  /** The blog and its live posts, when the route read them already (blogFor); absent, read here. */
+  source?: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null
+  /** The list a /blogs/<handle> page shows: its page, tag or category. */
+  listing?: BlogListing | null
+  /** The post a /blogs/<handle>/<slug> page (or its preview) shows. */
+  post?: PublicPost | null
+  /** Posts like it, already chosen (lib/site-blog relatedPosts). */
+  related?: PublicPostCard[] | null
+}
+
+/**
+ * `blog` and `article` for the page's sections, from the blog's live posts.
+ * Only posts whose time has come: the read is held for minutes and a
+ * scheduled post goes live by the clock, so it is filtered here, never in
+ * the cache (lib/site-blog/public-read.ts liveCards).
+ */
+function blogData(
+  source: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null | undefined,
+  input: BlogPageInput | undefined,
+  origin: string,
+  locale: string | null,
+): Pick<StorefrontData, "blog" | "article"> {
+  if (!source?.settings) return {}
+  const now = Date.now()
+  const cards = (source.cards ?? []).filter((c) => {
+    const at = Date.parse(c.publishedAt)
+    return Number.isFinite(at) && at <= now
+  })
+  const blog = storefrontBlog({ settings: source.settings, cards, listing: input?.listing ?? null, locale })
+  const post = input?.post ?? null
+  return {
+    blog,
+    ...(post ? { article: storefrontArticleFull({ post, cards, origin, locale, related: input?.related ?? undefined }) } : {}),
+  }
+}
+
 /**
  * ===========================================================================
  *  A PAGE'S OWN FACTS, PUT IN BEFORE IT IS DRAWN
@@ -528,7 +568,7 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean; localizer?: Localizer | null } = { cached: true },
+  opts: { cached: boolean; localizer?: Localizer | null; blog?: BlogPageInput } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const localizer = opts.localizer ?? null
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
@@ -540,7 +580,7 @@ export async function dressPage(
   /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
   /* The picked products' own descriptions (round 12: a Product hero shows its product's words from Products), held with the shop, which a product's save clears. */
   const readDescriptions = () => import("@/lib/website-builder/product-descriptions").then(({ productDescriptions }) => productDescriptions(createAdminClient() as never, site.creatorId, refs))
-  const [pickedRead, siteUrl, communities, collectionsRead, reviews, descriptions] = await Promise.all([
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews, blogSource, descriptions] = await Promise.all([
     missing.ids.length || missing.slugs.length
       ? opts.cached
         ? unstable_cache(
@@ -568,6 +608,18 @@ export async function dressPage(
           storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null) as unknown as Promise<Record<string, unknown>>,
         ).catch(() => undefined)
       : Promise.resolve(undefined),
+    /*
+      THE BLOG, ONLY FOR A PAGE THAT SHOWS POSTS: the blog's own pages and any
+      page with a Blog posts section (lib/website-builder/blog-page.ts). The
+      live posts only, held under the blog's own tag, which a publish clears
+      (lib/site-blog/cache.ts). A site with no blog, or a database without
+      part 353, reads null and the sections draw nothing.
+    */
+    opts.blog?.source !== undefined
+      ? Promise.resolve(opts.blog.source)
+      : opts.blog || pageWantsBlog(sections)
+        ? import("@/lib/site-blog/public-read").then(({ blogFor }) => blogFor(site.creatorId)).catch(() => null)
+        : Promise.resolve(null),
     refs.ids.length || refs.slugs.length
       ? (opts.cached
           ? unstable_cache(readDescriptions, ["picked-descriptions", site.creatorId, [...refs.ids].sort().join(","), [...refs.slugs].sort().join(",")], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
@@ -604,6 +656,7 @@ export async function dressPage(
     reviews,
     /* The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template. */
     words: localizer?.words,
+    ...blogData(blogSource, opts.blog, siteUrl, localizer?.locale ?? null),
   })
   return { sections: filled, data }
 }

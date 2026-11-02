@@ -341,6 +341,9 @@ export function storefrontData(input: {
   reviews?: StorefrontData["reviews"]
   /** The shop's own words in the page's language (lib/markets/ui-words.ts); absent, English. */
   words?: StorefrontData["words"]
+  /** The creator's blog and the post a page is about (lib/website-builder/blog-page.ts); absent, a blog section draws nothing. */
+  blog?: StorefrontData["blog"]
+  article?: StorefrontData["article"]
 }): StorefrontData {
   return {
     catalog: input.catalog,
@@ -349,6 +352,8 @@ export function storefrontData(input: {
     ...(input.collections ? { collections: input.collections } : {}),
     ...(input.reviews ? { reviews: input.reviews } : {}),
     ...(input.words && Object.keys(input.words).length ? { words: input.words } : {}),
+    ...(input.blog ? { blog: input.blog } : {}),
+    ...(input.article ? { article: input.article } : {}),
     shop: input.dynamic.shop,
     creator: input.dynamic.creator,
     product: input.dynamic.product ?? null,

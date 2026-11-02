@@ -1,3 +1,4 @@
+import { blogArticleSections, blogListingSections } from "@/lib/website-builder/blog-page"
 import { websiteInstallCaller } from "@/lib/team/website"
 import { blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
@@ -138,7 +139,12 @@ export async function GET(req: Request, { params }: Params) {
               ? collectionsPageSections(homeSections)
               : pageKey === "collection"
                 ? collectionSections(homeSections, theme, { title: "Collection name", description: "" })
-                : (accountPageSections(pageKey, homeSections) ?? [])
+                : /* The blog's two templates, Blog and Blog post: lib/website-builder/blog-page.ts. */
+                  pageKey === "blogs"
+                  ? blogListingSections(homeSections, theme)
+                  : pageKey === "article"
+                    ? blogArticleSections(homeSections, theme)
+                    : (accountPageSections(pageKey, homeSections) ?? [])
     return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 

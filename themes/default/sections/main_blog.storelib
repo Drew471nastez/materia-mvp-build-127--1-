@@ -1,0 +1,297 @@
+{# ===========================================================================
+   Blog posts: the body of the Blog template
+
+   Every /blogs/<handle> list is drawn with it: the blog, page 2 on, a tag
+   and a category. The posts are the creator's live ones, read from the Blog
+   manager (Website Settings › Blog): `blog.articles` is the page asked for,
+   `blog.pagination` its pages, `blog.categories` and `blog.tags` the
+   filters. Nothing here is typed in; a post is never a setting.
+
+   A grid or a list, the first post larger, category chips and tags to
+   filter by, and the pages. Each card shows what the toggles keep.
+   =========================================================================== #}
+<template>
+<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }}; --ratio: {{ settings.image_ratio }};">
+  <div class="s__in">
+    {% if blog %}
+      {% if settings.show_header %}
+        <header class="head {% if settings.align == 'center' %}head--center{% endif %}">
+          {% if blog.current_category %}
+            <p class="head__eyebrow"><a href="{{ blog.url | url }}">{{ settings.heading | default: blog.title }}</a></p>
+            <h1 class="head__h">{{ blog.current_category.name }}</h1>
+            {% if settings.show_description and blog.current_category.description %}<p class="head__sub">{{ blog.current_category.description }}</p>{% endif %}
+          {% elsif blog.current_tag %}
+            <p class="head__eyebrow"><a href="{{ blog.url | url }}">{{ settings.heading | default: blog.title }}</a></p>
+            <h1 class="head__h">#{{ blog.current_tag }}</h1>
+          {% else %}
+            <h1 class="head__h">{{ settings.heading | default: blog.title }}</h1>
+            {% if settings.show_description and blog.description %}<p class="head__sub">{{ blog.description }}</p>{% endif %}
+          {% endif %}
+        </header>
+      {% endif %}
+
+      {% if settings.show_categories and blog.categories.size > 0 %}
+        <nav class="chips {% if settings.align == 'center' %}chips--center{% endif %}" aria-label="{{ words.category }}">
+          <a class="chip {% if blog.current_category == null and blog.current_tag == null %}chip--on{% endif %}" href="{{ blog.url | url }}" {% if blog.current_category == null and blog.current_tag == null %}aria-current="page"{% endif %}>{{ settings.all_label }}</a>
+          {% for c in blog.categories %}
+            <a class="chip {% if c.active %}chip--on{% endif %}" href="{{ c.url | url }}" {% if c.active %}aria-current="page"{% endif %}>{{ c.name }}{% if settings.show_counts %} <span class="chip__n">{{ c.count }}</span>{% endif %}</a>
+          {% endfor %}
+        </nav>
+      {% endif %}
+
+      {% if settings.show_tags and blog.tags.size > 0 %}
+        <nav class="tags {% if settings.align == 'center' %}tags--center{% endif %}" aria-label="{{ words.tags }}">
+          {% for t in blog.tags limit: settings.tag_count %}
+            <a class="tag {% if t.active %}tag--on{% endif %}" href="{{ t.url | url }}" {% if t.active %}aria-current="page"{% endif %}>#{{ t.name }}</a>
+          {% endfor %}
+        </nav>
+      {% endif %}
+
+      {% if blog.articles.size == 0 %}
+        <p class="none">{{ settings.empty_text }}</p>
+      {% else %}
+        <div class="posts posts--{{ settings.layout }} posts--{{ settings.card_style }}">
+          {% for post in blog.articles %}
+            <article class="post {% if forloop.first and settings.featured_first and blog.pagination.page == 1 %}post--lead{% endif %}">
+              {% if settings.show_image %}
+                <a class="post__media" href="{{ post.url | url }}" tabindex="-1" aria-hidden="true">
+                  {% if post.image %}<img src="{{ post.image | asset }}" alt="" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}" decoding="async">{% else %}<span class="post__blank">{{ post.title | first | upcase }}</span>{% endif %}
+                </a>
+              {% endif %}
+              <div class="post__body">
+                {% if settings.show_category and post.category %}<a class="post__cat" href="{{ post.category.url | url }}">{{ post.category.name }}</a>{% endif %}
+                <h2 class="post__title"><a href="{{ post.url | url }}">{{ post.title }}</a></h2>
+                {% if settings.show_excerpt and post.excerpt %}<p class="post__excerpt">{{ post.excerpt }}</p>{% endif %}
+                {% if settings.show_author and post.author or settings.show_date or settings.show_reading_time %}
+                  <p class="post__meta">
+                    {% if settings.show_author and post.author %}<span class="post__author">{% if post.author.avatar %}<img class="post__avatar" src="{{ post.author.avatar | asset }}" alt="" loading="lazy" decoding="async">{% endif %}{{ post.author.name }}</span>{% endif %}
+                    {% if settings.show_date %}<time class="post__date" datetime="{{ post.published_at }}">{{ post.date }}</time>{% endif %}
+                    {% if settings.show_reading_time %}<span class="post__time">{{ post.reading_minutes }} {{ settings.minutes_label }}</span>{% endif %}
+                  </p>
+                {% endif %}
+                {% if settings.read_more_label %}<a class="post__more" href="{{ post.url | url }}">{{ settings.read_more_label }}<span class="sr"> {{ post.title }}</span></a>{% endif %}
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if settings.show_pagination and blog.pagination.pages > 1 %}
+        <nav class="pager" aria-label="{{ words.pages }}">
+          {% if blog.pagination.previous_url %}<a class="pager__step" href="{{ blog.pagination.previous_url | url }}" rel="prev">{{ settings.previous_label }}</a>{% endif %}
+          <ol class="pager__list">
+            {% for part in blog.pagination.parts %}
+              <li>{% if part.gap %}<span class="pager__gap" aria-hidden="true">{{ part.label }}</span>{% elsif part.current %}<span class="pager__num pager__num--on" aria-current="page">{{ part.label }}</span>{% else %}<a class="pager__num" href="{{ part.url | url }}">{{ part.label }}</a>{% endif %}</li>
+            {% endfor %}
+          </ol>
+          {% if blog.pagination.next_url %}<a class="pager__step" href="{{ blog.pagination.next_url | url }}" rel="next">{{ settings.next_label }}</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% elsif page.in_editor %}
+      <p class="none">Your blog's posts appear here. Write them in Website Settings, Blog.</p>
+    {% endif %}
+  </div>
+</section>
+</template>
+
+<style scoped>
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }
+.s__in {
+  max-width: var(--theme-page-width, 1280px);
+  margin: 0 auto;
+  padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
+}
+.head { max-width: 46rem; margin-bottom: 28px; }
+.head--center { margin-inline: auto; text-align: center; }
+.head__eyebrow { margin: 0 0 10px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.head__eyebrow a { color: var(--s-para); text-decoration: none; }
+.head__eyebrow a:hover { color: var(--s-heading); }
+.head__h {
+  margin: 0;
+  font-size: var(--section-heading-size, 40px);
+  line-height: var(--section-heading-line-height, 1.1);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.02em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+  overflow-wrap: anywhere;
+}
+.head__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
+
+.chips, .tags { display: flex; gap: 8px; margin: 0 0 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.chips::-webkit-scrollbar, .tags::-webkit-scrollbar { display: none; }
+@container (min-width: 640px) { .chips, .tags { flex-wrap: wrap; overflow: visible; } }
+.chips--center, .tags--center { justify-content: center; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--s-border);
+  font-size: 14px; font-weight: 500; color: var(--s-heading); text-decoration: none; white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.chip:hover { border-color: var(--s-heading); }
+.chip--on { background: var(--s-heading); border-color: var(--s-heading); color: var(--s-bg); }
+.chip__n { font-size: 12px; opacity: 0.7; }
+.tags { margin-bottom: 28px; }
+.tag { flex: none; font-size: 13px; color: var(--s-para); text-decoration: none; padding: 4px 2px; white-space: nowrap; }
+.tag:hover, .tag--on { color: var(--s-heading); text-decoration: underline; text-underline-offset: 3px; }
+.chips + .posts, .chips + .none { margin-top: 28px; }
+
+.posts { display: grid; gap: 40px 28px; }
+.posts--grid { grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); }
+@container (min-width: 640px) { .posts--grid { grid-template-columns: repeat(var(--cols-t), minmax(0, 1fr)); } }
+@container (min-width: 900px) { .posts--grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
+.posts--list { grid-template-columns: minmax(0, 1fr); gap: 32px; max-width: 60rem; }
+.head--center ~ .posts--list { margin-inline: auto; }
+
+.post { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.posts--card .post { border: 1px solid var(--s-border); border-radius: var(--s-radius); overflow: hidden; background: var(--s-bg); }
+.posts--card .post__body { padding: 18px 20px 22px; }
+.post__media { display: block; overflow: hidden; aspect-ratio: var(--ratio); border-radius: var(--sl-image-radius, var(--s-radius)); background: var(--s-border); }
+.posts--card .post__media { border-radius: 0; }
+.post__media img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1); }
+.post:hover .post__media img { transform: scale(1.03); }
+.post__blank { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 48px; font-weight: 700; color: var(--s-para); opacity: 0.35; text-transform: uppercase; }
+.post__body { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; min-width: 0; }
+.post__cat { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--s-accent, var(--s-heading)); text-decoration: none; }
+.post__cat:hover { text-decoration: underline; text-underline-offset: 3px; }
+.post__title { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 650; color: var(--s-heading); letter-spacing: -0.01em; overflow-wrap: anywhere; font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif; }
+.post__title a { color: inherit; text-decoration: none; background-image: linear-gradient(currentColor, currentColor); background-size: 0 1px; background-position: 0 100%; background-repeat: no-repeat; transition: background-size 250ms ease; }
+.post__title a:hover { background-size: 100% 1px; }
+.post__title a:focus-visible, .post__more:focus-visible, .chip:focus-visible, .tag:focus-visible, .pager a:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 3px; border-radius: 4px; }
+.post__excerpt { margin: 0; font-size: 15px; line-height: 1.6; color: var(--s-para); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.post__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0 0; font-size: 13px; color: var(--s-para); }
+.post__author { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; color: var(--s-heading); }
+.post__avatar { width: 24px; height: 24px; border-radius: 999px; object-fit: cover; }
+.post__meta > * + *::before { content: "·"; margin-right: 8px; opacity: 0.6; }
+.post__more { align-self: flex-start; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--s-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+
+@container (min-width: 640px) {
+  .posts--list .post { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 28px; align-items: center; }
+  .posts--list .post__body { padding-top: 0; }
+  .posts--list .post__title { font-size: 24px; }
+}
+@container (min-width: 900px) {
+  .posts--grid .post--lead { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 40px; align-items: center; }
+  .posts--grid .post--lead .post__body { padding-top: 0; }
+  .posts--card.posts--grid .post--lead .post__body { padding: 32px 36px 32px 0; }
+  .post--lead .post__title { font-size: clamp(26px, 3.2cqi, 40px); line-height: 1.15; letter-spacing: -0.02em; }
+  .post--lead .post__excerpt { font-size: 17px; -webkit-line-clamp: 4; }
+}
+.posts--list .post--lead .post__title { font-size: clamp(24px, 3cqi, 34px); }
+
+.none { margin: 24px 0; text-align: center; font-size: 15px; color: var(--s-para); }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 56px; font-size: 14px; }
+.pager__list { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pager__num, .pager__step, .pager__gap { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 12px; border-radius: var(--s-radius); color: var(--s-heading); text-decoration: none; transition: background-color 150ms ease; }
+.pager__gap { min-width: 24px; padding: 0; color: var(--s-para); }
+.pager__step { border: 1px solid var(--s-border); }
+.pager__num:hover, .pager__step:hover { background: var(--s-border); }
+.pager__num--on { background: var(--s-heading); color: var(--s-bg); font-weight: 600; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .post__media img, .post__title a { transition: none; } .post:hover .post__media img { transform: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "main_blog",
+  "name": "Blog posts",
+  "category": "blog",
+  "description": "Your blog's posts as a grid or a list, with category and tag filters and pages. The posts come from Website Settings, Blog.",
+  "version": "1.0.0",
+  "icon": "file-text",
+  "allowed_templates": ["blog"],
+  "settings": [
+    { "type": "header", "id": "hdr_head", "label": "Heading" },
+    { "type": "toggle", "id": "show_header", "label": "Show the blog's name", "default": true },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "", "info": "Empty, the blog's own name." },
+    { "type": "toggle", "id": "show_description", "label": "Show the blog's description", "default": true },
+    {
+      "type": "radio",
+      "id": "align",
+      "label": "Heading sits",
+      "default": "left",
+      "options": [
+        { "label": "Left", "value": "left" },
+        { "label": "Centre", "value": "center" }
+      ]
+    },
+    { "type": "header", "id": "hdr_filters", "label": "Filters" },
+    { "type": "toggle", "id": "show_categories", "label": "Show categories", "default": true },
+    { "type": "text", "id": "all_label", "label": "First chip", "default": "All posts", "visible_if": "{{ section.settings.show_categories }}" },
+    { "type": "toggle", "id": "show_counts", "label": "Show how many posts", "default": false, "visible_if": "{{ section.settings.show_categories }}" },
+    { "type": "toggle", "id": "show_tags", "label": "Show tags", "default": false },
+    { "type": "range", "id": "tag_count", "label": "Tags shown", "min": 4, "max": 40, "step": 1, "default": 16, "visible_if": "{{ section.settings.show_tags }}" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    {
+      "type": "radio",
+      "id": "layout",
+      "label": "Layout",
+      "default": "grid",
+      "options": [
+        { "label": "Grid", "value": "grid" },
+        { "label": "List", "value": "list" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns",
+      "default": { "desktop": 3, "tablet": 2, "mobile": 1 },
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "responsive": true,
+      "visible_if": "{{ section.settings.layout == 'grid' }}"
+    },
+    { "type": "toggle", "id": "featured_first", "label": "Make the newest post larger", "default": true },
+    {
+      "type": "select",
+      "id": "card_style",
+      "label": "Cards",
+      "default": "plain",
+      "options": [
+        { "label": "Plain", "value": "plain" },
+        { "label": "With a border", "value": "card" }
+      ]
+    },
+    { "type": "header", "id": "hdr_cards", "label": "Each post" },
+    { "type": "toggle", "id": "show_image", "label": "Show the cover picture", "default": true },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Picture shape",
+      "default": "16 / 10",
+      "options": [
+        { "label": "Wide", "value": "16 / 9" },
+        { "label": "Landscape", "value": "16 / 10" },
+        { "label": "Classic", "value": "4 / 3" },
+        { "label": "Square", "value": "1 / 1" },
+        { "label": "Portrait", "value": "4 / 5" }
+      ],
+      "visible_if": "{{ section.settings.show_image }}"
+    },
+    { "type": "toggle", "id": "show_category", "label": "Show its category", "default": true },
+    { "type": "toggle", "id": "show_excerpt", "label": "Show its excerpt", "default": true },
+    { "type": "toggle", "id": "show_author", "label": "Show its author", "default": true },
+    { "type": "toggle", "id": "show_date", "label": "Show its date", "default": true },
+    { "type": "toggle", "id": "show_reading_time", "label": "Show its reading time", "default": true },
+    { "type": "text", "id": "minutes_label", "label": "After the minutes", "default": "min read", "visible_if": "{{ section.settings.show_reading_time }}" },
+    { "type": "text", "id": "read_more_label", "label": "Link under each post", "default": "", "info": "Empty, no link: the title and picture link to the post." },
+    { "type": "header", "id": "hdr_pages", "label": "Pages" },
+    { "type": "toggle", "id": "show_pagination", "label": "Show the pages", "default": true },
+    { "type": "text", "id": "previous_label", "label": "Previous page", "default": "Previous", "visible_if": "{{ section.settings.show_pagination }}" },
+    { "type": "text", "id": "next_label", "label": "Next page", "default": "Next", "visible_if": "{{ section.settings.show_pagination }}" },
+    { "type": "text", "id": "empty_text", "label": "When a list has no posts", "default": "No posts here yet." },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
+    { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 80 }
+  ],
+  "presets": [
+    { "name": "Blog posts" }
+  ]
+}
+</schema>
