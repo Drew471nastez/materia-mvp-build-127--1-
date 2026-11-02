@@ -764,7 +764,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
           {/* Center: the search bar, which opens the search over the page. */}
           <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
-            <AppSearch ref={searchRef} />
+            <AppSearch ref={searchRef} communitiesEnabled={communitiesEnabled} />
           </div>
 
           {/* Right side: Nav icons + Storelib logo */}

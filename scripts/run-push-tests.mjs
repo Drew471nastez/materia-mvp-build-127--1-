@@ -1053,6 +1053,8 @@ const SUITES = [
   "tests/seo-leftovers-b-r45.test.ts",
   /* Round 47: writing in the blog editor: markdown at the start of a line, undo and redo across blocks, Cmd+S, the search checklist (facts, no score) and its title counted as rendered, the writing page (panel, drawer, focus mode, the publish confirmation), and before SQL part 345 a reader's view no longer a false 409 (lib/blog/editor-tools.ts, lib/blog/save-rules.ts editVersion). */
   "tests/blog-editor-r47.test.ts",
+  /* Round 48 (appperf): the signed in dashboard measured against a logging fake Supabase: the search takes the Community switch from the layout (no /api/platform/flags per load), Analytics reads in one round once the store is known, Settings asks the team store beside its first reads, still no loading screen under /app. */
+  "tests/appperf-r48.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
   /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */

@@ -175,7 +175,8 @@ async function main() {
     check("moving: up, down, and nothing past an end", moveReport(["a", "b", "c"] as never, "c" as never, -1).join() === "a,c,b" && moveReport(["a", "b"] as never, "a" as never, -1).join() === "a,b")
     check("the picker's Save: kept ones stay where they were, new ones at the end", applyPicked(["clicks", "pageviews"], new Set(["pageviews", "clicks", "sessions"] as const)).join() === "clicks,pageviews,sessions" && applyPicked(["clicks", "pageviews"], new Set(["pageviews"] as const)).join() === "pageviews")
     const page = code("app/app/analytics/page.tsx")
-    check("the added reports are read on the server with the page, so they are on the first paint", /readReportLayout\(adminSupabase, user\.id\)/.test(page) && /savedReports=\{savedReports\}/.test(page))
+    /* Changed on purpose (round 48): one read round for the owner and a team member alike, by the store's owner account (the owner's own id for an owner). */
+    check("the added reports are read on the server with the page, so they are on the first paint", /readReportLayout\(adminSupabase, ownerUserId\)/.test(page) && /const ownerUserId = access\.ownerUserId/.test(page) && /savedReports=\{savedReports\}/.test(page))
     check("  draft communities are no place, as draft websites are not", /\.in\("status", \["published", "archived"\]\)/.test(page))
   }
 

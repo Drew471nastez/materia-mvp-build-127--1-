@@ -113,19 +113,19 @@ export default async function WebsiteBuilderPage() {
   if (access.kind === "none") redirect("/app")
   const supabase = access.db
 
-  const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug").eq("id", access.creatorId).maybeSingle(),
-    supabase.from("profiles").select("username").eq("id", access.ownerUserId).maybeSingle(),
-  ])
-  if (!creator) redirect("/app")
-
-  const username = profile?.username || creator.slug || ""
-
+  /*
+    THE LIBRARY BESIDE THE ROWS IT USED TO WAIT FOR (round 48). The installs,
+    the website's name and the theme listings need only the store's id, which
+    websitePage already has, so they go with the creator and profile reads
+    instead of after them: one round trip less before the page is drawn. A
+    store with no creator row is still sent to /app before anything is shown.
+  */
+  const storeId = access.creatorId
   const load = () =>
     supabase
       .from("store_theme_installs")
       .select(INSTALL_SELECT)
-      .eq("creator_id", creator.id)
+      .eq("creator_id", storeId)
       .order("sort_order", { ascending: true })
 
   /*
@@ -134,10 +134,18 @@ export default async function WebsiteBuilderPage() {
     covers: one round trip less before the page can be drawn. "I click on
     Website, it shows the loading thing because the page takes long to load."
   */
-  /* Browse themes, from the cache the admin clears on every save; never what holds the page up. */
   const listings = publishedListings().catch(() => builtinListings())
-  const handle = websiteHandleOf(creator.id)
-  let { data: rows } = await load()
+  const handle = websiteHandleOf(storeId)
+  const [{ data: creator }, { data: profile }, library] = await Promise.all([
+    supabase.from("creators").select("id, slug").eq("id", storeId).maybeSingle(),
+    supabase.from("profiles").select("username").eq("id", access.ownerUserId).maybeSingle(),
+    load(),
+  ])
+  if (!creator) redirect("/app")
+
+  const username = profile?.username || creator.slug || ""
+
+  let { data: rows } = library
 
   if (rows && rows.length === 0) {
     /*

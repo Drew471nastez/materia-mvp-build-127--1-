@@ -31,10 +31,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * figure on the page is counted by app/api/analytics/reports, commerce and
  * the communities' own route, so nothing else is read here.
  *
- * ONE ROUND TRIP BEFORE THE CREATOR IS KNOWN, ONE AFTER. Everything that can
- * be found from the signed in user is asked for at once: the creator, the
- * products, the communities and the added reports, each through its
- * creator's user id. Only the places need the creator's id.
+ * ONE ROUND TRIP ONCE THE STORE IS KNOWN: the products, the communities, the
+ * added reports and the places, all at once (round 48, below).
  *
  * A TEAM MEMBER given Analytics (lib/team) sees the store they work in: the
  * store is found first (teamPageStore), then the same reads by its id and
@@ -51,68 +49,42 @@ export default async function AnalyticsPage() {
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
 
+  /*
+    THE STORE FIRST, THEN EVERYTHING AT ONCE (round 48). teamPageStore has
+    the store's id either way: the team store, or the owner's own creator row
+    through the per-request cache (lib/auth/request-scope.ts). The owner's
+    page used to read that row a second time, and its products a second way,
+    and only then ask for the places: two waits after the store was known
+    where one does. Now one round for both kinds of visitor, by the store's
+    id and its owner's account, on the service role as before.
+  */
   const access = await teamPageStore("analytics")
   if (access.kind === "signed_out") return null
   if (access.kind === "denied") return <TeamAreaClosed area="analytics" store={access.acting.name} permissions={access.acting.permissions} />
-  if (access.kind === "store" && access.acting) {
-    const creatorId = access.creatorId
-    const ownerUserId = access.ownerUserId
-    const [{ data: productRows }, communityRows, savedReports, properties] = await Promise.all([
-      adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creatorId),
-      /* Their communities only when Community is theirs too: each one's figures are read through its own route, which asks for it. */
-      permits(access.acting.permissions, "community")
-        ? adminSupabase
-            .from("communities")
-            .select("id, name, slug, status")
-            .eq("creator_id", creatorId)
-            .is("deleted_at", null)
-            .in("status", ["published", "archived"])
-            .order("created_at", { ascending: true })
-            .limit(12)
-            .then((r) => (r.error ? [] : ((r.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>)), () => [])
-        : Promise.resolve([] as Array<{ id: string; name: string | null; slug: string | null }>),
-      ownerUserId ? readReportLayout(adminSupabase, ownerUserId) : Promise.resolve(null),
-      creatorProperties(adminSupabase, creatorId, ownerUserId).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
-    ])
-    const communities: CommunityPlace[] = communityRows.map((c) => ({ id: String(c.id), name: (c.name || "").trim() || "Community", slug: c.slug ?? null }))
-    return <AnalyticsClient creatorId={creatorId} userId={access.viewer} products={(productRows ?? []) as Array<{ id: string; title: string; thumbnail_url: string | null; type: string | null }>} properties={properties} communities={communities} savedReports={savedReports} />
-  }
-
-  /*
-    The creator and their products side by side, both found from the user:
-    one round trip before the page can draw, not two in a line. The products
-    are read through their creator's user id; an install where the two are
-    not joined reads them by the creator's id once it is known.
-  */
-  const [{ data: creator, error: creatorError }, joined, communityRows, savedReports] = await Promise.all([
-    adminSupabase.from("creators").select("id").eq("user_id", user.id).single(),
-    adminSupabase.from("products").select("id, title, thumbnail_url, type, creators!inner(user_id)").eq("creators.user_id", user.id),
-    /* Published and archived communities: a draft has had no visitor, as a draft website is not a place. */
-    adminSupabase
-      .from("communities")
-      .select("id, name, slug, status, creators!inner(user_id)")
-      .eq("creators.user_id", user.id)
-      .is("deleted_at", null)
-      .in("status", ["published", "archived"])
-      .order("created_at", { ascending: true })
-      .limit(12)
-      .then((r) => (r.error ? [] : ((r.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>)), () => []),
-    readReportLayout(adminSupabase, user.id),
-  ])
-
-  if (creatorError || !creator) {
-    redirect("/onboarding")
-  }
-
-  const [productsData, properties] = await Promise.all([
-    joined.error
-      ? adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creator.id).then((r) => r.data)
-      : Promise.resolve((joined.data ?? []).map((p: { id: string; title: string; thumbnail_url: string | null; type?: string | null }) => ({ id: p.id, title: p.title, thumbnail_url: p.thumbnail_url, type: p.type ?? null }))),
+  if (access.kind === "none") redirect("/onboarding")
+  const creatorId = access.creatorId
+  const ownerUserId = access.ownerUserId
+  const [{ data: productRows }, communityRows, savedReports, properties] = await Promise.all([
+    adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creatorId),
+    /* Published and archived communities: a draft has had no visitor, as a draft website is not a place.
+       A team member's only when Community is theirs too: each one's figures are read through its own route, which asks for it. */
+    !access.acting || permits(access.acting.permissions, "community")
+      ? adminSupabase
+          .from("communities")
+          .select("id, name, slug, status")
+          .eq("creator_id", creatorId)
+          .is("deleted_at", null)
+          .in("status", ["published", "archived"])
+          .order("created_at", { ascending: true })
+          .limit(12)
+          .then((r) => (r.error ? [] : ((r.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>)), () => [])
+      : Promise.resolve([] as Array<{ id: string; name: string | null; slug: string | null }>),
+    ownerUserId ? readReportLayout(adminSupabase, ownerUserId) : Promise.resolve(null),
     /* A read that fails lists no places: the page counts All, which needs none. */
-    creatorProperties(adminSupabase, creator.id, user.id).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
+    creatorProperties(adminSupabase, creatorId, ownerUserId).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
   ])
-
   /* Pulled down on a phone, the page asks again in place, under its purple bar: the products here, the figures in the client (analytics-client.tsx). */
   const communities: CommunityPlace[] = communityRows.map((c) => ({ id: String(c.id), name: (c.name || "").trim() || "Community", slug: c.slug ?? null }))
-  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} properties={properties} communities={communities} savedReports={savedReports} />
+  const products = ((productRows ?? []) as Array<{ id: string; title: string; thumbnail_url: string | null; type?: string | null }>).map((p) => ({ id: p.id, title: p.title, thumbnail_url: p.thumbnail_url, type: p.type ?? null }))
+  return <AnalyticsClient creatorId={creatorId} userId={access.viewer} products={products} properties={properties} communities={communities} savedReports={savedReports} />
 }
