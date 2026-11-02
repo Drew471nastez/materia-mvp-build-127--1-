@@ -15,7 +15,9 @@ import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { creatorTag } from "@/lib/commerce/product-page-cache"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
+import { listedBlogEntries } from "@/lib/site-blog/public-read"
 import {
+  blogSitemapEntries,
   imagesOnPage,
   listedPageKeys,
   pageLastmod,
@@ -354,6 +356,17 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
     */
     for (const extra of await generatedPages(site.creatorId, { imported, keys: site.pages, collections: collections.length })) {
       if (!hidden.has(extra.key) && !entries.some((e) => e.loc === extra.loc(origin))) entries.push({ loc: extra.loc(origin), ...(extra.lastmod ? { lastmod: extra.lastmod } : {}) })
+    }
+    /*
+      THE BLOG (lib/site-blog), on both kinds of website at the same
+      addresses, on the site's own origin (its connected domain): the blog,
+      its live posts and its categories, unless its template is kept out of
+      search (Pages & Navigation: "blog" on an imported theme, "blogs" on a
+      Storelib theme). Before SQL part 353, nothing.
+    */
+    if (!hidden.has(imported ? "blog" : "blogs")) {
+      const blog = await listedBlogEntries(site.creatorId).catch(() => null)
+      for (const e of blogSitemapEntries(origin, blog)) if (!entries.some((x) => x.loc === e.loc)) entries.push(e)
     }
   }
 

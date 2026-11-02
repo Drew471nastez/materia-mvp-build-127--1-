@@ -36,12 +36,14 @@ export interface SearchHead {
   noindex?: boolean
   /** Each one a JSON-LD script body, already safe to print (lib/seo/json-ld.ts). */
   jsonLd?: string[]
+  /** og:type, where the page is not what the theme's head says (a blog post is an "article"). */
+  ogType?: string
 }
 
 const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
 /** The types Storelib describes itself, so the theme's own copy of them is dropped. */
-const OWN_TYPES = /"@type"\s*:\s*"(?:Product|BreadcrumbList|Organization|WebSite|OnlineStore)"/
+const OWN_TYPES = /"@type"\s*:\s*"(?:Product|BreadcrumbList|Organization|WebSite|OnlineStore|Article|BlogPosting|Blog)"/
 
 const metaContent = (tag: string): string | null => {
   const m = tag.match(/\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')/i)
@@ -92,6 +94,14 @@ export function withSearchHead(html: string, s: SearchHead | null | undefined): 
     const image = attr(s.image!.trim())
     if (metaTags(head, "og:image").length === 0) add.push(`<meta property="og:image" content="${image}" data-storelib-seo>`)
     if (metaTags(head, "twitter:image").length === 0) add.push(`<meta name="twitter:image" content="${image}" data-storelib-seo>`)
+  }
+
+  if (s.ogType && /^[a-z.]+$/.test(s.ogType)) {
+    const own = metaTags(head, "og:type")
+    if (!own.some((t) => metaContent(t) === s.ogType)) {
+      for (const t of own) head = head.replace(t, "")
+      add.push(`<meta property="og:type" content="${s.ogType}" data-storelib-seo>`)
+    }
   }
 
   if (s.noindex && !metaTags(head, "robots").some((t) => /noindex/i.test(metaContent(t) ?? ""))) {

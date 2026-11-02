@@ -28,6 +28,8 @@ import { sizeChartTableHtml } from "@/lib/size-charts/html"
 import { COMPAT_HTML_EXPRS, COMPAT_SOURCE_EXPR } from "@/lib/storelib-theme/dynamic"
 import { safeHref } from "@/lib/storelib-theme/values"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
+import { blogPath, postPath } from "@/lib/site-blog/urls"
+import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 
 type O = Record<string, unknown>
 
@@ -954,6 +956,8 @@ export interface Resources {
    * carries none.
    */
   ratings?: Record<string, { count: number; average: number; stars?: Record<string, number> }>
+  /** The website's blog as Shopify's blog object (blogObject), when it has one: what a `blog` setting (a featured blog section) and an `article` setting read. */
+  blog?: O | null
 }
 
 /**
@@ -1148,8 +1152,19 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       const title = handle.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
       return { [OUTPUT]: title, id: handle, title, handle, url: `/pages/${handle}`, content: "", template_suffix: null, metafields: {} }
     }
+    /*
+      THE WEBSITE'S BLOG. A website has one blog, and the builder has no
+      picker for this setting, so whatever the theme saved (the store it
+      came from called its blog "news", or nothing) is that blog: a theme's
+      featured blog section shows the posts. No blog, nil, as before.
+    */
     case "blog":
-    case "article":
+      return r.blog ?? null
+    case "article": {
+      const slug = typeof value === "string" ? value.split("/").filter(Boolean).pop() ?? "" : ""
+      const list = (r.blog?.articles as O[] | undefined) ?? []
+      return (slug && list.find((a) => a.handle === slug)) || null
+    }
     case "metaobject":
       return null
     case "url":
@@ -1688,3 +1703,108 @@ export function hashOf<T extends Record<string, unknown>>(o: T): T {
   return out
 }
 
+
+// ── The blog ─────────────────────────────────────────────────────────────────
+/*
+  THE WEBSITE'S BLOG, AS SHOPIFY'S `blog` AND `article` OBJECTS
+  (lib/site-blog: the posts as visitors see them, already sanitized). A
+  theme's blog, article and featured blog sections read these, as on
+  Shopify: the posts, their pictures, dates, authors and tags, the blog's
+  tags for its tag filter, and `paginate blog.articles` for its pages.
+  Comments are off: Storelib's blogs take none.
+*/
+
+/** A tag as it is written in an address (/blogs/news/tagged/summer-sale) matches the tag "Summer sale". */
+export function sameTag(tag: string, asked: string): boolean {
+  const a = tag.trim().toLowerCase()
+  const b = asked.trim().toLowerCase()
+  return a === b || handleize(a) === handleize(b)
+}
+
+/** A cover picture's shape when it is not known: the wide one a blog's covers are made in. */
+const COVER = { width: 1600, height: 900 }
+
+/** One post as Shopify's article object. A card (a list's) carries its summary as `content`; the post's own page, its whole markup. */
+export function articleObject(post: PublicPostCard | PublicPost, handle: string): O {
+  const content = "html" in post && typeof post.html === "string" ? post.html : post.summaryHtml || ""
+  const excerpt = post.excerpt ? `<p>${escapeText(post.excerpt)}</p>` : ""
+  const a = post.author
+  const author = a?.name ?? ""
+  const names = author.split(/\s+/).filter(Boolean)
+  const user = a
+    ? {
+        [OUTPUT]: author,
+        name: author,
+        first_name: names[0] ?? "",
+        last_name: names.slice(1).join(" "),
+        bio: a.bio,
+        image: a.avatarUrl ? imageObject(a.avatarUrl, author, { width: 400, height: 400 }) : null,
+        homepage: a.links[0]?.url ?? null,
+        account_owner: false,
+        email: "",
+      }
+    : null
+  return {
+    [OUTPUT]: post.title,
+    id: post.id,
+    handle: post.slug,
+    title: post.title,
+    url: post.path || postPath(handle, post.slug),
+    content,
+    excerpt,
+    excerpt_or_content: excerpt || content,
+    image: post.coverImageUrl ? imageObject(post.coverImageUrl, post.coverAlt || post.title, COVER) : null,
+    published_at: post.publishedAt,
+    created_at: post.publishedAt,
+    updated_at: post.updatedAt || post.publishedAt,
+    author,
+    user,
+    tags: [...post.tags],
+    comments: [],
+    comments_count: 0,
+    comments_enabled: false,
+    comment_post_url: "",
+    moderated: false,
+    template_suffix: null,
+    metafields: {},
+    /* Storelib's own, for a theme's code that wants them. */
+    storelib: { reading_minutes: post.readingMinutes, featured: post.featured, category: post.category ? { title: post.category.name, handle: post.category.slug, url: post.category.path } : null },
+  }
+}
+
+/**
+ * The blog as Shopify's blog object: its posts newest first, narrowed to a
+ * tag (/blogs/<h>/tagged/<tag>) or a category (/blogs/<h>/category/<c>)
+ * when the address asks. `all`: the posts already made into articles, in
+ * the order of `cards`, so a page draws each one once.
+ */
+export function blogObject(settings: SiteBlogSettings, cards: readonly PublicPostCard[], opts: { tag?: string | null; categorySlug?: string | null; all?: O[] } = {}): O {
+  const all = opts.all ?? cards.map((c) => articleObject(c, settings.handle))
+  const shown: O[] = []
+  const tags = new Set<string>()
+  const allTags = new Set<string>()
+  cards.forEach((c, i) => {
+    for (const t of c.tags) allTags.add(t)
+    if (opts.tag && !c.tags.some((t) => sameTag(t, opts.tag!))) return
+    if (opts.categorySlug && c.category?.slug !== opts.categorySlug) return
+    shown.push(all[i])
+    for (const t of c.tags) tags.add(t)
+  })
+  const byName = (a: string, b: string) => a.localeCompare(b)
+  return {
+    [OUTPUT]: settings.title,
+    id: settings.handle,
+    handle: settings.handle,
+    title: settings.title,
+    description: settings.description,
+    url: blogPath(settings.handle),
+    articles: shown,
+    articles_count: shown.length,
+    tags: [...tags].sort(byName),
+    all_tags: [...allTags].sort(byName),
+    comments_enabled: false,
+    moderated: false,
+    template_suffix: null,
+    metafields: {},
+  }
+}

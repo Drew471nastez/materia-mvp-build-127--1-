@@ -68,6 +68,10 @@ import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
 import { withSiteIcon } from "@/lib/website-builder/site-icon"
 import { withSearchHead, type SearchHead } from "./search-head"
+import { articleObject, blogObject, sameTag } from "./objects"
+import { blogPath, categoryPath, postPath, tagPath } from "@/lib/site-blog/urls"
+import { SITE_BLOG_ARTICLE_CSS } from "@/lib/site-blog/render-html"
+import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 
 type O = Record<string, unknown>
 
@@ -124,6 +128,26 @@ export interface SiteData {
    * and goes on to checkout, but nothing is taken off here, and no rates.
    */
   pricing?: CartPricing
+  /**
+   * The website's blog (lib/site-blog, lib/website-builder/compat-site.ts):
+   * its settings, its live posts, and the reads a post's own page makes.
+   * Absent (SQL part 353 not run, no blog set up): every /blogs address is
+   * answered as before.
+   */
+  blog?: CompatBlogSource
+}
+
+/** The website's blog, as an imported theme's site reads it. */
+export interface CompatBlogSource {
+  settings: SiteBlogSettings
+  /** Its published posts, newest first (a scheduled one is left out until its time). */
+  cards: PublicPostCard[]
+  /** A live post by its slug, or null. */
+  post(slug: string): Promise<PublicPost | null>
+  /** A post's draft, by the preview token its editor signed (never cached), or null. */
+  preview(token: string): Promise<PublicPost | null>
+  /** The slug a post moved to from this one, or null. */
+  redirect(slug: string): Promise<string | null>
 }
 
 /** An address as a theme's "Estimate shipping" sends it, read to codes: "US", "CA" (California), the postal code. */
@@ -449,7 +473,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       generic page as a soft 404 anyway. Not a 301 or 308, which would claim
       the shop is where that collection moved.
     */
-    const meant = method === "GET" && !req.ajax && !req.query.get("section_id") && !req.query.get("sections") ? siteLink(path, linkFactsOf({ pageKeys: siteKeys(site), products: site.products, pickable: site.pickable, collections: site.collections, shop: site.shop }), { pageFallback: false }) : path
+    const meant = method === "GET" && !req.ajax && !req.query.get("section_id") && !req.query.get("sections") ? siteLink(path, linkFactsOf({ pageKeys: siteKeys(site), products: site.products, pickable: site.pickable, collections: site.collections, shop: site.shop, blog: liveBlogOf(site) ? { handle: site.blog!.settings.handle, previousHandles: site.blog!.settings.previousHandles } : null }), { pageFallback: false }) : path
     if (meant !== path && meant.startsWith("/")) {
       const q = req.query.toString()
       return redirect(`${meant}${q ? `?${q}` : ""}`)
@@ -457,6 +481,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     return notFound(site, req)
   }
   if (route.redirect) return redirect(route.redirect)
+  if (route.moved) return moved(route.moved)
   const sectionId = req.query.get("section_id")
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
@@ -471,7 +496,9 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
   const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
-  return pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
+  const done = pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
+  /* A post's preview is its editor's: never kept by anyone, never a search result. */
+  return route.private ? { ...done, headers: { ...done.headers, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } } : done
 }
 
 /**
@@ -595,6 +622,10 @@ interface Route {
   bodyEnd?: string
   /** The page's own SEO title, set by its creator: the tab says exactly that (tabTitleOf). */
   ownTitle?: string
+  /** Not a page: this address moved for good (a blog's old address, a post's old slug), a 308. */
+  moved?: string
+  /** One person's page, never kept by a cache or listed by a search engine: a post's preview. */
+  private?: boolean
 }
 
 /**
@@ -858,6 +889,8 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     customer: req.account?.customer ? themeCustomer(wordedCustomer(req.account.customer, site.i18n?.uiWords, localeRoot(site.i18n) ? site.i18n?.locale : null)) : null,
     formErrors: formErrorsOf(req),
     ...(site.i18n ? { i18n: site.i18n } : {}),
+    /* The website's blog, while it has a live post: a featured blog section on any page shows its posts (./objects.ts typedValue). */
+    ...(liveBlogOf(site) ? { siteBlog: liveBlogOf(site)!.object } : {}),
     ...extra,
   }
 }
@@ -1066,9 +1099,214 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     return at(handle, { pageObject, title, reviews }) ?? (path.startsWith("/pages/") ? at("page", { pageObject, title }) : null)
   }
 
+  /* The website's blog (lib/site-blog), when it has one: its posts in the theme's blog and article templates (blogRoute). */
+  const blogAddress = site.blog ? path.match(/^\/blogs\/([^/]+)(?:\/(.+?))?\/?$/) : null
+  if (blogAddress) {
+    const answered = await blogRoute(site, req, path, blogAddress[1], blogAddress[2] ?? "", at)
+    if (answered !== undefined) return answered
+  }
   if (/^\/blogs\/[^/]+$/.test(path)) return at("blog", { title: "Blog" })
   if (/^\/blogs\/[^/]+\/[^/]+$/.test(path)) return at("article", { title: "Article" })
   return null
+}
+
+// ── The blog ────────────────────────────────────────────────────────────────
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   THE WEBSITE'S BLOG IN AN IMPORTED THEME
+  ═══════════════════════════════════════════════════════════════════════
+  Shopify's addresses, answered from the website's own posts (lib/site-blog):
+
+    /blogs/<h>                    the blog: the theme's blog template, its
+                                  pages ?page=N, as the theme paginates
+    /blogs/<h>/tagged/<tag>       the posts with that tag (current_tags)
+    /blogs/<h>/category/<c>       the posts in that category
+    /blogs/<h>/<slug>             a post: the theme's article template
+    /blogs/<h>/~preview/<token>   a post's draft, for its editor: noindex,
+                                  never kept by any cache
+    /blogs/<old handle>/…         308 to the blog's address now
+    /blogs/<h>/<old slug>         308 to the post's slug now
+    /blogs/<h>/page/N             308 to ?page=N (a Storelib theme's way)
+
+  A theme with no blog or article template draws Storelib's own markup
+  between its header and footer, as a policy is drawn (shell). A website
+  whose blog has no live post answers as before, so nothing changes for a
+  website that does not use it; a preview still works, for the first post.
+*/
+interface MadeBlog {
+  /** The posts visitors see now, newest first. */
+  live: PublicPostCard[]
+  /** Each of those as Shopify's article, made once. */
+  all: Record<string, unknown>[]
+  /** The whole blog as Shopify's blog object. */
+  object: Record<string, unknown>
+  at: number
+}
+const blogsMade = new WeakMap<CompatBlogSource, MadeBlog>()
+/** A scheduled post appears within this long of its time, on a site object a server kept (compat-site.ts LastGood). */
+const BLOG_FRESH_MS = 60_000
+
+/** The blog with its live posts, made into Shopify's objects once per site read; null without a blog or a live post. */
+export function liveBlogOf(site: Pick<SiteData, "blog">): MadeBlog | null {
+  const source = site.blog
+  if (!source) return null
+  const now = Date.now()
+  let made = blogsMade.get(source)
+  if (!made || now - made.at > BLOG_FRESH_MS) {
+    const live = source.cards.filter((c) => {
+      const t = Date.parse(c.publishedAt)
+      return !Number.isFinite(t) || t <= now
+    })
+    const all = live.map((c) => articleObject(c, source.settings.handle))
+    made = { live, all, object: blogObject(source.settings, live, { all }), at: now }
+    blogsMade.set(source, made)
+  }
+  return made.live.length ? made : null
+}
+
+const segments = (rest: string) => rest.split("/").map((p) => encodeURIComponent(p)).join("/")
+
+type At = (key: string, extra?: Partial<CompatPage>, status?: number, productTitle?: string) => Route | null
+
+/** A blog address, answered; undefined where the blog has nothing to say and the address is answered as before. */
+async function blogRoute(site: SiteData, req: SiteRequest, path: string, handle: string, rest: string, at: At): Promise<Route | null | undefined> {
+  const source = site.blog!
+  const settings = source.settings
+  const own = settings.handle
+  const q = req.query.toString()
+  if (handle !== own) {
+    /* The blog's address before its handle changed: where it is now, for good. */
+    if (settings.previousHandles.includes(handle) && liveBlogOf(site)) return movedRoute(site, req, `/blogs/${encodeURIComponent(own)}${rest ? `/${segments(rest)}` : ""}${q ? `?${q}` : ""}`)
+    return liveBlogOf(site) ? null : undefined
+  }
+  /* A draft, for the person writing it: whether or not anything is live yet. */
+  const preview = rest.match(/^~preview\/([^/]+)$/)
+  if (preview) {
+    const post = await source.preview(preview[1]).catch(() => null)
+    if (!post) return null
+    const route = articleRoute(site, req, path, post, at)
+    route.private = true
+    route.head = `${route.head ?? ""}<meta name="robots" content="noindex, nofollow" data-storelib-seo>`
+    route.page = { ...route.page, canonicalUrl: undefined }
+    return route
+  }
+  const made = liveBlogOf(site)
+  if (!made) return undefined
+  /* A Storelib theme's page address (/page/2): an imported theme's is ?page=2. */
+  const paged = rest.match(/^(?:(.*)\/)?page\/(\d{1,4})$/)
+  if (paged) {
+    const base = paged[1] ? `${blogPath(own)}/${segments(paged[1])}` : blogPath(own)
+    const n = Number(paged[2])
+    return movedRoute(site, req, n > 1 ? `${base}?page=${n}` : base)
+  }
+  const listing = (title: string, opts: { tag?: string; categorySlug?: string }, description?: string): Route | null => {
+    const blog = blogObject(settings, made.live, { ...opts, all: made.all })
+    if (opts.tag || opts.categorySlug) {
+      if (!(blog.articles as unknown[]).length) return null
+    }
+    const listed = made.live.filter((c) => (!opts.tag || c.tags.some((t) => sameTag(t, opts.tag!))) && (!opts.categorySlug || c.category?.slug === opts.categorySlug))
+    const blogData = { blog, ...(opts.tag ? { tags: [opts.tag] } : {}), settings, cards: listed }
+    const told: Partial<CompatPage> = { title, ...(description ? { description } : {}), blogData }
+    const route = at("blog", told) ?? blogShell(site, req, path, title, "blog", listingMarkup(settings, made.live, blog, req, path), blogData)
+    /* The blog's own SEO title and description (Blog settings) over the page's. */
+    route.page = { ...route.page, ...told }
+    route.ownTitle = !opts.tag && !opts.categorySlug && settings.seoTitle ? settings.seoTitle : undefined
+    return route
+  }
+  if (!rest) return listing(settings.title, {}, settings.seoDescription || settings.description || undefined)
+  const tagged = rest.match(/^tagged\/([^/]+)$/)
+  if (tagged) {
+    const tag = made.live.flatMap((c) => c.tags).find((t) => sameTag(t, tagged[1]))
+    /* Its own title, as a category's: the tab says it, whatever the theme's <title> writes (withTabTitle), so two lists never share one. */
+    return tag ? listing(`${tag} – ${settings.title}`, { tag }) : null
+  }
+  const category = rest.match(/^category\/([^/]+)$/)
+  if (category) {
+    const found = made.live.find((c) => c.category?.slug === category[1])?.category
+    return found ? listing(`${found.name} – ${settings.title}`, { categorySlug: found.slug }) : null
+  }
+  if (rest.includes("/")) return null
+  const post = await source.post(rest).catch(() => null)
+  const liveNow = post && (!Number.isFinite(Date.parse(post.publishedAt)) || Date.parse(post.publishedAt) <= Date.now())
+  if (!post || !liveNow) {
+    /* A post whose slug changed: where it is now, for good. */
+    const to = await source.redirect(rest).catch(() => null)
+    return to && to !== rest ? movedRoute(site, req, `${postPath(own, to)}${q ? `?${q}` : ""}`) : null
+  }
+  return articleRoute(site, req, path, post, at)
+}
+
+function movedRoute(site: SiteData, req: SiteRequest, to: string): Route {
+  return { page: basePage(site, req, { template: "blog", path: to }), sections: [], moved: to }
+}
+
+/** A post's page: the theme's article template, or Storelib's own article in the theme's header and footer. */
+function articleRoute(site: SiteData, req: SiteRequest, path: string, post: PublicPost, at: At): Route {
+  const settings = site.blog!.settings
+  const made = liveBlogOf(site)
+  const article = articleObject(post, settings.handle)
+  const live = made?.live ?? []
+  const blog = blogObject(settings, live, { all: made?.all ?? [] })
+  /* Shopify's blog.previous_article and blog.next_article: the addresses either side of this post, newest first. */
+  const at_ = live.findIndex((c) => c.id === post.id)
+  if (at_ >= 0) {
+    blog.next_article = at_ > 0 ? live[at_ - 1].path : null
+    blog.previous_article = at_ < live.length - 1 ? live[at_ + 1].path : null
+  }
+  const blogData = { blog, article, settings, post }
+  const description = post.seo.description || post.excerpt || undefined
+  const told: Partial<CompatPage> = { title: post.title, ...(description ? { description } : {}), blogData, ...(post.seo.canonicalUrl ? { canonicalUrl: post.seo.canonicalUrl } : {}) }
+  const route = at("article", told) ?? blogShell(site, req, path, post.title, "article", articleMarkup(settings, post), blogData)
+  route.page = { ...route.page, ...told }
+  route.ownTitle = post.seo.title && post.seo.title !== post.title ? post.seo.title : undefined
+  if (post.seo.noindex) route.head = `${route.head ?? ""}<meta name="robots" content="noindex, follow" data-storelib-seo>`
+  return route
+}
+
+/** Storelib's own blog markup between the theme's header and footer, for a theme with no template for it. */
+function blogShell(site: SiteData, req: SiteRequest, path: string, title: string, template: "blog" | "article", content: string, blogData: CompatPage["blogData"]): Route {
+  const route = shell(site, req, path, title, `<style>${SITE_BLOG_ARTICLE_CSS}${BLOG_LIST_CSS}</style>${content}`, template)
+  route.page = { ...route.page, blogData }
+  return route
+}
+
+const BLOG_LIST_CSS =
+  ".sl-blog{max-width:1120px;margin:0 auto;padding:48px 20px}.sl-blog__head{margin:0 0 32px}.sl-blog__head h1{margin:0 0 8px}.sl-blog__chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0;padding:0;list-style:none}.sl-blog__chips a{display:inline-block;padding:4px 12px;border:1px solid currentColor;border-radius:999px;font-size:.875em;text-decoration:none;opacity:.8}.sl-blog__chips a[aria-current]{opacity:1;font-weight:600}.sl-blog__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:32px;margin:0;padding:0;list-style:none}.sl-blog__card a{color:inherit;text-decoration:none}.sl-blog__card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin:0 0 12px}.sl-blog__card h2{font-size:1.25em;margin:0 0 6px}.sl-blog__meta{font-size:.875em;opacity:.7;margin:0 0 8px}.sl-blog__pages{display:flex;justify-content:space-between;gap:16px;margin:40px 0 0}.sl-blog__pages a{color:inherit}"
+
+const dateOf = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "" : `<time datetime="${escapeText(d.toISOString())}">${escapeText(d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }))}</time>`
+}
+
+/** The blog's posts as cards, a page of them at a time (?page=N), with its tags to filter by. */
+function listingMarkup(settings: SiteBlogSettings, live: PublicPostCard[], blog: Record<string, unknown>, req: SiteRequest, path: string): string {
+  const ids = new Set(((blog.articles as { id?: unknown }[]) ?? []).map((a) => String(a.id)))
+  const shown = live.filter((c) => ids.has(c.id))
+  const per = Math.max(1, Math.min(48, settings.postsPerPage || 12))
+  const pages = Math.max(1, Math.ceil(shown.length / per))
+  const page = Math.min(pages, Math.max(1, Math.floor(Number(req.query.get("page") ?? 1)) || 1))
+  const cards = shown.slice((page - 1) * per, page * per).map((c) => {
+    const cover = c.coverImageUrl ? `<a href="${attr(c.path)}" tabindex="-1"><img src="${attr(c.coverImageUrl)}" alt="${attr(c.coverAlt || "")}" loading="lazy"></a>` : ""
+    const meta = [dateOf(c.publishedAt), c.author ? escapeText(c.author.name) : "", c.category ? `<a href="${attr(c.category.path)}">${escapeText(c.category.name)}</a>` : ""].filter(Boolean).join(" · ")
+    return `<li class="sl-blog__card">${cover}<h2><a href="${attr(c.path)}">${escapeText(c.title)}</a></h2>${meta ? `<p class="sl-blog__meta">${meta}</p>` : ""}${c.excerpt ? `<p>${escapeText(c.excerpt)}</p>` : ""}</li>`
+  })
+  const tags = (blog.all_tags as string[]) ?? []
+  const current = decodeURIComponent(path.match(/\/tagged\/([^/]+)$/)?.[1] ?? "")
+  const chips = tags.length ? `<ul class="sl-blog__chips">${tags.map((t) => `<li><a href="${attr(tagPath(settings.handle, t))}"${current && sameTag(t, current) ? ' aria-current="page"' : ""}>${escapeText(t)}</a></li>`).join("")}</ul>` : ""
+  const link = (n: number) => `${path}?page=${n}`
+  const nav = pages > 1 ? `<nav class="sl-blog__pages" aria-label="Pages">${page > 1 ? `<a href="${attr(page === 2 ? path : link(page - 1))}" rel="prev">← Newer posts</a>` : "<span></span>"}<span>Page ${page} of ${pages}</span>${page < pages ? `<a href="${attr(link(page + 1))}" rel="next">Older posts →</a>` : "<span></span>"}</nav>` : ""
+  const title = escapeText(String(blog.title ?? settings.title))
+  const intro = settings.description && path === blogPath(settings.handle) ? `<p>${escapeText(settings.description)}</p>` : ""
+  return `<div class="sl-blog page-width"><header class="sl-blog__head"><h1>${title}</h1>${intro}${chips}</header><ul class="sl-blog__grid">${cards.join("")}</ul>${nav}</div>`
+}
+
+/** One post, as Storelib draws it (lib/site-blog/render-html: already sanitized). */
+function articleMarkup(settings: SiteBlogSettings, post: PublicPost): string {
+  const meta = [dateOf(post.publishedAt), post.author ? escapeText(post.author.name) : "", post.readingMinutes > 0 ? `${post.readingMinutes} min read` : ""].filter(Boolean).join(" · ")
+  const cover = post.coverImageUrl ? `<img class="sl-post__cover" src="${attr(post.coverImageUrl)}" alt="${attr(post.coverAlt || "")}">` : ""
+  const category = post.category ? `<a href="${attr(categoryPath(settings.handle, post.category.slug))}">${escapeText(post.category.name)}</a>` : `<a href="${attr(blogPath(settings.handle))}">${escapeText(settings.title)}</a>`
+  const tags = post.tags.length ? `<ul class="sl-blog__chips">${post.tags.map((t) => `<li><a href="${attr(tagPath(settings.handle, t))}">${escapeText(t)}</a></li>`).join("")}</ul>` : ""
+  return `<article class="sl-post page-width" style="max-width:760px;margin:0 auto;padding:48px 20px"><header><p class="sl-blog__meta">${category}</p><h1>${escapeText(post.title)}</h1>${meta ? `<p class="sl-blog__meta">${meta}</p>` : ""}</header>${cover}${post.html}${tags}</article>`
 }
 
 async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
