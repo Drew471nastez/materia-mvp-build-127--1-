@@ -579,7 +579,7 @@ export async function restoreRevision(db: Db, creatorId: string, userId: string,
   if (!data) throw new SiteBlogError(404, "Revision not found.")
   const rev = data as Row
   const saved = await savePostDraft(db, creatorId, userId, row.id, { meta: rev.meta, blocks: rev.content, version: Number(row.version) })
-  if (!saved.ok) {
+  if (saved.ok === false) {
     if (saved.status === 409) throw new SiteBlogError(409, "This post was changed somewhere else.", saved.current)
     throw new SiteBlogError(saved.status, saved.error)
   }
