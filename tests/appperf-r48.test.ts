@@ -24,6 +24,9 @@
  *            through the per request cache, or the team store), every read
  *            goes in one round by the store's id: no second creator read, no
  *            second wave for the products and the places.
+ * PLACES     Analytics' OnePage is found in one `or` read, not up to three
+ *            in a line (lib/analytics/property onePageOf), on the page and in
+ *            every report that counts places.
  * SETTINGS   the team store is asked beside the first reads, not after them.
  * EMAILS     the seven other tabs are warmed again at most every five minutes
  *            (the router's own keep), not every minute; an opened tab still
@@ -39,6 +42,7 @@
  */
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { onePageOf } from "@/lib/analytics/property"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -212,8 +216,71 @@ section("No route level loading screen under /app (the owner's rule, tests/app-s
   check("none added: the shell's bar and spinner are the slow-load state", offenders.length === 0, offenders)
 }
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failing:", failures.join(", "))
-  process.exit(1)
+async function onePageSection() {
+  section("Analytics' places: the OnePage in one read")
+  const C = "22222222-2222-4222-8222-222222222222"
+  const U = "11111111-1111-4111-8111-111111111111"
+  /* A table that answers `or` the way PostgREST does, and counts the reads. */
+  const fake = (rows: Array<Record<string, unknown>>, opts: { orFails?: boolean } = {}) => {
+    const calls: string[] = []
+    const db = {
+      from: (table: string) => {
+        const q: { filters: Array<[string, unknown]>; or: string | null } = { filters: [], or: null }
+        const run = () => {
+          calls.push(q.or ? `or:${q.or}` : `eq:${q.filters.map((f) => f[0]).join(",")}`)
+          if (q.or && opts.orFails) return { data: null, error: { message: "column onepages.seller_id does not exist" } }
+          let out = rows
+          if (q.or) {
+            const parts = q.or.split(",").map((p) => p.split(".eq."))
+            out = out.filter((r) => parts.some(([c, v]) => r[c] === v))
+          }
+          for (const [c, v] of q.filters) out = out.filter((r) => r[c] === v)
+          return { data: out, error: null }
+        }
+        const b: Record<string, unknown> = {
+          select: () => b,
+          eq: (c: string, v: unknown) => (q.filters.push([c, v]), b),
+          or: (f: string) => ((q.or = f), b),
+          limit: () => b,
+          then: (res: (x: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(run()).then(res, rej),
+        }
+        void table
+        return b
+      },
+    }
+    return { db, calls }
+  }
+  {
+    const { db, calls } = fake([])
+    check("no OnePage: one read, not three", (await onePageOf(db, C, U)) === null && calls.length === 1 && calls[0] === `or:seller_id.eq.${C},creator_id.eq.${C},owner_id.eq.${U}`, calls)
+  }
+  {
+    const { db } = fake([{ id: "by-owner", owner_id: U }, { id: "by-creator", creator_id: C }])
+    check("the same order picks the answer: seller, then creator, then owner", (await onePageOf(db, C, U)) === "by-creator")
+  }
+  {
+    const { db } = fake([{ id: "by-owner", owner_id: U }, { id: "by-seller", seller_id: C }])
+    check("  a seller's OnePage wins over the owner's", (await onePageOf(db, C, U)) === "by-seller")
+  }
+  {
+    const { db, calls } = fake([{ id: "by-owner", owner_id: U }], { orFails: true })
+    check("a read that fails is asked one at a time, as before", (await onePageOf(db, C, U)) === "by-owner" && calls.length === 4, calls)
+  }
+  {
+    const { db, calls } = fake([{ id: "x", seller_id: "not-a-uuid" }])
+    check("ids that are not uuids never go into a filter string", (await onePageOf(db, "not-a-uuid", null)) === "x" && calls.every((c) => c.startsWith("eq:")), calls)
+  }
+  {
+    const { db, calls } = fake([])
+    await onePageOf(db, C, null)
+    check("no owner account: only seller and creator are asked", calls[0] === `or:seller_id.eq.${C},creator_id.eq.${C}`, calls)
+  }
 }
+
+void onePageSection().then(() => {
+  console.log(`\n${passed} passed, ${failed} failed\n`)
+  if (failed > 0) {
+    console.log("Failing:", failures.join(", "))
+    process.exit(1)
+  }
+})
