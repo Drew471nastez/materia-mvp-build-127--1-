@@ -84,6 +84,7 @@ filled in by the lead.
 | 348 | SITE-1 | `supabase/sql/run-now/348_site_switch_in_one_step.sql` | server only function `switch_site_deployment`: an AI site goes live in one transaction | until it runs, the code uses a two step switch that rolls back on failure; tested on a local Postgres 16 |
 | 349 | DB-7 | `supabase/sql/run-now/349_buyer_email_trigram_indexes.sql` | trigram indexes on `orders.buyer_email` and `commerce_checkouts.buyer_email` | on a large table, first run `supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql` one statement at a time (CONCURRENTLY cannot run in a transaction), then the part builds nothing |
 | 352 | PAY-9 | `supabase/sql/run-now/352_checkout_attempts.sql` | table `checkout_attempts` (server only, RLS on, no client access) so a retried Pay press gets the same Stripe payment | until it runs, checkout works exactly as before; additive; can be dropped if ever unwanted |
+| 353 | BLOG | `supabase/sql/run-now/353_site_blog.sql` | creator website blogs: `site_blog_*` tables (posts with a draft and a live copy, categories, authors, revisions, redirects, settings), RLS so a store sees only its own rows, no public access (visitors read through the server) | until it runs the Blog screen says so and every site behaves exactly as before; additive. Optional: set `SITE_BLOG_PREVIEW_SECRET` (16+ chars) in Vercel to sign preview links with their own key |
 
 - **Service:** Supabase. **Where:** Dashboard, SQL Editor.
 - **Changes production:** yes (schema, additive).
