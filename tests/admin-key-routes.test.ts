@@ -114,6 +114,9 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round 48 (R48-6): public config reads moved off the anon key so part 354 can close the tables to anon. */
+  "onepage/seller-avatar/route.ts": "a creator's public header avatar and favicon only: one JSON path of the published config, nothing else, read with the service role because part 354 closes the table to anon",
+  "store-builder/published/route.ts": "a creator's published look, the same the public creator page draws: published_config only, never the draft, contactEmail stripped before it leaves the server",
   /* Round rel-db: these three always used the service role through a hand-built client, which this check did not see; they now use createAdminClient (a deadline on every request), so they are listed with what guards them. Unchanged behaviour. */
   "domains/cleanup/route.ts": "the domain cleanup job: a POST whose body carries CRON_SECRET (or DOMAIN_CLEANUP_SECRET), compared with matchesSecret and failing closed with neither set; only then are expired domain_redirects read and removed",
   "security/confirm-device/route.ts": "a buyer confirming a new device for a purchase, before any session: acts only when the order id and the unexpired, unused verification code sent to that order's email match",
