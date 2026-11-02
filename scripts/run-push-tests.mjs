@@ -1153,6 +1153,8 @@ const SUITES = [
   "tests/pubperf-r48.test.ts",
   /* Round 49: a store's logo with one small corner (lib/brand/store-logo.ts) and no shadow wherever a buyer sees it: every email, the checkout's shop bar, the order status page, the receipt, the order help page (components/brand/store-logo.tsx), the packing slip and the invoice PDF. */
   "tests/logo-r49.test.ts",
+  /* Round 49, edge: stored copies of public pages served while the database is away (lib/edge, docs/reliability/EDGE_FAILOVER.md). */
+  "tests/edge-r49.test.ts",
 ]
 
 /**

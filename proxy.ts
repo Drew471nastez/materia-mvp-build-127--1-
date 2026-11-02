@@ -42,6 +42,9 @@ import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favic
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
 import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
 import { unknownExploreCategory } from "@/lib/explore/category-pages"
+import { answeredOk, dbState, noteDb, probeIfStale, supabaseProbe } from "@/lib/edge/db-health"
+import { readHostRecord, readSnapshot, snapshotRequest, snapshotResponse } from "@/lib/edge/public-snapshot"
+import { supabaseSnapshotStore } from "@/lib/edge/snapshot-store"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -55,7 +58,17 @@ const proxyFetch: typeof fetch = (input, init) => {
   const own = AbortSignal.timeout(PROXY_READ_MS)
   const any = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any
   const signal = init?.signal && any ? any([init.signal, own]) : init?.signal ?? own
-  return deadlineFetch(input, { ...init, signal })
+  /* Every answer, or none, is how this server knows the database is away (lib/edge/db-health.ts). */
+  return deadlineFetch(input, { ...init, signal }).then(
+    (r) => {
+      noteDb(answeredOk(r.status))
+      return r
+    },
+    (e) => {
+      noteDb(false)
+      throw e
+    },
+  )
 }
 const PROXY_DB = { global: { fetch: proxyFetch } }
 
@@ -1025,6 +1038,96 @@ function servedAt(domain: string): string {
 */
 const domainHeld = heldLookup<ConnectedDomain | null>({ freshMs: 60_000, staleMs: 10 * 60_000, max: 5000 })
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   A PUBLIC PAGE FROM ITS STORED COPY WHEN THE DATABASE IS AWAY (round 49)
+  ═══════════════════════════════════════════════════════════════════════════
+  lib/edge/public-snapshot.ts says what is kept and why it is nobody's. Two
+  places use it here: in front of everything else while this server has seen
+  the database fail (snapshotWhileDown), so a page is not drawn only to wait
+  seven seconds and say "One moment"; and wherever the routing itself could
+  not be read (the SITE-8 503s), before giving up.
+*/
+const snapshotStore = supabaseSnapshotStore()
+const dbProbe = supabaseProbe(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+/** Whether a host and path are a public page that may have a stored copy: a website, a OnePage, a community's public page. */
+function publicSnapshotPage(host: string, pathname: string): boolean {
+  if (host === "storelib.me") return /^\/[A-Za-z0-9_-]{1,64}\/?$/.test(pathname)
+  if (host === MAIN_DOMAIN || host === `www.${MAIN_DOMAIN}`) return /^\/community\/[a-z0-9-]{1,80}(?:\/about)?\/?$/.test(pathname)
+  if (host.endsWith(`.${SITES_DOMAIN}`) || host.endsWith(`.${MAIN_DOMAIN}`)) {
+    const sub = host.slice(0, host.indexOf("."))
+    return !EXCLUDED_SUBDOMAINS.includes(sub) && host.split(".").length === (host.endsWith(`.${SITES_DOMAIN}`) ? SITES_DOMAIN : MAIN_DOMAIN).split(".").length + 1
+  }
+  if (host === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.endsWith(".vercel.app") || !host.includes(".")) return false
+  return true
+}
+
+let snapshotsServed = 0
+let snapshotLoggedAt = 0
+
+/** The stored copy of this request's page, as an answer, or null. */
+async function snapshotFor(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl
+  if (!snapshotRequest({ method: request.method, pathname, accept: request.headers.get("accept"), fetchDest: request.headers.get("sec-fetch-dest"), requestedWith: request.headers.get("x-requested-with") })) return null
+  const record = await readSnapshot(snapshotStore, request.headers.get("host") || "", pathname).catch(() => null)
+  if (!record) return siteDomainFromRecord(request)
+  const r = snapshotResponse(record, request.method)
+  /* One line a minute per server, with how many: an outage under a spike is not a log line per visitor. */
+  snapshotsServed++
+  if (Date.now() - snapshotLoggedAt > 60_000) {
+    snapshotLoggedAt = Date.now()
+    console.warn(logLine("edge_snapshot_served", { host: record.host, path: record.path, taken: record.capturedAt, served: snapshotsServed }))
+    snapshotsServed = 0
+  }
+  return new NextResponse(r.body, { status: r.status, headers: r.headers })
+}
+
+/**
+ * A site's Storelib subdomain whose site lives at its own domain sends the
+ * visitor there (as sendsToDomain does with the database), from its host
+ * record, where the domain's copies are. A 302, never held by a cache.
+ */
+async function siteDomainFromRecord(request: NextRequest): Promise<NextResponse | null> {
+  const record = await readHostRecord(snapshotStore, request.headers.get("host") || "").catch(() => null)
+  if (!record?.canonical || record.canonical === (request.headers.get("host") || "").split(":")[0].toLowerCase()) return null
+  const { pathname, search } = request.nextUrl
+  const to = NextResponse.redirect(`https://${record.canonical}${pathname}${search}`, { status: 302 })
+  to.headers.set("Cache-Control", "no-store")
+  return to
+}
+
+/** In front of the routing: a public page from its copy while this server sees the database down; and a probe when it has not looked for a while. */
+async function snapshotWhileDown(request: NextRequest, bareHost: string): Promise<NextResponse | null> {
+  if (!publicSnapshotPage(bareHost, request.nextUrl.pathname)) return null
+  probeIfStale(dbProbe)
+  if (dbState() !== "down") return null
+  return snapshotFor(request)
+}
+
+/**
+ * WHICH SITE A HOST IS, WITH NO DATABASE (lib/edge/public-snapshot.ts
+ * HostRecord, written with the site's copies). Only for a Storelib theme
+ * site, and only for a page: it goes to /w/<name>, where Next's own copies
+ * (the page held for every visitor, the site's last good copy in the data
+ * cache) can still answer. An imported theme or an AI site is never guessed
+ * at: their pages come from their copies or say "One moment", as before.
+ */
+async function nativeFromRecord(request: NextRequest, name: string | null): Promise<NextResponse | null> {
+  const { pathname, search } = request.nextUrl
+  if (!snapshotRequest({ method: request.method, pathname, accept: request.headers.get("accept"), fetchDest: request.headers.get("sec-fetch-dest"), requestedWith: request.headers.get("x-requested-with") })) return null
+  const record = await readHostRecord(snapshotStore, request.headers.get("host") || "").catch(() => null)
+  /* Only a Storelib theme site with no password when it was kept: never a guess at an imported theme, an AI site or a closed one. */
+  if (!record || record.kind !== "native" || record.open !== true || (name && record.name !== name)) return null
+  const to = request.nextUrl.clone()
+  to.pathname = `/w/${record.name}${pathname === "/" ? "" : pathname}`
+  to.search = search
+  const r = NextResponse.rewrite(to)
+  r.headers.set("x-seller-subdomain", record.name)
+  if (pathname === "/") r.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
+  return r
+}
+
 /** A page that loads again by itself, for the moment a site cannot be looked up. */
 /** A site whose routing or lookup could not be read: try again in a moment, never a guess. */
 function siteUnavailable(): NextResponse {
@@ -1551,6 +1654,9 @@ async function routeRequest(request: NextRequest) {
   */
   const helpHost = `help.${MAIN_DOMAIN}`
   const bareHost = host.split(":")[0].toLowerCase()
+  /* The database away: a public page from its stored copy, before any routing that would ask it (snapshotWhileDown). */
+  const whileDown = await snapshotWhileDown(request, bareHost)
+  if (whileDown) return whileDown
   if (bareHost === helpHost) {
     const isFile = /\.[a-z0-9]{2,5}$/i.test(pathname)
     if (pathname.startsWith("/_next") || pathname.startsWith("/api/") || isFile) return NextResponse.next()
@@ -1850,7 +1956,7 @@ async function routeRequest(request: NextRequest) {
       */
       if (isSiteIconPath(pathname)) {
         const ai = await liveAiSiteAnswer(subdomain)
-        if (ai === "unavailable") return siteUnavailable()
+        if (ai === "unavailable") return (await snapshotFor(request)) ?? siteUnavailable()
         if (ai) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
         return NextResponse.rewrite(new URL(`/w/${subdomain}${pathname}${search}`, request.url))
       }
@@ -1880,7 +1986,7 @@ async function routeRequest(request: NextRequest) {
         liveAiSiteAnswer(subdomain),
         compatAnswers(pathname, request) ? compatSiteAnswer(subdomain, asksFresh(request)) : Promise.resolve<SiteAnswer>(false),
       ])
-      if (aiKnown === "unavailable" || compatKnown === "unavailable") return siteUnavailable()
+      if (aiKnown === "unavailable" || compatKnown === "unavailable") return (await snapshotFor(request)) ?? (await nativeFromRecord(request, subdomain)) ?? siteUnavailable()
       /*
         AND ITS SITEMAP. It lists the domain's addresses (the canonical ones),
         which a search engine refuses in a sitemap on another host. So the
@@ -2159,6 +2265,9 @@ async function routeRequest(request: NextRequest) {
     const resolved = await resolveCustomDomain(host)
     /* The database not answering is not "this domain is not connected": try again in a moment, never a redirect away. */
     if (resolved === "unavailable" && !isApiCall) {
+      /* Its stored copy, or a Storelib theme site's page drawn from what Next still holds (nativeFromRecord), before "One moment". */
+      const copy = (await snapshotFor(request)) ?? (await nativeFromRecord(request, null))
+      if (copy) return copy
       return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
     }
     const connected = resolved === "unavailable" ? null : resolved

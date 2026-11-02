@@ -4325,5 +4325,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.site_blog_redirects TO authentica
 GRANT ALL ON public.site_blog_redirects TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('355', '355_site_blog.sql', 'aeeb522495c34dfd768ac77d692af55424f7fa106921e50fbc9a8d76d48d6ae9') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 356_public_snapshots.sql
+/* Stored copies of public pages (round 49, lib/edge/public-snapshot.ts). A private Storage bucket, public-snapshots: one JSON object per page of a published website, a OnePage or a community's public page, as a stranger is shown it, plus a small index per site and a record per website host (which site a connected domain is). The proxy serves a copy when the database does not answer, instead of "One moment". Written and read only by the server with the service role, which needs no policy; nothing is granted to anon or authenticated, and the bucket is not public. 4 MB per object, JSON only. Until it runs, every copy write fails quietly and pages answer exactly as before. No rows change. Safe to run again. */
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['application/json'])
+ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('356', '356_public_snapshots.sql', 'dd4217a82405b79eafcbdaf98bb0f2033d02c9f80e95e415e9e2f762c8c30216') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

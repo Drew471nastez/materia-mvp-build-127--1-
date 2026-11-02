@@ -116,6 +116,13 @@ export function onePageChangeTags(change: OnePageChange): string[] {
 /** A published OnePage changed: its page, its owner and every name it answers to are read afresh. */
 export function onePageChanged(change: OnePageChange): void {
   for (const tag of onePageChangeTags(change)) expire(tag)
+  /* And its stored copy at storelib.me/<name>, asked again after the answer (lib/edge/snapshot-capture.ts). */
+  const names = (change.names ?? []).filter(present)
+  if (names.length > 0) {
+    void import("@/lib/edge/snapshot-capture")
+      .then((m) => m.later(() => m.refreshOnePageSnapshot(names)))
+      .catch(() => undefined)
+  }
 }
 
 /**

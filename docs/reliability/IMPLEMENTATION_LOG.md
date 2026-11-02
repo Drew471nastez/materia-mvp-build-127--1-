@@ -306,3 +306,13 @@ CDN HIT).
 | Local load test | COMPLETE (local; staging still open) | `scripts/load/local-bench.mjs` + fixture; `scenarios.mjs --pages/--product-path`; numbers and CPU profile in `docs/operations/load-testing.md`; no app hot spot found, nothing changed for speed | obs-r48 |
 | Pre-push check | COMPLETE | `scripts/pre-push.mjs`: ESLint on changed scripts, the suites that read a changed file, `--types` | obs-r48 |
 | Alert routing | COMPLETE (docs) | `docs/operations/release-safety.md`, Alert routing | n/a |
+
+## Round 49, edge (`r49-edge`)
+
+| ID | Status | What changed | Test |
+| --- | --- | --- | --- |
+| Stored copies of public pages | COMPLETE (needs SQL 356) | `lib/edge/public-snapshot.ts`, `snapshot-capture.ts`, `snapshot-store.ts`: a stranger's copy of each published website page (the Publish list, 24 a site, on its domain and subdomain), each OnePage and each community's public page, kept in Storage bucket `public-snapshots` by host and path; taken after Publish, Unpublish, take down, product save, password change, OnePage change, as stranger pages are drawn (hourly per page per server) and by the warm run after a deploy for sites without any | edge-r49 |
+| Served while the database is away | COMPLETE | `lib/edge/db-health.ts` (per server: every proxy read, plus a background probe every 20 s); `proxy.ts` answers a public page from its copy while down, and at every SITE-8 503; the imported theme handler's 503 too | edge-r49, local build (EDGE_FAILOVER.md section 5) |
+| Connected domain without the database | COMPLETE | host records `v1/h/<host>.json`; a cold server routes an open Storelib theme site to `/w/<name>` from its record | edge-r49 |
+| Imported theme pages at the CDN | NOT DONE, on purpose | tag purges exist on Next 16 at Vercel; the blocker is Vercel's CDN keying on the browser's address (round 48) and refusing `Vary: Cookie`, with the cart and account drawn on the server. EDGE_FAILOVER.md section 3 | n/a |
+| Second provider | DOCUMENTED | EDGE_FAILOVER.md section 6: Cloudflare in front, R2 mirror, Worker or Load Balancing failover; owner decision | n/a |

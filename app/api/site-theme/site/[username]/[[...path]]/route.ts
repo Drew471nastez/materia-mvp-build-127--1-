@@ -17,6 +17,9 @@ import { countryCookieIn, seenCountry } from "@/lib/markets/visitor-country"
 import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
+import { readSnapshot, snapshotResponse } from "@/lib/edge/public-snapshot"
+import { supabaseSnapshotStore } from "@/lib/edge/snapshot-store"
+import { keepPageFresh } from "@/lib/edge/snapshot-capture"
 import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { siteAccountOf } from "@/lib/site-accounts/theme-visitor"
 import { compatCartPricing } from "@/lib/storelib-theme/compat/cart-pricing-server"
@@ -193,6 +196,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   } catch (e) {
     if (!isSiteReadError(e)) throw e
     console.error("[site-theme] site unavailable:", e.message)
+    /* Its stored copy before "One moment" (lib/edge/public-snapshot.ts): the stranger's page as last kept, never a preview's. */
+    if (!token && pageAsked) {
+      const copy = await readSnapshot(supabaseSnapshotStore(), host, publicPath(req, segments)).catch(() => null)
+      if (copy) return snapshotResponse(copy, req.method)
+    }
     return new NextResponse(UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
   }
   if (found.kind !== "site") {
@@ -517,7 +525,16 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   headers.delete(SHAREABLE_HEADER)
   /* Said for /admin/performance and for a person checking: this page came from the hold, not a new draw. */
   headers.set("X-Storelib-Held", page.held ? "hit" : "miss")
+  /* A stranger's plain page: its stored copy kept fresh, at most hourly per server (lib/edge/snapshot-capture.ts). */
+  if (page.share && page.status === 200) keepPageFresh(`site-${username.toLowerCase()}`, host, publicPath(req, path.slice(1)), "site")
   return new NextResponse(page.body, { status: page.status, headers })
+}
+
+/** The address the visitor asked for on the website: the language the proxy named, then the page. */
+function publicPath(req: Request, segments: readonly string[]): string {
+  const locale = req.headers.get(SITE_LOCALE_HEADER)
+  const page = segments.length ? `/${segments.join("/")}` : "/"
+  return locale ? `/${locale}${page === "/" ? "" : page}` : page
 }
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts): an imported theme's pages, cart and section calls. */

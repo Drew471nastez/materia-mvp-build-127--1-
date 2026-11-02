@@ -17,6 +17,7 @@ deployed yet; production deploys need the owner's approval.
 | [SCALABILITY.md](SCALABILITY.md) | limits, what breaks at 10x and 100x, when a queue is justified |
 | [RECOVERY.md](RECOVERY.md) | runbooks per failure, RPO and RTO |
 | [COSTS.md](COSTS.md) | cost of the fixes, optional paid items, wasted spend found |
+| [EDGE_FAILOVER.md](EDGE_FAILOVER.md) | public pages without the database (stored copies, round 49), what still needs Vercel, the owner's steps for a second provider |
 
 Related operations docs: [release-safety.md](../operations/release-safety.md),
 [rollback.md](../operations/rollback.md), [backups.md](../operations/backups.md),
