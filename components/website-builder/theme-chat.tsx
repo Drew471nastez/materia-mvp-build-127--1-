@@ -3686,7 +3686,9 @@ function ThemeChatPanel({
           {/* The conversation, above the pill. */}
           <div
             ref={cardRef}
-            data-ask-card=""
+            /* "closed" pauses what moves inside it (app/globals.css, NOTHING MOVES IN A SHELL NOBODY CAN SEE):
+               its own attribute, not aria-hidden, which Radix sets all over the page as a dialog opens. */
+            data-ask-card={cardOpen ? "open" : "closed"}
             aria-hidden={!cardOpen || undefined}
             inert={!cardOpen}
             className="absolute"

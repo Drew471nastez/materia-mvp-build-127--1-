@@ -7,6 +7,7 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { tt } from "@/lib/i18n/text"
+import { useNextFrameAutoFocus } from "@/lib/ui/dialog-focus"
 
 function Dialog({
   ...props
@@ -169,6 +170,8 @@ function DialogContent({
 }) {
   /** The dialog's own content element: what scrolls, and what the guard watches. */
   const portalRef = React.useRef<HTMLDivElement>(null)
+  /* Focus on the next frame without a touch screen (lib/ui/dialog-focus.ts): the press's task is the render alone. */
+  const openAutoFocus = useNextFrameAutoFocus(portalRef, props.onOpenAutoFocus)
 
 
   return (
@@ -217,6 +220,7 @@ function DialogContent({
           className,
         )}
         {...props}
+        onOpenAutoFocus={openAutoFocus}
       >
         <OverscrollGuard portalRef={portalRef} />
         {children}

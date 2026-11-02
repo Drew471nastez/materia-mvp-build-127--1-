@@ -1092,7 +1092,9 @@ async function main() {
        (components/ui/bottom-sheet.tsx showSheetState; scripts/check-app-sheets-frames.mjs). */
     /* Three, not two: the product editor's layer has its own step down, to 53, so the pill stays over the layer and under the sheet. */
     check("and the pill never counts a dialog that says it is hidden",
-      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 3
+      /* Round 49: counted in script (lib/ui/modal-open.ts) and said on <html> as data-modal-open, not asked by :has(). */
+      (css.match(/html\[data-modal-open\][^{,]* \[data-app-nav-pill\]/g) ?? []).length === 3
+        && /MODAL_OPEN_SELECTOR = '\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)'/.test(read("lib/ui/modal-open.ts"))
         && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
   }
 

@@ -71,6 +71,7 @@ import {
   useTabLens,
 } from "@/components/nav/tab-lens"
 import { tt } from "@/lib/i18n/text"
+import { useModalOpenWatch } from "@/lib/ui/modal-open"
 
 /* ── The palette ──────────────────────────────────────────────────────────
    The page this menu covers is #f8f9fa and its cards are white, so the menu
@@ -877,6 +878,9 @@ export function MobileNavPill({
   icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; analytics: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
+  /* The pill steps under any open dialog and gives up its taps by `html[data-modal-open]`
+     (app/globals.css), kept by this watch while the pill is mounted (lib/ui/modal-open). */
+  useModalOpenWatch()
 
   /*
     HOME, ORDERS, PRODUCTS, ANALYTICS — four pages of this person's own shop,
