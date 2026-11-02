@@ -185,9 +185,10 @@ export function ProjectSettings({
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled.
-         A blog post open over Settings (website-settings/blog/post-editor.tsx) is left only by its own Back, so its Escape never closes this page behind it. */
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-site-post-editor]")) onClose()
+      /* A blog post open over Settings (website-settings/blog/post-editor.tsx) is left only by its own Back, so its Escape never closes this page behind it. */
+      if (document.querySelector("[data-site-post-editor]")) return
+      /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled. */
+      if (e.key === "Escape" && !e.defaultPrevented) onClose()
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)

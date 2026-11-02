@@ -145,7 +145,7 @@ async function main() {
     const ps = code("components/website-builder/project-settings.tsx")
     check("project settings draws BlogSettings for it, after Pages", /\{section === "pages" && <PageSettings ctx=\{ctx\} \/>\}\s*\{section === "blog" && <BlogSettings ctx=\{ctx\} \/>\}/.test(ps))
     check("  wider on a big screen as a separate argument, the speed page's own left as it was", /section === "performance" && "xl:max-w-\[1040px\]", section === "blog" && "xl:max-w-\[1040px\]"\)/.test(ps))
-    check("  a post open over Settings keeps Escape from closing the page behind it", /e\.key === "Escape" && !e\.defaultPrevented && !document\.querySelector\("\[data-site-post-editor\]"\)\) onClose\(\)/.test(ps))
+    check("  a post open over Settings keeps Escape from closing the page behind it", /if \(document\.querySelector\("\[data-site-post-editor\]"\)\) return\s*if \(e\.key === "Escape" && !e\.defaultPrevented\) onClose\(\)/.test(ps))
 
     const sidebar = ["components/app/sidebar.tsx", "components/app/sidebar-desktop-nav.tsx", "components/app/sidebar-mobile-nav.tsx"].map(code).join("\n")
     check("nothing added to the app's sidebar", !/\bblog\b/i.test(sidebar) && !/settings=blog/.test(sidebar))
