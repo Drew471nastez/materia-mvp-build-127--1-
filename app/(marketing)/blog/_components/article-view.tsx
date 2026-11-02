@@ -14,10 +14,17 @@
  *   Body 18px (17px on a phone) at 1.7, near black links, underlined.
  *
  *   1200px AND UP, a rail on its left: "On this page", kept in view with the
- *   heading being read marked, and under it one card for what Storelib
- *   sells. The column to the right of the article is left empty, the same
- *   width as the rail, so the article sits in the middle of the page. There
- *   is no right rail any more (the newsletter box is gone).
+ *   heading being read marked, and under it one small card for what Storelib
+ *   sells. There is no right rail any more (the newsletter box is gone).
+ *
+ *   Round 49, the owner: "too narrow, the right side looks empty". The empty
+ *   column as wide as the rail is gone. From 1200px the rail (260px) and a
+ *   760px reading column sit side by side, 56px apart, and the PAIR is what
+ *   is centred, so the article starts close to its rail instead of the page
+ *   being centred around nothing. The body steps up to 19px there, so the
+ *   wider column keeps about 80 characters to a line (measured, never past
+ *   85). The card under the contents is a light, short one line card
+ *   (about 110px), so the contents list gets the rail's height.
  *
  *   NARROWER, one column: "On this page" folds into a <details> above the
  *   body, and the card is not drawn (the box inside the article remains).
@@ -75,7 +82,7 @@ export interface ArticleViewData {
   related: BlogPost[]
   previous: BlogPost | null
   next: BlogPost | null
-  /** Physical commerce switched on (lib/platform/physical-commerce): the rail's card names physical products only then. */
+  /** Physical commerce switched on (lib/platform/physical-commerce). Round 49: the rail's card no longer lists kinds of product, so it reads the same either way. */
   physical?: boolean
 }
 
@@ -171,20 +178,21 @@ function Byline({ data, minutes }: { data: ArticleViewData; minutes: number }) {
 
 /**
  * THE CARD UNDER "ON THIS PAGE" (round 47, the owner: "Storelib is about
- * many things"). Everything Storelib sells, in Storelib's own ink, no
- * gradient; its button goes to /signup tagged src and ref like the box in
- * the article (blogSignupHref).
+ * many things"). Round 49, the owner: "too big, too dark and too wordy, it
+ * squeezes On this page". Now one line, a short subline and one button on a
+ * light surface, about 110px tall, never taller than 120px; its button
+ * still goes to /signup tagged src and ref like the box in the article
+ * (blogSignupHref).
  */
-function RailCta({ variant, physical }: { variant: ArticleViewData["cta"]; physical: boolean }) {
-  const copy = blogRailCta(physical)
+function RailCta({ variant }: { variant: ArticleViewData["cta"] }) {
+  const copy = blogRailCta()
   return (
-    <div className="rounded-2xl bg-[#1a1a2e] p-6 text-white" data-blog-cta-card={variant}>
-      <StorelibLogo size={28} alt="" />
-      <p className="mt-5 text-[20px] font-semibold leading-[1.25] tracking-[-0.015em]">{copy.title}</p>
-      <p className="mt-2 text-[15px] leading-[1.55] text-white/70">{copy.body}</p>
+    <div className="rounded-xl border border-[#eceef1] bg-[#f8f9fa] px-4 py-3" data-blog-cta-card={variant}>
+      <p className="text-[15px] font-semibold leading-[1.35] text-[#1a1a2e]">{copy.title}</p>
+      <p className="mt-0.5 text-[14px] leading-[1.45] text-[#6b7280]">{copy.body}</p>
       <a
         href={blogSignupHref(variant)}
-        className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#ede9fe] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1a1a2e] px-3.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
       >
         Start free
         <span aria-hidden>&rarr;</span>
@@ -209,9 +217,9 @@ function sideItems(toc: TocItem[]): TocItem[] {
   return toc.length <= 12 ? toc : toc.filter((t) => t.level === 2)
 }
 
-/** One grid for the whole article: at 1200px a rail, the 720px column, and an empty column as wide as the rail. */
-const GRID = "min-[1200px]:grid min-[1200px]:grid-cols-[minmax(240px,1fr)_minmax(0,720px)_minmax(0,1fr)] min-[1200px]:gap-x-12"
-/** The reading column: centred on its own below 1200px, the grid's middle column above. */
+/** One grid for the whole article: from 1200px the 260px rail and the 760px column, the pair centred (round 49: no empty column on the right). */
+const GRID = "min-[1200px]:grid min-[1200px]:grid-cols-[260px_minmax(0,760px)] min-[1200px]:justify-center min-[1200px]:gap-x-14"
+/** The reading column: 720px and centred on its own below 1200px, the grid's second column above. */
 const COLUMN = "mx-auto w-full max-w-[720px] min-[1200px]:col-start-2 min-[1200px]:max-w-none"
 
 export function ArticleView({ data }: { data: ArticleViewData }) {
@@ -271,20 +279,21 @@ export function ArticleView({ data }: { data: ArticleViewData }) {
           {/* ── The cover, the reading column's width ───────────────── */}
           {cover ? (
             <div className={`${COLUMN} relative mt-8 aspect-[40/21] overflow-hidden rounded-2xl bg-[#eef0f3] sm:mt-10 min-[1200px]:row-start-2`} data-blog-cover="">
-              <BlogImage src={cover} alt={data.coverAlt || data.title} fill priority sizes="(min-width: 768px) 720px, calc(100vw - 32px)" className="object-cover" />
+              <BlogImage src={cover} alt={data.coverAlt || data.title} fill priority sizes="(min-width: 1200px) 760px, (min-width: 768px) 720px, calc(100vw - 32px)" className="object-cover" />
             </div>
           ) : null}
 
           {/* ── The rail: contents and the card ─────────────────────── */}
-          <aside className="hidden min-[1200px]:col-start-1 min-[1200px]:row-start-3 min-[1200px]:block" aria-label="Contents and sign up">
-            <div className="sticky top-[96px] mt-12 flex max-h-[calc(100vh-120px)] flex-col gap-8">
+          <aside className="hidden min-[1200px]:col-start-1 min-[1200px]:row-span-3 min-[1200px]:row-start-1 min-[1200px]:block" aria-label="Contents and sign up">
+            {/* Round 49: from the top of the page, level with the category line, so the left is not empty beside the title. The contents take the rail's height and scroll inside it when long; the card stays in view under them. */}
+            <div className="sticky top-[96px] mt-[68px] flex max-h-[calc(100vh-120px)] flex-col gap-6">
               {side.length >= 2 ? (
-                <div className="min-h-0 overflow-y-auto overscroll-contain pr-2 [scrollbar-width:thin]">
+                <div className="min-h-0 shrink overflow-y-auto overscroll-contain pr-2 [scrollbar-width:thin]" data-blog-toc-scroll="">
                   <OnThisPage items={side} variant="side" />
                 </div>
               ) : null}
               <div className="shrink-0">
-                <RailCta variant={data.cta} physical={data.physical === true} />
+                <RailCta variant={data.cta} />
               </div>
             </div>
           </aside>
