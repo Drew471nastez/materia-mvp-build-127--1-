@@ -398,7 +398,8 @@ async function sharedConfigs() {
   const none2 = await visit(() => loadStoreConfig(OTHER.creatorId, "product"))
   check("nothing published: a signed out visitor asks once, then never again within the minute", none1.value === null && configReads(none1) === 1 && configReads(none2) === 0, [configReads(none1), configReads(none2)])
   const owner = await visit(() => loadStoreConfig(OTHER.creatorId, "product"), { cookies: signedInCookies(OTHER.userId) })
-  check("a signed in visitor still asks on their own session when the shared copy has nothing", configReads(owner) === 1 && owner.trips.some((t) => t.table === "store_builder_configs" && t.key === "user"))
+  /* Changed on purpose (round 48, R48-6): the fresh read is the server's narrow one (lib/store-builder/public-config.ts), not the session, so the tables can be closed to everyone but the owner. */
+  check("a signed in visitor still asks again, fresh, when the shared copy has nothing", configReads(owner) === 1 && owner.trips.some((t) => t.table === "store_builder_configs" && t.key === "service"))
 
   const anon1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
   const anon2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
@@ -406,7 +407,7 @@ async function sharedConfigs() {
   check("and never the draft", !JSON.stringify(anon1.value).includes(DRAFT_MARKER))
   const mine1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
   const mine2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
-  check("the creator, signed in, reads it fresh every time", configReads(mine1) === 1 && configReads(mine2) === 1 && mine1.trips.every((t) => t.table !== "store_builder_configs" || t.key === "user"))
+  check("the creator, signed in, reads it fresh every time", configReads(mine1) === 1 && configReads(mine2) === 1 && mine1.trips.every((t) => t.table !== "store_builder_configs" || t.key === "service")) /* Changed on purpose (round 48): the server's narrow read, as above. */
 
   /* She publishes in the store builder (app/api/store-builder revalidates creatorTag): she sees it at once, visitors after the refresh. */
   fixture.tables.store_builder_configs[0].published_config = { globalSettings: { themePreset: "maya-new" } }

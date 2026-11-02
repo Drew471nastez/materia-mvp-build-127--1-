@@ -83,7 +83,9 @@ function main() {
 
   for (const table of CACHEABLE) {
     /* creators and profiles are read through their public views since run-now part 63 (lib/security/public-rows). */
-    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer) || new RegExp(`readPublicRow\\([^,]+, "${table}"`).test(cacheLayer))
+    /* The two config tables are read for the cache by lib/store-builder/public-config.ts since round 48 (R48-6). */
+    const configReader = table === "store_builder_configs" ? /readPublishedStoreConfig\(creatorId, pageType\)/ : table === "product_page_configs" ? /readPublishedProductPageConfig\(creatorId, productId\)/ : null
+    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer) || new RegExp(`readPublicRow\\([^,]+, "${table}"`).test(cacheLayer) || (!!configReader && configReader.test(cacheLayer)))
   }
   for (const table of NEVER) {
     check(`${table} is NOT cached`, !new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer), "this would be one visitor's rows served to another")

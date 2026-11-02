@@ -32,6 +32,7 @@ import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
+import { readPublishedStoreConfig } from "@/lib/store-builder/public-config"
 
 /**
  * `ilike`, not `eq`, because that is what the layout has always used and a
@@ -70,24 +71,18 @@ export const loadCreatorForUser = cache(async (userId: string) => {
  * The shop's published config. Goes through the shared cross-request cache,
  * so a second visitor to the same creator does not pay for it at all.
  *
- * It falls back to the per-request client when the cached read comes back
- * empty, for the reason product-page-cache spells out: the cached read has no
- * session, so a policy that needs one returns nothing rather than an error,
- * and an empty page is worse than a slow one.
+ * It reads again, uncached, when the cached read failed, or found nothing for
+ * somebody signed in (the creator who just published sees it on the next
+ * load). Both reads are the server's narrow one (lib/store-builder/
+ * public-config.ts): published_config only, no contact address in it.
  */
 export const loadShopConfig = cache(async (creatorId: string) => {
   const cached = await cachedStoreConfig(creatorId, "shop").catch(() => undefined)
   if (cached) return cached
-  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
+  /* Nothing published, and a visitor with no session cannot have just published it (lib/supabase/session-cookie.ts). */
   if (cached === null && !(await requestMayHaveSession())) return null
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", creatorId)
-    .eq("page_type", "shop")
-    .maybeSingle()
-  return data ?? null
+  /* Read fresh, the same narrow server read the cache makes (lib/store-builder/public-config.ts, round 48). */
+  return readPublishedStoreConfig(creatorId, "shop").catch(() => null)
 })
 
 /**
