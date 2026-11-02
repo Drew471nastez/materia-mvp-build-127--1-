@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 914 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 911 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -931,7 +931,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-neutral-100:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-white:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #18181b; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\:bg-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *):is(:where(.group):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#eef0f3\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/close\:bg-\[\#f6f7f9\]:not([data-own-look], [data-own-look] *):is(:where(.group\/close):active *) { background-color: #25252a; }
@@ -1337,12 +1336,10 @@ html[data-sl-dark] [data-own-look] {
 }
 @media (width >= 40rem) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:bg-white:not([data-own-look], [data-own-look] *) { background-color: #18181b; }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:border-\[\#d4d7dc\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:border-\[\#e4e7ec\]\/80:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.056); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:border-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:border-\[\#e5e7eb\]\/80:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.056); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:border-\[\#f0f0f2\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:focus-within\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus-within { border-color: rgba(255,255,255,0.24); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:text-gray-500:not([data-own-look], [data-own-look] *) { color: hsla(220,9%,72%,1); }
 }
 @media (width >= 40rem) and (hover: hover) and (pointer: fine) {
