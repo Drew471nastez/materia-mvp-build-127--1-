@@ -27,18 +27,30 @@
  * ones were — because there were three of them.
  */
 import { cache } from "react"
-import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
 import { readPublishedProductPageConfig, readPublishedStoreConfig } from "@/lib/store-builder/public-config"
-import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { createPublicReadClient } from "@/lib/supabase/public-read"
 import {
+
   cachedCreator,
   cachedCreatorProfile,
   cachedProductBySlug,
   cachedProductPageConfig,
   cachedStoreConfig,
 } from "./product-page-cache"
+
+
+/*
+  READ AS A STRANGER, FOR EVERYBODY (round 49). These rows draw the creator
+  page and the product page, which are one HTML for every visitor so a CDN
+  may hold them (tests/cdnpages-r49): the anon key with no session, never the
+  visitor's own client, so no read here touches cookies() and no session can
+  widen what the page shows. "Nothing published" is answered from the shared
+  copy; a save expires it at once (lib/storefront/creator-page-purge).
+*/
+const stranger = () => createPublicReadClient() as never
+
 
 /** The page's own select, unchanged: the row plus the categories it shows. */
 const PRODUCT_SELECT = `
@@ -94,7 +106,7 @@ export const loadProductBySlug = cache(async (slug: string, owner?: string | nul
   const shared = await cachedProductBySlug(slug, owner)
   if (shared) return { product: withSafeDescription(shared), viaHistory: false }
 
-  const supabase = await createClient()
+  const supabase = createPublicReadClient()
 
   let currentQuery = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
   if (owner) currentQuery = currentQuery.eq("creator_id", owner)
@@ -140,13 +152,13 @@ export const loadProductBySlug = cache(async (slug: string, owner?: string | nul
 export const loadCreator = cache(async (creatorId: string) => {
   const shared = await cachedCreator(creatorId)
   if (shared) return shared
-  return readPublicRow(await createClient(), "creators", (q) => q.eq("id", creatorId))
+  return readPublicRow(stranger(), "creators", (q) => q.eq("id", creatorId))
 })
 
 export const loadCreatorProfile = cache(async (userId: string) => {
   const shared = await cachedCreatorProfile(userId)
   if (shared) return shared
-  return readPublicRow(await createClient(), "profiles", (q) => q.eq("id", userId))
+  return readPublicRow(stranger(), "profiles", (q) => q.eq("id", userId))
 })
 
 /**
@@ -158,7 +170,7 @@ export const loadStoreConfig = cache(async (creatorId: string, pageType: string)
   const shared = await cachedStoreConfig(creatorId, pageType).catch(() => undefined)
   if (shared) return shared
   /* Nothing published, and a visitor with no session cannot have just published it (lib/supabase/session-cookie.ts). */
-  if (shared === null && !(await requestMayHaveSession())) return null
+  if (shared === null) return null
   /* Read fresh, the same narrow server read the cache makes (lib/store-builder/public-config.ts, round 48): a session no longer widens what a config read sees. */
   return readPublishedStoreConfig(creatorId, pageType).catch(() => null)
 })
@@ -168,6 +180,6 @@ export const loadProductPageConfig = cache(async (creatorId: string, productId: 
   const shared = await cachedProductPageConfig(creatorId, productId).catch(() => undefined)
   if (shared) return shared
   /* As above: no session, nothing more to find. */
-  if (shared === null && !(await requestMayHaveSession())) return null
+  if (shared === null) return null
   return readPublishedProductPageConfig(creatorId, productId).catch(() => null)
 })

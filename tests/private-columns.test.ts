@@ -169,7 +169,8 @@ check("the login page no longer looks an account up by email from the browser", 
 const unconfirmed = readFileSync("app/api/auth/unconfirmed-account/route.ts", "utf8")
 check("  and the server answers only after the password is right", unconfirmed.includes("signInWithPassword") && unconfirmed.includes("email not confirmed") && unconfirmed.includes("rateLimit("))
 const page = readFileSync("app/(marketing)/u/[username]/page.tsx", "utf8")
-check("a creator page reads the sign in email on the server, never from the public profile row", !page.includes("profile.email") && page.includes("loadAccountEmail(profile.id)"))
+/* Changed on purpose (round 49): the creator page reads no address at all; /api/creator-contact reads the sign in email on the server for a buyer. */
+check("a creator page reads the sign in email on the server, never from the public profile row", !page.includes("profile.email") && !page.includes("loadAccountEmail") && readFileSync("app/api/creator-contact/route.ts", "utf8").includes("loadAccountEmail(userId)"))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

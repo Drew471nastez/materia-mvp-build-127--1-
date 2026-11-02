@@ -99,7 +99,7 @@ check("no bare Buffer in cart links or own-database (it shipped a 19 KB polyfill
 console.log("\nA creator page does not ship the owner's editing tools to visitors\n")
 const storefront = code("app/(marketing)/u/[username]/page.tsx")
 const ownerLazy = code("components/storefront/owner-controls-lazy.tsx")
-check("Edit profile, Edit about and the owner's menu come from the on-demand file", /import \{ EditAboutButton, EditProfileButton, OwnerMenu \} from "@\/components\/storefront\/owner-controls-lazy"/.test(storefront) && !/from "@\/components\/storefront\/(edit-profile-button|edit-about-button|owner-menu)"/.test(storefront))
+check("Edit profile, Edit about and the owner's menu come from the on-demand file", /import \{ EditAboutButton(?:ForOwner)?, EditProfileButton, OwnerMenu \} from "@\/components\/storefront\/owner-controls-lazy"/.test(storefront) && !/from "@\/components\/storefront\/(edit-profile-button|edit-about-button|owner-menu)"/.test(storefront))
 check("  each loaded with dynamic(), still drawn on the server for the owner", (ownerLazy.match(/= dynamic\(\(\) => import\(/g) ?? []).length === 3 && !/ssr: false/.test(ownerLazy))
 
 console.log("\nEvery published website is drawn before its first visitor after a deploy\n")

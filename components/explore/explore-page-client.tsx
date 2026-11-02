@@ -21,6 +21,7 @@ import { ExploreFilters, DEFAULT_SORT, PRICE_FILTERS, SORT_OPTIONS } from "./exp
 import { Chevron, type BrowseGroup } from "./category-browser"
 import { useLocale } from "@/components/locale-provider"
 import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interests } from "@/lib/explore/interests"
+import { mayBeSignedIn } from "@/lib/auth/session-hint"
 import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/explore/category-pages"
 import { normalizeCategoryToId as normalizeCategory } from "@/lib/marketplace/categories"
 import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
@@ -381,7 +382,7 @@ interface ExplorePageClientProps {
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
-  interests = EMPTY_INTERESTS,
+  interests: serverInterests = EMPTY_INTERESTS,
   searchQuery: urlSearchQuery,
   discoverHeadlineSegmentEnabled = false,
   initialDiscoverMode = "products",
@@ -392,6 +393,28 @@ export function ExplorePageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  /*
+    FOR YOU, ASKED AFTER LOAD (round 49). The page is one HTML for everybody
+    (the CDN holds it), so the server hands every visitor the plain Explore.
+    A browser with a Storelib session asks /api/explore/interests once; with
+    enough history the row's first pill becomes For you and an address with
+    no category moves to it (the effect below that reads interests.enough),
+    as the server used to decide. A stranger asks nothing.
+  */
+  const [interests, setInterests] = useState<Interests>(serverInterests)
+  useEffect(() => {
+    if (serverInterests.enough || !mayBeSignedIn()) return
+    let live = true
+    fetch("/api/explore/interests", { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { interests?: Interests } | null) => {
+        if (live && d?.interests?.enough) setInterests(d.interests)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [serverInterests])
   const [pullGen, setPullGen] = useState(0)
 
   useEffect(() => {

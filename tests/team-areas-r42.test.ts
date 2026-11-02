@@ -170,7 +170,8 @@ async function main() {
       check(`${r} asks creatorPageStore and writes by its profile and store`, /creatorPageStore\(supabase, user\.id\)/.test(src) && !/\.eq\("user_id", user\.id\)/.test(src) && !/\.eq\("id", user\.id\)/.test(src))
     }
     check("the preview of a store named in the URL: only the one the caller works in", /page\.creatorId !== creatorId/.test(read("app/api/store-builder/preview/route.ts")))
-    check("the page's own owner controls show for a member with Creator page in this very store", /teamStoreIdFor\(viewer\.id, "creator_pages"\)[\s\S]{0,40}=== creator\.id/.test(read("app/(marketing)/u/[username]/page.tsx")))
+    /* Round 49: asked after load (the page is one HTML for everybody), by the route the page's owner controls read. */
+    check("the page's own owner controls show for a member with Creator page in this very store", /teamStoreIdFor\(user\.id, "creator_pages"\)/.test(read("app/api/creator-page/viewer/route.ts")) && /teamStore === row\.id/.test(read("app/api/creator-page/viewer/route.ts")))
     for (const p of ["app/creator-page/layout.tsx", "app/creator-page/page.tsx", "app/creator-page/sections/page.tsx"]) check(`${p} asks creatorPagePage`, /await creatorPagePage\(\)/.test(read(p)))
     check("  a member without it is shown the access card there (no team bar outside /app)", /<TeamAreaClosed area="creator_pages"/.test(read("app/creator-page/layout.tsx")))
     check("a member's change and publish are on the record", /"creator_page_changed"/.test(read("app/api/creator-profile/route.ts")) && /"creator_page_changed", \{ action: "publish"/.test(read("app/api/store-builder/route.ts")))

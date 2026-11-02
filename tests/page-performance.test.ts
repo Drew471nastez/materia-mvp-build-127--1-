@@ -1199,31 +1199,21 @@ check(
     const api = read("app/api/creator-profile/route.ts")
     const missing: string[] = []
 
-    /* Changed on purpose (round 42 team): the owner, or a team member with Creator page in this very store, read again from the database (lib/team/server teamStoreIdFor). */
-    if (!/const viewerIsOwner = !!viewer && \(viewer\.id === profile\.id \|\| \(await teamStoreIdFor\(viewer\.id, "creator_pages"\)/.test(page))
-      missing.push("the page no longer checks who is looking")
-    if (!/if \(!viewerIsOwner\) return null/.test(page))
+    /*
+      Changed on purpose (round 49): the page is one HTML for everybody (the
+      CDN holds it) and asks nobody who is looking. Whether the edit control
+      is drawn is answered after load by /api/creator-page/viewer from the
+      session (the owner, or a team member with Creator page in this very
+      store), and the page draws it inside OwnerOnly, which renders nothing
+      for anybody else. Still not an authorisation: the route below re-checks.
+    */
+    const viewerRoute = code("app/api/creator-page/viewer/route.ts")
+    if (!/row\.user_id === user\.id \|\| teamStore === row\.id/.test(viewerRoute) || !/teamStoreIdFor\(user\.id, "creator_pages"\)/.test(viewerRoute))
+      missing.push("the viewer route no longer checks who is looking")
+    if (!/<OwnerOnly>\s*<div className="flex items-center gap-2" style=\{OWNER_FADE_IN\}>/.test(page))
       missing.push("buildOwnerActions hands the edit control to everyone")
-    /**
-     * THE VIEWER LOOKUP COSTS NO ROUND TRIP OF ITS OWN.
-     *
-     * This used to pin `supabase.auth.getUser(),` — the trailing comma being
-     * the proof it sat inside the batch array. The lookup has since moved
-     * EARLIER, to the top of the request: it reads a cookie and depends on
-     * nothing, so it is started before the profile query and handed to the
-     * batch as a promise, which lets the purchase check join the batch too.
-     *
-     * Same invariant, pinned where it now lives, and pinned harder: started
-     * without an await, and consumed in the batch. An `await` on that line
-     * would put the round trip back in series, which is what the old pattern
-     * existed to catch.
-     */
-    if (!/const viewerPromise = (?:supabase\.auth\.getUser\(\)|currentUserForRequest\(\))/.test(page))
-      missing.push("the viewer lookup is not started up front")
-    if (/await supabase\.auth\.getUser\(\)/.test(page))
-      missing.push("the viewer lookup is awaited on its own — that is a round trip in series")
-    if (!/^\s*viewerPromise,\s*$/m.test(page))
-      missing.push("the viewer lookup left the batch — that is a round trip before first byte")
+    if (/currentUserForRequest|auth\.getUser\(\)/.test(page))
+      missing.push("the page asks who is looking on the server again: it would no longer be one HTML for everybody")
 
     // The route must re-check, and must not reach for the admin client.
     if (!/if \(!user\)[\s\S]{0,120}401/.test(api))
@@ -1561,7 +1551,8 @@ check(
     if (!/if \(!isOwner\) return card/.test(card))
       missing.push("the per-card menu is rendered for everyone and hidden — a visitor receives it")
     if (!/isOwner = false/.test(card)) missing.push("the per-card menu defaults to shown")
-    if (!/viewerIsOwner/.test(page)) missing.push("the page no longer passes who is looking down to the cards")
+    /* Changed on purpose (round 49): the grids read the page's after-load answer and pass it to the cards. */
+    if (!/const isOwner = useCreatorPageOwner\(ownerGiven\)/.test(code("components/storefront/all-products-grid.tsx")) || !/const viewerIsOwner = useCreatorPageOwner\(ownerGiven\)/.test(code("components/store-builder/unified-section-renderer.tsx"))) missing.push("the grids no longer pass who is looking down to the cards")
 
     // The trigger must not navigate the card it sits on. The menu is the shared
     // owner menu now (a sheet on a phone), which stops the click when told to.
@@ -3078,9 +3069,10 @@ check(
     const api = code("app/api/creator-profile/route.ts")
     const missing: string[] = []
 
-    if (!/aboutOwnerActions=\{[\s\S]{0,80}viewerIsOwner \?/.test(page))
+    /* Changed on purpose (round 49): gated in the browser (OwnerOnly), the owner's typed address from /api/creator-page/viewer. */
+    if (!/aboutOwnerActions=\{\s*<OwnerOnly>/.test(page))
       missing.push("the About editor is not gated on the viewer being the owner")
-    if (!/<EditAboutButton\b/.test(page)) missing.push("the storefront no longer offers the About editor")
+    if (!/<EditAboutButtonForOwner\b/.test(page)) missing.push("the storefront no longer offers the About editor")
     if (!/\{ownerActions\}/.test(renderer)) missing.push("the About section has nowhere to render the owner's control")
     for (const field of ["ea-headline", "ea-story", "Paste a YouTube or Vimeo link"]) {
       if (!about.includes(field)) missing.push(`the story editor lost its ${field} field`)
@@ -3415,8 +3407,9 @@ section("The product page does not ask one question at a time")
 
   check("the product page still batches its four configs", batch > 0)
 
+  /* Changed on purpose (round 49): userPromise is gone, the page reads nobody (one HTML for everybody; the purchase check asks after load). */
+  check("the product page reads nobody", !/userPromise|currentUserForRequest/.test(src))
   for (const name of [
-    "userPromise",
     "variantsPromise",
     "moreProductsPromise",
     "reviewsPromise",
@@ -3484,9 +3477,10 @@ section("The product page does not ask one question at a time")
    * logged-out. Started early, a rejection has to be handled where it is
    * created too, or it is an unhandled rejection before the `await` is reached.
    */
+  /* Changed on purpose (round 49): there is no user lookup on the page to start early. */
   check(
     "starting the user lookup early cannot become an unhandled rejection",
-    /supabase\.auth\.getUser\(\)\.catch\(|currentUserForRequest\(\)\.then\([^\n]*\)\.catch\(/.test(src),
+    !/currentUserForRequest|auth\.getUser\(\)/.test(src),
   )
 }
 

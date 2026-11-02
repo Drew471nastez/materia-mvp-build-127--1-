@@ -24,6 +24,7 @@
  */
 import { NextResponse, after } from "next/server"
 import { revalidatePath, revalidateTag } from "next/cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 import { matchesSecret } from "@/lib/api/require-secret"
 import { PingGate, parsePing, type Batch } from "@/lib/cache/db-invalidate"
@@ -50,6 +51,8 @@ async function purge(b: Batch): Promise<void> {
   onePageProductsChanged(b.creatorId)
   if (b.explore === "taken-down") exploreCatalogueTakenDown()
   else if (b.explore === "changed") exploreCatalogueChanged()
+  /* The creator page and its product pages, which the CDN holds for everybody (round 49). */
+  await creatorPagesChanged({ creatorId: b.creatorId, tags: [...b.productIds, ...b.slugs].map(productTag) })
   /* The product's page on the creator's website, held for a minute like the rest of it. */
   for (const slug of b.slugs) await revalidatePublishedProduct(b.creatorId, slug).catch(() => {})
 }

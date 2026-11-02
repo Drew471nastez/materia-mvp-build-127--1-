@@ -25,14 +25,23 @@
 import { cache } from "react"
 import { unstable_cache } from "next/cache"
 
-import { createClient } from "@/lib/supabase/server"
 import { readPublicRow, readPublicRowStrict } from "@/lib/security/public-rows"
 import { publicProfileByName, publicProfileByNameStrict } from "@/lib/profile/profile-by-name"
-import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 import { readPublishedStoreConfig } from "@/lib/store-builder/public-config"
+
+
+/*
+  READ AS A STRANGER, FOR EVERYBODY (round 49). These rows draw the creator
+  page and the product page, which are one HTML for every visitor so a CDN
+  may hold them (tests/cdnpages-r49): the anon key with no session, never the
+  visitor's own client, so no read here touches cookies() and no session can
+  widen what the page shows. "Nothing published" is answered from the shared
+  copy; a save expires it at once (lib/storefront/creator-page-purge).
+*/
+const stranger = () => createPublicReadClient() as never
 
 /**
  * `ilike`, not `eq`, because that is what the layout has always used and a
@@ -45,7 +54,7 @@ import { readPublishedStoreConfig } from "@/lib/store-builder/public-config"
  */
 export const loadProfileByUsernameStrict = cache(async (username: string) => {
   /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). Bounded, and a failed read THROWS (SiteReadError): null is only "no such name". */
-  return publicProfileByNameStrict(await createClient(), username)
+  return publicProfileByNameStrict(stranger(), username)
 })
 
 /**
@@ -59,7 +68,7 @@ export const loadProfileByUsername = cache(async (username: string) => {
 
 /** The creator row for a profile, bounded; a failed read THROWS (SiteReadError), null is only "no creator row". */
 export const loadCreatorForUserStrict = cache(async (userId: string) => {
-  return readPublicRowStrict(await createClient(), "creators", (q) => q.eq("user_id", userId))
+  return readPublicRowStrict(stranger(), "creators", (q) => q.eq("user_id", userId))
 })
 
 /** The creator row for a profile, shared with the product page's cache; a failed read reads as none, as it always has. */
@@ -80,7 +89,7 @@ export const loadShopConfig = cache(async (creatorId: string) => {
   const cached = await cachedStoreConfig(creatorId, "shop").catch(() => undefined)
   if (cached) return cached
   /* Nothing published, and a visitor with no session cannot have just published it (lib/supabase/session-cookie.ts). */
-  if (cached === null && !(await requestMayHaveSession())) return null
+  if (cached === null) return null
   /* Read fresh, the same narrow server read the cache makes (lib/store-builder/public-config.ts, round 48). */
   return readPublishedStoreConfig(creatorId, "shop").catch(() => null)
 })

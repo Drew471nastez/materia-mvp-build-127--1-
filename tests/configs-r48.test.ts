@@ -140,7 +140,8 @@ function publicReadsAreServer() {
 
   const gp = readCode("lib/store-builder/get-published-config.ts")
   check("getPublishedConfig no longer takes the cookie client", !/lib\/supabase\/server/.test(gp) && /readPublishedStoreConfig\(creatorId, pageType\)/.test(gp))
-  check("getPublishedConfig keeps the shared copy for a visitor with no session", /if \(!\(await requestMayHaveSession\(\)\)\) \{\s*const shared = await cachedStoreConfig\(creatorId, pageType\)/.test(gp))
+  /* Round 49: for everybody (the page is one HTML for all, a save expires the copy: lib/storefront/creator-page-purge). */
+  check("getPublishedConfig keeps the shared copy for every visitor", /const shared = await cachedStoreConfig\(creatorId, pageType\)\.catch\(\(\) => undefined\)\s*if \(shared !== undefined\) return publishedOf\(shared\)/.test(gp) && !/requestMayHaveSession/.test(gp))
   const pd = readCode("lib/commerce/product-page-data.ts")
   check("loadStoreConfig and loadProductPageConfig fall back to the narrow reader", /return readPublishedStoreConfig\(creatorId, pageType\)/.test(pd) && /return readPublishedProductPageConfig\(creatorId, productId\)/.test(pd))
   const cd = readCode("lib/commerce/creator-page-data.ts")
@@ -246,15 +247,10 @@ async function stripping() {
 function typedAddress() {
   console.log("\n5. The creator page and /api/creator-contact still get the typed address, on the server\n")
   const page = readCode("app/(marketing)/u/[username]/page.tsx")
-  check(
-    "the creator page reads it only for somebody signed in",
-    /const typedContactPromise = viewerPromise\s*\.then\(\(\{ data \}\) => \(data\.user \? loadTypedContactEmail\(creator\.id\) : null\)\)/.test(page),
-  )
-  check(
-    "and puts it back only for a buyer or the owner",
-    /const typedContactEmail = viewerBoughtFromCreator \|\| viewerIsOwner \? await typedContactPromise : null/.test(page) &&
-      /const headerSettings = typedContactEmail \? \{ \.\.\.publishedHeader, contactEmail: typedContactEmail \} : publishedHeader/.test(page),
-  )
+  /* Round 49: the page is one HTML for everybody and never holds the typed address; it is read for the owner's own form by /api/creator-page/viewer, and for a buyer's Contact by /api/creator-contact. */
+  const viewerRoute = readCode("app/api/creator-page/viewer/route.ts")
+  check("the creator page never reads it; the owner's form asks its own route", !/loadTypedContactEmail/.test(page) && /const contactEmail = owner \? await loadTypedContactEmail\(row\.id\) : null/.test(viewerRoute))
+  check("and a buyer's Contact is answered by /api/creator-contact alone", /typedEmail: \(creatorId\) => loadTypedContactEmail\(creatorId\)/.test(readCode("app/api/creator-contact/route.ts")))
   check("the header's client component still gets the settings without it", /settings=\{withoutContactEmail\(headerSettings\)\}/.test(page))
   const route = readCode("app/api/creator-contact/route.ts")
   check("/api/creator-contact asks loadTypedContactEmail", /typedEmail: \(creatorId\) => loadTypedContactEmail\(creatorId\)/.test(route))

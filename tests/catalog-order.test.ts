@@ -163,8 +163,9 @@ check(
   "the filters are quiet outlines and this is filled; last puts it at the end of the row",
 )
 check(
+  /* Changed on purpose (round 49): decided after load from the session (/api/creator-page/viewer), the page is one HTML for everybody; the grid reads the answer. */
   "ownership is decided on the server, from the session",
-  /isOwner=\{viewerIsOwner\}/.test(read("app/(marketing)/u/[username]/page.tsx")),
+  /const isOwner = useCreatorPageOwner\(ownerGiven\)/.test(read("components/storefront/all-products-grid.tsx")) && /row\.user_id === user\.id \|\| teamStore === row\.id/.test(read("app/api/creator-page/viewer/route.ts")),
 )
 check(
   "Home is handed the same arrangement the Products tab uses",

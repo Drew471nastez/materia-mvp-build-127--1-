@@ -19,7 +19,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { DB_CATEGORY_TO_ID, categoryLabel, categoryPath } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
 import {
   cachedVariants,
@@ -43,11 +42,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Check, ArrowRight, CheckCircle, ChevronRight, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
-import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
-import { GuestOwnedActions } from "@/components/checkout/guest-owned-actions"
-import { ViewerSync } from "@/components/auth/viewer-sync"
-import { cookies } from "next/headers"
-import { guestAccessCookieFrom, heldGrants, maskAddress } from "@/lib/receipts/guest-access-server"
+/* Library, or the guest buyer's own actions, decided in the browser from the purchase check (round 49). */
+import { OwnedActions } from "@/components/checkout/owned-actions"
 import { membershipForProductPage } from "@/lib/memberships/product-page"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-breadcrumb"
@@ -91,7 +87,6 @@ import { paintFor, tint } from "@/lib/appearance/site-paint"
 import { SitePaintProvider } from "@/lib/appearance/site-paint-context"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { imagesOnly } from "@/lib/media/video"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 /*
   WHAT'S INCLUDED, ONE PLAIN MARK A LINE. It used to pick a picture for each
@@ -278,8 +273,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const showDiscoverBreadcrumb = recommended === "1"
   const inEditorCanvas = embedded === "1"
   const timer = startPhaseTimer("product-timing", slug)
-  const supabase = await createClient()
-  timer.mark("client")
 
   /*
     ONE LOOKUP FOR THE WHOLE REQUEST. The layout and generateMetadata ask the
@@ -399,12 +392,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
    * the session attached, uncached, exactly as before.
    */
 
-  /**
-   * Who is looking. The block that reads this catches everything and leaves
-   * the page logged-out, so the catch here keeps that exact behaviour rather
-   * than turning an auth blip into an unhandled rejection.
-   */
-  const userPromise = currentUserForRequest().then((c) => ({ data: { user: c.user } })).catch(() => ({ data: { user: null } }))
 
   const variantsPromise = cachedVariants(product.id)
 
@@ -582,82 +569,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const salesRead = product.type !== "physical" ? readSalesStanding(product.id) : Promise.resolve(null)
 
   // ---------------------------------------------------------------------------
-  // Purchase state - includes variant-level access control
+  // Purchase state: ASKED BY THE BROWSER, NOT HERE (round 49)
   // ---------------------------------------------------------------------------
-  let hasPurchased = false
-  let firstAssetId: string | null = null
-  let purchasedVariantIds: string[] = [] // Array of all purchased variant IDs
-  let productDownloadFiles: Array<{ id: string; file_name: string }> = []
-  let user: any = null
-
-  try {
-    const {
-      data: { user: authUser },
-    } = await userPromise
-  timer.mark("user")
-
-    user = authUser
-
-    if (user) {
-      // Fetch ALL entitlements for this product (including variant-specific ones)
-      const { data: entitlements } = await supabase
-        .from("entitlements")
-        .select("id, variant_id")
-        .eq("buyer_id", user.id)
-        .eq("product_id", product.id)
-
-      if (entitlements && entitlements.length > 0) {
-        hasPurchased = true
-        // Collect all variant IDs the user has purchased
-        purchasedVariantIds = entitlements
-          .map(e => e.variant_id)
-          .filter((id): id is string => id !== null && id !== undefined)
-
-        // Also check orders for any variants not yet in entitlements (guest purchases, etc.)
-        const { data: orders } = await supabase
-          .from("orders")
-          .select("variant_id")
-          .eq("buyer_id", user.id)
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-
-        if (orders) {
-          const orderVariantIds = orders
-            .map(o => o.variant_id)
-            .filter((id): id is string => id !== null && id !== undefined)
-          // Merge and deduplicate
-          purchasedVariantIds = [...new Set([...purchasedVariantIds, ...orderVariantIds])]
-        }
-      }
-    }
-  } catch {
-    // ignore auth errors
-  }
-
   /*
-    BOUGHT IN THIS BROWSER WITHOUT AN ACCOUNT (lib/receipts/guest-access.ts).
-    The receipt left a signed, httpOnly note of the order; it is checked here
-    against the order itself (signed for its token, still paid, not refunded),
-    so the page says Download instead of Buy for somebody who never made an
-    account, and offers to save it to one. Only when the account does not
-    already own it: a library is the stronger answer.
+    This page is one HTML for everybody (a CDN holds it: next.config.mjs,
+    tests/cdnpages-r49), so it no longer reads the session or the guest
+    buyer's sl_owned cookie. It is drawn as for a stranger, and the buy box
+    asks /api/purchases/verify after load (components/checkout/
+    use-purchase-status): a signed in buyer by their session, a guest buyer
+    by the signed httpOnly sl_owned (only asked when sl_owned_hint says there
+    is one), a receipt this browser holds by its token. While that check is
+    out the buy box shows the same Loading button it always drew on the
+    server, so a buyer goes from Loading to Download and never sees Buy.
+    The download routes still authorise every file themselves.
   */
-  let guestOwned: { orderId: string; maskedEmail: string | null } | null = null
-  if (!hasPurchased && product.type !== "physical" && product.type !== "membership") {
-    try {
-      const held = await heldGrants(createAdminClient(), guestAccessCookieFrom(await cookies()), { productId: product.id })
-      if (held.open.length > 0) {
-        hasPurchased = true
-        purchasedVariantIds = [...new Set(held.open.map((o) => o.variant_id).filter((id): id is string => !!id))]
-        guestOwned = { orderId: String(held.open[0].id), maskedEmail: maskAddress(held.open[0].buyer_email) }
-      }
-    } catch {
-      /* No note, or it could not be read: the page offers Buy, as it always did. */
-    }
-  }
+  const hasPurchased = false
+  let firstAssetId: string | null = null
+  const purchasedVariantIds: string[] = []
+  let productDownloadFiles: Array<{ id: string; file_name: string }> = []
 
   /* A membership (lib/memberships): its price is per month or year, and a member is shown theirs instead of Join. */
-  const membershipInfo = product.type === "membership" ? await membershipForProductPage(product.id, user) : null
+  /* Nobody's membership on the server (round 49): the buy box asks for the member's own link after load (/api/purchases/verify `membership`). */
+  const membershipInfo = product.type === "membership" ? await membershipForProductPage(product.id, null) : null
 
   // ---------------------------------------------------------------------------
   // Course modules (only if course)
@@ -1301,23 +1234,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 membership={membershipInfo}
                 purchasedExtraContent={
                   <>
-                    {guestOwned ? (
-                      <GuestOwnedActions
-                        orderId={guestOwned.orderId}
-                        maskedEmail={guestOwned.maskedEmail}
-                        signedIn={!!user}
-                        backgroundColor={themeColors.viewInLibraryBg}
-                        textColor={themeColors.viewInLibraryText}
-                        borderColor={themeColors.viewInLibraryBorder}
-                        mutedColor={themeColors.cardPriceColor}
-                      />
-                    ) : (
-                      <ViewInLibraryButton
-                        backgroundColor={themeColors.viewInLibraryBg}
-                        textColor={themeColors.viewInLibraryText}
-                        borderColor={themeColors.viewInLibraryBorder}
-                      />
-                    )}
+                    <OwnedActions
+                      backgroundColor={themeColors.viewInLibraryBg}
+                      textColor={themeColors.viewInLibraryText}
+                      borderColor={themeColors.viewInLibraryBorder}
+                      mutedColor={themeColors.cardPriceColor}
+                    />
                     <RefundPolicyDisplay
                       enabled={product.refund_policy_enabled}
                       policyType={product.refund_policy_type}
@@ -1334,7 +1256,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   <>
                     <WishlistButton
                       productId={product.id}
-                      isLoggedIn={!!user}
+                      isLoggedIn={false}
                       backgroundColor={themeColors.cardBackground}
                       textColor={themeColors.cardTextColor}
                       borderColor={themeColors.cardBorderColor}
@@ -1674,23 +1596,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             membership={membershipInfo}
             purchasedExtraContent={
               <>
-                {guestOwned ? (
-                  <GuestOwnedActions
-                    orderId={guestOwned.orderId}
-                    maskedEmail={guestOwned.maskedEmail}
-                    signedIn={!!user}
-                    backgroundColor={themeColors.viewInLibraryBg}
-                    textColor={themeColors.viewInLibraryText}
-                    borderColor={themeColors.viewInLibraryBorder}
-                    mutedColor={themeColors.cardPriceColor}
-                  />
-                ) : (
-                  <ViewInLibraryButton
-                    backgroundColor={themeColors.viewInLibraryBg}
-                    textColor={themeColors.viewInLibraryText}
-                    borderColor={themeColors.viewInLibraryBorder}
-                  />
-                )}
+                <OwnedActions
+                  backgroundColor={themeColors.viewInLibraryBg}
+                  textColor={themeColors.viewInLibraryText}
+                  borderColor={themeColors.viewInLibraryBorder}
+                  mutedColor={themeColors.cardPriceColor}
+                />
                 <RefundPolicyDisplay
                   enabled={product.refund_policy_enabled}
                   policyType={product.refund_policy_type}
@@ -1707,7 +1618,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <>
                 <WishlistButton
                   productId={product.id}
-                  isLoggedIn={!!user}
+                  isLoggedIn={false}
                   backgroundColor={themeColors.cardBackground}
                   textColor={themeColors.cardTextColor}
                   borderColor={themeColors.cardBorderColor}
@@ -1959,8 +1870,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
         />
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
-        {/* Owned or not is drawn for the session the server saw; a different one in the browser asks again (components/auth/viewer-sync). */}
-        <ViewerSync serverSignedIn={!!user} />
       <StoreTracking creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorAvatarUrl}
@@ -2151,7 +2060,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
-      <ViewerSync serverSignedIn={!!user} />
       <StoreTracking creatorId={product.creator_id} productId={product.id} />
       {creatorAvatarPreload && (
         <link rel="preload" as="image" href={creatorAvatarPreload} fetchPriority="high" />

@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
       revalidatePath(`/${handle.trim().toLowerCase()}/${slug}`)
     }
     /* And the CDN's copy of the creator page whose grid shows it, and of this product page (round 48). The store's own name, from the database, never the body's. */
-    await creatorPagesChanged({ creatorId: owned.creator_id })
+    /* Round 49: the owner sees the CDN's copy too, so the product's own shared rows are expired with it, not marked stale (lib/storefront/creator-page-purge). */
+    await creatorPagesChanged({ creatorId: owned.creator_id, tags: [productTag(slug), productTag(owned.id)] })
 
     /*
       A SAVE THAT PUT IT ON SALE TELLS THE CREATOR'S FOLLOWERS AND PAST

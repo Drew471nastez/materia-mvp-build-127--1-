@@ -33,6 +33,7 @@ import "server-only"
  * unpublish would not come back.
  */
 import { revalidatePath, revalidateTag } from "next/cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
@@ -67,6 +68,8 @@ export function purgeProductCaches({
   revalidateTag(creatorShopTag(creatorId), "max")
   /* A OnePage block that drew it, expired at once rather than shown once more (lib/onepage/public-cache). */
   onePageProductsChanged(creatorId)
+  /* The creator page and the product's page, which the CDN holds for everybody (round 49). */
+  void creatorPagesChanged({ creatorId, handle, tags: [slug, productId].filter((x): x is string => !!x).map(productTag) })
   /* Explore's catalogue, which every visitor shares (lib/explore/catalogue-cache.ts): gone, archived or taken down is off it now. */
   exploreCatalogueTakenDown()
   if (slug) revalidatePath(`/p/${slug}`)

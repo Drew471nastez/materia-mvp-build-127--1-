@@ -57,10 +57,11 @@ console.log("Which top bar")
 console.log("\nThe creator page draws it")
 {
   const page = code("app/(marketing)/u/[username]/page.tsx")
-  check("the page asks the rule, with the server's view of where the visit came from", /const newsletterBar = embedded \|\| showsSubscribeBar\(\{ creatorPage: true, fromCommunity: cameFromCommunity\(\{ from, backTarget, referer: cameFrom \}\) \}\)/.test(page))
+  /* Changed on purpose (round 49): from the address only (?from=, ?back=); the page is one HTML for everybody and reads no Referer. */
+  check("the page asks the rule, with the server's view of where the visit came from", /const newsletterBar = embedded \|\| showsSubscribeBar\(\{ creatorPage: true, fromCommunity: cameFromCommunity\(\{ from, backTarget, referer: null \}\) \}\)/.test(page))
   check("  both branches (configured page and defaults) draw the bar when it says so", (page.match(/\{newsletterBar && \(/g) ?? []).length === 2)
   check("  and the slim bar otherwise, always, not only when there is a way back", (page.match(/\{!embedded && !newsletterBar \? \(\s*<ProfileTopBar\s+always/g) ?? []).length === 2)
-  check("only the owner gets the bar with the pencil (LiveSubscribeBar), a visitor the plain one", /viewerIsOwner \? \(\s*<LiveSubscribeBar/.test(page) && /\) : \(\s*<SubscribeBar\s+settings=/.test(page))
+  check("only the owner gets the bar with the pencil (LiveSubscribeBar), a visitor the plain one", /<OwnerOnly\s+fallback=\{\s*<SubscribeBar\s+settings=/.test(page) && /\}\s*>\s*<LiveSubscribeBar/.test(page)) /* Changed on purpose (round 49): the owner's bar replaces the plain one after load (OwnerOnly). */
   check("  the way back is the bar's first thing when there is a page of ours behind", (page.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3)
   check("the bar's colours are the scheme's (chrome.bar), as before it went missing", /buildSubscribeBarSettings\(headerSettings, chrome\.bar\)/.test(page))
   check("the bar is above the cover: before the header renderer in the configured branch", page.indexOf("{newsletterBar && (") < page.indexOf("<ShopHeaderRenderer"))

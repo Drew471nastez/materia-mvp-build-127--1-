@@ -1,6 +1,7 @@
 "use client"
 
 import { cleanStoredHtml } from "@/lib/rich-text/html"
+import { useContactShown, useCreatorPageOwner } from "@/components/storefront/creator-page-viewer"
 import { personName } from "@/lib/profile/display-name"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { usePriceCurrency } from "@/components/platform/price-currency"
@@ -595,6 +596,8 @@ function UnifiedAboutSection({
    */
   ownerActions?: React.ReactNode
 }) {
+  /* On a creator page, Contact is for somebody who bought from them, asked after load (round 49); elsewhere the caller already decided. */
+  const contactShown = useContactShown()
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -889,7 +892,7 @@ function UnifiedAboutSection({
               comment used to claim the opposite, which had stopped being
               true.
             */}
-            {contactHandle && (
+            {contactHandle && contactShown && (
               <div className="mt-6 text-sm" style={{ color: textColor || undefined }}>
                 <ContactReveal handle={contactHandle} />
               </div>
@@ -2329,7 +2332,7 @@ function UnifiedFeaturedProductsSection({
   creatorName,
   creatorUsername,
   creatorAvatarUrl,
-  viewerIsOwner,
+  viewerIsOwner: ownerGiven,
   productsOrder,
 }: {
   settings: FeaturedProductsSettings
@@ -2345,6 +2348,8 @@ function UnifiedFeaturedProductsSection({
   /** The creator's own arrangement, shared with the Products tab. */
   productsOrder?: string[]
 }) {
+  /* The owner's Arrange and card menus: what the caller said, or the creator page's own answer after load (round 49, components/storefront/creator-page-viewer). */
+  const viewerIsOwner = useCreatorPageOwner(ownerGiven)
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   /**
    * NO HORIZONTAL PADDING OF ITS OWN. This was 8, applied as an INLINE style,
@@ -2990,7 +2995,18 @@ export function UnifiedShopHeader({
           clear of anything it belongs to. It gets a proper row of its own with
           the same breathing space the header below it has.
         */
-        <div className={cn("flex justify-end", isMobile ? "px-3 pt-5" : "px-4 pt-6 sm:px-6")}>{ownerActions}</div>
+        /*
+          ROUND 49: OVER THE PAGE, NOT A ROW OF ITS OWN. The creator page is one
+          HTML for everybody and the owner's controls arrive after it loads
+          (components/storefront/creator-page-viewer), so a row that held them
+          would either push the whole header down when they came in or leave
+          an empty band on every visitor's page. A row of no height instead,
+          the controls laid over the header's own top padding, where they
+          were, right-aligned.
+        */
+        <div className="relative z-[6] h-0">
+          <div className={cn("absolute right-3 top-3", !isMobile && "sm:right-6 sm:top-4")}>{ownerActions}</div>
+        </div>
       ) : null}
 
       {/*

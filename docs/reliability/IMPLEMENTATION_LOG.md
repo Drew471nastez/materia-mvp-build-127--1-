@@ -316,3 +316,20 @@ CDN HIT).
 | Connected domain without the database | COMPLETE | host records `v1/h/<host>.json`; a cold server routes an open Storelib theme site to `/w/<name>` from its record | edge-r49 |
 | Imported theme pages at the CDN | NOT DONE, on purpose | tag purges exist on Next 16 at Vercel; the blocker is Vercel's CDN keying on the browser's address (round 48) and refusing `Vary: Cookie`, with the cart and account drawn on the server. EDGE_FAILOVER.md section 3 | n/a |
 | Second provider | DOCUMENTED | EDGE_FAILOVER.md section 6: Cloudflare in front, R2 mirror, Worker or Load Balancing failover; owner decision | n/a |
+
+## Round 49, creator pages, product pages and Explore at the edge (`r49-cdnpages`)
+
+Round 48 held a stranger's copy and rewrote everybody else to `?_pv=1`; Vercel keyed the copy on the address before the rewrite, so signed in visitors and buyers were served the stranger's copy (reverted, 244bdca). Round 49 makes the HTML the same for everybody and lets the CDN hold it for everybody.
+
+| Part | Status | What changed | Test |
+| --- | --- | --- | --- |
+| One HTML for everybody | COMPLETE | no `cookies()`, `headers()`, session client or `currentUserForRequest` in `/<handle>`, `/<handle>/<product>`, `/explore` or the loaders they read (anon key, `createPublicReadClient`); measured on a production build: product and Explore byte-identical for a stranger, a signed in visitor, a buyer, the owner, a guest buyer's cookies, `sl_lang`, `sl_team_store`, a Storelib Referer; the creator page the same markup and RSC rows (React streams them in settle order, which also differs between two strangers) | `tests/cdnpages-r49.test.ts`, `scripts/check-creator-page-cache.mjs` |
+| Owner controls | COMPLETE | `OwnerOnly` draws everybody's version on the server; `/api/creator-page/viewer` (owner or team member, bought, the owner's typed address) after load; Arrange and card menus via `useCreatorPageOwner`; no-cover header controls laid over the padding (no shift) | same; Chromium at 1440 and 390 |
+| Owned, guest buyer, member | COMPLETE | the buy box keeps Loading while `/api/purchases/verify` answers (asked only with a session, `sl_owned_hint` or a stored receipt); the guest row from `/api/purchases/guest-owned`; a member's link from verify (`membership: true`) | same; purchase-verify, aa3 |
+| Contact | COMPLETE | the handle is public, the link is drawn for a buyer (`useContactShown`); the address is still answered only by `/api/creator-contact` | contact-gate |
+| Language | COMPLETE | each language is an address (`?lang=`); the proxy sends `sl_lang` or a visitor-language store's browser language there with a 307 nobody stores (`lib/markets/creator-page-language-step.ts`) | cdnpages-r49 |
+| Explore For you | COMPLETE | the server hands everybody All; `/api/explore/interests` after load for a browser with a session | explore-speed |
+| CDN rule | COMPLETE | `next.config.mjs` `edgeRule`: `Vercel-CDN-Cache-Control: public, s-maxage=60, stale-while-revalidate=300` and `Vercel-Cache-Tag: creator-page-<handle>` / `explore`, same for every request; never `rsc`, `?embedded`, `?scheme`, off storelib.com; the proxy renews no session and writes no cookie for those requests | cdnpages-r49 |
+| Purge | COMPLETE | `creatorPagesChanged` expires the data (not stale), the CDN tag and the path; wired into product save, publish, cover, identity, currency, courses, internal invalidation, reviews, product removal, sales channels | cdnpages-r49 |
+
+Local production build, Supabase stub, `local-bench.mjs --seconds 20` (origin only, no CDN; shared machine): creator 15.1 to 20.2 req/s at c=10 (p95 969 to 680 ms), 16.6 to 22.5 at c=50; product 15.5 to 22.2 and 11.5 to 23.1; Explore 23.4 to 38.9 and 24 to 36.1. Database and auth requests per render: creator page owner and buyer 16 to 11, a stranger 12 to 11, product page buyer 9 to 4, owner 8 to 4, Explore signed in 5 or 6 to 0. On Vercel a HIT is no function at all.

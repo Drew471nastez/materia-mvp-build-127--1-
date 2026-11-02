@@ -61,6 +61,7 @@ export const BENCH_PATHS = {
   home: "/",
   pricing: "/pricing",
   creator: `/${HANDLE}`,
+  explore: "/explore",
   product: `/${HANDLE}/${products[0].slug}`,
   site: `/w/${HANDLE}`,
   blog: "/blog",

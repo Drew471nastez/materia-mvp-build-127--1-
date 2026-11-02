@@ -1155,6 +1155,9 @@ const SUITES = [
   "tests/logo-r49.test.ts",
   /* Round 49, edge: stored copies of public pages served while the database is away (lib/edge, docs/reliability/EDGE_FAILOVER.md). */
   "tests/edge-r49.test.ts",
+
+  /* Round 49: creator pages, product pages and Explore are one HTML for everybody (no cookies() or headers() in their render), the owner's controls, Download, Contact and For you are asked after load, the CDN rule is the same for every request (never RSC, the editor's canvas or a scheme preview), a language is an address (?lang=, the proxy's 307), a save expires the data and the CDN copy by tag and path; scripts/check-creator-page-cache.mjs measures the bytes on a production build. */
+  "tests/cdnpages-r49.test.ts",
 ]
 
 /**

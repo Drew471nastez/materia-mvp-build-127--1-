@@ -1,5 +1,6 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
-import { isCreatorPagePath, isPersonalRequest, PERSONAL_VIEW_PARAM, STORELIB_HOST } from "@/lib/storefront/shared-view"
+import { isCreatorPagePath, isEdgeHeldRequest, STORELIB_HOST } from "@/lib/storefront/shared-view"
+import { creatorPageLanguageStep } from "@/lib/markets/creator-page-language-step"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
@@ -2645,43 +2646,60 @@ async function routeRequest(request: NextRequest) {
      */
   }
   /*
-    A CREATOR PAGE OR A PRODUCT PAGE ON STORELIB.COM: somebody's request goes
-    to an address of its own, never the one the CDN holds the stranger's copy
-    at (lib/storefront/shared-view, round 48); a request that brings that
-    address without being somebody's is put back on the shared one.
+    A CREATOR PAGE ON STORELIB.COM IN ANOTHER LANGUAGE IS ANOTHER ADDRESS
+    (round 49). /<handle> and /<handle>/<product> are one HTML for everybody,
+    which the CDN holds (next.config.mjs, tests/cdnpages-r49): nothing here
+    makes a request "somebody's" any more, and nothing is rewritten, because
+    the CDN keys its copy on the address the browser asked for (round 48's
+    ?_pv=1 rewrite, reverted in 244bdca, served the stranger's copy to
+    signed in visitors for exactly that reason). The one thing the page used
+    to read from the request, the language (sl_lang, or the browser's in a
+    store that shows visitors their own), is an address now: such a visitor
+    is sent to /<handle>?lang=<code> with a 307 nobody stores
+    (lib/markets/creator-page-language-step). A read that fails is no
+    languages: the page is drawn in the store's own, as it would have been.
   */
-  if (!username && !isCustomDomain && !communityPath && (request.method === "GET" || request.method === "HEAD") && STORELIB_HOST.test(host.split(":")[0]) && isCreatorPagePath(pathname)) {
-    /* A cookie with no value counts for nothing, as in next.config.mjs's rules (Next's matcher skips an empty value). */
-    const byCookieOrReferer = isPersonalRequest(request.cookies.getAll().filter((c) => !!c.value).map((c) => c.name), request.headers.get("referer"))
-    /*
-      A STORE THAT SHOWS VISITORS THEIR OWN LANGUAGE draws its page in the
-      language the browser asks for (lib/markets/creator-page-language), so
-      for it every visit is drawn as before, privately, and none is shared:
-      the CDN would otherwise hand one browser's language to the next. The
-      same held read the subdomains use (thirty seconds a name). A read that
-      fails is answered as no languages, and the page, whose own read then
-      fails the same way, draws its default language either way.
-    */
+  if (!username && !isCustomDomain && !communityPath && (request.method === "GET" || request.method === "HEAD") && STORELIB_HOST.test(host.split(":")[0]) && isCreatorPagePath(pathname) && pathname.replace(/\/+$/, "").split("/").length === 2 && !request.nextUrl.searchParams.has("lang")) {
     const handle = pathname.split("/")[1] ?? ""
-    const personal =
-      byCookieOrReferer ||
-      (await siteLocalizationFor(handle).then(
-        (loc) => !!loc.visitorLanguage && loc.languages.length > 0,
-        () => true,
-      ))
-    const asked = request.nextUrl.searchParams.has(PERSONAL_VIEW_PARAM)
-    if (personal || asked) {
+    const loc = await siteLocalizationFor(handle).catch(() => null)
+    const language = loc
+      ? creatorPageLanguageStep({
+          method: request.method,
+          dest: request.headers.get("sec-fetch-dest"),
+          accept: request.headers.get("accept"),
+          userAgent: request.headers.get("user-agent"),
+          asked: false,
+          chosen: request.cookies.get("sl_lang")?.value || null,
+          visitorLanguage: !!loc.visitorLanguage,
+          defaultLanguage: loc.defaultLanguage || "en",
+          others: loc.languages,
+          acceptLanguage: request.headers.get("accept-language"),
+        })
+      : null
+    if (language) {
       const to = request.nextUrl.clone()
-      if (personal) to.searchParams.set(PERSONAL_VIEW_PARAM, "1")
-      else to.searchParams.delete(PERSONAL_VIEW_PARAM)
-      respond = () => {
-        const r = NextResponse.rewrite(to, { request })
-        if (personal) r.headers.set("Cache-Control", "private, no-store")
-        return r
-      }
+      to.searchParams.set("lang", language.toLowerCase())
+      const r = NextResponse.redirect(to, 307)
+      r.headers.set("Cache-Control", "private, no-store")
+      r.headers.set("Vercel-CDN-Cache-Control", "no-store")
+      r.headers.set("Vary", "Accept-Language, Cookie")
+      return r
     }
   }
   supabaseResponse = respond()
+
+  /*
+    AN ANSWER THE CDN KEEPS FOR EVERYBODY CARRIES NOBODY'S COOKIE (round 49).
+    A creator page, a product page and Explore on storelib.com are one HTML
+    for everybody, held by Vercel's CDN (next.config.mjs). Their render reads
+    no session, so none is renewed here, and nothing below may add a
+    Set-Cookie (a renewed session, the old domain cookie retired) or a
+    per-visitor header (the app's CSP) to an answer the next visitor is
+    handed. The browser's own requests after load renew the session as ever.
+  */
+  if (!username && !isCustomDomain && !communityPath && STORELIB_HOST.test(host.split(":")[0]) && isEdgeHeldRequest({ method: request.method, pathname, rsc: request.headers.has("rsc"), search: request.nextUrl.searchParams })) {
+    return supabaseResponse
+  }
 
   /*
     A BEACON, A REPORT, A SCHEDULED JOB OR A WEBHOOK READS NO SESSION, so

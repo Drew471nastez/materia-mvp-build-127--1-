@@ -154,11 +154,12 @@ async function main() {
         && /keepOnAccount\(\{ storelib_newsletter: on \}\)/.test(route) && /keepOnAccount\(\{ personalized_recommendations: personalized \}\)/.test(route))
     check("only booleans are taken from the body", /typeof body\.personalizedRecommendations === "boolean"/.test(route) && /typeof body\.newsletter === "boolean"/.test(route))
 
-    const explore = readCode("app/(marketing)/explore/page.tsx")
+    /* Changed on purpose (round 49): For you is asked after load from /api/explore/interests (Explore is one HTML for everybody); the same column, the same fallback. */
+    const explore = readCode("app/api/explore/interests/route.ts")
     check(
       "Explore reads the column before building For you",
       /select\("personalized_recommendations"\)/.test(explore) && /typeof column === "boolean" \? column : kept !== false/.test(explore) &&
-        /if \(!\(await personalizationOn\(supabase, user\.id, user\.user_metadata\?\.personalized_recommendations\)\)\) return EMPTY_INTERESTS/.test(explore),
+        /if \(!\(await personalizationOn\(user\.id, user\.user_metadata\?\.personalized_recommendations\)\)\) return EMPTY_INTERESTS/.test(explore),
     )
 
     const loader = readCode("app/app/settings/_server.ts")
