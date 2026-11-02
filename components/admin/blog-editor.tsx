@@ -78,6 +78,10 @@ export function blankBlock(type: BlockType): Block {
       return { id, type, snippetId: "" }
     case "hr":
       return { id, type }
+    case "gallery":
+      return { id, type, images: [], caption: "" }
+    case "button":
+      return { id, type, label: "", url: "", style: "primary" }
     default:
       return { id, type, html: "" }
   }
@@ -102,10 +106,61 @@ const MENU: { type: BlockType; label: string; hint: string; keys: string }[] = [
   { type: "snippet", label: "Snippet", hint: "A reusable block from the library", keys: "snippet reusable library" },
 ]
 
-function menuMatches(query: string) {
+/**
+ * Blocks only a creator's website blog offers (lib/site-blog). They are in
+ * the menu only when the editor's `types` names them, so storelib.com's own
+ * blog, which passes no `types`, sees exactly the menu above.
+ */
+const EXTRA_MENU: { type: BlockType; label: string; hint: string; keys: string }[] = [
+  { type: "gallery", label: "Gallery", hint: "Several pictures in a grid", keys: "gallery images pictures photos grid album" },
+  { type: "button", label: "Button", hint: "A link drawn as a button", keys: "button link action" },
+]
+
+function menuMatches(query: string, menu = MENU, label?: (english: string) => string) {
   const q = query.trim().toLowerCase()
-  if (!q) return MENU
-  return MENU.filter((m) => m.label.toLowerCase().includes(q) || m.keys.includes(q))
+  if (!q) return menu
+  return menu.filter((m) => m.label.toLowerCase().includes(q) || m.keys.includes(q) || (label ? label(m.label).toLowerCase().includes(q) : false))
+}
+
+/**
+ * What one editor offers and the words its menus are written in: every block
+ * and English unless the editor is given `types` and `label`.
+ */
+interface MenuSetup {
+  menu: typeof MENU
+  label: (english: string) => string
+  allows: (type: BlockType) => boolean
+}
+const sameWords = (english: string) => english
+const DEFAULT_SETUP: MenuSetup = { menu: MENU, label: sameWords, allows: () => true }
+const MenuContext = React.createContext<MenuSetup>(DEFAULT_SETUP)
+
+export function menuSetup(types?: readonly BlockType[], label?: (english: string) => string): MenuSetup {
+  if (!types && !label) return DEFAULT_SETUP
+  const allowed = types ? new Set<BlockType>(types) : null
+  return {
+    menu: allowed ? [...MENU, ...EXTRA_MENU].filter((m) => allowed.has(m.type)) : MENU,
+    label: label ?? sameWords,
+    allows: allowed ? (t) => allowed.has(t) : () => true,
+  }
+}
+
+/**
+ * Pasted blocks the editor does not offer, as the nearest one it does: their
+ * words as a paragraph, or nothing when they have none (a picture where no
+ * pictures are offered).
+ */
+export function keepAllowedBlocks(blocks: Block[], allows: (type: BlockType) => boolean): Block[] {
+  const out: Block[] = []
+  for (const b of blocks) {
+    if (allows(b.type)) {
+      out.push(b)
+      continue
+    }
+    const html = b.html ?? (b.items?.length ? b.items.filter(Boolean).join("<br>") : b.text ? b.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") : "")
+    if (html && allows("p")) out.push({ id: b.id, type: "p", html })
+  }
+  return out
 }
 
 /* ── Caret helpers ────────────────────────────────────────────────────── */
@@ -218,6 +273,10 @@ interface EditorApi {
   slashKey: (e: React.KeyboardEvent) => boolean
   uploadInto: (id: string, file: File) => void
   registerSync: (id: string, fn: () => void) => () => void
+  /** One picture uploaded through the editor's `onUpload`, its address answered (a gallery's pictures). */
+  uploadFile?: (file: File) => Promise<string>
+  /** A block as it is now, for an answer that arrives after other edits. */
+  read?: (id: string) => Block | undefined
 }
 
 const ApiContext = React.createContext<EditorApi | null>(null)
@@ -253,6 +312,7 @@ const INLINE_CSS =
 
 function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholder?: boolean }) {
   const api = useApi()
+  const setup = React.useContext(MenuContext)
   const ref = React.useRef<HTMLDivElement>(null)
   const html = block.html ?? ""
   const epochChanged = useEpochChanged()
@@ -277,7 +337,7 @@ function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholde
     cleanEmpty(el)
     const t = (el.textContent ?? "").replace(/\u00a0/g, " ")
     const shortcut = block.type === "p" && el.children.length === 0 ? markdownShortcut(t) : null
-    if (shortcut) {
+    if (shortcut && setup.allows(shortcut)) {
       const fresh = blankBlock(shortcut)
       /* A divider is followed by a fresh line, where the caret goes. */
       if (shortcut === "hr") api.replaceWith(block.id, [fresh, blankBlock("p")], "end")
@@ -361,7 +421,7 @@ function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholde
       spellCheck
       onInput={onInput}
       onKeyDown={onKeyDown}
-      onPaste={(e) => handlePaste(e, block, ref.current!, api, sync)}
+      onPaste={(e) => handlePaste(e, block, ref.current!, api, sync, setup.allows)}
       onBlur={() => {
         const el = ref.current
         if (!el) return
@@ -369,7 +429,7 @@ function RichText({ block, alwaysPlaceholder }: { block: Block; alwaysPlaceholde
         if (clean !== el.innerHTML) el.innerHTML = clean
         api.update(block.id, { html: clean })
       }}
-      data-placeholder={placeholder}
+      data-placeholder={setup.label(placeholder)}
       className={cx(
         "min-h-[1.6em] whitespace-pre-wrap break-words outline-none",
         TEXT_STYLE[block.type],
@@ -409,10 +469,10 @@ function toggleInlineCode() {
 
 /* ── Paste ────────────────────────────────────────────────────────────── */
 
-function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api: EditorApi, sync: () => void) {
+function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api: EditorApi, sync: () => void, allows: (type: BlockType) => boolean = () => true) {
   const cd = e.clipboardData
   const files = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"))
-  if (files.length) {
+  if (files.length && allows("img")) {
     e.preventDefault()
     api.insertImages(block.id, "after", files)
     return
@@ -430,11 +490,11 @@ function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api
       return
     }
     if (empty && block.type === "p") {
-      const yt = youtubeIdFrom(url)
+      const yt = allows("youtube") ? youtubeIdFrom(url) : null
       if (yt) return api.replaceWith(block.id, [{ ...blankBlock("youtube"), videoId: yt }])
-      const target = embedTarget(url)
+      const target = allows("embed") ? embedTarget(url) : null
       if (target) return api.replaceWith(block.id, [{ ...blankBlock("embed"), url, provider: target.provider }])
-      if (looksLikeImageUrl(url)) {
+      if (allows("img") && looksLikeImageUrl(url)) {
         const img = { ...blankBlock("img"), url }
         api.replaceWith(block.id, [img], "alt")
         api.importInto(img.id, url)
@@ -447,7 +507,8 @@ function handlePaste(e: React.ClipboardEvent, block: Block, el: HTMLElement, api
     return
   }
   e.preventDefault()
-  const blocks = html ? blocksFromHtmlDocument(new DOMParser().parseFromString(html, "text/html"), newBlockId) : blocksFromPlainText(plain, newBlockId)
+  const pasted = html ? blocksFromHtmlDocument(new DOMParser().parseFromString(html, "text/html"), newBlockId) : blocksFromPlainText(plain, newBlockId)
+  const blocks = keepAllowedBlocks(pasted, allows)
   if (!blocks.length) return
   /* One line of text goes in at the caret, as it would in any text field. */
   if (blocks.length === 1 && blocks[0].type === "p") {
@@ -854,6 +915,186 @@ function CtaBlock({ block }: { block: Block }) {
   )
 }
 
+/* ── Creator website blogs only: a gallery and a button ───────────────── */
+
+/** The most pictures a gallery holds (lib/site-blog/sanitize keeps the same). */
+export const GALLERY_MAX = 24
+
+function GalleryBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const { label: L } = React.useContext(MenuContext)
+  const images = block.images ?? []
+  const [busy, setBusy] = React.useState(0)
+  const [error, setError] = React.useState<string | null>(null)
+  const [drag, setDrag] = React.useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const current = () => api.read?.(block.id)?.images ?? images
+  const setImages = (next: NonNullable<Block["images"]>) => api.update(block.id, { images: next })
+  const room = GALLERY_MAX - images.length
+
+  async function add(files: File[]) {
+    const upload = api.uploadFile
+    const list = files.filter((f) => f.type.startsWith("image/")).slice(0, Math.max(0, GALLERY_MAX - current().length))
+    if (!upload || !list.length) return
+    setError(null)
+    setBusy((n) => n + list.length)
+    const settled = await Promise.allSettled(list.map((f) => upload(f)))
+    setBusy((n) => Math.max(0, n - list.length))
+    const urls = settled.flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value] : []))
+    if (urls.length < list.length) setError(L("Some pictures could not be uploaded."))
+    if (urls.length) setImages([...current(), ...urls.map((url) => ({ url, alt: "" }))].slice(0, GALLERY_MAX))
+  }
+
+  const move = (i: number, dir: -1 | 1) => {
+    const next = current().slice()
+    const j = i + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setImages(next)
+  }
+  const missingAlt = images.filter((im) => !(im.alt ?? "").trim()).length
+
+  return (
+    <Card>
+      {images.length ? (
+        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" aria-label={L("Pictures in the gallery")}>
+          {images.map((im, i) => (
+            <li key={`${im.url}-${i}`} className="flex min-w-0 flex-col gap-1.5 rounded-[8px] border border-white/[0.08] bg-[#111116] p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={im.url} alt={im.alt || ""} className="aspect-[4/3] w-full rounded-[6px] bg-black/40 object-cover" />
+              <input
+                value={im.alt ?? ""}
+                placeholder={L("Alt text")}
+                aria-label={`${L("Alt text")} ${i + 1}`}
+                aria-invalid={!(im.alt ?? "").trim()}
+                onChange={(e) => setImages(current().map((x, k) => (k === i ? { ...x, alt: e.target.value } : x)))}
+                className={cx(fieldCls, "h-8 text-[12px]", !(im.alt ?? "").trim() ? "border-[#d4a72c]/50" : "")}
+              />
+              <div className="flex items-center gap-1">
+                <SmallButton aria-label={L("Move left")} title={L("Move left")} disabled={i === 0} onClick={() => move(i, -1)} className="h-7 px-2">
+                  ←
+                </SmallButton>
+                <SmallButton aria-label={L("Move right")} title={L("Move right")} disabled={i === images.length - 1} onClick={() => move(i, 1)} className="h-7 px-2">
+                  →
+                </SmallButton>
+                <SmallButton aria-label={L("Remove picture")} onClick={() => setImages(current().filter((_, k) => k !== i))} className="ml-auto h-7 px-2 text-[#f47067]">
+                  {L("Remove")}
+                </SmallButton>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {room > 0 ? (
+        <div
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return
+            e.preventDefault()
+            e.stopPropagation()
+            setDrag(true)
+          }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => {
+            if (!e.dataTransfer.files?.length) return
+            e.preventDefault()
+            e.stopPropagation()
+            setDrag(false)
+            void add(Array.from(e.dataTransfer.files))
+          }}
+          className={cx(
+            "flex flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed px-4 text-center",
+            images.length ? "mt-2.5 py-4" : "min-h-[120px] py-6",
+            drag ? "border-[#8b5cf6]/70 bg-[#8b5cf6]/[0.06]" : "border-white/[0.12]",
+          )}
+        >
+          <p className="text-[13px] text-[#9b9ba6]" role={busy ? "status" : undefined}>
+            {busy ? L("Uploading…") : L("Drop pictures here, or")}
+          </p>
+          <SmallButton data-autofocus="" disabled={busy > 0} onClick={() => fileRef.current?.click()}>
+            {L("Add pictures")}
+          </SmallButton>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? [])
+              e.target.value = ""
+              void add(files)
+            }}
+          />
+        </div>
+      ) : (
+        <p className="mt-2 text-[12px] text-[#9b9ba6]">{L("A gallery holds up to 24 pictures.")}</p>
+      )}
+      {error ? (
+        <p role="alert" className="mt-2 text-[12px] text-[#f47067]">
+          {error}
+        </p>
+      ) : null}
+      {missingAlt ? <p className="mt-2 text-[12px] text-[#d4a72c]">{L("Add alt text to every picture: screen readers read it aloud.")}</p> : null}
+      <label className="mt-3 block">
+        <Label>{L("Caption")}</Label>
+        <Input value={block.caption ?? ""} placeholder={L("Optional")} onChange={(e) => api.update(block.id, { caption: e.target.value })} />
+      </label>
+    </Card>
+  )
+}
+
+const BUTTON_STYLES: { id: NonNullable<Block["style"]>; label: string }[] = [
+  { id: "primary", label: "Filled" },
+  { id: "secondary", label: "Outline" },
+]
+
+function ButtonBlock({ block }: { block: Block }) {
+  const api = useApi()
+  const { label: L } = React.useContext(MenuContext)
+  const set = (patch: Partial<Block>) => api.update(block.id, patch)
+  const style = block.style === "secondary" ? "secondary" : "primary"
+  const urlBad = Boolean(block.url) && !safeHref(block.url)
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span
+          aria-hidden
+          className={cx(
+            "inline-flex h-10 max-w-full items-center truncate rounded-[10px] px-5 text-[14px] font-semibold",
+            style === "primary" ? "bg-[#ededf0] text-[#0b0b0f]" : "border border-white/30 text-[#ededf0]",
+          )}
+        >
+          {block.label?.trim() || L("Button text")}
+        </span>
+        <div className="flex gap-1" role="radiogroup" aria-label={L("Button style")}>
+          {BUTTON_STYLES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={s.id === style}
+              onClick={() => set({ style: s.id })}
+              className={cx("h-7 rounded-[6px] px-2.5 text-[12px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70", s.id === style ? "bg-white/[0.08] text-[#ededf0]" : "text-[#6b6b76] hover:text-[#ededf0]")}
+            >
+              {L(s.label)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="block">
+          <Label>{L("Button text")}</Label>
+          <Input data-autofocus="" value={block.label ?? ""} maxLength={40} placeholder={L("Shop the collection")} onChange={(e) => set({ label: e.target.value })} />
+        </label>
+        <label className="block">
+          <Label warn={urlBad ? L("Not an address") : null}>{L("Goes to")}</Label>
+          <Input value={block.url ?? ""} placeholder="/shop" aria-invalid={urlBad} onChange={(e) => set({ url: e.target.value.trim() })} />
+        </label>
+      </div>
+    </Card>
+  )
+}
+
 export interface SnippetOption {
   id: string
   name: string
@@ -1054,6 +1295,12 @@ const BlockRow = React.memo(function BlockRow({
     case "snippet":
       content = <SnippetBlock block={block} snippets={snippets} note={snippetsNote} />
       break
+    case "gallery":
+      content = <GalleryBlock block={block} />
+      break
+    case "button":
+      content = <ButtonBlock block={block} />
+      break
     case "hr":
       content = (
         <div data-hr={block.id} className="py-3">
@@ -1087,7 +1334,7 @@ const BlockRow = React.memo(function BlockRow({
         onDropId(block.id)
       }}
       tabIndex={whole ? -1 : undefined}
-      aria-label={whole ? `${MENU.find((m) => m.type === block.type)?.label ?? "Block"}, block ${index + 1} of ${count}` : undefined}
+      aria-label={whole ? `${(MENU.find((m) => m.type === block.type) ?? EXTRA_MENU.find((m) => m.type === block.type))?.label ?? "Block"}, block ${index + 1} of ${count}` : undefined}
       className={cx("group/block relative outline-none", spacing)}
     >
       {drop ? <div aria-hidden className={cx("pointer-events-none absolute -left-2 -right-2 z-10 h-[2px] rounded-full bg-[#8b5cf6]", drop === "before" ? (first ? "-top-1" : "top-[6px]") : "-bottom-[1px]")} /> : null}
@@ -1131,6 +1378,7 @@ const BlockRow = React.memo(function BlockRow({
 
 function BlockMenu({ block, index, count, onClose }: { block: Block; index: number; count: number; onClose: () => void }) {
   const api = useApi()
+  const { label: L, allows } = React.useContext(MenuContext)
   const ref = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     const away = (e: MouseEvent) => {
@@ -1159,19 +1407,19 @@ function BlockMenu({ block, index, count, onClose }: { block: Block; index: numb
   return (
     <div ref={ref} role="menu" className="absolute left-0 top-8 z-30 w-[230px] rounded-[10px] border border-white/[0.1] bg-[#17171d] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
       <button role="menuitem" type="button" className={item} disabled={index === 0} onClick={act(() => api.move(block.id, -1))}>
-        Move up <span className={kbd}>{alt}↑</span>
+        {L("Move up")} <span className={kbd}>{alt}↑</span>
       </button>
       <button role="menuitem" type="button" className={item} disabled={index === count - 1} onClick={act(() => api.move(block.id, 1))}>
-        Move down <span className={kbd}>{alt}↓</span>
+        {L("Move down")} <span className={kbd}>{alt}↓</span>
       </button>
       <button role="menuitem" type="button" className={item} onClick={act(() => api.duplicate(block.id))}>
-        Duplicate <span className={kbd}>{cmd}D</span>
+        {L("Duplicate")} <span className={kbd}>{cmd}D</span>
       </button>
       {turnable ? (
         <>
-          <p className="px-2.5 pb-1 pt-2 text-[11px] text-[#6b6b76]">Turn into</p>
+          <p className="px-2.5 pb-1 pt-2 text-[11px] text-[#6b6b76]">{L("Turn into")}</p>
           <div className="flex flex-wrap gap-1 px-1.5 pb-1.5">
-            {(["p", "h2", "h3", "ul", "ol", "quote", "callout"] as BlockType[]).map((t) => (
+            {(["p", "h2", "h3", "ul", "ol", "quote", "callout"] as BlockType[]).filter(allows).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -1180,7 +1428,7 @@ function BlockMenu({ block, index, count, onClose }: { block: Block; index: numb
                 onClick={act(() => api.convert(block.id, t))}
                 className="h-7 rounded-[6px] border border-white/[0.08] px-2 text-[12px] text-[#c9c9d1] outline-none hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70 disabled:border-[#8b5cf6]/50 disabled:text-[#ededf0]"
               >
-                {MENU.find((m) => m.type === t)?.label.replace(" list", "")}
+                {L(MENU.find((m) => m.type === t)?.label.replace(" list", "") ?? "")}
               </button>
             ))}
           </div>
@@ -1188,7 +1436,7 @@ function BlockMenu({ block, index, count, onClose }: { block: Block; index: numb
       ) : null}
       <div className="my-1 h-px bg-white/[0.08]" />
       <button role="menuitem" type="button" className={cx(item, "text-[#f47067]")} onClick={act(() => api.remove(block.id, true))}>
-        Delete
+        {L("Delete")}
       </button>
     </div>
   )
@@ -1197,7 +1445,8 @@ function BlockMenu({ block, index, count, onClose }: { block: Block; index: numb
 /* ── The "/" menu ─────────────────────────────────────────────────────── */
 
 function SlashMenu({ state, onPick, onHover }: { state: { query: string; index: number; rect: DOMRect }; onPick: (t: BlockType) => void; onHover: (i: number) => void }) {
-  const items = menuMatches(state.query)
+  const { menu, label: L } = React.useContext(MenuContext)
+  const items = menuMatches(state.query, menu, L)
   const listRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     listRef.current?.querySelector(`[data-i="${state.index}"]`)?.scrollIntoView({ block: "nearest" })
@@ -1228,8 +1477,8 @@ function SlashMenu({ state, onPick, onHover }: { state: { query: string; index: 
             onMouseEnter={() => onHover(i)}
             className={cx("flex w-full flex-col items-start rounded-[6px] px-2.5 py-1.5 text-left outline-none", i === state.index ? "bg-white/[0.08]" : "")}
           >
-            <span className="text-[13px] text-[#ededf0]">{m.label}</span>
-            {m.hint ? <span className="text-[11px] leading-4 text-[#6b6b76]">{m.hint}</span> : null}
+            <span className="text-[13px] text-[#ededf0]">{L(m.label)}</span>
+            {m.hint ? <span className="text-[11px] leading-4 text-[#6b6b76]">{L(m.hint)}</span> : null}
           </button>
         ))
       ) : (
@@ -1470,6 +1719,8 @@ export default function BlogEditor({
   onLeaveTop,
   snippets = [],
   snippetsNote,
+  types,
+  label,
 }: {
   blocks: Block[]
   onChange: (blocks: Block[]) => void
@@ -1482,6 +1733,15 @@ export default function BlogEditor({
   snippets?: SnippetOption[]
   /** Set when the snippet library is off (before SQL part 345): said where a snippet would be picked. */
   snippetsNote?: string | null
+  /**
+   * The blocks offered: the "/" menu, Turn into, markdown and paste make only
+   * these. Left out, every block above, as storelib.com's own blog has it; a
+   * creator's website blog passes lib/site-blog's list, gallery and button
+   * among them.
+   */
+  types?: readonly BlockType[]
+  /** The menus' words and the empty lines' hints in the person's language (Website Settings passes tt). Accessible names stay as they are. */
+  label?: (english: string) => string
 }) {
   const root = React.useRef<HTMLDivElement>(null)
   const blocksRef = React.useRef(blocks)
@@ -1489,6 +1749,11 @@ export default function BlogEditor({
   const uploadRef = React.useRef(onUpload)
   const importRef = React.useRef(onImport)
   const leaveTopRef = React.useRef(onLeaveTop)
+  const setup = React.useMemo(() => menuSetup(types, label), [types, label])
+  const setupRef = React.useRef(setup)
+  React.useLayoutEffect(() => {
+    setupRef.current = setup
+  }, [setup])
   React.useLayoutEffect(() => {
     blocksRef.current = blocks
     onChangeRef.current = onChange
@@ -1737,7 +2002,7 @@ export default function BlogEditor({
         return true
       },
       insertImages: (id, pos, files) => {
-        if (!files.length) return
+        if (!files.length || !setupRef.current.allows("img")) return
         const imgs = files.map(() => blankBlock("img"))
         const list = blocksRef.current.slice()
         const i = list.findIndex((b) => b.id === id)
@@ -1767,7 +2032,7 @@ export default function BlogEditor({
       },
       openSlash: (id, query, rect) => {
         /* Esc closed it on this line: it stays closed until the line no longer starts with "/". A query with a space that matches nothing is writing, not a block. */
-        if (slashDismissed.current === id || (/\s/.test(query) && !menuMatches(query).length)) return setSlash((s) => (s ? null : s))
+        if (slashDismissed.current === id || (/\s/.test(query) && !menuMatches(query, setupRef.current.menu, setupRef.current.label).length)) return setSlash((s) => (s ? null : s))
         setSlash((s) => ({ id, query, index: s && s.id === id && s.query === query ? s.index : 0, rect }))
       },
       closeSlash: () => {
@@ -1777,7 +2042,7 @@ export default function BlogEditor({
       slashKey: (e) => {
         const s = slashRef.current
         if (!s) return false
-        const items = menuMatches(s.query)
+        const items = menuMatches(s.query, setupRef.current.menu, setupRef.current.label)
         const n = Math.max(1, items.length)
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           e.preventDefault()
@@ -1798,6 +2063,8 @@ export default function BlogEditor({
         return false
       },
       uploadInto: upload,
+      uploadFile: (file) => uploadRef.current(file),
+      read: (id) => blocksRef.current.find((b) => b.id === id),
       registerSync: (id, fn) => {
         syncs.current.set(id, fn)
         return () => {
@@ -1915,6 +2182,7 @@ export default function BlogEditor({
   }
 
   return (
+    <MenuContext.Provider value={setup}>
     <ApiContext.Provider value={api}>
       <EpochContext.Provider value={epoch}>
         <div
@@ -1983,5 +2251,6 @@ export default function BlogEditor({
         </div>
       </EpochContext.Provider>
     </ApiContext.Provider>
+    </MenuContext.Provider>
   )
 }

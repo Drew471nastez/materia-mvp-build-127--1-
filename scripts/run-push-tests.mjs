@@ -1128,6 +1128,8 @@ const SUITES = [
   "tests/perf-r46.test.ts",
   /* Creator blogs in an imported theme (P3): Dawn-style blog, article and featured blog sections drawn with real posts, pagination, tags, categories, 308s for old slugs and handles, a preview noindex and no-store, BlogPosting and Blog JSON-LD on the custom domain, the sitemap's blog entries, and nothing changed without a blog. */
   "tests/site-blog-compat.test.ts",
+  /* Creator blogs, package 2: one Blog item in Website Settings directly below Pages and no link anywhere else, the post list's query, selection, bulk actions and row menu, autosave one request at a time with its version and a 409 that stops and asks (blog/save-queue.ts on its own clock), scheduling in the app's time zone, the block editor's optional props only (the admin's menu word for word), every editor word translated, before SQL part 353. */
+  "tests/site-blog-ui.test.ts",
 ]
 
 /**
