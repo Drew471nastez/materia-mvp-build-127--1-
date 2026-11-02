@@ -65,7 +65,7 @@ console.log("\nWhere it is set\n")
   check("part 111 gives channels a kind, one of each built-in a store, and hides nothing", /ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'custom'/.test(sql) && /sales_channels_one_of_kind/.test(sql) && !/INSERT INTO public\.product_channel_listings/i.test(sql))
   const routes = read("app/api/store/channels/route.ts") + read("app/api/store/channels/product/route.ts")
   check("the routes are the owner's alone", /* Changed on purpose (round 41 team): the product editor's card also opens to a team member with Products; Settings › Sales channels stays the owner's */
-(routes.match(/shopCaller\((?:"products")?\)/g) ?? []).length >= 4 && /shopCaller\("products"\)/.test(read("app/api/store/channels/product/route.ts")))
+(routes.match(/shopCaller\((?:"products"(?:, \{ read: true \})?|"store", \{ read: true \})?\)/g) ?? []).length >= 4 && /shopCaller\("products"(?:, \{ read: true \})?\)/.test(read("app/api/store/channels/product/route.ts")))
 }
 
 console.log("\nA change shows on the next visit, everywhere it is listed\n")

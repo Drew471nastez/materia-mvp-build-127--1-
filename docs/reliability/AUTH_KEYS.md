@@ -34,6 +34,48 @@ with a bad signature, another project's issuer, the wrong audience or role, or
 past its expiry is never accepted. If Supabase Auth says a session was revoked,
 the person is still signed out.
 
+## Where production stands (round 49, Nov 2)
+
+Read from production logs and public URLs only (no environment value was
+read): the JWKS is still `{"keys":[]}`, and the `auth_degraded` lines on
+deployment `dpl_2BhGDvSAM6igSWt4dVH9VoxazAtT` (Nov 2, 07:40-07:54 UTC) say
+`"outcome":"claims"`. With an empty JWKS that can only come from the shared
+secret, so **step B is in place**: `/app` pages and the proxy already verify
+tokens locally.
+
+What still showed "We could not check your sign in just now" was the API
+routes behind the panels (Send analytics, markets, translations, own/token):
+they asked Supabase Auth themselves, strictly, and a retry queued behind the
+hung first try. Round 49 (`tests/auth-r49.test.ts`) moves every read-only GET
+onto the same answer the pages use, keeps changes strict with real retries,
+and adds a header to confirm which check ran (below).
+
+The remaining owner step is A, the permanent fix: it removes the shared
+secret from Vercel, and the server then needs no secret at all.
+
+## Confirm it worked: the X-Storelib-Auth-Check header
+
+Signed in, open `https://storelib.com/app`, then the browser's developer
+tools > Network, click the first (document) request and read its Response
+headers:
+
+| Header value | Meaning |
+| --- | --- |
+| `proxy-local; verifier=hs256` | local check active, from `SUPABASE_JWT_SECRET` (B) |
+| `proxy-local; verifier=jwks` | local check active, from the public keys (A done) |
+| `proxy-network; verifier=none` | no local check: Supabase Auth asked on every page (neither A nor B) |
+
+The same header is on `https://storelib.com/api/auth/state` (open it in a
+signed-in tab): `network; verifier=...` when Supabase Auth answered, `local;
+verifier=...` when Auth was slow and the token's signature answered. A 503
+"could not check" carries `none`. The header names the kind of check only,
+never a key, a token or an account. In Vercel logs, `auth_degraded` lines now
+also carry `"verifier"`.
+
+After A: the header reads `verifier=jwks` within about 10 minutes. Then remove
+`SUPABASE_JWT_SECRET` (B's last paragraph) and redeploy; the header must still
+read `verifier=jwks`.
+
 ## A. Recommended: move to asymmetric signing keys (ECC P-256)
 
 Reference: https://supabase.com/docs/guides/auth/signing-keys
@@ -110,9 +152,14 @@ fallback just stops helping).
 - Every database call still carries the person's own token, so row level
   security applies exactly as before.
 - API routes that change something (`routeUser()` with its default) still
-  need Supabase Auth itself to answer; when it does not, they answer 503 and
-  the browser asks again quietly (twice, with jitter) before showing "We could
-  not check your sign in just now".
+  need Supabase Auth itself to answer. Since round 49 the server asks Auth
+  again (twice more, with backoff, about 10s in all) before refusing; then
+  they answer 503 and the browser asks again quietly (twice, with jitter)
+  before showing "We could not check your sign in just now".
+- API reads (GET routes with `{ read: true }`, `routeUser({ fresh: false })`
+  or `readUserForRoute()`) take the same answer as pages: Supabase Auth, or
+  the token's verified signature after about 2.5s. The browser asks a read
+  again three times (about 10s) before showing anything.
 - What the local check cannot see is a session revoked less than an hour ago
   (the token's lifetime). Row level security cannot see that either. Supabase
   Auth is always asked first, so this only matters while Auth is not

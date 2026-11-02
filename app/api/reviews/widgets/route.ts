@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic"
  *                                    widget's lists and ranges
  */
 export async function GET() {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const [{ configs, ready }, langs, creator] = await Promise.all([
     listWidgetConfigs(c.db, c.creatorId),

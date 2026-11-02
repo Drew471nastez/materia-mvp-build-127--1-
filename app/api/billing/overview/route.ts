@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   /* The owner, or a team member who may see the store's plan (round 42, lib/team/money): the store's plan and invoices, never the member's own. */
-  const who = await moneyCaller("billing", "view")
+  const who = await moneyCaller("billing", "view", { read: true })
   if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Not signed in" }, { status: 401 }) : who.response
   const canManage = who.isOwner || !!who.acting?.permissions.includes("billing_manage")
   /* The creator, its subscription row and its override are read once for this request and dropped with it (lib/billing/request-reads). */

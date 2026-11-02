@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const adminSupabase = createAdminClient()
 
     /* The owner, or a team member who may see the store's payouts (round 42, lib/team/money): the store's own Stripe account, never the member's. */
-    const who = await moneyCaller("payouts", "view")
+    const who = await moneyCaller("payouts", "view", { read: true })
     if (!who.ok) return who.response
 
     const { searchParams } = new URL(request.url)

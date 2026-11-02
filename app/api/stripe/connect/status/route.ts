@@ -31,7 +31,7 @@ import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
  */
 export async function GET() {
   /* The owner's own store, or the one a team member who may see its payouts works in (round 42, lib/team/money): never an account named by the browser. */
-  const who = await moneyCaller("payouts", "view", { noStore: "Creator profile not found." })
+  const who = await moneyCaller("payouts", "view", { read: true, noStore: "Creator profile not found." })
   if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Sign in to see your payments." }, { status: 401 }) : who.response
   const creator = { id: who.creatorId }
 

@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic"
  *   GET ?only=products → { products } the store's products, for the filter
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const params = new URL(request.url).searchParams
   if (params.get("only") === "products") return physicalJson({ products: await reviewedProducts(c.db, c.creatorId) })

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   /* Round 41: the store's OnePage integrations, for its owner and a team member with OnePage. Keys come back as their last four characters only. */
-  const c = await shopCaller("onepage")
+  const c = await shopCaller("onepage", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await loadPageIntegrations(c.db, c.creatorId))
 }

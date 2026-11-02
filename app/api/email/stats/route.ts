@@ -17,7 +17,7 @@ export const revalidate = 0
 export async function GET(request: NextRequest) {
   try {
     /* The store's emails, for its owner or a team member given Marketing (lib/team). */
-    const gate = await requireTeamPermission("marketing")
+    const gate = await requireTeamPermission("marketing", { read: true })
     if (gate instanceof NextResponse) return gate.status === 401 ? NextResponse.json({ error: "Unauthorized" }, { status: 401 }) : gate
     const adminSupabase = createAdminClient()
     const creator = { id: gate.creatorId }

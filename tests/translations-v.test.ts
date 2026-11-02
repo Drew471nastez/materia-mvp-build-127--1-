@@ -401,7 +401,7 @@ async function main() {
     const hook = readCode("components/website-builder/use-preview-language.ts")
     check("the editor reads which products are shown as written with the language's values", /originals\?: string\[\]/.test(hook) && /setOriginals\(/.test(hook) && /originals: originals\.ids/.test(readCode("app/api/store/translations/route.ts")))
     const productRoute = readCode("app/api/store/translations/product/route.ts")
-    check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
+    check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"(?:, \{ read: true \})?\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
     check("  its Translate automatically goes through the sidebar's per-text press, so the glossary and Don't translate apply", /translateFieldsNow\(db, creatorId, locale/.test(readCode("lib/markets/product-translations.ts")) && /replaceManual: false/.test(readCode("lib/markets/product-translations.ts")))
     check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(readCode("app/app/products/new/product-editor.tsx")))
     const live = readCode("lib/markets/live.ts")

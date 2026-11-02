@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   /* Round 41: the owner, or a team member with Store settings (Store details only, lib/team/settings). */
-  const c = await shopCaller(["store", "settings"])
+  const c = await shopCaller(["store", "settings"], { read: true })
   if (c instanceof NextResponse) return c
   const db = c.db
   const [settings, h, creator, account, fallback, selling] = await Promise.all([

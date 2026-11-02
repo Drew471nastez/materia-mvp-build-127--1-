@@ -20,9 +20,9 @@ export type Owner = {
   admin: ReturnType<typeof createAdminClient>
 }
 
-export async function domainOwner(): Promise<Owner | NextResponse> {
-  /* Bounded, retried once; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). */
-  const who = await routeUser()
+export async function domainOwner(opts: { read?: boolean } = {}): Promise<Owner | NextResponse> {
+  /* Bounded, retried with backoff; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). A read-only GET passes read: true (round 49). */
+  const who = await routeUser({ fresh: !opts.read })
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const user = who.user

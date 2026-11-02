@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
  * with Marketing; added, checked and removed by the owner only.
  */
 export async function GET() {
-  const c = await shopCaller(["store", "marketing"])
+  const c = await shopCaller(["store", "marketing"], { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await loadSendingDomain(c.db, c.creatorId))
 }

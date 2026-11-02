@@ -117,6 +117,21 @@ function isOffline(): boolean {
 export { AUTH_UNAVAILABLE_HEADER }
 /** Waits before the second and third tries: about 4s in all, with up to a quarter again as jitter. */
 export const AUTH_RETRY_DELAYS_MS = [1_200, 2_800] as const
+/**
+ * Round 49: a read (GET or HEAD) is asked more times, over about 10s, behind
+ * the panel's normal loading state, before its words are shown. A slow minute
+ * at Supabase Auth is usually over in seconds, and a read changes nothing.
+ */
+export const AUTH_READ_RETRY_DELAYS_MS = [800, 2_000, 3_500] as const
+
+/** A read's quiet retry needs this much of its deadline left to be worth sending. */
+export const AUTH_RETRY_MIN_LEFT_MS = 6_000
+
+/** The quiet waits for this request's method. */
+export function authRetryDelays(method: string | undefined): readonly number[] {
+  const m = (method ?? "GET").toUpperCase()
+  return m === "GET" || m === "HEAD" ? AUTH_READ_RETRY_DELAYS_MS : AUTH_RETRY_DELAYS_MS
+}
 
 function authUnavailable(res: Response): boolean {
   return res.status === 503 && res.headers.get(AUTH_UNAVAILABLE_HEADER) === "unavailable"
@@ -166,10 +181,12 @@ export async function requestJson<T = Record<string, unknown>>(
       })
     let res = await send()
     /* Supabase Auth did not answer and nothing was done: asked again quietly, within this request's own deadline. */
-    for (const wait of json !== undefined || resendable(rest.body) ? AUTH_RETRY_DELAYS_MS : []) {
+    const isRead = json === undefined && /^(GET|HEAD)$/i.test(rest.method ?? "GET")
+    for (const wait of json !== undefined || resendable(rest.body) ? authRetryDelays(rest.method) : []) {
       if (!authUnavailable(res)) break
       const ms = Math.round(wait + wait * 0.25 * Math.random())
-      if (now() - started + ms >= timeoutMs) break
+      /* Round 49: a read is asked again only with time left for an answer; otherwise its own words now, not "took too long" later. */
+      if (now() - started + ms + (isRead ? AUTH_RETRY_MIN_LEFT_MS : 0) >= timeoutMs) break
       void res.body?.cancel().catch(() => {})
       await new Promise((r) => setTimeout(r, ms))
       res = await send()

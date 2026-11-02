@@ -331,14 +331,14 @@ const ungated = routes.filter((f) => {
   if (f.endsWith("checkout/complete/route.ts")) return false
   /* Changed on purpose (round AA, Team): an orders route names its area, physicalCaller("orders"). */
   /* Changed on purpose (round 41 team): a products route names its area too, physicalCaller("products"). */
-  return !/await physicalCaller\(("orders"|"products")?\)/.test(src) && !/await physicalApiGate\(\)/.test(src)
+  return !/await physicalCaller\(("orders"|"products"|"store")?(?:, \{ read: true \})?\)/.test(src) && !/await physicalApiGate\(\)/.test(src)
 })
 check(`every /api/physical route answers 404 while it is off (${routes.length} routes)`, routes.length >= 20 && ungated.length === 0, ungated)
 check("money already taken is still written when it is off: the return and the webhook", !/physicalApiGate|physicalCaller/.test(code("app/api/physical/checkout/complete/route.ts")) && /physical_checkout_id/.test(code("app/api/stripe/webhook/route.ts")))
 check("the cron does nothing while it is off", /if \(!\(await isPhysicalCommerceEnabled\(\)\)\)/.test(code("app/api/cron/physical/route.ts")))
 /* partner-tracking is a fulfilment partner's, proven by the shop's webhook secret or a link signed for one order (lib/physical/partner-link.ts), never a session. */
 const merchant = routes.filter((f) => !/checkout\/|order-status|storefront|partner-tracking/.test(f))
-check("merchant routes resolve the caller's own shop before reading anything", merchant.every((f) => /const c = await physicalCaller\(("orders"|"products")?\)\s*if \(c instanceof NextResponse\) return c/.test(code(f))))
+check("merchant routes resolve the caller's own shop before reading anything", merchant.every((f) => /const c = await physicalCaller\(("orders"|"products"|"store")?(?:, \{ read: true \})?\)\s*if \(c instanceof NextResponse\) return c/.test(code(f))))
 check("and every query they make is filtered by that shop", merchant.every((f) => !/\.from\("(inventory_locations|shipping_\w+|commerce_\w+|inventory_\w+|product_collections)"\)\.(update|delete)\([^)]*\)\.eq\("id", id\)(?!\.eq\("creator_id")/.test(code(f))))
 
 console.log("\nThe digital checkout is untouched and never sells a physical product")
@@ -387,7 +387,7 @@ console.log("\nThe switch, in the app")
   check("the New product question has no physical answer while it is off", /const list: KindOption\[\] = \[\.\.\.KIND_OPTIONS\]\s*if \(physical\) list\.push\(PHYSICAL_KIND_OPTION\)/.test(kinds) && !/physical/.test(kinds.slice(kinds.indexOf("export const KIND_OPTIONS"), kinds.indexOf("export const PHYSICAL_KIND_OPTION"))))
   check("a physical product page asks the question again while it is off", /kind === "physical" && !\(await isPhysicalCommerceEnabled\(\)\)\) return ask\(\)/.test(code("app/app/products/new/page.tsx")))
   check("the sidebar adds Inventory only while it is on; Collections are every shop's", /\.\.\.\(physicalCommerce \? \[\{ href: "\/app\/inventory", label: "Inventory" \}\] : \[\]\),\s*\{ href: "\/app\/products\/collections", label: "Collections" \}/.test(code("components/app/sidebar.tsx")))
-  check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/app/products/collections/page.tsx")) && /shopCaller\(("products")?\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
+  check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/app/products/collections/page.tsx")) && /shopCaller\(("products"|"store")?(?:, \{ read: true \})?\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
   const settings = code("components/app/settings-form-new.tsx")
   // Changed on purpose: Shipping and the new Integrations section both follow the switch (COMMERCE_TABS).
   /* Changed on purpose (round T): Shipping's parts are sections of their own, all behind the switch. Taxes and

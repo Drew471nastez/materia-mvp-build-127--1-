@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   let creatorId: string | null = null
   let owner = false
   if (url.searchParams.get("mine") === "1") {
-    const c = await physicalCaller()
+    const c = await physicalCaller("store", { read: true })
     if (c instanceof NextResponse) return c
     creatorId = c.creatorId
     owner = true

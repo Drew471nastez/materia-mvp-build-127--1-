@@ -29,6 +29,7 @@ import { formatRelative } from "@/lib/i18n/format"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
+import { requestJson } from "@/lib/net/request"
 
 type Provider = "ga4" | "meta" | "posthog" | "webhook"
 type RowId = Provider | "google_ads" | "api"
@@ -109,14 +110,16 @@ function statusWord(s: string): string {
   return tt("Waiting")
 }
 
+/*
+  Round 49: through lib/net/request requestJson, so a 503 "could not check
+  your sign in" is asked again quietly (a read over about 10s, a change twice)
+  behind the loading state, and every call has a deadline. It used to be a
+  bare fetch that showed the first 503's words at once.
+*/
 async function call<T>(input: string, init?: RequestInit): Promise<{ ok: boolean; data: T }> {
-  try {
-    const res = await fetch(input, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } })
-    const data = (await res.json().catch(() => ({}))) as T
-    return { ok: res.ok, data }
-  } catch {
-    return { ok: false, data: { error: tt("Storelib did not answer. Try again.") } as T }
-  }
+  const r = await requestJson<Record<string, unknown>>(input, { cache: "no-store", credentials: "same-origin", ...init, headers: { "Content-Type": "application/json", ...((init?.headers as Record<string, string> | undefined) ?? {}) } })
+  if (r.ok || r.status) return { ok: r.ok, data: r.data as T }
+  return { ok: false, data: { error: tt("Storelib did not answer. Try again.") } as T }
 }
 
 function Mark({ id }: { id: RowId }) {
@@ -476,17 +479,39 @@ export function AnalyticsDestinationsPanel({ initialOpen = null, onConnectedChan
     },
     [onConnectedChange],
   )
+  const [attempt, setAttempt] = React.useState(0)
   React.useEffect(() => {
+    let live = true
     void call<Answer>("/api/analytics/destinations").then((r) => {
+      if (!live) return
       if (r.ok && r.data.destinations) take(r.data)
       else setFailed(r.data?.error ?? tt("Storelib did not answer. Try again."))
     })
-  }, [take])
+    return () => {
+      live = false
+    }
+  }, [take, attempt])
 
   const views = new Map((answer?.destinations ?? []).map((d) => [d.provider, d]))
   const canEdit = answer?.canEdit !== false
 
-  if (failed) return <p className="px-3 py-4 text-[13.5px] text-[#b42318]">{failed}</p>
+  /* Only after the quiet tries: the words, calm, and a way to ask again. */
+  if (failed)
+    return (
+      <div className="flex flex-wrap items-center gap-3 px-3 py-4" data-destinations-failed="">
+        <p className="min-w-0 flex-1 text-[13.5px] text-[#6b7280]">{failed}</p>
+        <button
+          type="button"
+          className={cn(BUTTON_SECONDARY, "h-8 shrink-0")}
+          onClick={() => {
+            setFailed(null)
+            setAttempt((n) => n + 1)
+          }}
+        >
+          {tt("Try again")}
+        </button>
+      </div>
+    )
   if (!answer) return <div className="h-[280px]" aria-busy="true" data-destinations-loading="" />
 
   return (

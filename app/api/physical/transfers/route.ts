@@ -6,7 +6,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller("products")
+  const c = await physicalCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const { data } = await c.db
     .from("inventory_transfers")

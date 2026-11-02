@@ -195,7 +195,7 @@ async function main() {
   check("the migration copy is the same", existsSync("supabase/migrations/20270129_checkout_text_overrides.sql") && read("supabase/migrations/20270129_checkout_text_overrides.sql") === sql)
   check("the check after and the README know it", /as p212_checkout_text_overrides/.test(read("supabase/sql/run-now/99_check_after.sql")) && /`212_checkout_text_overrides\.sql`/.test(read("supabase/sql/run-now/README.md")) && /"212_checkout_text_overrides\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
   const route = read("app/api/store/checkout-text/route.ts")
-  check("the API is the store's (shopCaller) and checks every change before writing any", /const c = await shopCaller\(\)/.test(route) && /validateOverride\(entry, raw\.text\)/.test(route) && /That text can't be changed\./.test(route))
+  check("the API is the store's (shopCaller) and checks every change before writing any", /const c = await shopCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(route) && /validateOverride\(entry, raw\.text\)/.test(route) && /That text can't be changed\./.test(route))
   check("only the store's own languages", /That language isn't on your website\./.test(route))
   check("the checkout and its pages read the store's words on the server", /checkoutOverrides\(creatorId, lang\)/.test(read("lib/markets/checkout-language.ts")) && /checkoutWordsIn\(asked, map, overrides\)/.test(read("lib/markets/checkout-language.ts")))
   check("and a buyer's emails", /emailWordsIn\(other, translationMap/.test(read("lib/emails/words-server.ts")))
@@ -233,7 +233,7 @@ async function main() {
     const server = read("lib/checkout-text/preview-server.ts")
     check("the store's own name, logo, settings, currency and products, priced by the checkout's own quote", /checkoutBrand\(db, creatorId\)/.test(server) && /loadCheckoutConfig\(db, creatorId\)/.test(server) && /readStoreCurrency\(db, creatorId\)/.test(server) && /siteQuote\(db, creatorId, \{ items/.test(server) && /localizeQuote\(answer\.quote, map\)/.test(server))
     check("  the words as a buyer reads them, without the store's own (those are typed over them)", /checkoutWordsIn\(lang, map, null\)/.test(server))
-    check("  read by the store's owner or team only", /const c = await shopCaller\(\)/.test(read("app/api/store/checkout-text/preview/route.ts")))
+    check("  read by the store's owner or team only", /const c = await shopCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(read("app/api/store/checkout-text/preview/route.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

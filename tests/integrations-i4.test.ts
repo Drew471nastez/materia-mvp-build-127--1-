@@ -105,7 +105,7 @@ console.log("\nThe states route reads the caller's own store\n")
 {
   const route = read("app/api/store/integrations/apps/route.ts")
   const server = read("lib/integrations/storelib-apps-server.ts")
-  check("signed in and their own store (or the one their team role lets them in)", /await shopCaller\(\)/.test(route) && /readAppFacts\(c\.db, c\.creatorId, physical\)/.test(route))
+  check("signed in and their own store (or the one their team role lets them in)", /await shopCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(route) && /readAppFacts\(c\.db, c\.creatorId, physical\)/.test(route))
   const froms = [...server.matchAll(/db\.from\("([a-z_]+)"\)[^\n]*/g)]
   check("  every table read is filtered by the store's id (or its own websites' ids)", froms.length >= 8 && froms.every((m) => /\.eq\("creator_id", creatorId\)/.test(m[0]) || /\.in\("install_id", installRows/.test(m[0])), froms.map((m) => m[1]))
   check("  no database error text leaves it", !/error\.message|\.message\b/.test(server) && /return r\.error \? null : r/.test(server))

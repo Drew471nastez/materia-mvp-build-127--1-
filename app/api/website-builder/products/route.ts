@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") ?? "100", 10)
 
     /* The owner, or a team member with Website working in the store (lib/team/website): the store's products, by the store's id. */
-    const site = await websiteCaller()
+    const site = await websiteCaller({ read: true })
     if (site.error !== null) {
       if (site.status === 404) return NextResponse.json({ products: [] })
       return NextResponse.json({ error: site.error }, { status: site.status })

@@ -22,7 +22,7 @@ const TYPES = ["receipt_resent", "email_changed_by_creator", "email_updated"] as
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   /* The store's, for its owner or a team member whose role has orders (lib/team). */
-  const store = await storeIdFor("orders")
+  const store = await storeIdFor("orders", { read: true })
   if (store.ok === false) return NextResponse.json({ error: store.error }, { status: store.status })
   const creatorId = store.creatorId
 

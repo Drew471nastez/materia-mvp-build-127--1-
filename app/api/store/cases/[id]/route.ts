@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
  *   POST { action: "resolve" }           it's sorted
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const { id } = await ctx.params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

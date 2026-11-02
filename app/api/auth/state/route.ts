@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { AUTH_CHECK_HEADER, authCheckHeader } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,11 +19,14 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   let state: "authenticated" | "anonymous" | "indeterminate" = "indeterminate"
+  let check = "none"
   try {
-    const supabase = await createClient()
-    state = (await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })).state
+    const current = await currentUserForRequest()
+    state = current.state
+    /* Round 49: how it was checked, and which local check this server has (lib/auth/auth-check-header). */
+    check = await authCheckHeader(current)
   } catch {
     /* no cookie store or a client that would not build: could not tell */
   }
-  return NextResponse.json({ state }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ state }, { headers: { "Cache-Control": "no-store", [AUTH_CHECK_HEADER]: check } })
 }

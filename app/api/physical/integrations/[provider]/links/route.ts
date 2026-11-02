@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic"
  * The owner only. Saves ask the partner, so they are rate limited.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const { provider } = await params
   if (!isLinkedProvider(provider)) return physicalJson({ error: "Not found." }, 404)

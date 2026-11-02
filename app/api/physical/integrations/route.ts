@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 /** Every commerce integration and where it stands, for Settings › Integrations. Secrets come back as their last four characters only. */
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson({ integrations: await loadIntegrations(c.db, c.creatorId) })
 }

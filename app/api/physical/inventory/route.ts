@@ -10,7 +10,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller("products")
+  const c = await physicalCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const settings = await loadSettings(c.db, c.creatorId)
   const [rows, locations] = await Promise.all([inventoryRows(c.db, c.creatorId, settings.lowStockDefault), loadLocations(c.db, c.creatorId)])

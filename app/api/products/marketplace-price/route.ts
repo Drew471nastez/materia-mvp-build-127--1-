@@ -45,7 +45,7 @@ async function fixedOf(db: Db, productId: string): Promise<{ ready: boolean; fix
 }
 
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const product = await ownProduct(c.db, c.creatorId, new URL(request.url).searchParams.get("productId"))
   if (!product) return physicalJson({ error: "Not found." }, 404)

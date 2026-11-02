@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 /** The store's cases from its buyers (lib/support/cases.ts), newest first; one order's with ?checkout=<id> (a cart that ships) or ?order=<id> (a download). */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const q = new URL(request.url).searchParams
   const checkoutId = q.get("checkout")

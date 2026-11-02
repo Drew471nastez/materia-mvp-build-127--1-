@@ -47,7 +47,7 @@ async function defaultsFor(creatorId: string, lang: string, own: boolean): Promi
 }
 
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const langs = await languagesOf(c.creatorId)
   const lang = pick(langs, new URL(request.url).searchParams.get("lang"))

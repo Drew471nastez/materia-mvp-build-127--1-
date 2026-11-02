@@ -43,6 +43,8 @@ function check(label: string, ok: boolean, detail?: string) {
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
+  /* Round 49: lib/auth/request-scope readUserForRoute is the request's one read (Supabase Auth, or the token's verified signature while Auth is slow), in getUser()'s shape, for a read-only GET; the route acts only on `user`. */
+  ["a signed-in session, the request's one read", /await readUserForRoute\(\)[\s\S]*if \(!user\)/],
   /* Round 12 (WBPERF): lib/website-builder/owned-install.ts editorUser is readCurrentUser for the builder's routes: 401 for Auth's nobody, 503 for a blip, and the route acts only on its `user`. */
   ["a signed-in session, classified for the builder", /await editorUser\(supabase\)[\s\S]*if \(!user\)/],
   /* lib/auth/current-user.ts: getUser(), with "Supabase did not answer" kept
@@ -51,7 +53,7 @@ const PROOFS: [string, RegExp][] = [
   ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
   /* Changed on purpose (round rel-auth): lib/auth/route-user routeUser() is getUser() with a ceiling and one retry, a 401 only for Auth's nobody and a 503 when it did not answer; the route acts only on `who.user`. */
-  ["a signed-in session, fresh and classified", /await routeUser\(\)[\s\S]*who\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
+  ["a signed-in session, fresh and classified", /await routeUser\((?:\{ fresh: (?:false|!opts\.read) \})?\)[\s\S]*who\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
@@ -83,14 +85,14 @@ const PROOFS: [string, RegExp][] = [
   /* lib/team/server.ts storeIdFor: auth.getUser(), then the store this
      account owns or is an active member of for that area, read from the
      database on every request; 401 or 403 otherwise. */
-  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
+  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"(?:, \{ read: true \})?\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
   /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
      then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
      The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
   /* lib/push/request-user.ts pushRequestUser: auth.getUser() on the session cookie, or the app's access token checked with
      Supabase (auth.getUser(token)) when the web view's cookie is missing; the push routes answer 401 without one and act only on that user. */
   ["a signed-in account for the app's push routes, cookie or bearer", /await pushRequestUser\(req\)[\s\S]*if \(!user\)/],
-  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
+  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"(?:, \{ read: true \})?\)[\s\S]*gate instanceof NextResponse/],
   /* Changed on purpose (round 42 team access): lib/team/money.ts moneyCaller is auth.getUser() (401 without a session), then the store this
      account owns, or the store it acts in as an active member holding that money permission at that level (403 otherwise), read on every
      request; the route returns its response unless ok, and acts only on the store it got back. */

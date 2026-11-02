@@ -18,7 +18,7 @@ export const runtime = "nodejs"
  */
 export async function GET(request: Request) {
   /* The owner, or a team member with Website working in the store (lib/team/website). */
-  const site = await websiteCaller()
+  const site = await websiteCaller({ read: true })
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   const admin = createAdminClient()
   const supabase = site.supabase

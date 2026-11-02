@@ -195,7 +195,7 @@ console.log("\nClicks between pages: the report")
 console.log("\nAsked only when a report opens, through the page's own question")
 {
   const route = read("app/api/analytics/rows/route.ts")
-  check("app/api/analytics/rows: Analytics permission, the reports' own question, a known dimension", /requireTeamPermission\("analytics"\)/.test(route) && /reportQuestion\(gate\.db, gate\.userId, url, getMainDomain\(\), \{ creatorId: gate\.creatorId, ownerUserId: gate\.ownerUserId \}\)/.test(route) && /isRowDim\(dim\)/.test(route))
+  check("app/api/analytics/rows: Analytics permission, the reports' own question, a known dimension", /requireTeamPermission\("analytics"(?:, \{ read: true \})?\)/.test(route) && /reportQuestion\(gate\.db, gate\.userId, url, getMainDomain\(\), \{ creatorId: gate\.creatorId, ownerUserId: gate\.ownerUserId \}\)/.test(route) && /isRowDim\(dim\)/.test(route))
   const answer = read("lib/analytics/report-answer.ts")
   const main = answer.slice(answer.indexOf("export async function countReportAnswer"), answer.indexOf("export async function allTimeOf"))
   check("the page's own answer reads no lines", !/readStoredRowSeries|productSalesSeries|analytics_row_series/.test(main))

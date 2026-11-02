@@ -40,7 +40,7 @@ type Db = any
  *                            `lang` (another published language) saves that language's words
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("marketing")
+  const c = await shopCaller("marketing", { read: true })
   if (c instanceof NextResponse) return c
   const db = c.db
   const q = new URL(request.url).searchParams

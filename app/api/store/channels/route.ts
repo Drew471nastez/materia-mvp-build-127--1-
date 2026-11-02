@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
  *   DELETE  { id }                              remove one of the store's own
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson(await loadChannels(c.db, c.creatorId))
 }

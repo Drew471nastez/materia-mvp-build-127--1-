@@ -124,7 +124,7 @@ async function answered(all: Promise<Answer>, label: string) {
 
 export async function GET(request: Request) {
   /* The store's figures, for its owner or a team member given Analytics (lib/team). */
-  const gate = await requireTeamPermission("analytics")
+  const gate = await requireTeamPermission("analytics", { read: true })
   if (gate instanceof NextResponse) return gate
 
   const url = new URL(request.url)

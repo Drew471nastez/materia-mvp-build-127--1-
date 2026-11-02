@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { readSetupState } from "@/lib/website-builder/setup-state"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 /**
  * GET /api/website-builder/setup
@@ -14,8 +14,7 @@ import { readSetupState } from "@/lib/website-builder/setup-state"
  * those tables and nothing about any particular creator.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await readUserForRoute()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   return NextResponse.json({ setup: await readSetupState() })

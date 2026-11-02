@@ -170,6 +170,18 @@ function importPublic(jwk: Jwk, alg: keyof typeof ASYMMETRIC): Promise<CryptoKey
 
 /* ------------------------------------------------------------------ the check */
 
+/**
+ * Which local check this server has (round 49), for the X-Storelib-Auth-Check
+ * header and the auth log lines: "jwks" when Supabase publishes public keys,
+ * "hs256" when only the shared secret is set, "none" when neither. It names
+ * the kind of check, never a key or any part of one.
+ */
+export type VerifierKind = "jwks" | "hs256" | "none"
+export async function verifierKind(supabaseUrl: string | null | undefined): Promise<VerifierKind> {
+  if (supabaseUrl && (await signingKeys(supabaseUrl)).keys.length > 0) return "jwks"
+  return jwtSecret() ? "hs256" : "none"
+}
+
 /** Whether a token could be checked here at all (a secret set, or public keys published). */
 export async function canVerifyLocally(supabaseUrl: string | null | undefined): Promise<boolean> {
   if (jwtSecret()) return true

@@ -17,7 +17,7 @@ const MAX_DAYS = 731
  *   GET ?from=YYYY-MM-DD&to=YYYY-MM-DD   (both days included; the last 30 days when left out)
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const p = new URL(request.url).searchParams
   const today = new Date().toISOString().slice(0, 10)

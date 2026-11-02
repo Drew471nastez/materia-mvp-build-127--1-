@@ -206,7 +206,7 @@ async function main() {
   check("and draws them under the readiness banner", /<AttentionList initial=\{initialAttention\}/.test(read("components/app/dashboard-client.tsx")))
   const list = read("components/app/home/attention-list.tsx")
   check("read again when the tab comes back, never on a timer", /visibilitychange/.test(list) && !/setInterval/.test(list) && /AGAIN_AFTER_MS = 30_000/.test(list))
-  check("the route is the store's or a teammate's with Orders", /shopCaller\("orders"\)/.test(read("app/api/app/orders/attention/route.ts")))
+  check("the route is the store's or a teammate's with Orders", /shopCaller\("orders"(?:, \{ read: true \})?\)/.test(read("app/api/app/orders/attention/route.ts")))
   check("the physical cron raises the reminder", /await noteOrdersWaiting\(db\)/.test(read("app/api/cron/physical/route.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

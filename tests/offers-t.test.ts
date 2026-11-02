@@ -85,7 +85,7 @@ check("the checkout page hears what it got and what it could add", /offers: pric
 check("bundles for a product page: a store's own, published, not behind the physical switch", !/physicalApiGate\(\)/.test(read("app/api/offers/bundles/route.ts")) && /productOffers\(/.test(read("app/api/offers/bundles/route.ts")) && /p\.status !== "published"/.test(read("lib/offers/offers-public.ts")))
 const store = read("app/api/store/offers/route.ts")
 /* Changed on purpose (round V): the owner check alone (shopCaller), as collections have it. */
-check("a store edits its own, and it's in the activity log", /shopCaller\("marketing"\)/.test(store) /* Round 40: a team member reaches offers with Marketing. */ && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))
+check("a store edits its own, and it's in the activity log", /shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(store) /* Round 40: a team member reaches offers with Marketing. */ && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))
 check("every product an offer names must be the store's", /One of those products isn't in your store any more/.test(read("lib/offers/offers-server.ts")))
 check("the product page and website product section show bundles", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
 check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))

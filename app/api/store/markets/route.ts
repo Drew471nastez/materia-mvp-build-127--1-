@@ -52,7 +52,7 @@ async function preview() {
 
 export async function GET(request: Request) {
   if (new URL(request.url).searchParams.get("preview") === "1") return preview()
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const baseCurrency = await base(c)
   const [loc, stored] = await Promise.all([localizationOf(c.db, c.creatorId, baseCurrency), latestRates(c.db)])

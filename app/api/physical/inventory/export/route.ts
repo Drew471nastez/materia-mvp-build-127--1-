@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  * Import (./import).
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller("products")
+  const c = await physicalCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const only = new URL(request.url).searchParams.get("locationId")
   const settings = await loadSettings(c.db, c.creatorId)

@@ -229,7 +229,7 @@ async function main() {
     check("  before part 214: a plain message, no crash", waiting.ok === false && /Run SQL part 214/.test((waiting as { error: string }).error))
     const route = raw("app/api/files/route.ts")
     check("the routes are the owner's: shopCaller, and the usage route too", /* Changed on purpose (round 41 team): Files is part of Products: the owner, or a team member with Products in the store they work in */
-/export async function PATCH[\s\S]*shopCaller\("products"\)/.test(route) && /shopCaller\("products"\)/.test(raw("app/api/files/usage/route.ts")))
+/export async function PATCH[\s\S]*shopCaller\("products"(?:, \{ read: true \})?\)/.test(route) && /shopCaller\("products"(?:, \{ read: true \})?\)/.test(raw("app/api/files/usage/route.ts")))
   }
 
   console.log("\nInventory: adjust, the sums for every reason")
@@ -467,7 +467,7 @@ async function main() {
     check("readUnits: whole numbers 0 to a million only", readUnits("0") === 0 && readUnits(" 12 ") === 12 && readUnits("1e3") === null && readUnits(-1) === null && readUnits(1_000_001) === null)
     const routes = ["app/api/physical/inventory/route.ts", "app/api/physical/inventory/export/route.ts", "app/api/physical/inventory/import/route.ts", "app/api/physical/inventory/movements/route.ts", "app/api/physical/transfers/route.ts", "app/api/physical/transfers/[id]/route.ts"]
     /* Changed on purpose (round 41 team): Inventory is part of Products: the owner, or a team member with Products */
-    check("every stock route is the signed in shop's (physicalCaller), every write on the server", routes.every((p) => /const c = await physicalCaller\("products"\)\s*if \(c instanceof NextResponse\) return c/.test(raw(p))))
+    check("every stock route is the signed in shop's (physicalCaller), every write on the server", routes.every((p) => /const c = await physicalCaller\("products"(?:, \{ read: true \})?\)\s*if \(c instanceof NextResponse\) return c/.test(raw(p))))
     const sql = raw("supabase/migrations/20270201_v11_inventory_and_files.sql")
     check("the new stock functions are the server's alone", ["physical_inventory_move", "physical_inventory_adjust", "physical_transfer_ship", "physical_transfer_receive", "physical_transfer_cancel"].every((f) => new RegExp(`REVOKE ALL ON FUNCTION public\\.${f}\\([^)]*\\) FROM PUBLIC, anon, authenticated`).test(sql) && new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${f}\\([^)]*\\) TO service_role`).test(sql)))
     check("  and each checks the variant and the location are the shop's", (sql.match(/IF owner IS NULL OR owner IS DISTINCT FROM p_creator OR loc_owner IS NULL OR loc_owner IS DISTINCT FROM p_creator THEN/g) ?? []).length === 2 && (sql.match(/WHERE id = p_transfer AND creator_id = p_creator FOR UPDATE;/g) ?? []).length === 3)

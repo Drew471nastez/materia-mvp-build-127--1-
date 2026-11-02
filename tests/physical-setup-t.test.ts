@@ -35,7 +35,7 @@ console.log("\nWhere it shows\n")
   /* Changed on purpose (round H2): once a physical product is on sale, Home's readiness banner says what is left (components/physical/readiness-banner), so the card steps aside rather than saying the same thing twice. */
   check("only while physical commerce is on, and gone when done and nothing stops a sale, or once something is on sale", /if \(!physical \|\| !steps \|\| \(steps\.every\(\(s\) => s\.done\) && blockers\.length === 0\) \|\| \(readiness\?\.live \?\? 0\) > 0\) return null/.test(card))
   check("Home places it under its cards", /<PhysicalSetupCard \/>/.test(read("components/app/dashboard-client.tsx")))
-  check("the route is behind the physical switch, for the caller's own store", /physicalCaller\(\)/.test(read("app/api/home/physical-setup/route.ts")))
+  check("the route is behind the physical switch, for the caller's own store", /physicalCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(read("app/api/home/physical-setup/route.ts")))
   const server = read("lib/home/physical-setup-server.ts")
   check("a read that fails counts as not done", /\.catch\(\(\) => fallback\)/.test(server))
 }

@@ -129,7 +129,7 @@ function changed(creatorId: string) {
 // GET - List the creator's domains
 export async function GET() {
   try {
-    const owner = await domainOwner()
+    const owner = await domainOwner({ read: true })
     if (owner instanceof NextResponse) return owner
     const { rows, schema, error, targets } = await listCreatorDomains(owner.admin, owner.creatorId)
     if (error && error !== "missing_table") {

@@ -164,7 +164,7 @@ async function run() {
     const fresh = await readCurrentUser(fake, { timeoutMs: 100, retries: 1, fallbackClaims: null })
     check("fresh: unavailable, the token's claims never asked", routeUserFrom(fresh).kind === "unavailable" && claimsAsked === 0)
     const routeSrc = read("lib/auth/route-user.ts")
-    check("  routeUser is fresh unless a caller says otherwise, and fresh means no claims fallback", /fresh = true/.test(routeSrc) && /fallbackClaims: fresh \? null :/.test(routeSrc))
+    check("  routeUser is fresh unless a caller says otherwise, and fresh means no claims fallback", /fresh = true/.test(routeSrc) && /fresh \? strictUserForRequest\(\) : readerForRequest\(\)/.test(routeSrc) && /verifiedBy === "user" \|\| first\.state === "anonymous"/.test(routeSrc))
     check("  unavailable is a 503 with Retry-After, never cached", /status: 503/.test(routeSrc) && /"Retry-After": "2"/.test(routeSrc) && /"Cache-Control": "no-store"/.test(routeSrc))
   }
 
@@ -215,7 +215,7 @@ async function run() {
     check("noStorePage asks the request's answer, not Supabase again", /currentUserForRequest\(\)/.test(noStore.slice(0, 1200)) && !/auth\.getUser\(\)/.test(noStore.slice(0, 1200)))
     check("  could not tell: renders nothing (the layout's gate recovers), never /sell", /if \(!current\.user\) \{\s*if \(shouldSendToLogin\(current\)\) redirect\("\/sell"\)\s*return null\s*\}/.test(noStore))
     const gate = team.slice(team.indexOf("export async function requireTeamPermission"), team.indexOf("export async function storeAccessOf"))
-    check("requireTeamPermission: bounded, retried, and a 503 when Auth did not answer", /await routeUser\(\)/.test(gate) && /who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(gate) && !/auth\.getUser\(\)/.test(gate))
+    check("requireTeamPermission: bounded, retried, and a 503 when Auth did not answer", /await routeUser\(\{ fresh: !opts\.read \}\)/.test(gate) && /who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(gate) && !/auth\.getUser\(\)/.test(gate))
     check("  401 only when Auth said nobody", /who\.kind !== "user"\) return NextResponse\.json\(\{ error: "Sign in again to do this\." \}, \{ status: 401/.test(gate))
     const current = read("lib/creators/current.ts")
     const body = current.slice(current.indexOf("export async function currentCreatorId"))

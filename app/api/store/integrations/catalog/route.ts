@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
  * ones added from /admin. Only how the directory looks; never a key.
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   let overrides: Awaited<ReturnType<typeof cachedCatalogOverrides>> = []
   try {

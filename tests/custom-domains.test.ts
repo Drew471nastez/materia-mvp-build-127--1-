@@ -142,10 +142,10 @@ console.log("\nOnly the owner, on the server")
 {
   const owner = code("lib/custom-domains/owner.ts")
   /* Changed on purpose (round rel-auth): the session is read through lib/auth/route-user routeUser() (getUser with a ceiling and one retry, 503 when Auth did not answer). */
-  check("the session names the user, and the user names the creator", /await routeUser\(\)/.test(owner) && /if \(who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(owner) && /\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(owner))
+  check("the session names the user, and the user names the creator", /await routeUser\((?:\{ fresh: (?:false|!opts\.read) \})?\)/.test(owner) && /if \(who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(owner) && /\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(owner))
   for (const route of ["app/api/domains/route.ts", "app/api/domains/verify/route.ts", "app/api/domains/check/route.ts"]) {
     const src = code(route)
-    check(`${route} starts from the session`, /await domainOwner\(\)/.test(src) && /if \(owner instanceof NextResponse\) return owner/.test(src))
+    check(`${route} starts from the session`, /await domainOwner\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(src) && /if \(owner instanceof NextResponse\) return owner/.test(src))
   }
   const route = code("app/api/domains/route.ts")
   const store = code("lib/custom-domains/store.ts")

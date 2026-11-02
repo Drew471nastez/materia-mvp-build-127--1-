@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
-  const who = await routeUser()
+  const who = await routeUser({ fresh: false })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })

@@ -12,6 +12,7 @@ import { propertyLabel, propertyParam } from "@/lib/analytics/properties"
 import { todayIn } from "@/lib/date-range/range"
 import type { Reports } from "@/lib/analytics/reports"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -147,9 +148,7 @@ export async function GET(request: Request) {
       return await fileFor(link.u, link.q, link.c)
     }
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     return await fileFor(user.id, questionOf(url.searchParams))
   } catch (error) {

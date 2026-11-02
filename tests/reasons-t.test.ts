@@ -72,7 +72,7 @@ console.log("\nSettings › Returns and refunds\n")
   check("  every write is filtered by the caller's own store", (server.match(/\.eq\("creator_id", creatorId\)/g) ?? []).length >= 5 && /creator_id: creatorId, kind, value/.test(server))
   check("  Other can't be removed", /if \(value === FALLBACK_REASON\) return \{ ok: false/.test(server))
   const api = read("app/api/store/reasons/route.ts")
-  check("the route is the owner's alone, any store", /shopCaller\(\)/.test(api) && !/physicalCaller/.test(api))
+  check("the route is the owner's alone, any store", /shopCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(api) && !/physicalCaller/.test(api))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
