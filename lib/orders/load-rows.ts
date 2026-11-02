@@ -127,7 +127,9 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
     columns it does have. The error was not looked at, so the page read "no
     products", then "no orders", and a creator with a year of sales was told
     they had none. `*` cannot name a column that is not there, and a failed
-    read now stops the page instead of drawing an empty one.
+    read now stops the page instead of drawing an empty one. Since round r48
+    the columns are named again (readCreatorProducts), and a database that
+    refuses one of them is read with `*` as before.
   */
   /*
     The products and the orders are asked at once: the orders are found by
@@ -135,12 +137,10 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
     read here, which only name each row's product. One round trip fewer
     before Orders is drawn (lib/perf/optimizations.ts).
   */
-  const productsRead = Promise.resolve(admin.from("products").select("*").eq("creator_id", creatorId))
+  const productsRead = readCreatorProducts(admin, creatorId)
   const ordersRead = readOrderRows(admin, creatorId)
   /* Both settle before either answer is used, so a failure of one is never left unhandled. */
-  const [{ data: productsData, error: productsError }, ordersData] = await Promise.all([productsRead, ordersRead])
-  if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
-  const products = productsOf(productsData)
+  const [products, ordersData] = await Promise.all([productsRead, ordersRead])
 
   const byId = new Map(products.map((p) => [p.id, p]))
   /* An order with no currency recorded is in what the store sold in on its day (lib/store/currency-at), as Analytics reads it. */
@@ -149,11 +149,51 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   return { products, rows }
 }
 
-/** The creator's products, every column (see readCreatorOrders), as the Orders page names them. */
+/**
+ * WHAT productsOf READS, AND NOTHING ELSE (round r48). This read `*`: every
+ * column of every product (descriptions, search vectors, custom fields, 82
+ * columns) for a list that names each order's product with a title, a type
+ * and a picture. On a store of 1,000 products that was 3.9 MB from the
+ * database for every Orders page, one order and export; these columns are
+ * 0.18 MB (measured on local Postgres 16, docs/reliability/IMPLEMENTATION_LOG.md
+ * r48-db). A database missing one of them (the gallery_images lesson above)
+ * is still read with `*`, so the page never goes empty over a column.
+ *
+ * A PAGE AT A TIME. One read stops at 1,000 rows without a word, so on a
+ * store past its thousandth product the oldest products' orders lost their
+ * title and picture. Pages of 1,000, newest first (created_at, then id, so a
+ * page edge is never read twice), up to 20,000, as the Products page reads
+ * them (lib/products/list-read.ts).
+ */
+export const CREATOR_PRODUCT_COLUMNS = "id, title, type, thumbnail_url, gallery_urls"
+export const CREATOR_PRODUCT_PAGE = 1000
+export const CREATOR_PRODUCT_CEILING = 20_000
+
+const missingProductColumn = (error: { code?: string; message?: string } | null) =>
+  !!error && (error.code === "42703" || error.code === "PGRST204" || /column .* does not exist/i.test(error.message ?? ""))
+
+/** The creator's products, as the Orders page names them (see CREATOR_PRODUCT_COLUMNS). */
 export async function readCreatorProducts(admin: any, creatorId: string): Promise<CreatorProduct[]> {
-  const { data, error: productsError } = await Promise.resolve(admin.from("products").select("*").eq("creator_id", creatorId))
-  if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
-  return productsOf(data)
+  const read = async (columns: string): Promise<{ rows: any[]; error: { code?: string; message?: string } | null }> => {
+    const rows: any[] = []
+    for (let from = 0; from < CREATOR_PRODUCT_CEILING; from += CREATOR_PRODUCT_PAGE) {
+      const { data, error } = await admin
+        .from("products")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, from + CREATOR_PRODUCT_PAGE - 1)
+      if (error) return { rows, error }
+      rows.push(...(data ?? []))
+      if (!data || data.length < CREATOR_PRODUCT_PAGE) break
+    }
+    return { rows, error: null }
+  }
+  let answer = await read(CREATOR_PRODUCT_COLUMNS)
+  if (answer.error && answer.rows.length === 0 && missingProductColumn(answer.error)) answer = await read("*")
+  if (answer.error) throw new OrdersReadError(`Orders: could not read products (${answer.error.message})`)
+  return productsOf(answer.rows)
 }
 
 function productsOf(productsData: any[] | null): CreatorProduct[] {

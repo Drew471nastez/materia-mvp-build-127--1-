@@ -210,7 +210,8 @@ function main() {
     check("and the challenge counts in the same batch", /readChallengeCounts\(adminSupabase, creator\.id\)/.test(page))
     const layout = read("app/app/layout.tsx")
     check("the sidebar's ring counts the same steps", /homeProgress\(\{[\s\S]*factsFromRows\(/.test(layout) && /const completedSteps = setup\.completed/.test(layout) && /const totalSteps = setup\.total/.test(layout))
-    check("the layout reads them on the caller's own client", !/createAdminClient/.test(layout) && /\.from\("custom_domains"\)\.select\("\*"\)\.eq\("creator_id", creator\.id\)/.test(layout))
+    /* Changed on purpose (round r48-db): the first sale is one lookup by the order's own creator on the server's client (storeHasSale), as Home counts it; on the caller's client it went through an orders policy that reads auth.users and failed. The rest stays on the caller's client. */
+    check("the layout reads them on the caller's own client, the first sale by the store's own orders on the server", (layout.match(/createAdminClient\(\)/g) ?? []).length === 1 && /async function storeHasSale\(creatorId: string\)[\s\S]{0,200}const admin = createAdminClient\(\)/.test(layout) && /\.from\("custom_domains"\)\.select\("\*"\)\.eq\("creator_id", creator\.id\)/.test(layout))
     const dash = read("components/app/dashboard-client.tsx")
     check("Home's sales are its live orders, by the same rule", /sales: totals\.totalOrders/.test(dash) && /homeProgress\(facts(, storeCurrencyCode)?\)/.test(dash))
     check("the purple bar counts the same steps", /const completedSteps = progress\.completed/.test(dash) && /const totalSteps = progress\.total/.test(dash))
