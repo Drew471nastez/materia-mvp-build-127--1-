@@ -202,7 +202,9 @@ function PlanCard({
   interval,
   sizes,
   nameLevel = 3,
+  pictureLoading = "eager",
 }: {
+  pictureLoading?: "eager" | "lazy"
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
@@ -250,7 +252,7 @@ function PlanCard({
           alt=""
           fill
           sizes={sizes}
-          loading="eager"
+          loading={pictureLoading}
           placeholder={look.blur}
           draggable={false}
           className="-z-10 object-cover object-right select-none pointer-events-none"
@@ -351,7 +353,14 @@ export function PlanCards({
   interval: controlled,
   onInterval,
   nameLevel,
+  pictureLoading,
 }: {
+  /**
+   * "lazy" where the cards are far down a page (the home page's pricing
+   * section). Eager there put a preload for each picture into the home page's
+   * head, competing with the hero (round 48). Eager everywhere else.
+   */
+  pictureLoading?: "eager" | "lazy"
   /** The plan names' heading level: 2 where the cards sit right under the page's h1 (/pricing), 3 under a section's h2 (the default). */
   nameLevel?: 2 | 3
   actions: Record<OfferedPlanId, PlanCardAction>
@@ -422,6 +431,7 @@ export function PlanCards({
               interval={interval}
               sizes={PLAN_PICTURE_SIZES}
               nameLevel={nameLevel}
+              pictureLoading={pictureLoading}
             />
           </div>
         ))}

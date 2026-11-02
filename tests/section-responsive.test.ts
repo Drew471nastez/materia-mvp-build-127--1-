@@ -629,7 +629,8 @@ check(
    * one implementation of the drag, never a hand-rolled second one.
    */
   /<BottomSheet isOpen=\{sheetOpen\} onClose=\{\(\) => setSheetOpen\(false\)\}/.test(menu) &&
-    /from "@\/components\/ui\/bottom-sheet"/.test(menu) &&
+    /* Changed on purpose (round 48): the same shared sheet, fetched when it is first armed (next/dynamic). */
+    /import\("@\/components\/ui\/bottom-sheet"\)\.then\(\(m\) => m\.BottomSheet\)/.test(menu) &&
     !/enableDragToClose/.test(menu) &&
     !/data-drag-handle/.test(menu),
 )

@@ -12,7 +12,9 @@ import * as React from "react"
 import { Package } from "lucide-react"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
 import { CatalogHeader, CategorySelect, SortControl, type SortKey } from "./catalog-controls"
-import { ArrangeProductsControl } from "./arrange-products-button"
+import dynamic from "next/dynamic"
+/* Round 48: owner only, so fetched only for the owner (it brings the editor sheet); see unified-section-renderer. */
+const ArrangeProductsControl = dynamic(() => import("./arrange-products-button").then((m) => m.ArrangeProductsControl))
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
@@ -137,7 +139,7 @@ export function AllProductsGrid({
           not read as a third filter. See ArrangeProductsControl: its own row
           above the grid cost a whole row of vertical space for one button.
         */}
-        <ArrangeProductsControl products={products} isOwner={isOwner} />
+        {isOwner ? <ArrangeProductsControl products={products} isOwner={isOwner} /> : null}
       </CatalogHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">

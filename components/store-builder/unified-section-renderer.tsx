@@ -38,12 +38,27 @@ import { tint } from "@/lib/appearance/site-paint"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
-import { ArrangeProductsControl } from "@/components/storefront/arrange-products-button"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the creator's Arrange control is fetched for the creator. Imported
+  plainly it brought the editor sheet with it (EditorSheet, the save toast,
+  the drag handles) into every visitor's download of the creator page and the
+  product page; it is drawn only when the session is the owner's, so it is
+  rendered only then (below) and its code arrives only then. Server rendered
+  for the owner as before (ssr stays on).
+*/
+/*
+  Round 48: the product gallery (with Swiper and the full screen viewer, about
+  110 KB of script) is drawn only by the product page's own sections, never on
+  a creator page, which imports this file for its header, its grids and its
+  About. Fetched when a product section draws it; server rendered as before.
+*/
+const ProductGallery = dynamic(() => import("@/components/product/product-gallery").then((m) => m.ProductGallery))
+const ArrangeProductsControl = dynamic(() => import("@/components/storefront/arrange-products-button").then((m) => m.ArrangeProductsControl))
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
 
 /**
@@ -2514,7 +2529,7 @@ function UnifiedFeaturedProductsSection({
               `isPreviewMode` is deliberately not consulted: this is gated on
               the session, which the server decided.
             */}
-            <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} />
+            {viewerIsOwner ? <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} /> : null}
           </CatalogHeader>
 
           {/*

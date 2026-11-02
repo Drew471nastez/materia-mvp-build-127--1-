@@ -18,7 +18,13 @@
 import type React from "react"
 
 import { ProductCard } from "@/components/explore/product-card"
-import { ProductOwnerMenu } from "./product-owner-menu"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the owner's menu on a card (and the bottom sheet it opens on a
+  phone, about 130 KB of source) is fetched for the owner only; a visitor's
+  card returns before it is drawn. Server rendered for the owner as before.
+*/
+const ProductOwnerMenu = dynamic(() => import("./product-owner-menu").then((m) => m.ProductOwnerMenu))
 import { getProductInternalPath } from "@/lib/url-helpers"
 
 export interface StorefrontCardProduct {

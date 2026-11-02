@@ -190,9 +190,12 @@ function ManagedImageCarousel() {
               transition: "opacity 800ms cubic-bezier(0.4, 0, 0.2, 1)",
               willChange: i === current ? "opacity" : "auto",
             }}
-            loading="eager"
+            /* Round 48: lazy, and no fetchpriority. This section is a screen and more below the
+               hero, and eager made React put a <link rel="preload"> for each of the three in the
+               <head> (the first one at high priority), competing with the hero slide that is the
+               page's LCP. Lazy still fetches all three well before the section is scrolled to. */
+            loading="lazy"
             decoding="async"
-            fetchPriority={i === 0 ? "high" : "low"}
             /* The frame is `max-w-[800px]` inside `max-w-[1200px] px-6`, so it is
                800 until the viewport is narrow enough for the padding to bite. */
             sizes="(max-width: 848px) calc(100vw - 48px), 800px"
@@ -233,16 +236,12 @@ function ManagedImageCarousel() {
 }
 
 export function ManageSection() {
-  // Preload floating icon images at optimized size (74px icons don't need full-res)
-  useEffect(() => {
-    FLOATING_ICONS.forEach((icon) => {
-      if ("imgSrc" in icon && icon.imgSrc) {
-        const img = new window.Image()
-        img.decoding = "async"
-        img.src = icon.imgSrc
-      }
-    })
-  }, [])
+  /*
+    Round 48: no detached Image() for the floating icons. It asked for each
+    icon's ORIGINAL upload at hydration (one of them 304 KB) while the <img>
+    below draws the 74px optimized file: three downloads nothing painted, at
+    the moment the hero was loading.
+  */
 
   return (
     <section className="pt-20 pb-[68px] sm:py-24 text-center relative overflow-hidden bg-white">
@@ -283,7 +282,7 @@ export function ManageSection() {
                       className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}
                       height={74}
-                      loading="eager"
+                      loading="lazy"
                       decoding="async"
                     />
                   ) : ("emoji" in icon ? icon.emoji : null)}

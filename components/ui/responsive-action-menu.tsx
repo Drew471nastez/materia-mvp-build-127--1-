@@ -32,7 +32,15 @@ import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { createPortal } from "react-dom"
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the phone sheet's code (the sheet, its gestures, its keyboard
+  handling) is fetched when it is first armed: a finger or the keys landing on
+  the trigger, or an opener call. Both places below already mount it only
+  then, so a page with a Share or ... menu no longer carries it in its first
+  script (the product page did). Mounted open, it still rises from below.
+*/
+const BottomSheet = dynamic(() => import("@/components/ui/bottom-sheet").then((m) => m.BottomSheet))
 import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
