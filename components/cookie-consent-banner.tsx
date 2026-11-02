@@ -32,6 +32,7 @@ import { ChevronDown } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { isNativeApp } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { useModalOpenWatch } from "@/lib/ui/modal-open"
 import {
   CATEGORY_TEXT,
   CONSENT_VERSION,
@@ -233,6 +234,9 @@ export function CookieConsentBanner() {
     Storelib's own host. Once the effect has run, the card is the live one,
     decided exactly as before, in the same place in the tree.
   */
+  /* The card steps aside while a modal is open by `html[data-modal-any]` (app/globals.css), which
+     lib/ui/modal-open keeps while the live card is showing. Before hydration nothing can be open. */
+  useModalOpenWatch(ready && bannerOpen && !quiet && !prefsOpen && !isNativeApp())
   if (ready && isNativeApp()) return null
   const early = !ready
   const showCard = early ? !quietPath : bannerOpen && !quiet && !prefsOpen

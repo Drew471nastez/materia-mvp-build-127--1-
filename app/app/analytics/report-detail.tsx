@@ -236,9 +236,10 @@ export function DetailPanel({ open, onClose, title, sub, children, panelKey }: {
           e.preventDefault()
           /*
             FOCUS ON THE NEXT FRAME (round 49, "no long tasks during open"). Focusing in the same task as the mount
-            forced one more restyle of the whole page before the first frame (the shell's html:has([role=dialog])
-            rules restyle everything when a dialog arrives). On the next frame the browser has just done that work
-            for the paint, so the focus costs nothing.
+            forced one more restyle of the whole page before the first frame (Radix's pointer-events on <body>
+            restyles everything when a modal arrives). On the next frame the browser has just done that work for the
+            paint, so the focus costs nothing. The shared Dialog now does this itself without a touch screen
+            (lib/ui/dialog-focus.ts); this keeps it on a phone, where the panel, not a field, takes the focus.
           */
           const panel = e.currentTarget as HTMLElement | null
           requestAnimationFrame(() => {
