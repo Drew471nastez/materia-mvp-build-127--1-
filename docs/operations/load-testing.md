@@ -88,6 +88,93 @@ The second and third rows are what a page waiting on the database does to
 everything else: throughput fell from 216 to 33 a second at 10 in flight,
 and adding more in flight only made each request slower.
 
+## A local production build with a database that answers: `scripts/load/local-bench.mjs`
+
+There is no staging. `local-bench.mjs` measures the server's own cost per
+page: a production build on one machine reading the Supabase stub
+(`scripts/supabase-stub-server.mjs`) with the rows in
+`scripts/load/local-fixture.mjs` (a creator, three products, a OnePage, a
+community, a blog post), so the pages render real markup, not their error
+screens. It always aims at `127.0.0.1`; for a preview use
+`scenarios.mjs --pages /,/pricing,/blog,/sitemap.xml --product-path /<handle>/<slug> --creator <handle> --site <name>`
+(local servers may go to 200 in flight there, anything else stays capped at 50).
+
+```bash
+# 1. the stub, while building (static pages read it at build time)
+node scripts/load/local-bench.mjs --stub &
+STRIPE_SECRET_KEY=sk_test_placeholder RESEND_API_KEY=re_placeholder \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54391 NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder \
+SUPABASE_SERVICE_ROLE_KEY=placeholder NODE_OPTIONS=--max-old-space-size=6144 pnpm build
+kill %1
+# 2. the matrix (starts the stub and next start itself)
+node scripts/load/local-bench.mjs --seconds 20 --levels 10,50,100 --json bench.json
+# 3. where the CPU goes: one .cpuprofile per server process
+node scripts/load/local-bench.mjs --pages creator,product --levels 10 --cpu-prof /tmp/prof
+```
+
+### Measured 2026-11-02 (round 48)
+
+4 vCPU shared with other builds (load average 7 during the run), Node 22,
+Next 16.1.7, no CDN, the database answering in about 1 ms. Every answer was a
+200 with the fixture's content in it.
+
+| Page | In flight | Requests | Per second | p50 | p95 | p99 | Errors | Peak RSS |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/` | 10 | 3,100 | 154.7 | 62 ms | 97 ms | 118 ms | 0% | 474 MB |
+| `/` | 50 | 4,166 | 206.8 | 239 ms | 316 ms | 376 ms | 0% | 510 MB |
+| `/` | 100 | 4,021 | 199.7 | 484 ms | 697 ms | 844 ms | 0% | 533 MB |
+| `/pricing` | 10 | 3,313 | 165.3 | 56 ms | 97 ms | 135 ms | 0% | 538 MB |
+| `/pricing` | 50 | 3,758 | 185.6 | 265 ms | 372 ms | 446 ms | 0% | 538 MB |
+| `/pricing` | 100 | 3,850 | 190.3 | 524 ms | 651 ms | 742 ms | 0% | 542 MB |
+| `/satori` | 10 | 367 | 18.3 | 536 ms | 738 ms | 893 ms | 0% | 636 MB |
+| `/satori` | 50 | 427 | 19.9 | 2,516 ms | 3,244 ms | 4,057 ms | 0% | 831 MB |
+| `/satori` | 100 | 400 | 19.9 | 4,921 ms | 8,705 ms | 9,564 ms | 0% | 968 MB |
+| `/satori/loop-pack-1` | 10 | 337 | 16.8 | 577 ms | 817 ms | 1,178 ms | 0% | 986 MB |
+| `/satori/loop-pack-1` | 50 | 350 | 17.3 | 2,745 ms | 4,358 ms | 4,875 ms | 0% | 986 MB |
+| `/satori/loop-pack-1` | 100 | 367 | 15.4 | 6,439 ms | 10,470 ms | 11,378 ms | 0% | 1,053 MB |
+| `/w/satori` | 10 | 4,277 | 213.3 | 43 ms | 73 ms | 92 ms | 0% | 1,055 MB |
+| `/w/satori` | 50 | 4,361 | 217.2 | 216 ms | 350 ms | 679 ms | 0% | 1,055 MB |
+| `/w/satori` | 100 | 3,440 | 168.1 | 559 ms | 816 ms | 1,365 ms | 0% | 1,055 MB |
+| `/blog` | 10 | 3,734 | 186.6 | 50 ms | 87 ms | 104 ms | 0% | 1,055 MB |
+| `/blog` | 50 | 3,994 | 198.4 | 245 ms | 349 ms | 410 ms | 0% | 1,055 MB |
+| `/blog` | 100 | 4,249 | 208.4 | 471 ms | 635 ms | 781 ms | 0% | 1,056 MB |
+| `/sitemap.xml` | 10 | 2,287 | 114.1 | 82 ms | 140 ms | 192 ms | 0% | 1,058 MB |
+| `/sitemap.xml` | 50 | 2,654 | 131.7 | 334 ms | 572 ms | 1,088 ms | 0% | 1,058 MB |
+| `/sitemap.xml` | 100 | 3,526 | 173.7 | 545 ms | 776 ms | 1,289 ms | 0% | 1,555 MB |
+
+How to read it:
+
+- **The creator page and the product page are the cost.** Both answer
+  `private, no-store`, so every visit is a server render: about 55 to 60 ms
+  of CPU each (16 to 17 a second at one in flight), and throughput stays at
+  16 to 20 a second whatever the concurrency; more in flight only queues.
+  Everything else is held (ISR or `s-maxage`) and serves 150 to 220 a second.
+  On Vercel each function instance takes one render at a time per CPU and
+  scales out, so this is cost per visit rather than a ceiling, but it is the
+  number to watch.
+- **`/sitemap.xml` runs four `count` reads per request** (products,
+  creators, websites, communities). On Vercel it is `s-maxage=3600` with a
+  day of stale, so the CDN almost never asks; locally it is the slowest
+  cached page.
+- **Memory does not leak.** RSS climbs to about 1.5 GB over a long run,
+  but with `--max-old-space-size=384` the same five 20 second runs of 100 in
+  flight stay at 478 to 506 MB with the same throughput: V8 grows the heap
+  because nothing asks it not to.
+
+Where the CPU went (`--cpu-prof`, creator, product and sitemap at 10 in
+flight, 71 s of samples): Next's own render and request handling 23%,
+Node core 35% (undici `fetch` 7%, async hooks and AsyncLocalStorage 6%,
+gzip 3% which Vercel does at the edge instead, one time module loading 4%),
+garbage collection 7.5%, the app's own code 7.3% spread so thin that no
+single function is above 0.25% self time. The largest app frames are the
+fetch wrappers (`lib/net/deadline.ts`, `lib/storage/media-url.ts`
+`mediaFetch`), whose time is the fetch underneath, and Next's per request
+fetch de-duplication. No repeated JSON parsing, no regular expression built
+per request and no synchronous heavy work showed up, so nothing was changed
+for speed in round 48. The lever is fewer database round trips per creator
+and product render (11 for `/<handle>`), or letting the CDN hold those pages
+for visitors without a session.
+
 ## Where the cache ratio for real traffic comes from
 
 The script measures the cache for its own requests. For real visitors,

@@ -226,3 +226,16 @@ timed out and the error screens showed.
 Still open after wave 3: the owner's key migration (or `SUPABASE_JWT_SECRET`),
 SQL 347, 348, 349, 352, canvas staging check, the `storelib://` app link on a
 device, CSP enforcing, a staging load test, Supabase capacity review.
+
+## Round 48, observability (`r48-obs`)
+
+| ID | Status | What changed | Test |
+| --- | --- | --- | --- |
+| Structured logs everywhere | COMPLETE | `lib/net/console-guard.ts`, installed from `instrumentation.ts` `register()` (Node): every server `console.error`/`console.warn` is one JSON line with `route` and `rid`; an uncaught error is one `error_report` line (route, method, status 500, rid, digest) from `onRequestError`, and Next's own print of it is held and dropped (measured on a production build: it came first) | `tests/obs-r48.test.ts`; probe routes on a local build |
+| No PII or tokens in logs | COMPLETE | `lib/net/scrub.ts`: JWTs, bearer values, keys, Supabase cookies, Cookie headers, secret-named values, `?code=`, Luhn card numbers; addresses masked. Used by the guard and `reportError` (row and line) | obs-r48 |
+| Error boundaries | COMPLETE | new `error.tsx` for `(marketing)`, `[sellername]`, `/w/[username]`, `checkout`, `(auth)`, `admin`, `sites/[siteId]`; Explore's reports its digest | obs-r48 (each rendered: Try again, the way back, the digest) |
+| Smoke covers the critical paths | COMPLETE (paths need repository variables) | `/login`; `SMOKE_CREATOR`, `SMOKE_PRODUCT`, `SMOKE_CHECKOUT_PRODUCT`, `SMOKE_DOMAIN` (a visible skip while unset); no secret shapes in `/api/health` | obs-r48, ops-safety-nets |
+| Cron bounding | COMPLETE | wave 2/3 had bounded every job; three still left `maxDuration` to the platform default (fx-rates, release-holds, purge-chat-attachments): now said and passed to the one-run lease | obs-r48 (every cron in vercel.json) |
+| Local load test | COMPLETE (local; staging still open) | `scripts/load/local-bench.mjs` + fixture; `scenarios.mjs --pages/--product-path`; numbers and CPU profile in `docs/operations/load-testing.md`; no app hot spot found, nothing changed for speed | obs-r48 |
+| Pre-push check | COMPLETE | `scripts/pre-push.mjs`: ESLint on changed scripts, the suites that read a changed file, `--types` | obs-r48 |
+| Alert routing | COMPLETE (docs) | `docs/operations/release-safety.md`, Alert routing | n/a |
