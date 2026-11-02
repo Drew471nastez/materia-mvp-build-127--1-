@@ -286,3 +286,30 @@ export function canvasBlogData(payload: BlogCanvasPayload | null, pageKey: strin
   const post = pageKey === "article" ? payload.post ?? null : null
   return { blog, article: post ? storefrontArticleFull({ post, cards, origin }) : null }
 }
+
+/* ── Storelib AI ──────────────────────────────────────────────────────── */
+
+/**
+ * The blog as Storelib AI reads it (read_blog, lib/website-builder/agent/
+ * loop.ts): its address, its categories and its newest posts, in words.
+ * Null when there is no blog with a live post. Public facts only: what any
+ * visitor of the blog can read.
+ */
+export function describeBlog(source: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null, newest = 10): string | null {
+  if (!source?.settings || source.cards.length === 0) return null
+  const { settings, cards } = source
+  const one = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s).replace(/\s+/g, " ").trim()
+  const cats = new Map<string, { name: string; n: number }>()
+  for (const c of cards) if (c.category) cats.set(c.category.slug, { name: c.category.name, n: (cats.get(c.category.slug)?.n ?? 0) + 1 })
+  const featured = cards.filter((c) => c.featured).length
+  return [
+    `BLOG "${one(settings.title, 80)}" at ${blogPath(settings.handle)}: ${cards.length} published post${cards.length === 1 ? "" : "s"}, ${featured} marked featured, ${settings.postsPerPage} per page.`,
+    settings.description ? `Description: ${one(settings.description, 300)}` : "",
+    cats.size ? `Categories (a Blog posts section's category_url takes one of these addresses): ${[...cats.entries()].map(([slug, c]) => `${one(c.name, 60)} ${categoryPath(settings.handle, slug)} (${c.n})`).join("; ")}` : "No categories.",
+    "Newest posts:",
+    ...cards.slice(0, newest).map((c) => `- "${one(c.title, 120)}" ${c.path}${c.category ? ` [${one(c.category.name, 40)}]` : ""}${c.featured ? " (featured)" : ""}${c.excerpt ? `: ${one(c.excerpt, 160)}` : ""}`),
+    'The page "blogs" is the Blog template (every list of posts, built around main_blog) and "article" the Blog post template (every post, built around main_article). Show posts on any other page with a blog_featured section (source "latest", "featured" or "category"). Link to the blog as ' + blogPath(settings.handle) + ". Posts are written in Website Settings › Blog: never type a post, its title or its words into a section.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}

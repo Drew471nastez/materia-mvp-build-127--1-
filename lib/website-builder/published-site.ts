@@ -516,7 +516,7 @@ export interface BlogPageInput {
  * scheduled post goes live by the clock, so it is filtered here, never in
  * the cache (lib/site-blog/public-read.ts liveCards).
  */
-function blogData(
+export function blogPageData(
   source: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null | undefined,
   input: BlogPageInput | undefined,
   origin: string,
@@ -656,7 +656,7 @@ export async function dressPage(
     reviews,
     /* The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template. */
     words: localizer?.words,
-    ...blogData(blogSource, opts.blog, siteUrl, localizer?.locale ?? null),
+    ...blogPageData(blogSource, opts.blog, siteUrl, localizer?.locale ?? null),
   })
   return { sections: filled, data }
 }

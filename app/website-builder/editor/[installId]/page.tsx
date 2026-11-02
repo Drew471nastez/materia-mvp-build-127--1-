@@ -91,6 +91,8 @@ import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
+import { useBlogLinkInfo, useCanvasBlog } from "@/components/website-builder/use-canvas-blog"
+import { pageWantsBlog } from "@/lib/website-builder/blog-page"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
@@ -7735,6 +7737,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ handle: c.handle, title: c.title, image: c.image })),
     [builderCollections],
   )
+  /* The blog, once it has a post a visitor can open: Blog and its categories under Pages (components/website-builder/use-canvas-blog.ts). */
+  const blogLinks = useBlogLinkInfo(installId, !compatInstall)
   const linkTargets = useMemo<LinkTarget[]>(
     /* The store's pages, collections and products, the same list Navigation offers (lib/website-builder/link-targets.ts). */
     () => [
@@ -7743,9 +7747,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         customPages: customPages.map((p) => ({ key: p.key as string, name: p.name })),
         products,
         collections: siteCollectionTargets,
+        blog: blogLinks,
       }),
     ],
-    [customPages, products, sectionTargets, siteCollectionTargets],
+    [customPages, products, sectionTargets, siteCollectionTargets, blogLinks],
   )
   baseTargetsRef.current = linkTargets
   /**
@@ -9852,9 +9857,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ]),
     )
   }, [builderCollections, previewMap, previewPricing, cardsInMarket, previewOriginals])
+  /* The blog's posts for the Blog and Blog post templates and a Blog posts section on any page: the blog's own, or sample ones while it has none, here only (use-canvas-blog.ts). */
+  const canvasBlog = useCanvasBlog(installId, !compatInstall && (currentPage === "blogs" || currentPage === "article" || pageWantsBlog(canvasSections)), currentPage)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words }),
-    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words, blog: canvasBlog?.blog, article: canvasBlog?.article }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
   )
   /*
     Each step the canvas's page is drawn through is a function below the

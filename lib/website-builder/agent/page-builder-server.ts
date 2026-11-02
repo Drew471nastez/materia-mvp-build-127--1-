@@ -22,6 +22,7 @@ import { checkPageState, type CheckResult } from "@/lib/agent-access/checks"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { BUILT_IN_PAGE_KEYS, pagePath, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { blogArticleSections, blogListingSections } from "@/lib/website-builder/blog-page"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { pageKeyFor, planPage, readPageSections, type SitePageTools } from "./page-builder"
 import type { SchemaMap } from "./schemas"
@@ -73,7 +74,7 @@ export function sitePages(db: Db, installId: string, openPage: string): SitePage
     async list() {
       const all = await rows()
       const byKey = new Map(all.map((r) => [r.page_key, r]))
-      const keys = [...new Set(["home", "products", "product", "about", "contact", ...all.map((r) => r.page_key)])]
+      const keys = [...new Set(["home", "products", "product", "about", "contact", "blogs", "article", ...all.map((r) => r.page_key)])]
       const lines = keys.map((key) => {
         const row = byKey.get(key)
         const body = sectionsOf(row).filter((s) => s.type !== "header" && s.type !== "footer")
@@ -82,7 +83,7 @@ export function sitePages(db: Db, installId: string, openPage: string): SitePage
         return `- ${key} (${pageTitleFromKey(key)}, ${pagePath(key)}, ${kind}): ${state}`
       })
       return [
-        `THE SITE'S PAGES (${all.length} stored). "product" is the template every product page uses; "products" is the shop (all products); "collections" lists collections.`,
+        `THE SITE'S PAGES (${all.length} stored). "product" is the template every product page uses; "products" is the shop (all products); "collections" lists collections. "blogs" is the Blog template every list of posts uses (built around main_blog) and "article" the Blog post template every post uses (built around main_article): the posts come from Website Settings › Blog (read_blog), never typed into a section.`,
         ...lines,
         "Build a page that is not open with build_page. Link it from the menu with edit_menu so visitors can reach it.",
       ].join("\n")
@@ -100,8 +101,15 @@ export function sitePages(db: Db, installId: string, openPage: string): SitePage
       if (!existing && all.length >= MAX_PAGES) return { ok: false, text: `This site has ${MAX_PAGES} pages, which is the most it holds.` }
       const replace = args.replace === true && !SYSTEM_PAGES.has(key)
 
-      /* A page made now takes the site's own header and footer, as the builder's Add page does. */
-      const start = existing ? sectionsOf(existing) : sectionsOf(all.find((r) => r.page_key === "home")).filter((s) => s.type === "header" || s.type === "footer")
+      /* A page made now takes the site's own header and footer, as the builder's Add page does. The blog's templates start from their generated layout, so their essential section (main_blog, main_article) is kept and built around. */
+      const homeChrome = () => sectionsOf(all.find((r) => r.page_key === "home"))
+      const start = existing
+        ? sectionsOf(existing)
+        : key === "blogs"
+          ? blogListingSections(homeChrome(), {})
+          : key === "article"
+            ? blogArticleSections(homeChrome(), {})
+            : homeChrome().filter((s) => s.type === "header" || s.type === "footer")
       const plan = planPage({ sections: start, settings: {} }, read.sections, schemas, { replace })
       if (plan.ok === false) return { ok: false, text: `Nothing was written to "${key}". ${plan.error}` }
 

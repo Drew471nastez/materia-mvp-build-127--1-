@@ -101,6 +101,20 @@ const TOPICS: Topic[] = [
   EMPTY: {% else %} in the loop with {% if page.in_editor %}<p>Your published products appear here</p>{% endif %}: nothing invented, nothing shown to a visitor. Filtering and sorting are the shop page's (page.filters), not a script's.`,
   },
   {
+    /*
+      THE BLOG IS READ FROM THE BLOG MANAGER, NEVER TYPED (lib/website-builder/blog-page.ts). A creator's posts are
+      written in Website Settings › Blog; a section shows them the way a product section shows products.
+    */
+    id: "blog",
+    triggers: /\bblog|\barticles?\b|\bposts?\b|journal/i,
+    text: `POSTS COME FROM THE BLOG, NEVER FROM TYPING. A post's title, words, picture or date are never written into markup, a default, a block or a preset: they are written in Website Settings › Blog, and read_blog says what the blog holds.
+  blog (every page that shows posts): blog.title, .handle, .url (/blogs/<handle>), .description, .articles (the posts this list shows), .articles_count, .recent (the newest live posts, on any page), .featured (the ones marked featured), .all_tags, .categories (each .name, .handle, .url, .count, .active, .posts), .tags (each .name, .url, .active), .current_tag, .current_category (.name, .url, .description), .pagination (.page, .pages, .total, .previous_url, .next_url, .parts: each .label, .url, .current, .gap), .sample (true only for the builder's sample posts).
+  EVERY POST in those lists: post.title, .url (| url), .excerpt, .summary_html (| raw), .image (| asset), .image_alt, .date (already in the page's language), .published_at (for <time datetime>), .reading_minutes, .featured, .category (.name, .url) or null, .tags (each .name, .url), .author (.name, .role, .bio, .avatar, .links) or null.
+  article (a post's own page only): every field above, and .content (the post's cleaned markup: {{ article.content | raw }}), .related (posts like it), .previous and .next (or null), .share (.url, .x, .facebook, .linkedin, .email).
+  WHICH POSTS on another page: a select "source" with "latest" ({% for post in blog.recent limit: settings.post_count %}), "featured" (blog.featured) and "category" (a url setting "category_url": {% for c in blog.categories %}{% if c.url == settings.category_url or settings.category_url contains c.url %}{% for post in c.posts limit: settings.post_count %}…). The built-in ones are main_blog (the Blog template, page "blogs"), main_article (the Blog post template, page "article") and blog_featured (any page).
+  EMPTY: {% if blog %} around the whole section, with {% elsif page.in_editor %}<p>Your posts appear here</p>{% endif %}: a site with no blog shows nothing to a visitor.`,
+  },
+  {
     id: "blocks",
     triggers: /block|repeat|item|entry|question|tier|testimonial|logo|slide|card|list|faq|accordion|gallery/i,
     text: `BLOCKS ONLY FOR A LIST THE CREATOR GROWS (questions, testimonials, slides, logos, tiers): declare the type, loop over \`blocks\`, data-block-id="{{ block.id }}" on each, preset 2 or 3, never question_1 / question_2. One of each thing (a hero, a banner, a call to action) is plain settings, NO blocks; no @theme blocks unless asked. Motion is the section's own CSS. A select with the id animation can follow or override the theme's entrance; it is optional.`,

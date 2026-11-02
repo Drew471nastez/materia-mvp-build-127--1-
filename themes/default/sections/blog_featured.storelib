@@ -24,7 +24,7 @@
       {% endif %}
       <div class="posts posts--{{ settings.layout }}">
         {% if settings.source == 'category' %}
-          {% for c in blog.categories %}{% if c.url == settings.category_url or c.handle == settings.category_url %}
+          {% for c in blog.categories %}{% if c.url == settings.category_url or settings.category_url contains c.url %}
             {% for post in c.posts limit: settings.post_count %}
             <article class="post">
               {% if settings.show_image %}<a class="post__media" href="{{ post.url | url }}" tabindex="-1" aria-hidden="true">{% if post.image %}<img src="{{ post.image | asset }}" alt="" loading="lazy" decoding="async">{% else %}<span class="post__blank">{{ post.title | first | upcase }}</span>{% endif %}</a>{% endif %}
@@ -153,7 +153,7 @@
         { "label": "One category's", "value": "category" }
       ]
     },
-    { "type": "url", "id": "category_url", "label": "Category", "default": "", "info": "Pick the category under Pages, Blog, or type its name as it appears in its address.", "visible_if": "{{ section.settings.source == 'category' }}" },
+    { "type": "url", "id": "category_url", "label": "Category", "default": "", "info": "Pick the category in the link picker, under Pages, or paste its address.", "visible_if": "{{ section.settings.source == 'category' }}" },
     { "type": "range", "id": "post_count", "label": "How many", "min": 1, "max": 12, "step": 1, "default": 3 },
     { "type": "header", "id": "hdr_content", "label": "Content" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "From the blog" },

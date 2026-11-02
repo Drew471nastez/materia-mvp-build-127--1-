@@ -72,6 +72,7 @@ export function toolStepLabel(name: string, argumentsJson: string, names: StepNa
     case "copy_section_to_code": return `Making an editable copy of ${section(args.id)}`
     case "ask_creator": return "Asking you a question"
     case "read_store": return "Reading your products"
+    case "read_blog": return "Reading your blog"
     case "add_section": return `Adding ${kind(args.sectionType)}`
     case "remove_section": return `Removing ${section(args.id)}`
     case "move_section": return `Moving ${section(args.id)}`

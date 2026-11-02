@@ -158,35 +158,45 @@ async function listFor(creatorId: string, ask: BlogListAsk): Promise<
   return { kind: "ok", source, listing, path: here }
 }
 
+/** The name a list goes by in a tab and a search result: the category's, the tag's, or the blog's. */
+export function listingName(listing: BlogListing): string {
+  const blog = listing.blog
+  return listing.category ? listing.category.seoTitle || listing.category.name : listing.tag ? `${blog.title}: ${listing.tag}` : blog.seoTitle || blog.title
+}
+
+/**
+ * A list's metadata over the site's own for the page (siteMetadata: its
+ * canonical at the list's path, every language, the store's name, the
+ * site's robots): its description, a website share card with the blog's
+ * picture, and a tag's list followed but never indexed. Pure.
+ */
+export function listingMetadata(base: Metadata, listing: BlogListing): Metadata {
+  const blog = listing.blog
+  const description = (listing.category ? listing.category.seoDescription || listing.category.description : "") || blog.seoDescription || blog.description || (typeof base.description === "string" ? base.description : "")
+  const image = blog.ogImageUrl && /^https?:\/\//i.test(blog.ogImageUrl) ? blog.ogImageUrl : null
+  return {
+    ...base,
+    ...(description ? { description } : {}),
+    openGraph: {
+      ...(base.openGraph ?? {}),
+      type: "website",
+      ...(description ? { description } : {}),
+      ...(image ? { images: [{ url: image }] } : {}),
+    },
+    ...(image || description ? { twitter: { ...(base.twitter ?? {}), ...(description ? { description } : {}), ...(image ? { images: [image] } : {}) } } : {}),
+    /* A tag's list is the blog's posts again, sorted by a word: followed, never a search result of its own. */
+    ...(listing.tag ? { robots: { index: false, follow: !isNoFollow(base.robots) } } : {}),
+  }
+}
+
 export async function blogListMetadata(segment: string, ask: BlogListAsk): Promise<Metadata> {
   const { name: username } = splitSiteName(segment)
   const found = await publishedShopByName(username).catch(() => null)
   if (found?.kind !== "site") return siteMetadata(segment, undefined, "blogs")
   const got = await listFor(found.site.creatorId, ask).catch(() => ({ kind: "missing" as const }))
   if (got.kind !== "ok") return { title: "Not Found", robots: { index: false, follow: false } }
-  const { listing, path } = got
-  const blog = listing.blog
-  const name = listing.category
-    ? listing.category.seoTitle || listing.category.name
-    : listing.tag
-      ? `${blog.title}: ${listing.tag}`
-      : blog.seoTitle || blog.title
-  const meta = await siteMetadata(segment, undefined, "blogs", null, { page: { kind: "page", name }, pageNumber: listing.page, path })
-  const description = (listing.category ? listing.category.seoDescription || listing.category.description : "") || blog.seoDescription || blog.description || (typeof meta.description === "string" ? meta.description : "")
-  const image = blog.ogImageUrl && /^https?:\/\//i.test(blog.ogImageUrl) ? blog.ogImageUrl : null
-  return {
-    ...meta,
-    ...(description ? { description } : {}),
-    openGraph: {
-      ...(meta.openGraph ?? {}),
-      type: "website",
-      ...(description ? { description } : {}),
-      ...(image ? { images: [{ url: image }] } : {}),
-    },
-    ...(image || description ? { twitter: { ...(meta.twitter ?? {}), ...(description ? { description } : {}), ...(image ? { images: [image] } : {}) } } : {}),
-    /* A tag's list is the blog's posts again, sorted by a word: followed, never a search result of its own. */
-    ...(listing.tag ? { robots: { index: false, follow: !isNoFollow(meta.robots) } } : {}),
-  }
+  const base = await siteMetadata(segment, undefined, "blogs", null, { page: { kind: "page", name: listingName(got.listing) }, pageNumber: got.listing.page, path: got.path })
+  return listingMetadata(base, got.listing)
 }
 
 /** Whether metadata already tells crawlers not to follow the page's links (a site kept out of search). */
@@ -214,23 +224,9 @@ export async function BlogListPage({ segment, ask }: { segment: string; ask: Blo
   /* For search results: the blog and this page's posts, and where the list sits (Home › Blog › Recipes). */
   const origin = await siteOrigin(site.creatorId, username)
   const brand = siteStoreName({ brandName: site.themeSettings.brand_name, storeName: site.profile?.storeName, displayName: site.displayName })
-  const blogUrl = `${origin}${blogPath(listing.blog.handle)}`
-  const ld = jsonLdScript(
-    blogJsonLd({
-      url: `${origin}${path}`,
-      name: listing.blog.title,
-      description: listing.blog.description,
-      posts: listing.posts.map((p) => ({ url: `${origin}${p.path}`, title: p.title, publishedAt: p.publishedAt, updatedAt: p.updatedAt, image: p.coverImageUrl })),
-    }),
-  )
-  const crumbs = jsonLdScript(
-    breadcrumbJsonLd([
-      { name: brand, url: `${origin}/` },
-      { name: listing.blog.title, url: blogUrl },
-      ...(listing.category ? [{ name: listing.category.name, url: `${origin}${categoryPath(listing.blog.handle, listing.category.slug)}` }] : []),
-      ...(listing.tag ? [{ name: listing.tag, url: `${origin}${tagPath(listing.blog.handle, listing.tag)}` }] : []),
-    ]),
-  )
+  const data = listingStructuredData({ listing, path, origin, brand })
+  const ld = jsonLdScript(data.blog)
+  const crumbs = jsonLdScript(data.crumbs)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "blog" }}>
@@ -246,6 +242,51 @@ export async function BlogListPage({ segment, ask }: { segment: string; ask: Blo
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )
+}
+
+/** What a search engine reads about a list: the blog (Blog, with this page's posts) and where it sits (Home › Blog › Recipes). Pure. */
+export function listingStructuredData(input: { listing: BlogListing; path: string; origin: string; brand: string }) {
+  const { listing, path, origin, brand } = input
+  return {
+    blog: blogJsonLd({
+      url: `${origin}${path}`,
+      name: listing.blog.title,
+      description: listing.blog.description,
+      posts: listing.posts.map((p) => ({ url: `${origin}${p.path}`, title: p.title, publishedAt: p.publishedAt, updatedAt: p.updatedAt, image: p.coverImageUrl })),
+    }),
+    crumbs: breadcrumbJsonLd([
+      { name: brand, url: `${origin}/` },
+      { name: listing.blog.title, url: `${origin}${blogPath(listing.blog.handle)}` },
+      ...(listing.category ? [{ name: listing.category.name, url: `${origin}${categoryPath(listing.blog.handle, listing.category.slug)}` }] : []),
+      ...(listing.tag ? [{ name: listing.tag, url: `${origin}${tagPath(listing.blog.handle, listing.tag)}` }] : []),
+    ]),
+  }
+}
+
+/** What a search engine reads about a post: a BlogPosting the store published, and Home › Blog › Recipes › the post. Pure. */
+export function postStructuredData(input: { post: PublicPost; settings: SiteBlogSettings; origin: string; brand: string; logo: string | null }) {
+  const { post, settings, origin, brand, logo } = input
+  return {
+    article: articleJsonLd({
+      url: ownCanonical(post) ?? `${origin}${post.path}`,
+      title: post.seo.title || post.title,
+      description: postSeoDescription(post, settings.description),
+      images: [post.seo.ogImageUrl, post.coverImageUrl],
+      published: post.publishedAt,
+      modified: post.updatedAt,
+      author: post.author ? { name: post.author.name, role: post.author.role, links: post.author.links } : null,
+      publisher: { name: brand, logo, url: `${origin}/` },
+      category: post.category?.name ?? null,
+      tags: post.tags,
+      wordCount: post.wordCount,
+    }),
+    crumbs: breadcrumbJsonLd([
+      { name: brand, url: `${origin}/` },
+      { name: settings.title, url: `${origin}${blogPath(settings.handle)}` },
+      ...(post.category ? [{ name: post.category.name, url: `${origin}${post.category.path}` }] : []),
+      { name: post.title, url: `${origin}${post.path}` },
+    ]),
+  }
 }
 
 /* ── A post ───────────────────────────────────────────────────────────── */
@@ -277,26 +318,33 @@ function ownCanonical(post: PublicPost): string | null {
   return /^https?:\/\/[^\s]+$/i.test(c) ? c : null
 }
 
-/** The metadata of a post, live or previewed: its title and description, a share card of type article, its canonical and robots. */
-async function postMetadata(segment: string, post: PublicPost, settings: SiteBlogSettings, opts: { preview: boolean }): Promise<Metadata> {
-  const meta = await siteMetadata(segment, undefined, "article", null, { page: { kind: "page", name: post.title }, path: post.path })
-  const siteDescription = typeof meta.description === "string" ? meta.description : ""
+/**
+ * A post's metadata over the site's own for its page (siteMetadata: the
+ * canonical at the post's path, every language, the store's name and the
+ * site's robots): its own search title and description, a share card of
+ * type article with its picture, dates, author, section and tags, the
+ * canonical its author set, and robots that keep a post marked noindex,
+ * and every preview, out of search. Pure.
+ */
+export function articleMetadata(base: Metadata, post: PublicPost, settings: SiteBlogSettings, opts: { preview: boolean }): Metadata {
+  const siteDescription = typeof base.description === "string" ? base.description : ""
   const description = postSeoDescription(post, settings.description || siteDescription)
-  const metaImages = meta.openGraph && "images" in meta.openGraph ? meta.openGraph.images : undefined
-  const fallback = settings.ogImageUrl || (Array.isArray(metaImages) ? String((metaImages[0] as { url?: unknown })?.url ?? metaImages[0] ?? "") : typeof metaImages === "string" ? metaImages : "")
+  const baseImages = base.openGraph && "images" in base.openGraph ? base.openGraph.images : undefined
+  const fallback = settings.ogImageUrl || (Array.isArray(baseImages) ? String((baseImages[0] as { url?: unknown })?.url ?? baseImages[0] ?? "") : typeof baseImages === "string" ? baseImages : "")
   const image = postShareImage(post, fallback)
+  const picture = image && /^https?:\/\//i.test(image) ? image : null
   const shareTitle = post.seo.ogTitle || post.seo.title || post.title
   const shareDescription = post.seo.ogDescription || description
   const canonical = ownCanonical(post)
-  const title = post.seo.title.trim() ? { absolute: post.seo.title.trim() } : meta.title
-  const robots: Metadata["robots"] = opts.preview || post.seo.noindex ? { index: false, follow: opts.preview ? false : !isNoFollow(meta.robots) } : meta.robots
+  const title = post.seo.title.trim() ? { absolute: post.seo.title.trim() } : base.title
+  const robots: Metadata["robots"] = opts.preview ? { index: false, follow: false } : post.seo.noindex ? { index: false, follow: !isNoFollow(base.robots) } : base.robots
   return {
-    ...meta,
+    ...base,
     title,
     description,
-    ...(canonical ? { alternates: { ...(meta.alternates ?? {}), canonical } } : {}),
+    ...(canonical && !opts.preview ? { alternates: { ...(base.alternates ?? {}), canonical } } : {}),
     openGraph: {
-      ...(meta.openGraph ?? {}),
+      ...(base.openGraph ?? {}),
       type: "article",
       title: shareTitle,
       description: shareDescription,
@@ -305,17 +353,23 @@ async function postMetadata(segment: string, post: PublicPost, settings: SiteBlo
       ...(post.author ? { authors: [post.author.name] } : {}),
       ...(post.category ? { section: post.category.name } : {}),
       ...(post.tags.length ? { tags: post.tags } : {}),
-      ...(image && /^https?:\/\//i.test(image) ? { images: [{ url: image, alt: post.coverAlt || post.title }] } : {}),
+      ...(picture ? { images: [{ url: picture, alt: post.coverAlt || post.title }] } : {}),
     },
     twitter: {
-      ...(meta.twitter ?? {}),
+      ...(base.twitter ?? {}),
       card: "summary_large_image",
       title: shareTitle,
       description: shareDescription,
-      ...(image && /^https?:\/\//i.test(image) ? { images: [image] } : {}),
+      ...(picture ? { images: [picture] } : {}),
     },
     ...(robots ? { robots } : {}),
   }
+}
+
+/** The metadata of a post, live or previewed. */
+async function postMetadata(segment: string, post: PublicPost, settings: SiteBlogSettings, opts: { preview: boolean }): Promise<Metadata> {
+  const base = await siteMetadata(segment, undefined, "article", null, { page: { kind: "page", name: post.title }, path: post.path })
+  return articleMetadata(base, post, settings, opts)
 }
 
 export async function blogPostMetadata(segment: string, rawHandle: string, rawSlug: string): Promise<Metadata> {
@@ -355,40 +409,15 @@ async function drawPost(args: {
 
   const origin = await siteOrigin(site.creatorId, username)
   const brand = siteStoreName({ brandName: site.themeSettings.brand_name, storeName: site.profile?.storeName, displayName: site.displayName })
-  const url = ownCanonical(post) ?? `${origin}${post.path}`
   const logo = typeof site.themeSettings.logo_url === "string" && /^https?:\/\//i.test(site.themeSettings.logo_url) ? site.themeSettings.logo_url : null
-  /* What a search engine reads about the post (a BlogPosting the store published) and where it sits: Home › Blog › Recipes › the post. A preview says nothing. */
-  const ld = preview
-    ? null
-    : jsonLdScript(
-        articleJsonLd({
-          url,
-          title: post.seo.title || post.title,
-          description: postSeoDescription(post, settings.description),
-          images: [post.seo.ogImageUrl, post.coverImageUrl],
-          published: post.publishedAt,
-          modified: post.updatedAt,
-          author: post.author ? { name: post.author.name, role: post.author.role, links: post.author.links } : null,
-          publisher: { name: brand, logo, url: `${origin}/` },
-          category: post.category?.name ?? null,
-          tags: post.tags,
-          wordCount: post.wordCount,
-        }),
-      )
-  const crumbs = preview
-    ? null
-    : jsonLdScript(
-        breadcrumbJsonLd([
-          { name: brand, url: `${origin}/` },
-          { name: settings.title, url: `${origin}${blogPath(settings.handle)}` },
-          ...(post.category ? [{ name: post.category.name, url: `${origin}${post.category.path}` }] : []),
-          { name: post.title, url: `${origin}${post.path}` },
-        ]),
-      )
+  /* What a search engine reads about the post and where it sits. A preview says nothing. */
+  const ld = preview ? null : postStructuredData({ post, settings, origin, brand, logo })
+  const article = ld ? jsonLdScript(ld.article) : null
+  const crumbs = ld ? jsonLdScript(ld.crumbs) : null
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "article" }}>
-      {ld ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} /> : null}
+      {article ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: article }} /> : null}
       {crumbs ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: crumbs }} /> : null}
       <ThemePage
         theme={site.themeSettings}
