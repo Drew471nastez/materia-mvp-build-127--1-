@@ -5465,14 +5465,11 @@ html.capacitor [tabindex="0"]:active {
    the inner element named by its kind restyles the few elements that
    changed. Every element a card holds that can carry a press of its own is
    one of these. */
-/* Round 48: :active first in each compound. The same elements and the same specificity, but the browser tries
-   these on every element as it is styled, and with :active first it stops at the one test that fails on nearly all of
-   them instead of running the :has() search first: the first line cost half as much in Chromium's selector stats. */
 @media (hover: none), (pointer: coarse) {
-  :active:is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas),
-  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :active:is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6),
-  :active:is([data-card], [data-product-card], [data-community-card]),
-  :is([data-card], [data-product-card], [data-community-card]) :active:is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6) {
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas):active,
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active,
+  :is([data-card], [data-product-card], [data-community-card]):active,
+  :is([data-card], [data-product-card], [data-community-card]) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active {
     opacity: 1 !important;
     filter: none !important;
   }

@@ -216,8 +216,9 @@ export function CookieConsentBanner() {
      and, with no yes, nothing optional loads for their visitors. */
   /* The theme marketplace's preview draws a theme with nobody's shop in it (app/(site)/theme-preview): nothing to consent to. */
   const inThemePreview = pathname?.startsWith("/theme-preview/") ?? false
+  const quiet = inSitesEditor || inBuilder || inApp || inThemePreview || embedded || site?.hidden === true
+  /* What the server knows of `quiet`: the address. The frame and the creator's switch are known after the effect. */
   const quietPath = inSitesEditor || inBuilder || inApp || inThemePreview
-  const quiet = quietPath || embedded || site?.hidden === true
 
   /*
     ROUND 48: THE CARD IS IN THE SERVER'S HTML. It used to appear only after
