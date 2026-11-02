@@ -58,6 +58,14 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
   "collections",
   /* The page a website shows while it asks for a password (lib/site-password). */
   "password",
+  /*
+   * The blog's two templates (lib/website-builder/blog-page.ts): the list of
+   * posts at /blogs/<handle> and one post at /blogs/<handle>/<slug>. Not
+   * "blog": on a Storelib theme a page called "blog" is one the creator
+   * made, and stays theirs.
+   */
+  "blogs",
+  "article",
 ])
 
 /**
@@ -100,6 +108,9 @@ export function pageKeyFromSegment(segment: string): string | null {
 export function templateForPage(pageKey: string): string {
   /* The collection template is drawn as "collection" on /collections/<handle>, so the canvas says the same. */
   if (pageKey === "collection") return "collection"
+  /* The blog's templates read as an imported theme's do: "blog" for the list of posts, "article" for one post. */
+  if (pageKey === "blogs") return "blog"
+  if (pageKey === "article") return "article"
   return pageKey === "home" ? "index" : `page.${pageKey}`
 }
 
@@ -119,6 +130,9 @@ export function pageTitleFromKey(key: string): string {
   /* The sign in page's key is one word; its name is two. */
   if (key === "login") return "Sign in"
   if (key === "password") return "Password page"
+  /* The blog's templates: its list of posts and one post. */
+  if (key === "blogs") return "Blog"
+  if (key === "article") return "Blog post"
 
   const words = key.replace(/-/g, " ").trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
@@ -143,10 +157,13 @@ export const NOT_FOUND_PAGE_KEY = "404"
  * stored contact page is served as it is, and a site without one gets the
  * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection", "blogs", "article"])
+
+/** The blog's two templates on a Storelib theme: the list of posts and one post (lib/website-builder/blog-page.ts). */
+export const BLOG_PAGE_KEYS: readonly string[] = ["blogs", "article"]
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection", "blogs", "article"])
 
 /**
  * Where a page is served, when that is not `/<key>`: the sign in page is
@@ -157,5 +174,7 @@ export function pagePath(key: string): string {
   /* The template every collection is drawn with has no address of its own; its nearest is the list of them. */
   if (key === "collection") return "/collections"
   if (key === "login") return "/account/login"
+  /* The blog's templates are drawn under /blogs/<handle>; /blogs itself goes to the blog. */
+  if (key === "blogs" || key === "article") return "/blogs"
   return `/${key}`
 }

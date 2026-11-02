@@ -87,9 +87,11 @@ async function main() {
     ]
     const groups = groupPages(pages)
     const keysOf = (g: string) => groups.find((x) => x.key === g)?.pages.map((p) => p.key) ?? []
-    check("the groups are the ones a shop has, in order", groups.map((g) => g.key).join(",") === "home,shop,products,pages,accounts,contact,policies,other", groups.map((g) => g.key).join(","))
-    check("named plainly: Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other",
-      PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other")
+    /* Changed on purpose (creator blogs): the blog's two templates, the list of posts and one post, under Blog after Pages. */
+    check("the groups are the ones a shop has, in order", groups.map((g) => g.key).join(",") === "home,shop,products,pages,blog,accounts,contact,policies,other", groups.map((g) => g.key).join(","))
+    check("named plainly: Home, Shop, Products, Pages, Blog, Customer accounts, Contact, Policies, Other",
+      PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Blog, Customer accounts, Contact, Policies, Other")
+    check("the blog's list of posts, then one post", keysOf("blog").join(",") === "blogs,article", keysOf("blog").join(","))
     check("home on its own", keysOf("home").join(",") === "home")
     /* Round 25: and the Collection page template every collection is drawn with, after the list of them. */
     check("the shop, its collections, the collection template, then its search", keysOf("shop").join(",") === "products,collections,collection,search", keysOf("shop").join(","))
