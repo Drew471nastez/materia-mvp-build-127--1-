@@ -268,7 +268,7 @@ function Writer({ ctx, initial, overview, onClose }: { ctx: SettingsContext; ini
   }, [])
 
   /* The panel beside the writing from lg; a drawer under it. */
-  const [wide, setWide] = React.useState(true)
+  const [wide, setWide] = React.useState(() => typeof window === "undefined" || !window.matchMedia || window.matchMedia("(min-width: 1024px)").matches)
   React.useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
     const follow = () => setWide(mq.matches)

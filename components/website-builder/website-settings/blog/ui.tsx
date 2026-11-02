@@ -145,13 +145,17 @@ export function BlogDialog({
  */
 export function CheckBox({ checked, mixed = false, onChange, label }: { checked: boolean; mixed?: boolean; onChange: () => void; label: string }) {
   const on = checked || mixed
+  const ref = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    if (ref.current) ref.current.indeterminate = mixed
+  }, [mixed])
   return (
     <label className="relative inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center after:absolute after:-inset-3 after:content-[''] [-webkit-tap-highlight-color:transparent]">
       <input
+        ref={ref}
         type="checkbox"
         className="peer sr-only"
         checked={checked}
-        aria-checked={mixed ? "mixed" : checked}
         aria-label={label}
         onChange={onChange}
       />
