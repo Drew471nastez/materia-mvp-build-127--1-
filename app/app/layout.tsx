@@ -28,6 +28,7 @@ import { within } from "@/lib/website-builder/load-guard"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
+import { exploreMarketplaceAnswer } from "@/lib/platform/explore-marketplace"
 import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
 import { appLanding, ownAccountHref } from "@/lib/team/landing"
 import { TeamBar } from "@/components/app/team-bar"
@@ -191,6 +192,8 @@ export default async function AppLayout({
       storeHasSale(creator.id),
       /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
       communitiesEnabled().catch(() => false),
+      /* Explore in the account menu only while it is switched on; not known yet, it shows (round 51, lib/explore/off-target.ts). Cached for every instance: no trip on most requests. */
+      within(exploreMarketplaceAnswer(), SHELL_EXTRA_MS, null),
       /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
       cachedStoreCurrency(creator.id).catch(() => null),
     ])
@@ -289,7 +292,7 @@ export default async function AppLayout({
   /* Started above, from the same store as `creator` (team store first, then their own). */
   const setupRows = await setupRead
   if (!setupRows) redirect("/sell")
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = setupRows
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, exploreAnswer, storeCurrency] = setupRows
 
   /*
     THE PROFILE'S PHOTO, OR THE INITIALS (lib/account/avatar). This used to
@@ -344,6 +347,7 @@ export default async function AppLayout({
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
           communitiesEnabled={communitiesOn}
+          exploreOn={exploreAnswer !== false}
           teamPermissions={teamStore && acting ? acting.permissions : null}
           teamStores={memberOf.map((m) => ({ creatorId: m.creatorId, name: m.name, avatarUrl: m.avatarUrl, permissions: m.permissions, current: !!teamStore && acting?.creatorId === m.creatorId }))}
         />

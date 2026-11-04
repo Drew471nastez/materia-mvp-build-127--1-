@@ -2,6 +2,7 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { keptSetting, readSetting } from "@/lib/platform/setting-read"
 
 /**
  * ===========================================================================
@@ -30,22 +31,23 @@ function envOverride(): boolean | null {
   return null
 }
 
+/* A read the database did not answer throws, and is never kept as "off" (lib/platform/setting-read.ts). */
 async function readFromDb(): Promise<boolean> {
   const env = envOverride()
   if (env !== null) return env
-  try {
-    const { data } = await createAdminClient().from("platform_settings").select("value").eq("key", PHYSICAL_COMMERCE_KEY).maybeSingle()
-    return data?.value === true
-  } catch {
-    /* no table, no setting: off */
-    return false
-  }
+  return (await readSetting(PHYSICAL_COMMERCE_KEY)) === true
 }
 
-export const isPhysicalCommerceEnabled = unstable_cache(async () => readFromDb(), ["physical-commerce-enabled"], {
-  tags: [PHYSICAL_COMMERCE_CACHE_TAG],
-  revalidate: 300,
-})
+const kept = keptSetting(
+  unstable_cache(async () => readFromDb(), ["physical-commerce-enabled"], {
+    tags: [PHYSICAL_COMMERCE_CACHE_TAG],
+    revalidate: 300,
+  }),
+  false,
+)
+
+/** Off when it could not be read and this instance knew nothing yet, as before; a blip after a good read keeps that read. */
+export const isPhysicalCommerceEnabled = kept.value
 
 export async function setPhysicalCommerceEnabled(enabled: boolean, updatedBy = "admin"): Promise<void> {
   const { error } = await createAdminClient().from("platform_settings").upsert({

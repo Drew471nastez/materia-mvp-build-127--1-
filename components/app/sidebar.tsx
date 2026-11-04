@@ -109,6 +109,8 @@ interface SidebarProps {
   teamPermissions?: TeamPermission[] | null
   /** The stores this account is on as a team member, for the account menu's switcher. */
   teamStores?: TeamStoreRow[]
+  /** Explore is switched on (lib/platform/explore-marketplace), read by the layout: while it is off nothing here offers it. */
+  exploreOn?: boolean
 }
 
 type NotificationsHandle = { open: () => void; toggle: () => void }
@@ -147,12 +149,12 @@ let settingsWarmedAt = 0
 
 const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamPermissions = null, teamStores = [] }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamPermissions = null, teamStores = [], exploreOn = true }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
   /* Explore, read ahead while the dashboard is idle, so leaving for it lands at once (lib/navigation/cross-section.ts). */
-  useEffect(() => warmStorelibPages(router), [router])
+  useEffect(() => (exploreOn ? warmStorelibPages(router) : undefined), [router, exploreOn])
   /**
    * The language picker, opened from either account menu in this sidebar.
    *
@@ -468,9 +470,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * (APP_HELP_HREF below): the places you go come first, then the two rows
    * about you and the app (Language, Help), then leaving.
    */
+  /* Explore only while it is switched on: off, /explore has nothing to show (lib/explore/off-target.ts). */
   const profileDropdownItems = [
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const },
+    ...(exploreOn ? [{ href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const }] : []),
     { href: "/account/library", label: tt("Library"), icon: Library },
   ]
 
@@ -772,7 +775,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Right side: Nav icons + Storelib logo */}
           <div className="flex items-center gap-4 shrink-0">
             <div className="flex items-center gap-1.5">
-              <Link
+              {exploreOn ? <Link
                 href="/explore"
                 onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openStorelibPage(router, "/explore") } }}
                 onMouseEnter={() => prefetchHref(router, "/explore", "hover")}
@@ -780,7 +783,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 title={tt("Discover")}
               >
                 <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
-              </Link>
+              </Link> : null}
               <button
                 onClick={openNotifications}
                 data-notifications-trigger=""
@@ -913,6 +916,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             onOpening={closeMobileMenu}
             onLanguage={openLanguage}
             onSignOut={signOut}
+            exploreOn={exploreOn}
           />
 
           {/* Right side: Explore, then Notifications */}
@@ -935,7 +939,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               shell entirely. Up here beside the bell it reads as what it is:
               a door out, rather than a fourth tab.
             */}
-            <Button
+            {exploreOn ? <Button
               variant="ghost"
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
@@ -946,7 +950,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               }}
             >
               <ExploreIcon size={20} strokeWidth={1.6} />
-            </Button>
+            </Button> : null}
             <Button
               variant="ghost"
               size="icon"

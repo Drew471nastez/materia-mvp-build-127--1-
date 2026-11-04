@@ -2,7 +2,7 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
+import { keptSetting, readSetting } from "@/lib/platform/setting-read"
 
 export const BUYER_HEADER_LIGHT_KEY = "buyer_header_light"
 export const BUYER_HEADER_LIGHT_CACHE_TAG = "buyer-header-light-flag"
@@ -14,37 +14,23 @@ function envOverride(): boolean | null {
   return null
 }
 
+/* A read the database did not answer throws, and is never kept as "dark" (lib/platform/setting-read.ts). */
 async function readFromDb(): Promise<boolean> {
   const env = envOverride()
   if (env !== null) return env
-
-  try {
-    const admin = createAdminClient()
-    const { data } = await admin.from("platform_settings").select("value").eq("key", BUYER_HEADER_LIGHT_KEY).maybeSingle()
-    if (data?.value === true) return true
-    if (data?.value === false) return false
-  } catch {
-    /* table missing */
-  }
-
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.from("platform_settings").select("value").eq("key", BUYER_HEADER_LIGHT_KEY).maybeSingle()
-    if (!error && data?.value === true) return true
-    if (!error && data?.value === false) return false
-  } catch {
-    /* */
-  }
-
-  return false
+  return (await readSetting(BUYER_HEADER_LIGHT_KEY)) === true
 }
 
-/** Light chrome on storelib.com buyer surfaces (not /app). Default dark. */
-export const isBuyerHeaderLight = unstable_cache(
-  async () => readFromDb(),
-  ["buyer-header-light-enabled"],
-  { tags: [BUYER_HEADER_LIGHT_CACHE_TAG], revalidate: 300 },
+const kept = keptSetting(
+  unstable_cache(async () => readFromDb(), ["buyer-header-light-enabled"], {
+    tags: [BUYER_HEADER_LIGHT_CACHE_TAG],
+    revalidate: 300,
+  }),
+  false,
 )
+
+/** Light chrome on storelib.com buyer surfaces (not /app). Default dark, and the last answer when a read is missed. */
+export const isBuyerHeaderLight = kept.value
 
 export async function setBuyerHeaderLight(enabled: boolean, updatedBy = "admin"): Promise<void> {
   const admin = createAdminClient()

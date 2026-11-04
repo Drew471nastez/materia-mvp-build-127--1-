@@ -31,6 +31,12 @@ import { teamStampDb } from "./audit"
 import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 /* Imported, not loaded with import(): an import() gave each of the ~640 routes that reach this file its own async chunk for it, and `next build` outgrew Vercel's 8 GB. */
 import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
+import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
+
+/** The store's row could not be read: refused with a true reason, and the client may ask again (lib/net/request.ts READ_RETRY_STATUSES). */
+export function storeUnavailableResponse(): NextResponse {
+  return NextResponse.json({ error: "Storelib is not answering right now. Try again.", retry: true }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2" } })
+}
 
 /**
  * ===========================================================================
@@ -608,13 +614,14 @@ export async function creatorFor<T extends Record<string, unknown> = { id: strin
   given?: ActingStore | null,
 ): Promise<{ kind: "store"; creator: T; role: TeamRole; acting: ActingStore | null } | { kind: "denied"; acting: ActingStore } | { kind: "none" }> {
   const acting = given !== undefined ? given : await actingStore(db, userId)
+  /* A read that failed throws a ServiceUnavailable (round 51): it used to be "none", and Orders sent a seller to /onboarding, a route answered 403 "Set up your store first". */
   if (acting) {
     if (!permits(acting.permissions, area)) return { kind: "denied", acting }
-    const { data } = await db.from("creators").select(columns).eq("id", acting.creatorId).maybeSingle()
-    return data ? { kind: "store", creator: data as T, role: acting.role, acting } : { kind: "none" }
+    const data = dataOrThrow("store", await db.from("creators").select(columns).eq("id", acting.creatorId).maybeSingle())
+    return data ? { kind: "store", creator: data as unknown as T, role: acting.role, acting } : { kind: "none" }
   }
-  const { data } = await db.from("creators").select(columns).eq("user_id", userId).maybeSingle()
-  return data ? { kind: "store", creator: data as T, role: "owner", acting: null } : { kind: "none" }
+  const data = dataOrThrow("creator", await db.from("creators").select(columns).eq("user_id", userId).maybeSingle())
+  return data ? { kind: "store", creator: data as unknown as T, role: "owner", acting: null } : { kind: "none" }
 }
 
 /**
@@ -665,7 +672,12 @@ export async function requireTeamPermission(area: TeamArea, opts: { read?: boole
   if (who.kind !== "user") return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
   const user = who.user
   const db = createAdminClient()
-  const found = await creatorFor(db, user.id, area)
+  /* The store could not be read: a 503 the client asks again, never "Set up your store first" (round 51). */
+  const found = await creatorFor(db, user.id, area).catch((e: unknown) => {
+    if (isServiceUnavailable(e)) return null
+    throw e
+  })
+  if (!found) return storeUnavailableResponse()
   if (found.kind === "denied") return NextResponse.json({ error: NO_ACCESS }, { status: 403, headers: { "Cache-Control": "no-store" } })
   if (found.kind === "none") return NextResponse.json({ error: "Set up your store first." }, { status: 403, headers: { "Cache-Control": "no-store" } })
   return {

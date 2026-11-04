@@ -50,6 +50,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   onOpening,
   onLanguage,
   onSignOut,
+  exploreOn = true,
 }: {
   /** Every business of the login (up to lib/businesses/rules MAX_BUSINESSES), else this one alone: the switcher at the top of the sheet. */
   businesses?: BusinessRow[]
@@ -63,6 +64,8 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   onOpening: () => void
   onLanguage: () => void
   onSignOut: () => void
+  /** Explore is switched on: off, the sheet does not offer it (components/app/sidebar.tsx). */
+  exploreOn?: boolean
 }) {
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
   const closeMobileProfile = useCallback(() => setMobileProfileDropdownOpen(false), [])
@@ -124,9 +127,9 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   const items = useMemo(() => [
     { href: "/app/settings", label: settingsLabel, icon: Settings },
     { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
-    { href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const },
+    ...(exploreOn ? [{ href: "/explore", label: tt("Explore"), icon: Compass, target: "_blank" as const }] : []),
     { href: "/account/library", label: tt("Library"), icon: Library },
-  ], [settingsLabel, billingLabel])
+  ], [settingsLabel, billingLabel, exploreOn])
 
   return (
     <>

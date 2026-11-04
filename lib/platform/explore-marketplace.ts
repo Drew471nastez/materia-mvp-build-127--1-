@@ -2,7 +2,7 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
+import { keptSetting, readSetting } from "@/lib/platform/setting-read"
 
 export const EXPLORE_MARKETPLACE_KEY = "explore_marketplace"
 export const EXPLORE_MARKETPLACE_CACHE_TAG = "explore-marketplace-flag"
@@ -14,36 +14,26 @@ function envOverride(): boolean | null {
   return null
 }
 
+/*
+  ONE READ, WITH THE SERVICE ROLE, AND A MISSED ONE THROWS (lib/platform/setting-read.ts). It asked
+  createClient() first, which reads cookies and always threw inside unstable_cache, and then answered
+  `false` for a read that failed, which unstable_cache kept for five minutes for every instance: one slow
+  database answer switched Explore off and /explore sent everybody to the landing page.
+*/
 async function readFromDb(): Promise<boolean> {
   const env = envOverride()
   if (env !== null) return env
-
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.rpc("explore_marketplace_enabled")
-    if (!error && typeof data === "boolean") return data
-  } catch {
-    /* RPC or table missing: fall through */
-  }
-
-  try {
-    const admin = createAdminClient()
-    const { data } = await admin.from("platform_settings").select("value").eq("key", EXPLORE_MARKETPLACE_KEY).maybeSingle()
-    if (data?.value === true) return true
-    if (data?.value === false) return false
-  } catch {
-    /* table missing */
-  }
-
-  return false
+  return (await readSetting(EXPLORE_MARKETPLACE_KEY)) ?? false
 }
 
-/** Whether /explore, discover browse and marketplace search are available. */
-export const isExploreMarketplaceEnabled = unstable_cache(
-  async () => readFromDb(),
-  ["explore-marketplace-enabled"],
-  { tags: [EXPLORE_MARKETPLACE_CACHE_TAG], revalidate: 300 },
-)
+const cachedExplore = unstable_cache(async () => readFromDb(), ["explore-marketplace-enabled"], { tags: [EXPLORE_MARKETPLACE_CACHE_TAG], revalidate: 300 })
+const kept = keptSetting(cachedExplore, false)
+
+/** Whether /explore, discover browse and marketplace search are available. Off when it could not be read and nothing was known. */
+export const isExploreMarketplaceEnabled = kept.value
+
+/** The same, null when it could not be read and this instance knows nothing yet: /explore sends nobody away on that. */
+export const exploreMarketplaceAnswer = kept.answer
 
 export async function setExploreMarketplaceEnabled(enabled: boolean, updatedBy = "admin"): Promise<void> {
   const admin = createAdminClient()

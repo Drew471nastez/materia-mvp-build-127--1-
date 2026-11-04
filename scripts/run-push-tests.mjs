@@ -1309,6 +1309,8 @@ const STRICT_SUITES = [
   /* Round 51 (website settings): a theme's own newsletter sends from the builder's canvas (an address on the builder's origin is the canvas page's own) and from a preview link, the lab test's newest result stays, a backup's preview, the owner as the blog's default author live from their profile with Written by and the photo, New post with no second read, Apps' marks, own database Coming soon, GitHub in one line, Team's access only while inviting, a domain's certificate followed; scripts/check-newsletter-canvas-r51.mjs and scripts/check-site-settings-r51.mjs measure them in a browser. Strict: the blog reads through supabase-js. */
   "tests/site-settings-r51.test.ts",
   "tests/editor-reliability-r51.test.ts",
+  /* Round 51 (stability): a platform switch the database did not answer is not off (Explore sent everybody to the landing page), where /explore goes while it is off (never the landing page in the app), the /app menus offer Explore only while it is on, a failed creator read throws instead of sending a seller to /onboarding, /sell and /signup/verify, and the dashboard's boundary asks the server again quietly. scripts/check-app-navigation-r51.mjs measures the navigation. */
+  "tests/app-stability-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
