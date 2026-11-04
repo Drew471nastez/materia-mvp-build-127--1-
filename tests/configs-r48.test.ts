@@ -85,6 +85,8 @@ const OWNER_READERS = [
   "lib/files/usage-server.ts",
   "lib/profile/page-look.ts",
   "lib/store-builder/ensure-store-published.ts",
+  /* r51: the creator page's and the OnePage's social links kept as one, called only from the owner's own saves (creator-profile, onepage/publish) with their client. */
+  "lib/social/onepage-sync.ts",
 ]
 
 function readersInRepo(): string[] {

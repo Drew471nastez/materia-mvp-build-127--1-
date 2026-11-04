@@ -1933,7 +1933,8 @@ function main() {
       holds a save open and tries all three.
     */
     check("a close is refused while a save is in flight", /const close = React\.useCallback\(\(\) => \{\s*if \(busyRef\.current\) return\s*onClose\(\)/.test(sheet) && /onClose=\{close\}/.test(sheet) && /if \(!next\) close\(\)/.test(sheet))
-    check("and the phone sheet springs back rather than leaving and returning", /dismissible=\{!busy\}/.test(sheet))
+    /* Changed on purpose (r51): "Saved" holds the sheet for a moment as well, so it is not dismissible then either. */
+    check("and the phone sheet springs back rather than leaving and returning", /dismissible=\{!busy && !saved\}/.test(sheet))
     {
       const bottom = code("components/ui/bottom-sheet.tsx")
       /* Springs back to where it rests: the top, or the lowered place a scheme preview put it (`lowered`). */
@@ -1973,7 +1974,8 @@ function main() {
     */
     check("the word is still there under the spinner", /\{saveLabel\}/.test(sheet))
     /* No spinner now: "Save" eases into "Saving" in the same grid cell, so the cell keeps its width and nothing moves. */
-    check("the busy state moves nothing", !/<Loader2/.test(sheet) && /col-start-1 row-start-1[\s\S]{0,400}\{saveLabel\}[\s\S]{0,600}col-start-1 row-start-1[\s\S]{0,300}Saving/.test(sheet))
+    /* Changed on purpose (r51): three faces (Save, Saving, Saved) drawn from one list into the same grid cell; still nothing moves. */
+    check("the busy state moves nothing", !/<Loader2/.test(sheet) && /\(\["idle", "saving", "saved"\] as const\)\.map/.test(sheet) && /"col-start-1 row-start-1 inline-flex items-center gap-1\.5 transition-\[opacity,translate\]/.test(sheet) && /\{saveLabel\}[\s\S]{0,200}Saving[\s\S]{0,400}Saved/.test(sheet))
     /* Not `disabled` at all now: that carried opacity-50 from the variants.
        See the note in tests/sheet-controls. */
     check(
@@ -1981,7 +1983,8 @@ function main() {
       (() => {
         /* The Save button only; Cancel is disabled={busy} and should be. */
         const save = sheet.slice(sheet.indexOf("aria-busy={busy"), sheet.indexOf("{saveLabel}"))
-        return /disabled=\{saveDisabled\}/.test(save) && !/\sdisabled=\{busy/.test(save)
+        /* Changed on purpose (r51): disabled only when there is nothing to save, never while saving or saved. */
+        return /disabled=\{saveDisabled && !busy && !saved\}/.test(save) && !/\sdisabled=\{busy/.test(save)
       })(),
     )
     for (const f of ["edit-cta-button", "edit-profile-button", "edit-about-button"]) {

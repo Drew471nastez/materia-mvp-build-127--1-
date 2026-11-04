@@ -488,7 +488,7 @@ export function EditorSheet({
                 )}
               >
                 {face === "idle" ? (
-                  saveLabel
+                  <>{saveLabel}</>
                 ) : face === "saving" ? (
                   <>
                     Saving

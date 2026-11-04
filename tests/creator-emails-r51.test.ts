@@ -214,7 +214,7 @@ async function main() {
     check("the About block's name and sales figure follow it", /draft\.showSales \? totalSales \|\| viewer\.totalSales \|\| 0 : 0/.test(header))
     check("the sheet writes it while open, clears it on Cancel, holds it after Save until the page's values arrive", /setProfileDraft\(\{/.test(button) && /holdDraft\.current = null\s*\n\s*setProfileDraft\(null\)/.test(button) && /holdDraft\.current = savedSignature/.test(button))
     check("nothing about the draft is stored or sent", !/fetch\(|localStorage/.test(draft))
-    check("a hidden sales figure reaches the owner only", /owner \? await Promise\.all\(\[loadTypedContactEmail\(row\.id\), ownerTotalSales\(row\.id\)\]\) : \[null, null\]/.test(viewer))
+    check("a hidden sales figure reaches the owner only", /const salesRead = owner \? ownerTotalSales\(row\.id\) : Promise\.resolve\(null\)/.test(viewer) && /contactEmail, totalSales \}/.test(viewer))
   }
 
   out("\nSAVE: four states, each its own look")

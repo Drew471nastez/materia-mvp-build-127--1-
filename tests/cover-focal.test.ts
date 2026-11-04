@@ -308,7 +308,7 @@ check("a double tap zooms in and back out", /DOUBLE_TAP_ZOOM/.test(frame))
 check("the keyboard can do all of it", /case "ArrowLeft"/.test(frame) && /case "\+"/.test(frame) && /case "-"/.test(frame))
 check(
   "the frame keeps its touches: touch-action none, and the sheet's own opt-out",
-  /touchAction: editable \? "none"/.test(frame) && /data-sheet-no-drag=\{editable/.test(frame),
+  /* Changed on purpose (r51): the gesture props are one object shared by the frame and the taller stage */ /touchAction: editable \? "none"/.test(frame) && /"data-sheet-no-drag": editable \? "" : undefined/.test(frame) && /\{\.\.\.gestureProps\}/.test(frame),
   "without both, a pinch scrolls the form or pulls the sheet down",
 )
 check(
@@ -331,7 +331,7 @@ check("a pinch still settling is finished when its listeners go, not dropped", /
 check("with nobody to tell, the picture goes back to the parent's crop", /const rounded = notify \? roundCrop\(next\) : current/.test(frame))
 check("a finger on a glide stops it where it is, read off the running transform", /cropFromTransform\(f, n, restRef\.current/.test(frame))
 check("a value from outside abandons a running glide (Reset during a double tap's glide)", /const running = animRef\.current\s*if \(running\) \{\s*animRef\.current = null\s*running\.anim\.cancel\(\)/.test(frame))
-check("a capture taken away ends the finger, and only a real up is a tap", /onLostPointerCapture=\{onPointerEnd\}/.test(frame) && /if \(e\.type !== "pointerup"\) return/.test(frame))
+check("a capture taken away ends the finger, and only a real up is a tap", /* Changed on purpose (r51) */ /onLostPointerCapture: onPointerEnd/.test(frame) && /if \(e\.type !== "pointerup"\) return/.test(frame))
 check("a picture's shape needs both sides before a gesture uses it", /img\.naturalWidth > 0 && img\.naturalHeight > 0/.test(frame))
 check(
   "sideways, the frame is capped by height so the form around it still scrolls",

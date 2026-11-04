@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
     hasBoughtFromCreator(supabase, user.id, row.id),
   ])
   const owner = row.user_id === user.id || teamStore === row.id
-  const [contactEmail, totalSales] = owner ? await Promise.all([loadTypedContactEmail(row.id), ownerTotalSales(row.id)]) : [null, null]
+  /* The owner's sales figure is read beside the address, never for anybody else. */
+  const salesRead = owner ? ownerTotalSales(row.id) : Promise.resolve(null)
+  const contactEmail = owner ? await loadTypedContactEmail(row.id) : null
+  const totalSales = await salesRead
   return NextResponse.json({ owner, bought, contactEmail, totalSales }, { headers: PRIVATE })
 }
