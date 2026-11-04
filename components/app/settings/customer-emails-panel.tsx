@@ -233,20 +233,18 @@ export function CustomerEmailsPanel({
   /* A family that is not offered here (physical off, no community): All. */
   const shown: View = tabs.some((t) => t.value === view) ? view : "all"
   /*
-    THE LIST COMES IN AS SETTINGS' SECTION DOES (round 43, the owner: "smooth exactly like the Settings
-    tab's pills"): 160ms from 0.25 on Settings' curve (app/globals.css .settings-panel), the old list gone
-    at once. Never from 0 and never remounted (round 28: no flash): the rows stay where they are and only
-    their opacity eases, on the list that is already there. Not on the first paint, not with reduced motion.
+    WHAT STAYS, STAYS; WHAT ARRIVES, FADES IN (r51, the owner: "no flash or jump, with the content kept
+    steady"). Round 43 dimmed the WHOLE list to 0.25 and brought it back over 160ms on every press: the rows
+    that were staying blinked with the rest, which is the flash (measured: opacity 0.25 on every switch). Now
+    a family section that was already on screen is not touched at all, and only a section that was not there
+    comes in, from 0 over VIEW_FADE_MS on Settings' curve (FamilySection). Never on the first paint, never
+    with reduced motion, and nothing is remounted (round 28).
   */
   const viewPanel = React.useRef<HTMLDivElement>(null)
   const viewDrawn = React.useRef<string | null>(null)
+  const switched = viewDrawn.current !== null && viewDrawn.current !== shown
   React.useLayoutEffect(() => {
-    const was = viewDrawn.current
     viewDrawn.current = shown
-    const el = viewPanel.current
-    if (was === null || was === shown || !el || typeof el.animate !== "function") return
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: VIEW_FADE_MS, easing: PILL_FADE_EASE })
   }, [shown])
   const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
   const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
@@ -306,22 +304,17 @@ export function CustomerEmailsPanel({
         Digital's rows as they are and only takes the others away.
       */}
       <div ref={viewPanel} id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
-        {shown === "digital" || shown === "physical" ? (
-          <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pt-3 sm:px-5" : "mb-3")} data-language-rule="">
-            {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
-          </p>
-        ) : null}
         {families.map((family) =>
           family === "communities" ? (
             community ? (
-              <FamilySection key={family} title={shown === "all" ? FAMILY_NAMES.communities : null} bare={bare}>
+              <FamilySection key={family} title={FAMILY_NAMES.communities} bare={bare} arrive={switched}>
                 <CommunityEmails community={community} sent={activity?.communities[community.id] ?? null} days={activity?.days ?? 30} bare={bare} />
                 {/* Its automated messages, as each family lists its automations under its emails; they open over this page. */}
                 <CommunityAutomations communities={[community]} bare={bare} titled={false} />
               </FamilySection>
             ) : null
           ) : (
-            <FamilySection key={family} title={shown === "all" ? FAMILY_NAMES[family] : null} bare={bare}>
+            <FamilySection key={family} title={FAMILY_NAMES[family]} bare={bare} arrive={switched}>
               {GROUP_ORDER.map((g) => {
                 const rows = emailsOf(family, physical).filter((e) => e.group === g)
                 if (rows.length === 0) return null
@@ -359,6 +352,15 @@ export function CustomerEmailsPanel({
             </FamilySection>
           ),
         )}
+        {/*
+          UNDER THE LIST, NOT OVER IT (r51). Above the rows it came and went with Digital and Physical, so
+          every row under it moved 15px (25px on a phone) on the press: the jump. Here it moves nothing.
+        */}
+        {shown === "digital" || shown === "physical" ? (
+          <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pb-3 pt-3 sm:px-5" : "mt-3")} data-language-rule="">
+            {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
+          </p>
+        ) : null}
       </div>
       {error ? <Notice className={cn("mt-3", bare && "mx-4 mb-3")}>{error}</Notice> : null}
     </div>
@@ -387,9 +389,18 @@ export function CustomerEmailsPanel({
 }
 
 /** One family's part of the list: under its own name in All, alone otherwise. */
-function FamilySection({ title, bare, children }: { title: string | null; bare: boolean; children: React.ReactNode }) {
+function FamilySection({ title, bare, arrive = false, children }: { title: string | null; bare: boolean; arrive?: boolean; children: React.ReactNode }) {
+  /* A section a press brought in eases in from nothing (r51); one already on screen is left exactly as it is. */
+  const ref = React.useRef<HTMLElement>(null)
+  const arriving = React.useRef(arrive)
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!arriving.current || !el || typeof el.animate !== "function") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: VIEW_FADE_MS, easing: PILL_FADE_EASE })
+  }, [])
   return (
-    <section className={cn(title && (bare ? "pt-2" : "mt-5 first:mt-0"))} data-email-family={title ?? undefined}>
+    <section ref={ref} className={cn(title && (bare ? "pt-2" : "mt-5 first:mt-0"))} data-email-family={title ?? undefined}>
       {title ? <h3 className={cn("text-[14px] font-semibold text-[#1a1a2e]", bare ? "px-4 pt-3 sm:px-5" : "")}>{title}</h3> : null}
       {children}
     </section>

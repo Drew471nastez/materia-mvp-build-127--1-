@@ -1290,6 +1290,8 @@ const STRICT_SUITES = [
   "tests/site-blog-native.test.ts",
   /* Round 50 (server reliability): the editor's routes and clients against a stand-in Supabase that is slow (1 to 8s), cold, resets a connection, answers 503, 504 or 429: GETs take the read answer while Auth is slow, a database blip is a 503 the editor retries, a save sent twice is one save, the limiter has ceilings, retries come from a budget, a hung breaker trial does not refuse everybody, one quiet retry for a read in the app, and words that blame the connection only when it is the connection. Strict: it imports the website routes through lib/team/website. */
   "tests/server-reliability-r50.test.ts",
+  /* Round 51 (E): Edit profile on the creator page with one scroll, a taller cover, every field and switch on the page before Save, four Save states, "@" social fields, and its social links synced with the OnePage's both ways; Customer emails' and Settings' pills as Analytics' chips with no flash or jump. scripts/check-profile-sheet-r51.mjs and scripts/check-emails-pills-r51.mjs measure them. */
+  "tests/creator-emails-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

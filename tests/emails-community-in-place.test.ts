@@ -71,7 +71,8 @@ console.log("\n3. All / Digital / Physical / Communities do not slide; they fade
   check("Analytics and the Emails tabs keep their slide", /transition-colors/.test(sliding))
   const panel = read("components/app/settings/customer-emails-panel.tsx")
   /* Changed on purpose (round 47, the owner): the Integrations pills, which never slide; the chosen one is dark in the same frame. */ check("Customer emails uses the Integrations pills, which never slide", /<FilterPills value=\{shown\}/.test(panel) && !/<SegmentedPills[^>]*value=\{shown\}/.test(panel)) // Changed on purpose (round 43)
-  check("the list comes in as a Settings section does: 160ms from 0.25, never remounted", /const VIEW_FADE_MS = 160/.test(panel) && /el\.animate\(\[\{ opacity: 0\.25 \}, \{ opacity: 1 \}\], \{ duration: VIEW_FADE_MS, easing: PILL_FADE_EASE \}\)/.test(panel) && /<div ref=\{viewPanel\} id="customer-emails-view"/.test(panel) && !/key=\{shown\}/.test(panel))
+  /* Changed on purpose (r51, the owner: "no flash or jump, with the content kept steady"): the whole list no longer dims to 0.25; only a section a press brought in comes in, over the same 160ms. Still never remounted. */
+  check("a section the press brings comes in over 160ms, the rest stays as it is, never remounted", /const VIEW_FADE_MS = 160/.test(panel) && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: VIEW_FADE_MS, easing: PILL_FADE_EASE \}\)/.test(panel) && !/opacity: 0\.25/.test(panel) && /<div ref=\{viewPanel\} id="customer-emails-view"/.test(panel) && !/key=\{shown\}/.test(panel))
   const settings = read("components/app/settings-form-new.tsx")
   check("the same numbers as Settings' own pills", /const TAB_FADE_MS = 150/.test(settings) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings) && /PILL_FADE_MS = 150/.test(read("components/app/segmented-pills.tsx")) && /settings-panel-in 160ms cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(read("app/globals.css")))
 }
