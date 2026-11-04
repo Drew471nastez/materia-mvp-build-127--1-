@@ -204,7 +204,8 @@ console.log("\nThe server marks them all read in one statement, for this user on
   const route = readCode("app/api/notifications/route.ts")
   const readAll = route.slice(route.indexOf('if (action === "read_all")'), route.indexOf("if (!ids ||"))
   check("one update of read_at", (readAll.match(/\.update\(/g) ?? []).length === 1 && /\.update\(\{ read_at: now \}\)/.test(readAll))
-  check("scoped to the signed in user", /\.eq\("user_id", user\.id\)/.test(readAll) && /auth\.getUser\(\)/.test(route))
+  /* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
+  check("scoped to the signed in user", /\.eq\("user_id", user\.id\)/.test(readAll) && /auth\.getUser\(\)|await routeUser\(\)/.test(route))
   check("only rows still unread", /\.is\("read_at", null\)/.test(readAll))
   check("a body that is not JSON is a 400, not a crash", /request\.json\(\)\.catch\(\(\) => null\)/.test(route))
   check("the bell's count has a mode of its own: a head count, no rows", /searchParams\.get\("summary"\) === "1"/.test(route) && /count: "exact", head: true/.test(route))

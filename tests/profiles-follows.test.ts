@@ -516,7 +516,7 @@ async function main() {
     check("username: the old one still finds them", /username_history/.test(uname))
     check("username: rate limited", /rateLimit\(/.test(uname))
     const privacy = stripComments(read("app/api/profile/privacy/route.ts"))
-    check("privacy: only the patch, only their row", /auth\.getUser\(\)/.test(privacy) && /privacyPatch\(body\)/.test(privacy) && /\.eq\("id", user\.id\)/.test(privacy) && /rateLimit\(/.test(privacy))
+    check("privacy: only the patch, only their row", /auth\.getUser\(\)|await routeUser\(\)/.test(privacy) && /privacyPatch\(body\)/.test(privacy) && /\.eq\("id", user\.id\)/.test(privacy) && /rateLimit\(/.test(privacy))
     const act = stripComments(read("app/api/profile/activity/route.ts"))
     check("activity: through the one gate that reads the switch", /activityFor\(/.test(act))
     const gate = stripComments(read("lib/profile/activity-page.ts"))
@@ -728,7 +728,7 @@ async function main() {
       "javascript:alert(1)",
     ].every((u) => ownCoverUrl(u, me, host) === null))
     const route = stripComments(read("app/api/profile/cover/route.ts"))
-    check("the route: the session's own row, checked address, rate limited, 503 before the column exists", /auth\.getUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route) && /rateLimit\(/.test(route) && /status: 503/.test(route))
+    check("the route: the session's own row, checked address, rate limited, 503 before the column exists", /auth\.getUser\(\)|await routeUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route) && /rateLimit\(/.test(route) && /status: 503/.test(route))
     /* Round 8: the creator editor's own control, its frame the repositioner (drag, pinch, Reset), not only its upload box. */
     check("Settings uses the creator cover's own control (bucket covers, the frame that repositions)", /<ImageUpload\s+bucket="covers"\s+aspectRatio="cover"/.test(read("components/account/cover-field.tsx")) && /reposition=\{reposition\}/.test(read("components/account/cover-field.tsx")))
     check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))

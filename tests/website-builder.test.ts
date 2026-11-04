@@ -1508,7 +1508,7 @@ section("Two at once still make five, and an import that says what went wrong")
     /* Changed on purpose (round 12, WBPERF): the install route asks through editorUser (readCurrentUser: 401 for nobody, 503 for a blip). */
     /* Changed on purpose (round 42 team): duplicate, the install route, publish and add ask lib/team/website (signed in through editorUser, the store's install checked in lib/team/areas storeInstall); import stays the owner's. */
     [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts"), routes.add].every((src) => /website(Install)?Caller/.test(src)) && /await editorUser\(own(?:, opts)?\)/.test(read("lib/team/website.ts")) && /\.eq\("creator_id", creatorId\)/.test(read("lib/team/areas.ts")) && /\.eq\("creator_id", creator\.id\)/.test(routes.duplicate) &&
-      [routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
+      [routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)|await routeUser\(\)/.test(src) && /Unauthorized/.test(src)))
 
   /*
     THE PACKAGE GOES TO STORAGE, NOT THROUGH A FUNCTION. A function refuses

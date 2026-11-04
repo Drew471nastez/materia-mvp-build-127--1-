@@ -121,7 +121,7 @@ async function main() {
 
   console.log("\nThe checkout's facts route")
   const facts$ = code("app/api/community/[communityId]/checkout/route.ts")
-  check("checks the communities switch first, then who is asking", facts$.search(/await requireCommunitiesOn\(\)/) < facts$.search(/auth\.getUser\(\)/) && /viewerContext\(/.test(facts$))
+  check("checks the communities switch first, then who is asking", facts$.search(/await requireCommunitiesOn\(\)/) < facts$.search(/auth\.getUser\(\)|await routeUser\(\)/) && /viewerContext\(/.test(facts$))
   check("refuses signed out, a plan not on sale, and the checkout gate's refusals", /status: 401/.test(facts$) && /plan_unavailable/.test(facts$) && /checkoutGate\(/.test(facts$))
   check("grants nothing", !/grantMembership|\.insert\(|\.update\(|\.upsert\(/.test(facts$))
   check("never cached", /no-store/.test(facts$))

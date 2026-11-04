@@ -51,6 +51,8 @@ const SUITES = [
   "tests/auth-email-code.test.ts",
   /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
   "tests/auth-refresh-outage.test.ts",
+  /* Round 50: refresh outages keep the session, one renewal per token, the proxy waits for its renewal, the editor asks before "Sign in" */
+  "tests/auth-session-reliability-r50.test.ts",
   /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
   "tests/auth-sync-session-get.test.ts",
   /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */

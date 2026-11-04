@@ -228,7 +228,8 @@ async function main() {
     const src = code(route).replace(/videoBucketOf\((body\.bucket|formData\.get\("bucket"\))\)/g, "videoBucketOf(checked)")
     /* Changed on purpose (round 40 team permissions): a route may sign the caller in through lib/team/server requireTeamPermission, which is auth.getUser() and a 401 without a session, passed on as the gate's own status, before anything else. */
     const teamGate = /await requireTeamPermission\("[a-z_]+"\)/.test(src) && /if \(gate instanceof NextResponse\) return/.test(src) && /gate\.status === 401/.test(src)
-    check(`${route}: signed in first`, (/auth\.getUser\(\)/.test(src) && /status: 401/.test(src)) || teamGate)
+    /* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
+    check(`${route}: signed in first`, (/auth\.getUser\(\)|await routeUser\(\)/.test(src) && /status: 401/.test(src)) || teamGate)
     check(`${route}: never a bucket or path from the request`, !/body\??\.(bucket|path)\b/.test(src) && !/formData\.get\("(bucket|path)"\) as string/.test(src))
     check(`${route}: rate limited`, /uploadRateLimit\(user\.id/.test(src) && /if \(limited\) return limited/.test(src))
   }

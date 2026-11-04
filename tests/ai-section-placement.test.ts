@@ -152,7 +152,7 @@ function main() {
   const chat = read("components/website-builder/theme-chat.tsx")
   const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const submit = React.useCallback("))
   check("the spot is held before the request goes", writeOne.indexOf("onWriteStart?.(prompt)") > -1
-    && writeOne.indexOf("onWriteStart?.(prompt)") < writeOne.indexOf("await fetch("))
+    && writeOne.indexOf("onWriteStart?.(prompt)") < writeOne.indexOf("await fetchSignedIn(() => fetch("))
   /* The ending is lib/website-builder/ask-code-run.ts (finishWrite), driven for real in tests/ask-images-u.test.ts. */
   const codeRun = read("lib/website-builder/ask-code-run.ts")
   check("a section that was kept is handed over by type", /place: \(section\) => \(onWriteDone \? onWriteDone\(section\) : false\)/.test(writeOne) && /const section = \{ type, name: answer\.name, path: answer\.path \}/.test(codeRun))
