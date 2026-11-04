@@ -93,7 +93,9 @@ async function main() {
   check("signed in on the web: the library", exploreOffTarget({ userAgent: SAFARI, cookieNames: ["sb-abc-auth-token.0"] }) === "/account/library")
   check("a stranger on the web: the home page, as before", exploreOffTarget({ userAgent: SAFARI, cookieNames: ["storelib_consent"] }) === "/")
   const layout = readCode("app/(marketing)/explore/layout.tsx")
-  check("/explore sends nobody away on an unanswered read: only a real off", /enabled === false/.test(layout) && !/redirect\("\/"\)/.test(layout) && /exploreOffTarget\(/.test(layout))
+  check("/explore sends nobody away on an unanswered read: only a real off, to the route that decides per person", /if \(enabled === false\) redirect\(EXPLORE_OFF_PATH\)/.test(layout) && !/redirect\("\/"\)/.test(layout) && !/next\/headers/.test(layout))
+  const offRoute = readCode("app/api/explore/off/route.ts")
+  check("  that route decides from the request and is never cached", /exploreOffTarget\(\{ userAgent: request\.headers\.get\("user-agent"\)/.test(offRoute) && /private, no-store/.test(offRoute))
 
   section("3. The /app account menus offer Explore only while it is on")
   const shell = readCode("app/app/layout.tsx")

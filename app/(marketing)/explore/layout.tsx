@@ -1,8 +1,7 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { cookies, headers } from "next/headers"
 import { exploreMarketplaceAnswer } from "@/lib/platform/explore-marketplace"
-import { exploreOffTarget } from "@/lib/explore/off-target"
+import { EXPLORE_OFF_PATH } from "@/lib/explore/off-target"
 import { ExploreMark } from "@/components/analytics/explore-mark"
 
 /*
@@ -21,15 +20,12 @@ export default async function ExploreLayout({ children }: { children: React.Reac
   /*
     ONLY A REAL "OFF" SENDS ANYBODY AWAY (round 51). A read the database did not answer used to be "off",
     and every visitor was sent to the landing page: the account menu's Explore "goes to storelib.com".
-    Unknown now draws Explore (lib/platform/setting-read.ts). When it is off: the app's start gate in the
-    iOS and Android apps, the library for somebody signed in, the home page for a stranger on the web
-    (lib/explore/off-target.ts).
+    Unknown now draws Explore (lib/platform/setting-read.ts). When it is off, /api/explore/off decides
+    per person, since this render asks nobody who is looking (tests/cdnpages-r49): the app's start gate
+    in the iOS and Android apps, the library for somebody signed in, the home page for a stranger.
   */
   const enabled = await exploreMarketplaceAnswer()
-  if (enabled === false) {
-    const [h, c] = await Promise.all([headers(), cookies()])
-    redirect(exploreOffTarget({ userAgent: h.get("user-agent"), cookieNames: c.getAll().map((x) => x.name) }))
-  }
+  if (enabled === false) redirect(EXPLORE_OFF_PATH)
   /* A creator's page opened from here counts Storelib Explore as its source (components/analytics/explore-mark). */
   return (
     <>
