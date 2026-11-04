@@ -100,9 +100,10 @@ async function main() {
     "with staleTimes.dynamic at 0, every tab press shows the skeleton again")
   /* Whole pages, not their frames: with no loading boundary under /app an
      ordinary prefetch of a dynamic page brings back almost nothing. */
+  /* Changed on purpose (round 48): on a computer, where the bar is hidden, the pages alone and once (tests/appperf-r48.test.ts). */
   check("and the shell warms the bar's routes, whole",
-    /onPrefetch=\{\(href\) => \{[\s\S]{0,120}?prefetchAppPage\(router, href\)/.test(shell)
-      && /for \(const item of items\) onPrefetch\(item\.href\)/.test(nav)
+    /onPrefetch=\{\(href, phone\) => \{[\s\S]{0,260}?prefetchAppPage\(router, href, phone \? \{ keepWarm: true \} : \{ pageOnly: true \}\)/.test(shell)
+      && /for \(const item of items\) onPrefetch\(item\.href, warmedAsPhone\)/.test(nav)
       && /router\.prefetch\(href, \{ kind: "full" \}/.test(read("lib/ui/app-navigation.ts")))
   check("and it draws no glyph from a second icon library",
     !/from "lucide-react"/.test(nav),
@@ -1091,7 +1092,9 @@ async function main() {
        (components/ui/bottom-sheet.tsx showSheetState; scripts/check-app-sheets-frames.mjs). */
     /* Three, not two: the product editor's layer has its own step down, to 53, so the pill stays over the layer and under the sheet. */
     check("and the pill never counts a dialog that says it is hidden",
-      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 3
+      /* Round 49: counted in script (lib/ui/modal-open.ts) and said on <html> as data-modal-open, not asked by :has(). */
+      (css.match(/html\[data-modal-open\][^{,]* \[data-app-nav-pill\]/g) ?? []).length === 3
+        && /MODAL_OPEN_SELECTOR = '\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)'/.test(read("lib/ui/modal-open.ts"))
         && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
   }
 

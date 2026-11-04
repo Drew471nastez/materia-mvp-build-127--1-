@@ -8,8 +8,10 @@
  * its sender the way Shopify's do:
  *
  *   a logo           the picture at its own shape, at most 40px tall and
- *                    200px wide, never cropped, never rounded, alone: the
- *                    logo is the name (its alt says it for a reader)
+ *                    200px wide, never cropped, never cut round, alone: the
+ *                    logo is the name (its alt says it for a reader). Its
+ *                    corners have the store logo's small radius and it has
+ *                    no shadow (round 49, lib/brand/store-logo.ts)
  *   a square icon    the same picture (a profile photo, a square mark), the
  *                    store's name beside it, as an icon alone says nothing
  *   no picture       the store's name in type, after its initial on a tile
@@ -25,6 +27,8 @@
  * notification engine's, the physical ones, review requests, community
  * emails) and lib/email-campaigns/template.ts (campaigns).
  */
+
+import { STORE_LOGO_RADIUS } from "@/lib/brand/store-logo"
 
 /** The tallest a logo is drawn, in CSS pixels. */
 export const LOGO_MAX_H = 40
@@ -57,9 +61,14 @@ function esc(value: unknown): string {
  * auto with a max on each, so a wide one stops at 200px wide and a tall one
  * at 40px tall, and neither is ever stretched or cropped. The height
  * attribute is what Outlook on Windows reads, which ignores max-*.
+ *
+ * The store logo's small corner (round 49, lib/brand/store-logo.ts), on the
+ * picture itself so a wordmark's own four corners are the ones rounded.
+ * Outlook on Windows ignores border-radius on a picture and draws it square,
+ * which is fine. No shadow.
  */
 export function logoImg(src: string, alt: string, cls = "e-store-logo", extra = ""): string {
-  return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" height="${LOGO_MAX_H}"${extra} style="display:block;width:auto;height:auto;max-width:${LOGO_MAX_W}px;max-height:${LOGO_MAX_H}px;border:0;outline:none;text-decoration:none;">`
+  return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" height="${LOGO_MAX_H}"${extra} style="display:block;width:auto;height:auto;max-width:${LOGO_MAX_W}px;max-height:${LOGO_MAX_H}px;border:0;border-radius:${STORE_LOGO_RADIUS}px;outline:none;text-decoration:none;">`
 }
 
 /** Where the name stands beside an icon, for a comment: "--" can never close it early. */

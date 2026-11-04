@@ -8,6 +8,8 @@
  *
  * WHAT IT READS, AND WHY EACH IS HONEST
  *
+ *   ?src=onepage           a OnePage's Buy (round 49), wherever its checkout
+ *                          is, the website's own host included.
  *   ?src=website, ?site=   a website's Buy button says so, and says which
  *                          website (lib/orders/checkout-origin
  *                          withCheckoutOrigin, run on the website).
@@ -40,6 +42,7 @@ import { detectClientAppFromUA, hostIs } from "@/lib/analytics/sources"
 import { CARRY_PARAM } from "@/lib/attribution/touch"
 import {
   FROM_LABEL,
+  ONEPAGE_SOURCE,
   SOURCE_PARAM,
   WEBSITE_SOURCE,
   cleanHost,
@@ -180,7 +183,10 @@ export function describeCheckout(input: OriginInput): OrderOrigin | null {
   const refHost = hostOf(input.referrer)
   const origin: OrderOrigin = {}
 
-  if (q.get(SOURCE_PARAM) === WEBSITE_SOURCE || isSiteHost(pageHost, main)) {
+  if (q.get(SOURCE_PARAM) === ONEPAGE_SOURCE) {
+    /* A OnePage's Buy, on a website's checkout or on storelib.com's (lib/onepage/shipped-checkout): the OnePage is where it began. */
+    origin.surface = "onepage"
+  } else if (q.get(SOURCE_PARAM) === WEBSITE_SOURCE || isSiteHost(pageHost, main)) {
     origin.surface = "website"
     origin.site =
       cleanHost(q.get("site")) ??

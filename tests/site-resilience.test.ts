@@ -36,7 +36,7 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
   console.log("\nWhere it is used\n")
   const site = read("lib/website-builder/published-site.ts")
   check("the native site reads its name, install and pages this way", (site.match(/siteRead\(/g) ?? []).length >= 5 && site.includes('siteRead("published install"') && site.includes('siteRead("pages"'))
-  check("  and serves the last good copy when a read throws", /const lastGood = new Map/.test(site) && /served the last good copy/.test(site))
+  check("  and serves the last good copy when a read throws", /* Changed on purpose (round rel-sites): kept by use, not arrival (lib/website-builder/last-good.ts). */ /const lastGood = new LastGood</.test(site) && /served the last good copy/.test(site))
   const compat = read("lib/website-builder/compat-site.ts")
   check("an imported theme's files are never held half read", compat.includes('throw new SiteReadError("theme files"'))
   check("  its install and pages are read this way, with a last good copy", compat.includes('siteRead("published install"') && compat.includes('siteRead("pages"') && compat.includes("lastGoodSite"))
@@ -44,8 +44,9 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
   check("  and with nothing kept it answers 503, try again, never a 404", route.includes("status: 503") && route.includes('"Retry-After": "5"'))
   const proxy = read("proxy.ts")
   check("a connected domain keeps its last answer, and is never sent away for a failed lookup", proxy.includes('return held ? held.value : "unavailable"') && proxy.includes('resolved === "unavailable" && !isApiCall'))
-  check("an imported theme is never taken for a native one because a check failed", /if \(failed\) return hit\?\.value \?\? false/.test(proxy))
-  check("AI sites and connected websites keep their last answer too", (proxy.match(/return remembered\(/g) ?? []).length === 2)
+  /* rel3-leftovers SITE-8: nothing held is "unavailable" now (a 503 on the subdomain), never a guessed "no". */
+  check("an imported theme is never taken for a native one because a check failed", /if \(failed\) return hit \? hit\.value : "unavailable"/.test(proxy))
+  check("AI sites and connected websites keep their last answer too", (proxy.match(/return remembered(?:Answer)?\(/g) ?? []).length === 2 && /if \(fresh\.failed\) return held \? held\.value : "unavailable"/.test(proxy))
   check("a canonical address never fails a page", read("lib/website-builder/site-seo-data.ts").includes('primaryHostFor(creatorId, "website").catch(() => null)'))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

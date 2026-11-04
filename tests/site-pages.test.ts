@@ -87,7 +87,7 @@ function main() {
     check("it no longer asks for one page by name", !/\.eq\("page_key", "home"\)/.test(build))
     check("it reads the install's pages", /\.from\("store_theme_pages"\)[\s\S]{0,120}\.eq\("install_id", row\.id\)/.test(build))
     /* Cleaned by the built-in schemas and by the ones the creator's own section files declare. */
-    check("and keeps them by key", /pages\[r\.page_key\] = sanitizeSections\(published, ownSchemas\)/.test(build))
+    check("and keeps them by key", /* Changed on purpose (round 45 leftovers): forVisitors takes the contact form's inbox address out. */ /pages\[r\.page_key\] = forVisitors\(sanitizeSections\(published, ownSchemas\)\)/.test(build))
 
     /**
      * A page with no published sections is a page that has been made and not
@@ -163,7 +163,8 @@ function main() {
     /* Twelve: the password page a website shows while it asks for one (lib/site-password), and the
        collections page, Shopify's list-collections (lib/website-builder/shop-page). */
     /* Thirteen: the Collection page template (round 25), drawn for every /collections/<handle>. */
-    check("and the thirteen are the thirteen", BUILT_IN_PAGE_KEYS.size === 13 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Changed on purpose (creator blogs): fifteen, with the blog's two templates, "blogs" (the list of posts) and "article" (one post). */
+    check("and the fifteen are the fifteen", BUILT_IN_PAGE_KEYS.size === 15 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection", "blogs", "article"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))
@@ -277,7 +278,7 @@ function main() {
     check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
     check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
     /* A lookup that fails keeps the last answer it had (a live website stays up through a blip), and with none it is no website, which is the profile. */
-    check("a lookup that fails reads as the last answer, else no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?return remembered\(/.test(proxy) && /if \(fresh\.failed\) return held\?\.value \?\? false/.test(proxy))
+    check("a lookup that fails reads as the last answer, else no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?return remembered\(/.test(proxy) && /if \(fresh\.failed\) return held \? held\.value : "unavailable"/.test(proxy) && /return \(await rememberedAnswer\(key, ask\)\) === true/.test(proxy)) /* rel3-leftovers SITE-8: remembered() still reads "unavailable" as no. */
   }
 
   // ═══════════════════════════════════════════════════════════════════════

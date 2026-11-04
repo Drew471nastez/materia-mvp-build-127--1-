@@ -15,6 +15,12 @@
  *     record needs;
  *   - the address is never logged.
  *
+ *   - two boxes post here, each named by `source` (anything else is the
+ *     footer's): the footer's, and the blog's (app/(marketing)/blog
+ *     _components/newsletter-card), each storing the words it showed;
+ *   - `company` is a field people never see. A script that fills every
+ *     field fills it; it gets the same answer and nothing is stored.
+ *
  * Table: supabase/sql/RUN_STORELIB_NEWSLETTER.sql. Until that has been run
  * the route says so plainly (503) rather than pretending it worked.
  */
@@ -24,10 +30,13 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-const CONSENT_TEXT = "Receive weekly assets and future templates for free by joining our community."
+const CONSENT_TEXT: Record<"footer" | "blog", string> = {
+  footer: "Receive weekly assets and future templates for free by joining our community.",
+  blog: "New guides for creators, by email.",
+}
 
 export async function POST(req: NextRequest) {
-  let body: { email?: unknown }
+  let body: { email?: unknown; source?: unknown; company?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -37,6 +46,10 @@ export async function POST(req: NextRequest) {
   if (!EMAIL.test(email) || email.length > 254) {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 })
   }
+
+  const source = body.source === "blog" ? "blog" : "footer"
+  /* The hidden field: a person never sees it, so a value in it is a script. */
+  if (typeof body.company === "string" && body.company.trim()) return NextResponse.json({ ok: true })
 
   const limited = await rateLimit({
     bucket: "newsletter",
@@ -55,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await admin
     .from("storelib_newsletter")
-    .upsert({ email, source: "footer", consent_text: CONSENT_TEXT, unsubscribed_at: null }, { onConflict: "email" })
+    .upsert({ email, source, consent_text: CONSENT_TEXT[source], unsubscribed_at: null }, { onConflict: "email" })
 
   if (error) {
     /* 23505: already on the list. Same answer as a new sign-up. */

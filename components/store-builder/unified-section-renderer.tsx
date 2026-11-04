@@ -1,5 +1,7 @@
 "use client"
 
+import { cleanStoredHtml } from "@/lib/rich-text/html"
+import { useContactShown, useCreatorPageOwner } from "@/components/storefront/creator-page-viewer"
 import { personName } from "@/lib/profile/display-name"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { usePriceCurrency } from "@/components/platform/price-currency"
@@ -38,12 +40,27 @@ import { tint } from "@/lib/appearance/site-paint"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
-import { ArrangeProductsControl } from "@/components/storefront/arrange-products-button"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the creator's Arrange control is fetched for the creator. Imported
+  plainly it brought the editor sheet with it (EditorSheet, the save toast,
+  the drag handles) into every visitor's download of the creator page and the
+  product page; it is drawn only when the session is the owner's, so it is
+  rendered only then (below) and its code arrives only then. Server rendered
+  for the owner as before (ssr stays on).
+*/
+/*
+  Round 48: the product gallery (with Swiper and the full screen viewer, about
+  110 KB of script) is drawn only by the product page's own sections, never on
+  a creator page, which imports this file for its header, its grids and its
+  About. Fetched when a product section draws it; server rendered as before.
+*/
+const ProductGallery = dynamic(() => import("@/components/product/product-gallery").then((m) => m.ProductGallery))
+const ArrangeProductsControl = dynamic(() => import("@/components/storefront/arrange-products-button").then((m) => m.ArrangeProductsControl))
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
 
 /**
@@ -170,8 +187,12 @@ export interface UnifiedSectionProps {
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
   sellerProductsCount?: number
-  /** A PUBLIC address the creator typed. Absent means no Contact link. */
-  sellerContactEmail?: string
+  /**
+   * The creator's handle when this viewer may have their contact address.
+   * Absent means no Contact link. The address itself is never in the page:
+   * ContactReveal asks for it when pressed (lib/commerce/contact-email.ts).
+   */
+  sellerContactHandle?: string
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
@@ -547,7 +568,7 @@ function UnifiedAboutSection({
   memberSince,
   totalSales,
   productsCount,
-  contactEmail,
+  contactHandle,
   onUpdateSettings,
   onOpenSidebar,
   pageBackgroundColor,
@@ -561,8 +582,8 @@ function UnifiedAboutSection({
   memberSince?: string
   totalSales?: number
   productsCount?: number
-  /** A PUBLIC address the creator typed. Absent means no Contact link. */
-  contactEmail?: string
+  /** The creator's handle when this viewer may have their address (see sellerContactHandle). Absent means no Contact link. */
+  contactHandle?: string
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
   pageBackgroundColor?: string
@@ -575,6 +596,8 @@ function UnifiedAboutSection({
    */
   ownerActions?: React.ReactNode
 }) {
+  /* On a creator page, Contact is for somebody who bought from them, asked after load (round 49); elsewhere the caller already decided. */
+  const contactShown = useContactShown()
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -869,9 +892,9 @@ function UnifiedAboutSection({
               comment used to claim the opposite, which had stopped being
               true.
             */}
-            {contactEmail && (
+            {contactHandle && contactShown && (
               <div className="mt-6 text-sm" style={{ color: textColor || undefined }}>
-                <ContactReveal email={contactEmail} />
+                <ContactReveal handle={contactHandle} />
               </div>
             )}
           </div>
@@ -1149,7 +1172,14 @@ function UnifiedAboutSection({
                     <div
                       className="storelib-prose"
                       // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: settings.aboutContent || "" }}
+                      /*
+                        Cleaned HERE as well (round 48): the creator profile route
+                        cleans the story on save, but the page builder's own save
+                        (app/api/store-builder) stores its sections as sent, and a
+                        story with an onerror attribute ran on storelib.com/<handle>.
+                        The same allow list the product description renders through.
+                      */
+                      dangerouslySetInnerHTML={{ __html: cleanStoredHtml(settings.aboutContent || "") }}
                     />
                   ) : (
                     <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
@@ -1233,7 +1263,7 @@ function UnifiedAboutSection({
               "flex-shrink-0 w-full md:w-64",
               isMobile && "!w-full"
             )}>
-              <h4
+              <h3
                 className={cn(
                   "font-semibold text-base md:text-lg",
                   isMobile && "!text-base"
@@ -1241,7 +1271,7 @@ function UnifiedAboutSection({
                 style={{ color: textColor || undefined }}
               >
                 Accepted payment methods
-              </h4>
+              </h3>
             </div>
             <div className="flex-1 w-full">
               {/* The card brands are drawn in their own colours, on their own white chips, in either look (data-keep-bright, round 30). */}
@@ -1287,12 +1317,12 @@ function UnifiedAboutSection({
             className="w-full h-px mb-6"
             style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
           />
-          <h4
+          <h3
             className="font-semibold text-base mb-2"
             style={{ color: textColor || undefined }}
           >
             Returns & exchanges
-          </h4>
+          </h3>
           <p
             className="text-sm"
             style={{ color: textColor ? `${textColor}cc` : "#374151" }}
@@ -1346,7 +1376,7 @@ export function ProductAboutSection({
             "flex-shrink-0 w-full md:w-64",
             isMobile && "!w-full"
           )}>
-            <h4
+            <h3
               className={cn(
                 "font-semibold text-base md:text-lg",
                 isMobile && "!text-base"
@@ -1354,7 +1384,7 @@ export function ProductAboutSection({
               style={{ color: paint(textColor, "ink") || undefined }}
             >
               Accepted payment methods
-            </h4>
+            </h3>
           </div>
           <div className="flex-1 w-full">
             <div className="flex flex-wrap items-center -space-x-1" data-keep-bright="">
@@ -1398,12 +1428,12 @@ export function ProductAboutSection({
             className="w-full h-px mb-6"
             style={{ backgroundColor: textColor ? tint(paint(textColor, "ink"), "20") : paint("#e5e7eb", "line") }}
           />
-          <h4
+          <h3
             className="font-semibold text-base mb-2"
             style={{ color: paint(textColor, "ink") || undefined }}
           >
             Returns & exchanges
-          </h4>
+          </h3>
           <p
             className="text-sm"
             style={{ color: textColor ? tint(paint(textColor, "ink"), "cc") : paint("#374151", "ink") }}
@@ -1447,7 +1477,7 @@ export function UnifiedSectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
-  sellerContactEmail,
+  sellerContactHandle,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
   aboutOwnerActions,
@@ -1606,7 +1636,7 @@ export function UnifiedSectionRenderer({
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
           productsCount={sellerProductsCount}
-          contactEmail={sellerContactEmail}
+          contactHandle={sellerContactHandle}
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
           pageBackgroundColor={globalSettings?.themeColors?.background}
@@ -2302,7 +2332,7 @@ function UnifiedFeaturedProductsSection({
   creatorName,
   creatorUsername,
   creatorAvatarUrl,
-  viewerIsOwner,
+  viewerIsOwner: ownerGiven,
   productsOrder,
 }: {
   settings: FeaturedProductsSettings
@@ -2318,6 +2348,8 @@ function UnifiedFeaturedProductsSection({
   /** The creator's own arrangement, shared with the Products tab. */
   productsOrder?: string[]
 }) {
+  /* The owner's Arrange and card menus: what the caller said, or the creator page's own answer after load (round 49, components/storefront/creator-page-viewer). */
+  const viewerIsOwner = useCreatorPageOwner(ownerGiven)
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   /**
    * NO HORIZONTAL PADDING OF ITS OWN. This was 8, applied as an INLINE style,
@@ -2510,7 +2542,7 @@ function UnifiedFeaturedProductsSection({
               `isPreviewMode` is deliberately not consulted: this is gated on
               the session, which the server decided.
             */}
-            <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} />
+            {viewerIsOwner ? <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} /> : null}
           </CatalogHeader>
 
           {/*
@@ -2689,7 +2721,7 @@ export interface UnifiedShopHeaderProps {
    * way to email them sat oddly among them. It belongs in the About block,
    * which is the part of the page that is about dealing with this person,
    * and the About block is a LOCKED default section, so every creator page
-   * has one. See UnifiedAboutSection's `contactEmail`.
+   * has one. See UnifiedAboutSection's `contactHandle`.
    */
 }
 
@@ -2963,7 +2995,18 @@ export function UnifiedShopHeader({
           clear of anything it belongs to. It gets a proper row of its own with
           the same breathing space the header below it has.
         */
-        <div className={cn("flex justify-end", isMobile ? "px-3 pt-5" : "px-4 pt-6 sm:px-6")}>{ownerActions}</div>
+        /*
+          ROUND 49: OVER THE PAGE, NOT A ROW OF ITS OWN. The creator page is one
+          HTML for everybody and the owner's controls arrive after it loads
+          (components/storefront/creator-page-viewer), so a row that held them
+          would either push the whole header down when they came in or leave
+          an empty band on every visitor's page. A row of no height instead,
+          the controls laid over the header's own top padding, where they
+          were, right-aligned.
+        */
+        <div className="relative z-[6] h-0">
+          <div className={cn("absolute right-3 top-3", !isMobile && "sm:right-6 sm:top-4")}>{ownerActions}</div>
+        </div>
       ) : null}
 
       {/*
@@ -3974,12 +4017,12 @@ export function UnifiedProductPage({
                         className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                         style={{ borderColor: cardBorderColor }}
                       >
-                        <h3
+                        <h2
                           className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
                         >
                           What&apos;s included
-                        </h3>
+                        </h2>
                         <ul className="mt-3 space-y-2">
                           {whatsIncluded.map((item, idx) => (
                             <li
@@ -4281,12 +4324,12 @@ export function UnifiedProductPage({
                       className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                       style={{ borderColor: cardBorderColor }}
                     >
-                      <h3
+                      <h2
                         className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
                       >
                         What&apos;s included
-                      </h3>
+                      </h2>
                       <ul className="mt-3 space-y-2">
                         {whatsIncluded.map((item, idx) => (
                           <li
@@ -4565,12 +4608,12 @@ export function UnifiedProductPage({
                     className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
                     style={{ borderColor: cardBorderColor }}
                   >
-                    <h3
+                    <h2
                       className={cn("font-semibold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
                     >
                       What&apos;s included
-                    </h3>
+                    </h2>
                     <ul className="mt-3 space-y-2">
                       {whatsIncluded.map((item, idx) => (
                         <li

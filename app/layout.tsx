@@ -1,5 +1,6 @@
 import type React from "react"
 import { APPEARANCE_BOOT, APP_FROM_DARK_BOOT } from "@/lib/appearance/site-appearance"
+import { COOKIE_ASK_BOOT } from "@/lib/consent/early-ask"
 import { SiteAppearance } from "@/components/platform/site-appearance"
 import { AppRouterHandle } from "@/lib/navigation/app-router-handle"
 import "./theme-dark.css"
@@ -73,6 +74,9 @@ import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplac
 import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { MissingImageGuard } from "@/components/media/missing-image"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
+import { siteVerification } from "@/lib/seo/site-verification"
+import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
+import { CapturePlatformTouch } from "@/components/attribution/capture-platform-touch"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -153,6 +157,8 @@ export const metadata: Metadata = {
     images: [storelibAssetUrl(STORELIB_OG_IMAGE)],
   },
   metadataBase: new URL("https://storelib.com"),
+  /* google-site-verification and msvalidate.01, only when GOOGLE_SITE_VERIFICATION or BING_SITE_VERIFICATION is set (lib/seo/site-verification.ts). */
+  verification: siteVerification(),
 }
 
 export const viewport: Viewport = {
@@ -180,7 +186,7 @@ export default function RootLayout({
    * by design, so every page reported a hydration mismatch that was not one.
    */
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
+    <html lang={STORELIB_PAGE_LANG} className="light" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all
@@ -268,6 +274,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {/* The dashboard opened after a dark page starts under a veil of its header's colour, never on a light field (round 30). */}
         <script dangerouslySetInnerHTML={{ __html: APP_FROM_DARK_BOOT }} />
+        {/* Whether the cookie card in the server's HTML may show before React has run (lib/consent/early-ask, round 48). */}
+        <script dangerouslySetInnerHTML={{ __html: COOKIE_ASK_BOOT }} />
         {/* ONE PAGE INTO THE NEXT, INSIDE THE APP (app/globals.css, round 16): a page load between /app and the rest crossfades
             in the app; a browser keeps its plain load. Read before the first frame, as pagereveal must be heard. */}
         <script
@@ -292,6 +300,8 @@ export default function RootLayout({
               <SettingsSubpageHost />
               {/* "Account created" or "Welcome back", once, on the page a sign in lands on (lib/auth/arrival.ts). */}
               <ArrivalNote />
+              {/* Where a visit to storelib.com came from, kept for a Storelib account made later (lib/attribution/browser notePlatformVisit). */}
+              <CapturePlatformTouch />
             </> })}
           </LocaleProvider>
         </SWRProvider>

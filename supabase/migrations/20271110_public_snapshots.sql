@@ -1,0 +1,5 @@
+/* Stored copies of public pages (round 49, lib/edge/public-snapshot.ts). A private Storage bucket, public-snapshots: one JSON object per page of a published website, a OnePage or a community's public page, as a stranger is shown it, plus a small index per site and a record per website host (which site a connected domain is). The proxy serves a copy when the database does not answer, instead of "One moment". Written and read only by the server with the service role, which needs no policy; nothing is granted to anon or authenticated, and the bucket is not public. 4 MB per object, JSON only. Until it runs, every copy write fails quietly and pages answer exactly as before. No rows change. Safe to run again. */
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['application/json'])
+ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
+notify pgrst, 'reload schema';

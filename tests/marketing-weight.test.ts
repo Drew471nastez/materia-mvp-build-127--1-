@@ -118,7 +118,7 @@ check(
  *   /l/<slug>      a creator's link page, entirely their own layout
  *   /<handle>/links  the same page, at the address it now has
  *   /wishlist      signed-in only
- *   /blog/explore/categories/<category>
+ *   /blog/category/<slug>  (was /blog/explore/categories/<category>, now a 308)
  *
  * They have the same gap and it is worth closing; drawing their skeletons
  * blind is how you ship a flash of the wrong page. Delete a line here when
@@ -134,7 +134,8 @@ const KNOWN_GAPS = new Set([
   "app/(marketing)/l/[slug]",
   "app/(marketing)/[sellername]/links",
   "app/(marketing)/wishlist",
-  "app/(marketing)/blog/explore/categories/[category]",
+  "app/(marketing)/blog/category/[slug]",
+  "app/(marketing)/blog/category/[slug]/page/[page]",
 ])
 
 /**

@@ -48,12 +48,18 @@ console.log("\nTheme code that changed (a push)\n")
   const v1 = assetVersionIn(files, "theme.css")
   check("a file's address carries what it holds", v1 === assetVersionIn(files, "theme.css") && v1 !== assetVersionIn({ ...files, "shopify/assets/theme.css": "a{color:red}" }, "theme.css"))
   check("  a .liquid asset is read by its source", assetVersionIn({ "shopify/assets/x.css.liquid": "b{}" }, "x.css") !== assetVersionIn({}, "x.css"))
-  check("  the canvas names the theme's files by it", /assetUrl: \(name\) => media\[name\] \?\? `\/api\/site-theme\/assets\/\$\{installId\}\/edit\/\$\{encodeURIComponent\(name\)\}\?v=\$\{assetVersionIn\(files, name\)\}`/.test(canvas))
+  /* Changed on purpose (round rel-sites): the draft version carries the install's pass (lib/storelib-theme/compat/draft-version.ts), still named by what the file holds. */
+  check("  the canvas names the theme's files by it", /assetUrl: \(name\) => media\[name\] \?\? `\/api\/site-theme\/assets\/\$\{installId\}\/\$\{draftAssetVersion\(installId\)\}\/\$\{encodeURIComponent\(name\)\}\?v=\$\{assetVersionIn\(files, name\)\}`/.test(canvas))
   check("the same script at another version is theme code that changed", scriptFileChanged(["/x/theme.js?v=a"], ["/x/theme.js?v=b"]))
   check("  a script added or kept is not", !scriptFileChanged(["/x/theme.js?v=a"], ["/x/theme.js?v=a", "/x/search.js?v=c"]) && !scriptFileChanged([], ["/x/a.js?v=1"]))
   check("  such a page is loaded again (never the new script run over the old one)", planPatch(shape(), shape({ srcs: ["/api/site-theme/assets/i/edit/theme.js?v=b2"] })) === null)
   check("  the same scripts: changed in place as before", !!planPatch(shape(), shape({ styles: [] })))
-  check("a section's own stylesheet at a new version takes the old one's place once loaded", /var old = keptLink\[fileOf\(href\)\];/.test(bridge) && /if \(old\) kept\[href\]\.then\(function \(\) \{ if \(old\.href && kept\[old\.href\]\) delete kept\[old\.href\]; old\.remove\(\); \}\);/.test(bridge))
+  /*
+    Changed on purpose (scripts/check-section-insert-smooth.mjs): a kept stylesheet can now be a <style>
+    holding the text the builder handed over, which has no href, so the old one is found by the address
+    it was kept under (__slHref) as well as by its href. The old version still goes once the new is in.
+  */
+  check("a section's own stylesheet at a new version takes the old one's place once loaded", /var old = keptLink\[fileOf\(href\)\];/.test(bridge) && /if \(old\) kept\[href\]\.then\(function \(\) \{ var was = old\.__slHref \|\| old\.href; if \(was && kept\[was\]\) delete kept\[was\]; old\.remove\(\); \}\);/.test(bridge))
 }
 
 console.log("\nA change to every section, and a page worn by edits\n")

@@ -21,6 +21,7 @@
  * renderer, the one layout, signed links, and the blocks as saved and read
  * back.
  */
+import { STORE_LOGO_RADIUS } from "@/lib/brand/store-logo"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -176,10 +177,11 @@ check("the logo is the store's, with its name as alt text, linking to the store"
 check("with no logo the store's name is written instead", /class="sl-brand"[^>]*>Ana &amp; Co</.test(buildEmail({ subject: "s", bodyHtml: "", brand: { ...brand, logoUrl: null }, kind: "marketing", unsubscribeUrl: "#" })))
 check("fluid to 600px, with a fixed table only for Outlook", /max-width:600px/.test(frame) && /<!--\[if mso\]><table role="presentation" width="600"/.test(frame))
 check("dark mode is declared and styled", /name="color-scheme" content="light dark"/.test(frame) && /prefers-color-scheme: dark/.test(frame) && /\[data-ogsc\]/.test(frame))
-check("the logo has no frame in any scheme: no border, padding, plate or radius on it, inline or in the style block", (() => {
+/* Changed on purpose (round 49): the owner asked for the store logo's small corner (lib/brand/store-logo.ts), and no other radius. */
+check("the logo has no frame in any scheme: no border, padding, plate or shadow on it, only the store logo's small corner, inline or in the style block", (() => {
   const img = /<img class="sl-logo"[^>]*>/.exec(frame)?.[0] ?? ""
   const style = /style="([^"]*)"/.exec(img)?.[1] ?? ""
-  return !!img && /border:0/.test(style) && !/padding|background|border-radius|box-shadow|border:\s*[1-9]/.test(style) && !/\.sl-logo\s*\{/.test(frame)
+  return !!img && /border:0/.test(style) && !/padding|background|box-shadow|border:\s*[1-9]/.test(style) && (style.match(/border-radius:[^;]*/g) ?? []).join() === `border-radius:${STORE_LOGO_RADIUS}px` && !/\.sl-logo\s*\{/.test(frame)
 })())
 check("the preheader is hidden and padded so the body stays out of the inbox line", /class="sl-preheader" style="display:none;[^"]*mso-hide:all;">Look &lt;here&gt;(&#8199;&#65279;&#847; ){60}/.test(frame))
 check("no tracking pixel unless one is given", !/width="1" height="1"/.test(frame) && /width="1" height="1"/.test(buildEmail({ subject: "s", bodyHtml: "", brand, kind: "marketing", unsubscribeUrl: "#", openPixelUrl: "https://storelib.com/api/email/track?t=x" })))

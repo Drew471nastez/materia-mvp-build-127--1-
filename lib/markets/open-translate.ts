@@ -48,6 +48,7 @@ import { soundTranslation } from "./translation-check"
 import { listModels, modelOrder, rankModels } from "./gemini-models"
 import { CF_KNOWN_GOOD, listCfModels, rankCfModels } from "./cloudflare-models"
 import { count, loadRests, logOnce, nextMidnight, noteOutcome, readState, rest as restModel, restOf, takeSlot, writeState, type Rest } from "./translate-budget"
+import { logEvent } from "@/lib/net/log"
 
 export type OpenProvider = "gemini" | "cloudflare" | "deepl" | "llm" | "libretranslate" | "huggingface" | "mymemory"
 
@@ -499,7 +500,8 @@ async function readGeminiModels(now: number): Promise<string[]> {
   if (models) {
     const tag = `${keyTag}:${hash(models.join(",")).slice(0, 16)}`
     if (kept?.models_hash !== tag) {
-      console.error(`[translate] gemini models for translating now: ${models.slice(0, 8).join(", ")}${keptModels ? ` (was: ${keptModels.slice(0, 8).join(", ")})` : ""}`)
+      /* Informational: the list changed, nothing failed. It was logged as an error and showed in the error groups. */
+      logEvent("info", "translate_models_changed", { msg: "[translate] gemini models for translating now", provider: "gemini", models: models.slice(0, 8).join(", "), was: keptModels ? keptModels.slice(0, 8).join(", ") : null })
       if (db) void writeState(db, "gemini", () => ({ models, models_hash: tag, listed_at: new Date(now).toISOString() }))
     } else if (db) void writeState(db, "gemini", () => ({ listed_at: new Date(now).toISOString() }))
   }
@@ -686,7 +688,7 @@ export async function cloudflareModels(now = Date.now()): Promise<string[]> {
     } catch (e) {
       logOnce(`cf-list:${(e as { status?: number }).status ?? "net"}`, `[translate] cloudflare: could not read the model list (${e instanceof Error ? e.message : "error"}); using the known list`)
     }
-    if (models && cfListed?.models?.join() !== models.join()) console.error(`[translate] cloudflare models for translating now: ${models.slice(0, 6).join(", ")}`)
+    if (models && cfListed?.models?.join() !== models.join()) logEvent("info", "translate_models_changed", { msg: "[translate] cloudflare models for translating now", provider: "cloudflare", models: models.slice(0, 6).join(", ") })
     cfListed = { at: now, models }
   }
   const out: string[] = []

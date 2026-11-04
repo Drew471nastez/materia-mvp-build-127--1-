@@ -65,6 +65,7 @@ import { SearchScreen, type SearchScreenHandle } from "@/components/search/searc
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
 import { backThen } from "@/lib/navigation/go-back"
+import { openSearchOverlay, refocusSearchOverlay, registerSearchOverlayOpener, type SearchOverlayOpener } from "@/components/search/search-overlay-handle"
 
 /** The mark on the history entry the open screen owns. */
 export const SEARCH_ENTRY = "storelibSearch"
@@ -83,23 +84,10 @@ const RISE = "0 14px"
 /** And how far it sinks as it leaves: half, so leaving is the quieter of the two. */
 const SINK = "0 7px"
 
-type Opener = (q?: string) => boolean
-let opener: Opener | null = null
+type Opener = SearchOverlayOpener
 
-/**
- * Opens the screen, from inside the press that asked for it. Returns false
- * when there is no screen to open (a wide window, or not mounted), and the
- * caller goes to /explore/search instead.
- */
-export function openSearchOverlay(q?: string): boolean {
-  return opener ? opener(q) : false
-}
-
-/** Whether the field has the focus, so the touch's end can give it again if the press did not count. */
-export function refocusSearchOverlay() {
-  const el = document.querySelector<HTMLInputElement>("[data-search-overlay='open'] [data-search-screen-field]")
-  if (el && document.activeElement !== el) el.focus({ preventScroll: true })
-}
+/* Opening it, and giving the field the focus again, live in components/search/search-overlay-handle.ts (round 46), so the tab bar can ask without this file. */
+export { openSearchOverlay, refocusSearchOverlay }
 
 /** The address as the router has it, which Next hands out only under a Suspense. */
 function AddressWatch({ onChange }: { onChange: (address: string) => void }) {
@@ -190,12 +178,7 @@ export function SearchOverlay() {
     return true
   }, [])
 
-  useEffect(() => {
-    opener = openNow
-    return () => {
-      if (opener === openNow) opener = null
-    }
-  }, [openNow])
+  useEffect(() => registerSearchOverlayOpener(openNow), [openNow])
 
   /* ── CLOSE ── the screen's own way out goes through Back, so the entry goes with it. */
   const shut = useCallback(() => {

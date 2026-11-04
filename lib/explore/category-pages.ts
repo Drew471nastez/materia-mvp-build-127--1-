@@ -53,3 +53,24 @@ export function showAllLabel(name: string | null | undefined): string {
   const trimmed = (name ?? "").trim()
   return !trimmed || trimmed.toLowerCase() === "products" ? "Show All Products" : `Show All ${trimmed} Products`
 }
+
+/** The other pages under /explore, which are not categories. */
+const EXPLORE_OWN_PAGES = ["communities", "search"]
+
+/**
+ * `/explore/<x>` for an x that is no page: proxy.ts answers it 404 before the
+ * page runs. /explore's own loading.tsx wraps every child, so the category
+ * page's notFound() came after a 200 had been sent: a soft 404, measured live
+ * (round 45).
+ */
+export function unknownExploreCategory(pathname: string): boolean {
+  const m = /^\/explore\/([^/]+)\/?$/.exec(pathname)
+  if (!m) return false
+  let seg = m[1]
+  try {
+    seg = decodeURIComponent(seg)
+  } catch {
+    return true
+  }
+  return !hasCategoryPage(seg) && !EXPLORE_OWN_PAGES.includes(seg)
+}

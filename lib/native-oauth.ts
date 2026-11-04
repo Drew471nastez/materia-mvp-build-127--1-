@@ -29,9 +29,14 @@
  *     storelib://auth/callback
  */
 
-import { createClient } from "@/lib/supabase/client"
+/*
+  The Supabase client is imported where a native path uses it, not here (round 46): the root layout warms this file's
+  chunk on every Storelib page (components/platform/app-only.tsx), and every function that reads the client returns at
+  once outside the app, so the web fetched and ran supabase-js for nothing.
+*/
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
+import { maskEmail } from "@/lib/privacy/mask-email"
 import { completeNativeSession } from "@/lib/auth/native-session"
 import { goToAuthHref, hrefForLog } from "@/lib/auth/session-sync"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
@@ -433,6 +438,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
+    const { createClient } = await import("@/lib/supabase/client")
     const supabase = createClient()
     const { data, error: exchangeErr } =
       await supabase.auth.exchangeCodeForSession(code)
@@ -442,7 +448,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   error      : ${exchangeErr ? exchangeErr.message : "null"}`)
     console.log(`${TAG}   hasSession : ${!!data?.session}`)
     console.log(`${TAG}   userId     : ${data?.session?.user?.id ?? "null"}`)
-    console.log(`${TAG}   email      : ${data?.session?.user?.email ?? "null"}`)
+    console.log(`${TAG}   email      : ${maskEmail(data?.session?.user?.email)}`)
 
     if (exchangeErr) {
       const failure = classifyOAuthError({ message: exchangeErr.message })
@@ -466,7 +472,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     const email = verifiedSession?.user?.email ?? data.session.user.email ?? data.session.user.id
     console.log(`${TAG} ── getSession() verification ──────────────────────────`)
     console.log(`${TAG}   session exists : ${!!verifiedSession}`)
-    console.log(`${TAG}   user email     : ${email}`)
+    console.log(`${TAG}   user email     : ${maskEmail(email)}`)
     showToast(`Session verified: ${email}`, "ok")
 
     if (!verifiedSession) {
@@ -477,7 +483,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
 
     // ── LOG 7: success — determine destination and navigate ───────────────────
-    console.log(`${TAG} ✓ Session confirmed for ${email} — determining destination…`)
+    console.log(`${TAG} ✓ Session confirmed for ${maskEmail(email)} — determining destination…`)
     showToast(`Session OK — ${email}`, "ok")
 
     // Close Chrome Custom Tab again (belt-and-suspenders — some Android
@@ -552,7 +558,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     }
 
     isSetUp = true
-    const { App } = await import("@capacitor/app")
+    const [{ App }, { createClient }] = await Promise.all([import("@capacitor/app"), import("@/lib/supabase/client")])
     const supabase = createClient()
 
     // ── Register appUrlOpen listener ────────────────────────────────────

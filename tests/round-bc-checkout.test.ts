@@ -382,7 +382,7 @@ async function main() {
     check("  a plain /checkout link: the page of this site the browser came from (Referer)", siteCheckoutBack(q(""), "shop.test", "https://shop.test/products/y?size=m") === "/products/y?size=m")
     check("  another site's Referer, or the checkout's own pages, are never Back", siteCheckoutBack(q(""), "shop.test", "https://other.test/a") === null && siteCheckoutBack(q(""), "shop.test", "https://shop.test/checkout?items=1") === null && siteCheckoutBack(q(""), "shop.test", "https://shop.test/en/account/login") === null && siteCheckoutBack(q(""), "shop.test", "https://shop.test/password") === null)
     const page = code("app/checkout/site/page.tsx")
-    check("the checkout page uses it with the request's Referer, and in the Back link", /const back = siteCheckoutBack\(q, site\.host, h\.get\("referer"\)\)/.test(page) && /const backTo = `\$\{site\.origin\}\$\{back \?\? \(wholeCart \? "\/cart" : "\/"\)\}`/.test(page))
+    check("the checkout page uses it with the request's Referer, and in the Back link", /const back = siteCheckoutBack\(q, site\.host, h\.get\("referer"\)\)/.test(page) && /const backTo = onePage \?\? `\$\{site\.origin\}\$\{back \?\? \(wholeCart \? "\/cart" : "\/"\)\}`/.test(page))
 
     const drawerSrc = code("lib/website-builder/cart-checkout.ts")
     check("the native cart drawer's Check out comes back to the page the drawer was open on", /back: drawerBackPath\(cartPath\)/.test(drawerSrc) && /returnPath: drawerBackPath\(cartPath\)/.test(drawerSrc) && /sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \?\? cartPath/.test(drawerSrc))

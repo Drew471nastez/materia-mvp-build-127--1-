@@ -39,6 +39,8 @@ import { FIELD_SHADOW, useCheckoutCurrency, OrDivider, PayButton, SectionTitle, 
 import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { useCheckoutLang, useCt } from "./words"
+import { intentKey as keyOf, nextPress, paidIntentInError, stripeJsOutcomeUnknown, type Held } from "@/lib/checkout/pay-retry"
+import { CHECKING_MESSAGE } from "@/lib/checkout/confirm-outcome"
 
 /** The languages Stripe draws its card form in; any other is left to the browser (lib/markets/checkout-words). */
 const STRIPE_LOCALES = new Set(["ar", "bg", "cs", "da", "de", "el", "en", "en-GB", "es", "es-419", "et", "fi", "fil", "fr", "fr-CA", "he", "hr", "hu", "id", "it", "ja", "ko", "lt", "lv", "ms", "mt", "nb", "nl", "pl", "pt", "pt-BR", "ro", "ru", "sk", "sl", "sv", "th", "tr", "vi", "zh", "zh-HK", "zh-TW"])
@@ -95,9 +97,11 @@ const FONTS: StripeElementsOptions["fonts"] = [{ cssSrc: "https://fonts.googleap
 const LOAD_PATIENCE_MS = 15_000
 
 /** Stripe's own words for a declined card are good; its plumbing's are not. */
-export function paymentErrorText(error: Pick<StripeError, "type" | "message"> | null | undefined): string {
+export function paymentErrorText(error: Pick<StripeError, "type" | "message" | "code"> | null | undefined): string {
   if (!error) return checkoutMsg("The payment did not go through. Nothing was charged.")
   if (error.type === "card_error" || error.type === "validation_error") return error.message || checkoutMsg("Check the card details and try again.")
+  /* The connection or Stripe itself failed mid confirm: the payment may have gone through, so never "nothing was charged" (lib/checkout/pay-retry). */
+  if (stripeJsOutcomeUnknown(error)) return checkoutMsg(CHECKING_MESSAGE)
   return checkoutMsg("The payment did not go through. Nothing was charged. Try again.")
 }
 
@@ -147,6 +151,12 @@ export interface StripePayProps {
   busy: boolean
   setBusy: (busy: boolean) => void
   payLabel: string
+  /**
+   * What the PaymentIntent pays for (the product, option, amount and choices). Given, a confirm that ended without a
+   * sure answer keeps its intent, and the next press for the same key confirms that same intent again instead of
+   * making a second one (lib/checkout/pay-retry). Absent, every press asks createIntent, as before.
+   */
+  intentKey?: string
   /** Under the email: the name and the news tick box. */
   contactExtra: React.ReactNode
   /** Between the contact and the payment: a delivery address and its method, for an order that ships (app/checkout/site). */
@@ -229,6 +239,8 @@ export function StripePay(props: StripePayProps) {
   }, [])
   /* Created once per attempt: Elements takes its Stripe once and keeps it. */
   const stripePromise = React.useMemo(() => getStripePromise(), [attempt]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* Kept here, above the form, so a fresh form after Try again still knows the payment that is being checked. */
+  const held = React.useRef<Held<IntentResult> | null>(null)
   /* The type size is known after the first effect; the form waits one frame for it rather than drawing twice. */
   if (fontSize === null) return <div aria-hidden className="min-h-[420px]" />
   return (
@@ -239,6 +251,7 @@ export function StripePay(props: StripePayProps) {
         stripePromise={stripePromise}
         onRefused={setIndex < METHOD_SETS.length - 1 ? fallBack : undefined}
         onRetry={retry}
+        held={held}
       />
     </Elements>
   )
@@ -273,15 +286,62 @@ function StripePayInner({
   emailError = null,
   beforePay,
   cash = null,
+  intentKey,
+  amountCents,
+  held,
 }: StripePayProps & {
   methods: CheckoutMethod[]
   stripePromise: ReturnType<typeof getStripePromise>
   onRefused?: () => void
   onRetry: () => void
+  held: React.MutableRefObject<Held<IntentResult> | null>
 }) {
   const stripe = useStripe()
   const elements = useElements()
   const ct = useCt()
+  /**
+   * The intent for this press. A held one (its confirm ended without a sure answer) is confirmed again for the same
+   * order; for a different order it is asked about first, and only a sure "not paid" lets a new one be made. null:
+   * this press is answered already (paid after all, or still unknown).
+   */
+  const intentFor = async (contact: { email?: string; name?: string } | undefined): Promise<IntentResult | null> => {
+    const key = intentKey ? keyOf({ intentKey, amountCents, methods: methods.join(",") }) : null
+    const h = held.current
+    const press = key ? nextPress(h, key) : "create"
+    if (press === "reuse" && h) return h.intent
+    if (press === "check" && h && stripe) {
+      const r = await (h.intent.type === "setup" ? stripe.retrieveSetupIntent(h.intent.clientSecret) : stripe.retrievePaymentIntent(h.intent.clientSecret)).catch(() => null)
+      const intent = r ? ("setupIntent" in r ? r.setupIntent : (r as { paymentIntent?: { id: string; status: string } }).paymentIntent) : null
+      if (!intent) {
+        onError(ct(CHECKING_MESSAGE))
+        return null
+      }
+      if (intent.status === "succeeded" || intent.status === "processing") {
+        held.current = null
+        await onPaid(intent.id, intent.status)
+        return null
+      }
+      held.current = null
+    }
+    return timedStep("/step/checkout/intent", () => createIntent(contact, methods))
+  }
+  /** After a confirm: hold the intent when the answer is not sure, let it go when it is. true: the error is answered here. */
+  const settle = async (intent: IntentResult, error: (Pick<StripeError, "type" | "code"> & { payment_intent?: { id?: string; status?: string } | null; setup_intent?: { id?: string; status?: string } | null }) | null | undefined): Promise<boolean> => {
+    if (!error) {
+      held.current = null
+      return false
+    }
+    const paid = paidIntentInError(error)
+    if (paid) {
+      /* An earlier confirm of this same intent went through: paid, never twice. */
+      held.current = null
+      await onPaid(paid.id, paid.status)
+      return true
+    }
+    if (stripeJsOutcomeUnknown(error) && intentKey) held.current = { intent, key: keyOf({ intentKey, amountCents, methods: methods.join(",") }) }
+    else if (!stripeJsOutcomeUnknown(error)) held.current = null
+    return false
+  }
   const online = useOnline()
   /** null while the wallets are being asked; then whether any can pay. */
   const [express, setExpress] = React.useState<boolean | null>(null)
@@ -331,13 +391,16 @@ function StripePayInner({
     if (problem) return onError(problem)
     if (!stripe || !elements || !paymentReady) return onError(ct("The payment form is still loading. Try again in a moment."))
     setBusy(true)
+    let pending: IntentResult | null = null
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) {
         onError(ct(paymentErrorText(submitError)))
         return
       }
-      const intent = await timedStep("/step/checkout/intent", () => createIntent(undefined, methods))
+      const intent = await intentFor(undefined)
+      if (!intent) return
+      pending = intent
       const t0 = performance.now()
       if (intent.type === "setup") {
         /* A free trial: the card is saved, nothing is charged today. */
@@ -351,6 +414,7 @@ function StripePayInner({
           redirect: "if_required",
         })
         noteConfirm(t0, error)
+        if (await settle(intent, error)) return
         if (error) {
           onError(ct(paymentErrorText(error)))
           return
@@ -368,12 +432,19 @@ function StripePayInner({
         redirect: "if_required",
       })
       noteConfirm(t0, error)
+      if (await settle(intent, error)) return
       if (error) {
         onError(ct(paymentErrorText(error)))
         return
       }
       await onPaid(paymentIntent?.id ?? intent.paymentIntentId, paymentIntent?.status ?? "unknown")
     } catch (e) {
+      /* Thrown after the intent was made: the confirm's outcome is not known, so the intent is kept and nothing is promised. */
+      if (pending && intentKey) {
+        held.current = { intent: pending, key: keyOf({ intentKey, amountCents, methods: methods.join(",") }) }
+        onError(ct(CHECKING_MESSAGE))
+        return
+      }
       onError(ct(networkText(e, ct("The payment did not go through. Nothing was charged."))))
     } finally {
       setBusy(false)
@@ -453,13 +524,19 @@ function StripePayInner({
                   const walletEmail = e.billingDetails?.email || email
                   const walletName = e.billingDetails?.name || payerName()
                   if (walletEmail && walletEmail !== email) onEmail(walletEmail)
-                  const intent = await timedStep("/step/checkout/intent", () => createIntent({ email: walletEmail, name: walletName }, methods))
+                  const intent = await intentFor({ email: walletEmail, name: walletName })
+                  if (!intent) {
+                    e.paymentFailed({ reason: "fail" })
+                    return
+                  }
                   const t0 = performance.now()
                   const confirmed =
                     intent.type === "setup"
                       ? await stripe.confirmSetup({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
                       : await stripe.confirmPayment({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
                   noteConfirm(t0, confirmed.error)
+                  if (confirmed.error && (await settle(intent, confirmed.error))) return
+                  if (!confirmed.error) held.current = null
                   if (confirmed.error) {
                     e.paymentFailed({ reason: "fail" })
                     onError(ct(paymentErrorText(confirmed.error)))

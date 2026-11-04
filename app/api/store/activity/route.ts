@@ -14,7 +14,7 @@ const PREFIX: Record<string, string> = { products: "product.", orders: "order.",
  *   GET ?group=products|orders|settings|files&before=<row id>
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const before = Number(url.searchParams.get("before"))

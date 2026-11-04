@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createHash, timingSafeEqual } from "node:crypto"
 import { ADMIN_COOKIE, SESSION_MAX_AGE, issueSessionToken } from "@/lib/admin-session"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
+import { ADMIN_LOGIN_LIMITS, adminCredentialWarnings } from "@/lib/admin/login-guard"
 
 /** `node:crypto`, and a cookie that must be set on the real host. */
 export const runtime = "nodejs"
@@ -43,6 +45,9 @@ export const dynamic = "force-dynamic"
 const EXPECTED_USER = (process.env.BLOG_ADMIN_USER || "Storelib").trim()
 const EXPECTED_PASSWORD = process.env.BLOG_ADMIN_PASSWORD || "Amfetamina11"
 
+/* Said loudly, once per instance, while the fallback is in use; limited per caller address (lib/admin/login-guard.ts). */
+let warned = false
+
 /** Constant time, and length-independent because the digests are equal size. */
 function sameSecret(a: string, b: string): boolean {
   const ha = createHash("sha256").update(a).digest()
@@ -51,6 +56,19 @@ function sameSecret(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  if (!warned) {
+    warned = true
+    for (const line of adminCredentialWarnings()) console.error(`[admin-login] WARNING: ${line}. Set it in the Vercel project's environment.`)
+  }
+
+  const limited = await rateLimit({
+    bucket: "admin-login",
+    subjects: [addressSubject(req)],
+    windows: ADMIN_LOGIN_LIMITS,
+    message: "Too many sign in attempts. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
+
   let username = ""
   let password = ""
   try {
@@ -83,7 +101,10 @@ export async function POST(req: NextRequest) {
   const ok =
     sameSecret(username.toLowerCase(), EXPECTED_USER.toLowerCase()) &&
     sameSecret(password, EXPECTED_PASSWORD)
-  if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+  if (!ok) {
+    console.warn("[admin-login] refused a sign in with wrong credentials")
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+  }
 
   const token = issueSessionToken()
   if (!token) {

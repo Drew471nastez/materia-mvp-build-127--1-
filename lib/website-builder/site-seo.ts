@@ -50,16 +50,30 @@ export const MAX_SITEMAP_URLS = 50000
  * sign in and Wishlist pages are one visitor's, and a creator who arranged
  * them in the builder has them stored like any page, so they are named here.
  */
-const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist", "password"])
+/* "blogs" and "article" are a Storelib theme's Blog and Post templates (lib/site-blog), listed at their real addresses (blogSitemapEntries). */
+const UNLISTED_PAGE_KEYS = new Set(["search", "product", "cart", "404", "account", "login", "wishlist", "password", "blogs", "article"])
 
 /** The address of a page of the site, on the site's own origin. */
 export function pageUrl(origin: string, pageKey: string): string {
   return pageKey === "home" ? `${origin}/` : `${origin}/${pageKey}`
 }
 
+/**
+ * THE SHOP'S OWN ADDRESS (round 45). A Storelib theme draws it at /products.
+ * An imported theme shows the whole shop at /collections/all, as Shopify
+ * does, and /products is a redirect there (lib/storelib-theme/compat/site.ts),
+ * so a sitemap naming /products listed a redirect and left the page out.
+ */
+export function shopUrl(origin: string, opts: { imported?: boolean } = {}): string {
+  return opts.imported ? `${origin}/collections/all` : pageUrl(origin, "products")
+}
+
 export function productUrl(origin: string, slug: string): string {
   return `${origin}/products/${encodeURIComponent(slug)}`
 }
+
+/* Page 2 of a list as its own canonical: lib/website-builder/tab-title.ts canonicalPageOf (round 45), beside the page number its title says. */
+export { canonicalPageOf, pageQuery } from "./tab-title"
 
 /** Whether the creator lets search engines list the site: Website Settings › SEO. */
 export function siteIsIndexable(settings: Record<string, unknown>): boolean {
@@ -83,8 +97,44 @@ export const TEMPLATE_PAGE_KEYS = new Set(["collection", "page", "article", "blo
 
 /** The pages a sitemap lists, in a stable order: home, then the rest by name. */
 export function listedPageKeys(pageKeys: string[], opts: { imported?: boolean } = {}): string[] {
-  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && TEMPLATE_PAGE_KEYS.has(k)))
+  /* An imported theme's "products" is not a page at /products, which redirects to the shop (shopUrl). */
+  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && (TEMPLATE_PAGE_KEYS.has(k) || k === "products")))
   return [...(keys.includes("home") ? ["home"] : []), ...keys.filter((k) => k !== "home").sort()]
+}
+
+/** What the sitemap lists of a website's blog (lib/site-blog/public-read.ts listedBlogEntries). */
+export interface BlogSitemapSource {
+  handle: string
+  posts: { slug: string; lastmod: string; images: string[]; noindex: boolean }[]
+  categories: string[]
+  newest: string | null
+}
+
+/**
+ * THE BLOG'S ADDRESSES, the same on a Storelib theme and an imported one
+ * (lib/site-blog/urls.ts): the blog, each live post its writer did not keep
+ * out of search (when its words last changed, its pictures), and each
+ * category with a post in it. Pages past the first, tags and previews are
+ * not listed. Nothing while no post is live.
+ */
+export function blogSitemapEntries(origin: string, blog: BlogSitemapSource | null | undefined): SitemapEntry[] {
+  if (!blog || !blog.posts.length) return []
+  const seg = encodeURIComponent
+  const base = `${origin}/blogs/${seg(blog.handle)}`
+  const iso = (v: string | null | undefined) => {
+    const t = v ? Date.parse(v) : NaN
+    return Number.isFinite(t) ? new Date(t).toISOString() : undefined
+  }
+  const newest = iso(blog.newest)
+  const out: SitemapEntry[] = [{ loc: base, ...(newest ? { lastmod: newest } : {}) }]
+  for (const p of blog.posts) {
+    if (p.noindex) continue
+    const lastmod = iso(p.lastmod)
+    const images = [...new Set(p.images.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u)))].slice(0, MAX_IMAGES_PER_PAGE).map((loc) => ({ loc }))
+    out.push({ loc: `${base}/${seg(p.slug)}`, ...(lastmod ? { lastmod } : {}), ...(images.length ? { images } : {}) })
+  }
+  for (const c of blog.categories) out.push({ loc: `${base}/category/${seg(c)}` })
+  return out
 }
 
 /**
@@ -291,6 +341,8 @@ export function productJsonLd(p: {
   rating?: { average: number; count: number; reviews?: { author: string; rating: number; body: string; title?: string; date: string }[] } | null
   /** The store's own currency (lib/store/selling-currency), the one the price is in. Absent, the platform's. */
   currency?: string
+  /** The language the page is drawn in (lib/seo/page-language.ts websitePageLanguage); absent, left out rather than guessed. */
+  inLanguage?: string
 }) {
   const price = typeof p.priceCents === "number" && p.priceCents >= 0 ? (p.priceCents / 100).toFixed(2) : null
   const rated = p.rating && p.rating.count > 0 && p.rating.average > 0 ? p.rating : null
@@ -299,6 +351,7 @@ export function productJsonLd(p: {
     "@type": "Product",
     name: p.name,
     url: p.url,
+    /* p.inLanguage is not printed: schema.org's Product has no inLanguage (a CreativeWork property). The page's <html lang> carries it. */
     ...(plain(p.description) ? { description: plain(p.description, 5000) } : {}),
     ...(p.images.length ? { image: p.images.slice(0, 10) } : {}),
     brand: { "@type": "Brand", name: p.seller },

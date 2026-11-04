@@ -5,6 +5,7 @@
  * blocks, renders in the 600px table layout with every style inline, has no
  * frame round the logo, and says nothing in the words the house rules ban.
  */
+import { STORE_LOGO_RADIUS } from "@/lib/brand/store-logo"
 import { STARTERS, starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
 import { blockIssues, renderBlocks, storeBlocks, type Block } from "@/lib/email-campaigns/blocks"
 import { readStoredBody } from "@/lib/email-campaigns/stored"
@@ -76,7 +77,8 @@ check("the sign off is the {{creator_name}} tag, filled with the profile's name 
 console.log("\nThe logo, as the email is sent")
 const html = buildEmail({ subject: "s", bodyHtml: "<p>x</p>", brand, kind: "marketing", unsubscribeUrl: "#" })
 const logo = /<img class="sl-logo"[^>]*>/.exec(html)?.[0] ?? ""
-check("drawn with no border, padding, background or radius", !!logo && /border:0/.test(logo) && !/padding|background|border-radius|box-shadow/.test(logo), logo)
+/* Changed on purpose (round 49): the store logo's small corner (lib/brand/store-logo.ts), no other radius, no shadow. */
+check("drawn with no border, padding, background or shadow, only the store logo's small corner", !!logo && /border:0/.test(logo) && !/padding|background|box-shadow/.test(logo) && (logo.match(/border-radius:[^;"]*/g) ?? []).join() === `border-radius:${STORE_LOGO_RADIUS}px`, logo)
 check("and nothing in the style block gives it one in dark mode", !/\.sl-logo\s*\{/.test(html))
 check("40px tall, as wide as it is, up to 200px", /height="40"/.test(logo) && /max-width:200px/.test(logo))
 

@@ -8,45 +8,43 @@ import { CONTINUE_PATH, sameOriginPath } from "@/lib/auth/continue"
 import { classifyAuthError } from "@/lib/auth/auth-error"
 import { logLine } from "@/lib/net/log"
 import { REQUEST_ID_HEADER } from "@/lib/net/request-id"
+import { claimsBackedUserFetch } from "@/lib/auth/user-fetch-fallback"
+import { mediaFetch } from "@/lib/storage/media-url"
 
 /**
- * GET /auth/sync-session?access_token=...&refresh_token=...&next=/app
+ * GET /auth/sync-session?...&next=/app  signs NOBODY in.
  *
- * Bridges a native Capacitor PKCE session (stored in Capacitor Preferences /
- * Android SharedPreferences) into the server-side cookie system so that
- * Next.js server components and layouts can authenticate the user.
+ * It used to take access_token and refresh_token from the query and call
+ * setSession, with no Origin or Sec-Fetch-Site check. Any page, a published
+ * <slug>.storelib.com site included, could send a visitor here with the
+ * attacker's own tokens and sign the visitor into the attacker's account
+ * (login CSRF: what they bought or uploaded next went to that account), and
+ * every such address put a working refresh token in Vercel's request log.
  *
- * WHY THIS EXISTS — the native storage mismatch:
- *   The Capacitor Supabase client stores sessions in Capacitor Preferences.
- *   Next.js server code (layouts, route handlers) reads sessions from HTTP
- *   cookies.  After a successful native PKCE exchange, no cookies are set,
- *   so every server-side auth check fails → redirect("/login") → loop.
- *
- *   Fix: after exchangeCodeForSession() succeeds in native-oauth.ts (or when
- *   checkAuth() finds an existing native session on the login page), navigate
- *   here with the access + refresh tokens.  This handler calls setSession()
- *   on the server-side Supabase client, which writes the session as Set-Cookie
- *   headers on the 302 redirect response.  The WebView stores those cookies,
- *   and all subsequent server requests include them — auth passes. ✅
- *
- * SECURITY NOTE:
- *   On a GET the tokens are query params, and a request's address DOES leave
- *   the device: it is in Vercel's request log. POST (below) takes them in
- *   the body instead, and the session recovery screen (components/native-
- *   auth-gate.tsx), the one caller that runs on the web and during an
- *   outage, again and again, posts. GET stays for the native sign in flows
- *   (lib/auth/native-session.ts, lib/auth/continue-client.ts) until they move.
+ * Every caller posts now (lib/auth/session-sync.ts goToAuthHref and
+ * postSessionSync: the native sign in, the session recovery screen, viewer
+ * sync, the login and signup sheets; the app's pages are storelib.com itself,
+ * so a native build runs the current code). No native shell, deep link or
+ * doc builds this GET (round rel-security checked ios/, android/,
+ * capacitor.config.ts and docs/). So a GET only goes on to its `next` path,
+ * with no cookies written: whoever is already signed in stays so, and a
+ * stray old link lands where it was going and that page decides.
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
+  const { searchParams, origin } = new URL(request.url)
   /*
-    A PATH ON THIS SITE, NEVER AN ADDRESS. This is `${origin}${next}` below,
-    and "https://storelib.com" followed by "@evil.com" is evil.com. Anything
-    that is not a plain path goes to /auth/continue, which decides where a
-    signed in person belongs (lib/auth/continue.ts).
+    A PATH ON THIS SITE, NEVER AN ADDRESS. "https://storelib.com" followed
+    by "@evil.com" is evil.com. Anything that is not a plain path goes to
+    /auth/continue, which decides where a signed in person belongs.
   */
   const next = sameOriginPath(searchParams.get("next"), CONTINUE_PATH)
-  return syncSession(request, searchParams.get("access_token"), searchParams.get("refresh_token"), next)
+  if (searchParams.has("access_token") || searchParams.has("refresh_token")) {
+    console.warn(logLine("sync_session_get_refused", { rid: request.headers.get(REQUEST_ID_HEADER) }))
+  }
+  const res = NextResponse.redirect(`${origin}${next}`, 303)
+  res.headers.set("Cache-Control", "no-store")
+  res.headers.set("Referrer-Policy", "no-referrer")
+  return res
 }
 
 /**
@@ -88,7 +86,15 @@ async function syncSession(request: Request, accessToken: string | null, refresh
     )
   }
 
-  const supabase = await createClient()
+  /*
+    SUPABASE AUTH SLOW IS NOT "CANNOT REACH THE SERVER" (lib/auth/user-fetch-fallback.ts). setSession asks Auth about
+    a token still in date; when Auth does not answer in AUTH_FIRST_TRY_MS the token's own signature is checked here
+    and the session written from its verified claims. A token Auth refused, or one that does not check out, is
+    handled exactly as before.
+  */
+  let fromClaims = false
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabase = await createClient(supabaseUrl ? { fetch: claimsBackedUserFetch(mediaFetch, supabaseUrl, { onFallback: () => { fromClaims = true } }) } : {})
   const { data, error } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -123,7 +129,9 @@ async function syncSession(request: Request, accessToken: string | null, refresh
     After the answer, so nobody waits for it; it never overwrites a photo
     they set and never fails the sign in.
   */
-  const signedIn = data.user
+  /* Written from the token's claims: the photo and name hooks wait for a sign in Auth itself answered. */
+  if (fromClaims) console.warn(logLine("sync_session_claims", { rid: request.headers.get(REQUEST_ID_HEADER) }))
+  const signedIn = fromClaims ? null : data.user
   if (signedIn) after(() => keepProviderPhoto(createAdminClient() as unknown as ProviderPhotoDb, signedIn).then(() => undefined))
   /* And the provider's name over a made up one, the same way (lib/profile/keep-name). */
   if (signedIn) after(() => keepProfileName(createAdminClient() as unknown as KeepNameDb, signedIn).then(() => undefined))

@@ -1,4 +1,6 @@
 import { revalidateTag } from "next/cache"
+import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { NextResponse, after } from "next/server"
 import { announce, productAddresses, profileAddresses } from "@/lib/seo/announce"
@@ -282,6 +284,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing pageType or config" }, { status: 400 })
   }
 
+  /* The About story is markup: cleaned on the way in, as app/api/creator-profile cleans it (round 48). */
+  if (Array.isArray(config.sections)) {
+    for (const section of config.sections as { type?: unknown; settings?: Record<string, unknown> }[]) {
+      const story = section?.type === "about" ? section.settings?.aboutContent : undefined
+      if (typeof story === "string" && /<[a-z][\s\S]*>/i.test(story)) section.settings!.aboutContent = sanitizeRichText(story).trim()
+    }
+  }
+
   // Get creator
   /* Round 42: the owner's own page, or the store's for a team member with Creator page (lib/team/creator-page). */
   const page = await creatorPageStore(supabase, user.id)
@@ -512,6 +522,8 @@ export async function PUT(request: Request) {
   */
   revalidateTag(creatorTag(creator.id), "max")
   if (productId) revalidateTag(productTag(productId), "max")
+  /* And the CDN's minute-long copy of the creator page and its product pages (round 48). */
+  await creatorPagesChanged({ creatorId: creator.id })
 
   if (productId && pageType === "product") {
     console.log("[v0] Publishing product-specific config", { productId, creatorId: creator.id })

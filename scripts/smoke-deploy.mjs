@@ -13,6 +13,15 @@
  *                 which proves the subdomain rewrite.
  *   VERCEL_AUTOMATION_BYPASS_SECRET   sent as x-vercel-protection-bypass when
  *                 preview deployments are behind Vercel's Deployment Protection.
+ *   SMOKE_CREATOR a creator's handle: /<handle> (their page) must answer 200.
+ *   SMOKE_PRODUCT <handle>/<product slug>: the product page must answer 200.
+ *   SMOKE_CHECKOUT_PRODUCT  a published product's id: /checkout?productId=<id>
+ *                 must render (200) and never be stored by a cache.
+ *   SMOKE_DOMAIN  a creator's custom domain, e.g. https://shop.example.com:
+ *                 its front page must answer 200 (the custom domain rewrite).
+ *                 Opened as is, so it only means something for production.
+ *   Each of these is reported as "skip" when it is not set, so a missing
+ *   critical path is visible in every run's summary rather than silent.
  *   SMOKE_NO_DATABASE=1  for a local server built on placeholder keys, which
  *                 has no database: /api/health only has to answer JSON, and
  *                 sitemap.xml may answer 503. Never set it for a deployment.
@@ -21,12 +30,15 @@
  *   the marketing pages answer 200 and may be held by the CDN (public);
  *     /explore may redirect home instead, which it does while the
  *     marketplace is switched off;
- *   /app is never public, signed out included (its redirect to sign in
- *     carries no Cache-Control, which no shared cache stores);
+ *   /app is never public, signed out included (the proxy marks its
+ *     redirect to sign in "private, no-store"; with no header of its own,
+ *     Vercel sent it as "public, max-age=0, must-revalidate");
  *   the website checkout is no-store;
  *   the security headers from vercel.json are present (skipped on localhost,
  *     where `next start` does not apply vercel.json);
- *   /api/health; robots.txt and sitemap.xml.
+ *   /login renders; /api/health (and that it carries nothing that reads as
+ *   a key or a token); robots.txt and sitemap.xml; the creator, product,
+ *   checkout and custom domain paths above.
  *
  * GET only, never a cookie. Exits 1 when anything failed.
  */
@@ -58,11 +70,11 @@ export function isLocal(base) {
 }
 
 /** The pages and what each must answer. */
-export function plan(base, site, noDatabase = false) {
+export function plan(base, site, noDatabase = false, extra = {}) {
   const checks = [
     { path: "/", status: [200], cache: ["public"], why: "the home page is held by the CDN" },
     { path: "/pricing", status: [200], cache: ["public"], why: "pricing is held by the CDN" },
-    { path: "/explore", status: [200, 307, 308], cache: ["public"], why: "explore is held by the CDN" },
+    { path: "/explore", status: [200, 307, 308], cache: ["no-store", "private", "public"], why: "explore is built per visitor (For you); its redirect may be public" },
     { path: "/features", status: [200], cache: ["public"], why: "features is held by the CDN" },
     { path: "/app", status: [200, 302, 303, 307, 308], cache: ["private", "no-store", "no-cache", "none"], why: "the dashboard is never shared" },
     { path: "/checkout/site", status: [200, 302, 303, 307, 308, 400, 404], cache: ["no-store"], why: "the website checkout is never stored" },
@@ -71,12 +83,36 @@ export function plan(base, site, noDatabase = false) {
       ? { path: "/sitemap.xml", status: [200, 503], why: "sitemap.xml" }
       : { path: "/sitemap.xml", status: [200], body: /<(urlset|sitemapindex)\b/, why: "sitemap.xml" },
   ]
+  checks.push({ path: "/login", status: [200], why: "the sign in page renders" })
   if (site) {
     const url = /^https?:\/\//.test(site) ? site : new URL(`/w/${encodeURIComponent(site)}`, base).href
     checks.push({ url, status: [200], why: `the website ${site} resolves` })
   }
+  for (const c of criticalPaths(base, extra)) checks.push(c)
   return checks
 }
+
+/**
+ * The critical paths that need a real creator to open: a creator page, a
+ * product page, a checkout and a custom domain. Each is a check when its
+ * variable is set and a `skip` line naming the variable when it is not.
+ */
+export function criticalPaths(base, { creator, product, checkoutProduct, domain } = {}) {
+  const out = []
+  const enc = (s) => s.split("/").map(encodeURIComponent).join("/")
+  if (creator) out.push({ path: `/${enc(creator)}`, status: [200], why: `the creator page ${creator}` })
+  else out.push({ skip: "SMOKE_CREATOR", why: "a creator page" })
+  if (product) out.push({ path: `/${enc(product)}`, status: [200], why: `the product page ${product}` })
+  else out.push({ skip: "SMOKE_PRODUCT", why: "a product page" })
+  if (checkoutProduct) out.push({ path: `/checkout?productId=${encodeURIComponent(checkoutProduct)}`, status: [200], cache: ["no-store", "private", "none", "no-cache"], why: "checkout renders and is never shared" })
+  else out.push({ skip: "SMOKE_CHECKOUT_PRODUCT", why: "the checkout page" })
+  if (domain) out.push({ url: /^https?:\/\//.test(domain) ? domain : `https://${domain}`, status: [200], why: `the custom domain ${domain}` })
+  else out.push({ skip: "SMOKE_DOMAIN", why: "a custom domain" })
+  return out
+}
+
+/** Anything in a public answer that reads as a secret. Exported for the test suite. */
+export const SECRET_SHAPES = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.|\b(?:sk|rk|whsec|sb_secret)_[A-Za-z0-9_]{12,}|service_role|SUPABASE_SERVICE_ROLE_KEY/
 
 async function get(url, bypass) {
   const headers = { "user-agent": "storelib-smoke/1", accept: "text/html,application/json,*/*" }
@@ -108,7 +144,17 @@ async function main() {
 
   console.log(`smoke: ${base}${local ? " (local: vercel.json headers are not applied, those checks are skipped)" : ""}`)
 
-  for (const c of plan(base, process.env.SMOKE_SITE, noDatabase)) {
+  const extra = {
+    creator: process.env.SMOKE_CREATOR || "",
+    product: process.env.SMOKE_PRODUCT || "",
+    checkoutProduct: process.env.SMOKE_CHECKOUT_PRODUCT || "",
+    domain: process.env.SMOKE_DOMAIN || "",
+  }
+  for (const c of plan(base, process.env.SMOKE_SITE, noDatabase, extra)) {
+    if (c.skip) {
+      report(null, c.why, `set ${c.skip} to check it`)
+      continue
+    }
     const url = c.url ?? new URL(c.path, base).href
     const label = c.path ?? url
     let res
@@ -128,6 +174,8 @@ async function main() {
         else report(!!res.headers.get(h), `security header ${h}`, res.headers.get(h) ?? "missing")
       }
       if (!local) report(!!res.headers.get("content-security-policy") || !!res.headers.get("content-security-policy-report-only"), "a content security policy is sent")
+      /* storelib.com and www only (vercel.json, SEC-12): creator sites, custom domains and previews do not get it. */
+      if (!local && /^(www\.)?storelib\.com$/i.test(new URL(base).hostname)) report(/camera=/.test(res.headers.get("permissions-policy") ?? ""), "a permissions policy is sent", res.headers.get("permissions-policy") ?? "missing")
     }
   }
 
@@ -143,6 +191,7 @@ async function main() {
     if (!noDatabase) report(res.status === 200 && state === "ok", "/api/health says ok", `${res.status} ${state}`)
     else report(json !== null && (res.status === 200 || res.status === 503), "/api/health answers", `${res.status} ${state}`)
     report(cacheKind(res.headers.get("cache-control")) === "no-store", "/api/health is never cached", res.headers.get("cache-control") ?? "none")
+    report(!SECRET_SHAPES.test(res.body), "/api/health carries no key or token")
     if (json?.jobs) {
       const bad = json.jobs.filter((j) => j.state === "failed" || j.state === "late")
       if (bad.length) console.log(`  note  jobs not ok: ${bad.map((j) => `${j.job} ${j.state}`).join(", ")}`)

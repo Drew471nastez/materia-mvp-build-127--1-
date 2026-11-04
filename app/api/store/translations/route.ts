@@ -34,7 +34,7 @@ async function storeLanguages(c: { db: any; creatorId: string }) {
 }
 
 export async function GET(request: Request) {
-  const c = await shopCaller("website")
+  const c = await shopCaller("website", { read: true })
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const asked = normalizeLocale(url.searchParams.get("locale"))

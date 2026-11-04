@@ -12,6 +12,7 @@
  */
 import { brandMarkHtml, settleBrandMarks, autoLogoSources, shapeOfSize, logoImg, LOGO_MAX_H, LOGO_MAX_W } from "@/lib/emails/brand-mark"
 import { readImageSize } from "@/lib/images/metadata"
+import { STORE_LOGO_RADIUS } from "@/lib/brand/store-logo"
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { buyerRefundEmail } from "@/lib/emails/notices"
 import { buyerReceiptEmailHtml, type ReceiptEmailModel } from "@/lib/receipts/email"
@@ -40,9 +41,11 @@ const FONT = "Arial"
 const imgsOf = (html: string) => html.match(/<img\b[^>]*>/g) ?? []
 /** The store's picture in an email: its header logo or its sender mark (never a product thumbnail, never Storelib's own mark). */
 const logosOf = (html: string) => imgsOf(html).filter((i) => /class="(e-store-logo|sl-logo|e-avatar)"/.test(i))
-/** Drawn whole: its own shape inside 200 by 40, no circle, no crop. */
+/** Drawn whole: its own shape inside 200 by 40, the store logo's small corner, no circle, no crop. */
 function whole(img: string): string | null {
-  if (/border-radius/.test(img)) return "rounded"
+  /* Round 49: the store logo's small corner, and no other (never a circle, never a shadow). */
+  if ((img.match(/border-radius:[^;"]*/g) ?? []).join() !== `border-radius:${STORE_LOGO_RADIUS}px`) return "not the store logo's small corner"
+  if (/box-shadow/.test(img)) return "a shadow"
   if (/object-fit/.test(img)) return "cropped"
   if (!/width:auto;height:auto;/.test(img)) return "a fixed size"
   if (!new RegExp(`max-width:${LOGO_MAX_W}px;max-height:${LOGO_MAX_H}px`).test(img)) return "not inside 200 by 40"

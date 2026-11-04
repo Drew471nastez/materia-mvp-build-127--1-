@@ -649,26 +649,31 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
       {/* Every card and every figure opens its report beside the page (./report-detail, analytics-reports ReportDetailHost). */}
       <ReportDetailHost state={reportsState} range={rangeLabel(period)} against={compareLabel} question={rowsQuestion}>
       <div ref={revealRef} className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
-        {/* The heading alone. Add report is the tile under the last card; Export is the last control in the row below. */}
-        <div className="flex items-center gap-3" data-analytics-head="">
-          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
+        {/* The heading, and the page's two actions at the right of its line, icons in circles (round 49, the owner: "on
+            the same line as the Analytics heading ... icon only"): Send to (components/app/analytics/send-analytics)
+            and Export (./export-button), the same at every width. Add report is the tile under the last card. */}
+        <div className="flex items-center justify-between gap-3" data-analytics-head="">
+          <h1 className="min-w-0 truncate text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
+          <div className="flex shrink-0 items-center gap-2" data-analytics-actions="">
+            <SendAnalyticsButton />
+            <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
+          </div>
         </div>
 
         {/* THE FILTERS, ONE ROW IN ONE ORDER (the owner: "arrange the whole control area with UX in mind"): the
-            period, the place, the product, then what is shown (All types, Digital, Physical, Communities), and
-            Export, the one action, at the row's end. Every one is the same 36px round white pill (app/globals.css
-            [data-analytics-controls]); round 42's dashed Emails chips were taken back in round 43, keeping the
-            type as one picker beside the others.
+            period, the place, the product, then what is shown (All types, Digital, Physical, Communities). Filters
+            only: Send to and Export moved up to the heading's line in round 49. Every one is the same 36px round
+            white pill (app/globals.css [data-analytics-controls]); round 42's dashed Emails chips were taken back in
+            round 43, keeping the type as one picker beside the others.
             On a phone the filters are ONE row that scrolls sideways, with momentum and no bar, fading where it is
-            cut (components/app/use-edge-fade), and Export stays put at its right end as an icon, so it never
-            scrolls off the screen. On a computer they sit together from the left and Export says its name. Each
-            picker opens its sheet through a portal, so the scroller clips none of them. The 4px around the
-            strip are the chips' rings. */}
+            cut (components/app/use-edge-fade). On a computer they sit together from the left. Each picker opens its
+            sheet through a portal, so the scroller clips none of them. The 4px around the strip are the chips'
+            rings. */}
         <div className="flex items-center gap-2" data-analytics-controls="">
           <div
             ref={pickersRef}
             data-scroll-x
-            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] pr-1 [&>*]:shrink-0 touch-pan-x touch-pan-y sm:-ml-1 sm:pl-1"
+            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] -mr-[var(--app-gutter)] pr-[var(--app-gutter)] [&>*]:shrink-0 touch-pan-x touch-pan-y sm:-ml-1 sm:pl-1 sm:mr-0 sm:pr-1"
             data-analytics-pickers=""
           >
             <DateRangePicker value={period} onChange={setPeriod} today={today} />
@@ -678,9 +683,6 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             {/* What is shown, when there is a choice: one chip like the others, its list in a popover or the sheet (components/app/kind-picker). A pointer resting on a row reads it ahead. */}
             {kindPills.length ? <KindPicker options={kindPills} value={shownView} onChange={setView} onIntent={warmView} allLabel={tt("All types")} /> : null}
           </div>
-          {/* Storelib analytics on to the store's other tools, and the read only API (components/app/analytics/send-analytics). */}
-          <SendAnalyticsButton />
-          <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
 
         {/* The four figures and the chart of the one chosen. With Communities chosen, the communities' own figures and chart take their place (./community-reports, round 43). */}

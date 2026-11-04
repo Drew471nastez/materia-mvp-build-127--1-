@@ -1,8 +1,12 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
+import { isCreatorPagePath, isEdgeHeldRequest, STORELIB_HOST } from "@/lib/storefront/shared-view"
+import { creatorPageLanguageStep } from "@/lib/markets/creator-page-language-step"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
 import { readSessionPresence, readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
+import { verifierKind } from "@/lib/auth/verify-token"
+import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
 import { deadlineFetch } from "@/lib/net/deadline"
 import { REQUEST_ID_HEADER, requestIdOf } from "@/lib/net/request-id"
 import { logLine } from "@/lib/net/log"
@@ -22,6 +26,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
+import { heldLookup } from "@/lib/website-builder/held-lookup"
 import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
@@ -32,9 +37,15 @@ import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
-import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
+import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
+import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
+import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
+import { unknownExploreCategory } from "@/lib/explore/category-pages"
+import { answeredOk, dbState, noteDb, probeIfStale, supabaseProbe } from "@/lib/edge/db-health"
+import { readHostRecord, readSnapshot, snapshotRequest, snapshotResponse } from "@/lib/edge/public-snapshot"
+import { supabaseSnapshotStore } from "@/lib/edge/snapshot-store"
 
 /*
   THE PROXY'S OWN READS END IN 5s AT MOST (a custom domain's site, the site
@@ -48,7 +59,17 @@ const proxyFetch: typeof fetch = (input, init) => {
   const own = AbortSignal.timeout(PROXY_READ_MS)
   const any = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any
   const signal = init?.signal && any ? any([init.signal, own]) : init?.signal ?? own
-  return deadlineFetch(input, { ...init, signal })
+  /* Every answer, or none, is how this server knows the database is away (lib/edge/db-health.ts). */
+  return deadlineFetch(input, { ...init, signal }).then(
+    (r) => {
+      noteDb(answeredOk(r.status))
+      return r
+    },
+    (e) => {
+      noteDb(false)
+      throw e
+    },
+  )
 }
 const PROXY_DB = { global: { fetch: proxyFetch } }
 
@@ -235,15 +256,27 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
  */
 const answersHeld = new Map<string, { at: number; value: boolean }>()
 /* An answer being asked is shared, so the questions a visit asks at once (startSiteQuestions) cost one read each. */
-const answersAsked = new Map<string, Promise<boolean>>()
+const answersAsked = new Map<string, Promise<SiteAnswer>>()
+/*
+  YES, NO, OR NOT KNOWN (SITE-8). A read that failed with nothing held (a
+  cold server while the database is away) was "no", and on a subdomain "no"
+  is itself a routing decision: an AI site or an imported theme was sent to
+  the Storelib theme renderer, which drew the wrong page. The subdomain
+  branch now asks the three way answer and says "One moment" (503, Retry-
+  After) for "unavailable"; every other caller still reads it as "no".
+*/
+type SiteAnswer = boolean | "unavailable"
 async function remembered(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<boolean> {
+  return (await rememberedAnswer(key, ask)) === true
+}
+async function rememberedAnswer(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<SiteAnswer> {
   const held = answersHeld.get(key)
   if (held && Date.now() - held.at < 30_000) return held.value
   const asking = answersAsked.get(key)
   if (asking) return asking
-  const answer = (async () => {
+  const answer = (async (): Promise<SiteAnswer> => {
     const fresh = await ask().catch(() => ({ value: false, failed: true }))
-    if (fresh.failed) return held?.value ?? false
+    if (fresh.failed) return held ? held.value : "unavailable"
     if (answersHeld.size > 10_000) answersHeld.clear()
     answersHeld.set(key, { at: Date.now(), value: fresh.value })
     return fresh.value
@@ -253,10 +286,14 @@ async function remembered(key: string, ask: () => Promise<{ value: boolean; fail
 }
 
 async function hasLiveAiSite(slug: string): Promise<boolean> {
+  return (await liveAiSiteAnswer(slug)) === true
+}
+
+async function liveAiSiteAnswer(slug: string): Promise<SiteAnswer> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
-  return remembered(`ai:${slug.toLowerCase()}`, async () => {
+  return rememberedAnswer(`ai:${slug.toLowerCase()}`, async () => {
     const supabase = createClient(supabaseUrl, supabaseKey, PROXY_DB)
     const { data, error } = await supabase
       .from("site_deployments")
@@ -699,7 +736,7 @@ async function inSiteLanguage(username: string, pathname: string, request?: Next
  * page and the dozen requests its scripts make cost one read between them.
  */
 const compatHeld = new Map<string, { at: number; value: boolean }>()
-const compatAsked = new Map<string, Promise<boolean>>()
+const compatAsked = new Map<string, Promise<SiteAnswer>>()
 /*
   ASKED AGAIN WHEN A RENDERER SAYS THE ANSWER IS OLD: a Publish that
   switched between a Storelib theme and an imported one, seen by the
@@ -713,6 +750,11 @@ const FORCED_GAP_MS = 1_000
 /** The request came back from a renderer that found the other kind of theme live. */
 const asksFresh = (request: NextRequest) => request.nextUrl.searchParams.has(SITE_FRESH_PARAM)
 async function compatSiteFor(username: string, fresh = false): Promise<boolean> {
+  return (await compatSiteAnswer(username, fresh)) === true
+}
+
+/** compatSiteFor, with "unavailable" for a read that failed while nothing was held (SITE-8). */
+async function compatSiteAnswer(username: string, fresh = false): Promise<SiteAnswer> {
   const lower = username.toLowerCase()
   let hit = compatHeld.get(lower)
   if (fresh && hit && Date.now() - (compatForced.get(lower) ?? 0) > FORCED_GAP_MS && !compatAsked.has(lower)) {
@@ -734,9 +776,9 @@ async function compatSiteFor(username: string, fresh = false): Promise<boolean> 
     A read that failed is not "not imported": the answer before it stands,
     and nothing is remembered.
   */
-  const answer = (async () => {
+  const answer = (async (): Promise<SiteAnswer> => {
     const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey, PROXY_DB), lower)
-    if (failed) return hit?.value ?? false
+    if (failed) return hit ? hit.value : "unavailable"
     if (compatHeld.size > 5000) compatHeld.clear()
     compatHeld.set(lower, { at: Date.now(), value: facts.compat })
     return facts.compat
@@ -986,21 +1028,118 @@ function servedAt(domain: string): string {
  * With no answer ever seen and the database away, the caller says
  * "unavailable" and the visitor is asked to try again in a moment.
  */
-const domainHeld = new Map<string, { at: number; value: ConnectedDomain | null }>()
-const DOMAIN_HELD_MS = 60_000
+/*
+  ONE READ PER HOST AT A TIME, AND NO VISITOR WAITS FOR A REFRESH (round 48,
+  lib/website-builder/held-lookup.ts). Visitors arriving together on a cold
+  server share the one lookup in flight, where each used to ask the same
+  three to five questions of the database. Past its minute an answer is
+  still served, for up to ten more, while one read refreshes it behind, so
+  a change (a domain removed, made primary) is seen by the first request
+  after the minute's refresh has come back.
+*/
+const domainHeld = heldLookup<ConnectedDomain | null>({ freshMs: 60_000, staleMs: 10 * 60_000, max: 5000 })
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   A PUBLIC PAGE FROM ITS STORED COPY WHEN THE DATABASE IS AWAY (round 49)
+  ═══════════════════════════════════════════════════════════════════════════
+  lib/edge/public-snapshot.ts says what is kept and why it is nobody's. Two
+  places use it here: in front of everything else while this server has seen
+  the database fail (snapshotWhileDown), so a page is not drawn only to wait
+  seven seconds and say "One moment"; and wherever the routing itself could
+  not be read (the SITE-8 503s), before giving up.
+*/
+const snapshotStore = supabaseSnapshotStore()
+const dbProbe = supabaseProbe(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+/** Whether a host and path are a public page that may have a stored copy: a website, a OnePage, a community's public page. */
+function publicSnapshotPage(host: string, pathname: string): boolean {
+  if (host === "storelib.me") return /^\/[A-Za-z0-9_-]{1,64}\/?$/.test(pathname)
+  if (host === MAIN_DOMAIN || host === `www.${MAIN_DOMAIN}`) return /^\/community\/[a-z0-9-]{1,80}(?:\/about)?\/?$/.test(pathname)
+  if (host.endsWith(`.${SITES_DOMAIN}`) || host.endsWith(`.${MAIN_DOMAIN}`)) {
+    const sub = host.slice(0, host.indexOf("."))
+    return !EXCLUDED_SUBDOMAINS.includes(sub) && host.split(".").length === (host.endsWith(`.${SITES_DOMAIN}`) ? SITES_DOMAIN : MAIN_DOMAIN).split(".").length + 1
+  }
+  if (host === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.endsWith(".vercel.app") || !host.includes(".")) return false
+  return true
+}
+
+let snapshotsServed = 0
+let snapshotLoggedAt = 0
+
+/** The stored copy of this request's page, as an answer, or null. */
+async function snapshotFor(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl
+  if (!snapshotRequest({ method: request.method, pathname, accept: request.headers.get("accept"), fetchDest: request.headers.get("sec-fetch-dest"), requestedWith: request.headers.get("x-requested-with") })) return null
+  const record = await readSnapshot(snapshotStore, request.headers.get("host") || "", pathname).catch(() => null)
+  if (!record) return siteDomainFromRecord(request)
+  const r = snapshotResponse(record, request.method)
+  /* One line a minute per server, with how many: an outage under a spike is not a log line per visitor. */
+  snapshotsServed++
+  if (Date.now() - snapshotLoggedAt > 60_000) {
+    snapshotLoggedAt = Date.now()
+    console.warn(logLine("edge_snapshot_served", { host: record.host, path: record.path, taken: record.capturedAt, served: snapshotsServed }))
+    snapshotsServed = 0
+  }
+  return new NextResponse(r.body, { status: r.status, headers: r.headers })
+}
+
+/**
+ * A site's Storelib subdomain whose site lives at its own domain sends the
+ * visitor there (as sendsToDomain does with the database), from its host
+ * record, where the domain's copies are. A 302, never held by a cache.
+ */
+async function siteDomainFromRecord(request: NextRequest): Promise<NextResponse | null> {
+  const record = await readHostRecord(snapshotStore, request.headers.get("host") || "").catch(() => null)
+  if (!record?.canonical || record.canonical === (request.headers.get("host") || "").split(":")[0].toLowerCase()) return null
+  const { pathname, search } = request.nextUrl
+  const to = NextResponse.redirect(`https://${record.canonical}${pathname}${search}`, { status: 302 })
+  to.headers.set("Cache-Control", "no-store")
+  return to
+}
+
+/** In front of the routing: a public page from its copy while this server sees the database down; and a probe when it has not looked for a while. */
+async function snapshotWhileDown(request: NextRequest, bareHost: string): Promise<NextResponse | null> {
+  if (!publicSnapshotPage(bareHost, request.nextUrl.pathname)) return null
+  probeIfStale(dbProbe)
+  if (dbState() !== "down") return null
+  return snapshotFor(request)
+}
+
+/**
+ * WHICH SITE A HOST IS, WITH NO DATABASE (lib/edge/public-snapshot.ts
+ * HostRecord, written with the site's copies). Only for a Storelib theme
+ * site, and only for a page: it goes to /w/<name>, where Next's own copies
+ * (the page held for every visitor, the site's last good copy in the data
+ * cache) can still answer. An imported theme or an AI site is never guessed
+ * at: their pages come from their copies or say "One moment", as before.
+ */
+async function nativeFromRecord(request: NextRequest, name: string | null): Promise<NextResponse | null> {
+  const { pathname, search } = request.nextUrl
+  if (!snapshotRequest({ method: request.method, pathname, accept: request.headers.get("accept"), fetchDest: request.headers.get("sec-fetch-dest"), requestedWith: request.headers.get("x-requested-with") })) return null
+  const record = await readHostRecord(snapshotStore, request.headers.get("host") || "").catch(() => null)
+  /* Only a Storelib theme site with no password when it was kept: never a guess at an imported theme, an AI site or a closed one. */
+  if (!record || record.kind !== "native" || record.open !== true || (name && record.name !== name)) return null
+  const to = request.nextUrl.clone()
+  to.pathname = `/w/${record.name}${pathname === "/" ? "" : pathname}`
+  to.search = search
+  const r = NextResponse.rewrite(to)
+  r.headers.set("x-seller-subdomain", record.name)
+  if (pathname === "/") r.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
+  return r
+}
 
 /** A page that loads again by itself, for the moment a site cannot be looked up. */
+/** A site whose routing or lookup could not be read: try again in a moment, never a guess. */
+function siteUnavailable(): NextResponse {
+  return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
+}
 const SITE_UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
 
 async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null | "unavailable"> {
   const key = host.split(":")[0].toLowerCase()
-  const held = domainHeld.get(key)
-  if (held && Date.now() - held.at < DOMAIN_HELD_MS) return held.value
-  const fresh = await resolveCustomDomainFresh(host)
-  if (fresh.failed) return held ? held.value : "unavailable"
-  if (domainHeld.size > 5000) domainHeld.clear()
-  domainHeld.set(key, { at: Date.now(), value: fresh.value })
-  return fresh.value
+  const answer = await domainHeld.get(key, () => resolveCustomDomainFresh(host))
+  return answer.failed ? "unavailable" : answer.value
 }
 
 /* "No row" from `.single()` is an answer; anything else that comes back as an error is the database not answering. */
@@ -1410,15 +1549,64 @@ export async function proxy(request: NextRequest) {
   const res = forgetStaleCountry(request, await routeRequest(request))
   try {
     res.headers.set(REQUEST_ID_HEADER, rid)
+    /*
+      A PRIVATE ADDRESS ON storelib.com SAYS NOINDEX IN ITS OWN ANSWER (round 45,
+      lib/seo/indexing.ts privatePlatformPath): the checkout, a receipt, the app,
+      logging in. Here, after the routing, so a redirect, a route handler and a
+      page added under one of those routes later all carry it. An answer that
+      already says something about robots keeps its own.
+    */
+    if (onStorelibHost(request.headers.get("host")) && privatePlatformPath(request.nextUrl.pathname) && !res.headers.has("X-Robots-Tag")) {
+      res.headers.set("X-Robots-Tag", PRIVATE_ROBOTS_HEADER)
+    }
+    /*
+      THE CONTENT SECURITY POLICY IS ENFORCED on Storelib's own pages: /app,
+      /admin and the sign in pages on storelib.com (round 48, lib/security/csp.ts
+      enforcesCsp says where and why only there). Here, after the routing, so
+      it is on whatever answer the routing made, joined to a policy the
+      routing already set rather than replacing it.
+    */
+    if (enforcesCsp(request.headers.get("host"), request.nextUrl.pathname, MAIN_DOMAIN)) {
+      res.headers.set("Content-Security-Policy", withEnforcedCsp(res.headers.get("Content-Security-Policy")))
+    }
   } catch {
     /* an immutable response: it goes without the id */
   }
   return res
 }
 
+/*
+  A SIGN IN REDIRECT IS THIS VISITOR'S ANSWER. /app and /sell answer a
+  stranger with a 307 to /login or /signup, and a signed in person with the
+  page: the same address, two answers decided from the session cookie. With
+  no Cache-Control of its own, Vercel sent the redirect as
+  "public, max-age=0, must-revalidate", which allows a shared cache to keep
+  it. Said outright now, as every other per visitor answer here says it.
+*/
+const SIGNED_OUT_REDIRECT_CACHE = "private, no-store"
+
+/** storelib.com or www.storelib.com: where the private addresses are Storelib's own. */
+function onStorelibHost(host: string | null): boolean {
+  const bare = (host || "").split(":")[0].toLowerCase()
+  return bare === MAIN_DOMAIN || bare === `www.${MAIN_DOMAIN}`
+}
+
 async function routeRequest(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+  /* An Explore category that does not exist is a 404 from here (lib/explore/category-pages.ts unknownExploreCategory): /explore's loading screen would have sent a 200 first. */
+  if (onStorelibHost(request.headers.get("host")) && unknownExploreCategory(pathname)) {
+    return NextResponse.rewrite(new URL("/_not-found", request.url), { status: 404 })
+  }
   const host = request.headers.get("host") || ""
+
+  /*
+    A TRAILING SLASH, AND www WITH IT, IN ONE 308 (lib/seo/one-hop.ts).
+    next.config sets skipTrailingSlashRedirect, so Next no longer answers
+    /pricing/ before this runs; this does, first, as Next did, and on
+    www.storelib.com straight to the apex rather than in two hops.
+  */
+  const slashHop = trailingSlashHop(host, pathname, search, MAIN_DOMAIN)
+  if (slashHop) return NextResponse.redirect(new URL(slashHop.location, request.nextUrl.href), slashHop.status)
 
   /*
     A STRANGER'S COPY OF AN IMPORTED THEME'S PAGE is held by the CDN at a
@@ -1439,7 +1627,8 @@ async function routeRequest(request: NextRequest) {
     logged; the rest get the route's own answer, 204, from here. A browser
     does nothing with the answer either way.
   */
-  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !keepsCspReport(Math.random())) {
+  /* A report from the ENFORCED policy is something a person could not do: every one of them is kept. */
+  if (pathname === CSP_REPORT_PATH && request.method === "POST" && !request.nextUrl.searchParams.has("enforced") && !keepsCspReport(Math.random())) {
     return new NextResponse(null, { status: 204 })
   }
   /*
@@ -1466,6 +1655,9 @@ async function routeRequest(request: NextRequest) {
   */
   const helpHost = `help.${MAIN_DOMAIN}`
   const bareHost = host.split(":")[0].toLowerCase()
+  /* The database away: a public page from its stored copy, before any routing that would ask it (snapshotWhileDown). */
+  const whileDown = await snapshotWhileDown(request, bareHost)
+  if (whileDown) return whileDown
   if (bareHost === helpHost) {
     const isFile = /\.[a-z0-9]{2,5}$/i.test(pathname)
     if (pathname.startsWith("/_next") || pathname.startsWith("/api/") || isFile) return NextResponse.next()
@@ -1638,11 +1830,10 @@ async function routeRequest(request: NextRequest) {
    * other, which reads as a broken login rather than a redirect somebody
    * forgot.
    */
+  /* 308, like every other permanent redirect here: a 301 lets a client turn a POST into a GET. */
   if (!isApiCall && bareHost === `www.${MAIN_DOMAIN}`) {
-    const canonical = new URL(`https://${MAIN_DOMAIN}`)
-    canonical.pathname = pathname
-    canonical.search = search
-    return NextResponse.redirect(canonical, { status: 301 })
+    const hop = wwwHop(pathname, search, MAIN_DOMAIN)
+    return NextResponse.redirect(new URL(hop.location), { status: hop.status })
   }
 
   /*
@@ -1765,7 +1956,9 @@ async function routeRequest(request: NextRequest) {
         its own files.
       */
       if (isSiteIconPath(pathname)) {
-        if (await hasLiveAiSite(subdomain)) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
+        const ai = await liveAiSiteAnswer(subdomain)
+        if (ai === "unavailable") return (await snapshotFor(request)) ?? siteUnavailable()
+        if (ai) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
         return NextResponse.rewrite(new URL(`/w/${subdomain}${pathname}${search}`, request.url))
       }
       /*
@@ -1782,6 +1975,19 @@ async function routeRequest(request: NextRequest) {
         const domain = await websiteDomainOf(subdomain)
         if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
       }
+      /*
+        WHICH RENDERER, OR "ONE MOMENT" (SITE-8). Every line below picks the
+        renderer from these two answers. A server that holds neither and
+        cannot read them (a cold one while the database is away) used to
+        take both as "no" and draw an AI site or an imported theme with the
+        Storelib theme renderer. It says try again instead; an answer held
+        from before is still used as it was.
+      */
+      const [aiKnown, compatKnown] = await Promise.all([
+        liveAiSiteAnswer(subdomain),
+        compatAnswers(pathname, request) ? compatSiteAnswer(subdomain, asksFresh(request)) : Promise.resolve<SiteAnswer>(false),
+      ])
+      if (aiKnown === "unavailable" || compatKnown === "unavailable") return (await snapshotFor(request)) ?? (await nativeFromRecord(request, subdomain)) ?? siteUnavailable()
       /*
         AND ITS SITEMAP. It lists the domain's addresses (the canonical ones),
         which a search engine refuses in a sitemap on another host. So the
@@ -1994,10 +2200,11 @@ async function routeRequest(request: NextRequest) {
   // Everything here lands on /native-start, which resolves the session and sends
   // a seller to /app, a buyer to /library, and a stranger to /welcome.
   const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog", "/alternatives"]
+  /* And the /sell/<use case> pages, which are marketing pages; never /sell itself, the seller onboarding the app opens. */
   const isCapacitor = (request.headers.get("user-agent") || "").includes("Capacitor")
   if (
     isCapacitor &&
-    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)))
+    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) || pathname.startsWith("/sell/"))
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/native-start"
@@ -2059,6 +2266,9 @@ async function routeRequest(request: NextRequest) {
     const resolved = await resolveCustomDomain(host)
     /* The database not answering is not "this domain is not connected": try again in a moment, never a redirect away. */
     if (resolved === "unavailable" && !isApiCall) {
+      /* Its stored copy, or a Storelib theme site's page drawn from what Next still holds (nativeFromRecord), before "One moment". */
+      const copy = (await snapshotFor(request)) ?? (await nativeFromRecord(request, null))
+      if (copy) return copy
       return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
     }
     const connected = resolved === "unavailable" ? null : resolved
@@ -2435,7 +2645,61 @@ async function routeRequest(request: NextRequest) {
      * page has no per-viewer content.
      */
   }
+  /*
+    A CREATOR PAGE ON STORELIB.COM IN ANOTHER LANGUAGE IS ANOTHER ADDRESS
+    (round 49). /<handle> and /<handle>/<product> are one HTML for everybody,
+    which the CDN holds (next.config.mjs, tests/cdnpages-r49): nothing here
+    makes a request "somebody's" any more, and nothing is rewritten, because
+    the CDN keys its copy on the address the browser asked for (round 48's
+    ?_pv=1 rewrite, reverted in 244bdca, served the stranger's copy to
+    signed in visitors for exactly that reason). The one thing the page used
+    to read from the request, the language (sl_lang, or the browser's in a
+    store that shows visitors their own), is an address now: such a visitor
+    is sent to /<handle>?lang=<code> with a 307 nobody stores
+    (lib/markets/creator-page-language-step). A read that fails is no
+    languages: the page is drawn in the store's own, as it would have been.
+  */
+  if (!username && !isCustomDomain && !communityPath && (request.method === "GET" || request.method === "HEAD") && STORELIB_HOST.test(host.split(":")[0]) && isCreatorPagePath(pathname) && pathname.replace(/\/+$/, "").split("/").length === 2 && !request.nextUrl.searchParams.has("lang")) {
+    const handle = pathname.split("/")[1] ?? ""
+    const loc = await siteLocalizationFor(handle).catch(() => null)
+    const language = loc
+      ? creatorPageLanguageStep({
+          method: request.method,
+          dest: request.headers.get("sec-fetch-dest"),
+          accept: request.headers.get("accept"),
+          userAgent: request.headers.get("user-agent"),
+          asked: false,
+          chosen: request.cookies.get("sl_lang")?.value || null,
+          visitorLanguage: !!loc.visitorLanguage,
+          defaultLanguage: loc.defaultLanguage || "en",
+          others: loc.languages,
+          acceptLanguage: request.headers.get("accept-language"),
+        })
+      : null
+    if (language) {
+      const to = request.nextUrl.clone()
+      to.searchParams.set("lang", language.toLowerCase())
+      const r = NextResponse.redirect(to, 307)
+      r.headers.set("Cache-Control", "private, no-store")
+      r.headers.set("Vercel-CDN-Cache-Control", "no-store")
+      r.headers.set("Vary", "Accept-Language, Cookie")
+      return r
+    }
+  }
   supabaseResponse = respond()
+
+  /*
+    AN ANSWER THE CDN KEEPS FOR EVERYBODY CARRIES NOBODY'S COOKIE (round 49).
+    A creator page, a product page and Explore on storelib.com are one HTML
+    for everybody, held by Vercel's CDN (next.config.mjs). Their render reads
+    no session, so none is renewed here, and nothing below may add a
+    Set-Cookie (a renewed session, the old domain cookie retired) or a
+    per-visitor header (the app's CSP) to an answer the next visitor is
+    handed. The browser's own requests after load renew the session as ever.
+  */
+  if (!username && !isCustomDomain && !communityPath && STORELIB_HOST.test(host.split(":")[0]) && isEdgeHeldRequest({ method: request.method, pathname, rsc: request.headers.has("rsc"), search: request.nextUrl.searchParams })) {
+    return supabaseResponse
+  }
 
   /*
     A BEACON, A REPORT, A SCHEDULED JOB OR A WEBHOOK READS NO SESSION, so
@@ -2550,6 +2814,19 @@ async function routeRequest(request: NextRequest) {
   }
 
   /*
+    WHICH CHECK RAN, ON THE RESPONSE (round 49). For /app, /dashboard and /sell
+    with a session cookie: "proxy-local" when the token's signature was checked
+    here, "proxy-network" when Supabase Auth was asked, and which local check
+    this server has ("verifier=jwks", "hs256" or "none"). The kind of check
+    only: never a key, a token or anybody's id. How the owner confirms the
+    signing key step worked (docs/reliability/AUTH_KEYS.md).
+  */
+  if (decidesHere && signedIn) {
+    const how = current.verifiedBy === "claims" ? "local" : current.verifiedBy === "user" ? "network" : current.state === "anonymous" ? "anonymous" : "none"
+    supabaseResponse.headers.set(AUTH_CHECK_HEADER, `proxy-${how}; verifier=${await verifierKind(supabaseUrl).catch(() => "none")}`)
+  }
+
+  /*
     SELL ON STORELIB, SIGNED OUT, GOES STRAIGHT TO SIGN UP. /sell makes the
     same decision itself, but it has a loading screen, so its redirect came
     after the page had started streaming: a white frame, then a client hop
@@ -2567,6 +2844,8 @@ async function routeRequest(request: NextRequest) {
     const redirect = NextResponse.redirect(url, 307)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
     retireDomainScopedCookies(redirect, request)
+    /* Decided from who is asking: never a shared cache's (SIGNED_OUT_REDIRECT_CACHE). */
+    redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
   }
 
@@ -2598,6 +2877,7 @@ async function routeRequest(request: NextRequest) {
     const redirect = NextResponse.redirect(url)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
     retireDomainScopedCookies(redirect, request)
+    redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
   }
 

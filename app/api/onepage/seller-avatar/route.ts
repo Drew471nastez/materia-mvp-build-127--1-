@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { keptPhoto } from "@/lib/account/identity"
 
 /**
@@ -44,15 +45,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { data: storeConfig } = await supabase
+    /* Two paths of the published header, read by the server (round 48, R48-6): never the draft, never the contact address, and no anon read of the table. */
+    const { data: storeConfig } = await createAdminClient()
       .from("store_builder_configs")
-      .select("published_config")
+      .select("avatar:published_config->headerSettings->>avatarUrl, favicon:published_config->headerSettings->>faviconUrl")
       .eq("creator_id", sellerId)
       .eq("page_type", "shop")
       .maybeSingle()
 
-    const headerSettings = storeConfig?.published_config?.headerSettings as any
-    const fromHeader = keptPhoto(headerSettings?.avatarUrl) || keptPhoto(headerSettings?.faviconUrl)
+    const header = storeConfig as { avatar?: string | null; favicon?: string | null } | null
+    const fromHeader = keptPhoto(header?.avatar) || keptPhoto(header?.favicon)
     if (fromHeader) {
       return NextResponse.json({ avatar_url: fromHeader })
     }

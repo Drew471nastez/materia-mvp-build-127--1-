@@ -1,9 +1,13 @@
 import Link from "next/link"
+import { NOT_FOUND_METADATA } from "@/lib/seo/not-found-metadata"
 
 /**
  * A token that matches nothing. Deliberately the same answer for a typo, an
  * old link and a guess, so the page says nothing about which it was.
  */
+/* One robots tag on a 404, and it says noindex: lib/seo/not-found-metadata.ts. */
+export const metadata = NOT_FOUND_METADATA
+
 export default function ReceiptNotFound() {
   return (
     <main data-receipt="" className="bg-[#f5f6f8]">

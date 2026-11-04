@@ -1,0 +1,39 @@
+-- ###########################################################################
+--  STORELIB: THE INDEXES OF RUN-NOW PART 349, BUILT WITHOUT STOPPING WRITES
+-- ###########################################################################
+--
+--  The same two trigram indexes as
+--  supabase/sql/run-now/349_buyer_email_trigram_indexes.sql, with the same
+--  names and definitions, built with CREATE INDEX CONCURRENTLY.
+--
+--  WHY. A plain CREATE INDEX stops every insert and update on its table
+--  while it builds: on orders and commerce_checkouts that is every checkout.
+--  CONCURRENTLY builds the index while writes continue.
+--
+--  HOW. CONCURRENTLY refuses to run inside a transaction, and the Supabase
+--  SQL editor turns a paste of several statements into one. So:
+--    - in the SQL editor, run ONE LINE AT A TIME: select a single
+--      CREATE line below, press Run, wait for Success, then the next;
+--    - or with psql, which runs each statement on its own:
+--        psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/sql/RUN_BUYER_EMAIL_TRGM_CONCURRENTLY.sql
+--  Then run part 349 as usual. It finds both indexes made and takes no lock.
+--
+--  PG_TRGM. The lines name extensions.gin_trgm_ops, where Supabase keeps
+--  pg_trgm. To see where it is:
+--    select extnamespace::regnamespace from pg_extension where extname = 'pg_trgm';
+--  If that says public, write gin_trgm_ops without "extensions.". If it
+--  returns no row, run this first (one line, its own Run):
+--    create extension if not exists pg_trgm with schema extensions;
+--
+--  IF A LINE FAILS PART WAY (a timeout, a cancelled query), Postgres leaves an
+--  INVALID index of that name behind, and IF NOT EXISTS would then skip it.
+--  Drop it and run the line again:
+--    DROP INDEX CONCURRENTLY IF EXISTS public.<the index name>;
+--  To see any invalid one:
+--    select indexrelid::regclass from pg_index where not indisvalid;
+--
+--  Safe to run again: each line is IF NOT EXISTS.
+-- ###########################################################################
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS orders_buyer_email_trgm_idx ON public.orders USING gin (buyer_email extensions.gin_trgm_ops) WHERE buyer_email IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS commerce_checkouts_buyer_email_trgm_idx ON public.commerce_checkouts USING gin (buyer_email extensions.gin_trgm_ops) WHERE buyer_email IS NOT NULL;

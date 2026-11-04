@@ -7,7 +7,9 @@
  * /api/analytics/destinations answered by a store that has GA4 connected
  * (one error waiting) and nothing else:
  *
- *   ROW       the button sits in the control row, as tall as its chips
+ *   ROW       the button sits beside Export on the heading's line, a 36px
+ *             circle like it (changed on purpose, round 49: it was in the
+ *             control row, with its name from 640px)
  *   DIALOG    at most 520px wide on a computer; a bottom sheet on a phone,
  *             nothing past the screen's sides
  *   ROWS      six tools, each a target at least 44px tall
@@ -116,8 +118,9 @@ for (const [name, vp] of [["desktop", DESK], ["phone", PHONE]]) {
     const e = document.querySelector("[data-export-stand-in]")?.getBoundingClientRect()
     return b && e ? { h: Math.round(b.height), eh: Math.round(e.height), w: Math.round(b.width), ew: Math.round(e.width), sameLine: Math.abs(b.top - e.top) < 1, before: b.right <= e.left, radius: getComputedStyle(el).borderRadius } : null
   })
-  expect(!!row && row.h === row.eh && row.sameLine && row.before, "Send to sits beside Export, as tall as it, in the row's pill", row)
-  if (vp.width < 640) expect(!!row && row.w === row.ew && row.w === 36, "on a phone, a 36px circle like Export", row)
+  expect(!!row && row.h === row.eh && row.sameLine && row.before, "Send to sits beside Export, as tall as it", row)
+  /* Changed on purpose (round 49): a 36px circle at every width, icon only, like Export. */
+  expect(!!row && row.w === row.ew && row.w === 36, "a 36px circle like Export", row)
   await p.screenshot({ path: join(shots, `${name}-row.png`) })
   await p.click("[data-analytics-send]")
   await sleep(700)

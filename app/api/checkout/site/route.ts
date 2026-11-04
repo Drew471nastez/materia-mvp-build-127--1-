@@ -24,7 +24,7 @@ import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
-import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
+import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
@@ -296,6 +296,11 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
 
 function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
   const sent = cleanOrigin(body.origin)
+  /* Round 49: opened from the creator's OnePage (?src=onepage, lib/orders/checkout-origin): the OnePage is where it began. Anything else on this host is the website's. */
+  if (sent?.surface === "onepage") {
+    const { site: _named, ...rest } = sent
+    return { ...rest, surface: "onepage" }
+  }
   return { ...(sent ?? {}), surface: "website", site: cleanHost(site.host.split(":")[0]) }
 }
 
@@ -529,7 +534,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     await releaseSales(admin, heldCopies, saleHolder)
     const e = error as { param?: string; message?: string } | null
     if (/destination/i.test(e?.param ?? "") || /destination|connected account/i.test(e?.message ?? "")) {
-      const gone = await stripe.accounts.retrieve(account).then(() => false, (x: unknown) => accountIsGone(x))
+      const gone = await stripe.accounts.retrieve(account).then(() => false, (x: unknown) => accountGoneFromPlatform(x))
       if (gone) {
         await releaseConnectedAccount(site.creatorId, account, "legacy_platform").catch(() => undefined)
         return json({ error: "This shop cannot take payments right now. Nothing was charged." }, 409)

@@ -67,9 +67,14 @@ export function grossCents(input: CalcInput): number {
   return priceCents * sales
 }
 
+/** The cut a plan takes on a sale of `priceCents`: its own rate, or the one above its line when the sale is dearer (Skool Pro). */
+export function planFeeRate(plan: Pick<CompetitorPlan, "fee" | "feeAbove">, priceCents: number): Rate {
+  return plan.feeAbove && priceCents > plan.feeAbove.overCents ? plan.feeAbove.fee : plan.fee
+}
+
 export function competitorCost(platform: string, plan: CompetitorPlan, raw: CalcInput): PlanCost {
   const input = clampInput(raw)
-  const feeCents = perSaleCents(input.priceCents, plan.fee) * input.sales
+  const feeCents = perSaleCents(input.priceCents, planFeeRate(plan, input.priceCents)) * input.sales
   const processingCents = plan.processing ? perSaleCents(input.priceCents, plan.processing) * input.sales : plan.processingKnown ? 0 : null
   const totalCents = plan.monthlyCents + feeCents + (processingCents ?? 0)
   return {

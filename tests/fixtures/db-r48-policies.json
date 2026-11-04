@@ -1,0 +1,2414 @@
+{
+ "source": "pg_policies on local Postgres 16 built by scripts/sql-harness (base files, then supabase/sql/all-in-two file 1 and 2), before and after run-now part 353; only the policies 353 changed. Round r48-db.",
+ "total_public_policies": 335,
+ "changed": [
+  {
+   "table": "account_delete_codes",
+   "policy": "Users can view their own delete codes",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "ai_memories",
+   "policy": "ai_memories_delete_own",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "ai_memories",
+   "policy": "ai_memories_insert_own",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": null,
+    "check": "((creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid()))) AND ((install_id IS NULL) OR (install_id IN ( SELECT i.id\n   FROM store_theme_installs i\n  WHERE (i.creator_id = ai_memories.creator_id)))))"
+   },
+   "after": {
+    "using": null,
+    "check": "((creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid)))) AND ((install_id IS NULL) OR (install_id IN ( SELECT i.id\n   FROM store_theme_installs i\n  WHERE (i.creator_id = ai_memories.creator_id)))))"
+   }
+  },
+  {
+   "table": "ai_memories",
+   "policy": "ai_memories_select_own",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "analytics_daily_rollups",
+   "policy": "Creators can view own rollups",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "analytics_events",
+   "policy": "Creators can view their own analytics",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = analytics_events.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = analytics_events.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "auth_recovery_requests",
+   "policy": "Service role can manage auth recovery requests",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": "(auth.role() = 'service_role'::text)"
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": "(( SELECT auth.role() AS role) = 'service_role'::text)"
+   }
+  },
+  {
+   "table": "commerce_reasons",
+   "policy": "commerce_reasons_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = commerce_reasons.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = commerce_reasons.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "commerce_tax_overrides",
+   "policy": "commerce_tax_overrides_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = commerce_tax_overrides.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = commerce_tax_overrides.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "community_comments",
+   "policy": "Authors and creators can delete comments",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = author_id) OR (EXISTS ( SELECT 1\n   FROM (community_posts p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = community_comments.post_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = author_id) OR (EXISTS ( SELECT 1\n   FROM (community_posts p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = community_comments.post_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "community_comments",
+   "policy": "Authors can update their comments",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = author_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = author_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "community_comments",
+   "policy": "Entitled users can create comments",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "((auth.uid() = author_id) AND (EXISTS ( SELECT 1\n   FROM community_posts p\n  WHERE ((p.id = community_comments.post_id) AND ((EXISTS ( SELECT 1\n           FROM entitlements e\n          WHERE ((e.creator_id = p.creator_id) AND (e.buyer_id = auth.uid()) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = auth.uid())))))))))"
+   },
+   "after": {
+    "using": null,
+    "check": "((( SELECT auth.uid() AS uid) = author_id) AND (EXISTS ( SELECT 1\n   FROM community_posts p\n  WHERE ((p.id = community_comments.post_id) AND ((EXISTS ( SELECT 1\n           FROM entitlements e\n          WHERE ((e.creator_id = p.creator_id) AND (e.buyer_id = ( SELECT auth.uid() AS uid)) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))))))"
+   }
+  },
+  {
+   "table": "community_comments",
+   "policy": "Entitled users can view community comments",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM community_posts p\n  WHERE ((p.id = community_comments.post_id) AND ((EXISTS ( SELECT 1\n           FROM entitlements e\n          WHERE ((e.creator_id = p.creator_id) AND (e.buyer_id = auth.uid()) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = auth.uid()))))))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM community_posts p\n  WHERE ((p.id = community_comments.post_id) AND ((EXISTS ( SELECT 1\n           FROM entitlements e\n          WHERE ((e.creator_id = p.creator_id) AND (e.buyer_id = ( SELECT auth.uid() AS uid)) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "community_posts",
+   "policy": "Authors and creators can delete posts",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = author_id) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = author_id) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "community_posts",
+   "policy": "Authors and creators can update posts",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = author_id) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = author_id) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "community_posts",
+   "policy": "Entitled users can create community posts",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "((auth.uid() = author_id) AND ((EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.creator_id = community_posts.creator_id) AND (e.buyer_id = auth.uid()) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = auth.uid()))))))"
+   },
+   "after": {
+    "using": null,
+    "check": "((( SELECT auth.uid() AS uid) = author_id) AND ((EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.creator_id = community_posts.creator_id) AND (e.buyer_id = ( SELECT auth.uid() AS uid)) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))))"
+   }
+  },
+  {
+   "table": "community_posts",
+   "policy": "Entitled users can view community posts",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.creator_id = community_posts.creator_id) AND (e.buyer_id = auth.uid()) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.creator_id = community_posts.creator_id) AND (e.buyer_id = ( SELECT auth.uid() AS uid)) AND (e.community_access = true)))) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = community_posts.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "conversation_reports",
+   "policy": "conversation_reports_insert_own",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = reporter_id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = reporter_id)"
+   }
+  },
+  {
+   "table": "conversation_reports",
+   "policy": "conversation_reports_select_own",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(auth.uid() = reporter_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = reporter_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "conversations",
+   "policy": "conversations_insert",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = buyer_id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = buyer_id)"
+   }
+  },
+  {
+   "table": "conversations",
+   "policy": "conversations_select",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = buyer_id) OR (auth.uid() = seller_id))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = buyer_id) OR (( SELECT auth.uid() AS uid) = seller_id))",
+    "check": null
+   }
+  },
+  {
+   "table": "conversations",
+   "policy": "conversations_touch",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = buyer_id) OR (auth.uid() = seller_id))",
+    "check": "((auth.uid() = buyer_id) OR (auth.uid() = seller_id))"
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = buyer_id) OR (( SELECT auth.uid() AS uid) = seller_id))",
+    "check": "((( SELECT auth.uid() AS uid) = buyer_id) OR (( SELECT auth.uid() AS uid) = seller_id))"
+   }
+  },
+  {
+   "table": "coupons",
+   "policy": "Creators manage own coupons",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "creator_plan_overrides",
+   "policy": "creator_plan_overrides_read_own",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "creators",
+   "policy": "Users can create their own creator profile",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = user_id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = user_id)"
+   }
+  },
+  {
+   "table": "creators",
+   "policy": "Users can delete their own creator profile",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "creators",
+   "policy": "Users can update their own creator profile",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "custom_domains",
+   "policy": "Creators can view own domains",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "custom_domains",
+   "policy": "Service role full access to custom_domains",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "customers",
+   "policy": "Creators can view their own customers",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "digital_assets",
+   "policy": "Creators can manage their digital assets (read)",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = digital_assets.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = digital_assets.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "digital_assets",
+   "policy": "Creators can view their digital_assets",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "digital_assets",
+   "policy": "Entitled buyers can view digital assets",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.product_id = digital_assets.product_id) AND (e.buyer_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM entitlements e\n  WHERE ((e.product_id = digital_assets.product_id) AND (e.buyer_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "domain_redirects",
+   "policy": "Creators can view own domain redirects",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "domain_redirects",
+   "policy": "Service role full access to domain_redirects",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "download_events",
+   "policy": "Users can view their own downloads",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((entitlement_id IN ( SELECT entitlements.id\n   FROM entitlements\n  WHERE (entitlements.buyer_id = auth.uid()))) OR (order_id IN ( SELECT orders.id\n   FROM orders\n  WHERE (orders.buyer_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "((entitlement_id IN ( SELECT entitlements.id\n   FROM entitlements\n  WHERE (entitlements.buyer_id = ( SELECT auth.uid() AS uid)))) OR (order_id IN ( SELECT orders.id\n   FROM orders\n  WHERE (orders.buyer_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_campaigns",
+   "policy": "creators_manage_campaigns",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_change_codes",
+   "policy": "Service role can manage email change codes",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "email_change_codes",
+   "policy": "Users can view own email change codes",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "email_recipients",
+   "policy": "creators_view_recipients",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_segments",
+   "policy": "Creators can delete their own segments",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_segments",
+   "policy": "Creators can insert their own segments",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "email_segments",
+   "policy": "Creators can update their own segments",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_segments",
+   "policy": "Creators can view their own segments",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_sends",
+   "policy": "Creators can view their own email sends",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(campaign_id IN ( SELECT email_campaigns.id\n   FROM email_campaigns\n  WHERE (email_campaigns.creator_id IN ( SELECT creators.id\n           FROM creators\n          WHERE (creators.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "(campaign_id IN ( SELECT email_campaigns.id\n   FROM email_campaigns\n  WHERE (email_campaigns.creator_id IN ( SELECT creators.id\n           FROM creators\n          WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_templates",
+   "policy": "Creators can delete their own templates",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_templates",
+   "policy": "Creators can insert their own templates",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "email_templates",
+   "policy": "Creators can update their own templates",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "email_templates",
+   "policy": "Creators can view their own templates",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid()))) OR (template_type = 'system'::text))",
+    "check": null
+   },
+   "after": {
+    "using": "((creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid)))) OR (template_type = 'system'::text))",
+    "check": null
+   }
+  },
+  {
+   "table": "entitlements",
+   "policy": "Creators can view entitlements for their products",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = entitlements.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = entitlements.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "entitlements",
+   "policy": "Users can view their own entitlements",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = buyer_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = buyer_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "follows",
+   "policy": "users delete their own follows",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = follower_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = follower_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "follows",
+   "policy": "users insert their own follows",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = follower_id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = follower_id)"
+   }
+  },
+  {
+   "table": "integration_requests",
+   "policy": "integration_requests_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = integration_requests.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = integration_requests.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "invoices",
+   "policy": "Creators can view own invoices",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "ledger_events",
+   "policy": "creators view own ledger events",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "library_items",
+   "policy": "Buyers read their library",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(user_id = auth.uid())",
+    "check": null
+   },
+   "after": {
+    "using": "(user_id = ( SELECT auth.uid() AS uid))",
+    "check": null
+   }
+  },
+  {
+   "table": "messages",
+   "policy": "messages_insert",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "((sender_id = auth.uid()) AND (EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = auth.uid()) OR (c.seller_id = auth.uid()))))))"
+   },
+   "after": {
+    "using": null,
+    "check": "((sender_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = ( SELECT auth.uid() AS uid)) OR (c.seller_id = ( SELECT auth.uid() AS uid)))))))"
+   }
+  },
+  {
+   "table": "messages",
+   "policy": "messages_select",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = auth.uid()) OR (c.seller_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = ( SELECT auth.uid() AS uid)) OR (c.seller_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "messages",
+   "policy": "messages_update",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "((sender_id <> auth.uid()) AND (EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = auth.uid()) OR (c.seller_id = auth.uid()))))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = auth.uid()) OR (c.seller_id = auth.uid())))))"
+   },
+   "after": {
+    "using": "((sender_id <> ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = ( SELECT auth.uid() AS uid)) OR (c.seller_id = ( SELECT auth.uid() AS uid)))))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.buyer_id = ( SELECT auth.uid() AS uid)) OR (c.seller_id = ( SELECT auth.uid() AS uid))))))"
+   }
+  },
+  {
+   "table": "notifications",
+   "policy": "notifications_delete",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "notifications",
+   "policy": "notifications_select",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "notifications",
+   "policy": "notifications_update",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": "(auth.uid() = user_id)"
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": "(( SELECT auth.uid() AS uid) = user_id)"
+   }
+  },
+  {
+   "table": "onepage_billing",
+   "policy": "Sellers can view their billing",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(seller_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(seller_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_billing",
+   "policy": "System can manage billing",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_clicks",
+   "policy": "Owners can view their onepage clicks",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_lead_magnets",
+   "policy": "Owners can manage their lead magnets",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_leads",
+   "policy": "Owners can delete their leads",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_leads",
+   "policy": "Owners can update their leads",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_leads",
+   "policy": "Owners can view their onepage leads",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepage_views",
+   "policy": "Owners can view their onepage views",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(onepage_id IN ( SELECT onepages.id\n   FROM onepages\n  WHERE (onepages.owner_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "onepages",
+   "policy": "Owners manage their onepage",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(owner_id = auth.uid())",
+    "check": "(owner_id = auth.uid())"
+   },
+   "after": {
+    "using": "(owner_id = ( SELECT auth.uid() AS uid))",
+    "check": "(owner_id = ( SELECT auth.uid() AS uid))"
+   }
+  },
+  {
+   "table": "order_case_messages",
+   "policy": "order_case_messages_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "((NOT internal) AND (EXISTS ( SELECT 1\n   FROM (order_cases oc\n     JOIN creators c ON ((c.id = oc.creator_id)))\n  WHERE ((oc.id = order_case_messages.case_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((NOT internal) AND (EXISTS ( SELECT 1\n   FROM (order_cases oc\n     JOIN creators c ON ((c.id = oc.creator_id)))\n  WHERE ((oc.id = order_case_messages.case_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "order_cases",
+   "policy": "order_cases_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = order_cases.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = order_cases.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "orders",
+   "policy": "Buyers can view own orders",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "((buyer_id = auth.uid()) OR (buyer_email = (( SELECT users.email\n   FROM auth.users\n  WHERE (users.id = auth.uid())))::text))",
+    "check": null
+   },
+   "after": {
+    "using": "((buyer_id = ( SELECT auth.uid() AS uid)) OR (buyer_email = (( SELECT users.email\n   FROM auth.users\n  WHERE (users.id = ( SELECT auth.uid() AS uid))))::text))",
+    "check": null
+   }
+  },
+  {
+   "table": "orders",
+   "policy": "Buyers can view their own orders",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = buyer_id) OR (buyer_email = (( SELECT users.email\n   FROM auth.users\n  WHERE (users.id = auth.uid())))::text))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = buyer_id) OR (buyer_email = (( SELECT users.email\n   FROM auth.users\n  WHERE (users.id = ( SELECT auth.uid() AS uid))))::text))",
+    "check": null
+   }
+  },
+  {
+   "table": "orders",
+   "policy": "Creators can view orders for their products",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "orders",
+   "policy": "Creators view product orders",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = orders.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = orders.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "password_reset_requests",
+   "policy": "Service role can manage password reset requests",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "password_reset_requests",
+   "policy": "Users can view own password reset requests",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "payment_connection_events",
+   "policy": "Creators can view their own payment events",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "payment_methods",
+   "policy": "Creators can manage own payment methods",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "payment_methods",
+   "policy": "Service role has full access to payment methods",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.jwt() ->> 'role'::text) = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.jwt() AS jwt) ->> 'role'::text) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "product_analytics_daily",
+   "policy": "Creators can view their daily analytics",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_analytics_daily.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_analytics_daily.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_bundles",
+   "policy": "Creators can view product bundles",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_categories",
+   "policy": "Creators can delete their product categories",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products\n     JOIN creators ON ((products.creator_id = creators.id)))\n  WHERE ((products.id = product_categories.product_id) AND (creators.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products\n     JOIN creators ON ((products.creator_id = creators.id)))\n  WHERE ((products.id = product_categories.product_id) AND (creators.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_categories",
+   "policy": "Creators can insert their product categories",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (products\n     JOIN creators ON ((products.creator_id = creators.id)))\n  WHERE ((products.id = product_categories.product_id) AND (creators.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (products\n     JOIN creators ON ((products.creator_id = creators.id)))\n  WHERE ((products.id = product_categories.product_id) AND (creators.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "product_channel_listings",
+   "policy": "product_channel_listings_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_channel_listings.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_channel_listings.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_page_configs",
+   "policy": "product_page_configs_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "product_slug_history",
+   "policy": "Authenticated can manage slug history",
+   "cmd": "ALL",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_slug_history.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_slug_history.creator_id) AND (c.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_slug_history.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = product_slug_history.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "product_variants",
+   "policy": "Public can view variants for published products",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((EXISTS ( SELECT 1\n   FROM products p\n  WHERE ((p.id = product_variants.product_id) AND (p.status = 'published'::text)))) OR (EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_variants.product_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((EXISTS ( SELECT 1\n   FROM products p\n  WHERE ((p.id = product_variants.product_id) AND (p.status = 'published'::text)))) OR (EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_variants.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_videos",
+   "policy": "Creators can delete their product videos",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_videos",
+   "policy": "Creators can insert videos for their products",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "product_videos",
+   "policy": "Creators can update their product videos",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((c.id = p.creator_id)))\n  WHERE ((p.id = product_videos.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_videos",
+   "policy": "Videos are viewable for published products",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM products p\n  WHERE ((p.id = product_videos.product_id) AND ((p.status = 'published'::text) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = auth.uid()))))))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM products p\n  WHERE ((p.id = product_videos.product_id) AND ((p.status = 'published'::text) OR (EXISTS ( SELECT 1\n           FROM creators c\n          WHERE ((c.id = p.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "product_views",
+   "policy": "Creators can view their product analytics",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_views.product_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE ((p.id = product_views.product_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "products",
+   "policy": "Creators can delete their own products",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "products",
+   "policy": "Creators can insert their own products",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "products",
+   "policy": "Creators can update their own products",
+   "cmd": "UPDATE",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "products",
+   "policy": "Creators can view their own products",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM creators\n  WHERE ((creators.id = products.creator_id) AND (creators.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM creators\n  WHERE ((creators.id = products.creator_id) AND (creators.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "products",
+   "policy": "Published products are viewable by everyone",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((status = 'published'::text) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((status = 'published'::text) OR (EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = products.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "profiles",
+   "policy": "Users can delete their own profile",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = id)",
+    "check": null
+   }
+  },
+  {
+   "table": "profiles",
+   "policy": "Users can insert their own profile",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = id)"
+   }
+  },
+  {
+   "table": "profiles",
+   "policy": "Users can update their own profile",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = id)",
+    "check": null
+   }
+  },
+  {
+   "table": "push_tokens",
+   "policy": "Users manage own push tokens",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": "(auth.uid() = user_id)"
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": "(( SELECT auth.uid() AS uid) = user_id)"
+   }
+  },
+  {
+   "table": "refunds",
+   "policy": "Buyers can view their own refunds",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(buyer_id = auth.uid())",
+    "check": null
+   },
+   "after": {
+    "using": "(buyer_id = ( SELECT auth.uid() AS uid))",
+    "check": null
+   }
+  },
+  {
+   "table": "refunds",
+   "policy": "Creators can view refunds for their products",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = refunds.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = refunds.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "sales_channels",
+   "policy": "sales_channels_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = sales_channels.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = sales_channels.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "seller_ledger",
+   "policy": "creators view own ledger",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "seller_notifications",
+   "policy": "Users can delete their own notifications",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "seller_notifications",
+   "policy": "Users can update their own notifications",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": "(auth.uid() = user_id)"
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": "(( SELECT auth.uid() AS uid) = user_id)"
+   }
+  },
+  {
+   "table": "seller_notifications",
+   "policy": "Users can view their own notifications",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.uid() = user_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = user_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "site_agent_runs",
+   "policy": "sar_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_assets",
+   "policy": "site_assets_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_chat_messages",
+   "policy": "scm_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_collection_items",
+   "policy": "site_collection_items_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_collections",
+   "policy": "site_collections_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_deployments",
+   "policy": "site_deployments_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_files",
+   "policy": "site_files_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_form_submissions",
+   "policy": "site_form_submissions_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_forms",
+   "policy": "site_forms_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_integrations",
+   "policy": "site_integrations_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_lab_tests",
+   "policy": "creators read their own lab tests",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_rum_counters",
+   "policy": "creators read their own site page view counts",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_rum_daily",
+   "policy": "creators read their own site speed by day",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_rum_events",
+   "policy": "creators read their own site page views",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_template_purchases",
+   "policy": "stpur_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(buyer_id = auth.uid())",
+    "check": null
+   },
+   "after": {
+    "using": "(buyer_id = ( SELECT auth.uid() AS uid))",
+    "check": null
+   }
+  },
+  {
+   "table": "site_versions",
+   "policy": "site_versions_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(site_id IN ( SELECT s.id\n   FROM (sites s\n     JOIN creators c ON ((c.id = s.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "site_web_vitals",
+   "policy": "creators read their own site vitals",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "sites",
+   "policy": "sites_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_activity_log",
+   "policy": "store_activity_log_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_activity_log.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_activity_log.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_builder_configs",
+   "policy": "Creators can delete their own store builder configs",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_builder_configs",
+   "policy": "Creators can insert their own store builder configs",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_builder_configs",
+   "policy": "Creators can update their own store builder configs",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_builder_configs",
+   "policy": "Creators can view their own store builder configs",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_offers",
+   "policy": "store_offers_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_offers.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_offers.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_settings",
+   "policy": "store_settings_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_settings.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = store_settings.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_backups",
+   "policy": "stb_delete_own",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_backups",
+   "policy": "stb_insert_own",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_theme_backups",
+   "policy": "stb_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_custom_files",
+   "policy": "stcf_delete_own",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_custom_files",
+   "policy": "stcf_insert_own",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_theme_custom_files",
+   "policy": "stcf_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_custom_files",
+   "policy": "stcf_update_own",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_file_versions",
+   "policy": "creators delete their own file versions",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_file_versions",
+   "policy": "creators read their own file versions",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_file_versions",
+   "policy": "creators write their own file versions",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = auth.uid()))))"
+   },
+   "after": {
+    "using": null,
+    "check": "(EXISTS ( SELECT 1\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE ((i.id = store_theme_file_versions.install_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))"
+   }
+  },
+  {
+   "table": "store_theme_installs",
+   "policy": "sti_delete_own",
+   "cmd": "DELETE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_installs",
+   "policy": "sti_insert_own",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_theme_installs",
+   "policy": "sti_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_installs",
+   "policy": "sti_update_own",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_pages",
+   "policy": "stp_insert_own",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_theme_pages",
+   "policy": "stp_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_pages",
+   "policy": "stp_update_own",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_settings",
+   "policy": "sts_insert_own",
+   "cmd": "INSERT",
+   "roles": "{public}",
+   "before": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": null,
+    "check": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "store_theme_settings",
+   "policy": "sts_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "store_theme_settings",
+   "policy": "sts_update_own",
+   "cmd": "UPDATE",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT sti.id\n   FROM (store_theme_installs sti\n     JOIN creators c ON ((c.id = sti.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "subscriber_digital_products",
+   "policy": "Creators can view their product downloads",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(product_id IN ( SELECT p.id\n   FROM (products p\n     JOIN creators c ON ((p.creator_id = c.id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "subscriptions",
+   "policy": "Creators can view own subscription",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "support_ticket_messages",
+   "policy": "support_ticket_messages_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "((NOT internal) AND (EXISTS ( SELECT 1\n   FROM (support_tickets t\n     JOIN creators c ON ((c.id = t.creator_id)))\n  WHERE ((t.id = support_ticket_messages.ticket_id) AND (c.user_id = auth.uid())))))",
+    "check": null
+   },
+   "after": {
+    "using": "((NOT internal) AND (EXISTS ( SELECT 1\n   FROM (support_tickets t\n     JOIN creators c ON ((c.id = t.creator_id)))\n  WHERE ((t.id = support_ticket_messages.ticket_id) AND (c.user_id = ( SELECT auth.uid() AS uid))))))",
+    "check": null
+   }
+  },
+  {
+   "table": "support_tickets",
+   "policy": "support_tickets_owner_read",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = support_tickets.creator_id) AND (c.user_id = auth.uid()))))",
+    "check": null
+   },
+   "after": {
+    "using": "(EXISTS ( SELECT 1\n   FROM creators c\n  WHERE ((c.id = support_tickets.creator_id) AND (c.user_id = ( SELECT auth.uid() AS uid)))))",
+    "check": null
+   }
+  },
+  {
+   "table": "theme_chat_attachments",
+   "policy": "tca_own_read",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "theme_chat_conversations",
+   "policy": "tcc_own_read",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "theme_chat_messages",
+   "policy": "tcm_own",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = auth.uid())))",
+    "check": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = auth.uid())))"
+   },
+   "after": {
+    "using": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": "(install_id IN ( SELECT i.id\n   FROM (store_theme_installs i\n     JOIN creators c ON ((c.id = i.creator_id)))\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))"
+   }
+  },
+  {
+   "table": "theme_publish_history",
+   "policy": "tph_select_own",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT creators.id\n   FROM creators\n  WHERE (creators.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "upload_events",
+   "policy": "Service role full access to upload_events",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "(auth.role() = 'service_role'::text)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.role() AS role) = 'service_role'::text)",
+    "check": null
+   }
+  },
+  {
+   "table": "user_blocks",
+   "policy": "user_blocks_own_delete",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(auth.uid() = blocker_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = blocker_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "user_blocks",
+   "policy": "user_blocks_own_insert",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": null,
+    "check": "(auth.uid() = blocker_id)"
+   },
+   "after": {
+    "using": null,
+    "check": "(( SELECT auth.uid() AS uid) = blocker_id)"
+   }
+  },
+  {
+   "table": "user_blocks",
+   "policy": "user_blocks_own_select",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(auth.uid() = blocker_id)",
+    "check": null
+   },
+   "after": {
+    "using": "(( SELECT auth.uid() AS uid) = blocker_id)",
+    "check": null
+   }
+  },
+  {
+   "table": "website_addresses",
+   "policy": "creators read their own website address",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "before": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = auth.uid())))",
+    "check": null
+   },
+   "after": {
+    "using": "(creator_id IN ( SELECT c.id\n   FROM creators c\n  WHERE (c.user_id = ( SELECT auth.uid() AS uid))))",
+    "check": null
+   }
+  },
+  {
+   "table": "wishlist_items",
+   "policy": "Users can manage own wishlist",
+   "cmd": "ALL",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = user_id) OR ((user_id IS NULL) AND (guest_id IS NOT NULL)))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = user_id) OR ((user_id IS NULL) AND (guest_id IS NOT NULL)))",
+    "check": null
+   }
+  },
+  {
+   "table": "wishlist_items",
+   "policy": "Users can view own wishlist",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "before": {
+    "using": "((auth.uid() = user_id) OR ((user_id IS NULL) AND (guest_id IS NOT NULL)))",
+    "check": null
+   },
+   "after": {
+    "using": "((( SELECT auth.uid() AS uid) = user_id) OR ((user_id IS NULL) AND (guest_id IS NOT NULL)))",
+    "check": null
+   }
+  }
+ ]
+}

@@ -72,6 +72,15 @@ export const dynamic = "force-dynamic"
 
 /** How long Home waits for its banner's sales news before drawing without it. */
 const HOME_EXTRA_MS = 2_500
+/**
+ * THE ALL TIME SALES, WITH A CEILING (round rel-db). Usually one RPC; for a
+ * store with orders in several currencies every order is read and
+ * converted. Past HOME_TOTALS_MS Home is drawn with what the banner's own
+ * rows say (a first sale is still a sale), and the page's Analytics answer
+ * puts the all time line in moments later (dashboard-client, allTime). The
+ * ECB history is never downloaded from this render (noFetch).
+ */
+const HOME_TOTALS_MS = 3_000
 const NO_BANNER_ROWS: Awaited<ReturnType<typeof creatorSalesRows>> = { recent: [], earliest: [] }
 
 export default async function AppDashboard() {
@@ -158,14 +167,14 @@ export default async function AppDashboard() {
         .eq("status", WEBSITE_LIVE_STATUS)
         .limit(1)
         .maybeSingle(),
-      creatorSalesTotals(adminSupabase, creator.id),
+      within<{ sales: number; revenueCents: number } | null>(creatorSalesTotals(adminSupabase, creator.id, { noFetch: true }), HOME_TOTALS_MS, null),
       /* Subscribers, emails sent, automations on and coupons used, for the
          challenges after Getting started (lib/home/progress-server): head
          counts, each 0 on a database without its table. */
       readChallengeCounts(adminSupabase, creator.id),
       /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
       /* With a ceiling of its own (HOME_EXTRA_MS): the banner's news is the one read here Home can be drawn without, and it is several reads one after another. Past it, no news, and the rest of Home is not held. */
-      within(creatorSalesRows(adminSupabase, creator.id, now), HOME_EXTRA_MS, NO_BANNER_ROWS),
+      within(creatorSalesRows(adminSupabase, creator.id, now, { noFetch: true }), HOME_EXTRA_MS, NO_BANNER_ROWS),
       /* What the store's orders need now (lib/physical/action-reminders): in the first paint, so the lines never push Home down; null past 2s, and the browser asks for them then. */
       within(commerceActionCounts(adminSupabase, creator.id, now), 2_000, null),
     ])
@@ -189,7 +198,11 @@ export default async function AppDashboard() {
     bannerRows,
     attention,
   ] = reads
-  const bannerSales = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
+  const counted = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
+  /* Without the all time totals a "10th sale" or "$1,000" milestone would be counted from the last 30 days alone: none is said. */
+  const bannerSales = salesTotals ? counted : { ...counted, milestone: null }
+  /* Totals past their ceiling: the banner rows' own count, and a first sale found among the earliest orders is one. */
+  const sales = salesTotals ?? { sales: Math.max(bannerSales.count, bannerSales.first ? 1 : 0), revenueCents: Math.max(0, bannerSales.cents) }
 
   const productIds = products?.map((p: any) => p.id) || []
 
@@ -207,7 +220,7 @@ export default async function AppDashboard() {
     products: products ?? [],
     domains: activeDomains ?? [],
     websiteLive: !!publishedSite,
-    sales: salesTotals,
+    sales,
     userMetadata: user.user_metadata ?? null,
     counts: challengeCounts,
   })

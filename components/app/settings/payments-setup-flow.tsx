@@ -1136,6 +1136,11 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
   )
 }
 
+/** How often setup asks whether payouts are on, while the tab is visible. */
+const PAYOUTS_POLL_MS = 4000
+/** How long setup keeps asking before it stops: 15 minutes. */
+const PAYOUTS_POLL_LIMIT_MS = 15 * 60_000
+
 function useWhenPayoutsOn(ready: boolean, onData: (next: Overview) => void, onExit: () => void | Promise<void>) {
   const tell = React.useRef(onData)
   const leave = React.useRef(onExit)
@@ -1143,21 +1148,54 @@ function useWhenPayoutsOn(ready: boolean, onData: (next: Overview) => void, onEx
   leave.current = onExit
   React.useEffect(() => {
     if (!ready) return
+    /*
+      Asks every PAYOUTS_POLL_MS while the tab is on screen, and only then: a
+      hidden tab (another tab, the phone locked) asks nothing, and coming back
+      asks at once. After PAYOUTS_POLL_LIMIT_MS of asking it stops; Stripe's
+      own exit and a reopened panel still read the state.
+    */
     let gone = false
+    let busy = false
+    let timer: number | null = null
+    const stopAt = Date.now() + PAYOUTS_POLL_LIMIT_MS
+    const stop = () => {
+      if (timer !== null) window.clearTimeout(timer)
+      timer = null
+    }
+    const schedule = () => {
+      stop()
+      if (gone || document.hidden || Date.now() >= stopAt) return
+      timer = window.setTimeout(() => void look(), PAYOUTS_POLL_MS)
+    }
     const look = async () => {
+      if (gone || busy || document.hidden || Date.now() >= stopAt) return
+      busy = true
       try {
         const next = await post<Overview>("refresh")
         if (gone) return
         tell.current(next)
-        if (outcomeOf(statusOf(next)) === "done") void leave.current()
+        if (outcomeOf(statusOf(next)) === "done") {
+          gone = true
+          void leave.current()
+          return
+        }
       } catch {
         /* The form stays up. The next check asks again. */
+      } finally {
+        busy = false
       }
+      schedule()
     }
-    const timer = window.setInterval(() => void look(), 4000)
+    const onVisibility = () => {
+      if (document.hidden) stop()
+      else void look()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    schedule()
     return () => {
       gone = true
-      window.clearInterval(timer)
+      stop()
+      document.removeEventListener("visibilitychange", onVisibility)
     }
   }, [ready])
 }

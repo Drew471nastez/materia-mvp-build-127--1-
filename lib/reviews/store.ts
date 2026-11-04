@@ -22,6 +22,7 @@ import "server-only"
  * two agree when the part has run, and the app is right when it has not.
  */
 import { revalidateTag } from "next/cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { summarize, type StarCounts } from "./rules"
 
@@ -151,6 +152,8 @@ export function forgetReviewPages(ids: { productId?: string | null; creatorId?: 
     if (ids.creatorId) revalidateTag(creatorTag(ids.creatorId), "max")
     /* Storelib Reviews' overview (lib/reviews/manage-server reviewsManageTag): a new, changed or reported review shows on its next read. */
     if (ids.creatorId) revalidateTag(`reviews-manage:${ids.creatorId}`, { expire: 0 })
+    /* The creator page's reviews and the product page's, which the CDN holds for everybody (round 49). */
+    if (ids.creatorId) void creatorPagesChanged({ creatorId: ids.creatorId, tags: [ids.productId, ids.productSlug].filter((x): x is string => !!x).map(productTag) })
   } catch {
     /* Outside a request (a test, a script): nothing is cached there. */
   }

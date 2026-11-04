@@ -4,6 +4,7 @@ import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
 import { shopAmountIn } from "@/lib/store/shop-money"
 import { usePageMoney, usePriceCurrency } from "@/components/platform/price-currency"
 import { usePurchaseStatus } from "./use-purchase-status"
+import { PurchaseViewerContext } from "./owned-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Download as DownloadIcon } from "lucide-react"
@@ -144,13 +145,19 @@ function DigitalPurchaseStatus({
     receiptToken,
     purchasedVariantIds,
     isChecking,
+    guest,
+    signedIn,
+    memberHref: askedMemberHref,
     hasVariantAccess
   } = usePurchaseStatus(
     productId,
     serverHasPurchased,
     serverAssetId,
-    serverPurchasedVariantIds
+    serverPurchasedVariantIds,
+    { membership: !!membership }
   )
+  /* The member's own link: drawn by the server where it still decides (a website), else asked after load (round 49). */
+  const memberHref = membership?.memberHref ?? askedMemberHref
 
   // Find the initial variant to select:
   // 1. If user has purchased any variant, default to the first purchased one for instant Download button
@@ -292,10 +299,20 @@ function DigitalPurchaseStatus({
   if (membership) {
     return (
       <div className="relative z-10 space-y-3">
-        {membership.memberHref ? (
+        {isChecking ? (
+          /* Asking whether this is a member (round 49): the Join button's place, so a member never sees Join first. */
+          <Button
+            disabled
+            className="w-full min-h-[48px] cursor-pointer"
+            style={{ backgroundColor: buyButtonBgColor || undefined, color: buyButtonTextColor || undefined }}
+          >
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading...
+          </Button>
+        ) : memberHref ? (
           <>
             <a
-              href={membership.memberHref}
+              href={memberHref}
               data-open-membership=""
               className="flex min-h-[48px] w-full items-center justify-center rounded-md px-4 text-[15px] font-semibold"
               style={{ backgroundColor: paint(downloadButtonBgColor || "#1a1a2e", "bg"), color: downloadButtonTextColor || "#ffffff" }}
@@ -323,24 +340,20 @@ function DigitalPurchaseStatus({
     )
   }
 
-  // Loading state
-  if (isChecking) {
-    return (
-      <div className="space-y-3">
-        <Button
-          disabled
-          className="w-full min-h-[48px] cursor-pointer"
-          style={{
-            backgroundColor: buyButtonBgColor || undefined,
-            color: buyButtonTextColor || undefined,
-          }}
-        >
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading...
-        </Button>
-      </div>
-    )
-  }
+  /*
+    ROUND 48: THE CHECK NO LONGER MOVES THE PAGE. While the purchase check runs
+    (one effect after hydration: the URL token, then localStorage) this used to
+    return a lone "Loading..." button, and the Buy button arrived with the
+    wishlist row under it: 60px that pushed "What's included", the creator row
+    and the description down (CLS 0.024 on a phone, every visit). Now the
+    check draws the not-bought layout it nearly always turns into: the same
+    Loading button in the Buy button's place, and `notPurchasedExtraContent`
+    already in its final position in the tree, so React keeps that one
+    instance when the check settles (no second mount, so the wishlist asks
+    /api/wishlist/check once). The price, the variants and the bundle offers
+    still wait for the check, as before.
+  */
+  const checking = isChecking
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingFileId(assetId)
@@ -351,9 +364,11 @@ function DigitalPurchaseStatus({
   // Render the component with unified variant selector
   // Button changes based on whether user can download the CURRENT selected variant
   return (
+    /* What the check found about this browser, for the owned row under Download (./owned-actions, round 49). */
+    <PurchaseViewerContext.Provider value={{ guest, signedIn }}>
     <div className="space-y-3 relative z-10">
       {/* Price display OR PWYW input */}
-      {isPwywActive ? (
+      {checking ? null : isPwywActive ? (
         // Pay What You Want - show price input (only if user doesn't own this variant)
         <div className="mb-4">
           <p
@@ -428,7 +443,7 @@ function DigitalPurchaseStatus({
       ) : null}
 
       {/* OWNED STATE - Show Download button (if files) + View in Library */}
-      {showOwnedState ? (
+      {showOwnedState && !checking ? (
         <>
           {canDownload ? (
             downloadFiles.length > 1 ? (
@@ -477,7 +492,19 @@ function DigitalPurchaseStatus({
       ) : (
         <>
           {/* Buy button - shown when user hasn't purchased THIS variant; Sold out once a limited run has gone */}
-          {sales?.soldOut ? (
+          {checking ? (
+            <Button
+              disabled
+              className="w-full min-h-[48px] cursor-pointer"
+              style={{
+                backgroundColor: buyButtonBgColor || undefined,
+                color: buyButtonTextColor || undefined,
+              }}
+            >
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </Button>
+          ) : sales?.soldOut ? (
             <button
               type="button"
               disabled
@@ -501,7 +528,7 @@ function DigitalPurchaseStatus({
               disabled={isBuyDisabled}
             />
           )}
-          {!sales?.soldOut && sales?.fewLeft && (
+          {!checking && !sales?.soldOut && sales?.fewLeft && (
             <p data-few-left="" className="text-center text-[13px] font-medium tabular-nums" style={{ color: paint(themeColors?.cardPriceColor || "#6b7280", "ink") }}>
               {sales.fewLeft}
             </p>
@@ -512,7 +539,7 @@ function DigitalPurchaseStatus({
             Buy together and Buy both go straight to the basket checkout with this product and the others, where
             the server prices the set and applies the offer.
           */}
-          {creatorId && !sales?.soldOut ? (
+          {!checking && creatorId && !sales?.soldOut ? (
             <BundleOffers
               productId={productId}
               chosen={isBuyDisabled ? null : { variantId: selectedVariant?.id ?? "", variantName: selectedVariant?.name ?? null, priceCents: currentPrice, imageUrl: null }}
@@ -542,7 +569,7 @@ function DigitalPurchaseStatus({
       )}
 
       {/* Variant selector - ALWAYS visible, allows switching between variants */}
-      {variants.length > 0 && (
+      {!checking && variants.length > 0 && (
         <div className="mt-4 pt-4 border-t" style={{ borderColor: paint(themeColors?.cardBorderColor, "line") || "var(--border)" }}>
           {!showOwnedState && (
             <p
@@ -568,5 +595,6 @@ function DigitalPurchaseStatus({
         </div>
       )}
     </div>
+    </PurchaseViewerContext.Provider>
   )
 }

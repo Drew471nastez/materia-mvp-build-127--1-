@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic"
  *        how many orders were placed between the two: Export's By date
  */
 export async function GET(request: Request) {
-  const c = await shopCaller("orders")
+  const c = await shopCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   const params = new URL(request.url).searchParams
 

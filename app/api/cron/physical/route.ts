@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordCronRun } from "@/lib/observability/report"
+import { runBudgetMs, runDeadline } from "@/lib/observability/run-deadline"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { runJobs } from "@/lib/physical/jobs-server"
@@ -34,43 +35,57 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
+/**
+ * THE CLOCK STARTS WITH THE REQUEST (lib/observability/run-deadline.ts). It
+ * used to start after the Stripe sweep and the follow-ups, which had no
+ * budget between them, so every later guard was measured from a point up to
+ * half a minute into the run and the platform killed it at 60 s. Now every
+ * step's limit counts from the request's start, the Stripe sweep starts no
+ * cancel past SWEEP_UNTIL_MS, and the run ends by 52 s; what is left resumes
+ * next run (every step reads its work from the database).
+ */
+const SWEEP_UNTIL_MS = 12_000
+const SWEEP_LIMIT = 20
+
 async function runJob(request: Request) {
+  const run = runDeadline(runBudgetMs(maxDuration))
+  const started = run.started
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
   /* Website checkouts' payments left open past their holds are closed first, physical commerce on or off (lib/checkout/site-payment-sweep). */
   const db = createAdminClient()
-  const swept = await cancelStaleSitePayments(db).catch(() => ({ shipped: 0, baskets: 0 }))
+  const swept = await cancelStaleSitePayments(db, Date.now(), SWEEP_LIMIT, started + SWEEP_UNTIL_MS).catch(() => ({ shipped: 0, baskets: 0 }))
   /* Paid orders whose follow-ups (emails, library, ledger, customer) a crashed caller left unfinished: finished, never repeated (lib/checkout/followups.ts). Every checkout, physical commerce on or off. */
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
-  const followups = await runFollowupSweep(db, { baseUrl, budgetMs: 15_000 }).catch((e) => {
+  const followupsMs = run.shareUntil(30_000, 15_000)
+  const followups = await (followupsMs > 0 ? runFollowupSweep(db, { baseUrl, budgetMs: followupsMs }) : Promise.resolve({ resumed: 0, failed: 0 })).catch((e) => {
     console.error("[cron/physical] follow-ups:", e instanceof Error ? e.message : e)
     return { resumed: 0, failed: 0 }
   })
   if (!(await isPhysicalCommerceEnabled())) return NextResponse.json({ enabled: false, swept, followups }, { headers: { "Cache-Control": "no-store" } })
-  const started = Date.now()
   const { data: expired, error } = await db.rpc("physical_expire_holds", { p_limit: 200 })
   if (error && (error.code === "PGRST202" || error.code === "42883")) return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } })
   /* Klaviyo and Omnisend: a sync per connected store each quarter hour, run by the loop below with the rest (lib/integrations/marketing/sync-server.ts). */
   const marketing = await scheduleMarketingSyncs(db).catch(() => 0)
   let jobs = { done: 0, failed: 0 }
-  for (let round = 0; round < 5 && Date.now() - started < 40_000; round++) {
+  for (let round = 0; round < 5 && Date.now() - started < 36_000; round++) {
     const ran = await runJobs(db, 25)
     jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
     if (ran.done + ran.failed < 25) break
   }
   /* Courier tracking: the parcels due a look, inside what is left of the run. The emails it queues go out on the next run, or now when time allows. */
-  const tracking = await runTrackingSweep(db, { limit: 40, budgetMs: Math.max(0, 48_000 - (Date.now() - started)) }).catch((e) => {
+  const tracking = await runTrackingSweep(db, { limit: 40, budgetMs: run.shareUntil(46_000, 46_000, 0) }).catch((e) => {
     console.error("[cron/physical] tracking:", e instanceof Error ? e.message : e)
     return null
   })
-  if (tracking?.moved && Date.now() - started < 50_000) {
+  if (tracking?.moved && Date.now() - started < 48_000) {
     const ran = await runJobs(db, 25)
     jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
   }
   /* Tracked parcels never marked delivered 60 days after shipping, and not followed to an end by courier tracking: closed as delivery not confirmed, the seller told once (lib/physical/unconfirmed-delivery-server.ts). */
-  const unconfirmed = Date.now() - started < 52_000 ? await closeUnconfirmedDeliveries(db).catch(() => ({ closed: 0 })) : { closed: 0 }
+  const unconfirmed = Date.now() - started < 50_000 ? await closeUnconfirmedDeliveries(db).catch(() => ({ closed: 0 })) : { closed: 0 }
   /* Orders paid and still not shipped past their days: one reminder per store a day, in the one hour it is sent (lib/physical/orders-waiting-server.ts). */
-  const waiting = Date.now() - started < 55_000 ? await noteOrdersWaiting(db) : { stores: 0, raised: 0 }
+  const waiting = Date.now() - started < 51_000 ? await noteOrdersWaiting(db) : { stores: 0, raised: 0 }
   const ms = Date.now() - started
   /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
   const didWork = !tracking || Number(expired ?? 0) + jobs.done + jobs.failed + tracking.checked + tracking.moved + unconfirmed.closed + swept.shipped + swept.baskets + marketing + waiting.raised > 0

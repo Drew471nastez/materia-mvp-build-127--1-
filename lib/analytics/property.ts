@@ -121,8 +121,37 @@ export async function publishedInstallOf(db: Db, creatorId: string): Promise<str
 }
 
 /** The creator's OnePage: by seller, then creator, then its owner's login, as app/(marketing)/l/[slug] resolves it. */
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/*
+  ONE READ, NOT UP TO THREE IN A LINE (round 48). The OnePage is found by its
+  seller, then its creator, then its owner's account, in that order. Each was
+  asked only after the one before came back empty, so a creator with no
+  OnePage (most of them) waited three round trips on every Analytics page and
+  every report it counts. The three are asked as one `or` and the same order
+  picks the answer. Ids that are not plain uuids, or a read that fails (a
+  column a database does not have yet), are asked one at a time as before.
+*/
 export async function onePageOf(db: Db, creatorId: string, creatorUserId?: string | null): Promise<string | null> {
-  for (const [column, value] of [["seller_id", creatorId], ["creator_id", creatorId], ["owner_id", creatorUserId]] as const) {
+  const order = [["seller_id", creatorId], ["creator_id", creatorId], ["owner_id", creatorUserId]] as const
+  if (UUID_TEXT.test(creatorId) && (!creatorUserId || UUID_TEXT.test(creatorUserId))) {
+    const filters = order.filter(([, value]) => !!value).map(([column, value]) => `${column}.eq.${value}`)
+    try {
+      const { data, error } = await db.from("onepages").select("id, seller_id, creator_id, owner_id").or(filters.join(",")).limit(20)
+      if (!error && Array.isArray(data)) {
+        const rows = data as Array<Record<string, unknown>>
+        for (const [column, value] of order) {
+          if (!value) continue
+          const hit = rows.find((r) => r[column] === value && typeof r.id === "string")
+          if (hit) return hit.id as string
+        }
+        return null
+      }
+    } catch {
+      /* asked one at a time below */
+    }
+  }
+  for (const [column, value] of order) {
     if (!value) continue
     const row = await one(db.from("onepages").select("id").eq(column, value).limit(1))
     if (typeof row?.id === "string") return row.id

@@ -5,6 +5,8 @@ import { lateAfterMinutes } from "@/lib/perf/cron-health"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+/* A monitor's request never holds a function: the reads below end well before this. */
+export const maxDuration = 10
 
 /**
  * GET /api/health
@@ -34,6 +36,19 @@ export const dynamic = "force-dynamic"
   outage. Never anything private: an id, a time, job names.
 */
 const HEALTH_DB_MS = 2_500
+/*
+  THE WHOLE CHECK, NOT EACH READ. Two reads of 2.5s each were up to 5s; the
+  job read now gets only what is left of HEALTH_TOTAL_MS, so the answer comes
+  in about 4s at worst, whatever the database does (the uptime job waits 20s).
+*/
+const HEALTH_TOTAL_MS = 4_000
+
+/*
+  Per dependency, for a monitor that wants more than one word: each is "ok",
+  "down" (database) or "degraded" (jobs), or "unknown" when it could not be
+  asked. Names and states only, never an error text from the database.
+*/
+type Checks = { database: "ok" | "down"; jobs: "ok" | "degraded" | "unknown" }
 
 function buildId(): string | null {
   const built = process.env.NEXT_DEPLOYMENT_ID as unknown
@@ -47,26 +62,40 @@ export async function GET() {
   try {
     admin = createAdminClient()
   } catch {
-    return NextResponse.json({ status: "down", database: false, build, reason: "The database is not configured." }, { status: 503, headers })
+    const checks: Checks = { database: "down", jobs: "unknown" }
+    return NextResponse.json({ status: "down", database: false, build, checks, reason: "The database is not configured." }, { status: 503, headers })
   }
   const started = Date.now()
 
-  const ping = await admin.from("creators").select("id", { count: "exact", head: true }).limit(1).abortSignal(AbortSignal.timeout(HEALTH_DB_MS))
+  /* A trivial read: one id, no count (count "exact" counted every creator on each check). */
+  let ping: { error: unknown }
+  try {
+    ping = await admin.from("creators").select("id").limit(1).abortSignal(AbortSignal.timeout(HEALTH_DB_MS))
+  } catch (e) {
+    ping = { error: e }
+  }
   if (ping.error) {
     const timedOut = Date.now() - started >= HEALTH_DB_MS - 50
     return NextResponse.json(
-      { status: "down", database: false, build, reason: timedOut ? "The database did not answer in time." : "The database did not answer." },
+      { status: "down", database: false, build, checks: { database: "down", jobs: "unknown" } satisfies Checks, reason: timedOut ? "The database did not answer in time." : "The database did not answer." },
       { status: 503, headers },
     )
   }
   const databaseMs = Date.now() - started
 
-  const { data: runs, error } = await admin
-    .from("cron_runs")
-    .select("job, started_at, finished_at, ok")
-    .order("started_at", { ascending: false })
-    .limit(500)
-    .abortSignal(AbortSignal.timeout(HEALTH_DB_MS))
+  const left = Math.max(250, Math.min(HEALTH_DB_MS, HEALTH_TOTAL_MS - (Date.now() - started)))
+  let runs: { job: string; started_at: string; finished_at: string | null; ok: boolean | null }[] | null = null
+  let error: unknown = null
+  try {
+    ;({ data: runs, error } = await admin
+      .from("cron_runs")
+      .select("job, started_at, finished_at, ok")
+      .order("started_at", { ascending: false })
+      .limit(500)
+      .abortSignal(AbortSignal.timeout(left)))
+  } catch (e) {
+    error = e
+  }
   const recorded = !error
   const jobs = CRON_JOBS.map((j) => {
     const last = (runs ?? []).find((r: { job: string }) => r.job === j.path) as { started_at: string; finished_at: string | null; ok: boolean | null } | undefined
@@ -76,8 +105,9 @@ export async function GET() {
     return { job: j.path, state, lastRun: last.started_at }
   })
   const bad = jobs.filter((j) => j.state === "failed" || j.state === "late")
+  const checks: Checks = { database: "ok", jobs: !recorded ? "unknown" : bad.length ? "degraded" : "ok" }
   return NextResponse.json(
-    { status: bad.length ? "degraded" : "ok", database: true, databaseMs, build, jobs },
+    { status: bad.length ? "degraded" : "ok", database: true, databaseMs, build, checks, jobs },
     { status: bad.length ? 503 : 200, headers },
   )
 }

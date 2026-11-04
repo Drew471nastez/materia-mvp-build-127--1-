@@ -132,7 +132,8 @@ async function roundTrips() {
   const broken = await visit(() => resolveOnePage("a-name-asked-while-down"))
   useFixture(fixture)
   const recovered = await visit(() => resolveOnePage("a-name-asked-while-down"))
-  check("a lookup that failed is not held: the next visitor asks again", broken.value?.kind === "missing" && recovered.trips.length > 0, [recovered.trips.length])
+  /* Changed on purpose (round rel-sites): a failed lookup is thrown (the page's error screen with Try again), never "missing" (the page's 404); tests/rel-sites.test.ts covers the held last answer. */
+  check("a lookup that failed is not held: the next visitor asks again", broken.value === undefined && (broken.error as Error | undefined)?.name === "SiteReadError" && recovered.trips.length > 0, [recovered.trips.length, String(broken.error)])
 
   section("The page itself: no cookie, no header, no write (app/(marketing)/l/[slug]/page.tsx)")
   const route = readCode("app/(marketing)/l/[slug]/page.tsx")
@@ -254,18 +255,33 @@ async function privatePages() {
   for (const source of ["/p/:slug*", "/u/:username*", "/l/:slug*"]) {
     check(`${source} is private in every shared cache (a buyer's Download, an owner's Edit)`, /private, no-cache, must-revalidate/.test(ruleFor(source)) && !/s-maxage/.test(ruleFor(source)))
   }
-  /* Explore: a stranger's page may be held for a minute; a signed in person's ("For you") never. */
+  /*
+    Changed on purpose (round 49, cdnpages): Explore is one HTML for everybody
+    now. It reads no cookie and draws nobody's "For you" (interests are
+    EMPTY_INTERESTS on the server; the browser asks the private
+    /api/explore/interests after load, signed in only), so the CDN may hold the
+    same copy for every request (Vercel-CDN-Cache-Control) and the old
+    cookie-keyed pair (stranger held, session private) is gone. Never an RSC
+    request, the editor's frame or a scheme being tried, and only on
+    storelib.com.
+  */
   const before = process.env.NEXT_PUBLIC_SUPABASE_URL
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abcdefgh.supabase.co"
-  const { default: nextConfig } = (await import(`${join(process.cwd(), "next.config.mjs")}?explore=${Date.now()}`)) as { default: { headers: () => Promise<{ source: string; has?: { type: string; key: string }[]; missing?: { type: string; key: string }[]; headers: { key: string; value: string }[] }[]> } }
+  const { default: nextConfig } = (await import(`${join(process.cwd(), "next.config.mjs")}?explore=${Date.now()}`)) as { default: { headers: () => Promise<{ source: string; has?: { type: string; key: string; value?: string }[]; missing?: { type: string; key: string }[]; headers: { key: string; value: string }[] }[]> } }
   process.env.NEXT_PUBLIC_SUPABASE_URL = before
   const exploreRules = (await nextConfig.headers()).filter((r) => r.source === "/explore/:path*")
   const shared = exploreRules.filter((r) => r.headers.some((h) => /public|s-maxage/.test(h.value)))
-  const session = "sb-abcdefgh-auth-token"
-  check("Explore is held at the edge only for a request with no session cookie",
-    shared.length === 1 && JSON.stringify(shared[0].missing?.map((m) => m.key).sort()) === JSON.stringify([session, `${session}.0`]) && !shared[0].has)
-  check("  and a request with one (or its first chunk) is answered private, no-store",
-    [session, `${session}.0`].every((key) => exploreRules.some((r) => r.has?.length === 1 && r.has[0].type === "cookie" && r.has[0].key === key && r.headers.some((h) => h.value === "private, no-store"))))
+  const explorePage = readCode("app/(marketing)/explore/page.tsx")
+  const interestsRoute = readCode("app/api/explore/interests/route.ts")
+  const exploreClient = readCode("components/explore/explore-page-client.tsx")
+  check("Explore is held at the edge the same for every request: no cookie decides it, and the page reads none",
+    shared.length === 1 && shared[0].headers.some((h) => h.key === "Vercel-CDN-Cache-Control" && /^public, s-maxage=\d+/.test(h.value)) && !shared[0].headers.some((h) => h.key === "Cache-Control") &&
+    !JSON.stringify([shared[0].has, shared[0].missing]).includes('"cookie"') && JSON.stringify(shared[0].missing?.map((m) => m.key).sort()) === JSON.stringify(["embedded", "rsc", "scheme"]) &&
+    shared[0].has?.length === 1 && shared[0].has[0].type === "host" && /storelib/.test(shared[0].has[0].value ?? "") &&
+    !/cookies\(\)|headers\(\)|currentUserForRequest/.test(explorePage) && /interests=\{EMPTY_INTERESTS\}/.test(explorePage))
+  check("  and a signed in person's For you is asked after load from a private, no-store route",
+    /"Cache-Control": "private, no-store"/.test(interestsRoute) && /"Vercel-CDN-Cache-Control": "no-store"/.test(interestsRoute) && /currentUserForRequest\(\)/.test(interestsRoute) &&
+    /fetch\("\/api\/explore\/interests"/.test(exploreClient) && /if \(serverInterests\.enough \|\| !mayBeSignedIn\(\)\) return/.test(exploreClient))
   check("  the cookie is the one the app keeps a session in (lib/supabase/session-jar storedSessionKey)", /return `sb-\$\{new URL\(url\)\.hostname\.split\("\."\)\[0\]\}-auth-token`/.test(readCode("lib/supabase/session-jar.ts")))
   check("no public cache rule covers an account, a receipt, a checkout, a preview, the library or an order", !/source: '\/(?:account|receipt|checkout|onepage-preview|library|order-help|purchase|downloads|w\/:username\/(?:account|cart|preview))/.test(config))
 
@@ -299,7 +315,7 @@ async function spikes() {
   check("a normal reader (a page view every few seconds) never reaches Postgres", Math.floor(LIMITS.track[0].limit * MEMORY_FIRST_SHARE) >= 20)
 
   section("Memory first only where the worst abuse is a figure too high, never for mail, money or a guess")
-  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "public-search", "ga-seen"])
+  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "public-search", "ga-seen", "ai-visit"])
   const callers: string[] = []
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {

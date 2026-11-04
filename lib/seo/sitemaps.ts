@@ -51,12 +51,13 @@ import { siteSeo } from "@/lib/website-builder/site-seo-data"
 import { bannedCreatorIds, confirmedSpamUserIds } from "./bans"
 import { onePageRowListable, type OnePagePresenceRow } from "@/lib/onepage/page-presence"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { ALTERNATIVES, HUB_PATH, alternativePath } from "@/lib/alternatives"
+import { USE_CASES, useCasePath, useCaseOn } from "@/lib/marketing/use-cases"
+import { alternativesFlags } from "@/lib/alternatives/flags"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, helpImages } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -64,6 +65,12 @@ import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
 import { blogSitemapEntries } from "@/lib/blog/listing"
+import { trustsUpdatedAt, withPublishedAsModified } from "@/lib/blog/trusted-modified"
+import { categorySlugOf, withBlogCategoryPages } from "@/lib/blog/article"
+import { readBlogCategories } from "@/lib/blog/categories"
+import { blogSlugsNotInSitemap } from "@/lib/blog/read"
+import { liveDateFilter } from "@/lib/blog/schedule"
+import { readBlogAuthorsWithPosts } from "@/lib/blog/post"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { missingColumnError } from "@/lib/communities/listing"
 import { sitemapCommunitiesListed, sitemapCommunityCount, sitemapCommunityQuery, type SitemapCommunityRow } from "@/lib/communities/server/public"
@@ -85,6 +92,7 @@ import {
   type SitemapEntry,
 } from "./indexing"
 import { imagesOnly } from "@/lib/media/video"
+import { openSpaceIds, publicPostEntries, type SitemapPostRow, type SitemapSpaceRow } from "./community-posts-sitemap"
 
 
 /** A /help/... path at the Help Center's own address. */
@@ -354,14 +362,76 @@ export async function communitiesSitemap(chunk: number, of?: number, admin: Admi
   */
   const read = async () => {
     const found = await readKeyset<SitemapCommunityRow>((page) => page(sitemapCommunityQuery(admin)), range, "communities")
-    return sitemapCommunitiesListed(admin, found)
+    /* The ids, for the posts below: the listing answers by slug. */
+    const idOf = new Map(found.map((f) => [f.slug, f.id]))
+    return (await sitemapCommunitiesListed(admin, found)).map((r) => ({ ...r, id: idOf.get(r.slug) ?? null }))
   }
   const [rows, banned] = await Promise.all([read(), bannedCreatorIds(admin)])
   /* Round 41: a banned creator's community is not listed, as their pages are not. */
-  return rows.filter((r) => !r.creator_id || !banned.has(r.creator_id)).map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
+  const listed = rows.filter((r) => !r.creator_id || !banned.has(r.creator_id))
+  const communities = listed.map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
+  /* Round 45: and each listed community's public posts, which had indexable pages nothing named (./community-posts-sitemap.ts). */
+  const posts = await communityPostEntries(
+    admin,
+    listed.flatMap((r) => (r.id ? [{ id: r.id, slug: r.slug }] : [])),
+    SITEMAP_MAX_URLS - communities.length,
+  )
+  return [...communities, ...posts]
+}
+
+/**
+ * The public posts of these communities, read by the rule in
+ * ./community-posts-sitemap.ts: the open spaces first, then only the posts
+ * in one of them or in none, so a members only post is never read here.
+ * Soft before the feed tables exist (no posts); any other failed read
+ * fails the file, as a community read does.
+ */
+async function communityPostEntries(admin: Admin, communities: { id: string; slug: string }[], room: number): Promise<SitemapEntry[]> {
+  if (communities.length === 0 || room <= 0) return []
+  const missing = (e: { code?: string; message?: string } | null) => !!e && (isMissingTable(e) || isMissingColumn(e))
+  const out: SitemapEntry[] = []
+  for (let i = 0; i < communities.length && out.length < room; i += IDS_PER_QUERY) {
+    const batch = communities.slice(i, i + IDS_PER_QUERY)
+    const ids = batch.map((c) => c.id)
+    const spaces = await admin.from("community_spaces").select("id, community_id, view_access, archived_at").in("community_id", ids)
+    if (missing(spaces.error)) return out
+    if (spaces.error) throw new SitemapReadFailed("community spaces")
+    const spaceRows = (spaces.data ?? []) as SitemapSpaceRow[]
+    const open = [...openSpaceIds(spaceRows)]
+    let posts: SitemapPostRow[]
+    try {
+      posts = await readKeyset<SitemapPostRow>(
+        (page) => {
+          const q = admin
+            .from("community_feed_posts")
+            .select("id, community_id, space_id, title, body_text, status, deleted_at, created_at, edited_at")
+            .in("community_id", ids)
+            .eq("status", "published")
+            .is("deleted_at", null)
+          return page(open.length ? q.or(`space_id.is.null,space_id.in.(${open.join(",")})`) : q.is("space_id", null))
+        },
+        EVERY_ID,
+        "community posts",
+        room - out.length,
+      )
+    } catch (e) {
+      /* A database without the feed (or its columns) has no posts to list; rowsOf has already said which read failed. */
+      const probe = await admin.from("community_feed_posts").select("id").limit(1)
+      if (missing(probe.error)) return out
+      throw e
+    }
+    out.push(...publicPostEntries(batch, spaceRows, posts))
+  }
+  return out.slice(0, Math.max(0, room))
 }
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
+
+/** The /sell pages that are on: the same switches their route reads (lib/alternatives/flags). */
+async function useCasesListed() {
+  const flags = await alternativesFlags()
+  return USE_CASES.filter((u) => useCaseOn(u, flags))
+}
 
 /**
  * The platform's own pages. They carry no lastmod: nothing records when a
@@ -391,6 +461,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     */
     { url: `${BASE}${HUB_PATH}`, lastModified: newestOf(...ALTERNATIVES.map((c) => c.updated)) },
     ...ALTERNATIVES.map((c) => ({ url: `${BASE}${alternativePath(c.slug)}`, lastModified: c.updated })),
+    /* Round 45: the /sell/<use case> pages (lib/marketing/use-cases), from the list their route is built from; a page behind a switch only while it is on. */
+    ...(await useCasesListed()).map((u) => ({ url: `${BASE}${useCasePath(u.slug)}`, lastModified: u.updated })),
     /* Round 44: the theme marketplace, and the two legal documents with the date each says it last changed. */
     { url: `${BASE}/themes` },
     ...Object.values(LEGAL_DOCS).map((d) => ({ url: `${BASE}${d.href}`, lastModified: d.updated })),
@@ -426,19 +498,27 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
   }
 
   const admin = createAdminClient()
-  const posts = await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
-    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).order("slug").range(a, b),
+  /* Round 45: a scheduled post is not here until its date (the query below), and a noindex post or one canonical elsewhere never is. */
+  const unlisted = await blogSlugsNotInSitemap()
+  /* Before SQL part 345 a reader's view moves updated_at, so lastmod would say every post changed today (lib/blog/trusted-modified.ts). */
+  const trustedModified = await trustsUpdatedAt()
+  const posts = withPublishedAsModified((await readRange<{ slug: string; category: string | null; updated_at: string | null; published_at: string | null }>(
+    (a, b) => admin.from("blog_posts").select("slug, category, updated_at, published_at").eq("is_published", true).or(liveDateFilter()).order("slug").range(a, b),
     0,
     50_000,
     "blog",
-  )
+  )).filter((p) => !unlisted.has(p.slug)), trustedModified)
   /*
     Round 44: the blog from one rule (lib/blog/listing blogSitemapEntries):
     /blog and its older pages, each category that has a post, each post, all
     with real dates. It listed every category, empty ones included, and gave
     the four code-written posts one date between them.
   */
-  routes.push(...blogSitemapEntries(posts, STORELIB_CATEGORIES, categoryToSlug))
+  /* Round 45: a category lives at /blog/category/<slug> (the old address is a 308), with its older pages listed once it has them. */
+  const blogCategories = await readBlogCategories()
+  /* Round 45: the author pages (/blog/author/<slug>) of authors with a live post in this sitemap; none before SQL part 345 runs. */
+  const blogAuthors = (await readBlogAuthorsWithPosts(unlisted)) ?? []
+  routes.push(...withBlogCategoryPages(blogSitemapEntries(posts, blogCategories.map((c) => c.name), (name) => categorySlugOf(name, blogCategories), blogAuthors), posts, blogCategories))
   return routes
 }
 
@@ -771,6 +851,27 @@ async function websiteNames(admin: Admin, creatorIds: string[]): Promise<Map<str
 }
 
 /**
+ * creator id of every website behind a password (Website settings ›
+ * Password, site_access): each of its addresses answers with the password
+ * page, which says noindex, and its own sitemap lists nothing
+ * (lib/website-builder/site-seo-data.ts siteSeo). Round 45: this file still
+ * listed its front page. Soft like the names above: no table (part 92 not
+ * run) is no passwords; any other failure is a failed read, so a blip never
+ * lists a locked site for the hour the file is held.
+ */
+async function lockedWebsites(admin: Admin, creatorIds: string[]): Promise<Set<string>> {
+  const found = await eachBatch(creatorIds, async (batch) => {
+    const query = () => admin.from("site_access").select("creator_id, password_enabled, password_hash").in("creator_id", batch).eq("password_enabled", true)
+    const first = await query()
+    if (!first.error) return (first.data ?? []) as { creator_id: string; password_hash: string | null }[]
+    if (isMissingTable(first.error)) return []
+    return rowsOf<{ creator_id: string; password_hash: string | null }>(query, "website passwords")
+  })
+  /* A password switched on with none set asks nobody for one (readSiteAccess). */
+  return new Set(found.flat().filter((r) => typeof r.password_hash === "string" && r.password_hash !== "").map((r) => r.creator_id))
+}
+
+/**
  * The front page of every published website that allows indexing, at its
  * storelib.com subdomain. A site with a connected domain is canonical THERE,
  * and a storelib.com sitemap cannot speak for another domain, so those are
@@ -802,14 +903,16 @@ export async function websitesSitemap(chunk: number, of?: number, admin: Admin =
     rowsOf<{ id: string; user_id: string }>(() => admin.from("creators").select("id, user_id").in("id", batch), "website creators"),
   )
   const userOf = new Map(creators.flat().map((c) => [c.id, c.user_id]))
-  const [names, domains, chosen] = await Promise.all([
+  const [names, domains, chosen, locked] = await Promise.all([
     usernames(admin, [...userOf.values()]),
     activeDomains(admin, creatorIds),
     websiteNames(admin, creatorIds),
+    lockedWebsites(admin, creatorIds),
   ])
   const main = getMainDomain()
   const entries: SitemapEntry[] = []
   for (const i of open) {
+    if (locked.has(i.creator_id)) continue
     /* The name the site was given, else its creator's username: the host it is canonical at. */
     const handle = chosen.get(i.creator_id) ?? names.get(userOf.get(i.creator_id) ?? "")
     /* The site's own rule, word for word: its switch, and not a farm's handle (siteSeo reads the same). */

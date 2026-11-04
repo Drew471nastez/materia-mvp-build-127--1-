@@ -503,6 +503,9 @@ export interface RenderContext {
   reviews?: Record<string, unknown> | null
   /** The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template (lib/markets/ui-words.ts). */
   words?: Record<string, string>
+  /** The creator's blog and the post a page is about, as StorefrontData.blog and .article: read by sections/main_blog, main_article and blog_featured. */
+  blog?: StorefrontBlog | null
+  article?: StorefrontArticleFull | null
   /**
    * The collection this page is about, on /collections/<handle>: title,
    * handle, description, image, url, products_count and its products,
@@ -590,6 +593,86 @@ export interface StorefrontCollection {
   products: { id: string; type: string; settings: Record<string, unknown> }[]
 }
 
+/**
+ * One post of the creator's blog, as a section reads it (lib/website-builder/
+ * blog-page.ts storefrontArticle): a live post's public facts and nothing a
+ * draft holds. Every word is plain text; `content` and `summary_html` were
+ * sanitized when the post was saved and again when they were drawn
+ * (lib/site-blog/render-html.ts), and are printed with `raw`.
+ */
+export interface StorefrontArticle {
+  id: string
+  /** The post's slug. */
+  handle: string
+  title: string
+  /** /blogs/<handle>/<slug>. */
+  url: string
+  /** Plain words. */
+  excerpt: string
+  /** The opening words of the post as markup, for a card with no excerpt. */
+  summary_html: string
+  /** The cover picture's address, or "". */
+  image: string
+  image_alt: string
+  /** The publication date, in the page's language ("12 March 2026"). */
+  date: string
+  /** The same date, ISO, for a <time datetime>. */
+  published_at: string
+  updated_at: string
+  reading_minutes: number
+  featured: boolean
+  category: { name: string; handle: string; url: string } | null
+  tags: { name: string; url: string }[]
+  author: { name: string; role: string; bio: string; avatar: string; links: { label: string; url: string }[] } | null
+}
+
+/** The creator's blog as a section reads it: `blog` in a template. */
+export interface StorefrontBlog {
+  title: string
+  handle: string
+  /** /blogs/<handle>. */
+  url: string
+  description: string
+  /** The posts this page lists: the page asked for, of the category or tag asked for. */
+  articles: StorefrontArticle[]
+  /** How many posts the list has, every page of it. */
+  articles_count: number
+  /** The newest live posts, whichever page this is: what a Blog posts section on any page shows. */
+  recent: StorefrontArticle[]
+  /** The newest of the posts the creator marked featured. */
+  featured: StorefrontArticle[]
+  all_tags: string[]
+  /** Every category with a live post, in the creator's order, with its newest posts; `active` on the one shown. */
+  categories: { name: string; handle: string; url: string; count: number; active: boolean; posts: StorefrontArticle[] }[]
+  /** The tags to filter by, each with its own list's address; `active` on the one shown. */
+  tags: { name: string; url: string; active: boolean }[]
+  current_tag: string | null
+  current_category: { name: string; handle: string; url: string; description: string } | null
+  pagination: {
+    page: number
+    pages: number
+    total: number
+    previous_url: string
+    next_url: string
+    parts: { label: string; url: string; current: boolean; gap: boolean }[]
+  }
+  /** The builder's sample posts, shown in the canvas while the blog has none: never on a live page. */
+  sample: boolean
+}
+
+/** The post a page is about, on /blogs/<handle>/<slug>: `article` in a template. */
+export interface StorefrontArticleFull extends StorefrontArticle {
+  /** The post's sanitized markup. Output with `raw`. */
+  content: string
+  /** Up to six posts like this one: its category first, then shared tags, then the newest. */
+  related: StorefrontArticle[]
+  /** The post published before this one, and the one after it, or null. */
+  previous: StorefrontArticle | null
+  next: StorefrontArticle | null
+  /** Where to share it: the post's canonical address and each network's share link. */
+  share: { url: string; x: string; facebook: string; linkedin: string; email: string }
+}
+
 export interface StorefrontData {
   /** Products a `product_picker` or `product_list` may name, block-shaped. */
   catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
@@ -642,6 +725,10 @@ export interface StorefrontData {
    * word is its English.
    */
   words?: Record<string, string>
+  /** The creator's blog (lib/site-blog): on the blog's own pages and any page with a section that shows posts. Absent, a blog section draws nothing on a live page. */
+  blog?: StorefrontBlog | null
+  /** The post the page is about, on a post's page only. */
+  article?: StorefrontArticleFull | null
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

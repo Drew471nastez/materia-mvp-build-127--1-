@@ -19,7 +19,7 @@ import { Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 import { tt } from "@/lib/i18n/text"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
-import { PRODUCT_LAYOUTS, editorProductState, productLayoutOf, productSheetAction, productTapChoice, sellsInstantly, shipsProduct, tapChoicePatch, type EditorProductState, type ProductTapChoice } from "@/lib/onepage/product-block"
+import { PRODUCT_LAYOUTS, editorProductState, productLayoutOf, productSheetAction, productTapChoice, sellsInstantly, tapChoicePatch, type EditorProductState, type ProductTapChoice } from "@/lib/onepage/product-block"
 
 /* ── The creator's products, read once for the whole editor ─────────────── */
 
@@ -184,12 +184,11 @@ export function ProductEditLinks({ productId }: { productId: string }) {
 export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; onChange: (patch: Partial<ProductBlockData>) => void }) {
   const choice = productTapChoice(data)
   const instantKind = sellsInstantly(data.product_type ?? null)
-  const ships = shipsProduct(data.product_type ?? null)
   const instantOn = (data.instant_checkout === true || (data.quick_checkout === true && !(data.product_price_cents ?? 0))) && instantKind
   const sheetAction = productSheetAction(data)
   const options: { id: ProductTapChoice; icon: typeof CreditCard; label: string; hint: string }[] = [
     { id: "sheet", icon: PanelBottom, label: tt("Open product sheet"), hint: tt("They see it, choose options, then check out") },
-    { id: "instant", icon: Zap, label: tt("Instant checkout"), hint: ships ? tt("Products that ship open their page to choose delivery") : tt("Straight to paying") },
+    { id: "instant", icon: Zap, label: tt("Instant checkout"), hint: tt("Straight to paying") },
     { id: "page", icon: ExternalLink, label: tt("Product page"), hint: tt("Its full page") },
   ]
   return (

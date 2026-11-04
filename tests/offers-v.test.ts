@@ -377,7 +377,7 @@ async function main() {
     const cartApi = read("app/api/offers/cart/route.ts")
     check("the cart's offers: the shop's own published products only, prices from the database", /\.eq\("creator_id", shopId\)\.eq\("status", "published"\)/.test(cartApi) && /baseFor\(v \?\? p, i\.customPriceCents\)/.test(cartApi) && /suggestionsFor\(lines, offers, \{ placement: "cart", now \}\)/.test(cartApi) && /rateLimit\(/.test(cartApi))
     const store = read("app/api/store/offers/route.ts")
-    check("the store's edits: the owner (or their team) only, every write filtered by their creator id", /shopCaller\("marketing"\)/.test(store) /* Round 40: a team member reaches offers with Marketing. */ && /saveOffer\(c\.db, c\.creatorId/.test(store) && /reorderOffers\(c\.db, c\.creatorId/.test(store) && /deleteOffer\(c\.db, c\.creatorId/.test(store))
+    check("the store's edits: the owner (or their team) only, every write filtered by their creator id", /shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(store) /* Round 40: a team member reaches offers with Marketing. */ && /saveOffer\(c\.db, c\.creatorId/.test(store) && /reorderOffers\(c\.db, c\.creatorId/.test(store) && /deleteOffer\(c\.db, c\.creatorId/.test(store))
     const site = read("lib/checkout/site-quote-server.ts")
     /* Changed on purpose (round BC): the shipped quote reads them beside the delivery, from the priced cart it narrowed (pc). */
     check("the website's own checkout suggests them, both for downloads and for what ships", /checkoutSuggestions\(db, creatorId,/.test(site) && /suggestionCards\(db, creatorId, (?:priced|pc)\.suggestions\)/.test(site))

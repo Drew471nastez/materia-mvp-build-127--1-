@@ -164,7 +164,7 @@ async function run() {
     const fresh = await readCurrentUser(fake, { timeoutMs: 100, retries: 1, fallbackClaims: null })
     check("fresh: unavailable, the token's claims never asked", routeUserFrom(fresh).kind === "unavailable" && claimsAsked === 0)
     const routeSrc = read("lib/auth/route-user.ts")
-    check("  routeUser is fresh unless a caller says otherwise, and fresh means no claims fallback", /fresh = true/.test(routeSrc) && /fallbackClaims: fresh \? null :/.test(routeSrc))
+    check("  routeUser is fresh unless a caller says otherwise, and fresh means no claims fallback", /fresh = true/.test(routeSrc) && /fresh \? strictUserForRequest\(\) : readerForRequest\(\)/.test(routeSrc) && /verifiedBy === "user" \|\| first\.state === "anonymous"/.test(routeSrc))
     check("  unavailable is a 503 with Retry-After, never cached", /status: 503/.test(routeSrc) && /"Retry-After": "2"/.test(routeSrc) && /"Cache-Control": "no-store"/.test(routeSrc))
   }
 
@@ -181,7 +181,8 @@ async function run() {
     /* What the skipped work would have cost: with no cookie the real client answers anonymous, but the keys were fetched first. */
     const written: string[] = []
     const before = await readVerifiedSession(client(auth.url, [], written), auth.url)
-    check("  (before: an anonymous visitor's read fetched the signing keys first)", before.state === "anonymous" && auth.state.hits.includes("/auth/v1/.well-known/jwks.json"), auth.state.hits)
+    /* Round rel3-auth: readVerifiedSession reads the token first, so even when asked it fetches no keys for nobody. */
+    check("  (and even asked, an anonymous visitor's read now fetches nothing)", before.state === "anonymous" && auth.state.hits.length === 0, auth.state.hits)
   }
 
   console.log("\n3b. Off /app, /dashboard and /sell the proxy only renews")
@@ -214,7 +215,7 @@ async function run() {
     check("noStorePage asks the request's answer, not Supabase again", /currentUserForRequest\(\)/.test(noStore.slice(0, 1200)) && !/auth\.getUser\(\)/.test(noStore.slice(0, 1200)))
     check("  could not tell: renders nothing (the layout's gate recovers), never /sell", /if \(!current\.user\) \{\s*if \(shouldSendToLogin\(current\)\) redirect\("\/sell"\)\s*return null\s*\}/.test(noStore))
     const gate = team.slice(team.indexOf("export async function requireTeamPermission"), team.indexOf("export async function storeAccessOf"))
-    check("requireTeamPermission: bounded, retried, and a 503 when Auth did not answer", /await routeUser\(\)/.test(gate) && /who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(gate) && !/auth\.getUser\(\)/.test(gate))
+    check("requireTeamPermission: bounded, retried, and a 503 when Auth did not answer", /await routeUser\(\{ fresh: !opts\.read \}\)/.test(gate) && /who\.kind === "unavailable"\) return authUnavailableResponse\(\)/.test(gate) && !/auth\.getUser\(\)/.test(gate))
     check("  401 only when Auth said nobody", /who\.kind !== "user"\) return NextResponse\.json\(\{ error: "Sign in again to do this\." \}, \{ status: 401/.test(gate))
     const current = read("lib/creators/current.ts")
     const body = current.slice(current.indexOf("export async function currentCreatorId"))
@@ -227,7 +228,7 @@ async function run() {
     const layout = read("app/app/layout.tsx")
     check("the account menu's businesses never hold the shell", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(layout))
     const home = read("app/app/page.tsx")
-    check("Home's banner sales never hold Home", /within\(creatorSalesRows\(adminSupabase, creator\.id, now\), HOME_EXTRA_MS, NO_BANNER_ROWS\)/.test(home))
+    check("Home's banner sales never hold Home", /within\(creatorSalesRows\(adminSupabase, creator\.id, now(, \{ noFetch: true \})?\), HOME_EXTRA_MS, NO_BANNER_ROWS\)/.test(home))
   }
 
   await auth.close()

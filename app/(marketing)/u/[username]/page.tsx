@@ -1,18 +1,19 @@
-import { teamStoreIdFor } from "@/lib/team/server"
 import { marketplacePricer, type MarketplaceRowPatch } from "@/lib/money/marketplace-server"
 import { personName } from "@/lib/profile/display-name"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
 import type React from "react"
-import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
-import { loadAccountEmail, loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
+import { loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
+import { SiteReadError } from "@/lib/website-builder/site-read"
+import { exactIlike } from "@/lib/onepage/username"
+import { withoutContactEmail } from "@/lib/commerce/contact-email"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, permanentRedirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { createPublicReadClient } from "@/lib/supabase/public-read"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { keptPhoto } from "@/lib/account/identity"
@@ -35,7 +36,9 @@ import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ensureStorefrontOrRedirectToMember } from "@/lib/profile/storefront-gate"
 /* The owner's controls load on demand: a visitor never downloads them (components/storefront/owner-controls-lazy.tsx). */
-import { EditAboutButton, EditProfileButton, OwnerMenu } from "@/components/storefront/owner-controls-lazy"
+import { EditAboutButtonForOwner, EditProfileButton, OwnerMenu } from "@/components/storefront/owner-controls-lazy"
+/* Who is looking is asked after the page loads (round 49): the page is one HTML for everybody, which a CDN may hold. */
+import { CreatorPageViewerProvider, OWNER_FADE_IN, OwnerOnly } from "@/components/storefront/creator-page-viewer"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 /* The scheme handed to the header, the tabs and the footer, shared with a person's page (round 12). */
@@ -48,11 +51,10 @@ import type { CommunityCard } from "@/lib/communities/types"
 import { creatorBadges } from "@/lib/creators/badges"
 import { reviewerOf } from "@/lib/reviews/rules"
 import { missingColumn } from "@/lib/reviews/store"
-import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
 import { ProfileArrival } from "@/components/profile/profile-arrival"
-import { cameFromElsewhere, communityBackTarget, refererPath } from "@/lib/profile/back"
+import { communityBackTarget } from "@/lib/profile/back"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { profileShareImageUrl, profileShareVersion } from "@/lib/profile/profile-seo"
 import type { ActionScheme } from "@/components/profile/follow-button"
@@ -171,7 +173,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     return { title: "Page Not Found" }
   }
 
-  const supabase = await createClient()
+  /* Read as a stranger, for everybody (round 49): the page and its head are one HTML a CDN may hold. */
+  const supabase = createPublicReadClient() as unknown as SupabaseClient
 
   /*
     THE PAGE'S OWN LOADERS, not a second set of queries.
@@ -380,24 +383,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   await ensureStorefrontOrRedirectToMember(username)
 
-  const supabase = await createClient()
-
-  /**
-   * WHO IS LOOKING, ASKED FIRST AND AWAITED LAST.
-   *
-   * This reads the session cookie and depends on nothing else on the page,
-   * so it is started here and handed to the batch below as an already
-   * running promise. It used to be issued inside that batch, which was fine
-   * for the batch itself but not for what needs it: the purchase check could
-   * not run until the batch had come back, so it became a FOURTH round trip
-   * in series on a page that is already dynamic. Started here, it is settled
-   * by the time the batch is assembled and the purchase check can join it.
-   *
-   * No await on this line. Awaiting it here would put the round trip back in
-   * series, in a worse place.
-   */
-  /* Bounded and shared with the rest of this request (lib/auth/request-scope): a bare getUser() had no ceiling, and the whole store page waited on it. */
-  const viewerPromise = currentUserForRequest().then((c) => ({ data: { user: c.user } }))
+  /*
+    NOBODY IS ASKED WHO IS LOOKING (round 49). Every read on this page is the
+    one a stranger gets, through the anon key with no session, so the HTML is
+    the same bytes for a stranger, a signed in visitor, a buyer and the owner,
+    and the CDN may hold one copy for all of them (next.config.mjs,
+    tests/cdnpages-r49). What was somebody's own (the owner's controls, the
+    Contact link for a buyer) is asked after the page loads, by
+    components/storefront/creator-page-viewer from /api/creator-page/viewer.
+    No cookies(), no headers() anywhere on this render.
+  */
+  const supabase = createPublicReadClient() as unknown as SupabaseClient
 
   /**
    * THE SAME LOOKUP THE LAYOUT ALREADY MADE.
@@ -408,18 +404,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * go through lib/commerce/creator-page-data now, which dedupes within the
    * request: whichever asks first pays, and the second gets the same promise.
    */
-  const profile = await loadProfileByUsername(username)
+  /* Strict: a read that failed THROWS (the error screen, Try again), never this page's 404. */
+  const profile = await loadProfileByUsernameStrict(username)
 
   if (!profile) {
     // Check username history for redirects (old username → new username)
     const adminSupabase = createAdminClient()
-    const { data: historyRecord } = await adminSupabase
+    const { data: historyRecord, error: historyError } = await adminSupabase
       .from("username_history")
       .select("new_username")
-      .ilike("old_username", username)
+      /* Literally: `_` and `%` in an address are not wildcards (exactIlike). */
+      .ilike("old_username", exactIlike(username))
       .order("changed_at", { ascending: false })
       .limit(1)
       .maybeSingle()
+    /* A failed history read is not "no old name": the error screen, never a 404 for a renamed creator. */
+    if (historyError) throw new SiteReadError("username history", historyError.message ?? "the read failed")
 
     if (historyRecord?.new_username) {
       /* PERMANENT: the old name is gone for good, and a 308 is what tells a
@@ -431,8 +431,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     notFound()
   }
 
-  /* Deduped with the layout's, as above. */
-  const creator = await loadCreatorForUser(profile.id)
+  /* Deduped with the layout's, as above. Strict: a failed read is the error screen, not "nothing set up yet". */
+  const creator = await loadCreatorForUserStrict(profile.id)
 
   if (!creator) {
     return (
@@ -501,14 +501,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* Whether the viewer follows this creator is no longer read: a creator page has no Follow (r40). */
   const placePromise = readProfileLocation(createAdminClient(), profile.id)
   const offPagePromise = offChannel(createAdminClient(), creator.id, "creator_page")
+  /*
+    THE ADDRESS THE CREATOR TYPED is not read here (round 49): the published
+    config has none (lib/store-builder/public-config.ts, round 48), the
+    owner's own About form asks /api/creator-page/viewer for it, and a
+    buyer's Contact asks /api/creator-contact.
+  */
   const [
     { data: catalogue, error: productsError },
     publishedConfig,
-    {
-      data: { user: viewer },
-    },
     { data: creatorReviews, error: creatorReviewsError },
-    viewerBoughtFromCreator,
   ] = await Promise.all([
     supabase
       .from("products")
@@ -530,19 +532,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       .neq("type", "physical")
       .order("created_at", { ascending: false }),
     getPublishedConfig(creator.id, "shop"),
-    /**
-     * Who is looking. Joined to the batch above rather than awaited on its own
-     * — it reads the session cookie and touches nothing the other two return,
-     * so paying for it in series would be a third round trip before the first
-     * byte of a page that is already dynamic.
-     *
-     * This decides ONE thing: whether the owner gets an edit control on their
-     * own page. It is not an authorisation — every write it leads to is
-     * re-checked against the session on the server (see
-     * app/api/creator-profile/route.ts), so a forged answer here buys nothing
-     * but a button that fails.
-     */
-    viewerPromise,
     /**
      * The reviews behind the rating in the meta row. Capped, because the tab
      * shows the most recent rather than the complete history and a creator
@@ -604,53 +593,34 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         .order("created_at", { ascending: false })
         .limit(30)
     })(),
-    /**
-     * HAS THIS VIEWER BOUGHT ANYTHING FROM THIS CREATOR, which decides whether
-     * the contact address goes into the page at all.
-     *
-     * It needs the viewer and the creator. The creator is known by the time
-     * this array is built, and the viewer is the promise started at the top of
-     * the request, so chaining off it here costs nothing in series: both are
-     * settled or in flight alongside everything else in this batch. Awaited on
-     * its own below the batch, as it was, it was a whole round trip of dead
-     * time on every visit by every signed-in person.
-     */
-    viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
   const pageHost = await pageHostPromise
-  /*
-    The request's headers and where the creator is from. No Follow and no
-    Message on a creator page (r40), so nothing reads the follow graph here.
-  */
-  const [requestHeaders, place] = await Promise.all([
-    headers(),
-    /* Where they are from, under their name (round 12, run-now part 98); none before it runs (lib/profile/location). */
-    placePromise,
-  ])
-  /*
-    Arrived from somewhere (any other page of ours): the way back in the top
-    bar, next to the creator (components/profile/profile-top-bar). The
-    addresses this page answers to do not count, so a reload shows none; on
-    the creator's own domain or subdomain that includes its root.
-  */
-  const requestHost = (requestHeaders.get("host") || "").toLowerCase()
-  const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
-  if (requestHost && !/^(www\.)?storelib\.com$|^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(requestHost)) ownPaths.push("/")
+  /* Where the creator is from. No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */
+  const place = await placePromise
   /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
   const backTarget = communityBackTarget(back)
-  const cameFrom = refererPath(requestHeaders.get("referer"), requestHeaders.get("host"))
-  const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(cameFrom, ownPaths)
+  /*
+    THE WAY BACK, FROM THE ADDRESS ONLY (round 49). It also read the Referer
+    here; the same test runs in the browser after load (components/profile/
+    profile-top-bar useCameFromSomewhere, document.referrer and the in-app
+    history), so a visitor who came from another page of ours still gets it,
+    and the HTML no longer depends on where anybody came from.
+  */
+  const backShown = !!backTarget || from === "community" || from === "explore"
+  /* Every address this page answers to, from the handle only (the same for every visitor): coming from one of them is not "from elsewhere" (useCameFromSomewhere). A creator's own website's "/" is the browser's own pathname there. */
+  const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
   /*
     WHICH TOP BAR (lib/storefront/subscribe-bar-visibility.ts). Every creator
     page has one. Opened on its own, and in the editor's frame, it is the
     creator's newsletter bar (the owner's has the pencil); from a community it
     is the slim bar with the way back, the photo and the name.
   */
-  const newsletterBar = embedded || showsSubscribeBar({ creatorPage: true, fromCommunity: cameFromCommunity({ from, backTarget, referer: cameFrom }) })
+  /* From the address only (round 49): links out of a community carry ?from=community (lib/communities/member-profile-view). */
+  const newsletterBar = embedded || showsSubscribeBar({ creatorPage: true, fromCommunity: cameFromCommunity({ from, backTarget, referer: null }) })
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
   const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
-  /* In the visitor's language when the store published it: approved translations of each product laid over (lib/markets/creator-page-language). */
+  /* In the language the address names (?lang=), when the store published it: approved translations of each product laid over (lib/markets/creator-page-language). The proxy sends a visitor who chose one, or whose browser asks for one in a store that shows visitors their own, to that address (round 49). */
   const pageLanguage = embedded ? null : await creatorPageLanguage(creator.id, typeof lang === "string" ? lang : null).catch(() => null)
   const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : catalogue
   const communityCards = await communitiesPromise
@@ -658,11 +628,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   /*
     THE OWNER'S CONTROLS: the owner, or (round 42) a team member with Creator
-    page working in this very store (lib/team/server teamStoreIdFor, read again
-    from the database; no cookie, no read). Every save they make goes through
-    the routes, which ask the same (lib/team/creator-page).
+    page working in this very store. Decided in the browser after load
+    (round 49, /api/creator-page/viewer asks lib/team/server teamStoreIdFor
+    as this page did); every save goes through the routes, which ask again
+    (lib/team/creator-page). The server draws the visitor's page for all.
   */
-  const viewerIsOwner = !!viewer && (viewer.id === profile.id || (await teamStoreIdFor(viewer.id, "creator_pages").catch(() => null)) === creator.id)
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -778,10 +748,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     themePreset?: string,
     schemeRoots?: Record<string, RootPaint>,
   ) => {
-    if (!viewerIsOwner) return null
     const links = headerSettings?.socialLinks
+    /* Every prop below is already on the page for everybody (the name, the bio, the pictures, the links): nothing private rides along with the controls. */
     return (
-      <div className="flex items-center gap-2">
+      <OwnerOnly>
+      <div className="flex items-center gap-2" style={OWNER_FADE_IN}>
       <EditProfileButton
         embedded={embedded}
         displayName={profile.display_name || ""}
@@ -815,6 +786,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       {/* Everything that needs a whole screen rather than a dialog. */}
       <OwnerMenu embedded={embedded} />
       </div>
+      </OwnerOnly>
     )
   }
 
@@ -1014,6 +986,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
+    /* No typed contact address in it (lib/store-builder/public-config); the owner's own form asks for theirs (round 49, /api/creator-page/viewer). */
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
     /**
      * =====================================================================
@@ -1062,18 +1035,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * typed it into, which is the only place it can be both visible and
      * unambiguous.
      */
-    const resolvedContactEmail = headerSettings.contactEmail || (await loadAccountEmail(profile.id)) || undefined
     /*
-      NO EXCEPTION FOR THE OWNER, which is #204's call and stands: an
-      owner-only preview of a hidden thing showed them a Contact link no
-      visitor could see, and that got reported as the gate being broken.
-
-      Resolved with the batch above rather than awaited on this line, which
-      is the only part of that change kept here: the question is the same one
-      for everybody, it just stopped costing a round trip of its own.
+      ROUND 49: THE GATE MOVED TO THE BROWSER, THE ADDRESS DID NOT. The page
+      hands every visitor the handle; the Contact link is drawn only once
+      /api/creator-page/viewer says this person bought from the creator
+      (components/storefront/creator-page-viewer useContactShown), and the
+      address is still answered by /api/creator-contact alone, which asks the
+      same question again (lib/commerce/contact-email.ts) and falls back to
+      the account's address as before. Nothing private is in the HTML.
     */
-    const viewerBought = viewerBoughtFromCreator
-    const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
+    const publicContactHandle = profile.username || username
     const savedGlobalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**
      * A SCHEME BEING TRIED IN EDIT PROFILE, for the owner only, drawn in
@@ -1081,7 +1052,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * lib/store-builder/scheme-preview. The owner's controls are still handed
      * the SAVED scheme, so Cancel knows what to put back.
      */
-    const previewScheme = previewSchemeFrom(schemeParam, viewerIsOwner)
+    /* Its own address (?scheme=), which the CDN never holds (next.config.mjs); round 49: decided by the address alone, since the page no longer asks who is looking. */
+    const previewScheme = previewSchemeFrom(schemeParam, true)
     const globalSettings =
       previewScheme && savedGlobalSettings ? { ...savedGlobalSettings, themePreset: previewScheme } : savedGlobalSettings
     /**
@@ -1130,8 +1102,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const chrome = resolveStorefrontChrome(globalSettings?.themePreset, storedChrome)
     /* The saved scheme, resolved the same way, for the owner's controls. */
     const savedPreset = previewScheme ? resolveStorefrontChrome(savedGlobalSettings?.themePreset).preset : chrome.preset
-    /* What each scheme paints the page's root with, so a press shows at once. Owner only. */
-    const schemeRoots = viewerIsOwner ? schemeRootPaints(storedChrome) : undefined
+    /* What each scheme paints the page's root with, so a press shows at once. For the owner's controls; colours only. */
+    const schemeRoots = schemeRootPaints(storedChrome)
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)
     /* The exact URL the header will request; see the preload below. */
     const headerAvatarPreload = headerAvatar(headerSettings, profile.avatar_url)
@@ -1287,7 +1259,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     }
 
     return (
-      <>
+      <CreatorPageViewerProvider creatorId={creator.id}>
         {indexable && (
           <>
             <script
@@ -1351,14 +1323,23 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * when nothing is stored, and opening a dialog onto an empty box is
            * not editing what you are looking at.
            *
-           * A visitor gets the plain bar, with no listener, no draft state and
-           * no editor in the payload at all.
+           * Everybody is drawn the plain bar (round 49: one HTML for all);
+           * the owner's own, with the pencil, replaces it once the page has
+           * asked who is looking (components/storefront/creator-page-viewer).
            */
-          viewerIsOwner ? (
+          <OwnerOnly
+            fallback={
+            <SubscribeBar
+              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
+              creatorId={creator.id}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
+            />
+            }
+          >
             <LiveSubscribeBar
               settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
               creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
               editor={{
                 values: {
                   text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
@@ -1373,13 +1354,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 },
               }}
             />
-          ) : (
-            <SubscribeBar
-              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
-              creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
-            />
-          )
+          </OwnerOnly>
         )}
 
         {/*
@@ -1405,6 +1380,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <ProfileTopBar
             always
             initiallyShown={backShown}
+            ownPaths={ownPaths}
             name={profile.display_name || username}
             avatarUrl={profile.avatar_url ?? null}
             colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }}
@@ -1419,7 +1395,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         )}
 
         <ShopHeaderRenderer
-          settings={headerSettings}
+          /* Without contactEmail: a client component's props are in the page's payload (lib/commerce/contact-email.ts). */
+          settings={withoutContactEmail(headerSettings)}
           creator={headerCreator}
           profile={headerProfile}
           products={productsData}
@@ -1495,7 +1472,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name || undefined}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
-                  viewerIsOwner={viewerIsOwner}
                   /* One arrangement, both tabs. See applyManualOrder. */
                   productsOrder={headerSettings?.productsOrder}
                   communityBlocks={communityBlocks}
@@ -1509,7 +1485,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
-                  isOwner={viewerIsOwner}
                 />
               )}
             </>
@@ -1524,11 +1499,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               creatorName={profile.display_name || undefined}
               creatorUsername={profile.username}
               creatorAvatarUrl={profile.avatar_url}
-              viewerIsOwner={viewerIsOwner}
               sellerMemberSince={profile.created_at}
               sellerTotalSales={salesShown ? totalSales : 0}
               sellerProductsCount={productsCount}
-              sellerContactEmail={publicContactEmail}
+              sellerContactHandle={publicContactHandle}
               /**
                * The owner's way into the story block, decided here because
                * this is the only place that knows who is looking. The
@@ -1537,14 +1511,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                * to change the block in front of them.
                */
               aboutOwnerActions={
-                viewerIsOwner ? (
-                  <EditAboutButton
+                <OwnerOnly>
+                  <EditAboutButtonForOwner
                     headline={(aboutSection.settings as AboutSettings).headline || ""}
                     story={(aboutSection.settings as AboutSettings).aboutContent || ""}
                     media={(aboutSection.settings as AboutSettings).mediaItems || []}
-                    contactEmail={publicContactEmail ?? ""}
                   />
-                ) : null
+                </OwnerOnly>
               }
             />
           ) : null
@@ -1585,7 +1558,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
-                  isOwner={viewerIsOwner}
                   /**
                    * The builder's "Hide Category Filter" switch lives on the
                    * Featured section, because that is where the filter used to
@@ -1640,7 +1612,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           return (
             <>
               {/* The creator on their own page with nothing published: one quiet line and the way to a first product. */}
-              {noProducts && viewerIsOwner && !embedded ? <FirstProductPrompt scheme={chrome.action} /> : null}
+              {noProducts && !embedded ? <OwnerOnly><FirstProductPrompt scheme={chrome.action} /></OwnerOnly> : null}
               {tabs.length ? (
                 <StorefrontTabs
                   tabs={tabs}
@@ -1668,7 +1640,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <SellerFooter surface={storefrontFooterSurface(chrome)} />
         </SafeRegion>
       </div>
-      </>
+      </CreatorPageViewerProvider>
     )
   }
 
@@ -1693,7 +1665,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   }
 
   return (
-    <>
+    <CreatorPageViewerProvider creatorId={creator.id}>
       {indexable && (
         <>
           <script
@@ -1722,7 +1694,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <SubscribeBar
           settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }}
           creatorId={creator.id}
-          leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+          leading={!embedded ? <TopBarBack initiallyShown={backShown} ownPaths={ownPaths} /> : undefined}
         />
       )}
 
@@ -1743,7 +1715,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       */}
       <ProfileArrival />
       {!embedded && !newsletterBar ? (
-        <ProfileTopBar always initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
+        <ProfileTopBar always initiallyShown={backShown} ownPaths={ownPaths} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
       ) : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}
@@ -1804,7 +1776,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           const bare = tabsWithoutProducts({ home: null, communitiesPanel: creatorCommunitiesPanel(communityCards), communities: communityCards })
           return (
             <>
-              {viewerIsOwner && !embedded ? <FirstProductPrompt /> : null}
+              {!embedded ? <OwnerOnly><FirstProductPrompt /></OwnerOnly> : null}
               {bare.length ? <StorefrontTabs tabs={bare} /> : null}
             </>
           )
@@ -1819,7 +1791,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 creatorName={profile.display_name}
                 creatorUsername={profile.username}
                 creatorAvatarUrl={profile.avatar_url}
-                isOwner={viewerIsOwner}
               />
             ),
           },
@@ -1833,7 +1804,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               creatorName={profile.display_name}
               creatorUsername={profile.username}
               creatorAvatarUrl={profile.avatar_url}
-              isOwner={viewerIsOwner}
             />
           ),
         })
@@ -1876,21 +1846,20 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         creatorName={profile.display_name || undefined}
         creatorUsername={profile.username}
         creatorAvatarUrl={profile.avatar_url}
-        viewerIsOwner={viewerIsOwner}
         sellerMemberSince={profile.created_at}
         sellerTotalSales={(creator.show_total_sales_badge ?? true) ? fallbackTotalSales : 0}
         sellerProductsCount={productsData.length}
         aboutOwnerActions={
-          viewerIsOwner ? (
-            <EditAboutButton headline="" story="" media={[]} contactEmail="" />
-          ) : null
+          <OwnerOnly>
+            <EditAboutButtonForOwner headline="" story="" media={[]} />
+          </OwnerOnly>
         }
       />
 
       {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} /> : null}
       <SellerFooter />
     </div>
-    </>
+    </CreatorPageViewerProvider>
   )
 }
 

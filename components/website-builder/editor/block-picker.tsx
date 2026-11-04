@@ -1113,7 +1113,7 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
   if (!portal) return null
   const center = place.mode === "center"
   return createPortal(
-    <div data-block-picker-layer="" data-state={open ? "open" : "closed"} {...(open ? {} : { inert: "" as unknown as boolean })} className={cn("fixed inset-0 z-[2147483638]", !open && "pointer-events-none")}>
+    <div data-block-picker-layer={open ? "open" : "closed"} data-state={open ? "open" : "closed"} {...(open ? {} : { inert: "" as unknown as boolean })} className={cn("fixed inset-0 z-[2147483638]", !open && "pointer-events-none")}>
       {center ? <div aria-hidden className={cn("absolute inset-0 bg-black/30 transition-opacity duration-200", open ? "opacity-100" : "opacity-0")} /> : null}
       <div
         ref={panel}

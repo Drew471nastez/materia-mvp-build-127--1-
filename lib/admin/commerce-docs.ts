@@ -102,7 +102,7 @@ export const COMMERCE_DOCS: DocSection[] = [
           "Product page or website → cart → checkout (address, delivery, tax, payment) → Stripe takes the payment → the order is written once, the held stock becomes sold → order confirmation email to the buyer and a new sale notice to the creator → the creator fulfils in Orders with tracking → shipping email → delivered → return or refund if asked.",
         buyers: [
           { label: "Product page: storelib.com/<username>/<product> or <site>/products/<product>" },
-          { label: "Checkout: <site>/checkout on a website, storelib.com/checkout/physical from the creator page" },
+          { label: "Checkout: <site>/checkout, from the website and the OnePage; storelib.com/checkout/physical only for a store with no published website" },
           { label: "Order page: the View your order button in every order email" },
         ],
         creators: [{ label: "Orders", href: "/app/orders" }, { label: "Inventory", href: "/app/inventory" }, { label: "Settings", href: "/app/settings" }],

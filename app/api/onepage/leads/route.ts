@@ -9,10 +9,12 @@ import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-s
 import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
+import { maskEmail } from "@/lib/privacy/mask-email"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
 import { signupFileFor } from "@/lib/onepage/signup-file"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
 
     console.log("[leads] Request data:", {
       onepage_id,
-      subscriberEmail,
+      subscriberEmail: maskEmail(subscriberEmail),
       enable_digital_product,
       has_file_url: !!digital_product_file_url,
     })
@@ -296,7 +298,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

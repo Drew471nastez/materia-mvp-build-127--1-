@@ -1,6 +1,13 @@
 "use client"
 
+/*
+  Reports itself with its digest, the way ErrorScreen does (r48-obs): this
+  boundary drew its own look and told nobody, so a broken Explore was a
+  screenshot in a message rather than a row in Admin, Health, Errors.
+*/
+import { useEffect } from "react"
 import Link from "next/link"
+import { buildReport } from "@/lib/client-errors"
 
 export default function ExploreError({
   error,
@@ -9,6 +16,13 @@ export default function ExploreError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  useEffect(() => {
+    try {
+      void fetch("/api/client-errors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildReport(error, window.location.href)), keepalive: true }).catch(() => {})
+    } catch {
+      /* A report is never worth breaking the screen over. */
+    }
+  }, [error])
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 min-h-screen">
       <div className="mb-8">

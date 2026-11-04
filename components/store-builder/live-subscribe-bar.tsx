@@ -34,7 +34,16 @@
 
 import { useEffect, useState } from "react"
 
-import { EditCtaButton, type CtaValues } from "@/components/storefront/edit-cta-button"
+import dynamic from "next/dynamic"
+import type { CtaValues } from "@/components/storefront/edit-cta-button"
+/*
+  Round 48: the pencil is fetched for the owner. Imported plainly, the editor
+  sheet, the colour fields and the website builder's live settings behind them
+  were in every visitor's download of the creator page; `editor` is only given
+  when the viewer owns the page, which is the only time this renders it.
+  Server rendered for the owner as before (ssr stays on).
+*/
+const EditCtaButton = dynamic(() => import("@/components/storefront/edit-cta-button").then((m) => m.EditCtaButton))
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 
 import { SubscribeBar } from "./subscribe-bar"

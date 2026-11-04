@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { continueHref, readCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
+import { safeReturnTarget } from "@/lib/auth/return-to"
+import { maskEmail } from "@/lib/privacy/mask-email"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -26,7 +28,8 @@ export default function VerifyEmailContent() {
   const userId = searchParams.get("userId")
   const email = searchParams.get("email") || ""
   const codeSent = searchParams.get("sent") === "1"
-  const redirectUrl = searchParams.get("redirect")
+  /* A path here or a platform page, never another site (round 48: ?redirect=https://anywhere was followed after the code). */
+  const redirectUrl = safeReturnTarget(searchParams.get("redirect"), { mainDomain: getMainDomain() })
   const pendingReview = searchParams.get("pendingReview")
 
   // Start countdown if code was already sent
@@ -63,7 +66,7 @@ export default function VerifyEmailContent() {
     setResendLoading(true)
 
     try {
-      console.log("[VerifyEmail] Sending verification code to:", email)
+      console.log("[VerifyEmail] Sending verification code to:", maskEmail(email))
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

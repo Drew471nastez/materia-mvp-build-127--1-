@@ -1,4 +1,12 @@
-import { combineChunks, createChunks, isChunkLike, stringFromBase64URL, stringToBase64URL } from "@supabase/ssr"
+/*
+  @supabase/ssr's own cookie chunker and base64url, from their files rather than the package's index (round 46). The index also
+  exports createBrowserClient, which imports all of supabase-js, and the package does not say it is free of side effects, so a
+  bundler keeps every one of them: this file is read by the platform header on every marketing page (lib/auth/session-read.ts),
+  which put supabase-js back into the first script there. Same functions, same version (the lockfile pins it); tests/session-*.test.ts
+  import this file, so a release that moved them fails there first.
+*/
+import { combineChunks, createChunks, isChunkLike } from "@supabase/ssr/dist/main/utils/chunker.js"
+import { stringFromBase64URL, stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js"
 
 /**
  * ===========================================================================

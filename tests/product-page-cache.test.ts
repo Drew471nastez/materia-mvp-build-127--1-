@@ -83,15 +83,19 @@ function main() {
 
   for (const table of CACHEABLE) {
     /* creators and profiles are read through their public views since run-now part 63 (lib/security/public-rows). */
-    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer) || new RegExp(`readPublicRow\\([^,]+, "${table}"`).test(cacheLayer))
+    /* The two config tables are read for the cache by lib/store-builder/public-config.ts since round 48 (R48-6). */
+    const configReader = table === "store_builder_configs" ? /readPublishedStoreConfig\(creatorId, pageType\)/ : table === "product_page_configs" ? /readPublishedProductPageConfig\(creatorId, productId\)/ : null
+    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer) || new RegExp(`readPublicRow\\([^,]+, "${table}"`).test(cacheLayer) || (!!configReader && configReader.test(cacheLayer)))
   }
   for (const table of NEVER) {
     check(`${table} is NOT cached`, !new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer), "this would be one visitor's rows served to another")
   }
   /* Who is looking is asked fresh, every request, forever. */
   check("nothing in the cache layer asks who is signed in", !/auth\.getUser|getSession/.test(cacheLayer))
-  check("and the page still asks, per request", /supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(page))
-  check("entitlements are still read on the request's own client", /\.from\("entitlements"\)/.test(page))
+  /* Round 49: the page is one HTML for everybody (a CDN holds it); who is looking and what they own is asked by the browser after load, of /api/purchases/verify, per request, never cached. */
+  const verifyRoute = readFileSync(join(process.cwd(), "app/api/purchases/verify/route.ts"), "utf8")
+  check("and the page does not ask; the purchase check asks, per request", !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(page) && /supabase\.auth\.getUser\(\)/.test(verifyRoute))
+  check("entitlements are read per request for the signed in person, never cached", /\.from\("entitlements"\)/.test(verifyRoute) && !/\.from\("entitlements"\)/.test(page))
 
   /* ---------------------------------------------------------------------
      IT FALLS BACK RATHER THAN SERVING AN EMPTY PAGE
@@ -106,7 +110,8 @@ function main() {
   */
   const fallbacks = (loaders.match(/if \(shared\) return/g) || []).length
   check("every cached loader has a fallback", fallbacks === 5, `found ${fallbacks}`)
-  check("and the fallback is the session client", /const supabase = await createClient\(\)/.test(loaders))
+  /* Round 49: a fresh read as a stranger (the anon key, no session), so no cookie reaches the page's render. */
+  check("and the fallback is a fresh read, as a stranger", /const supabase = createPublicReadClient\(\)/.test(loaders))
 
   /* ---------------------------------------------------------------------
      A PUBLISH CLEARS IT

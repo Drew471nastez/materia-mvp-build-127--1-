@@ -93,7 +93,7 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
   check("the cards' frame runs no script", /sandbox="allow-same-origin"/.test(preview) && !/allow-scripts/.test(previewCode) && /scripts: false/.test(preview))
   check("what a theme reveals on scroll is shown in the card", /\.scroll-trigger/.test(preview) && /opacity:1!important/.test(preview))
   check("the frame's scale survives the touch rule that flattens transforms", /data-keep-transform/.test(preview))
-  check("a section is measured by its own content, not by a window or a floor", /* Changed on purpose (round AJ: its own box, not what spills out of it, so a header is not as tall as its hidden drawer) */ /const own = w\.offsetHeight/.test(preview) && /const h = Math\.ceil\(own > 8 \? own : w\.scrollHeight\)/.test(preview) && /w\.style\.minHeight = "0px"/.test(preview))
+  check("a section is measured by its own content, not by a window or a floor", /* Changed on purpose (round AJ: its own box, not what spills out of it, so a header is not as tall as its hidden drawer) */ /const own = Math\.max\(w\.offsetHeight, root\.offsetHeight\)/.test(preview) && /const h = Math\.ceil\(own > 8 \? own : w\.scrollHeight\)/.test(preview) && /w\.style\.minHeight = "0px"/.test(preview))
   check("a section with nothing to show is named, not blank", /state: shows \? .+ : "named" \}\)/.test(preview))
 
   console.log("\nOne document for every card, not a frame per card\n")
@@ -116,27 +116,33 @@ const HELLO = `<div class="hello scroll-trigger animate--slide-in"><h2>{{ sectio
     in place.
   */
   console.log("\nEvery picture stays over its own card\n")
-  /* Changed on purpose (merge): main's watcher and this branch's observer of the list are one ResizeObserver on the sheet (watch, watchGrid). */
-  check("every card in the list is watched for a size change, not only the list", (previewCode.match(/new ResizeObserver\(/g) ?? []).length === 1 && /new ResizeObserver\(\(\) => this\.sync\(\)\)/.test(previewCode) && /this\.watch\(grid, true\)/.test(previewCode) && /for \(const el of Array\.from\(grid\.children\)\) if \(el\.tagName !== "IFRAME"\) this\.watch\(el, true\)/.test(previewCode) && /this\.watch\(entry\.box, true\)/.test(previewCode) && /this\.watch\(card, true\)/.test(previewCode))
-  /* Changed on purpose (merge): the MutationObserver is the sheet's (gridWatch). */
-  check("  cards that come and go are watched as they come, and let go as they go", /this\.gridWatch = new MutationObserver\(/.test(previewCode) && /this\.gridWatch\.observe\(grid, \{ childList: true \}\)/.test(previewCode) && /this\.watch\(n as Element, false\)/.test(previewCode))
+  /* Changed on purpose (merge): main's watcher and this branch's observer of the list are one ResizeObserver on the sheet (watch, watchGrid); the sheet's other one (sizes) reads the sections' own heights in the frame, a different job. */
+  check("every card in the list is watched for a size change, not only the list", (previewCode.match(/new ResizeObserver\(\(\) => (?:this|sheet)\.sync\(\)\)/g) ?? []).length === 1 && /new ResizeObserver\(\(\) => this\.sync\(\)\)/.test(previewCode) && /this\.watch\(grid, true\)/.test(previewCode) && /for \(const el of Array\.from\(grid\.children\)\) if \(el\.tagName !== "IFRAME"\) this\.watch\(el, true\)/.test(previewCode) && /this\.watch\(entry\.box, true\)/.test(previewCode) && /this\.watch\(card, true\)/.test(previewCode))
+  /* Changed on purpose (merge): the MutationObserver is the sheet's (gridWatch), and also sees a card shown or hidden by its group (main's `hidden` observer). */
+  check("  cards that come and go are watched as they come, and let go as they go", /this\.gridWatch = new MutationObserver\(/.test(previewCode) && /this\.gridWatch\.observe\(grid, \{ childList: true, subtree: true, attributes: true, attributeFilter: \["hidden"\] \}\)/.test(previewCode) && /this\.watch\(n as Element, false\)/.test(previewCode) && (previewCode.match(/new MutationObserver\(/g) ?? []).length === 1)
   check("  the editor's fonts landing puts them over their cards again", /fonts\?\.addEventListener\?\.\("loadingdone", settled\)/.test(previewCode) && /fonts\?\.ready\?\.then\(settled/.test(previewCode))
   /* Changed on purpose (merge): the observers are let go in release(), the fonts listener in the effect. */
   check("  every observer is let go with the sheet", /release\(\): void \{[\s\S]{0,400}?this\.watcher\?\.disconnect\(\)[\s\S]{0,120}?this\.gridWatch\?\.disconnect\(\)/.test(previewCode) && /removeEventListener\?\.\("loadingdone", settled\)/.test(previewCode))
-  check("  no polling loop: nothing runs while nothing moves", !/setInterval\(/.test(previewCode) && !/requestAnimationFrame\(function loop|const loop = \(\) => \{[^}]*requestAnimationFrame\(loop\)/.test(previewCode))
-  check("positions are the layout's own, unrounded, under any transform", /getComputedStyle\(grid\)\.width/.test(previewCode) && /const s = r\.width \/ zoom \/ this\.renderWidth/.test(previewCode) && /const cardH = r\.height \/ zoom \/ s/.test(previewCode) && !/box\.clientWidth \/ this\.renderWidth\n\s*if \(!\(s > 0\)\) continue/.test(previewCode))
-  check("  written only when a place changed, to a hundredth of a pixel", /if \(placedAt\.get\(w\) !== pos\)/.test(previewCode) && /hundredths\(\(r\.top - g\.top\) \/ zoom \/ s\)/.test(previewCode) && /if \(this\.frameAt !== at/.test(previewCode))
-  check("  the frame is as tall as the list, unrounded, so no card is cut at its foot", /Math\.ceil\(g\.height \/ zoom \/ scale\)/.test(previewCode) && !/grid\.offsetHeight \/ scale/.test(previewCode))
+  /* Changed on purpose (merge): main looks for a frame document whose load never comes a few times a second, and stops once the sheet has it; nothing else polls. */
+  check("  no polling loop: nothing runs while nothing moves", (previewCode.match(/setInterval\(/g) ?? []).length === 1 && /if \(sheet\.attached\) return window\.clearInterval\(t\)/.test(previewCode) && !/requestAnimationFrame\(function loop|const loop = \(\) => \{[^}]*requestAnimationFrame\(loop\)/.test(previewCode))
+  /* Changed on purpose (merge): main reads the card's width as laid out (getComputedStyle) and every place against the frame's own painted surface, which carries any transform over the library; unrounded either way. */
+  check("positions are the layout's own, unrounded, under any transform", /Number\.parseFloat\(getComputedStyle\(first\.box\)\.width\)/.test(previewCode) && /const paintedScale = surface\.width \/ this\.renderWidth/.test(previewCode) && /const cardH = r\.height \/ paintedScale/.test(previewCode) && !/box\.clientWidth \/ this\.renderWidth/.test(previewCode))
+  /* Changed on purpose (merge): the place is read against the frame's surface (main), still to a hundredth, and the frame's scale and height still written only when they change. */
+  check("  written only when a place changed, to a hundredth of a pixel", /if \(placedAt\.get\(w\) !== pos\)/.test(previewCode) && /hundredths\(\(r\.top - surface\.top\) \/ paintedScale\)/.test(previewCode) && /if \(this\.frameAt !== at/.test(previewCode))
+  /* Changed on purpose (merge): main's height, the list's laid out height over the card's painted width. */
+  check("  the frame is as tall as the list, unrounded, so no card is cut at its foot", /Math\.ceil\(grid\.getBoundingClientRect\(\)\.height \/ first\.rect!\.width \* this\.renderWidth\)/.test(previewCode) && !/grid\.offsetHeight \/ scale/.test(previewCode))
   /* Changed on purpose (merge): the place and height are the <sl-card> box's variables, read by the first cascade layer (round 45). */
   check("  each section is cut at its card's foot: its height is the card's, its overflow hidden", /w\.style\.setProperty\("--sl-h", `\$\{height\}px`\)/.test(previewCode) && /w\.style\.setProperty\("--sl-top", `\$\{top\}px`\)/.test(previewCode) && /w\.style\.setProperty\("--sl-pad", `\$\{padding\}px`\)/.test(previewCode) && /height:var\(--sl-h,auto\)!important[^"]*overflow:clip!important;contain:strict!important/.test(preview))
   check("  the frame's own page never scrolls away from the list's top", /page\.scrollTo\(0, 0\)/.test(previewCode))
   /* Changed on purpose (merge): what is hidden is the section's <sl-card> box. */
   check("a card that goes takes its section with it at once", /this\.cards\.delete\(key\)\s*const w = this\.wrappers\.get\(key\)\s*if \(w\) frameOf\(w\)\.hidden = true/.test(previewCode))
-  /* Changed on purpose (merge): what another sheet put in the document is its <sl-card> boxes. */
-  check("one sheet paints in a document: a new sheet takes the frame's document over and takes the old one's sections out", /docOwner\.set\(doc, this\)/.test(previewCode) && /before\.release\(\)/.test(previewCode) && /querySelectorAll\(`body>\$\{CARD_TAG\}\[data-sl-card\],body>\[data-sl-pv\]`\)\)\) w\.remove\(\)/.test(previewCode))
-  check("  an old document about to be replaced by this sheet's own is not filled", /else if \(source !== this\.srcDoc\) return/.test(previewCode))
+  /* Changed on purpose (merge): what is taken out is every <sl-card> box and shared style in the page (main), and the old sheet is let go of as the new one takes the document. */
+  check("one sheet paints in a document: a new sheet takes the frame's document over and takes the old one's sections out", /docOwner\.set\(doc, this\)/.test(previewCode) && /before\.release\(\)/.test(previewCode) && /querySelectorAll\(`body>\$\{CARD_TAG\}, style\[data-sl-shared\]`\)\)\) el\.remove\(\)/.test(previewCode))
+  /* Changed on purpose (merge): main tells the sheet's own document by the tag written in its head (isMine), which replaces this branch's remembered srcdoc. */
+  check("  an old document about to be replaced by this sheet's own is not filled", /if \(!this\.isMine\(doc\)\) return/.test(previewCode))
   check("  a sheet whose document was taken over does nothing more in it", /private owns\(\): boolean/.test(previewCode) && (previewCode.match(/this\.owns\(\)/g) ?? []).length >= 4)
-  check("  and keeps no listener on it (push lag: an old sheet held alive by the document)", /removeEventListener\?\.\("loadingdone", this\.onFonts\)/.test(previewCode))
+  /* Changed on purpose (merge): main's font listener is fontsLoaded. */
+  check("  and keeps no listener on it (push lag: an old sheet held alive by the document)", /release\(\): void \{[\s\S]*?this\.doc\?\.fonts\?\.removeEventListener\?\.\("loadingdone", this\.fontsLoaded\)/.test(previewCode))
   check("the push lag work is kept: release, CLOSED_ADOPT_MS, idle scheduling", /release\(\): void/.test(previewCode) && /CLOSED_ADOPT_MS = 10_000/.test(previewCode) && /requestIdleCallback/.test(previewCode) && /return \(\) => sheet\.release\(\)/.test(previewCode))
 
   const route = readFileSync("app/api/website-builder/themes/[installId]/files/route.ts", "utf8")

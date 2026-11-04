@@ -44,6 +44,7 @@ import {
   recordVisit,
   touchFromVisit,
   type PropertyType,
+  type Touch,
   type Touches,
 } from "./touch"
 
@@ -94,7 +95,7 @@ function readStore(now: number): Kept {
     if (parsed?.v !== 1 || !parsed.s || typeof parsed.s !== "object") return {}
     const out: Kept = {}
     for (const [scope, entry] of Object.entries(parsed.s)) {
-      if (!/^[ch]:[a-z0-9.:-]{1,120}$/i.test(scope)) continue
+      if (!/^[chs]:[a-z0-9.:-]{1,120}$/i.test(scope)) continue
       const t = freshTouches({ first: cleanTouch(entry?.first), last: cleanTouch(entry?.last) }, now)
       if (t) out[scope] = { ...t, seen: typeof entry?.seen === "number" ? entry.seen : 0 }
     }
@@ -240,11 +241,71 @@ export function carryTouches(href: string): string {
   return relative ? `${url.pathname}${url.search}${url.hash}` : url.toString()
 }
 
+/* ─── Storelib's own sign ups ───────────────────────────────────────── */
+
+/**
+ * STORELIB'S OWN SCOPE. A visit to storelib.com (the home page, pricing,
+ * the blog, a creator's page) can end in a Storelib account, and that
+ * account's source is kept under this scope, apart from every creator's:
+ * a creator's buyer never inherits it and it never reads theirs. The same
+ * storage, the same consent, the same 90 days.
+ */
+export const PLATFORM_SCOPE = "s:storelib"
+
+/**
+ * Its own arrival, so noting it never takes the arrival from the creator's
+ * page this document opened on (a creator page's <CaptureTouch> still sees
+ * the document's first page as its arrival).
+ */
+let platformArrived = false
+
+/**
+ * This document's arrival, kept for Storelib itself. Only on storelib.com,
+ * never on a creator's own host. Returns the touch it recorded (null when
+ * none), so <CapturePlatformTouch> can count a visit from an AI assistant
+ * (lib/attribution/ai-visit-browser).
+ */
+export function notePlatformVisit(): Touch | null {
+  if (typeof window === "undefined" || !platformHost(window.location.hostname)) return null
+  const tags = new URLSearchParams(window.location.search)
+  const utm = ["utm_source", "utm_medium", "utm_campaign"].map((k) => tags.get(k) ?? "").join("|")
+  const key = `${PLATFORM_SCOPE}|${utm}`
+  if (noted.has(key)) return null
+  noted.add(key)
+  const arrival = !platformArrived
+  platformArrived = true
+  if (!arrival && utm === "||") return null
+  const now = Date.now()
+  const touch = touchFromVisit({
+    href: window.location.href,
+    referrer: arrival ? document.referrer || "" : "",
+    landingSearch: arrival ? landingSearch() : "",
+    userAgent: navigator.userAgent || "",
+    mainDomain: getMainDomain(),
+    property: null,
+    now,
+  })
+  if (!touch) return null
+  memory.set(PLATFORM_SCOPE, recordVisit(memory.get(PLATFORM_SCOPE), touch, now))
+  if (!hasConsent("analytics")) return touch
+  const kept = readStore(now)
+  kept[PLATFORM_SCOPE] = { ...recordVisit(kept[PLATFORM_SCOPE] ?? null, touch, now), seen: now }
+  writeStore(kept)
+  return touch
+}
+
+/** Storelib's own touches, encoded for the sign up record. "" for none. */
+export function platformTouches(): string {
+  if (typeof window === "undefined") return ""
+  return encodeTouches(touchesFor(PLATFORM_SCOPE))
+}
+
 /** For tests and probes. */
 export function resetTouchMemory() {
   memory.clear()
   noted.clear()
   arrived = false
+  platformArrived = false
   pageScope = null
   carried = undefined
 }

@@ -99,9 +99,9 @@ export type MoneyCaller =
 const NO_STORE = { "Cache-Control": "no-store" }
 
 /** For a Payouts or Billing route: the store, for this level, or the answer to send. */
-export async function moneyCaller(kind: MoneyKind, level: MoneyLevel, opts: { noStore?: string } = {}): Promise<MoneyCaller> {
-  /* Bounded, retried once; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). */
-  const who = await routeUser()
+export async function moneyCaller(kind: MoneyKind, level: MoneyLevel, opts: { noStore?: string; read?: boolean } = {}): Promise<MoneyCaller> {
+  /* Bounded, retried with backoff; a 503 with Try again when Supabase Auth did not answer, a 401 only for its nobody (lib/auth/route-user). A read-only GET passes read: true (round 49). */
+  const who = await routeUser({ fresh: !opts.read })
   if (who.kind === "unavailable") return { ok: false, response: authUnavailableResponse() }
   if (who.kind !== "user") return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) }
   const user = who.user

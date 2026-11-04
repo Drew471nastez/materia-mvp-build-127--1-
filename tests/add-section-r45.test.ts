@@ -52,7 +52,7 @@ console.log("\nAn imported theme's card is a box of the library's own")
   check("  placed by variables its layer reads, which nothing in the theme can beat", /top:var\(--sl-top,0px\)!important;left:var\(--sl-left,0px\)!important/.test(rules) && /height:var\(--sl-h,auto\)!important/.test(rules) && /w\.style\.setProperty\("--sl-top", `\$\{top\}px`\)/.test(compat) && !/w\.style\.maxHeight = /.test(compat))
   check("  hidden until placed and shown, with !important, so a theme's `* { opacity: 1 !important }` cannot show it early", /opacity:0!important;visibility:hidden!important/.test(rules) && /\[data-placed\]\{visibility:visible!important\}/.test(rules) && /\[data-on\]\{opacity:1!important/.test(rules))
   check("  the theme's <main> sits at its top left, as tall as what it holds", /\$\{card\}>\[data-sl-pv\]\{position:relative!important;top:0!important;left:0!important/.test(rules) && /max-height:none!important/.test(rules))
-  check("a card not laid out (or with no width) is put away, never left where its card was", /if \(\(r\.width === 0 && r\.height === 0\) \|\| !\(s > 0\)\) \{\s*\n\s*w\.hidden = true/.test(compat))
+  check("a card not laid out (or with no width) is put away, never left where its card was", /if \(!box \|\| !r \|\| !\(r\.width > 0\) \|\| !\(r\.height > 0\)\) \{\s*\n\s*w\.hidden = true/.test(compat))
   check("every card is watched for its size, and any change puts every section over its card", /new ResizeObserver\(\(\) => this\.sync\(\)\)/.test(compat) && /this\.watch\(entry\.box, true\)\s*\n\s*this\.watch\(card, true\)/.test(compat) && /this\.watcher\?\.disconnect\(\)/.test(compat))
   check("the card in the library is a hard box too", /style=\{\{ height, contain: "strict", overflow: "clip", isolation: "isolate" \}\}/.test(compat))
 }
@@ -87,7 +87,7 @@ console.log("\nA remembered height is checked, and kept per version")
   check("  a height only remembered is marked so until it is measured", /REMEMBERED\.add\(key\)/.test(lib) && /REMEMBERED\.delete\(next\.key\)/.test(lib))
   check("an imported theme's are kept per version of its files and settings", /const heightsId = useMemo\(\(\) => `\$\{installId\}:\$\{rows \? filesTag\(rows, settings\) : "none"\}`/.test(compat) && /new PreviewSheet\(ctx\.theme, ctx\.page, ctx\.rows, ctx\.heightsId, renderWidth\)/.test(compat) && /hit = rememberedHeightsFrom\(/.test(compat) && /if \(!rememberedHeightOk\(h\)\) return/.test(compat))
   check("  a tag changes with any change in what it tags", textTag(["a", "bc"]) !== textTag(["ab", "c"]) && textTag(["x"]) === textTag(["x"]))
-  check("a card sized by a remembered height is not made taller in front of somebody either", /if \(\(wanted > kept\.height && !kept\.mem\) \|\| !box \|\| !inSight\(box\)\)/.test(lib) && /if \(\(wanted > kept\.h && !kept\.mem\) \|\| !inSight\(box\.current\)\)/.test(compat))
+  check("a card sized by a remembered height is not made taller in front of somebody either", /* Changed on purpose (AH1: an imported section, once measured, grows its card, so nothing is cut) */ /if \(\(wanted > kept\.height && !kept\.mem\) \|\| !box \|\| !inSight\(box\)\)/.test(lib) && /if \(\(wanted > kept\.h && \(!kept\.mem \|\| !fromMemory\)\) \|\| \(wanted < kept\.h && live && !kept\.live\) \|\| !inSight\(box\.current\)\)/.test(compat))
 }
 
 console.log("\nThe probe and its fixture")

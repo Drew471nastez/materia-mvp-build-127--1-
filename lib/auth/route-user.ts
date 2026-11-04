@@ -2,8 +2,111 @@ import "server-only"
 
 import { NextResponse } from "next/server"
 import type { User } from "@supabase/supabase-js"
+import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
+import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
+import { currentUserForRequest, oncePerRequest } from "@/lib/auth/request-scope"
+import { verifierKind } from "@/lib/auth/verify-token"
+import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
+
+export { AUTH_CHECK_HEADER }
+
+/*
+  ===========================================================================
+   AUTH SLOW: ASK AGAIN, WITH A PAUSE, BEFORE SAYING "COULD NOT CHECK"
+  ===========================================================================
+  Round 49. Production, Nov 2 07:52-07:54 UTC: /app pages rendered from the
+  locally verified token ("auth_degraded","outcome":"claims"), while the API
+  routes behind the same screens (Send analytics, markets, translations)
+  asked Supabase Auth on their own, strictly, and answered 503 "We could not
+  check your sign in just now".
+
+  One first read per request (currentUserForRequest: Auth, then the
+  token's own signature when Auth is slow). Then:
+
+    a read     takes that answer, as a page does. When nothing could check
+               the token (no local verifier), Auth is asked once more after
+               a pause instead of failing at once.
+    a change   needs Supabase Auth itself to have answered (wave 3, kept).
+               When the first read had only the token's signature, or no
+               answer, Auth is asked again: twice more, or once more when
+               the first read already gave it two tries, with backoff.
+               Still nothing: 503, and nothing was done.
+
+  The extra tries ask about the token read from the cookie (getUser(jwt)),
+  so a try that hung does not hold up the next one (lib/auth/current-user
+  tokenFirst).
+*/
+export const STRICT_EXTRA_TIMEOUT_MS = 3_000
+export const AUTH_RETRY_PAUSES_MS = [400, 1_000] as const
+const retryPause = (attempt: number) => {
+  const base = AUTH_RETRY_PAUSES_MS[Math.min(attempt, AUTH_RETRY_PAUSES_MS.length) - 1] ?? 1_000
+  return Math.round(base + base * 0.25 * Math.random())
+}
+
+/* A read's one extra try is shorter: it follows two 3s tries already, and the browser's read waits 15s in all (lib/net/request WAIT_MS). */
+export const READ_EXTRA_TIMEOUT_MS = 2_500
+
+async function askAuthAgain(tries: number, timeoutMs = STRICT_EXTRA_TIMEOUT_MS): Promise<CurrentUser> {
+  const supabase = await createClient()
+  await new Promise((r) => setTimeout(r, retryPause(1)))
+  return readCurrentUser(supabase, { tokenFirst: true, retries: tries - 1, timeoutMs, pauseMs: (a) => retryPause(a + 1) })
+}
+
+/** For a read: the page's answer, and when nothing could check the token, one more Auth try after a pause. */
+export const readerForRequest = cache(
+  (): Promise<CurrentUser> =>
+    oncePerRequest("reader", async () => {
+      const first = await currentUserForRequest()
+      if (first.user || first.state === "anonymous") return first
+      const again = await askAuthAgain(1, READ_EXTRA_TIMEOUT_MS)
+      return again.user || again.state === "anonymous" ? again : first
+    }),
+)
+
+/**
+ * For a read-only GET that asked `supabase.auth.getUser()` itself: the same
+ * shape (`{ data: { user } }`), from the request's one read. Those routes
+ * waited up to 10s on a slow Auth and then answered 401 to a signed in
+ * person; now they take a page's answer (round 49). Row level security still
+ * applies to every query, through the token in the cookie.
+ */
+export async function readUserForRoute(): Promise<{ data: { user: CurrentUser["user"] } }> {
+  try {
+    return { data: { user: (await readerForRequest()).user } }
+  } catch {
+    return { data: { user: null } }
+  }
+}
+
+/** For a change: Supabase Auth itself must say who this is. A token's signature alone is never enough here. */
+export const strictUserForRequest = cache(
+  (): Promise<CurrentUser> =>
+    oncePerRequest("strict", async () => {
+      const first = await currentUserForRequest()
+      if (first.verifiedBy === "user" || first.state === "anonymous") return first
+      /* Claims: Auth had one short try, so two more. No answer at all: it already had two, so one more. */
+      const again = await askAuthAgain(first.verifiedBy === "claims" ? 2 : 1)
+      if (again.verifiedBy === "user" || again.state === "anonymous") return again
+      return { user: null, state: "indeterminate", reason: again.reason ?? first.reason ?? "unknown" }
+    }),
+)
+
+/** How this request's identity was checked, for X-Storelib-Auth-Check and the log (never a key, never a token). */
+export type AuthCheck = "network" | "local" | "none" | "anonymous"
+export function authCheckOf(current: CurrentUser): AuthCheck {
+  if (current.verifiedBy === "user") return "network"
+  if (current.verifiedBy === "claims") return "local"
+  if (current.state === "anonymous") return "anonymous"
+  return "none"
+}
+
+/** The header value: how this answer was reached and which local check this server has, e.g. "local; verifier=hs256". */
+export async function authCheckHeader(current: CurrentUser): Promise<string> {
+  return `${authCheckOf(current)}; verifier=${await verifierKind(process.env.NEXT_PUBLIC_SUPABASE_URL ?? null).catch(() => "none")}`
+}
+
 
 /**
  * ===========================================================================
@@ -40,10 +143,17 @@ export function routeUserFrom(current: CurrentUser): RouteUser {
   return { kind: "unavailable", reason: current.reason ?? "unknown" }
 }
 
+/*
+  Round 49: one answer per request, shared with the page's own read
+  (lib/auth/request-scope). `fresh: false` (a read) takes what a page takes:
+  Supabase Auth, or the token's verified signature when Auth is slow, and
+  one more Auth try when nothing could check the token. `fresh` (a change)
+  still needs Auth itself to answer, and asks it again with backoff before
+  refusing (strictUserForRequest).
+*/
 export async function routeUser({ fresh = true }: { fresh?: boolean } = {}): Promise<RouteUser> {
   try {
-    const supabase = await createClient()
-    return routeUserFrom(await readCurrentUser(supabase, { fallbackClaims: fresh ? null : (process.env.NEXT_PUBLIC_SUPABASE_URL ?? null) }))
+    return routeUserFrom(await (fresh ? strictUserForRequest() : readerForRequest()))
   } catch {
     /* No cookie store (called outside a request) or a client that would not build: not an answer about anybody. */
     return { kind: "unavailable", reason: "threw" }
@@ -56,6 +166,8 @@ export const AUTH_UNAVAILABLE_MESSAGE = "We could not check your sign in just no
 export function authUnavailableResponse(): NextResponse {
   return NextResponse.json(
     { error: AUTH_UNAVAILABLE_MESSAGE, retry: true },
-    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2" } },
+    /* X-Storelib-Auth: refused before anything was done, so lib/net/request.ts may ask again by itself (AUTH_UNAVAILABLE_HEADER). */
+    /* X-Storelib-Auth-Check: "none" here, since nothing could say who this is (authCheckHeader above). */
+    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "2", [AUTH_UNAVAILABLE_HEADER]: "unavailable", [AUTH_CHECK_HEADER]: "none" } },
   )
 }

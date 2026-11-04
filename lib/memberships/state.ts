@@ -131,6 +131,33 @@ function trialCardMissing(sub: SubscriptionLike): boolean {
   return typeof pending === "string" || pending.status !== "succeeded"
 }
 
+/**
+ * THE SCHEDULED JOB'S HALF STARTED CHECKOUT (./reminders.ts), decided from
+ * Stripe's subscription as it is now, never from our row. Cancelled only:
+ *
+ *   incomplete  the first payment never went through (Stripe would let it
+ *               expire after a day anyway);
+ *   trialing    with no card saved: none on the subscription, a setup
+ *               intent that has not succeeded, AND the customer has no
+ *               default card either (Stripe charges that one at the trial's
+ *               end). `customerHasCard` null means it could not be read:
+ *               kept.
+ *
+ * Anything else (active, past_due, a trial with a card anywhere, a status
+ * not known here) is kept, and the row is synced to what Stripe says.
+ */
+export function abandonedCheckout(sub: SubscriptionLike, customerHasCard: boolean | null): boolean {
+  if (sub.status === "incomplete") return true
+  if (sub.status !== "trialing") return false
+  if (!trialCardMissing(sub)) return false
+  return customerHasCard === false
+}
+
+/** Whether this trial is one the job must ask the customer about before cancelling (a trial whose own card is missing). */
+export function trialNeedsCustomerCheck(sub: SubscriptionLike): boolean {
+  return sub.status === "trialing" && trialCardMissing(sub)
+}
+
 /** Our status for a Stripe subscription. */
 export function statusFromStripe(sub: SubscriptionLike): MembershipStatus {
   const cancelling = sub.cancel_at_period_end === true || (typeof sub.cancel_at === "number" && sub.cancel_at > 0)

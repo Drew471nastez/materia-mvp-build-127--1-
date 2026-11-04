@@ -314,7 +314,7 @@ export interface ThemePage {
  * footer and a section each until the creator opens one in the builder,
  * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "password" | "collections" | "collection"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist" | "password" | "collections" | "collection" | "blogs" | "article"
 
 /**
  * The account, its sign in page and the wishlist are pages every website
@@ -338,6 +338,9 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   wishlist: { label: "Wishlist", icon: "heart" },
   /* What visitors see while the website asks for a password: Website Settings, Publishing. */
   password: { label: "Password page", icon: "lock" },
+  /* The blog's two templates (lib/website-builder/blog-page.ts): every /blogs/<handle> list and every post, one layout each, edited like the collection page. */
+  blogs: { label: "Blog", icon: "file-text" },
+  article: { label: "Blog post", icon: "file-text" },
 }
 
 // ── Custom files ─────────────────────────────────────────────

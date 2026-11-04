@@ -105,7 +105,9 @@ function main() {
     (/theme=\{canvasThemeSettings\}/.test(editor) || (/theme=\{canvasThemeShown\}/.test(editor) && /localizeTheme\(canvasThemeSettings/.test(editor)))
       && (/sections=\{canvasSections\}/.test(editor) || /* Changed on purpose (round AE): drawnShown is drawnSections in the language previewed. */ ((/sections=\{drawnSections\}/.test(editor) || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*drawnSections,/.test(editor))) && /withDynamicSources\((?:searchListsTheShop\()?canvasSections\)?,/.test(editor))
         /* Changed on purpose (round V8): the language is laid over canvasSections before the bindings are filled, as the website does. */
-        || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*canvasSections,/.test(editor) && /: canvasSections,/.test(editor) && /withDynamicSources\(searchListsTheShop\(sectionsInLanguage\),/.test(editor))),
+        || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*canvasSections,/.test(editor) && /: canvasSections,/.test(editor) && /withDynamicSources\(searchListsTheShop\(sectionsInLanguage\),/.test(editor))
+        /* Changed on purpose (round AI2): the same steps as functions (CANVAS PAGE STEPS), and a section just added laid over them first (WithAddedSection). */
+        || (/<WithAddedSection store=\{addedStore\} page=\{sectionsOnPage\.page\} sections=\{drawnShown\}>/.test(editor) && /sections=\{drawnWithAdded\}/.test(editor) && /inLanguageStep\(canvasSections, previewMap/.test(editor) && /filledStep\(sectionsInLanguage,/.test(editor) && /withDynamicSources\(searchListsTheShop\(list\),/.test(editor))),
   )
   check(
     "the canvas is memoised, so an unchanged deferred value costs nothing",

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic"
  *   PUT { remove: true }   back to Storelib's own tracking
  */
 export async function GET() {
-  const c = await physicalCaller("store")
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson({ tracking: await loadTrackingSettings(c.db, c.creatorId) })
 }

@@ -36,7 +36,14 @@ import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { useEffect, useState } from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ChevronDown } from "lucide-react"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the sheet's code (the sheet, its drag gestures, the keyboard
+  handling: about 130 KB of source) is fetched when a finger lands on the
+  line, not with every creator and product page. It mounts closed on that
+  first touch, so the tap that follows opens it exactly as before.
+*/
+const BottomSheet = dynamic(() => import("@/components/ui/bottom-sheet").then((m) => m.BottomSheet))
 import { cn } from "@/lib/utils"
 
 interface RefundPolicyDisplayProps {
@@ -114,6 +121,8 @@ export function RefundPolicyDisplay({
   backgroundColor,
 }: RefundPolicyDisplayProps) {
   const [open, setOpen] = useState(false)
+  /* The phone's sheet is mounted from the first touch on the line on (see the import). */
+  const [armed, setArmed] = useState(false)
   const phone = usePhone()
   /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
   const paint = useSitePaint()
@@ -149,7 +158,8 @@ export function RefundPolicyDisplay({
       data-refund-trigger
       aria-expanded={open}
       aria-haspopup="dialog"
-      onClick={phone ? () => setOpen(true) : undefined}
+      onPointerDown={phone ? () => setArmed(true) : undefined}
+      onClick={phone ? () => { setArmed(true); setOpen(true) } : undefined}
       className={cn(
         "group inline-flex items-center gap-1 rounded-md px-1 text-center text-[12.5px] leading-5 outline-none",
         "underline decoration-current/35 decoration-dotted underline-offset-[3px] transition-[color,text-decoration-color] duration-150",
@@ -177,7 +187,7 @@ export function RefundPolicyDisplay({
     return (
       <div className={cn("flex w-full justify-center", className)}>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} label="Refund policy">
+        {(armed || open) && <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} label="Refund policy">
           <div data-refund-sheet className="px-5 pb-5 pt-1 text-[15px] leading-6 text-[#4b5563]">
             {details}
             <button
@@ -188,7 +198,7 @@ export function RefundPolicyDisplay({
               Got it
             </button>
           </div>
-        </BottomSheet>
+        </BottomSheet>}
       </div>
     )
   }

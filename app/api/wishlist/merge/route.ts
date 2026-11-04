@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies } from "next/headers"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
@@ -22,10 +22,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, merged: 0 })
     }
     
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    /* The shared factory: every request carries a deadline (lib/net/deadline.ts). */
+    const adminClient = createAdminClient()
     
     // Get all guest wishlist items
     const { data: guestItems, error: fetchError } = await adminClient

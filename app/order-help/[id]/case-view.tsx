@@ -28,6 +28,7 @@ import { reasonLabel } from "@/components/support/order-help"
 import { useCheckoutLang, useCt } from "@/app/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 import { lastMessageId, mergeMessages, useCaseLive } from "@/lib/support/use-case-live"
+import { StoreLogo } from "@/components/brand/store-logo"
 
 type Store = { name: string; logoUrl: string | null; email: string | null; phone: string | null; websiteUrl: string | null }
 export type BuyerEscalation = { can: boolean; from: string | null }
@@ -207,8 +208,7 @@ export function CaseView({
       <header className="border-b border-[#eef0f2] bg-white">
         <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
           {store.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={store.logoUrl} alt="" className="h-8 w-auto max-w-[120px] shrink-0 rounded-md object-contain" />
+            <StoreLogo src={store.logoUrl} alt="" height={32} className="max-w-[120px]" />
           ) : null}
           <span className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">{store.name}</span>
           {store.websiteUrl ? (

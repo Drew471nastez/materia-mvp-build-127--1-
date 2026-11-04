@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  * Orders; anyone else gets the refusal shopCaller gives.
  */
 export async function GET() {
-  const c = await shopCaller("orders")
+  const c = await shopCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   const counts = await commerceActionCounts(c.db, c.creatorId)
   return physicalJson({ counts })

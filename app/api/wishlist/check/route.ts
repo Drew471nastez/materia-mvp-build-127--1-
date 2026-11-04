@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies } from "next/headers"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
@@ -13,7 +13,8 @@ function getAdminClient() {
     return null
   }
 
-  return createAdminClient(url, key)
+  /* The shared factory: every request carries a deadline (lib/net/deadline.ts). */
+  return createAdminClient()
 }
 
 export async function GET(request: NextRequest) {

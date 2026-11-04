@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  *   POST { topic, subject, message, orderRef? } open one
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const out = await listTickets(c.db, c.creatorId)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)

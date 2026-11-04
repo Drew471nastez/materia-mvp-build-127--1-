@@ -424,7 +424,7 @@ async function main() {
     check("  the list shows it beside each offer", /data-offer-sold=/.test(area) && /\{n\} sold/.test(area))
     const exp = read("app/api/physical/orders/export/route.ts")
     check("the orders export ends with each line's properties and offers", /"Buyer reference", "Properties", "Offers"\]/.test(exp) && /propertiesText\(l\.properties\), offersText\(l\.offers\)\]/.test(exp))
-    check("the store's edits stay the owner's (or their team's): shopCaller on every write", /const c = await shopCaller\("marketing"\)/.test(read("app/api/store/offers/route.ts")) /* Round 40: a team member reaches offers with Marketing. */)
+    check("the store's edits stay the owner's (or their team's): shopCaller on every write", /const c = await shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(read("app/api/store/offers/route.ts")) /* Round 40: a team member reaches offers with Marketing. */)
     const draft = read("app/app/offers/offer-draft.ts")
     check("the editor checks each tier where it is typed, with the server's limits", /export function tierProblems/.test(draft) && /MAX_TIER_QUANTITY/.test(draft) && /MAX_FREE_QUANTITY/.test(draft))
   }

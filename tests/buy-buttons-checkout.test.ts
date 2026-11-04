@@ -42,10 +42,11 @@ console.log("\nEverywhere else\n")
   /*
     Round 10: the OnePage's product block is its own component (components/onepage/product-block) and where it points
     is lib/onepage/product-block productHref. A block with no "When someone taps it" setting (every block made before)
-    still opens the checkout; a product that ships still opens its page. The block links there with href={href}.
+    still opens the checkout; since round 49 a product that ships does too (sent on to its website's checkout). The
+    block links there with href={href}.
   */
   const block = read("components/onepage/product-block.tsx")
-  check("the OnePage product button opens checkout", productHref({ product_id: "p1", product_slug: "pack", product_type: "digital" }) === "/checkout?productId=p1" && productHref({ product_id: "p1", product_slug: "pack", product_type: null }) === "/checkout?productId=p1" && productHref({ product_id: "p1", product_slug: "mug", product_type: "physical" }) === "/p/mug" && (block.match(/href=\{href\}/g) ?? []).length >= 2 && /<ProductBlockWithQuickCheckout/.test(read("components/onepage/public-onepage.tsx")))
+  check("the OnePage product button opens checkout", productHref({ product_id: "p1", product_slug: "pack", product_type: "digital" }) === "/checkout?productId=p1&src=onepage" && productHref({ product_id: "p1", product_slug: "pack", product_type: null }) === "/checkout?productId=p1&src=onepage" && productHref({ product_id: "p1", product_slug: "mug", product_type: "physical" }) === "/checkout?productId=p1&src=onepage" && (block.match(/href=\{href\}/g) ?? []).length >= 2 && /<ProductBlockWithQuickCheckout/.test(read("components/onepage/public-onepage.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

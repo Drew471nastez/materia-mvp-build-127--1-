@@ -2,7 +2,9 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient, isNativePlatform } from "@/lib/supabase/client"
+/* Round 48: the client is fetched when this runs (lib/supabase/browser-lazy), not with the product page's first script. */
+import { browserSupabase, type BrowserSupabase } from "@/lib/supabase/browser-lazy"
+import { isNativePlatform } from "@/lib/supabase/native-platform"
 import { readSessionBounded } from "@/lib/auth/session-read"
 import { syncSessionHref } from "@/lib/auth/native-session"
 import { goToAuthHref } from "@/lib/auth/session-sync"
@@ -37,16 +39,12 @@ export function ViewerSync({ serverSignedIn }: { serverSignedIn: boolean }) {
   const router = useRouter()
 
   useEffect(() => {
-    let supabase: ReturnType<typeof createClient>
-    try {
-      supabase = createClient()
-    } catch {
-      /* No Supabase configured (a stand in page): nothing to compare with. */
-      return
-    }
+    let supabase: BrowserSupabase | null = null
     let cancelled = false
+    let data: { subscription?: { unsubscribe: () => void } } | null = null
 
     const reconcile = async () => {
+      if (!supabase) return
       const read = await readSessionBounded(supabase, 4_000)
       if (cancelled) return
       const move = viewerSyncMove({
@@ -62,14 +60,21 @@ export function ViewerSync({ serverSignedIn }: { serverSignedIn: boolean }) {
       else router.refresh()
     }
 
-    void reconcile()
-
-    /* Signed in or out later in this tab, or in another one (Supabase tells every tab of the same browser). */
-    const { data } = supabase.auth.onAuthStateChange((event: string, session: unknown) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") return
-      if (!!session === serverSignedIn) return
-      void reconcile()
-    })
+    void browserSupabase().then(
+      (client) => {
+        if (cancelled) return
+        supabase = client
+        void reconcile()
+        /* Signed in or out later in this tab, or in another one (Supabase tells every tab of the same browser). */
+        ;({ data } = client.auth.onAuthStateChange((event: string, session: unknown) => {
+          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") return
+          if (!!session === serverSignedIn) return
+          void reconcile()
+        }))
+      },
+      /* No Supabase configured (a stand in page), or the script did not arrive: nothing to compare with. */
+      () => {},
+    )
 
     /* Back from the browser's memory: the page is the one drawn before. */
     const onShow = (e: PageTransitionEvent) => {

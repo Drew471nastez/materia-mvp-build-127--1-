@@ -28,7 +28,7 @@ import type { ThemeError } from "../types"
 import { COMPAT_PREFIX } from "./install"
 import { CompatSyntaxError } from "./lexer"
 import { parseCompat } from "./parser"
-import { COMPAT_ATTR, isCompatSource, shopifySchemaOf, splitCompatFile } from "./theme"
+import { COMPAT_ATTR, compatTemplateEnd, isCompatSource, shopifySchemaOf, splitCompatFile } from "./theme"
 
 export { compatSchemaWords, type SchemaWords }
 
@@ -39,7 +39,6 @@ export const SETTINGS_PANEL_FILE = `${COMPAT_PREFIX}config/settings_panel.json`
 
 const SECTION = /^sections\/([a-z0-9_-]+)\.storelib$/
 const BLOCK = /^blocks\/(_?[a-z][a-z0-9_-]*)\.storelib$/
-const END = /^\s*<\/template>\s*$/
 
 type O = Record<string, unknown>
 
@@ -123,8 +122,7 @@ function jsonComplaint(error: unknown): string {
 function templateEnd(lines: string[]): number {
   const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
   if (start < 0) return -1
-  for (let i = start + 1; i < lines.length; i++) if (END.test(lines[i])) return i
-  return -1
+  return compatTemplateEnd(lines, start)
 }
 
 /** The `<schema>` block's text after the markup, and the file line its JSON starts on. */

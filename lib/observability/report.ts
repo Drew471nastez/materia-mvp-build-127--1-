@@ -20,6 +20,9 @@
  * masked and anything named like a secret is dropped.
  */
 
+import { cleanRequestId, requestIdFrom } from "@/lib/net/request-id"
+import { scrubSecrets } from "@/lib/net/scrub"
+
 export type ErrorSource = "server" | "client" | "cron" | "webhook" | "payments" | "account" | "notify"
 
 export interface ErrorReport {
@@ -28,13 +31,22 @@ export interface ErrorReport {
   where: string
   error: unknown
   context?: Record<string, unknown>
+  /**
+   * The request's id (lib/net/request-id.ts, `requestIdFrom(request.headers)`),
+   * when there is a request. Written to the log line and to the error row's
+   * context as `rid`, so the row, the Vercel log and the `x-request-id` a
+   * person's browser got can be matched. Never read from next/headers here:
+   * that would make a cached page dynamic. Not part of the fingerprint.
+   */
+  requestId?: string | null
 }
 
 const EMAIL_LIKE = /[^\s@<>"',;]+@[^\s@<>"',;]+/g
 const SECRET_NAME = /token|secret|password|authorization|signature|api[_-]?key|cookie|card|iban/i
 
+/* Addresses masked, and no token, key, cookie or card number (lib/net/scrub.ts). */
 function mask(text: string): string {
-  return text.replace(EMAIL_LIKE, (m) => `${m.slice(0, 2)}***@${m.split("@")[1] ?? ""}`)
+  return scrubSecrets(text).replace(EMAIL_LIKE, (m) => (m.includes("***@") ? m : `${m.slice(0, 2)}***@${m.split("@")[1] ?? ""}`))
 }
 
 export function messageOf(error: unknown): string {
@@ -76,9 +88,16 @@ export async function reportError(report: ErrorReport): Promise<void> {
   try {
     const message = mask(messageOf(report.error)).slice(0, 2000)
     const where = report.where.slice(0, 300)
-    const context = cleanContext(report.context)
+    const rid = cleanRequestId(report.requestId)
+    const context = { ...cleanContext(report.context), ...(rid ? { rid } : {}) }
     const stack = report.error instanceof Error && report.error.stack ? mask(report.error.stack).split("\n").slice(0, 8).join("\n") : null
-    console.error(`[${report.source}] ${where}: ${message}`)
+    /*
+      ONE JSON LINE, so Vercel's log search can filter by route, status, digest
+      or request id: {"evt":"error_report","source":"server","where":"GET /p/[slug]",
+      "msg":"boom","rid":"iad1::abc","route":"/p/[slug]","status":500,"digest":"123"}.
+      The context is the cleaned one (no secret-named keys, addresses masked).
+    */
+    console.error(JSON.stringify({ evt: "error_report", source: report.source, where: mask(where), msg: message.slice(0, 500), ...context }))
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -170,6 +189,7 @@ export async function recordCronRun(
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return run()
   /* How long it ran and what it answered, for Infrastructure on /admin/performance (lib/perf/server-timing timedJob). */
   const t0 = performance.now()
+  const rid = requestIdFrom(request.headers)
   const timing = (status: number) =>
     import("@/lib/perf/server-timing").then((m) => m.timedJob(job, performance.now() - t0, status)).catch(() => undefined)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -201,7 +221,7 @@ export async function recordCronRun(
           body: JSON.stringify({ finished_at: new Date().toISOString(), ok: true, status: 200, detail }),
           signal: AbortSignal.timeout(3000),
         }).catch(() => undefined)
-        console.info(JSON.stringify({ evt: "cron_skipped_overlap", job, run: id, heldBy: rows[0]?.id ?? null }))
+        console.info(JSON.stringify({ evt: "cron_skipped_overlap", job, run: id, heldBy: rows[0]?.id ?? null, rid }))
         return new Response(detail, { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } })
       }
     } catch {
@@ -232,12 +252,12 @@ export async function recordCronRun(
     }
     await finish(ok, answer.status, detail)
     await timing(answer.status)
-    if (!ok) await reportError({ source: "cron", where: job, error: new Error(`answered ${answer.status}: ${detail.slice(0, 200)}`) })
+    if (!ok) await reportError({ source: "cron", where: job, error: new Error(`answered ${answer.status}: ${detail.slice(0, 200)}`), requestId: rid })
     return answer
   } catch (error) {
     await finish(false, 500, messageOf(error))
     await timing(500)
-    await reportError({ source: "cron", where: job, error })
+    await reportError({ source: "cron", where: job, error, requestId: rid })
     throw error
   }
 }

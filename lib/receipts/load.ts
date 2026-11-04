@@ -294,7 +294,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     try {
       const { storeIdentity } = await import("@/lib/store/identity-server")
       const store = await storeIdentity(admin, creatorId, { logoOnly: true })
-      seller = { ...seller, name: store.name || seller.name, avatarUrl: store.logoUrl ?? seller.avatarUrl, legal: store.legal }
+      seller = { ...seller, name: store.name || seller.name, avatarUrl: store.logoUrl ?? seller.avatarUrl, avatarKind: store.logoUrl && store.logoFrom !== "profile" ? "logo" : "photo", legal: store.legal }
     } catch {
       /* The person's own name and photo, as before. */
     }

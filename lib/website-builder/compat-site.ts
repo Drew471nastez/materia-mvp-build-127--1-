@@ -20,7 +20,8 @@ import { imagesOnPage, siteSameAs } from "./site-seo"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { unstable_cache } from "next/cache"
-import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
+import { SiteReadError, isSiteReadError, siteRead } from "@/lib/website-builder/site-read"
+import { keepSharedFiles, sharedFiles } from "./shared-copy"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productDescriptions, withDescriptions } from "@/lib/website-builder/product-descriptions"
 import { productExtras, withExtras } from "@/lib/website-builder/product-extras"
@@ -58,7 +59,12 @@ import { minorUnits } from "@/lib/markets/money"
 import { liveRelease, releaseFiles } from "./site-releases-server"
 import { pageRowsOf, settingsRowOf } from "./site-releases"
 import { siteIconUrl } from "./site-icon"
+import { draftAssetPass } from "./draft-asset-pass"
+import { LastGood, keyedAs } from "./last-good"
+import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
+import { logEvent } from "@/lib/net/log"
+import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/site-blog/public-read"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -120,7 +126,7 @@ function shopImage(media: Record<string, string>, v: string): string {
  */
 export function compatThemeFor(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
   const media = assetAddresses(rows)
-  const draft = version === "edit" || version.startsWith("draft")
+  const draft = splitAssetVersion(version).draft
   const versions = new Map<string, string>()
   let digest: string | null = null
   const versionOf = (name: string): string => {
@@ -186,12 +192,36 @@ const rowsHeld = new Map<string, Record<string, string>>()
   next page tries again.
 */
 const rowsReading = new Map<string, Promise<Record<string, string>>>()
-function liveFiles(admin: Admin, installId: string, key: string): Promise<Record<string, string>> {
+function liveFiles(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
   const going = rowsReading.get(key)
   if (going) return going
-  const p = installFiles(admin, installId, false).finally(() => rowsReading.delete(key))
+  const p = liveFilesKept(admin, installId, key, tags).finally(() => rowsReading.delete(key))
   rowsReading.set(key, p)
   return p
+}
+
+/*
+  THE FILES EVERY SERVER CAN READ (EVD-1, ./shared-copy.ts). A theme drawn
+  from its rows (no release) was held only in this server's memory, so a
+  new server read every file from the database, and when that read failed
+  its visitors got "One moment". The files read are kept in the data cache,
+  in parts, under the install and its publish, tagged with the site (a
+  publish or a take down drops them), and a read that failed draws from
+  them. Published files only: a preview reads the drafts and never comes here.
+*/
+const SHARED_FILES = "compat-files:v1"
+async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
+  try {
+    const files = await installFiles(admin, installId, false)
+    await keepSharedFiles(SHARED_FILES, [key], tags, files)
+    return files
+  } catch (e) {
+    if (!isSiteReadError(e)) throw e
+    const kept = await sharedFiles(SHARED_FILES, [key], tags)
+    if (!kept) throw e
+    console.error(`[compat-site] drew the files every server kept for ${installId}:`, e.message)
+    return kept
+  }
 }
 
 const collectionsOf = (creatorId: string) =>
@@ -257,17 +287,19 @@ function withSoldCounts<T extends { id: string; settings: Record<string, unknown
   return cards.map((c) => (typeof sold[c.id] === "number" ? { ...c, settings: { ...c.settings, sold_count: sold[c.id] } } : c))
 }
 
-async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean): Promise<T> {
+/* `stable`: the entry's name for the data cache, kept across deploys (./last-good.ts keyedAs); without one, the function's text, as before. */
+async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean, stable?: string): Promise<T> {
   let passed: { v: T } | null = null
+  const held = async () => {
+    const v = await read()
+    if (skip(v)) {
+      passed = { v }
+      throw NOT_HELD
+    }
+    return v
+  }
   try {
-    return await unstable_cache(async () => {
-      const v = await read()
-      if (skip(v)) {
-        passed = { v }
-        throw NOT_HELD
-      }
-      return v
-    }, key, { tags, revalidate: seconds })()
+    return await unstable_cache(stable ? keyedAs(stable, held) : held, key, { tags, revalidate: seconds })()
   } catch (e) {
     if (e === NOT_HELD && passed) return (passed as { v: T }).v
     throw e
@@ -305,21 +337,21 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  * (the database did not answer) serves the site as it last was. A preview
  * is never kept or served from here.
  */
-const lastGoodSite = new Map<string, SiteData>()
+const lastGoodSite = new LastGood<SiteData>(200)
 
 export async function compatSiteByName(name: string, host: string, previewToken: string | null = null): Promise<CompatLookup> {
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
     if (found.kind === "site" && previewToken === null) {
-      if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
-      lastGoodSite.set(key, found.site)
+      lastGoodSite.remember(key, found.site)
     }
     return found
   } catch (e) {
     const held = previewToken === null ? lastGoodSite.get(key) : undefined
     if (held) {
-      console.error(`[compat-site] served the last good copy of ${key}:`, e instanceof Error ? e.message : e)
+      /* The visitor got a page: a warning, not an error (the failures that left a visitor with no page stay errors). */
+      logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: e instanceof Error ? e.message : String(e) })
       return { kind: "site", site: { ...held, host } }
     }
     throw e
@@ -349,10 +381,17 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const originAsked = live ? quiet(siteOrigin(creator.creatorId, name).catch(() => null)) : Promise.resolve(null)
   /* The creator's photo, the share card's last resort (compatShareImage): held five minutes, asked beside the rest so it is never a round trip in a row. */
   const avatarAsked = live ? quiet(creatorAvatar(creator.creatorId, creator.userId).catch(() => null)) : Promise.resolve(null)
+  /*
+    THE WEBSITE'S BLOG (lib/site-blog): its settings and published posts, held
+    under the blog's own tag (siteBlogTag), which Publish, Update and the
+    rest expire. Null before SQL part 355, or with no blog: every /blogs
+    address is answered as before. A failed read is no blog for this page.
+  */
+  const blogAsked = quiet(blogFor(creator.creatorId).catch(() => null))
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
-    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null)
+    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null, "compat-install:v1")
   if (!install) return { kind: "missing" }
   const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
@@ -371,12 +410,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
 
-  const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
+  /* A preview's draft files with their pass (./draft-asset-pass.ts): this page may show the draft, so its assets may too. */
+  const version = draft ? withDraftPass(`draft-${Date.now()}`, draftAssetPass(row.id)) : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
   /* Held on this server by what they were read from: the release's id, or the publish when they come from the rows. */
   const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
   let rows = draft ? null : rowsHeld.get(heldKey) ?? null
-  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey)
+  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
@@ -402,8 +442,9 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue (its own, else its collection's or category's: lib/size-charts/storefront.ts). */
   const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
   const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
-    (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
-    siteCatalogue(creator.creatorId, { cached: !draft }),
+    (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null, "compat-pages:v1")).then((data) => ({ data })),
+    /* A failed read is no longer held as an empty shop (it throws); this page draws [] for this request only, as it did. */
+    siteCatalogue(creator.creatorId, { cached: !draft }).catch(() => [] as Awaited<ReturnType<typeof siteCatalogue>>),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
     draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),
     collectionsOf(creator.creatorId),
@@ -470,6 +511,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* The handle alone (the settings' own switch is pageSeoForSite's): the one rule a Storelib theme's pages read. */
   const heldBack = !builtSiteIndexable({}, name)
   const sold = await soldAsked
+  const blog = await blogAsked
+  const creatorId = creator.creatorId
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -574,6 +617,18 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
     /* At the site's own host, square (./site-favicon.ts, round 41). */
     icon: ownIconPath(siteIconUrl(settings as Record<string, unknown>)) || undefined,
+    /* A post's own page reads the post (held per slug under the blog's tag), its preview the draft (never held), and a slug that changed its new one. */
+    ...(blog
+      ? {
+          blog: {
+            settings: blog.settings,
+            cards: blog.cards,
+            post: (slug: string) => readLivePost(creatorId, slug),
+            preview: (token: string) => readPreviewPost(creatorId, token),
+            redirect: (slug: string) => siteBlogRedirect(creatorId, slug),
+          },
+        }
+      : {}),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }
@@ -638,7 +693,8 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     storeMenusOrNull(admin, row.creator_id),
   ])
   const sections = pageSections<StoredSection[]>(pageRow.data as never, true) ?? []
-  const theme = compatThemeFor(row.id, "edit", rows, settings)
+  /* The cover's page shows the draft (its own pass let it in), and so do its assets. */
+  const theme = compatThemeFor(row.id, withDraftPass("edit", draftAssetPass(row.id)), rows, settings)
   const currency = await cachedStoreCurrency(row.creator_id)
   return drawPage(theme, {
     template: "index",

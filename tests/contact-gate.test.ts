@@ -101,40 +101,24 @@ async function main() {
       question, same two arguments; it just stopped costing a round trip of
       its own on every visit by a signed-in person.
     */
-    check(
-      "the page asks the question",
-      /hasBoughtFromCreator\(supabase, data\.user\?\.id, creator\.id\)/.test(page),
-    )
-    check(
-      "and asks it in the batch, not in series after it",
-      /viewerPromise\.then\(\(\{ data \}\) => hasBoughtFromCreator/.test(page),
-    )
-    check("and only puts the address in the page when the answer is yes", /viewerBought \? resolvedContactEmail : undefined/.test(page))
-    /**
-     * NO EXCEPTION FOR THE OWNER. There was one, so a creator could tell
-     * from the page what was set — and what it actually did was show the
-     * owner a Contact link no visitor could see, which got reported as the
-     * gate being broken. That is the failure mode of every owner-only
-     * preview of a hidden thing. They see what a visitor sees; the address
-     * is checked in the editor, beside the field they typed it into.
-     */
-    check("the owner is not an exception", !/viewerIsOwner\s*\n?\s*\? true/.test(page))
     /*
-      `await hasBoughtFromCreator` was the shape when the question was asked
-      on this line. It is asked in the page's batch now, pinned above, so
-      what is left to hold here is that ONE answer feeds the address and
-      nothing reintroduces a second path for the owner.
+      ROUND 49: THE PAGE IS ONE HTML FOR EVERYBODY (a CDN holds it), so it
+      no longer asks. The same question is asked after load by
+      /api/creator-page/viewer (`bought`, which draws the Contact link), and
+      the address itself is still answered only by /api/creator-contact,
+      which asks it again (lib/commerce/contact-email.ts). The page hands
+      every visitor the handle, never an address.
     */
-    check("everyone goes through the same question",
-      /const viewerBought = viewerBoughtFromCreator/.test(page) && !/viewerIsOwner \|\| viewerBought/.test(page))
-    /**
-     * THE ACCOUNT ADDRESS STILL STANDS IN when a creator has typed none.
-     * That is the owner's explicit call — a page with nowhere to be reached
-     * was the thing they did not want — and it is not this change's to
-     * reverse. What changed is the audience: buyers rather than everyone.
-     */
-    check("the account address still stands in", /headerSettings\.contactEmail \|\| \(await loadAccountEmail\(profile\.id\)\)/.test(page))
-    check("but it goes through the same gate", !/publicContactEmail = resolvedContactEmail(?! \?)/.test(page))
+    const viewerRoute = readFileSync(join(process.cwd(), "app/api/creator-page/viewer/route.ts"), "utf8")
+    const contactRoute = readFileSync(join(process.cwd(), "app/api/creator-contact/route.ts"), "utf8")
+    const renderer = readFileSync(join(process.cwd(), "components/store-builder/unified-section-renderer.tsx"), "utf8")
+    check("the page asks the question (after load, its own route)", /hasBoughtFromCreator\(supabase, user\.id, row\.id\)/.test(viewerRoute) && !/hasBoughtFromCreator/.test(page))
+    check("and asks it beside the owner test, not in series after it", /const \[teamStore, bought\] = await Promise\.all\(/.test(viewerRoute))
+    check("and only draws the link when the answer is yes; the address is never in the page", /\{contactHandle && contactShown && \(/.test(renderer) && !/resolvedContactEmail|loadAccountEmail|contactEmail:/.test(page))
+    check("the owner is not an exception", !/viewerIsOwner\s*\n?\s*\? true/.test(page) && /bought, contactEmail \}/.test(viewerRoute) && !/owner \|\| bought/.test(viewerRoute))
+    check("everyone goes through the same question", /viewerBought: \(viewerId, creatorId\) => hasBoughtFromCreator\(supabase, viewerId, creatorId\)/.test(contactRoute))
+    check("the account address still stands in", /\(await look\.accountEmail\(profile\.id\)\)/.test(readFileSync(join(process.cwd(), "lib/commerce/contact-email.ts"), "utf8")))
+    check("but it goes through the same gate", /if \(banned \|\| !bought\) return null/.test(readFileSync(join(process.cwd(), "lib/commerce/contact-email.ts"), "utf8")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

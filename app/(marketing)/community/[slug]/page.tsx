@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { keepPageFresh } from "@/lib/edge/snapshot-capture"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { rememberAppOpen } from "@/lib/account/app-open"
@@ -140,6 +141,8 @@ export default async function CommunityPage({
   const [extras, askWhy, origin] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
   const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), origin)
   const hidden = await unlisted
+  /* A stranger's sales page: its stored copy kept fresh, at most hourly per server (lib/edge/snapshot-capture.ts). */
+  if (!user && Object.keys(query).length === 0) keepPageFresh(`community-${load.community.slug}`, process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com", `/community/${load.community.slug}`, "community")
   return (
     <>
       {jsonLd && !hidden ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}

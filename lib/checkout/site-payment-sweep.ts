@@ -51,8 +51,14 @@ async function cancelled(id: string): Promise<boolean> {
   }
 }
 
-export async function cancelStaleSitePayments(db: Db, now = Date.now(), limit = 50): Promise<SweepCounts> {
+/**
+ * `until` (ms since epoch): no new cancel is started past it, so the cron's
+ * later steps keep their time (app/api/cron/physical). What is left waits for
+ * the next run, ten minutes later; nothing here is lost by stopping.
+ */
+export async function cancelStaleSitePayments(db: Db, now = Date.now(), limit = 50, until = Number.POSITIVE_INFINITY): Promise<SweepCounts> {
   const out: SweepCounts = { shipped: 0, baskets: 0 }
+  const late = () => Date.now() >= until
 
   /* Carts that ship: the held checkouts past their hold, paid by a PaymentIntent. */
   try {
@@ -67,6 +73,7 @@ export async function cancelStaleSitePayments(db: Db, now = Date.now(), limit = 
     if (!error && Array.isArray(data)) {
       const { releaseCheckout } = await import("@/lib/physical/checkout-server")
       for (const c of data as { id: string; stripe_payment_intent_id: string; coupon_id: string | null; coupon_holder: string | null }[]) {
+        if (late()) break
         if (!(await cancelled(c.stripe_payment_intent_id))) continue
         await releaseCheckout(db, c.id, "expired", "Payment not made in time")
         if (c.coupon_id && c.coupon_holder) await releaseCouponHold(db, c.coupon_id, c.coupon_holder)
@@ -80,10 +87,11 @@ export async function cancelStaleSitePayments(db: Db, now = Date.now(), limit = 
   /* Carts of downloads: unpaid basket PaymentIntents older than the code's hold. */
   const before = Math.floor(now / 1000) - STALE_MINUTES * 60
   for (const status of OPEN) {
-    if (out.baskets >= limit) break
+    if (out.baskets >= limit || late()) break
     try {
       const found = await stripe.paymentIntents.search({ query: `metadata['site_basket']:'1' AND status:'${status}' AND created<${before}`, limit: Math.min(50, limit) })
       for (const pi of found.data) {
+        if (late()) break
         if (!(await cancelled(pi.id))) continue
         if (pi.metadata?.coupon_id && pi.metadata?.coupon_holder) await releaseCouponHold(db, pi.metadata.coupon_id, pi.metadata.coupon_holder)
         out.baskets++

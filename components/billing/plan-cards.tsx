@@ -201,14 +201,19 @@ function PlanCard({
   compact,
   interval,
   sizes,
+  nameLevel = 3,
+  pictureLoading = "eager",
 }: {
+  pictureLoading?: "eager" | "lazy"
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
   compact?: boolean
   interval: BillingInterval
   sizes: string
+  nameLevel?: 2 | 3
 }) {
+  const Name = nameLevel === 2 ? "h2" : "h3"
   const look = PLAN_ART[plan.id]
   const monthly = pricedFor(plan, "monthly")
   const yearly = pricedFor(plan, "yearly")
@@ -247,7 +252,7 @@ function PlanCard({
           alt=""
           fill
           sizes={sizes}
-          loading="eager"
+          loading={pictureLoading}
           placeholder={look.blur}
           draggable={false}
           className="-z-10 object-cover object-right select-none pointer-events-none"
@@ -271,7 +276,7 @@ function PlanCard({
         <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
           {label ?? plan.pill}
         </span>
-        <h3 className={`${compact ? "mt-3" : "mt-4"} ${compact ? "text-[16px]" : "text-[18px]"} font-bold leading-tight`}>{plan.name}</h3>
+        <Name className={`${compact ? "mt-3" : "mt-4"} ${compact ? "text-[16px]" : "text-[18px]"} font-bold leading-tight`}>{plan.name}</Name>
         <p
           data-plan-price=""
           className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
@@ -347,7 +352,17 @@ export function PlanCards({
   className = "",
   interval: controlled,
   onInterval,
+  nameLevel,
+  pictureLoading,
 }: {
+  /**
+   * "lazy" where the cards are far down a page (the home page's pricing
+   * section). Eager there put a preload for each picture into the home page's
+   * head, competing with the hero (round 48). Eager everywhere else.
+   */
+  pictureLoading?: "eager" | "lazy"
+  /** The plan names' heading level: 2 where the cards sit right under the page's h1 (/pricing), 3 under a section's h2 (the default). */
+  nameLevel?: 2 | 3
   actions: Record<OfferedPlanId, PlanCardAction>
   /** Monthly or yearly; held here unless the page wants to hold it. */
   interval?: BillingInterval
@@ -415,6 +430,8 @@ export function PlanCards({
               compact={compact}
               interval={interval}
               sizes={PLAN_PICTURE_SIZES}
+              nameLevel={nameLevel}
+              pictureLoading={pictureLoading}
             />
           </div>
         ))}

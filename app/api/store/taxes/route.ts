@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 
 /** Settings › Taxes, for every store: the switches, the regions and the overrides in one read. */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const db = c.db
   const [setup, h, selling, products, store] = await Promise.all([

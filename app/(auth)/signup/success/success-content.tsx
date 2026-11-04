@@ -118,7 +118,7 @@ export function SuccessContent() {
 
         if (verifyProfile && !verifyProfile.email_verified) {
           window.location.replace(
-            `/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`
+            `/signup/verify?userId=${encodeURIComponent(user.id)}`
           )
           return
         }

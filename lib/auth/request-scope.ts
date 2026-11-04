@@ -1,9 +1,11 @@
 import "server-only"
 
 import { cache } from "react"
+import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
+import { verifierKind } from "@/lib/auth/verify-token"
 import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
 import { ServiceUnavailable, classifyServiceError, dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
@@ -31,17 +33,61 @@ import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
  * and every redirect stay exactly where they were; this only stops the same
  * question being put on the wire twice.
  */
-export const currentUserForRequest = cache(async (): Promise<CurrentUser> => {
-  const supabase = await createClient()
-  /* When Supabase Auth does not answer, the token's signature is checked instead (lib/auth/current-user.ts). */
-  const current = await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })
-  /* Logged, never decided on: a degraded answer is one JSON line (lib/net/log.ts) with the request's id. */
-  const degraded = current.verifiedBy === "claims" ? "claims" : !current.user && current.state !== "anonymous" ? "indeterminate" : null
-  if (degraded) {
-    void currentRequestId().then((rid) => console.warn(logLine("auth_degraded", { outcome: degraded, reason: current.reason ?? "unknown", rid })))
+/*
+  ===========================================================================
+   ONCE PER REQUEST IN AN API ROUTE TOO (round 49)
+  ===========================================================================
+  React's `cache` dedupes inside a render (a layout, its page, their
+  metadata). A route handler is not a render: there `cache` calls straight
+  through, so a route that asked twice (its gate, then a helper) paid two
+  Supabase Auth round trips. The answer is also kept on the request's own
+  cookie store, which Next makes once per request and drops with it, so a
+  route handler asks once as well. Nothing is kept between requests: the key
+  is an object that lives exactly as long as the request.
+*/
+const perRequest = new WeakMap<object, Map<string, Promise<unknown>>>()
+
+async function requestKey(): Promise<object | null> {
+  try {
+    const jar = (await cookies()) as unknown
+    return jar && typeof jar === "object" ? (jar as object) : null
+  } catch {
+    return null
   }
-  return current
-})
+}
+
+/** `fn` once per request under `name`; outside a request (a script, a test with no cookie store) every call runs it. */
+export async function oncePerRequest<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const key = await requestKey()
+  if (!key) return fn()
+  let held = perRequest.get(key)
+  if (!held) perRequest.set(key, (held = new Map()))
+  const seen = held.get(name) as Promise<T> | undefined
+  if (seen) return seen
+  const p = fn()
+  held.set(name, p)
+  /* A throw is not kept: the next ask in the request tries again. */
+  p.catch(() => held!.delete(name))
+  return p
+}
+
+
+export const currentUserForRequest = cache(
+  (): Promise<CurrentUser> =>
+    oncePerRequest("current-user", async () => {
+      const supabase = await createClient()
+      /* When Supabase Auth does not answer, the token's signature is checked instead (lib/auth/current-user.ts). */
+      const current = await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })
+      /* Logged, never decided on: a degraded answer is one JSON line (lib/net/log.ts) with the request's id. */
+      const degraded = current.verifiedBy === "claims" ? "claims" : !current.user && current.state !== "anonymous" ? "indeterminate" : null
+      if (degraded) {
+        void Promise.all([currentRequestId(), verifierKind(process.env.NEXT_PUBLIC_SUPABASE_URL ?? null).catch(() => "none")]).then(([rid, verifier]) =>
+          console.warn(logLine("auth_degraded", { outcome: degraded, reason: current.reason ?? "unknown", verifier, rid })),
+        )
+      }
+      return current
+    }),
+)
 
 export interface RequestProfile {
   display_name: string | null

@@ -91,6 +91,7 @@ export function AxisLabels({
   width,
   gap = 8,
   fontSize = 11,
+  inside = false,
 }: {
   /** Bottom first, as the ticks are. */
   labels: string[]
@@ -100,6 +101,14 @@ export function AxisLabels({
   width: number
   gap?: number
   fontSize?: number
+  /**
+   * INSIDE THE PLOT (round 49, the owner: "the left column of numbers takes
+   * too much space"): each number sits on its own grid line at the plot's
+   * left, just above it, with no gutter reserved, and the floor's 0 is left
+   * out (the floor says it). A white halo keeps a line that crosses one
+   * readable. `width` is then not used.
+   */
+  inside?: boolean
 }) {
   const sig = labels.join("|")
   const [layers, setLayers] = React.useState<{ sig: string; labels: string[]; state: "still" | "in" | "out" }[]>(() => [
@@ -120,6 +129,36 @@ export function AxisLabels({
   }, [layers])
 
   const n = labels.length
+  if (inside) {
+    return (
+      <div aria-hidden data-chart-axis="inside" className="pointer-events-none absolute inset-x-0 top-0 z-[1]" style={{ height: top + height }}>
+        {layers.map((l) => (
+          <div key={l.sig} className={l.state === "in" ? "chart-axis-in" : l.state === "out" ? "chart-axis-out" : undefined} style={{ position: "absolute", inset: 0 }}>
+            {l.labels.map((text, i) =>
+              i === 0 && n > 1 ? null : (
+                <span
+                  key={i}
+                  className="chart-axis-label tabular-nums"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: top + (n <= 1 ? height : (1 - i / (n - 1)) * height) - fontSize - 4,
+                    fontSize,
+                    lineHeight: `${fontSize + 1}px`,
+                    color: "#9ca3af",
+                    whiteSpace: "nowrap",
+                    textShadow: "0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff",
+                  }}
+                >
+                  {text}
+                </span>
+              ),
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
   return (
     <div aria-hidden data-chart-axis className="pointer-events-none absolute left-0 top-0" style={{ width: Math.max(0, width - gap), height: top + height }}>
       {layers.map((l) => (

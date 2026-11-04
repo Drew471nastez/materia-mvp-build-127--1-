@@ -134,7 +134,8 @@ section("The layout: everything that needs only the user, together")
     /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access. */
     /* Round Y2: seller access is decided by lib/team/landing appLanding, after the same verified gate (tests/team-landing.test.ts). */
     /if \(!gateCheck\?\.email_verified\)[\s\S]*const landing = appLanding\([\s\S]*if \(!creator \|\| landing\.kind === "sell"\)/.test(layout))
-  check("on the caller's own client only", !/createAdminClient/.test(layout))
+  /* Changed on purpose (round 48, db): the setup ring's "first sale" is one lookup by the session's own creator id on the admin client (the user's client failed with 42501 on a legacy orders policy that reads auth.users). Nothing else in the layout takes the admin client. */
+  check("on the caller's own client, except the first sale lookup scoped to the session's own store", (layout.match(/createAdminClient\(\)/g) ?? []).length === 1 && /async function storeHasSale\(creatorId: string\)[\s\S]{0,120}const admin = createAdminClient\(\)[\s\S]{0,200}scopedOrders\(admin, "id", scope, creatorId, null\)/.test(layout))
   /* Round 12 (PLATPERF): the setup ring's payments answer was one more trip after the second batch. */
   const second = batchAfter(layout, /const \[\{ data: products \}/)
   /* Round AE: Airwallex is gone, so the answer is the creator row's own (paymentsReadyFrom) and there is no trip at all. */
@@ -157,7 +158,7 @@ section("Home: three trips, and its title shares them")
   /* Changed on purpose: Home reads no order rows now. Its figures are the Analytics answer (app/api/analytics/reports),
      and a read of every order here stopped at 1,000 rows. The sales are counted over every order, in the same batch. */
   check("then the products, the domain, the live website and the sales count go together",
-    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(second))
+    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /* Changed on purpose (round rel-db): with a ceiling and no ECB download from the render. */ /creatorSalesTotals\(adminSupabase, creator\.id(, \{ noFetch: true \})?\)/.test(second))
   check("no orders are read for the figures, and never by a list of product ids",
     !/\.from\("orders"\)/.test(body) && !/\.in\("product_id"/.test(body) && !/initialOrders=/.test(body))
   check("still on the service role, as before, never the caller's client swapped in or out", /createAdminClient\(\)/.test(body) && !/createClient\(\)/.test(home))
@@ -169,7 +170,7 @@ section("Products: the creator and the profile together")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
   /* Changed on purpose (round 41 team): the owner's list is on their own client as before; a team member's is read with the service role, by the store's id */
-  check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && /supabase\s*\.from\("products"\)/.test(src) && /admin\.from\("products"\)\.select\("\*"\)\.eq\("creator_id", team\.creatorId\)/.test(src))
+  check("the products on the caller's own client, by the creator's id", /* Changed on purpose (round rel-db): named columns, every product a page at a time (lib/products/list-read), same clients */ /readProductList<ListedRow>\(supabase, creator\.id\)/.test(src) && /const supabase = await createClient\(\)/.test(src) && /readProductList<ListedRow>\(admin, team\.creatorId\)/.test(src))
   check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing",
     /const user = await pageUser\(\)/.test(src) && /if \(!user\) return null/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
 }
@@ -214,29 +215,32 @@ section("Payouts: its questions asked together")
     !/balanceTransactions/.test(src) && !/getMarketExchangeRate/.test(src) && /pickBalance\(balance, account\.default_currency\)/.test(src))
   check("the ledger row is read once, with every column the page uses",
     (src.match(/\.from\("seller_ledger"\)/g) ?? []).length === 1 && /\.select\("available_amount, pending_amount, negative_balance"\)/.test(src))
-  const second = batchAfter(src, /const productIds = /)
-  check("with the products: the orders, the tax year's orders and the disputed orders",
-    (second.match(/\.from\("orders"\)/g) ?? []).length === 3 && /\.gte\("created_at"/.test(second) && /\.eq\("status", "disputed"\)/.test(second))
+  /* Changed on purpose (round rel-db): by the order's own creator, every row a page at a time, not by a product id list stopping at 1,000. */
+  const second = batchAfter(src, /const productById = /)
+  check("with the creator: the orders, the tax year's orders and the disputed orders",
+    /latestCreatorOrders</.test(second) && (second.match(/readCreatorOrders</g) ?? []).length === 2 && /since: `\$\{previousYear\}-01-01T00:00:00Z`/.test(second) && /statuses: \["disputed"\]/.test(second))
   /* The owner, October 2026: accurate figures, no made up ones. A balance Stripe did not answer is not the creator's all time order total. */
   check("a Stripe failure shows nothing rather than the orders' own figures",
     /stripeRead && !stripeRead\.ok/.test(src) && /\[Payouts\] Stripe balance not read:/.test(src)
       && !/orderPendingUsd|orderNetUsd|totalEarnings/.test(src) && !/stripePendingBalance = Math\.round/.test(src))
   check("and a failed tax or ledger read is nothing, not a failed page",
-    (src.match(/\.then\(\(r\) => r, \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
+    (src.match(/\.then\(\(r\) => \(\{ data: r\.rows \}\), \(\) => nothing\)/g) ?? []).length === 2 && !/accountLinks\.create/.test(src))
   check("scoped as before: the creator by the user's id, everything else by that creator or its products, on the service role",
-    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("id", access\.creatorId\)/.test(src) && /teamPageStore\("payouts"\)/.test(src) /* Changed on purpose (round 42 team): the store from teamPageStore, the owner's or the one a member with Payouts works in */ && (src.match(/\.in\("product_id", productIds\)/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
+    /\.from\("creators"\)\s*\.select\("\*"\)\s*\.eq\("id", access\.creatorId\)/.test(src) && /teamPageStore\("payouts"\)/.test(src) /* Changed on purpose (round 42 team): the store from teamPageStore, the owner's or the one a member with Payouts works in */ && /* Changed on purpose (round rel-db): the orders by their own creator */ !/\.in\("product_id"/.test(src) && (src.match(/(read|latest)CreatorOrders<[^>]*>\(adminSupabase, creator\.id/g) ?? []).length === 3 && !/createClient\(\)/.test(src))
 }
 
 section("Customers, Coupons, Analytics, Orders")
 {
   const customers = code("app/app/customers/page.tsx")
-  const batch = batchAfter(customers, /const readOrders/)
-  check("Customers reads its customers while the orders' product ids come back", /\.from\("customers"\)/.test(batch) && /readOrders\(\)/.test(batch))
+  /* Changed on purpose (round rel-db): both read a page at a time, the orders by their own creator, side by side. */
+  const batch = batchAfter(customers, /const customerRows/)
+  check("Customers reads its customers and its orders side by side", /customerRows/.test(batch) && /orderRows/.test(batch) && /readStoreCurrency\(admin, creator\.id\)/.test(batch))
   /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
   check("its creator row is the layout's (teamPageStore reads the same per request cache)", /teamPageStore\("customers"\)/.test(customers) && /const own = await creatorForRequest\(user\.id\)/.test(code("lib/team/server.ts")))
   check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/app/coupons/load-coupons.ts")))
+  /* Changed on purpose (round 48): Analytics takes the store teamPageStore found (the owner's own row through the per request cache, as Customers does) and reads everything by its id in one round, instead of reading the creator row a second time. */
   for (const f of ["app/app/analytics/page.tsx"]) {
-    check(`${f} keeps its service role reads by the creator found from the user`, /\.from\("creators"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)/.test(code(f)))
+    check(`${f} keeps its service role reads by the creator found from the user`, /teamPageStore\("analytics"\)/.test(code(f)) && /const creatorId = access\.creatorId/.test(code(f)) && /\.from\("products"\)[\s\S]{0,80}\.eq\("creator_id", creatorId\)/.test(code(f)) && !/\.from\("creators"\)/.test(code(f)))
   }
   /* Changed on purpose (round AA, Team): Orders finds the creator from the user through
      lib/team/server creatorFor, which reads it by user_id for the owner, or the store a

@@ -97,6 +97,63 @@ export async function prepareCommunityFile(
   }
 }
 
+/** What the stored-file check needs to read a file: storage's size, and its first and last bytes. Replaceable in tests. */
+export interface StoredFileChecks {
+  size: (db: Db, path: string) => Promise<number | null>
+  inspect: typeof inspectStoredObject
+}
+
+const REAL_CHECKS: StoredFileChecks = {
+  size: (db, path) => storedObjectSize(db as SupabaseClient, STORAGE_BUCKET, path),
+  inspect: (admin, where, file) => inspectStoredObject(admin, where, file),
+}
+
+/** ok with storage's size, or refused with the sentence and status a route answers. */
+type StoredCheck = { ok: boolean; size?: number; error?: string; status?: number }
+
+/**
+ * The checks a file gets where it landed: storage's own size against the
+ * limit, then its bytes (inspectStoredObject). A refused file is removed and
+ * written to the security log. Used by the complete step AND at posting, so a
+ * browser that skips complete cannot post a file nobody looked at.
+ */
+async function checkStoredFile(
+  db: Db,
+  where: { community: Pick<CommunityRow, "id" | "creator_id">; uploaderId: string; path: string; name: string; staff: boolean },
+  checks: StoredFileChecks = REAL_CHECKS,
+): Promise<StoredCheck> {
+  const size = await checks.size(db, where.path).catch(() => null)
+  if (size === null) return { ok: false, error: "The upload did not arrive. Try again.", status: 400 }
+  const limit = fileLimitFor(where.staff)
+  const remove = () =>
+    db.storage
+      .from(STORAGE_BUCKET)
+      .remove([where.path])
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+  if (size > limit) {
+    await remove()
+    return { ok: false, error: `This file is too large. The limit is ${Math.round(limit / (1024 * 1024))} MB.`, status: 413 }
+  }
+  const verdict = await checks.inspect(db as SupabaseClient, { bucket: STORAGE_BUCKET, path: where.path }, { fileName: where.name, size, context: FILE_CONTEXT, budgetMs: 6000 })
+  await logUploadVerdict(db as SupabaseClient, verdict, {
+    context: FILE_CONTEXT,
+    userId: where.uploaderId,
+    creatorId: where.community.creator_id,
+    bucket: STORAGE_BUCKET,
+    path: where.path,
+    bytes: size,
+    outcome: verdict.ok ? undefined : "removed",
+  })
+  if (!verdict.ok) {
+    await remove()
+    return { ok: false, error: verdict.userMessage || "We couldn't accept this file. Try another file.", status: 415 }
+  }
+  return { ok: true, size }
+}
+
 /** Step two: the bytes are there. Check them where they landed; a refused file is removed. */
 export async function completeCommunityFile(
   db: Db,
@@ -106,36 +163,10 @@ export async function completeCommunityFile(
   const ext = fileExtension(input.name)
   const path = pathFor(input.community, input.viewer.userId, input.fileId, ext)
   if (!path) return { ok: false, error: "Upload not found.", status: 404 }
-  const size = await storedObjectSize(db as SupabaseClient, STORAGE_BUCKET, path)
-  if (size === null) return { ok: false, error: "The upload did not arrive. Try again.", status: 400 }
   const name = fileDisplayName(input.name, ext)
-  const limit = fileLimitFor(input.staff)
-  const remove = () =>
-    db.storage
-      .from(STORAGE_BUCKET)
-      .remove([path])
-      .then(
-        () => undefined,
-        () => undefined,
-      )
-  if (size > limit) {
-    await remove()
-    return { ok: false, error: `This file is too large. The limit is ${Math.round(limit / (1024 * 1024))} MB.`, status: 413 }
-  }
-  const verdict = await inspectStoredObject(db as SupabaseClient, { bucket: STORAGE_BUCKET, path }, { fileName: name, size, context: FILE_CONTEXT, budgetMs: 6000 })
-  await logUploadVerdict(db as SupabaseClient, verdict, {
-    context: FILE_CONTEXT,
-    userId: input.viewer.userId,
-    creatorId: input.community.creator_id,
-    bucket: STORAGE_BUCKET,
-    path,
-    bytes: size,
-    outcome: verdict.ok ? undefined : "removed",
-  })
-  if (!verdict.ok) {
-    await remove()
-    return { ok: false, error: verdict.userMessage || "We couldn't accept this file. Try another file.", status: 415 }
-  }
+  const checked = await checkStoredFile(db, { community: input.community, uploaderId: input.viewer.userId, path, name, staff: input.staff })
+  if (!checked.ok) return { ok: false, error: checked.error ?? "Upload not found.", status: checked.status }
+  const size = checked.size ?? 0
   /* A malware engine, when one is switched on, reads it after the answer; an infected file is deleted (lib/security/uploads/engine-after.ts). */
   scanStoredAfterResponse(db as SupabaseClient, { bucket: STORAGE_BUCKET, path, fileName: name, size, context: FILE_CONTEXT, userId: input.viewer.userId, creatorId: input.community.creator_id })
   return { ok: true, value: { type: "file", assetId: input.fileId.toLowerCase(), name, size, store: "community" } }
@@ -143,23 +174,40 @@ export async function completeCommunityFile(
 
 /**
  * At posting: each file is in this member's folder in this community, under
- * the extension its name carries. Answers each file's name as it will be
- * kept (the checked extension on the end).
+ * the extension its name carries, AND passes the same checks complete runs
+ * (size against the poster's limit, the stored bytes inspected). complete is
+ * a step the browser chooses to call, so posting cannot rely on it having
+ * run. A file that fails is removed, as complete would have. Only files new
+ * to the post come here (feed.ts ownedMedia keeps what a post already had).
+ * Answers each file's name as it will be kept (the checked extension on the end).
  */
-export async function communityFilesExist(db: Db, community: Pick<CommunityRow, "id" | "creator_id">, uploaderId: string, files: { fileId: string; name: string }[]): Promise<Checked<Map<string, string>>> {
+export async function communityFilesExist(
+  db: Db,
+  community: Pick<CommunityRow, "id" | "creator_id">,
+  uploaderId: string,
+  files: { fileId: string; name: string }[],
+  opts: { staff?: boolean; checks?: Partial<StoredFileChecks> } = {},
+): Promise<Checked<Map<string, string>>> {
   const out = new Map<string, string>()
-  const found = await Promise.all(
-    files.map(async (f) => {
+  const results = await Promise.all(
+    files.map(async (f): Promise<StoredCheck> => {
       const ext = fileExtension(f.name)
       const path = pathFor(community, uploaderId, f.fileId, ext)
-      if (!path) return false
-      const size = await storedObjectSize(db as SupabaseClient, STORAGE_BUCKET, path).catch(() => null)
-      if (size === null) return false
-      out.set(f.fileId.toLowerCase(), fileDisplayName(f.name, ext))
-      return true
+      if (!path) return { ok: false, error: "", status: 400 }
+      const name = fileDisplayName(f.name, ext)
+      const checked = await checkStoredFile(db, { community, uploaderId, path, name, staff: opts.staff === true }, { ...REAL_CHECKS, ...opts.checks }).catch(
+        (): StoredCheck => ({ ok: false, error: "", status: 400 }),
+      )
+      if (checked.ok) out.set(f.fileId.toLowerCase(), name)
+      return checked
     }),
   )
-  if (found.some((ok) => !ok)) return { ok: false, error: "That file could not be added. Upload it again." }
+  const refusedFile = results.find((r) => !r.ok)
+  if (refusedFile) {
+    /* Too large or not accepted: say so. Missing or unreadable: the old sentence. */
+    const said = refusedFile.status === 413 || refusedFile.status === 415 ? refusedFile.error : ""
+    return { ok: false, error: said || "That file could not be added. Upload it again." }
+  }
   return { ok: true, value: out }
 }
 

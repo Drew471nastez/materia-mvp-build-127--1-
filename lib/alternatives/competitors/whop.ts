@@ -26,7 +26,7 @@ export const whop: Competitor = {
     { text: "Payouts from Storelib go to your bank through Stripe, and Cash out is free. On Whop each payout method has its own fee.", code: "lib/payments/stripe/payout-regions.ts" },
     { text: `A store, a website and a bio link that are yours to design: ${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Pro${STORELIB.proCustomDomain ? ", your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
     { text: "Email campaigns and automations to your buyers and subscribers, built into the same dashboard as your orders.", code: "app/app/emails" },
-    { text: "Digital products, courses and memberships sit side by side, so a community is one of the things you sell rather than the whole business.", code: "app/app/courses" },
+    { text: "Digital products, courses and paid communities sit side by side, so a community is one of the things you sell rather than the whole business.", code: "app/app/courses" },
   ],
   whenToStay: [
     { text: "Your product is access to a Discord or Telegram server. Whop gives buyers their role in your server automatically, and Storelib does not connect to Discord.", sources: ["whop-discord"], status: "verified" },
@@ -95,12 +95,17 @@ export const whop: Competitor = {
     { who: "Sellers", title: "Software sold to a Discord audience", text: "If buyers expect a Discord role the moment they pay, Whop does that and Storelib does not. Stay on Whop for that part." },
   ],
   switching: [
-    { title: "Decide what moves", text: "Courses, downloads and memberships move well. Discord or Telegram access does not: Storelib has no integration for it." },
+    { title: "Decide what moves", text: "Courses, downloads and paid memberships move well. Discord or Telegram access does not: Storelib has no integration for it." },
     { title: "Create a free Storelib account", text: "Sign up and set up payments with Stripe inside Storelib. Check your country is one Stripe pays out to from Storelib." },
     { title: "Rebuild your products", text: "Add each product, course and membership plan with its price. Recurring members need to subscribe again on Storelib." },
     { title: "Move members at renewal", text: "Tell members before their next renewal on Whop, with the Storelib link, so nobody is charged twice." },
     { title: "Change your links", text: "Replace Whop links in your bios and posts with your Storelib product links or your OnePage." },
   ],
+  moving: {
+    products: "Rebuild downloads and courses as products. A paid membership becomes a paid community plan, billed monthly or yearly.",
+    customers: "Members cannot be moved with their payment details. Tell them before their next Whop renewal, with your Storelib link, so nobody pays twice.",
+    domain: "Replace your Whop links with your OnePage or product links. To use a domain of your own, connect it to a Storelib website on Pro.",
+  },
   faqs: [
     { q: "Is Storelib cheaper than Whop?", a: `On fees per payment, usually not. Whop takes 2.7% + 30¢ with processing included. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro, and Stripe's processing comes on top. Whop charges for payouts, which Storelib does not, so the gap is smaller than the card rate alone suggests.` },
     { q: "Can Storelib give buyers access to a Discord server?", a: "No. Storelib has no Discord or Telegram integration. If server access is what you sell, Whop is built for it." },
@@ -108,14 +113,14 @@ export const whop: Competitor = {
       q: "Can I run a paid community on Storelib?",
       a: "Yes. Storelib Communities has posts, chat, events and paid plans, next to your products and courses.",
       flag: "communities",
-      aOff: "Not today. On Storelib, memberships and courses are the way to sell ongoing access.",
+      aOff: "Not today. On Storelib, courses are the way to sell ongoing access.",
     },
     { q: "Does Storelib charge for payouts?", a: "No. You cash out your available balance from Payouts to the bank account on file. It usually arrives in 1 to 3 business days." },
     { q: "Does Storelib have affiliates like Whop?", a: "Not today. Whop's affiliate system is a reason to stay if other people sell your product for a commission." },
   ],
   visuals: ["community", "course", "dashboard"],
   sources: [
-    { id: "whop-pricing", title: "Whop pricing", url: "https://whop.com/network/pricing/", publisher: "Whop", checkedOn: on },
+    { id: "whop-pricing", title: "Whop pricing", url: "https://whop.com/network/pricing/", publisher: "Whop", checkedOn: "2026-10-31" },
     { id: "whop-fees", title: "Fees (Whop Docs)", url: "https://docs.whop.com/fees", publisher: "Whop", checkedOn: on },
     { id: "whop-discord", title: "How to link your whop to a Discord server", url: "https://whop.com/blog/link-whop-to-discord/", publisher: "Whop", checkedOn: on },
     { id: "whop-affiliates", title: "Set up custom affiliates (Whop Docs)", url: "https://docs.whop.com/affiliates/setup-custom", publisher: "Whop", checkedOn: on },
@@ -123,5 +128,5 @@ export const whop: Competitor = {
     { id: "whop-apps", title: "15 of the best membership site platforms (Whop apps described)", url: "https://whop.com/blog/best-membership-site-platforms/", publisher: "Whop", checkedOn: on },
     { id: "whop-digital", title: "How to create and sell digital products", url: "https://whop.com/blog/create-sell-digital-products/", publisher: "Whop", checkedOn: on },
   ],
-  updated: on,
+  updated: "2026-10-31",
 }

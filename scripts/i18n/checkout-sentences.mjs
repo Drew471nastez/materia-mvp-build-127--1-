@@ -25,7 +25,7 @@ const walk = (dir) =>
 const filesOf = (p) => (statSync(p).isDirectory() ? walk(p) : [p])
 
 /* Server code whose answers the checkout shows as they are: its error and message sentences are listed too, and ct() translates them there. */
-const SERVER_FILES = ["app/api/checkout/site/route.ts", "app/api/reviews/request/route.ts", "app/api/reviews/photo/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts", "app/api/order-help/route.ts", "lib/support/cases-server.ts"]
+const SERVER_FILES = ["app/api/checkout/site/route.ts", "app/api/reviews/request/route.ts", "app/api/reviews/photo/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts", "app/api/order-help/route.ts", "lib/support/cases-server.ts", "lib/checkout/confirm-outcome.ts"]
 const SAID = /\b(?:error|message|couponError)\s*:\s*("(?:[^"\\\n]|\\.)*")|\bexport const [A-Z_]+\s*=\s*("(?:[^"\\\n]|\\.)*")/g
 
 const CALL = /\b(?:ct|checkoutMsg)\(\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\$]|\\.)*`)/g

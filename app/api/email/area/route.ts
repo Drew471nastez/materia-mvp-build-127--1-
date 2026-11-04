@@ -233,7 +233,7 @@ async function sender(gate: TeamGate) {
 }
 
 export async function GET(request: Request) {
-  const gate = await requireTeamPermission("marketing")
+  const gate = await requireTeamPermission("marketing", { read: true })
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
   const part = url.searchParams.get("part")

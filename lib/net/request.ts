@@ -33,6 +33,7 @@ import { perfFail, perfStep } from "@/lib/perf/mark"
 import { SLOW_REQUEST_MS, type StepRoute } from "@/lib/perf/config"
 import { classify } from "@/lib/perf/routes"
 import { msg } from "@/lib/i18n/text"
+import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
 
 function netRoute(): StepRoute | null {
   try {
@@ -108,6 +109,40 @@ function isOffline(): boolean {
 }
 
 /**
+ * A 503 that says Supabase Auth did not answer (lib/auth/route-user
+ * authUnavailableResponse). The route refused BEFORE doing anything, so it
+ * is safe to ask again, a change included: "We could not check your sign in
+ * just now" is shown only after these quiet tries also failed.
+ */
+export { AUTH_UNAVAILABLE_HEADER }
+/** Waits before the second and third tries: about 4s in all, with up to a quarter again as jitter. */
+export const AUTH_RETRY_DELAYS_MS = [1_200, 2_800] as const
+/**
+ * Round 49: a read (GET or HEAD) is asked more times, over about 10s, behind
+ * the panel's normal loading state, before its words are shown. A slow minute
+ * at Supabase Auth is usually over in seconds, and a read changes nothing.
+ */
+export const AUTH_READ_RETRY_DELAYS_MS = [800, 2_000, 3_500] as const
+
+/** A read's quiet retry needs this much of its deadline left to be worth sending. */
+export const AUTH_RETRY_MIN_LEFT_MS = 6_000
+
+/** The quiet waits for this request's method. */
+export function authRetryDelays(method: string | undefined): readonly number[] {
+  const m = (method ?? "GET").toUpperCase()
+  return m === "GET" || m === "HEAD" ? AUTH_READ_RETRY_DELAYS_MS : AUTH_RETRY_DELAYS_MS
+}
+
+function authUnavailable(res: Response): boolean {
+  return res.status === 503 && res.headers.get(AUTH_UNAVAILABLE_HEADER) === "unavailable"
+}
+
+/** A body that can be sent twice (a string, a form, bytes); a stream cannot. */
+function resendable(body: BodyInit | null | undefined): boolean {
+  return body == null || typeof body === "string" || (typeof FormData !== "undefined" && body instanceof FormData) || (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) || (typeof Blob !== "undefined" && body instanceof Blob) || body instanceof ArrayBuffer || ArrayBuffer.isView(body)
+}
+
+/**
  * fetch, bounded end to end. Resolves with the response's JSON (or `{}`),
  * never hangs, and never throws for a server's answer; it throws only when
  * the caller's own signal aborts (an AbortError, as fetch does).
@@ -136,13 +171,26 @@ export async function requestJson<T = Record<string, unknown>>(
   }, timeoutMs)
 
   try {
-    const res = await fetch(url, {
-      ...rest,
-      ...(json !== undefined
-        ? { body: JSON.stringify(json), headers: { "Content-Type": "application/json", ...(rest.headers as Record<string, string> | undefined) } }
-        : {}),
-      signal: ctl.signal,
-    })
+    const send = () =>
+      fetch(url, {
+        ...rest,
+        ...(json !== undefined
+          ? { body: JSON.stringify(json), headers: { "Content-Type": "application/json", ...(rest.headers as Record<string, string> | undefined) } }
+          : {}),
+        signal: ctl.signal,
+      })
+    let res = await send()
+    /* Supabase Auth did not answer and nothing was done: asked again quietly, within this request's own deadline. */
+    const isRead = json === undefined && /^(GET|HEAD)$/i.test(rest.method ?? "GET")
+    for (const wait of json !== undefined || resendable(rest.body) ? authRetryDelays(rest.method) : []) {
+      if (!authUnavailable(res)) break
+      const ms = Math.round(wait + wait * 0.25 * Math.random())
+      /* Round 49: a read is asked again only with time left for an answer; otherwise its own words now, not "took too long" later. */
+      if (now() - started + ms + (isRead ? AUTH_RETRY_MIN_LEFT_MS : 0) >= timeoutMs) break
+      void res.body?.cancel().catch(() => {})
+      await new Promise((r) => setTimeout(r, ms))
+      res = await send()
+    }
     let data = {} as T & { error?: string }
     try {
       /* Still under the same deadline: the body is where a dropped connection stalls. */

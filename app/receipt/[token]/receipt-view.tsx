@@ -12,6 +12,7 @@ import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { BackControl } from "@/components/navigation/back-control"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { StoreLogo } from "@/components/brand/store-logo"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessState } from "@/lib/receipts/rules"
@@ -623,12 +624,12 @@ export function ReceiptView({
               rel="noopener noreferrer"
               className="-ml-2 flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-full py-1.5 pl-2 pr-3.5 transition-[background-color,box-shadow,translate] duration-150 ease-out hover:bg-[#eaecf0] active:translate-y-px active:bg-[#e3e6ea] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:min-h-[40px]"
             >
-              <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} />
+              <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} kind={receipt.seller.avatarKind} />
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>
             </a>
           ) : (
             <span className="flex min-h-[44px] items-center gap-2.5">
-              <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} />
+              <SellerMark name={receipt.seller.name} avatarUrl={receipt.seller.avatarUrl} kind={receipt.seller.avatarKind} />
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>
             </span>
           )}
@@ -1212,8 +1213,13 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
   )
 }
 
-function SellerMark({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
+function SellerMark({ name, avatarUrl, kind }: { name: string; avatarUrl: string | null; kind?: "logo" | "photo" | null }) {
   const ct = useCt()
-  /* The shared avatar: a Google photo loads from its own host, a broken one becomes the initials. */
+  /* The store's logo at its own shape, never cut round, with the store logo's small corner and no shadow (round 49, components/brand/store-logo). One that fails, before or after hydration, falls back to the initials. */
+  const [logoFailed, setLogoFailed] = useState(false)
+  if (kind === "logo" && avatarUrl && !logoFailed) {
+    return <StoreLogo src={avatarUrl} alt="" height={32} className="max-w-[120px]" referrerPolicy="no-referrer" onError={() => setLogoFailed(true)} />
+  }
+  /* A photo: the shared avatar. A Google photo loads from its own host, a broken one becomes the initials. */
   return <AppAvatar src={avatarUrl} name={name.trim() || ct("Seller")} alt="" size={32} className="ring-1 ring-black/[0.04]" />
 }

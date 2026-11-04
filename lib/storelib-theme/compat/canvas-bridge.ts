@@ -19,7 +19,7 @@
  */
 export const CANVAS_BRIDGE = `
 (function () {
-  var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  var post = function (m) { m.storelib = 1; try { parent.postMessage(m, window.__slTo || "*"); } catch (e) {} };
   /* The layout's own <style>s in the body, around the sections, as drawn (compat-canvas.tsx docShape bodyStyles): marked now, before the theme's deferred scripts can add one. */
   try { Array.prototype.forEach.call(document.body.querySelectorAll("style"), function (x) { if (!x.closest(".shopify-section") && !x.hasAttribute("data-sl")) x.__slDrawn = true; }); } catch (e) {}
   /*
@@ -293,7 +293,7 @@ export const CANVAS_BRIDGE = `
     second of hit tests in a scroll). The full reading waits for 260ms and
     then two frames with no scroll and no value in them.
   */
-  var streamingUntil = 0, streamTimer = 0, afterScroll = null, streamingOn = false;
+  var streamingUntil = 0, streamTimer = 0, afterScroll = null, streamingOn = false, scrollMoving = false, pageScrollTimer = 0;
   var streaming = function () {
     streamingOn = true;
     streamingUntil = performance.now() + 250;
@@ -520,6 +520,15 @@ export const CANVAS_BRIDGE = `
     script at 4x on Dawn (scripts/check-compat-canvas-perf.mjs). A moment
     after the scroll stops the outlines are read in full again.
   */
+  /* The page itself scrolling (not a row of cards inside it, which a slider may scroll all the time): the toolbar's section is moving, until two frames go by with no scroll (report). */
+  addEventListener("scroll", function (e) {
+    if (e.target !== document && e.target !== document.documentElement && e.target !== document.body) return;
+    scrollMoving = true;
+    clearTimeout(pageScrollTimer);
+    pageScrollTimer = setTimeout(function () {
+      requestAnimationFrame(function () { requestAnimationFrame(function () { scrollMoving = false; reportSoon(); }); });
+    }, 260);
+  }, { passive: true, capture: true });
   addEventListener("scroll", streaming, { passive: true, capture: true });
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
@@ -1214,7 +1223,14 @@ export const CANVAS_BRIDGE = `
     boxFrame = 0;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     var v = el ? (read && read.el === el ? read.v : visibleRect(el, 0)) : null;
-    var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
+    /*
+      WHILE THE PAGE SCROLLS, SAID ONCE (round 14): the section is moving, and
+      the builder's toolbar steps aside until it stands still, when its box is
+      said again. Its box every frame of the scroll was a message a frame, and
+      the editor's toolbar measured again a frame, on the thread the scroll
+      runs on (a short page keeps the selected section on screen all along).
+    */
+    var m = v ? (scrollMoving ? { type: "box", id: selected.section, moving: true } : { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) }) : { type: "box", id: null };
     var key = JSON.stringify(m);
     if (key === lastBox) return;
     lastBox = key;
@@ -1587,19 +1603,55 @@ export const CANVAS_BRIDGE = `
     out of what is swapped in.
   */
   var queue = Promise.resolve();
+  /*
+    EACH SWAP IN A TASK OF ITS OWN (round 14). The queue is a chain of
+    promises, and a chain runs to its end in one task: a burst of changes
+    from Storelib AI, an agent or a push swapped five or six sections back
+    to back, each one laid out against the whole page and started again by
+    the theme's scripts, in one task of 500 to 850ms on the owner's Materia
+    (scripts/check-wb-incoming-r14.mjs). A swap now waits for the next
+    turn of the event loop, so a key pressed or a wheel turned in between
+    is answered between two swaps, never after all of them.
+  */
+  var nextTurn = function () { return new Promise(function (done) { setTimeout(done, 0); }); };
+  /*
+    NO CHANGE HOLDS THE ONES AFTER IT FOR GOOD. Every change waits its turn
+    in the queue, so one whose wait never ended (a stylesheet, a load, a
+    promise of a theme's that never settles) held every later change: a
+    section added, the page drawn again, all listed in the editor and none
+    on the page. A change gets STEP_MS; past that the next goes on, and the
+    builder is told ("slow-step") so the error log hears of it.
+  */
+  var STEP_MS = 4000;
+  var bounded = function (p, what) {
+    if (!p || typeof p.then !== "function") return p;
+    return new Promise(function (done, fail) {
+      var over = false;
+      var t = setTimeout(function () { over = true; post({ type: "slow-step", what: what }); done(); }, STEP_MS);
+      p.then(function () { if (!over) { clearTimeout(t); done(); } }, function (e) { if (!over) { clearTimeout(t); fail(e); } });
+    });
+  };
   var kept = {}, keptLink = {};
   /* The same file at another version (?v=, its text changed: a push) takes the old one's place once it has loaded, never both (round 13). */
   var fileOf = function (href) { return String(href).replace(/[?&]v=[^&#]*/, ""); };
-  var keep = function (href) {
+  /*
+    text: the stylesheet's own text, when the builder has it (a section new
+    to the page: compat-canvas.tsx, preview-styles.ts linkedSheets). Written
+    as a <style> in this task, so it applies before the section is put in,
+    with no request to wait for; a link otherwise, waited for (2s at most).
+  */
+  var keep = function (href, text) {
     if (kept[href]) return kept[href];
-    var l = document.createElement("link");
-    l.rel = "stylesheet";
-    l.href = href;
+    var inline = typeof text === "string";
+    var l = document.createElement(inline ? "style" : "link");
+    if (inline) l.textContent = text;
+    else { l.rel = "stylesheet"; l.href = href; }
+    l.__slHref = href;
     l.setAttribute("data-sl", "");
     var old = keptLink[fileOf(href)];
     keptLink[fileOf(href)] = l;
-    kept[href] = new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
-    if (old) kept[href].then(function () { if (old.href && kept[old.href]) delete kept[old.href]; old.remove(); });
+    kept[href] = inline ? Promise.resolve() : new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
+    if (old) kept[href].then(function () { var was = old.__slHref || old.href; if (was && kept[was]) delete kept[was]; old.remove(); });
     document.head.appendChild(l);
     return kept[href];
   };
@@ -1679,7 +1731,7 @@ export const CANVAS_BRIDGE = `
     var next = tpl.content.firstElementChild;
     if (!next) return;
     var links = Array.prototype.slice.call(next.querySelectorAll('link[rel="stylesheet"][href]'));
-    return Promise.all(links.map(function (l) { return keep(l.href); })).then(function () {
+    return Promise.all(links.map(function (l) { return keep(l.href); })).then(nextTurn).then(function () {
       links.forEach(function (l) { l.remove(); });
       var el = document.getElementById("shopify-section-" + id);
       if (!el) { post({ type: "missing", id: id }); return; }
@@ -1900,7 +1952,7 @@ export const CANVAS_BRIDGE = `
         if (drawn[id] !== html) return;
         var inPlace = false;
         try { inPlace = restartInPlace(id, html, els); } catch (e) { inPlace = false; }
-        if (!inPlace) return swap(id, html);
+        if (!inPlace) return bounded(swap(id, html), "restart");
       }).catch(function () {});
     }, restartIn);
   };
@@ -2435,13 +2487,91 @@ export const CANVAS_BRIDGE = `
     return true;
   };
   var groupOf = function (el) { var m = /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className || ""); return m ? m[1] : ""; };
-  var fresh = function (html) {
+  var fresh = function (html, sheets) {
     var tpl = document.createElement("template");
     tpl.innerHTML = html;
     var el = tpl.content.firstElementChild;
     if (!el) return null;
-    Array.prototype.slice.call(el.querySelectorAll('link[rel="stylesheet"][href]')).forEach(function (l) { keep(l.href); l.remove(); });
+    Array.prototype.slice.call(el.querySelectorAll('link[rel="stylesheet"][href]')).forEach(function (l) { keep(l.href, sheets ? sheets[l.getAttribute("href")] : undefined); l.remove(); });
     return el;
+  };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SECTION ADDED ARRIVES WITH ITS STYLES, AND THE PAGE MAKES ROOM
+    ═══════════════════════════════════════════════════════════════════════
+    The owner: "After I click it, it goes into the canvas with no delay, no
+    bump, no glitch, no flash." Measured (scripts/check-section-insert-
+    smooth.mjs) on a theme whose sections link their own stylesheet, as
+    Dawn's do: the section went in before its stylesheet had loaded and was
+    on screen unstyled for up to 27 frames, then grew by 900px when the file
+    came; every section under it was pushed down by its height in one frame
+    (a layout shift of 0.3 to 1.2); and the glide to it went to the wrong
+    place (A STICKY HEADER, below).
+
+    Now a section new to the page waits for its stylesheets before it goes
+    in: the builder hands over the text of the ones in the theme's files
+    (keep, above), so that wait is nothing, and only a stylesheet from
+    elsewhere is waited for. And a section the builder says is arriving
+    (added from the library: "reveal" with arrival) is played in as a
+    Storelib theme's canvas plays it (lib/website-builder/section-arrival.ts,
+    the same times and curve): the sections below it start where they were
+    and slide to their new place by transform, it fades up underneath them,
+    and the page scrolls, once and smoothly, only when its top is not on
+    screen already. Transform and opacity only; nothing moves with reduced
+    motion, and a scroll there is instant.
+  */
+  var ARRIVE_MS = 460, ARRIVE_SCROLL_MS = 320, ARRIVE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+  var arriving = {};
+  var sheetsReady = function (m) {
+    var waits = [];
+    (m.order || []).forEach(function (it) {
+      if (!it.html || document.getElementById("shopify-section-" + it.id)) return;
+      var tp = document.createElement("template");
+      tp.innerHTML = it.html;
+      Array.prototype.forEach.call(tp.content.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { waits.push(keep(l.href, m.sheets ? m.sheets[l.getAttribute("href")] : undefined)); });
+    });
+    return waits.length ? Promise.all(waits) : null;
+  };
+  var pageTops = function () {
+    var out = {};
+    Array.prototype.forEach.call(document.querySelectorAll(".shopify-section"), function (x) { if (x.id) out[x.id] = x.getBoundingClientRect().top + scrollY; });
+    return out;
+  };
+  var arrive = function (el, before) {
+    var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var cover = coverBottom();
+    var r = el.getBoundingClientRect();
+    var scrolls = false;
+    /* Its top on screen, below a sticky header, with room to see that something is there: the page stays where it is. */
+    if (!(r.top >= cover && r.top <= innerHeight - Math.min(140, (innerHeight - cover) * 0.25))) {
+      var top = Math.max(0, Math.round(r.top + scrollY - cover - 16));
+      if (Math.abs(scrollY - top) > 4) { scrollTo({ top: top, behavior: still ? "auto" : "smooth" }); scrolls = true; }
+    }
+    if (still || !el.animate) return;
+    var delay = scrolls ? ARRIVE_SCROLL_MS : 0;
+    var all = Array.prototype.slice.call(document.querySelectorAll(".shopify-section"));
+    var reach = scrollY + innerHeight * 2;
+    all.slice(all.indexOf(el) + 1).forEach(function (f) {
+      var was = before[f.id];
+      /* An overlay group's section (a pop-up, a bar fixed to the foot) is not in the page's flow: a transform would carry what it fixes. */
+      if (was === undefined || /shopify-section-group-overlay/.test(f.className || "")) return;
+      var now = f.getBoundingClientRect().top + scrollY;
+      var d = was - now;
+      if (Math.abs(d) < 1 || Math.min(was, now) > reach) return;
+      var cs = getComputedStyle(f);
+      if (cs.position === "fixed" || cs.position === "sticky") return;
+      f.animate([{ transform: "translate3d(0, " + d + "px, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: ARRIVE_MS, delay: delay, easing: ARRIVE_EASE, fill: "backwards" });
+    });
+    el.setAttribute("data-sl-arrival", "playing");
+    var a = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, delay: delay, easing: ARRIVE_EASE, fill: "backwards" });
+    a.finished.then(function () { el.setAttribute("data-sl-arrival", "done"); }, function () { el.setAttribute("data-sl-arrival", "done"); });
+  };
+  /* Said before the section is drawn; kept until the patch that puts it in. Not drawn here in time (a page drawn again behind this one), it is glided to as before. */
+  var expectArrival = function (id) {
+    if (!id) return;
+    if (document.getElementById("shopify-section-" + id)) { queue = queue.then(function () { revealSection(id); }).catch(function () {}); return; }
+    clearTimeout(arriving[id]);
+    arriving[id] = setTimeout(function () { delete arriving[id]; revealSection(id); }, 4000);
   };
   /*
     A section new to the page runs its own scripts once, as it would have had
@@ -2462,7 +2592,12 @@ export const CANVAS_BRIDGE = `
       old.replaceWith(s);
     });
   };
+  /* A section new to the page goes in with its stylesheets applied (A SECTION ADDED ARRIVES): waited for here, the whole patch at once after. */
   var patch = function (m) {
+    var ready = sheetsReady(m);
+    return ready ? ready.then(function () { return patchNow(m); }) : patchNow(m);
+  };
+  var patchNow = function (m) {
     /* The layout around the sections first (THE LAYOUT AROUND THE SECTIONS): a page that no longer matches its drawing is drawn again. */
     if (m.layout) {
       var laidOut = false;
@@ -2536,12 +2671,14 @@ export const CANVAS_BRIDGE = `
     var y = scrollY;
     var byId = function (id) { return document.getElementById("shopify-section-" + id); };
     var added = [];
+    /* Where everything was, for a section arriving (A SECTION ADDED ARRIVES): read before anything moves. */
+    var tops = m.order.some(function (x) { return arriving[x.id] && !byId(x.id); }) ? pageTops() : null;
     for (var i = 0; i < m.order.length; i++) {
       var it = m.order[i];
       var el = byId(it.id);
       if (!el) {
         if (!it.html) return reload("missing " + it.id);
-        el = fresh(it.html);
+        el = fresh(it.html, m.sheets);
         if (!el) continue;
         drawn[it.id] = it.html;
         added.push(el);
@@ -2568,6 +2705,13 @@ export const CANVAS_BRIDGE = `
       rewatch([], el);
     });
     if (scrollY !== y) scrollTo(0, y);
+    if (tops) added.forEach(function (el) {
+      var id = el.getAttribute("data-section-id") || el.id.slice(16);
+      if (!arriving[id]) return;
+      clearTimeout(arriving[id]);
+      delete arriving[id];
+      arrive(el, tops);
+    });
     if (selected.section) mark(selected.section, selected.block, false);
     reportSoon();
   };
@@ -2597,19 +2741,40 @@ export const CANVAS_BRIDGE = `
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
   };
+  /* When the person last moved the page themselves (a wheel, a finger, a key): Date.now(), as the builder's clock reads it. */
+  var personScrolledAt = 0;
+  var personScrolls = function () { personScrolledAt = Date.now(); };
+  addEventListener("wheel", personScrolls, { passive: true, capture: true });
+  addEventListener("touchmove", personScrolls, { passive: true, capture: true });
+  addEventListener("keydown", function (e) { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) personScrolls(); }, true);
+  /*
+    A STICKY HEADER: how much of the top of the page it covers. Only a bar
+    that is painted counts: the header group's children include the menu
+    drawer and the search overlay, fixed to the whole window and hidden until
+    opened, and those were taken for a header as tall as the window, so a
+    section added was glided to 850px above itself, off screen (scripts/
+    check-section-insert-smooth.mjs, Materia's drawer).
+  */
+  var coverBottom = function () {
+    var cover = 0;
+    var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
+    for (var i = 0; i < tops.length; i++) {
+      var cs = getComputedStyle(tops[i]);
+      if (cs.position !== "sticky" && cs.position !== "fixed") continue;
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue;
+      var r = tops[i].getBoundingClientRect();
+      if (r.top > 1 || r.bottom <= 0 || r.height === 0 || r.height > innerHeight * 0.4) continue;
+      cover = Math.max(cover, r.bottom);
+    }
+    return cover;
+  };
   var revealSection = function (id) {
     if (!id) return;
     var tries = 0;
     var go = function () {
       var el = document.getElementById("shopify-section-" + id) || document.querySelector('[data-section-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
       if (!el) { if (++tries < 10) setTimeout(go, 120); return; }
-      var cover = 0;
-      var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
-      for (var i = 0; i < tops.length; i++) {
-        var cs = getComputedStyle(tops[i]);
-        if (cs.position === "sticky" || cs.position === "fixed") { var r = tops[i].getBoundingClientRect(); if (r.top <= 1) cover = Math.max(cover, r.bottom); }
-      }
-      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - cover - 16);
+      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - coverBottom() - 16);
       var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (Math.abs(scrollY - top) > 4) scrollTo({ top: top, behavior: still ? "auto" : "smooth" });
     };
@@ -2791,6 +2956,7 @@ export const CANVAS_BRIDGE = `
     }
   };
   window.addEventListener("message", function (e) {
+    if (window.__slFrom && e.origin !== window.__slFrom) return;
     var m = e.data;
     if (!m || m.storelib !== 1) return;
     if (m.type === "hold-view") { holdView(!!m.on); return; }
@@ -2816,7 +2982,7 @@ export const CANVAS_BRIDGE = `
     if (m.type === "patch" || m.type === "edits" || m.type === "section") holdStill();
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
-      queue = queue.then(function () { patch(m); holdStill(true); }).catch(function (err) { reload(String(err)); });
+      queue = queue.then(function () { return bounded(Promise.resolve(patch(m)), "patch").then(function () { holdStill(true); }); }).catch(function (err) { reload(String(err)); });
     } else if (m.type === "edits") {
       /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
       queue = queue.then(function () {
@@ -2843,7 +3009,7 @@ export const CANVAS_BRIDGE = `
         if (m.edit) { try { done = edit(m.id, m.edit, html); } catch (err) { done = false; } }
         if (!done) { try { done = restyle(m.id, html, before); } catch (err) { done = false; } }
         if (!done) { try { done = morph(m.id, html, before); } catch (err) { done = false; } }
-        if (!done) return Promise.resolve(swap(m.id, html, before)).then(function () { sectionLoaded(m.id); });
+        if (!done) return bounded(Promise.resolve(swap(m.id, html, before)), "section").then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});
     } else if (m.type === "section") {
@@ -2856,7 +3022,7 @@ export const CANVAS_BRIDGE = `
         try { done = restyle(m.id, m.html, m.prev); } catch (err) { done = false; }
         if (!done) try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
         restartIn = 700;
-        if (!done) return Promise.resolve(swap(m.id, m.html, m.prev)).then(function () { sectionLoaded(m.id); });
+        if (!done) return bounded(Promise.resolve(swap(m.id, m.html, m.prev)), "section").then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});
     } else if (m.type === "preview-order") {
@@ -2870,6 +3036,10 @@ export const CANVAS_BRIDGE = `
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
     } else if (m.type === "reveal") {
       /* Round AH: a section just added, pasted or written by the AI, brought smoothly to the top, below a sticky header, once it is drawn. */
+      /* Not when it comes at the end of a run the person scrolled away during (round 14): the page is where they took it. */
+      if (typeof m.since === "number" && personScrolledAt >= m.since) return;
+      /* Added from the library: played in by the patch that draws it, with the page making room (A SECTION ADDED ARRIVES). */
+      if (m.arrival) { expectArrival(String(m.id || "")); return; }
       queue = queue.then(function () { revealSection(String(m.id || "")); }).catch(function () {});
     } else if (m.type === "inspect") {
       setInspect(m.on);
@@ -2933,7 +3103,7 @@ export const CANVAS_BRIDGE = `
  */
 export const CANVAS_REQUESTS = `
 (function () {
-  var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  var post = function (m) { m.storelib = 1; try { parent.postMessage(m, window.__slTo || "*"); } catch (e) {} };
   /*
     THE SITE'S ADDRESSES ARE ANSWERED BY THE BUILDER. This page has no origin
     of its own and is drawn on the builder's host, so /cart/add.js,
@@ -3175,6 +3345,7 @@ export const CANVAS_REQUESTS = `
   addEventListener("pointerdown", function (e) { pressed = { at: Date.now(), checkout: isCheckout(e.target) || /check ?out|buy (it )?now/i.test(String((e.target && e.target.closest && (e.target.closest("button, a, [role=button]") || {}).className) || "")) }; }, true);
   addEventListener("pagehide", function () { post({ type: "leaving", checkout: pressed.checkout && Date.now() - pressed.at < 3000 }); });
   addEventListener("message", function (e) {
+    if (window.__slFrom && e.origin !== window.__slFrom) return;
     var m = e.data;
     if (!m || m.storelib !== 1 || m.type !== "response") return;
     var done = waiting[m.id];
@@ -3617,7 +3788,7 @@ export const CANVAS_SWITCH = `
   chosen M stayed with S's price, id and label. pushState and replaceState
   keep the state and leave the address as it is when the browser refuses it.
 */
-export const CANVAS_HEAD = `<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
+export const CANVAS_HEAD = `<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},window.__slTo||"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}

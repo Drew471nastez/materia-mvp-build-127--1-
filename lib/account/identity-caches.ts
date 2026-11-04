@@ -20,17 +20,20 @@ export interface IdentityCacheDeps {
   expireSite: (creatorId: string) => Promise<void>
   /** The published OnePage's held owner and row (lib/onepage/public-cache), which show the same name and photo. */
   expireOnePage?: (userId: string) => Promise<void>
+  /** The CDN's copy of storelib.com/<handle> and its product pages (lib/storefront/creator-page-purge). */
+  expireCreatorPages?: (userId: string) => Promise<void>
 }
 
 const creatorTagOf = (id: string) => `creator:${id}`
 
 async function nextDeps(): Promise<IdentityCacheDeps> {
-  const [{ revalidateTag }, { revalidatePublishedSite }, { onePageChangedFor }] = await Promise.all([
+  const [{ revalidateTag }, { revalidatePublishedSite }, { onePageChangedFor }, { creatorPagesChanged }] = await Promise.all([
     import("next/cache"),
     import("@/lib/website-builder/published-site"),
     import("@/lib/onepage/public-cache"),
+    import("@/lib/storefront/creator-page-purge"),
   ])
-  return { expireTag: (tag) => revalidateTag(tag, { expire: 0 }), expireSite: revalidatePublishedSite, expireOnePage: (userId) => onePageChangedFor(userId) }
+  return { expireTag: (tag) => revalidateTag(tag, { expire: 0 }), expireSite: revalidatePublishedSite, expireOnePage: (userId) => onePageChangedFor(userId), expireCreatorPages: (userId) => creatorPagesChanged({ userId }) }
 }
 
 /** Never throws: the profile is saved already, and every cache catches up on its own. */
@@ -43,6 +46,8 @@ export async function identityChanged(ids: { userId: string; creatorId: string |
       d.expireTag(creatorTagOf(ids.creatorId))
       await d.expireSite(ids.creatorId)
     }
+    /* And the CDN's minute-long copy of the creator page and its product pages (round 48, lib/storefront/creator-page-purge). */
+    if (d.expireCreatorPages) await d.expireCreatorPages(ids.userId)
   } catch {
     /* Outside a request that can revalidate: each cache's own time does it. */
   }

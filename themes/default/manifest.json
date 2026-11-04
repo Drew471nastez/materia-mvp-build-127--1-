@@ -51,6 +51,7 @@
     "faq_accordion",
     "faq_columns",
     "faq_cta",
+    "blog_featured",
     "promo_newsletter",
     "promo_announcement",
     "promo_countdown",
@@ -148,6 +149,7 @@
     "faq_accordion",
     "faq_columns",
     "faq_cta",
+    "blog_featured",
     "promo_newsletter",
     "promo_announcement",
     "promo_countdown",
@@ -171,6 +173,7 @@
     "about": "About",
     "faq": "FAQ",
     "marketing": "Marketing",
+    "blog": "Blog",
     "overlay": "Overlay",
     "structure": "Structure",
     "yours": "Created"
@@ -219,6 +222,10 @@
     {
       "id": "marketing",
       "label": "Marketing"
+    },
+    {
+      "id": "blog",
+      "label": "Blog"
     },
     {
       "id": "overlay",

@@ -30,7 +30,7 @@ import { baseUrl, preferencesUrl } from "./urls"
 
 export type { WorkSummary }
 
-export async function runNotificationWork(budgetMs: number): Promise<WorkSummary> {
+export async function runNotificationWork(budgetMs: number, opts: { hardStopMs?: number } = {}): Promise<WorkSummary> {
   const db = createAdminClient()
   const store = supabaseNotifyStore(db)
   const provider = emailProvider()
@@ -53,6 +53,7 @@ export async function runNotificationWork(budgetMs: number): Promise<WorkSummary
       inApp: inAppChannel(store, { render: renderInApp, baseUrl }),
     },
     budgetMs,
+    opts,
   )
   if (summary.events || summary.jobs || !summary.available) {
     notifyLog("info", "run", { ...summary })

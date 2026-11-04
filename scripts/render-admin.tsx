@@ -4,7 +4,8 @@
  * /api/admin/platform/<view> answers, including long names, big numbers and
  * a figure that could not be read. The view is picked by `?view=` in the
  * address, `&dialog=1` opens the refund confirmation, `&menu=1` the phone menu,
- * and `?login=1` renders the sign in.
+ * `?login=1` renders the sign in, and `?view=audience&ai=missing` the AI
+ * assistants group before SQL part 347 has run.
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
@@ -225,6 +226,26 @@ const audience: AudiencePayload = {
   visitors30: 402_118,
   sources: ["direct", "search", "social", "referral", "email"].map((n, i) => ({ name: n, views: 500_000 - i * 90_000, visitors: 200_000 - i * 30_000 })),
   countries: ["Romania", "United States", "United Kingdom", "Germany", "Moldova"].map((n, i) => ({ code: n.slice(0, 2).toUpperCase(), name: n, views: 300_000 - i * 40_000, orders: 900 - i * 100, gross: 4_000_000 - i * 500_000 })),
+  ai: {
+    rows: [
+      { key: "chatgpt", label: "ChatGPT", siteVisits: 1_120, views: 4_210, visitors: 3_002, signups: 41, paidPlan: 6, hasSale: 9 },
+      { key: "perplexity", label: "Perplexity", siteVisits: 286, views: 812, visitors: 655, signups: 7, paidPlan: 1, hasSale: 2 },
+      { key: "copilot", label: "Copilot", siteVisits: 64, views: 230, visitors: 201, signups: 2, paidPlan: 0, hasSale: 0 },
+      { key: "mistral", label: "Le Chat (Mistral)", siteVisits: 9, views: 118, visitors: 97, signups: 0, paidPlan: 0, hasSale: 0 },
+    ],
+    siteVisits: 1_479,
+    /* Round 46: each assistant's top storelib.com pages, a long one among them. */
+    landings: [
+      { key: "chatgpt", label: "ChatGPT", path: "/alternatives/gumroad", visits: 480 },
+      { key: "chatgpt", label: "ChatGPT", path: "/pricing", visits: 310 },
+      { key: "chatgpt", label: "ChatGPT", path: "/blog/how-to-sell-notion-templates-and-digital-planners-without-a-website-of-your-own", visits: 96 },
+      { key: "perplexity", label: "Perplexity", path: "/alternatives/payhip", visits: 140 },
+      { key: "perplexity", label: "Perplexity", path: "/", visits: 88 },
+      { key: "copilot", label: "Copilot", path: "/features", visits: 41 },
+      { key: "mistral", label: "Le Chat (Mistral)", path: "/sell/digital-art", visits: 9 },
+    ],
+    views: 5_370, visitors: 3_955, signups: 50, paidPlan: 7, hasSale: 11, signupsAll: 1_204,
+  },
 }
 
 const people: PeoplePayload = {
@@ -283,7 +304,7 @@ function Probe() {
   if (params.get("login") === "1") return <AdminLogin />
   return (
     <Shell current={route.view} onNavigate={() => {}} live={143} busy={false} onSignOut={() => {}}>
-      {renderView(route, FIXTURES[route.view] as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true) })}
+      {renderView(route, (route.view === "audience" && params.get("ai") === "missing" ? { ...audience, ai: { ...audience.ai!, siteVisits: null, landings: [], rows: audience.ai!.rows.map((r) => ({ ...r, siteVisits: 0 })) } } : FIXTURES[route.view]) as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true) })}
       <ActionDialog action={dialog ? { kind: "refund", orderId: orders[0].id, label: "Brush set for Procreate" } : null} onClose={() => setDialog(false)} onDone={() => setDialog(false)} />
     </Shell>
   )

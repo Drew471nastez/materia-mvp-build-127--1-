@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordCronRun } from "@/lib/observability/report"
+import { runBudgetMs, runDeadline } from "@/lib/observability/run-deadline"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { runCommunityJobs } from "@/lib/communities/server/notify"
@@ -42,27 +43,43 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const RUN_BUDGET_MS = 45_000
+/**
+ * ONE CLOCK FOR THE RUN (lib/observability/run-deadline.ts). Each step used to
+ * count its own budget from its own start (10 + 45 + 10 + 15 s, about 80 s in
+ * a 60 s function), so a busy queue had the platform kill the run during the
+ * deletions or the automations. Now the clock starts with the request, the run
+ * ends by 52 s, the job queue stops claiming by JOBS_UNTIL_MS so the later
+ * steps get a turn, and each later step takes what is left (a step with under
+ * two seconds left is skipped; it resumes next run from the database).
+ */
+const JOBS_UNTIL_MS = 35_000
 const NO_STORE = { "Cache-Control": "no-store" }
 
 async function runJob(request: Request) {
+  const run = runDeadline(runBudgetMs(maxDuration))
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
   const on = await communitiesEnabled()
   try {
     const db = createAdminClient()
     /* SCHEDULED POSTS that are due go up first (round 32), so the announcements they queue are sent by this same run. A community post, so only while communities are on; ten seconds at most. */
-    const posts = on ? await publishDuePosts(db, Date.now(), 10_000).catch(() => ({ published: 0, failed: 0, available: false })) : { published: 0, failed: 0, available: false }
-    const summary = await runCommunityJobs(db, on ? { budgetMs: RUN_BUDGET_MS } : { budgetMs: RUN_BUDGET_MS, kinds: PLATFORM_JOB_KINDS })
+    const postsMs = on ? run.share(10_000) : 0
+    const posts = postsMs > 0 ? await publishDuePosts(db, Date.now(), postsMs).catch(() => ({ published: 0, failed: 0, available: false })) : { published: 0, failed: 0, available: false }
+    /* While communities are off the platform jobs are the whole run, so they may use all of it. */
+    const jobsMs = on ? run.shareUntil(JOBS_UNTIL_MS, RUN_BUDGET_MS) : run.share(RUN_BUDGET_MS)
+    const summary = await runCommunityJobs(db, on ? { budgetMs: jobsMs } : { budgetMs: jobsMs, kinds: PLATFORM_JOB_KINDS })
     /* SEATS HELD FOR A CHECKOUT NOBODY FINISHED go back, so a sold out event is really sold out
        (lib/communities/server/event-tickets.ts releaseDeadHolds). One statement, nothing before part 105. */
-    const seatsFreed = on ? await releaseDeadHolds(db).catch(() => 0) : 0
+    const seatsFreed = on && run.share(10_000) > 0 ? await releaseDeadHolds(db).catch(() => 0) : 0
     /* SCHEDULED DELETIONS (round 33): memberships stopped, due communities deleted; nothing before part 202. */
-    const deletions = on ? await runDueDeletions(db, 10_000).catch(() => ({ available: false, checked: 0, completed: 0, stopped: 0, failed: 0 })) : { available: false, checked: 0, completed: 0, stopped: 0, failed: 0 }
+    const deletionsMs = on ? run.share(10_000) : 0
+    const deletions = deletionsMs > 0 ? await runDueDeletions(db, deletionsMs).catch(() => ({ available: false, checked: 0, completed: 0, stopped: 0, failed: 0 })) : { available: false, checked: 0, completed: 0, stopped: 0, failed: 0 }
     /*
       AUTOMATED CHAT MESSAGES (round 38, part 272): broadcasts that are due and days after joining add their next page of
       members, then at most 300 messages go out (150 for one community), each once; fifteen seconds at most.
     */
-    const automations = on ? await runChatAutomations(db, Date.now(), 15_000).catch(() => ({ available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 })) : { available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 }
+    const automationsMs = on ? run.share(15_000) : 0
+    const automations = automationsMs > 0 ? await runChatAutomations(db, Date.now(), automationsMs).catch(() => ({ available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 })) : { available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 }
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
     const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed + posts.published + posts.failed + deletions.stopped + deletions.completed + deletions.failed + automations.queued + automations.sent + automations.failed > 0
     if (didWork) console.log(

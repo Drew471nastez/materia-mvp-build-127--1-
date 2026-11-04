@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
  *   GET   { states: { [appId]: "on" | "off" | "setup" | null }, hrefs: { [appId]: string } }
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const physical = await isPhysicalCommerceEnabled().catch(() => false)
   const { facts, codeHref } = await readAppFacts(c.db, c.creatorId, physical)

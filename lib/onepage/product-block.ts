@@ -12,8 +12,9 @@
  *   checkout   the product's checkout. What every block did before round 10
  *              ("buy buttons must open the product's checkout directly"), so
  *              it is also what a block with no setting does. A product that
- *              ships has no one-step checkout: its page, where its options
- *              and delivery are chosen.
+ *              ships went to its page until round 49; it now goes to its
+ *              store website's checkout too (lib/onepage/shipped-checkout),
+ *              where its option, quantity and delivery are chosen.
  *   page       the product's own page, /p/<slug>.
  *   sheet      the product, in a sheet over this page (a centred window on a
  *              computer): pictures, price, options and its buy button. The
@@ -78,24 +79,30 @@ export function productPageUrl(slug: string | null | undefined): string {
   return slug ? `/p/${encodeURIComponent(slug)}` : "#"
 }
 
+/**
+ * A OnePage's link to the checkout on storelib.com. `src=onepage` (round 49) names where it began for the order's
+ * Source, whatever the referrer says; for a product that ships the page sends it on to the store website's checkout
+ * (app/checkout/page.tsx), with no option named so the buyer chooses one there.
+ */
 export function productCheckoutUrl(productId: string, variantId?: string | null): string {
   const q = new URLSearchParams({ productId })
   if (variantId) q.set("variantId", variantId)
+  q.set("src", "onepage")
   return `/checkout?${q.toString()}`
 }
 
 /**
  * Where the block's link points, which is also what a crawler and a long press
- * read: the checkout for a download or a course, the product page for anything
- * that ships, and the product page for "page" and "sheet" (a sheet is opened
- * by the page's script; without it the link still lands on the product).
+ * read: the checkout for a download, a course or (round 49) a product that
+ * ships, and the product page for "page" and "sheet" (a sheet is opened by
+ * the page's script; without it the link still lands on the product).
  */
 export function productHref(data: Pick<ProductBlockData, "product_id" | "product_slug" | "product_type" | "tap_action">): string {
   const page = productPageUrl(data.product_slug)
   if (!data.product_id) return page
   const action = productTapAction(data)
   if (action === "page" || action === "sheet") return page
-  return shipsProduct(data.product_type) ? page : productCheckoutUrl(data.product_id)
+  return productCheckoutUrl(data.product_id)
 }
 
 /** What happens on a tap, in order of what wins. */
@@ -119,7 +126,8 @@ export function productSheetHash(slug: string | null | undefined): string | null
  * What the editor calls the three things a tap can do. "instant" is the
  * stored `checkout` (straight to paying: in the window on the page for a
  * download or a course with instant checkout on, else the checkout page; a
- * product that ships goes to its page, where its options are chosen).
+ * product that ships, its store website's checkout, where its options are
+ * chosen, round 49).
  */
 export type ProductTapChoice = "sheet" | "instant" | "page"
 export const PRODUCT_TAP_CHOICES: readonly ProductTapChoice[] = ["sheet", "instant", "page"]

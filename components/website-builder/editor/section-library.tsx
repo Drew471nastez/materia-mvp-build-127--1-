@@ -1699,11 +1699,40 @@ export const SectionLibrary = memo(function SectionLibrary({
    * keep the browser from ever committing the close's first frame, and a
    * transition whose start is never committed does not run.
    */
+  /*
+    ON A COMPUTER, THE DIALOG STARTS CLOSING IN THE FRAME AFTER THE CLICK,
+    AND THE EDITOR IS DRAWN ONCE FOR THE CLOSE AND THE ADD (scripts/check-
+    section-insert-smooth.mjs). Telling the editor the library had closed,
+    inside the click, drew the whole editor there and then: 130 to 260ms
+    before the first frame of the close at a quarter speed, then the whole
+    editor again for the add. The closed state is put on the dialog's own
+    element instead (its exit is opacity and transform, run by the
+    compositor once that frame is drawn, and the dialog stops taking clicks
+    with it, so a second click cannot add twice), and the editor hears of the
+    close and the add together, in one render, just after that frame. A phone's
+    sheet closes as before: its movement belongs to the sheet.
+
+    The add is said first. On a Storelib theme the canvas draws the section
+    at once and the editor takes in the add, and the close with it, once
+    the section has arrived (the editor's addSection, A SECTION JUST ADDED,
+    CANVAS FIRST).
+  */
   const handleAdd = useCallback((type: string, presetIndex = 0) => {
     hapticTap("light")
+    const layer = phone ? null : document.querySelector<HTMLElement>("[data-section-library-layer]")
+    if (layer) {
+      layer.setAttribute("data-state", "closed")
+      layer.setAttribute("inert", "")
+      /* In a task after that frame, so the editor's render cannot hold the frame the exit starts in. */
+      requestAnimationFrame(() => setTimeout(() => {
+        onAddSection(type, presetIndex)
+        onOpenChange(false)
+      }, 0))
+      return
+    }
     onOpenChange(false)
     requestAnimationFrame(() => onAddSection(type, presetIndex))
-  }, [onAddSection, onOpenChange])
+  }, [onAddSection, onOpenChange, phone])
 
   const empty = searching
     ? tt("Nothing matches “{value}”", { value: query.trim() })

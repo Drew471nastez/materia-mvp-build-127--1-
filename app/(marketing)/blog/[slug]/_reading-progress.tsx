@@ -1,53 +1,68 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useState } from "react"
+/**
+ * HOW FAR THROUGH THE ARTICLE, AS A 2PX LINE UNDER THE HEADER.
+ *
+ * Measures the article itself (the element marked data-blog-article), not
+ * the page, so the line is full at the article's last line rather than at
+ * the bottom of the footer. Its place is measured once and again only when
+ * something resizes (ResizeObserver), never while scrolling; a scroll does
+ * one write per frame, a transform on a layer of its own, so it neither
+ * reflows nor repaints the page. It sits under the header, whose height is
+ * read the same way. Hidden from assistive technology: the contents list
+ * says where the reader is in words.
+ */
+import { useEffect, useRef } from "react"
 
-export default function ReadingProgress() {
-  const barRef = useRef<HTMLDivElement>(null)
-  const rafRef = useRef<number>(0)
-  const [headerHeight, setHeaderHeight] = useState(0)
-
-  const update = useCallback(() => {
-    if (!barRef.current) return
-    const total = document.documentElement.scrollHeight - window.innerHeight
-    const pct = total > 0 ? Math.min((window.scrollY / total) * 100, 100) : 0
-    barRef.current.style.transform = `scaleX(${pct / 100})`
-  }, [])
+export default function ReadingProgress({ target = "[data-blog-article]", header: headerSelector = "#platform-header-root" }: { target?: string; header?: string }) {
+  const bar = useRef<HTMLDivElement>(null)
+  const track = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Measure header height so bar sits below it on mobile
-    function measureHeader() {
-      const header = document.getElementById("platform-header-root")
-      if (header) {
-        setHeaderHeight(header.getBoundingClientRect().height)
-      }
-    }
-    measureHeader()
-    window.addEventListener("resize", measureHeader, { passive: true })
+    const el = document.querySelector<HTMLElement>(target)
+    const header = document.querySelector<HTMLElement>(headerSelector)
+    const barEl = bar.current
+    const trackEl = track.current
+    if (!barEl || !trackEl) return
+    let start = 0
+    let span = 1
+    let frame = 0
 
-    function onScroll() {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(update)
+    const paint = () => {
+      frame = 0
+      const p = Math.min(1, Math.max(0, (window.scrollY - start) / span))
+      barEl.style.transform = `scaleX(${p})`
     }
+    const measure = () => {
+      const top = el ? el.getBoundingClientRect().top + window.scrollY : 0
+      const height = el ? el.offsetHeight : document.documentElement.scrollHeight
+      const headerH = header ? header.getBoundingClientRect().height : 0
+      trackEl.style.transform = `translateY(${headerH}px)`
+      start = top - headerH
+      span = Math.max(1, height - window.innerHeight + headerH)
+      paint()
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(paint)
+    }
+
+    const ro = new ResizeObserver(() => measure())
+    if (el) ro.observe(el)
+    if (header) ro.observe(header)
+    measure()
     window.addEventListener("scroll", onScroll, { passive: true })
-    update()
+    window.addEventListener("resize", measure, { passive: true })
     return () => {
+      ro.disconnect()
       window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", measureHeader)
-      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener("resize", measure)
+      if (frame) cancelAnimationFrame(frame)
     }
-  }, [update])
+  }, [target, headerSelector])
 
   return (
-    <div
-      className="fixed left-0 right-0 z-[45] h-[3px] bg-transparent pointer-events-none"
-      style={{ top: headerHeight > 0 ? `${headerHeight}px` : "0px" }}
-    >
-      <div
-        ref={barRef}
-        className="h-full bg-purple-600 origin-left will-change-transform"
-        style={{ transform: "scaleX(0)", transition: "transform 60ms linear" }}
-      />
+    <div ref={track} aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[45] h-[2px]" data-blog-progress="">
+      <div ref={bar} className="h-full w-full origin-left bg-[#7c3aed] will-change-transform" style={{ transform: "scaleX(0)" }} />
     </div>
   )
 }

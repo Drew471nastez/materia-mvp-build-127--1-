@@ -60,4 +60,6 @@ export function exploreCatalogueChanged() {
 /** A product was taken down: nobody is shown the held copy again. */
 export function exploreCatalogueTakenDown() {
   revalidateTag(EXPLORE_CATALOGUE_TAG, { expire: 0 })
+  /* And the CDN's copy of Explore (round 49, next.config.mjs `Vercel-Cache-Tag: explore`), after the data, so the next render reads the list without it. */
+  revalidateTag("explore", { expire: 0 })
 }

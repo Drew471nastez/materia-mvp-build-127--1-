@@ -118,9 +118,9 @@ async function main() {
       const src = code(path)
       /* Changed on purpose (round AA, Team): storeIdFor (lib/team/server) is auth.getUser() and then
          the store this account owns, or works in as a member whose role has orders, checked in the database. */
-      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || (/await storeIdFor\("orders"\)/.test(src) && /if \(store\.ok === false\)/.test(src))
+      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || (/await storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(src) && /if \(store\.ok === false\)/.test(src))
         /* shopCaller("orders") (lib/physical/auth): the same sign in and store check, for a route that only reads counts. */
-        || (/await shopCaller\("orders"\)/.test(src) && /if \(c instanceof NextResponse\) return c/.test(src))
+        || (/await shopCaller\("orders"(?:, \{ read: true \})?\)/.test(src) && /if \(c instanceof NextResponse\) return c/.test(src))
       check(`${path} asks who is signed in`, who)
       if (path.includes("[id]")) {
         check(`  and only acts on an order of theirs`, /await ownedOrderLines\(admin, creatorId, id\)/.test(src) && /if \(!lines\) return NextResponse\.json\(\{ error: "This order was not found\." \}, \{ status: 404 \}\)/.test(src))
@@ -148,7 +148,8 @@ async function main() {
     check("only a paid order can be refunded", /if \(order\.status !== "completed" && order\.status !== "refunded"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
     check("  and a partly refunded one only up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refund))
     const page = code("app/app/orders/sales/page.tsx")
-    check("a refund on one item of a basket does not mark the whole basket", /if \(group\.length > 1 && !charge\.refunded\) continue/.test(page))
+    /* Changed on purpose (rel-commerce, database audit F8): a found refund goes through lib/stripe/refund-sync, as the charge.refunded webhook does, which applies it to the row it names or shares it across the basket, each refund once, with its ledger line. */
+    check("a refund on one item of a basket does not mark the whole basket", /await syncChargeRefund\(admin, stripe, charge\)/.test(page) && !/update\(\{ status: "refunded" \}\)/.test(page))
   }
 
   console.log("\nSaving a file, in a browser and in the apps")

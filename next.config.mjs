@@ -1,20 +1,80 @@
+import { readFileSync } from "node:fs"
 /**
- * The cookie a Supabase session is kept in (lib/supabase/session-jar.ts
- * storedSessionKey), and its first chunk when it is split: a request with
- * either is somebody's. Read at build time, as the headers below are.
- * Empty when the address is unknown, and then Explore has no shared rule.
+ * ===========================================================================
+ *  CREATOR PAGES, PRODUCT PAGES AND EXPLORE AT THE EDGE, FOR EVERYBODY (round 49)
+ * ===========================================================================
+ * Load-tested on a local production build with a Supabase stub (round 48),
+ * /<handle> and /<handle>/<product> were the platform's bottleneck: every
+ * visit a full render, about 20 a second per instance, 11 database round
+ * trips each. Round 48 let the CDN hold a stranger's copy and sent everybody
+ * else to a personal address by a rewrite in the proxy; on Vercel the CDN
+ * keys its copy on the address the browser asked for, so signed in visitors
+ * and buyers were served the stranger's copy, and it was reverted (244bdca).
+ *
+ * ROUND 49 DOES NOT SEPARATE ANYBODY: THE PAGES ARE THE SAME FOR EVERYBODY.
+ * Their render reads no cookie and no request header (tests/cdnpages-r49
+ * pins it, and scripts/check-creator-page-cache.mjs measures the bytes on a
+ * production build): the owner's Edit, a buyer's Download and Contact, the
+ * guest buyer's copy, a team member's controls and Explore's For you are
+ * asked for by the browser after the page loads, from private routes. Each
+ * language of a creator page is its own address (?lang=, the proxy sends a
+ * visitor there: lib/markets/creator-page-language-step). So one copy per
+ * address is right for every visitor, and the CDN may hold it whoever asked.
+ *
+ * Vercel-CDN-Cache-Control, not Cache-Control: on Vercel a dynamic page's
+ * own `private, no-cache` wins over a Cache-Control set here (measured live
+ * in round 48), and Vercel's CDN reads Vercel-CDN-Cache-Control first and
+ * never passes it on, so browsers still revalidate every time. Sixty
+ * seconds, served stale for five minutes while it is drawn again, and taken
+ * down at once by a save: Vercel-Cache-Tag names the handle, and
+ * lib/storefront/creator-page-purge expires that tag and the path.
+ *
+ * Never held: a React Server Components request (the `rsc` header: a client
+ * side move or a prefetch, whose payload depends on the router state the
+ * browser sends), the editor's canvas (?embedded=1), whose save must show at
+ * once, and a scheme being tried in Edit profile (?scheme=). Only on
+ * storelib.com: a creator's subdomain or own domain has rules of its own
+ * (proxy.ts). Vercel does not store a response that sets a cookie.
  */
-const EXPLORE_SIGNED_IN_COOKIES = (() => {
+const RESERVED_FIRST_SEGMENTS = (() => {
   try {
-    const key = `sb-${new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname.split(".")[0]}-auth-token`
-    return [key, `${key}.0`]
+    const src = readFileSync(new URL("./lib/routes/reserved-segments.ts", import.meta.url), "utf8")
+    const names = [...src.matchAll(/^\s*"([^"]+)",/gm)].map((m) => m[1].toLowerCase())
+    return names.length > 50 ? names : null
   } catch {
-    return []
+    return null
   }
 })()
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+/* (?:/|$), not $: inside the address's pattern a $ is the end of the whole path, and /p/<slug> would have passed as a handle "p". */
+const HANDLE_SEGMENT = RESERVED_FIRST_SEGMENTS ? `(?!(?:${RESERVED_FIRST_SEGMENTS.map(reEscape).join("|")})(?:/|$))[^/.]+` : null
+const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
+export const EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"
+const NEVER_HELD = [
+  { type: 'header', key: 'rsc' },
+  { type: 'query', key: 'embedded' },
+  { type: 'query', key: 'scheme' },
+]
+/* Next anchors `has` values as ^value$, so the alternatives are grouped: unanchored, "localhost" would match any host containing it. */
+const edgeRule = (source, tag) => ({
+  source,
+  has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }],
+  missing: NEVER_HELD,
+  headers: [
+    { key: 'Vercel-CDN-Cache-Control', value: EDGE_PAGE },
+    { key: 'Vercel-Cache-Tag', value: tag },
+  ],
+})
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * THE PROXY DROPS A TRAILING SLASH, NOT NEXT (lib/seo/one-hop.ts), so
+   * www.storelib.com/pricing/ is one 308 to storelib.com/pricing rather than
+   * two hops. Every path the proxy's matcher leaves out is a file under
+   * /_next or an image, which never ends in a slash.
+   */
+  skipTrailingSlashRedirect: true,
   /**
    * THE COVER'S BROWSER. @sparticuz/chromium reads a compressed Chromium out
    * of its own bin/ folder at run time, and puppeteer-core loads it with
@@ -282,35 +342,17 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
-      /**
-       * Explore, at the edge for a minute, FOR A STRANGER ONLY. The page is
-       * drawn for whoever asks: somebody signed in with recommendations on
-       * gets "For you", ordered by what they bought and saved (lib/explore/
-       * interests). This rule used to apply whoever asked, and a page's own
-       * Cache-Control never replaces one set here (next/dist/server/
-       * send-payload.js: only `if (!res.getHeader('Cache-Control'))`), so a
-       * signed in person's ordering could be held by the CDN and handed to
-       * everybody for a minute. Now the shared rule needs the request to
-       * carry no Supabase session (EXPLORE_SIGNED_IN_COOKIES), and a request
-       * that carries one is answered `private, no-store`, so only a
-       * stranger's page is ever held. (A CDN keys on the address, not the
-       * cookie, so a signed in person may still be handed the stranger's
-       * copy: the plain Explore, never anybody else's.)
-       */
-      ...(EXPLORE_SIGNED_IN_COOKIES.length
+      /*
+        Creator pages, product pages and Explore: one copy for everybody (round 49, EDGE_PAGE above).
+        The tag is the address's own handle; lib/storefront/creator-page-purge expires `creator-page-<handle>`.
+      */
+      ...(HANDLE_SEGMENT
         ? [
-            {
-              source: '/explore/:path*',
-              missing: EXPLORE_SIGNED_IN_COOKIES.map((key) => ({ type: 'cookie', key })),
-              headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
-            },
-            ...EXPLORE_SIGNED_IN_COOKIES.map((key) => ({
-              source: '/explore/:path*',
-              has: [{ type: 'cookie', key }],
-              headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
-            })),
+            edgeRule(`/:handle(${HANDLE_SEGMENT})`, 'creator-page-:handle'),
+            edgeRule(`/:handle(${HANDLE_SEGMENT})/:product((?!links$)[^/.]+)`, 'creator-page-:handle'),
           ]
         : []),
+      edgeRule('/explore/:path*', 'explore'),
       {
         /**
          * Creator store pages — NOT PUBLICLY CACHEABLE ANY MORE.

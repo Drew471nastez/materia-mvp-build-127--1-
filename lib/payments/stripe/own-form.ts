@@ -26,6 +26,7 @@ import { after } from "next/server"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
+import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 import { PaymentsProblem } from "../errors"
 import { creatorBusinessProfile } from "./business-profile"
 import { platformBusinessUrl, readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
@@ -370,7 +371,11 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
   }
   let added: Stripe.BankAccount | null = null
   try {
-    added = (await stripe.accounts.createExternalAccount(account.id, { external_account: bank, default_for_currency: true })) as Stripe.BankAccount
+    /* A double press or a retried request adds the bank once (10 minutes); the key carries a hash of the details, never the numbers. */
+    const bankParams = { external_account: bank, default_for_currency: true }
+    added = (await stripe.accounts.createExternalAccount(account.id, bankParams, {
+      idempotencyKey: stripeIdempotencyKey("connect-bank", [account.id], bankParams, { windowMs: 10 * 60_000 }),
+    })) as Stripe.BankAccount
   } catch (error) {
     console.error("[payments own form] bank", (error as { param?: string })?.param ?? "", quiet(error))
     throw new PaymentsProblem(sentence(error, "Stripe did not accept that bank account. Check it and try again."))

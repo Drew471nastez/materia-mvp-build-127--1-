@@ -2,19 +2,16 @@ import { Metadata } from "next"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
-import { settleWithin } from "@/lib/net/request"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { offChannelAmong } from "@/lib/store/channel-filter"
-import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
-import { readInterests } from "@/lib/explore/read-interests"
+import { EMPTY_INTERESTS } from "@/lib/explore/interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { ExplorePullRefresh } from "@/components/explore/explore-pull-refresh"
 import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
+import { cardCreator } from "@/lib/explore/card-creator"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
@@ -30,9 +27,9 @@ import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { exploreIndexing } from "@/lib/seo/explore-indexing"
 import { LeaveCopy } from "@/components/navigation/leave-copy"
+import { logEvent } from "@/lib/net/log"
 
 /** How long Explore waits for a signed in person's own ordering before showing the ordinary one. */
-const INTERESTS_WAIT_MS = 1_500
 
 /*
   THE PRODUCTS, OR THE COMMUNITIES, EACH CANONICAL AT ITS OWN ADDRESS
@@ -40,12 +37,15 @@ const INTERESTS_WAIT_MS = 1_500
   this page used to tell search engines that address was /explore. A search
   is a results page: noindex, its links followed.
 */
-export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }): Promise<Metadata> {
-  const params = await searchParams.catch(() => ({}) as { q?: string; type?: string })
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; sort?: string; srt?: string }> }): Promise<Metadata> {
+  const params = await searchParams.catch(() => ({}) as { q?: string; type?: string; sort?: string; srt?: string })
   const q = typeof params?.q === "string" ? params.q : null
   const type = typeof params?.type === "string" ? params.type : null
+  /* An order is the same list again: noindex, canonical at the clean page (round 45). */
+  /* "recommended" is the default order the Filters panel writes on every address, so it is no order of its own. */
+  const sort = [params?.sort, params?.srt].find((v): v is string => typeof v === "string" && !!v.trim() && v !== "recommended") ?? null
   /* Asked only when the address asks for communities, so every other Explore view reads nothing more. */
-  const seo = exploreIndexing({ q, type, communitiesOn: type === "communities" ? await communitiesEnabled() : false })
+  const seo = exploreIndexing({ q, type, sort, communitiesOn: type === "communities" ? await communitiesEnabled() : false })
   if (!seo.communities && seo.index) return EXPLORE_METADATA
   const title = seo.communities ? "Storelib | Discover communities" : "Storelib | Discover"
   const description = seo.communities ? "Communities run by independent creators on Storelib. Browse them by topic and join the ones you like." : EXPLORE_METADATA.description
@@ -108,23 +108,6 @@ export const dynamic = "force-dynamic"
  * nobody's purchases or wishlist shape what they are shown here. A column
  * that is not there yet, or a read that fails, is the default: on.
  */
-async function personalizationOn(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  kept?: boolean,
-): Promise<boolean> {
-  /* The viewer's own setting, a private column: read by the server for this signed in id (lib/security/public-columns). */
-  const { data: pref } = await createAdminClient()
-    .from("profiles")
-    .select("personalized_recommendations")
-    .eq("id", userId)
-    .maybeSingle()
-  const column = (pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
-  /* No column yet: the choice Settings kept on the account (app/api/account/preferences). */
-  return typeof column === "boolean" ? column : kept !== false
-}
-
-/** What the grid shows of a product. */
 const PRODUCT_COLUMNS =
   "id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
 /**
@@ -140,7 +123,8 @@ const CREATOR_EMBED = "creator:creators(id, user_id, slug, niche_tags)"
 /** The face a card draws, the same fields the separate read always asked for. */
 const PROFILE_FIELDS = "id, display_name, avatar_url, username"
 
-type Supabase = Awaited<ReturnType<typeof createClient>>
+/* The anon key, no session (lib/supabase/public-read): the catalogue is the same for everybody. */
+type Supabase = ReturnType<typeof createPublicReadClient>
 
 /*
   THE CATALOGUE IN TWO ROUND TRIPS, NEITHER OF THEM REFUSED. The products with
@@ -165,7 +149,7 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   let { data: products, error } = (await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)) as { data: any[] | null; error: { message: string } | null }
   let embedded = !error
   if (error) {
-    console.error("[ExplorePage] Creators embed refused, reading them on their own:", error.message)
+    logEvent("warn", "explore_creators_embed_refused", { msg: "[ExplorePage] Creators embed refused, reading them on their own", reason: error.message })
     ;({ data: products, error } = (await read(PRODUCT_COLUMNS)) as { data: any[] | null; error: { message: string } | null })
     embedded = false
   }
@@ -209,7 +193,8 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   const creatorOf = (p: any) => {
     const creator = creatorById.get(p.creator_id) ?? one(p.creator)
     if (!creator) return null
-    return { ...creator, profile: profileById.get(creator.user_id) ?? null }
+    /* Its public id, handle and face only: the sign in id it was found by stays on the server (lib/explore/card-creator.ts). */
+    return cardCreator(creator, profileById.get(creator.user_id) ?? null)
   }
 
   return products.map((product) => ({
@@ -261,11 +246,10 @@ export default async function ExplorePage({
     used. The grid arrives one round trip after the slowest read instead of
     after the sum of them.
   */
-  const supabasePromise = createClient()
-  /* Browsing is the same catalogue for everybody, read as a stranger and held for a minute, cleared by a product save (lib/explore/catalogue-cache.ts); a search stays a live read. */
+  /* Browsing is the same catalogue for everybody, read as a stranger and held for a minute, cleared by a product save (lib/explore/catalogue-cache.ts); a search stays a live read, as a stranger too (round 49: one HTML for everybody). */
   const catalogRead = searchQuery
-    ? supabasePromise.then((supabase) => readCatalog(supabase, searchQuery))
-    : cachedExploreCatalogue(() => readCatalog(createPublicReadClient() as unknown as Supabase, ""))
+    ? readCatalog(createPublicReadClient(), searchQuery)
+    : cachedExploreCatalogue(() => readCatalog(createPublicReadClient(), ""))
   const catalogPromise = catalogRead.catch((error: unknown) => {
     console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
     return [] as any[]
@@ -299,47 +283,18 @@ export default async function ExplorePage({
 
   /*
     ═══════════════════════════════════════════════════════════════════════
-     WHO IS THIS, AND HAVE THEY SHOWN US ANYTHING
+     NOBODY IS ASKED WHO IS LOOKING (round 49)
     ═══════════════════════════════════════════════════════════════════════
-    Signed out, this is one cheap auth call that returns nobody and the page
-    is exactly what it was. Signed in with too little history, the same: the
-    threshold is in lib/explore/interests and nothing on screen changes until
-    it is met. Only past it does "All" become "For you".
-
-    It sits next to the catalogue query rather than in front of it, because
-    neither needs the other.
+    Explore is one HTML for everybody, which the CDN holds (next.config.mjs,
+    tests/cdnpages-r49). "For you" was decided here from the session, with a
+    1.5s ceiling every signed in visit paid in front of the first byte; the
+    page now opens on All for everybody, and for a browser with a session
+    ExplorePageClient asks /api/explore/interests after load (the same
+    rules, the same threshold) and moves to For you when there is enough.
   */
-  let interests: Interests = EMPTY_INTERESTS
   let productsWithCreators: any[] = []
-
   try {
-    const supabase = await supabasePromise
-
-    /*
-      Asked for beside the catalogue rather than before it: neither needs the
-      other, and this route is force-dynamic with nothing cached in front of
-      it, so a read in series is a round trip every visitor pays for.
-      A failure here is not a failure of the page: the catch leaves
-      `interests` empty and everybody gets the ordinary Explore.
-    */
-    /*
-      AND IT HAS A DEADLINE. It was a bare getUser() then two reads, none
-      bounded, and the grid waited on all of it: a slow minute for Supabase
-      Auth was a blank Explore for everybody signed in. Personal ordering is
-      worth INTERESTS_WAIT_MS and no more; after that the ordinary Explore.
-    */
-    const interestsPromise = settleWithin(
-      (async () => {
-        const { user } = await currentUserForRequest()
-        if (!user) return EMPTY_INTERESTS
-        if (!(await personalizationOn(supabase, user.id, user.user_metadata?.personalized_recommendations))) return EMPTY_INTERESTS
-        return readInterests(user.id, user.email)
-      })(),
-      INTERESTS_WAIT_MS,
-      EMPTY_INTERESTS,
-    )
-
-    ;[productsWithCreators, interests] = await Promise.all([catalogPromise, interestsPromise])
+    productsWithCreators = await catalogPromise
   } catch (error: any) {
     console.error("[ExplorePage] Exception:", error?.message || error)
   }
@@ -359,7 +314,7 @@ export default async function ExplorePage({
     scripts/check-ground.mjs, which reads the colour from this line.
   */
   return (
-    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* A community opened from here: this page goes out under the community's bar as it comes in (round 31). */}
       <LeaveCopy surface=".explore-ground" />
       {/* JSON-LD structured data */}
@@ -379,16 +334,13 @@ export default async function ExplorePage({
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
       <ExplorePullRefresh>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
-        {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
-        <h1 className="sr-only">
-          Discover Digital Products - Productivity, Design, AI & More | Storelib
-        </h1>
+        {/* The page's one h1 is the hero's (components/explore/explore-hero), the sentence a screen reader reads; a second one here made two. */}
 
         {/* Main content */}
         <ExplorePageClient
           initialProducts={filteredProducts}
           initialCategory={category}
-          interests={interests}
+          interests={EMPTY_INTERESTS}
           searchQuery={searchQuery}
           discoverHeadlineSegmentEnabled={discoverModeSwitcherEnabled}
           initialDiscoverMode={initialDiscoverMode}
@@ -409,6 +361,6 @@ export default async function ExplorePage({
         </Suspense>
       </div>
       </ExplorePullRefresh>
-    </main>
+    </div>
   )
 }

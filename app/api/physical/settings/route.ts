@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic"
  * business address, what Quick setup starts from.
  */
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const [settings, locations, profiles, packages, taxRates, states, shippingProducts, origin] = await Promise.all([
     loadSettings(c.db, c.creatorId),

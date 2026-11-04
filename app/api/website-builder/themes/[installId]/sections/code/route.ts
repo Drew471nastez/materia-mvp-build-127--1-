@@ -36,7 +36,7 @@ import { LIMITS } from "@/lib/storelib-theme/types"
 import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { loopDeadlineMs } from "@/lib/website-builder/agent/limits"
-import { themeAgentLimit } from "@/lib/sites/rate-limit"
+import { limitStatus, themeAgentLimit } from "@/lib/sites/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   if (limited) return limited
   /* And no more Storelib AI runs at once than lib/sites/rate-limit.ts THEME_AGENT_AT_ONCE, counted with the page assistant's. */
   const busy = await themeAgentLimit((creator as { id: string }).id)
-  if (busy) return NextResponse.json({ error: busy }, { status: 429 })
+  if (busy) return NextResponse.json({ error: busy }, { status: limitStatus(busy) })
 
   const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
   if (!parsed.success) return NextResponse.json({ error: unreadablePart(parsed.error.issues), issues: parsed.error.issues }, { status: 400 })

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
 
     // Get current user from regular client (for auth check)
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
 
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })

@@ -15,7 +15,9 @@ import "server-only"
  *   HALF STARTED CHECKOUTS. A membership that never got past its first
  *   payment is left by Stripe to expire after a day. A free trial whose card
  *   was never saved would instead run to its end, so after a day it is
- *   cancelled here, and the row follows.
+ *   cancelled here, and the row follows. Decided from Stripe as it is now
+ *   (state.ts abandonedCheckout): a trial with a card on the subscription
+ *   or the customer is never cancelled, only synced.
  *
  *   ACCESS THAT RAN OUT. Access is decided when it is read (grantsAccess), so
  *   nothing needs to run for a page to be right. The products a membership
@@ -25,8 +27,9 @@ import "server-only"
  *   UPDATE EMAILS still waiting (lib/memberships/update-email.ts).
  */
 import { stripe } from "@/lib/stripe"
-import { grantsAccess, reminderLeadDays } from "./state"
-import { notice, revokeIncluded, syncSubscription } from "./sync"
+import type Stripe from "stripe"
+import { abandonedCheckout, grantsAccess, reminderLeadDays, trialNeedsCustomerCheck } from "./state"
+import { notice, retrieveSubscription, revokeIncluded, syncSubscription } from "./sync"
 import { sendPendingPostEmails } from "./update-email"
 import { MEMBERSHIP_COLUMNS, tableMissing, type Db, type MembershipRow } from "./server"
 
@@ -36,14 +39,29 @@ export interface MembershipJobSummary {
   available: boolean
   reminders: number
   abandoned: number
+  /** Rows the job found incomplete whose subscription Stripe has as paid, or as a trial with a card: synced, not cancelled. */
+  kept: number
   graceEnded: number
   emails: { sent: number; skipped: number; failed: number; left: boolean }
+}
+
+/**
+ * Whether the customer has a default card Stripe would charge at a trial's
+ * end. A customer Stripe deleted has none. A read that fails throws, and the
+ * row is left for the next run: never a cancel on a guess.
+ */
+async function customerDefaultCard(customer: string | Stripe.Customer | Stripe.DeletedCustomer | null): Promise<boolean> {
+  if (!customer) return false
+  const c = typeof customer === "string" ? await stripe.customers.retrieve(customer) : customer
+  if ((c as Stripe.DeletedCustomer).deleted) return false
+  const live = c as Stripe.Customer
+  return Boolean(live.invoice_settings?.default_payment_method || live.default_source)
 }
 
 export async function runMembershipJobs(admin: Db, opts: { now?: number; budgetMs: number }): Promise<MembershipJobSummary> {
   const now = opts.now ?? Date.now()
   const started = Date.now()
-  const summary: MembershipJobSummary = { available: true, reminders: 0, abandoned: 0, graceEnded: 0, emails: { sent: 0, skipped: 0, failed: 0, left: false } }
+  const summary: MembershipJobSummary = { available: true, reminders: 0, abandoned: 0, kept: 0, graceEnded: 0, emails: { sent: 0, skipped: 0, failed: 0, left: false } }
 
   /* Renewing soon: up to a week ahead covers both leads; each row is checked against its own. */
   const { data: renewing, error } = await admin
@@ -62,7 +80,14 @@ export async function runMembershipJobs(admin: Db, opts: { now?: number; budgetM
     summary.reminders++
   }
 
-  /* A day old and still waiting for its first payment or card. */
+  /*
+    A day old and still waiting for its first payment or card. Our row can
+    be behind Stripe (a missed webhook, a sync that failed): the decision is
+    made from Stripe's subscription as it is now, with its card and setup
+    intent, and for a trial from the customer's default card too
+    (state.ts abandonedCheckout). One that is not abandoned is synced, so
+    the row catches up and is not looked at again.
+  */
   const { data: stale } = await admin
     .from("memberships")
     .select("id, stripe_subscription_id")
@@ -72,10 +97,16 @@ export async function runMembershipJobs(admin: Db, opts: { now?: number; budgetM
   for (const row of (stale as { id: string; stripe_subscription_id: string }[] | null) ?? []) {
     if (Date.now() - started > opts.budgetMs / 2) break
     try {
-      const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id)
-      if (sub.status === "trialing" || sub.status === "incomplete") await stripe.subscriptions.cancel(sub.id)
-      await syncSubscription(admin, row.stripe_subscription_id)
-      summary.abandoned++
+      const sub = await retrieveSubscription(row.stripe_subscription_id)
+      const customerHasCard = trialNeedsCustomerCheck(sub as never) ? await customerDefaultCard(sub.customer) : null
+      if (abandonedCheckout(sub as never, customerHasCard)) {
+        await stripe.subscriptions.cancel(sub.id)
+        await syncSubscription(admin, row.stripe_subscription_id)
+        summary.abandoned++
+      } else {
+        await syncSubscription(admin, row.stripe_subscription_id, { subscription: sub })
+        summary.kept++
+      }
     } catch (e) {
       console.warn("[memberships] a half started checkout was not closed:", e instanceof Error ? e.message : e)
     }

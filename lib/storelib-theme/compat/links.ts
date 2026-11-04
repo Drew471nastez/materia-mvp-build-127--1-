@@ -37,6 +37,8 @@ export interface LinkFacts {
   collections?: readonly { id: string; handle: string; title?: string }[]
   /** The policies the site has, by handle (refund-policy...). Absent: policies are not checked. */
   policies?: readonly string[]
+  /** The website's blog (lib/site-blog), when it has one: its address and the ones it had. Absent: the site has no blog. */
+  blog?: { handle: string; previousHandles?: readonly string[] } | null
 }
 
 /** Shopify's own roots: a locale in front of one of these (/en/collections/x) is the same page. */
@@ -116,6 +118,12 @@ export interface SiteLinkOptions {
    * template, titled from its name, where the theme has one. Off where an
    * address arrives (./site.ts): an address nobody linked to stays a 404,
    * so a mistyped one is never a page.
+   *
+   * Off, a product the shop does not have stays a 404 as well (round 45). It
+   * went to the whole shop, so a deleted or unpublished product's address
+   * answered with a redirect to /collections/all: a soft 404 to a search
+   * engine, which kept the dead address and showed the shop for it. A link
+   * drawn on a page still goes to the shop (pageFallback on).
    */
   pageFallback?: boolean
 }
@@ -158,13 +166,13 @@ export function siteLink(raw: string, facts: LinkFacts, opts: SiteLinkOptions = 
       /* Storelib's shop is /products (lib/website-builder/live-links.ts SHOP_PATH): here it is the shop's collection, without a redirect on the way. */
       if (!second) return shopAll()
       const p = productPath(second, facts)
-      return p ? keep(p) : shopAll()
+      return p ? keep(p) : pageFallback ? shopAll() : keep(path)
     }
     case "collections": {
       if (!second) return hasPage("collections") ? keep("/collections") : shopAll()
       if (third === "products" && fourth) {
         const p = productPath(fourth, facts)
-        return p ? keep(p) : shopAll()
+        return p ? keep(p) : pageFallback ? shopAll() : keep(path)
       }
       if (third) return keep(path)
       const c = collectionPath(second, facts)
@@ -179,6 +187,19 @@ export function siteLink(raw: string, facts: LinkFacts, opts: SiteLinkOptions = 
       return keep(pageFallback && hasPage("page") ? `/pages/${second}` : "/")
     }
     case "blogs":
+      /*
+        A WEBSITE WITH A BLOG (lib/site-blog) answers every address of it,
+        with the theme's blog and article templates or, where the theme has
+        none, Storelib's own (./site.ts). A website has one blog: the blog
+        of the store the theme came from ("/blogs/news") is this one, at its
+        own address. An address the blog had before is answered there.
+      */
+      if (facts.blog) {
+        const own = facts.blog.handle
+        if (!second) return keep(`/blogs/${own}`)
+        if (decode(second) === own || pageFallback || facts.blog.previousHandles?.includes(decode(second))) return keep(`/blogs/${own}${parts.slice(2).map((p) => `/${p}`).join("")}`)
+        return keep(path)
+      }
       if (!second || !hasPage("blog")) return keep("/")
       return third && !hasPage("article") ? keep(`/blogs/${second}`) : keep(path)
     case "policies":
@@ -206,7 +227,7 @@ export function siteLink(raw: string, facts: LinkFacts, opts: SiteLinkOptions = 
  * policy is a page it may not have read: neither is taken as "the shop has
  * none", so a link is never rewritten for what the canvas has not been told.
  */
-export function linkFactsOf(page: { designMode?: boolean; pageKeys?: readonly string[]; products?: LinkFacts["products"]; pickable?: LinkFacts["products"]; collections?: LinkFacts["collections"]; shop?: { policies?: { handle: string }[] } }): LinkFacts {
+export function linkFactsOf(page: { designMode?: boolean; pageKeys?: readonly string[]; products?: LinkFacts["products"]; pickable?: LinkFacts["products"]; collections?: LinkFacts["collections"]; shop?: { policies?: { handle: string }[] }; blog?: LinkFacts["blog"] }): LinkFacts {
   const products = [...(page.products ?? []), ...(page.pickable ?? [])]
   const draft = page.designMode === true
   return {
@@ -214,5 +235,6 @@ export function linkFactsOf(page: { designMode?: boolean; pageKeys?: readonly st
     products: draft && products.length === 0 ? undefined : products,
     collections: draft && !page.collections?.length ? undefined : page.collections,
     policies: page.shop?.policies && !draft ? page.shop.policies.map((p) => p.handle) : undefined,
+    ...(page.blog ? { blog: page.blog } : {}),
   }
 }

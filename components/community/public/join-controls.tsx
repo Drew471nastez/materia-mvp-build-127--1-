@@ -62,7 +62,18 @@ import { JoinQuestionFields } from "./join-questions-form"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { CardSummary } from "./card-summary"
 import { CommunityShareButton } from "./share-community"
-import { CommunityCheckout, PlanPicker } from "./join-flow"
+import dynamic from "next/dynamic"
+/*
+  Round 48: the plan picker and the checkout window are drawn only once Join is
+  pressed (`flow` starts empty, on the server too), and they bring the store
+  checkout's parts with them: its words in every language, the carriers, the
+  tax ids (about 60 KB compressed). So they are fetched when the browser is
+  idle after the page has loaded, not in the page's first script, and the
+  press finds them already here. Nothing about the flow changes.
+*/
+const loadJoinFlow = () => import("./join-flow")
+const PlanPicker = dynamic(() => loadJoinFlow().then((m) => m.PlanPicker))
+const CommunityCheckout = dynamic(() => loadJoinFlow().then((m) => m.CommunityCheckout))
 import { cardPrice, planIntervals, plansPrice, type PlanInterval } from "./plan-words"
 
 export { plansPrice }
@@ -204,6 +215,16 @@ export function JoinProvider({ community, join, askWhy = false, preview = false,
   const api = `/api/community/${community.id}`
   /* Round AF: the plan picker and the checkout. */
   const [flow, setFlowState] = React.useState<Flow>(null)
+  /* The flow's code, warmed once the page is idle (see the import). */
+  React.useEffect(() => {
+    const warm = () => void loadJoinFlow().catch(() => {})
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm, { timeout: 4000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const t = window.setTimeout(warm, 2000)
+    return () => window.clearTimeout(t)
+  }, [])
   const [pickedPlan, setPicked] = React.useState<JoinOption | null>(null)
   const pickedRef = React.useRef<JoinOption | null>(null)
   pickedRef.current = pickedPlan

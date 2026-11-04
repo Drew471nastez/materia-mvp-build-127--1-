@@ -3,13 +3,13 @@ import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateReceiptToken } from "@/lib/security"
 import { createHash } from "node:crypto"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { attributionFromMetadata, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
-import { fulfilPaymentIntent, isCheckoutIntent, recordCustomer } from "@/lib/checkout/fulfil-payment"
+import { fulfilPaymentIntent, isCheckoutIntent, paymentFacts, recordCustomer } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { fulfilCartPayment, fulfilCartSession, isCartIntent, isCartSession } from "@/lib/checkout/fulfil-cart-session"
@@ -24,19 +24,34 @@ import { toLedger } from "@/lib/payments/ledger-currency"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { claimStripeEvent, noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
+import { isPayoutLedgerSkip, PayoutLedgerSkip } from "@/lib/stripe/connect-payout-webhook"
+import { forgetPayoutsRead } from "@/lib/payments/payouts-read-cache"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
 import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-order"
-import { stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
+import { resolveCreatorForSubscription, stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
 import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
 import { recordPaidPlan } from "@/lib/billing/plan-override"
+import { logEvent } from "@/lib/net/log"
 
 export const runtime = "nodejs"
+/*
+  A CEILING ON ONE DELIVERY. Stripe stops waiting long before this and sends the event again (the claim answers a
+  second delivery 409 while the first runs); without it a hung call could hold the function for the platform's
+  default. Fulfilment's follow-up journal finishes anything cut off (lib/checkout/followups).
+*/
+export const maxDuration = 60
 
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+/*
+  The shared admin client, so every database call here has the request deadline and the read retries of
+  lib/net/deadline.ts (auth 10s, read 20s, write 30s, rpc 60s). A raw createClient used Node's bare fetch, whose
+  only limit is undici's 300s: one hung request held the webhook until the platform killed it.
+*/
+const supabaseAdmin = createAdminClient()
 
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()
@@ -69,6 +84,20 @@ function subscriptionSyncDeps(): SyncDeps {
     recordPaidPlan: (creatorId, planId, status) => recordPaidPlan(supabaseAdmin, creatorId, planId, status),
     log: (message, detail) => console.log(message, detail ?? ""),
   }
+}
+
+/**
+ * The creator a plan invoice belongs to when no subscriptions row names its subscription yet (MEDIUM-6): found as
+ * the plan sync finds them (lib/billing/subscription-sync resolveCreatorForSubscription). Throws when the database
+ * did not answer. Null for an invoice no creator owns. `id` is null: the row this invoice will link to is not known.
+ */
+async function creatorForInvoice(invoice: any, subscriptionId: string): Promise<{ id: string | null; creator_id: string } | null> {
+  const details = invoice?.parent?.subscription_details ?? invoice?.subscription_details ?? null
+  const metadata = (details?.metadata ?? {}) as Record<string, string>
+  /* A membership's subscription names its SELLER as creator_id: never read as the seller's own plan (lib/memberships/webhook handles those). */
+  if (typeof metadata.kind === "string" && metadata.kind.startsWith("membership")) return null
+  const found = await resolveCreatorForSubscription(supabaseAdmin as any, { id: subscriptionId, status: "active", customer: invoice?.customer ?? "", metadata } as any)
+  return found ? { id: null, creator_id: (found as { id: string }).id } : null
 }
 
 /** When a scheduled cancellation takes effect, from whichever field this API version fills. */
@@ -112,7 +141,7 @@ async function handlePOST(request: Request) {
     answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }), held)
   } catch (error) {
     if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId }, requestId: requestIdFrom(request.headers) })
     throw error
   }
   if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
@@ -122,7 +151,7 @@ async function handlePOST(request: Request) {
   } else if (eventId && answer.status >= 500) {
     await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
     /* Stripe will try again, but a payment event failing is the owner's to know about now. */
-    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId } })
+    await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId }, requestId: requestIdFrom(request.headers) })
   }
   return answer
 }
@@ -511,38 +540,35 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     let cardLast4: string | null = null
     let paypalEmail: string | null = null
 
+    /*
+      A LEGACY SESSION (PAY-11). No checkout made today puts a product on a
+      Checkout Session's own metadata: the card and wallet checkouts carry it
+      on the PaymentIntent (payment_intent.succeeded makes the order through
+      lib/checkout/fulfil-payment), and baskets, physical orders and the
+      community sheets are taken above. So reaching here means a session made
+      by old code; it is kept for that, and logged so it can be seen.
+      Its payment is read the way Stripe has it since 2022-11-15:
+      `latest_charge` (with its transfer), never `charges`, whose expand
+      Stripe refuses and whose error left the transfer and card empty.
+    */
+    console.warn("[Webhook] legacy product Checkout Session reached:", session.id)
     try {
       if (session.payment_intent) {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
-          expand: ["charges", "transfer", "payment_method"],
-        }) as any
+        const paymentIntent = await stripe.paymentIntents.retrieve(typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent.id, {
+          expand: ["latest_charge", "latest_charge.transfer"],
+        })
 
         if (paymentIntent.application_fee_amount) {
           applicationFeeAmount = paymentIntent.application_fee_amount
         }
 
-        if (paymentIntent.transfer) {
-          transferId = typeof paymentIntent.transfer === "string" ? paymentIntent.transfer : paymentIntent.transfer.id
-        }
-
-        if (paymentIntent.charges?.data?.[0]) {
-          destinationPaymentId = (paymentIntent.charges.data[0].destination_payment as string) || null
-
-          const charge = paymentIntent.charges.data[0]
-          if (charge.payment_method_details) {
-            const pmDetails = charge.payment_method_details
-            if (pmDetails.card) {
-              paymentMethod = "card"
-              cardBrand = pmDetails.card.brand || null
-              cardLast4 = pmDetails.card.last4 || null
-            } else if (pmDetails.paypal) {
-              paymentMethod = "paypal"
-              paypalEmail = (pmDetails.paypal as any).payer_email || null
-            } else if (pmDetails.type) {
-              paymentMethod = pmDetails.type
-            }
-          }
-        }
+        const facts = paymentFacts(paymentIntent)
+        transferId = facts.transferId
+        destinationPaymentId = facts.destinationPaymentId
+        paymentMethod = facts.paymentMethod
+        cardBrand = facts.cardBrand
+        cardLast4 = facts.cardLast4
+        paypalEmail = facts.paypalEmail
       }
     } catch (error) {
       console.error("[Webhook] Failed to retrieve payment intent details:", error)
@@ -938,7 +964,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
     if (isCheckoutIntent(pi)) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
-      const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl })
+      /* The order, library entry and ledger before the answer; the fee read, receipt PDF, emails and notifications after it (PAY-12). */
+      const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl, defer: (task) => after(task) })
       if (result.ok === false) {
         console.error("[Webhook] checkout fulfilment failed:", pi.id, result.error)
         if (result.status >= 500) return NextResponse.json({ error: result.error }, { status: 500 })
@@ -951,7 +978,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.code ?? "")
+    /* A declined card is the buyer's bank saying no, not a fault here: info. Stripe ids only, no card or person. */
+    logEvent("info", "stripe_payment_failed", { msg: "[Webhook] Payment failed", paymentIntent: pi.id, code: pi.last_payment_error?.code ?? null, eventId: event.id })
     /*
       PAYMENT FAILED, for an order that ships: the buyer is told half an hour
       later if they still haven't paid (lib/physical/jobs-server
@@ -1086,18 +1114,28 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     try {
-      const { data: subscription } = await supabaseAdmin
+      /*
+        WHOSE INVOICE (MEDIUM-6). A read that failed is not "no subscription": it is thrown and answered 500, so
+        Stripe sends the event again. No row is not always "not ours" either: the first invoice.paid can arrive
+        before customer.subscription.created has written the row, and the row is one per creator (the current
+        subscription), so an older one's invoice never finds it. The creator is then found as the plan sync finds
+        them (the row, the checkout's metadata.creator_id, then the stored customer), and the invoice is written
+        with no subscription link. Only an invoice no creator owns (a membership's, another product's) is skipped.
+      */
+      const { data: row, error: rowError } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
         .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
+      if (rowError) throw new Error(`subscriptions read failed: ${rowError.message}`)
 
+      const subscription = row ?? (await creatorForInvoice(invoice, subscriptionId))
       if (!subscription) {
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
 
       // Upsert invoice to avoid duplicates
-      await supabaseAdmin.from("invoices").upsert({
+      const { error: invoiceError } = await supabaseAdmin.from("invoices").upsert({
         creator_id: subscription.creator_id,
         subscription_id: subscription.id,
         stripe_invoice_id: invoice.id,
@@ -1108,6 +1146,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         period_start: invoice.period_start ? safeTimestamp(invoice.period_start) : null,
         period_end: invoice.period_end ? safeTimestamp(invoice.period_end) : null,
       }, { onConflict: "stripe_invoice_id" })
+      /* Keyed by the invoice, so Stripe's next delivery writes the same row. */
+      if (invoiceError) throw new Error(`invoice not written: ${invoiceError.message}`)
 
       console.log("[Invoice] Record saved")
 
@@ -1131,7 +1171,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         })
       }
     } catch (error) {
+      /* A database that did not answer: 500, so Stripe sends it again (the writes above are keyed). */
       console.error("[Invoice] Error:", error)
+      return NextResponse.json({ error: "Invoice not recorded yet. Stripe will send this again." }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })
@@ -1140,7 +1182,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
-    console.log("[Invoice] Payment failed:", invoice.id)
+    /* A renewal that did not go through: the creator's plan is at risk, worth a warning. */
+    logEvent("warn", "stripe_invoice_payment_failed", { msg: "[Invoice] Payment failed", invoice: invoice.id ?? null, eventId: event.id })
     /* NEWER STRIPE API VERSIONS MOVED THE SUBSCRIPTION ONTO invoice.parent.
        Read it from either place, so a plan renewal is never mistaken for a
        one-off invoice whichever version the webhook endpoint sends. */
@@ -1151,12 +1194,15 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     try {
-      const { data: subscription } = await supabaseAdmin
+      /* A read that failed is thrown (500, Stripe sends it again); no row is resolved as for invoice.paid (MEDIUM-6). */
+      const { data: row, error: rowError } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
         .eq("stripe_subscription_id", subscriptionId)
         .maybeSingle()
+      if (rowError) throw new Error(`subscriptions read failed: ${rowError.message}`)
 
+      const subscription = row ?? (await creatorForInvoice(invoice, subscriptionId))
       if (!subscription) {
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
@@ -1189,11 +1235,14 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           .eq("stripe_subscription_id", subscriptionId)
           .in("status", ["active", "trialing"])
 
-        await supabaseAdmin
-          .from("creators")
-          .update({ subscription_status: "past_due" })
-          .eq("id", subscription.creator_id)
-          .in("subscription_status", ["active", "trialing"])
+        /* Only for the subscription the row names: a failure on another (an older one) never marks the creator. */
+        if (row) {
+          await supabaseAdmin
+            .from("creators")
+            .update({ subscription_status: "past_due" })
+            .eq("id", subscription.creator_id)
+            .in("subscription_status", ["active", "trialing"])
+        }
       }
 
       /* Each attempt Stripe makes is its own event; the key is the invoice and the attempt. */
@@ -1214,6 +1263,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       })
     } catch (error) {
       console.error("[Invoice] Error:", error)
+      return NextResponse.json({ error: "Failed payment not recorded yet. Stripe will send this again." }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })
@@ -1297,12 +1347,17 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
 
     // Find the creator by their connected Stripe account
-    const { data: creator } = await supabaseAdmin
+    const { data: creator, error: creatorError } = await supabaseAdmin
       .from("creators")
       .select("id, user_id")
       .eq("stripe_account_id", connectedAccountId)
       .maybeSingle()
 
+    /* A read that failed is not "no creator": 500, so Stripe sends the event again (HIGH-2 / MEDIUM-6). */
+    if (creatorError) {
+      console.error("[Webhook] payout: creator not read:", creatorError.message)
+      return NextResponse.json({ error: "Database unavailable. Stripe will send this again." }, { status: 500 })
+    }
     if (!creator) {
       console.log("[Webhook] No creator found for account:", connectedAccountId)
       return NextResponse.json({ received: true })
@@ -1319,9 +1374,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           ? `****${(payout.destination as any).last4}`
           : null
 
-    // Upsert payout record in DB
-    try {
-      await supabaseAdmin.from("payouts").upsert(
+    // Upsert payout record in DB (keyed by the payout, so a replay writes the same row)
+    {
+      const { error: upsertError } = await supabaseAdmin.from("payouts").upsert(
         {
           creator_id: creator.id,
           stripe_payout_id: payout.id,
@@ -1339,31 +1394,38 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         },
         { onConflict: "stripe_payout_id" }
       )
-    } catch (err) {
-      console.error("[Webhook] Failed to upsert payout:", err)
+      if (upsertError) {
+        console.error("[Webhook] Failed to upsert payout:", upsertError.message)
+        return NextResponse.json({ error: "Database unavailable. Stripe will send this again." }, { status: 500 })
+      }
     }
 
     /* A failed payout, or the one that fixes it: the creator's notifications, after the answer. */
     const payoutCreatorId = creator.id as string
+    /* This instance's kept payouts read is let go (lib/payments/payouts-read-cache). */
+    forgetPayoutsRead(payoutCreatorId)
     after(async () => (await import("@/lib/notifications/events")).notePayout(payoutCreatorId))
 
     // ── Ledger: update balance buckets for payout status changes ─────────
     try {
-      const { data: ledger } = await supabaseAdmin
+      /* No wallet row is "nothing to move"; a read that failed is thrown, and answered 500 below. */
+      const { data: ledger, error: ledgerError } = await supabaseAdmin
         .from("seller_ledger")
         .select("*")
         .eq("creator_id", creator.id)
-        .single()
+        .maybeSingle()
+      if (ledgerError) throw new Error(`payout ${payout.id}: wallet not read: ${ledgerError.message}`)
 
       if (ledger) {
         // Find the original cashout event to get USD amount
-        const { data: cashoutEvent } = await supabaseAdmin
+        const { data: cashoutEvent, error: cashoutError } = await supabaseAdmin
           .from("ledger_events")
           .select("amount_cents, currency")
           .eq("creator_id", creator.id)
           .eq("event_type", "cashout_initiated")
           .eq("stripe_payout_id", payout.id)
           .maybeSingle()
+        if (cashoutError) throw new Error(`payout ${payout.id}: cash out not read: ${cashoutError.message}`)
 
         /*
           THE WALLET'S UNITS. The balance buckets are kept in the wallet's one
@@ -1382,8 +1444,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         const usdAmount = walletOf.amount
         const walletText = formatMinor(usdAmount, walletOf.currency.toUpperCase(), "en")
         if (walletOf.currency !== ledgerCurrency()) {
-          /* Caught below, which only logs: the notifications after this still go. */
-          throw new Error(`payout ${payout.id} is in ${walletOf.currency.toUpperCase()} and no rate converts it to the wallet's currency: balance buckets left as they are`)
+          /* Deliberate, not a fault: caught below, which only logs, and the notifications after this still go. */
+          throw new PayoutLedgerSkip(`payout ${payout.id} is in ${walletOf.currency.toUpperCase()} and no rate converts it to the wallet's currency: balance buckets left as they are`)
         }
 
         /* Once per payout and outcome, in one locked step (lib/payments/ledger): Stripe
@@ -1408,52 +1470,71 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             })
           : { unavailable: true as const }
 
+        /*
+          Only before the ledger function exists (run-now part 64): direct writes, which are not keyed, so their own
+          failure is logged and not retried (a replay would move the money twice).
+        */
         if (!posted.unavailable) {
           /* Written in the database. */
-        } else if (event.type === "payout.paid") {
-          await supabaseAdmin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
-            })
-            .eq("creator_id", creator.id)
+        } else {
+          try {
+            if (event.type === "payout.paid") {
+              await supabaseAdmin
+                .from("seller_ledger")
+                .update({
+                  in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                  lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
+                })
+                .eq("creator_id", creator.id)
 
-          await supabaseAdmin.from("ledger_events").insert({
-            creator_id: creator.id,
-            event_type: "cashout_completed",
-            amount_cents: usdAmount,
-            net_seller_cents: usdAmount,
-            currency: walletOf.currency,
-            in_transit_delta: -usdAmount,
-            stripe_payout_id: payout.id,
-            description: `Cashout completed: ${walletText} arrived at bank`,
-          })
-        } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
-          // Return funds to available
-          await supabaseAdmin
-            .from("seller_ledger")
-            .update({
-              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
-              available_amount: ledger.available_amount + usdAmount,
-            })
-            .eq("creator_id", creator.id)
+              await supabaseAdmin.from("ledger_events").insert({
+                creator_id: creator.id,
+                event_type: "cashout_completed",
+                amount_cents: usdAmount,
+                net_seller_cents: usdAmount,
+                currency: walletOf.currency,
+                in_transit_delta: -usdAmount,
+                stripe_payout_id: payout.id,
+                description: `Cashout completed: ${walletText} arrived at bank`,
+              })
+            } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
+              // Return funds to available
+              await supabaseAdmin
+                .from("seller_ledger")
+                .update({
+                  in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+                  available_amount: ledger.available_amount + usdAmount,
+                })
+                .eq("creator_id", creator.id)
 
-          await supabaseAdmin.from("ledger_events").insert({
-            creator_id: creator.id,
-            event_type: "cashout_failed",
-            amount_cents: usdAmount,
-            net_seller_cents: usdAmount,
-            currency: walletOf.currency,
-            in_transit_delta: -usdAmount,
-            available_delta: usdAmount,
-            stripe_payout_id: payout.id,
-            description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`,
-          })
+              await supabaseAdmin.from("ledger_events").insert({
+                creator_id: creator.id,
+                event_type: "cashout_failed",
+                amount_cents: usdAmount,
+                net_seller_cents: usdAmount,
+                currency: walletOf.currency,
+                in_transit_delta: -usdAmount,
+                available_delta: usdAmount,
+                stripe_payout_id: payout.id,
+                description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`,
+              })
+            }
+          } catch (fallbackErr) {
+            console.error("[Webhook] Ledger payout fallback write failed:", fallbackErr)
+          }
         }
       }
     } catch (ledgerPayoutErr) {
-      console.error("[Webhook] Ledger payout update failed (non-fatal):", ledgerPayoutErr)
+      if (isPayoutLedgerSkip(ledgerPayoutErr)) {
+        console.warn("[Webhook] Ledger payout left alone:", (ledgerPayoutErr as Error).message)
+      } else {
+        /*
+          The wallet gates cash out: a missed payout.failed would leave the creator's money stuck in transit. 500, so
+          Stripe sends the event again; the ledger post is keyed payout:<id>:<outcome>, so the replay posts once.
+        */
+        console.error("[Webhook] Ledger payout update failed; answering 500 so Stripe retries:", ledgerPayoutErr)
+        return NextResponse.json({ error: "The wallet could not be updated. Stripe will send this again." }, { status: 500 })
+      }
     }
 
     /*

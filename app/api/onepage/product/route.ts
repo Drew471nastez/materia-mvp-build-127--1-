@@ -17,6 +17,8 @@ import { productCheckoutUrl, productPageUrl, sellsInstantly, shipsProduct } from
 import { productFaqs } from "@/lib/products/product-faqs"
 import { sizeChartForProduct } from "@/lib/size-charts/storefront"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
+import { storeOriginFor } from "@/lib/physical/order-link-server"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -56,7 +58,7 @@ export async function GET(request: Request) {
   const creatorId = String(p.creator_id ?? "")
 
   const supabase = await createClient()
-  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section] = await Promise.all([
+  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section, storeOrigin] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
     /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
     admin
@@ -80,6 +82,8 @@ export async function GET(request: Request) {
       The same read the product page makes; a failure leaves the sheet as it was.
     */
     p.type === "physical" ? productSectionData(admin, p as unknown as ProductSectionRow).catch(() => null) : Promise.resolve(null),
+    /* Round 49: the store's website, whose checkout a product that ships is paid on (lib/onepage/shipped-checkout). None: storelib.com. */
+    p.type === "physical" ? storeOriginFor(admin, creatorId).catch(() => null) : Promise.resolve(null),
   ])
   const user = userRead.data.user
   const creator = creatorRead.data as { id: string; user_id: string; slug: string | null } | null
@@ -160,6 +164,8 @@ export async function GET(request: Request) {
         ships: shipsProduct(type),
         /* Round 41: a product that ships is checked out from the sheet in the cart checkout (lib/physical/cart-link), which needs its shop and the most one order may hold. */
         shopId: creatorId,
+        /* Round 49: the website whose checkout it is paid on, or null when the store has none (storelib.com's link then). */
+        siteOrigin: storeOrigin && storeOrigin !== `https://${getMainDomain()}` ? storeOrigin : null,
         maxQuantity: typeof p.max_per_order === "number" && p.max_per_order > 0 ? p.max_per_order : null,
         /* Round 13: the product editor's questions, plain text in their order, and its size chart, so the sheet shows what the product page shows. */
         faqs: productFaqs(p.faqs),

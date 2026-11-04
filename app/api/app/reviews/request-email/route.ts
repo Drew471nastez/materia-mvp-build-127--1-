@@ -29,7 +29,7 @@ type Kind = keyof typeof REQUEST_EMAIL_IDS
 const kindOf = (v: unknown): Kind | null => (v === "request" || v === "reminder" ? v : null)
 
 export async function GET() {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const [ready, copy] = await Promise.all([customerEmailCopyReady(c.db, c.creatorId), loadCustomerEmailCopy(c.db, c.creatorId)])
   return physicalJson({ ready, copy: { request: copy[REQUEST_EMAIL_IDS.request] ?? null, reminder: copy[REQUEST_EMAIL_IDS.reminder] ?? null } })

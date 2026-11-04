@@ -36,11 +36,28 @@ export class StripeWorld {
   /** Make the next Checkout Session creation fail (a Stripe outage). */
   failNextSession = false
 
-  private once<T extends Obj>(opts: { idempotencyKey?: string } | undefined, make: () => T): T {
+  /**
+   * Stripe's refusal of a key sent again with other parameters ("Keys for idempotent requests can only be used with the
+   * same parameters"), for the suites that turn it on (tests/pay9-checkout-attempts.test.ts). Off by default.
+   */
+  strictIdempotency = false
+  /** What was first sent under each key (strictIdempotency only). */
+  idemParams = new Map<string, string>()
+
+  private once<T extends Obj>(opts: { idempotencyKey?: string } | undefined, make: () => T, params?: unknown): T {
     const key = opts?.idempotencyKey
-    if (key && this.idem.has(key)) return this.idem.get(key) as T
+    const sent = params === undefined ? null : JSON.stringify(params)
+    if (key && this.idem.has(key)) {
+      if (this.strictIdempotency && sent !== null && this.idemParams.has(key) && this.idemParams.get(key) !== sent) {
+        throw Object.assign(new Error(`Keys for idempotent requests can only be used with the same parameters they were first used with. Try using a key other than '${key}' if you meant to execute a different request.`), { type: "StripeIdempotencyError", rawType: "idempotency_error", statusCode: 400 })
+      }
+      return this.idem.get(key) as T
+    }
     const made = make()
-    if (key) this.idem.set(key, made)
+    if (key) {
+      this.idem.set(key, made)
+      if (sent !== null) this.idemParams.set(key, sent)
+    }
     return made
   }
 
@@ -232,7 +249,7 @@ export class StripeWorld {
         }
         w.sessions.set(s.id, s)
         return s
-      }),
+      }, params),
     )
     c.checkout.sessions.retrieve = rec("checkout.sessions.retrieve", (sid: string, opts?: Obj) => {
       const s = w.sessions.get(sid)
@@ -251,7 +268,7 @@ export class StripeWorld {
         const pi: Obj = { id: id("pi"), object: "payment_intent", amount: params.amount, amount_received: 0, currency: params.currency, status: "requires_payment_method", metadata: { ...(params.metadata ?? {}) }, application_fee_amount: params.application_fee_amount ?? null, transfer_data: params.transfer_data ?? null, client_secret: `${id("pi")}_secret_${Math.random().toString(36).slice(2)}`, latest_charge: null, shipping: params.shipping ?? null, created: unix() }
         w.intents.set(pi.id, pi)
         return pi
-      }),
+      }, params),
     )
     c.paymentIntents.retrieve = rec("paymentIntents.retrieve", (pid: string, opts?: Obj) => {
       const pi = w.intents.get(pid)

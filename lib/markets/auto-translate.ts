@@ -48,6 +48,7 @@ import { isExcluded } from "./translation-rules"
 import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, translationMap } from "./translate"
 import { canDraftWithAi, draftReusing } from "./translate-ai"
 import { SETTLE_MS, queueMissing } from "./translate-queue"
+import { logEvent } from "@/lib/net/log"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -178,7 +179,7 @@ async function changedStores(db: Db, now: number): Promise<Marked[] | null> {
     .then(settled, failedRead)
   if (error) {
     if (queueMissing(error) || autoTranslateMissing(error) || marketsMissing(error)) return null
-    console.error("[auto-translate] could not list the changed stores")
+    logEvent("error", "auto_translate_list_failed", { msg: "[auto-translate] could not list the changed stores", code: (error as { code?: string }).code ?? null, reason: (error as { message?: string }).message ?? null })
     return []
   }
   return ((data ?? []) as Marked[]).filter((r) => typeof r.creator_id === "string" && typeof r.translate_dirty_at === "string")

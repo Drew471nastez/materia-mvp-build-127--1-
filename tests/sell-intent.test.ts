@@ -82,7 +82,8 @@ function main() {
 
   const ok = (v: unknown) => safeNext(v, MAIN)
   check("a path on the platform", ok("/library") === "/library" && ok("/p/abc?x=1") === "/p/abc?x=1")
-  check("a creator's subdomain (the shop Account button)", ok("https://andrew.storelib.com/cart") !== null)
+  /* Changed on purpose (round rel-security, F7): a creator's subdomain is a published site anybody can build, so it is no longer a place a sign in hands somebody to; the platform's own hosts still are (lib/auth/return-to.ts PLATFORM_HOST_LABELS). */
+  check("a creator's subdomain is not (a published site anybody can build)", ok("https://andrew.storelib.com/cart") === null && ok("https://help.storelib.com/articles/x") !== null)
   for (const bad of [
     "https://evil.com",
     "//evil.com",

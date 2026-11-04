@@ -43,6 +43,8 @@ function check(label: string, ok: boolean, detail?: string) {
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
+  /* Round 49: lib/auth/request-scope readUserForRoute is the request's one read (Supabase Auth, or the token's verified signature while Auth is slow), in getUser()'s shape, for a read-only GET; the route acts only on `user`. */
+  ["a signed-in session, the request's one read", /await readUserForRoute\(\)[\s\S]*if \(!user\)/],
   /* Round 12 (WBPERF): lib/website-builder/owned-install.ts editorUser is readCurrentUser for the builder's routes: 401 for Auth's nobody, 503 for a blip, and the route acts only on its `user`. */
   ["a signed-in session, classified for the builder", /await editorUser\(supabase\)[\s\S]*if \(!user\)/],
   /* lib/auth/current-user.ts: getUser(), with "Supabase did not answer" kept
@@ -51,7 +53,7 @@ const PROOFS: [string, RegExp][] = [
   ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
   /* Changed on purpose (round rel-auth): lib/auth/route-user routeUser() is getUser() with a ceiling and one retry, a 401 only for Auth's nobody and a 503 when it did not answer; the route acts only on `who.user`. */
-  ["a signed-in session, fresh and classified", /await routeUser\(\)[\s\S]*who\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
+  ["a signed-in session, fresh and classified", /await routeUser\((?:\{ fresh: (?:false|!opts\.read) \})?\)[\s\S]*who\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
@@ -65,6 +67,8 @@ const PROOFS: [string, RegExp][] = [
   ["the signed-in creator's own site", /await ownInstall\(/],
   /* GitHub's HMAC over the exact body, checked before the body is parsed. */
   ["GitHub's signature on the payload", /verifySignature\(raw, req\.headers\.get\("x-hub-signature-256"\)/],
+  /* Mailgun's HMAC (timestamp + token, the account's signing key, constant time), refused before anything is read or written; tests/mailgun-signature.test.ts. Listed since the route moved to createAdminClient (rel-shared). */
+  ["Mailgun's signature on the delivery", /if \(!verifyWebhookSignature\(body\?\.signature\)\)/],
   /* lib/automations/flow-io.ts: auth.getUser(), then the creator by user id,
      and every flow read by that creator id. */
   ["the signed-in creator, for an automation", /await signedInCreator\(\)[\s\S]*\.eq\("creator_id", me\.creatorId\)/],
@@ -81,14 +85,14 @@ const PROOFS: [string, RegExp][] = [
   /* lib/team/server.ts storeIdFor: auth.getUser(), then the store this
      account owns or is an active member of for that area, read from the
      database on every request; 401 or 403 otherwise. */
-  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
+  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"(?:, \{ read: true \})?\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
   /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
      then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
      The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
   /* lib/push/request-user.ts pushRequestUser: auth.getUser() on the session cookie, or the app's access token checked with
      Supabase (auth.getUser(token)) when the web view's cookie is missing; the push routes answer 401 without one and act only on that user. */
   ["a signed-in account for the app's push routes, cookie or bearer", /await pushRequestUser\(req\)[\s\S]*if \(!user\)/],
-  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
+  ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"(?:, \{ read: true \})?\)[\s\S]*gate instanceof NextResponse/],
   /* Changed on purpose (round 42 team access): lib/team/money.ts moneyCaller is auth.getUser() (401 without a session), then the store this
      account owns, or the store it acts in as an active member holding that money permission at that level (403 otherwise), read on every
      request; the route returns its response unless ok, and acts only on the store it got back. */
@@ -112,6 +116,17 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round 49: what the creator page, the product page and Explore used to decide per visitor on the server, now asked after load (they are one HTML for everybody, held by the CDN). */
+  "creator-page/viewer/route.ts": "the signed in person's own standing on one creator page (currentUserForRequest): owner or team member, bought from them, and the typed contact address to the owner only; a stranger is answered nobody; private, never stored",
+  "explore/interests/route.ts": "the signed in person's own For you interests (currentUserForRequest, their own setting first), nobody's for a stranger; private, never stored",
+  "purchases/guest-owned/route.ts": "the guest purchase this browser's own signed, httpOnly sl_owned cookie holds for one product (heldGrants checks each grant against its order), the order id and a masked address, nothing when the signed in account owns it; private, never stored",
+  /* Round 48 (R48-6): public config reads moved off the anon key so part 354 can close the tables to anon. */
+  "onepage/seller-avatar/route.ts": "a creator's public header avatar and favicon only: one JSON path of the published config, nothing else, read with the service role because part 354 closes the table to anon",
+  "store-builder/published/route.ts": "a creator's published look, the same the public creator page draws: published_config only, never the draft, contactEmail stripped before it leaves the server",
+  /* Round rel-db: these three always used the service role through a hand-built client, which this check did not see; they now use createAdminClient (a deadline on every request), so they are listed with what guards them. Unchanged behaviour. */
+  "domains/cleanup/route.ts": "the domain cleanup job: a POST whose body carries CRON_SECRET (or DOMAIN_CLEANUP_SECRET), compared with matchesSecret and failing closed with neither set; only then are expired domain_redirects read and removed",
+  "security/confirm-device/route.ts": "a buyer confirming a new device for a purchase, before any session: acts only when the order id and the unexpired, unused verification code sent to that order's email match",
+  "security/verify-email/route.ts": "a buyer asking for a device code for a purchase, before any session: the order is read by id and a code is sent only to the email the order was bought with, rate limited per order (claimVerificationSend)",
   "cart/prices/route.ts": "a website visitor's saved cart priced again after the store changed its currency: answers only the published prices of that store's own products, the same every product page shows, and changes nothing (checkout prices the order again)",
   // Sign-up and password recovery: the caller has no session yet, by definition.
   "team/join/sign-in/route.ts": "Log in to accept on a team invite: before there is a session by definition; reads only the invite the link's token names, keeps that token in a short lived httpOnly cookie for after sign in, and changes nothing",
@@ -221,6 +236,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",
+  "track/ai-visit/route.ts": "one more visit from an AI assistant to one of Storelib's own public pages, by day, assistant and path through bump_platform_ai_visit (part 350); same origin only, the assistant decided on the server, limited per address, nothing about the visitor written",
   "profile/activity/route.ts": "a person's public activity on their profile (lib/profile/activity.ts reads only public communities, open spaces, published reviews and products), nothing when they hid it unless the session is theirs; limited per address",
 }
 

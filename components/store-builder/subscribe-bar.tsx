@@ -586,6 +586,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction, leadi
           <Input
             ref={setSmartInputRef}
             type="email"
+            aria-label="Your email"
+            autoComplete="email"
             placeholder={settings.placeholder || "Enter your email"}
             value={email}
             onChange={(e) => handleEmailChange(e.target.value)}
@@ -845,6 +847,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
       )}
       <Input
         type="email"
+        autoComplete="email"
         aria-label={displayText || "Your email"}
         placeholder={settings.placeholder || "Enter your email"}
         className={cn(adaptiveInputClass, "h-10 min-w-0 flex-1 text-[14px] md:text-[14px]", hasCustomInputColors && "subscribe-input-themed")}
@@ -886,6 +889,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         )}
         <Input
           type="email"
+          autoComplete="email"
           aria-label={displayText || "Your email"}
           placeholder={settings.placeholder || "Enter your email"}
           className={cn(adaptiveInputClass, "h-10 min-w-0 flex-1 text-[14px] md:text-[14px]", hasCustomInputColors && "subscribe-input-themed")}
@@ -924,6 +928,8 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         <div className="flex gap-2 items-center" onClick={handleInteractiveClick}>
           <Input
             type="email"
+            aria-label="Your email"
+            autoComplete="email"
             placeholder={settings.placeholder || "Enter your email"}
             className={cn(adaptiveInputClass, "h-9 w-48 text-sm", hasCustomInputColors && "subscribe-input-themed")}
             style={{

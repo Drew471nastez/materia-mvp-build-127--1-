@@ -39,8 +39,50 @@ const SUITES = [
   "tests/net-resilience.test.ts",
   /* Round rel-auth: a timeout, a 5xx or a slow Supabase Auth is never a sign out and never a yes (routes answer 503 with Try again, not 401), a change never takes the token's signature alone, the proxy reads no session for a request with none, one auth answer per /app render, the shell's and Home's extras with their own ceiling; scripts/check-dashboard-roundtrips.mjs counts auth requests per page (FULL=1 for full loads). */
   "tests/auth-reliability.test.ts",
+  /* Round rel3-auth: an access token checked here when Supabase Auth does not answer: HS256 with SUPABASE_JWT_SECRET (the project is on the legacy shared secret, JWKS empty) or ES256 with the JWKS; forged, altered, expired, wrong issuer, audience or role, alg none or confusion all refused; the secret never in a client file. */
+  "tests/auth-local-verify.test.ts",
+  /* Round rel3-auth: Supabase Auth answering after 15s, never, or 503: /app's server render (currentUserForRequest, pageUser) still has the person from the token's verified HS256 claims in ~2.5s with one question to Auth; the proxy asks Auth nothing for a token that checks out; POST /auth/sync-session writes the session; a forged, altered, expired, wrong issuer or anon-role token is never a user; Auth's own "no" still signs out; a change (routeUser fresh) still never takes the signature alone. */
+  "tests/auth-hs256-outage.test.ts",
+  /* Round rel3-auth: "We could not check your sign in" and "Cannot reach the server" only after quiet tries: requestJson asks a 503 marked X-Storelib-Auth again twice with jitter inside its deadline (never an ordinary 503); the gate tries three times over ~6s before its screen and ten times in the background (2s..30s) while it is up, putting the page back when GET /api/auth/state says signed in (one word, no user data). */
+  "tests/auth-client-retry.test.ts",
+  /* Round 49: "We could not check your sign in just now" inside /app (Send analytics): one Supabase Auth question per request in API routes too (request cookie store, not only React cache); a read-only GET takes a page's answer (Auth, then the token's verified signature) and, with no local verifier, one more Auth try with backoff; a change still needs Auth itself and asks it again (token first, so a hung try's lock no longer blocks the retry); Auth's own no stays final; X-Storelib-Auth-Check names the check and the verifier kind, never a key; the browser asks a read's marked 503 again three times; no POST, PUT, PATCH or DELETE takes the lenient answer. */
+  "tests/auth-r49.test.ts",
+  /* Round rel-security (F1): the sign up code goes only to the account's own address and proves only that, five wrong codes burn it, and guest orders join only an account whose current address is the proven one (SQL part 345). */
+  "tests/auth-email-code.test.ts",
+  /* Round rel-security (F3): a 500, 502, 504 or 429 on the token refresh is handed to supabase-js as a 503, so the real GoTrue client keeps the session instead of signing out; a refused refresh token still signs out. */
+  "tests/auth-refresh-outage.test.ts",
+  /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
+  "tests/auth-sync-session-get.test.ts",
+  /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */
+  "tests/device-code-guard.test.ts",
+  /* Round rel-security (F2): the admin login is limited per caller address and warns loudly while its fallback credential is in use (the owner's fallback is kept). */
+  "tests/admin-login-limit.test.ts",
+  /* Round rel-security (F8): /auth/continue checks the token signature when Auth does not answer, so a signed in person is not sent to the login form during an outage. */
+  "tests/auth-continue-outage.test.ts",
+  /* Round rel2-security2 (SEC-10): an App Link bridge token is deleted and read in one statement, so two requests at once never both get the session; the stored path is checked; redirects are no-store. */
+  "tests/bridge-token-once.test.ts",
+  /* Round rel2-security2 (SEC-9): no live session token is handed to the storelib:// scheme, which any Android app can claim; the legacy reset link finishes in the browser. */
+  "tests/custom-scheme-tokens.test.ts",
+  /* Round rel2-security2 (SEC-11): no console call under app/, lib/ or proxy.ts logs a full email address, a session token, a cookie or a whole request body (lib/privacy/mask-email). */
+  "tests/log-privacy.test.ts",
+  /* Round rel2-security2 (SEC-12): Permissions-Policy on storelib.com and www only (camera and microphone for this site, camera and payment for Stripe's frames, geolocation, USB and screen capture off); the content security policy stays report only. */
+  "tests/permissions-policy.test.ts",
   /* Round rel-jobs: long work that ends (Mailgun, the theme and code agents' deadlines from the request's start, fetchPublic's total deadline), providers that fail fast (lib/net/breaker.ts: Mailgun, fulfilment, GitHub), one run of a cron at a time (recordCronRun's lease), Storelib AI's per creator limit from its own rows, and faults that stay put (checkout imports no AI, publishing sends no email). */
   "tests/rel-jobs.test.ts",
+  /* Round rel-shared: community files checked at posting (size and bytes, not only at the optional complete step), the payout push to the user and awaited, run-wide deadlines for the community, physical, seo-index, warm-sites and notify crons, deadline-wrapped Supabase clients in the email cron and Mailgun webhook, cron partial failures reported, a Web Push timeout. */
+  "tests/rel-shared.test.ts",
+  /* Round rel-sites: public sites when the database is slow or away: an AI site's failed lookup is a 503 with Retry-After (never a 404 or a 301) and its last live copy is held; a Creator Page's failed profile or creator read is the error screen, never the gate's 308 or a 404; a OnePage lookup that failed or ran out serves the last answer for the name or the error screen, never "missing"; an AI site publish whose switch did not take puts the live version back; an AI site address check that failed stops the publish (fail closed); a theme publish the database cancelled (57014, PGRST002) is asked once more, within a stated two minutes; Storelib AI limits whose count cannot be read refuse the run (503, Try again); a theme's draft stylesheets, scripts and settings are served only with the install's signed pass; a theme site's last good copy is kept by use and its held name and install entries outlive a deploy; a creator name is matched literally (`_` and `%` escaped). */
+  "tests/rel-sites.test.ts",
+  /* Round rel3-canvas: the builder's canvas on a site of its own (NEXT_PUBLIC_CANVAS_ORIGIN, off by default): the setting, the shell route's answer (404 off, off its host, without the install's draft pass, for an editor that is not the builder; framed only by the editor), the OnePage host's /__canvas/<uuid>, the shell's exact-origin relay with the page still sandboxed with no origin, and exact postMessage targets on both sides; scripts/check-canvas-site-r3.mjs is the browser half. */
+  "tests/canvas-origin.test.ts",
+  /* Round rel-obs: the request id on error rows and their log lines (onRequestError, crons, webhooks), informational lines at their real level, the load test refuses production, /api/health bounded. */
+  "tests/rel-obs.test.ts",
+  /* Round r48-obs: every server error line is one scrubbed JSON line with its route and request id (console guard, onRequestError logged once), no token, key, cookie, code, card or full address in a log, an error boundary per major segment, /api/health carries no secret, every cron says its maxDuration inside the one-run lease, smoke checks cover the critical paths, the load scripts stay local or off production. */
+  "tests/obs-r48.test.ts",
+  /* Round rel-sites2: published sites while the database is slow, on Next's real data cache. EVD-1: a server that never served a site (a new deploy, a scale-out) serves it from the copy every server can read when every read fails, and a Publish or a take down drops that copy. EVD-2: a gateway's HTML error page or a JSON body cut short is asked again and then a short 503 error, never data or the page as a message. EVD-3: robots.txt, sitemaps, the manifest, the icon, theme assets and the cover read no session through the real proxy (no Supabase Auth call), /app still does. EVD-5: the static /500 and /404 pages are added to every server trace after next build (scripts/trace-error-pages.mjs). */
+  "tests/rel-sites2.test.ts",
+  /* Round rel3-leftovers: the signed out redirect from /app and /sell is private, no-store through the real proxy (Vercel called it public). */
+  "tests/rel3-leftovers.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
@@ -148,6 +190,7 @@ const SUITES = [
   "tests/tab-title.test.ts",
   "tests/import22.test.ts",
   "tests/compat-section-preview.test.ts",
+  "tests/section-preview-stable.test.ts",
   "tests/section-categories.test.ts",
   "tests/canvas-loading.test.ts",
   "tests/compat-recently-viewed.test.ts",
@@ -338,6 +381,8 @@ const SUITES = [
   "tests/marketing-weight.test.ts",
   "tests/product-cache-scope.test.ts",
   "tests/icon-weight.test.ts",
+  /* Round 46: what every marketing page carries before it can answer a tap (supabase-js, every screen's words, the lightbox, the phone's search screen, the language list), fetched when used. */
+  "tests/shell-weight-r46.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/jsx-comments.test.ts",
@@ -938,6 +983,10 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
   "tests/db-load-isolation.test.ts",
+  /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
+  "tests/rel-db-dashboard.test.ts",
+  /* Round r48-db: SQL part 353 (every public policy reads auth.uid(), auth.jwt() and auth.role() once per query, each kept word for word otherwise, checked against pg_policies from local Postgres 16; a counted view or sale no longer moves products.updated_at), the Orders page's products read five columns a page at a time, and the /app shell's first sale read by the order's own creator. */
+  "tests/db-r48.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
@@ -982,6 +1031,14 @@ const SUITES = [
   "tests/editor-live-follow.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */
   "tests/wb-scroll-r14.test.ts",
+  /* Round 14 (INCOMING): changes from Storelib AI, an agent or a push taken in without freezing the editor, on the owner's real Materia (scripts/check-wb-incoming-r14.mjs) */
+  "tests/wb-incoming-r14.test.ts",
+  /* A section picked in Add a section lands cleanly: an imported theme's own stylesheets handed to the frame with it, the page making room as on a Storelib theme, the glide past a hidden drawer, the dialog closing in the first frame (scripts/check-section-insert-smooth.mjs) */
+  "tests/section-insert-smooth.test.ts",
+  /* 1 Nov 2026 (andrewrullz): no page of the builder waits for good on a stylesheet that does not answer: the Add a section cards' page draws after SHEET_WAIT_MS without its load event, the canvas page's bridge is let through by CANVAS_SHEET_GUARD, every queued change has STEP_MS, and each wait cut short is said to /api/client-errors (scripts/check-compat-stalls.mjs, scripts/check-canvas-stalls.mjs) */
+  "tests/compat-stalls.test.ts",
+  /* 1 Nov 2026 (andrewrullz, Materia): a theme file's own </template> line inside its markup no longer ends the file's block (theme.ts compatTemplateEnd), and whatever a section leaves open (a <template>, a <textarea>, a comment) is closed where it ends (seal.ts), so the footer and the canvas bridge after it stay in the page; reported to /api/client-errors */
+  "tests/compat-template-seal.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
@@ -990,8 +1047,28 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */
   "tests/seo-marketing-r44.test.ts",
+  /* Round 45: storelib.com's own pages say noindex where private (X-Robots-Tag and the layouts), titles for the auth steps, the crawler table, Organization, WebSite and WebApplication priced from plans.ts, breadcrumbs, unique metadata, Explore's views and 404, the Help Center's metadata, llms.txt's plans. */
+  "tests/seo-platform-r45.test.ts",
+  /* Round 45: the public blog rebuilt (every block type, sanitizeInline, the contents list, BlogPosting and VideoObject, /blog/category with the old address a 308, the sign up box and the newsletter) and the help article in the same reading frame. */
+  "tests/blog-public-r45.test.ts",
+  /* Round 45: the blog admin: the sanitiser, a post live only when published and its date has come (scheduling with no job), an old slug's 308, a save from an old version refused with 409 (savePost against an in-memory table), the snippet and preview routes admin checked and noindex, SQL part 345. */
+  "tests/blog-admin-r45.test.ts",
+  /* Round 47: the blog redone after the owner looked at it live: one 720px reading column, 17/18px body, the byline as one row, no right rail or newsletter box, the rail's card naming everything Storelib sells, a typographic cover for posts with none, the category pills in the blog's own layout. */
+  "tests/blog-r47.test.ts",
+  /* Round 49: the blog after the owner looked at the rebuilt article live: no empty right column (the 260px rail and a 760px column, the pair centred, 19px body there), a light one line card under the contents, a short box inside the article that names all of Storelib, and the category pills' sliding fill and crossfade (transform and opacity only, off with reduced motion). */
+  "tests/blog-r49.test.ts",
+  /* Round 45, leftovers B: blog author pages (/blog/author/<slug>: ProfilePage, breadcrumbs, live posts, noindex when empty, a 404 with no table, the sitemap), no FAQPage or HowTo in the Help Center, the product file limit from the upload policy, STORELIB_SOCIAL for the footer and sameAs, Copy to Storelib (the https and private address guard, type by bytes, 10 MB, a post's addresses swapped in place). */
+  "tests/seo-leftovers-b-r45.test.ts",
+  /* Round 47: writing in the blog editor: markdown at the start of a line, undo and redo across blocks, Cmd+S, the search checklist (facts, no score) and its title counted as rendered, the writing page (panel, drawer, focus mode, the publish confirmation), and before SQL part 345 a reader's view no longer a false 409 (lib/blog/editor-tools.ts, lib/blog/save-rules.ts editVersion). */
+  "tests/blog-editor-r47.test.ts",
+  /* Round 48 (appperf): the signed in dashboard measured against a logging fake Supabase: the search takes the Community switch from the layout (no /api/platform/flags per load), Analytics reads in one round once the store is known, Settings asks the team store beside its first reads, still no loading screen under /app. */
+  "tests/appperf-r48.test.ts",
   /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
   "tests/alternatives.test.ts",
+  /* Round 46: Payhip, Kajabi, Podia and Skool compared: each claim sourced on their own site and dated, each plan charged by its published rule (Skool Pro's higher rate over $899), where each is better said plainly, the hub, the sitemap and the /sell links. */
+  "tests/alternatives-r46.test.ts",
+  /* Round 45 (content): lib/marketing/facts read from the code (prices, fees, limits), the /sell pages, /features as Storelib in one page, the comparison pages' checked prices and moving guides, the YouTube video registry and its VideoObject. */
+  "tests/content-r45.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
   "tests/carrier-select.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
@@ -1025,6 +1102,8 @@ const SUITES = [
   "tests/editor-sections-r34.test.ts",
   /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
   "tests/onepage-products-r10.test.ts",
+  /* Round 49: every OnePage way to buy (the block's tap, the sheet's Check out, a download's link) opens the new checkout; a product that ships pays on its store website's checkout with its option, quantity, Back to the OnePage and src=onepage; old /checkout/physical and /checkout?productId=<ships> links go on to it. */
+  "tests/checkout-r49.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
@@ -1041,14 +1120,46 @@ const SUITES = [
   "tests/view-online.test.ts",
   /* Round cn-1028: community emails and automations edited from Emails itself, Customer emails' family pills without the slide, the editor's preview drawn once per version and shown at once. */
   "tests/emails-community-in-place.test.ts",
-  /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round, the name beside a square icon; settled at send from the picture's size. */
+  /* Round 43: every email draws the store's logo whole (lib/emails/brand-mark.ts), at its own shape inside 200 by 40, never round (round 49: the small shared corner), the name beside a square icon; settled at send from the picture's size. */
   "tests/email-logo-shape.test.ts",
   /* Round ana-1029: Storelib analytics sent on to GA4 (Measurement Protocol), Meta (Conversions API), PostHog and a signed webhook through a queued, idempotent, retrying sender with consent and hashing, the status view and Send test, GET /api/v1/analytics with read only keys, SQL part 338; scripts/check-send-analytics.mjs measures the dialog. */
   "tests/analytics-destinations.test.ts",
+  "tests/analytics-r49.test.ts",
+  /* Round 49: a dialog opens in one short task: modal state counted on <html> (lib/ui/modal-open.ts) instead of html:has() rules, the pause rules keyed on their own attributes, Radix's scroll lock property not inherited, the pressed card's inside by a style query, the first focus on the next frame where no keyboard depends on it (lib/ui/dialog-focus.ts); scripts/check-dialogs-r49.mjs measures it. */
+  "tests/dialogs-r49.test.ts",
   /* Round 44: /admin/seo, every address in Storelib's sitemaps with Google's URL Inspection answer (service account JWT signed with node:crypto, per property, a quota counted in the database, rotated never checked and stalest first) and a score from the live page with every check; admin only, Check now rate limited, SQL part 342; scripts/check-admin-seo.mjs renders it. */
   "tests/admin-seo-console-r44.test.ts",
+  /* Round 45: AI assistant sources on touches and Storelib's own sign ups (SQL part 346), the Audience view's AI assistants group, a spec-correct robots.txt matcher held to Google's examples, the sitemap file check, Search Console performance and Bing in /admin/seo with nothing called indexed without Google's answer, verification meta only when set, and the labels and landmarks the public journeys need; scripts/check-admin-seo.mjs and scripts/check-agent-journeys.mjs drive them in a browser. */
+  "tests/seo-tracking-r45.test.ts",
+  /* Round 46: visits to storelib.com's own pages from an AI assistant, counted by Storelib (SQL part 350): which paths and which assistant, one count per tab session only with analytics consent, the route with the database stubbed (only the assistant and the path reach it, always 204, quiet before 347), service role only grants, the Audience view's storelib.com visits and top pages; scripts/check-admin-ai-visits.mjs renders the panel. */
+  "tests/ai-visits-r46.test.ts",
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
+  /* Round 45: every page a creator publishes, as a search engine reads it: page 2 of a shop or collection its own canonical and a page past the last a 404, an imported theme's shop at one address and a gone product a 404, /collections and /reviews and a community's public posts in the sitemaps, a website behind a password out of storelib.com's, IndexNow for collections and public posts, and every route of a website or a creator page held to a sitemap or a noindex. */
+  "tests/seo-sites-r45.test.ts",
+  /* Round 45 leftovers (a): a creator's contact address asked for on the click (/api/creator-contact, rate limited, noindex, no-store) and in no page's payload, nor a website contact form's inbox; Explore's cards without sign in ids; IndexNow for moderation, admin takedowns and bans; a product's JSON-LD in the page's language; one noindex on a 404; www and a trailing slash in one 308; the imported theme's 303 kept on purpose. */
+  "tests/seo-leftovers-a-r45.test.ts",
+  /* Round 46: Core Web Vitals of the SEO round's pages measured live (scripts/check-live-vitals.mjs): a list's first card eager when no large post is above it, covers with priority and sizes, no YouTube frame or script before a press, the phone's search strip drawn once the header is measured (a 63px shift), no preconnect to an unused host. */
+  "tests/perf-r46.test.ts",
+  /* Creator blogs in an imported theme (P3): Dawn-style blog, article and featured blog sections drawn with real posts, pagination, tags, categories, 308s for old slugs and handles, a preview noindex and no-store, BlogPosting and Blog JSON-LD on the custom domain, the sitemap's blog entries, and nothing changed without a blog. */
+  "tests/site-blog-compat.test.ts",
+  /* Creator blogs, package 2: one Blog item in Website Settings directly below Pages and no link anywhere else, the post list's query, selection, bulk actions and row menu, autosave one request at a time with its version and a 409 that stops and asks (blog/save-queue.ts on its own clock), scheduling in the app's time zone, the block editor's optional props only (the admin's menu word for word), every editor word translated, before SQL part 353. */
+  "tests/site-blog-ui.test.ts",
+  /* Round 48: live websites under a spike: a connected domain's lookup is one read per host however many visitors ask at once and is served stale while it refreshes, strangers arriving together on an imported theme's page share one draw, and the same deferred theme script written twice runs once. */
+  "tests/sites-r48.test.ts",
+  /* Round 48 security: the About story drawn through the allow list, redirects after sign up kept on Storelib, the reset code routes limited and single use, the CSP enforced on /app, /admin and the sign in pages (through the real proxy), HSTS and a Permissions-Policy on every host, no public SVG. */
+  "tests/security-r48.test.ts",
+  /* Round 48, R48-6: the creator page configs are read by the server (service role, published_config only, no contact address) for every public page, never with the anon key; the owner screens keep their own session; SQL part 354 closes both tables to anon. */
+  "tests/configs-r48.test.ts",
+  /* Round 48: the public pages' speed: the home page's head preloads only the hero, the cookie card in the server's HTML (lib/consent/early-ask), the product page's buy box its final height during the purchase check, no owner or editor code (or Supabase, Swiper, the app wide react-icons/si) in a visitor's creator and product page, Explore's chip as tall before its measurement. */
+  "tests/pubperf-r48.test.ts",
+  /* Round 49: a store's logo with one small corner (lib/brand/store-logo.ts) and no shadow wherever a buyer sees it: every email, the checkout's shop bar, the order status page, the receipt, the order help page (components/brand/store-logo.tsx), the packing slip and the invoice PDF. */
+  "tests/logo-r49.test.ts",
+  /* Round 49, edge: stored copies of public pages served while the database is away (lib/edge, docs/reliability/EDGE_FAILOVER.md). */
+  "tests/edge-r49.test.ts",
+
+  /* Round 49: creator pages, product pages and Explore are one HTML for everybody (no cookies() or headers() in their render), the owner's controls, Download, Contact and For you are asked after load, the CDN rule is the same for every request (never RSC, the editor's canvas or a scheme preview), a language is an address (?lang=, the proxy's 307), a save expires the data and the CDN copy by tag and path; scripts/check-creator-page-cache.mjs measures the bytes on a production build. */
+  "tests/cdnpages-r49.test.ts",
 ]
 
 /**
@@ -1060,6 +1171,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Creator website blogs (SQL part 353, lib/site-blog): the sanitizer on save and on render (javascript: links, on* attributes, frames only from embedFrameSrc, gallery and button), slugs, status, preview tokens (24 hours, their own namespace), and the admin and public reads against the SQL in memory through supabase-js: a save from an old version answered 409, autosave into a live post's draft, publish/update/schedule, a live slug change's redirect, fifty revisions, bulk, categories, settings, a scheduled post live on time while the cache is held, null/503 before the SQL, and every query filtered by creator_id. Strict: it narrows save results by `ok`. */
+  "tests/site-blog-data.test.ts",
   /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
   "tests/onepage-creator-blocks.test.ts",
   /* Round 40: OnePage integrations (Mailchimp, Kit, beehiiv, webhooks), consent-aware pixels, embeds without a jump, and the shelf, lead magnet, posts, followers and code blocks. */
@@ -1074,6 +1187,12 @@ const STRICT_SUITES = [
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /* Reliability (commerce): money paths under a failing Stripe or database, through the real routes (tests/_journey): a confirm that failed is never "nothing was charged" and Pay again reuses the same intent; a payout whose wallet step failed is retried by Stripe, and posted once; a library entry whose write failed is retried by the sweep; webhook database errors answer 500, and an early invoice is kept; a Connect PermissionError disconnects nobody while the platform key fails its own check; the payouts page makes one read, kept half a minute per person, and keeps what it showed when Stripe is unavailable; the plan sync reads every page of subscriptions; a hung database call ends at the shared deadline instead of holding a webhook. */
+  "tests/rel-commerce.test.ts",
+  /* Reliability (commerce, wave 2): the memberships job never cancels a trial whose buyer saved a card or one Stripe has as paid (PAY-8); the payment webhook answers once the order, library entry and ledger are written and runs the fee read, receipt PDF, emails and notifications after the answer, once each, a failed one left for the sweep (PAY-12); the legacy Checkout Session product path is unreachable from any session made today and reads latest_charge if an old one comes (PAY-11); a bank Stripe could not list is bankUnknown and the Payouts page says it could not check instead of Add bank (PAY-5). */
+  "tests/rel-commerce2.test.ts",
+  /* Reliability (wave 3, PAY-9): one product checkout order, one PaymentIntent: the page's attempt id and run-now part 352 (checkout_attempts) give the same PaymentIntent for Pay pressed again, a new one for a changed order or another buyer, a new attempt when Stripe refuses the key or the PaymentIntent was canceled, and the route exactly as before without the table (tests/_journey). */
+  "tests/pay9-checkout-attempts.test.ts",
   /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
   "tests/e2e-personalization.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
@@ -1159,6 +1278,8 @@ const STRICT_SUITES = [
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */
   "tests/seo-sites-r44.test.ts",
+  /* Creator blogs, package 4: the Blog and Blog post templates on a Storelib theme (main_blog, main_article, blog_featured drawn with real posts), the /blogs routes' metadata, JSON-LD, 308s and private previews, a creator's own "blog" page kept, the canvas and link picker, and read_blog kept after the cached prefix. */
+  "tests/site-blog-native.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

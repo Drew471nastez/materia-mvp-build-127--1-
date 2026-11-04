@@ -50,19 +50,33 @@ export function physicalJson(body: unknown, status = 200): NextResponse {
  * has opened to the team stays the owner's alone. The owner, in their own
  * account, is the owner here as everywhere.
  */
-export async function physicalCaller(area: TeamArea = "store"): Promise<PhysicalCaller | NextResponse> {
+export async function physicalCaller(area: TeamArea = "store", opts: CallerOptions = {}): Promise<PhysicalCaller | NextResponse> {
   if (!(await isPhysicalCommerceEnabled())) return physicalJson({ error: "Not found." }, 404)
-  return shopCaller(area)
+  return shopCaller(area, opts)
 }
+
+/**
+ * Round 49. `read: true` for a GET that changes nothing: the signed in person
+ * is taken from the same answer a page takes (Supabase Auth, or the token's
+ * verified signature while Auth is slow; lib/auth/request-scope), so a panel
+ * no longer shows "We could not check your sign in just now" while the page
+ * around it rendered. Anything that changes data leaves it out and stays
+ * strict.
+ */
+export interface CallerOptions {
+  read?: boolean
+}
+/** For a read-only GET: `shopCaller("analytics", READ)`. */
+export const READ: CallerOptions = Object.freeze({ read: true })
 
 /**
  * The owner check alone, for what every shop has whatever it sells:
  * collections group downloads, courses and memberships as well as goods, so
  * they are not behind the physical commerce switch.
  */
-export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store"): Promise<PhysicalCaller | NextResponse> {
-  /* Bounded, retried once, and a 503 with Try again when Supabase Auth did not answer, never "Sign in" (lib/auth/route-user). Nothing is allowed on that answer. */
-  const who = await routeUser()
+export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store", opts: CallerOptions = {}): Promise<PhysicalCaller | NextResponse> {
+  /* Bounded, retried with backoff, and a 503 with Try again when Supabase Auth did not answer, never "Sign in" (lib/auth/route-user). Nothing is allowed on that answer. A read takes a page's answer (CallerOptions). */
+  const who = await routeUser({ fresh: !opts.read })
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return physicalJson({ error: "Sign in to continue." }, 401)
   const user = who.user

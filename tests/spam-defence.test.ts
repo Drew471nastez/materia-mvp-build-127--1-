@@ -447,7 +447,9 @@ check(
   "client, server and <html lang> all default to English",
   /DEFAULT_LANGUAGE: SupportedLanguage = "en"/.test(provider) &&
     /DEFAULT_LOCALE: LocaleCode = "en"/.test(serverLocale) &&
-    /<html lang="en"/.test(rootLayout),
+    /* Changed on purpose (round 45 leftovers): the layout prints STORELIB_PAGE_LANG, which a product's JSON-LD reads too (lib/seo/page-language.ts). */
+    /<html lang=\{STORELIB_PAGE_LANG\}/.test(rootLayout) &&
+    /export const STORELIB_PAGE_LANG = "en"/.test(read("lib/seo/page-language.ts")),
   "        locale-provider.tsx, lib/i18n/server.ts, app/layout.tsx",
 )
 

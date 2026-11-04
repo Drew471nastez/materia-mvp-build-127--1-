@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   /* Round 41: read too by the OnePage editor's Integrations panel (a team member with OnePage). Only whether each is connected and its list; keys never come back, and connecting one stays the owner's (POST). */
-  const c = await shopCaller(["store", "onepage", "marketing"])
+  const c = await shopCaller(["store", "onepage", "marketing"], { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson({ marketing: await loadMarketing(c.db, c.creatorId) })
 }

@@ -88,7 +88,8 @@ check("the sidebar doesn't offer dragging out of Details", /staysInDetails\(sect
 
 console.log("\nBuying never lands in the wrong checkout")
 const digital = read("app/checkout/page.tsx")
-check("a product that ships, sent to the digital checkout, goes to the cart checkout", /\.type === "physical"\) \{[\s\S]{0,400}redirect\(physicalCheckoutHref\(product\.creator_id/.test(digital))
+/* Round 49 (tests/checkout-r49): the store website's cart checkout first, storelib.com's /checkout/physical only for a store with no website. */
+check("a product that ships, sent to the digital checkout, goes to the cart checkout", /\.type === "physical"\) \{[\s\S]{0,900}redirect\(website \?\? physicalCheckoutHref\(product\.creator_id/.test(digital))
 const physPage = read("app/checkout/physical/page.tsx")
 const physClient = read("app/checkout/physical/physical-checkout.tsx")
 check("Back in the cart checkout is the store's own site, checked on the server", /checkoutReturns\(\{ creatorId: shop, cancel: asked \}\)/.test(physPage) && /backTo=\{backTo\}/.test(physPage))

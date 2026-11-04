@@ -53,7 +53,8 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Switch } from "@/components/ui/switch"
 import { SegmentedTabs } from "@/components/app/segmented-tabs"
-import { PILL_FADE_EASE, SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
+import { PILL_FADE_EASE } from "@/components/app/segmented-pills"
+import { FilterPills, type FilterPillOption } from "@/components/app/filter-pills"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
 import { CommunityAutomations } from "@/components/app/emails/community-automations"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
@@ -223,7 +224,7 @@ export function CustomerEmailsPanel({
     setViewState(v)
     writeView(v)
   }
-  const tabs: PillOption<View>[] = [
+  const tabs: FilterPillOption<View>[] = [
     { value: "all", label: tt("All") },
     { value: "digital", label: FAMILY_NAMES.digital },
     ...(physical ? [{ value: "physical" as const, label: FAMILY_NAMES.physical }] : []),
@@ -271,8 +272,8 @@ export function CustomerEmailsPanel({
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill. Nothing slides between them; the chosen one eases its fill in place, as Settings' pills do (round 43). No grey track. */}
-        <SegmentedPills variant="chips" value={shown} motion="fade" onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
+        {/* The Integrations page's pills (round 47, the owner): a hairline pill each, the chosen one dark in the same frame. The list under them still fades in (viewPanel). */}
+        <FilterPills value={shown} onChange={setView} options={tabs} label={tt("Email families")} className="max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>

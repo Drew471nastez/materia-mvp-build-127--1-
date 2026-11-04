@@ -210,7 +210,7 @@ export async function portalConfiguration(): Promise<string> {
   const list = await stripe.billingPortal.configurations.list({ active: true, limit: 100 })
   const found = list.data.find((c) => c.metadata?.storelib === "memberships")
   if (found) return (portalConfig = found.id)
-  const made = await stripe.billingPortal.configurations.create({
+  const configParams: Stripe.BillingPortal.ConfigurationCreateParams = {
     business_profile: { headline: "Your membership on Storelib" },
     features: {
       payment_method_update: { enabled: true },
@@ -219,6 +219,10 @@ export async function portalConfiguration(): Promise<string> {
       subscription_cancel: { enabled: false },
     },
     metadata: { storelib: "memberships" },
+  }
+  /* Two servers starting at once, or a retry, make one configuration (10 minutes). */
+  const made = await stripe.billingPortal.configurations.create(configParams, {
+    idempotencyKey: stripeIdempotencyKey("membership-portal-config", [], configParams, { windowMs: 10 * 60_000 }),
   })
   return (portalConfig = made.id)
 }

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { sameOriginPath } from "@/lib/auth/continue"
+import { consumeBridgeToken } from "@/lib/auth/bridge-token"
 
 /**
  * GET /app/auth/callback?bridge_token=<uuid>&next=<path>
@@ -30,6 +31,14 @@ import { sameOriginPath } from "@/lib/auth/continue"
  *   If no bridge_token at all, just redirect to `next` (session was already
  *   set in the same browser by /auth/callback's createClient call).
  */
+/* The redirect carries a fresh session in its cookies: never kept by a cache, and the address is not sent on. */
+function go(to: string): NextResponse {
+  const res = NextResponse.redirect(to)
+  res.headers.set("Cache-Control", "no-store")
+  res.headers.set("Referrer-Policy", "no-referrer")
+  return res
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const bridgeToken = searchParams.get("bridge_token")
@@ -40,34 +49,18 @@ export async function GET(request: Request) {
   // ── Web fallback: no bridge token ───────────────────────────────────────
   // Session was already established in the same browser by /auth/callback.
   if (!bridgeToken) {
-    return NextResponse.redirect(`${canonicalUrl}${next}`)
+    return go(`${canonicalUrl}${next}`)
   }
 
-  // ── Validate + consume the bridge token ─────────────────────────────────
-  const adminSupabase = createAdminClient()
-
-  const { data: tokenRow, error: lookupError } = await adminSupabase
-    .from("oauth_bridge_tokens")
-    .select("id, access_token, refresh_token, next_path, expires_at")
-    .eq("id", bridgeToken)
-    .single()
-
-  if (lookupError || !tokenRow) {
-    console.error("Bridge token lookup error:", lookupError)
-    return NextResponse.redirect(
-      `${canonicalUrl}/login?error=${encodeURIComponent("Invalid or expired session token. Please sign in again.")}`
-    )
+  // ── Consume the bridge token: one statement, so only one request ever gets it (lib/auth/bridge-token.ts) ──
+  const consumed = await consumeBridgeToken(createAdminClient(), bridgeToken)
+  if (consumed.ok === false) {
+    if (consumed.reason !== "invalid") console.error("[app/auth/callback] bridge token not used:", consumed.reason)
+    if (consumed.reason === "expired") {
+      return go(`${canonicalUrl}/login?error=${encodeURIComponent("Session token expired. Please sign in again.")}`)
+    }
+    return go(`${canonicalUrl}/login?error=${encodeURIComponent("Invalid or expired session token. Please sign in again.")}`)
   }
-
-  if (new Date(tokenRow.expires_at) < new Date()) {
-    await adminSupabase.from("oauth_bridge_tokens").delete().eq("id", bridgeToken)
-    return NextResponse.redirect(
-      `${canonicalUrl}/login?error=${encodeURIComponent("Session token expired. Please sign in again.")}`
-    )
-  }
-
-  // Delete immediately — one-time use.
-  await adminSupabase.from("oauth_bridge_tokens").delete().eq("id", bridgeToken)
 
   // ── Set session in the WebView's cookie jar ──────────────────────────────
   // createClient() uses the Next.js cookie store. Any cookies written via
@@ -76,17 +69,16 @@ export async function GET(request: Request) {
   // session crosses from Chrome's jar (where OAuth ran) into WebView's jar.
   const supabase = await createClient()
   const { error: sessionError } = await supabase.auth.setSession({
-    access_token: tokenRow.access_token,
-    refresh_token: tokenRow.refresh_token,
+    access_token: consumed.session.accessToken,
+    refresh_token: consumed.session.refreshToken,
   })
 
   if (sessionError) {
-    console.error("Session set error:", sessionError)
-    return NextResponse.redirect(
-      `${canonicalUrl}/login?error=${encodeURIComponent("Failed to establish session. Please sign in again.")}`
-    )
+    console.error("[app/auth/callback] session not set:", sessionError.name || "error")
+    return go(`${canonicalUrl}/login?error=${encodeURIComponent("Failed to establish session. Please sign in again.")}`)
   }
 
-  const destination = tokenRow.next_path || next
-  return NextResponse.redirect(`${canonicalUrl}${destination}`)
+  /* The stored path is checked like the query's: a path on this site only. */
+  const destination = consumed.session.nextPath ? sameOriginPath(consumed.session.nextPath, next) : next
+  return go(`${canonicalUrl}${destination}`)
 }

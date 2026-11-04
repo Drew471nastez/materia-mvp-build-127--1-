@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     says so itself (app/(auth)/signup/layout.tsx). Links are still followed.
   */
   robots: { index: false, follow: true },
+  /* And no canonical: a step names no address to index (round 45, lib/seo/private-metadata.ts). */
+  alternates: { canonical: null },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -42,9 +44,10 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
+    /* The main landmark of every sign in step: a screen reader or a browser agent goes straight to the form. */
+    <main className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
       <HtmlClass name="with-page-auth" />
       {children}
-    </div>
+    </main>
   )
 }

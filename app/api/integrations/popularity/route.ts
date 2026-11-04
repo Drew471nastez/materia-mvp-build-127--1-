@@ -10,7 +10,7 @@ import { integrationPopularity } from "@/lib/integrations/popularity-server"
  * needs them. Counts, never a store.
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const scores = await integrationPopularity(c.db)
   return NextResponse.json({ scores }, { headers: { "Cache-Control": "private, max-age=3600" } })

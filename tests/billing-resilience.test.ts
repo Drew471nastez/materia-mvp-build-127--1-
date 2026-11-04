@@ -26,7 +26,9 @@ import {
   STRIPE_MAX_NETWORK_RETRIES,
   STRIPE_TIMEOUT_MS,
   StripeCircuitBreaker,
+  cashoutIdempotencyKey,
   stripeIdempotencyKey,
+  stripeIdentityKey,
   type Transport,
   type TransportResponse,
 } from "@/lib/stripe/resilience"
@@ -40,6 +42,8 @@ import {
   type StripeSubLike,
 } from "@/lib/billing/subscription-state"
 import { syncFromSubscriptionEvent, type SyncDeps } from "@/lib/billing/subscription-sync"
+import { billingReturnUrl, trustedRequestOrigin, trustedReturnUrl } from "@/lib/billing/return-url"
+import { perRequest, withRequestMemo } from "@/lib/billing/request-memo"
 
 let passed = 0
 let failed = 0
@@ -368,8 +372,10 @@ async function main() {
     check("a membership confirm that cannot reach Stripe says try again (503), never 'not found'", /if \(!isStripeNotFound\(error\)\) return NextResponse\.json\([^)]*\{ status: 503 \}\)/.test(code("app/api/memberships/confirm/route.ts")))
     check("a creator's payout account is opened once per press", /stripe\.accounts\.create\(params, options\.keyParts \? \{ idempotencyKey: stripeIdempotencyKey\("connect-account"/.test(code("lib/payments/stripe/connect.ts")))
     const keyed: [string, RegExp][] = [
-      ["app/api/checkout/stripe-session/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("product-intent"/g],
-      ["app/api/checkout/stripe-session/route.ts", /checkout\.sessions\.create\(walletParams, \{ idempotencyKey: stripeIdempotencyKey\("product-wallet"/g],
+      /* PAY-9: the product checkout's key is the attempt's (stripeIdentityKey of its row and the exact params) or, with no attempt, the short one from the exact params. */
+      ["app/api/checkout/stripe-session/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: intentIdempotencyKey\(\) \}\)/g],
+      ["app/api/checkout/stripe-session/route.ts", /const intentIdempotencyKey = \(\) =>\s+att\.current \? stripeIdentityKey\("product-intent", \[att\.current\.id\], params\) : stripeIdempotencyKey\("product-intent", \[creator\.id, product\.id\], params\)/g],
+      ["app/api/checkout/stripe-session/route.ts", /checkout\.sessions\.create\(walletParams, \{\s+idempotencyKey: att\.current \? stripeIdentityKey\("product-wallet", \[att\.current\.id\], walletParams\) : stripeIdempotencyKey\("product-wallet", \[creator\.id, product\.id\], walletParams\)/g],
       ["app/api/checkout/site/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("site-intent"/g],
       ["app/api/checkout/cart/route.ts", /checkout\.sessions\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("cart-session"/g],
       ["lib/communities/server/event-checkout.ts", /sessions\.create\(params, \{ idempotencyKey: stripeIdempotencyKey\("community-event"/g],
@@ -380,6 +386,186 @@ async function main() {
     check("every storefront checkout and payment create carries a key from its exact params", keyed.every(([p, re]) => re.test(code(p))))
     const unkeyed = ["app/api/checkout/stripe-session/route.ts", "app/api/checkout/site/route.ts", "app/api/checkout/cart/route.ts"].filter((p) => /(?:paymentIntents|checkout\.sessions)\.create\([a-zA-Z]+\)/.test(code(p)))
     check("  and none is left without one", unkeyed.length === 0, unkeyed)
+  }
+
+  console.log("\nA cashout is keyed by the payout itself, never the clock")
+  {
+    const base = { creatorId: CREATOR, accountId: "acct_1Seller", lastCashoutEventId: "9f0c0000-0000-4000-8000-000000000001", walletMinor: 12_345, params: { amount: 12_345, currency: "usd", description: "Storelib cashout" } }
+    const k1 = cashoutIdempotencyKey(base)
+    const realNow = Date.now
+    let k2 = ""
+    try {
+      Date.now = () => realNow() + 3 * 60 * 60_000
+      k2 = cashoutIdempotencyKey(base)
+    } finally {
+      Date.now = realNow
+    }
+    check("the same payout pressed again hours later is the same key (no time in it)", k1 === k2, { k1, k2 })
+    check("a genuinely new cashout (the last cashout moved on) is a new key, even for the same amount", k1 !== cashoutIdempotencyKey({ ...base, lastCashoutEventId: "9f0c0000-0000-4000-8000-000000000002" }))
+    check("the first cashout ever has its own anchor", k1 !== cashoutIdempotencyKey({ ...base, lastCashoutEventId: null }) && /:first:/.test(cashoutIdempotencyKey({ ...base, lastCashoutEventId: null })))
+    check("a different amount or currency is a different key, so Stripe never refuses a changed request", k1 !== cashoutIdempotencyKey({ ...base, walletMinor: 99 }) && k1 !== cashoutIdempotencyKey({ ...base, params: { ...base.params, currency: "eur" } }))
+    check("another store's identical balance never shares a key", k1 !== cashoutIdempotencyKey({ ...base, creatorId: "22222222-2222-4222-8222-222222222222", accountId: "acct_2Other" }))
+    check("cashout keys fit Stripe's 255 characters", k1.length <= 255 && stripeIdentityKey("x", ["a".repeat(500)], {}).length <= 255)
+
+    /* The answer is lost (the payout made, the route rolled the ledger back), and the seller presses again. */
+    const f = fakeStripe(() => ({ status: 200, body: { id: `po_${Math.random().toString(36).slice(2)}`, object: "payout" } }))
+    const client = sdk(f.transport, new StripeCircuitBreaker())
+    const first = await client.payouts.create(base.params as any, { stripeAccount: base.accountId, idempotencyKey: k1 })
+    const again = await client.payouts.create(base.params as any, { stripeAccount: base.accountId, idempotencyKey: cashoutIdempotencyKey(base) })
+    check("a retry after a lost answer gets the first payout back: one payout, not two", first.id === again.id && f.seen.filter((x) => x.method === "POST").length === 2, { first: first.id, again: again.id })
+    const next = await client.payouts.create(base.params as any, { stripeAccount: base.accountId, idempotencyKey: cashoutIdempotencyKey({ ...base, lastCashoutEventId: "after-first" }) })
+    check("  and the next real cashout, once the first is recorded, is paid", next.id !== first.id)
+
+    const route = code("app/api/stripe/cashout/route.ts")
+    check("the cashout route no longer keys the payout on the time", !/cashout_\$\{creator\.id\}_\$\{Date\.now\(\)\}/.test(route) && !/idempotencyKey[^\n]*Date\.now/.test(route))
+    check("  it keys it on the account, the last recorded cashout and the amount",
+      /cashoutIdempotencyKey\(\{\s*creatorId: creator\.id,\s*accountId: stripeAccountId,\s*lastCashoutEventId:[^,]+,\s*walletMinor: cashoutWalletMinor,\s*params: payoutParams,?\s*\}\)/.test(route) &&
+        /stripe\.payouts\.create\(payoutParams, \{ stripeAccount: stripeAccountId, idempotencyKey \}\)/.test(route))
+    check("  the anchor is this store's latest cashout_initiated event, read after the ledger lock and before the payout",
+      /\.eq\("event_type", "cashout_initiated"\)\s*\.order\("created_at", \{ ascending: false \}\)/.test(route) &&
+        route.indexOf('.eq("in_transit_amount", 0)') < route.indexOf('.eq("event_type", "cashout_initiated")') && route.indexOf('.eq("event_type", "cashout_initiated")') < route.indexOf("stripe.payouts.create"))
+    check("  an unread anchor pays nothing: the ledger is put back and the seller is told to try again", /if \(lastCashoutErr\) \{\s*await rollback\(\)\s*return NextResponse\.json\([^)]*\{ status: 503 \}\)/.test(route))
+    check("  the double press is still refused by the ledger lock (409)", /\.eq\("in_transit_amount", 0\)/.test(route) && /status: 409/.test(route))
+  }
+
+  console.log("\nThe downgrade schedule is created once per downgrade")
+  {
+    const change = code("app/api/billing/subscription/change/route.ts")
+    check("subscriptionSchedules.create carries a key from the subscription, the released schedule and the new plan",
+      /stripe\.subscriptionSchedules\.create\(scheduleParams, \{\s*idempotencyKey: stripeIdentityKey\("plan-downgrade-schedule", \[stripeSubscription\.id, existingScheduleId \?\? "none", newPlanId\], scheduleParams\)/.test(change))
+    check("  and no schedule is created without one", (change.match(/subscriptionSchedules\.create\(/g) ?? []).length === (change.match(/subscriptionSchedules\.create\(scheduleParams, \{\s*idempotencyKey: stripeIdentityKey\(/g) ?? []).length)
+    check("  a key that hands back a released schedule is followed by a new one, a bounded number of times",
+      /for \(let i = 0; i < 3 && \(schedule\.status === "released"/.test(change) && /`after-\$\{schedule\.id\}`/.test(change))
+    const p = { from_subscription: "sub_A" }
+    const a = stripeIdentityKey("plan-downgrade-schedule", ["sub_A", "none", "free"], p)
+    check("the schedule key is deterministic, and another plan or released schedule is another key",
+      a === stripeIdentityKey("plan-downgrade-schedule", ["sub_A", "none", "free"], { ...p }) && a !== stripeIdentityKey("plan-downgrade-schedule", ["sub_A", "none", "growth"], p) && a !== stripeIdentityKey("plan-downgrade-schedule", ["sub_A", "sub_sched_1", "free"], p))
+  }
+
+  console.log("\nStripe sends people back to Storelib, never anywhere a request names")
+  {
+    const saved = { main: process.env.NEXT_PUBLIC_MAIN_DOMAIN, app: process.env.APP_URL, pub: process.env.NEXT_PUBLIC_APP_URL, site: process.env.NEXT_PUBLIC_SITE_URL, env: process.env.NODE_ENV }
+    const env = process.env as Record<string, string | undefined>
+    env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
+    delete env.APP_URL
+    delete env.NEXT_PUBLIC_APP_URL
+    delete env.NEXT_PUBLIC_SITE_URL
+    env.NODE_ENV = "production"
+    try {
+      const kept = ["https://storelib.com/app/settings/billing?success=1", "https://www.storelib.com/sell?stripe_success=1&tier=growth"]
+      check("Storelib's own pages are kept as sent", kept.every((u) => trustedReturnUrl(u) === u), kept.map((u) => trustedReturnUrl(u)))
+      check("surrounding spaces are trimmed, not trusted blindly", trustedReturnUrl(" https://storelib.com/app ") === "https://storelib.com/app" && trustedReturnUrl(" https://evil.example/ ") === null)
+      check("a path is resolved on the platform", trustedReturnUrl("/app/settings/billing/upgrade") === "https://storelib.com/app/settings/billing/upgrade")
+      const refused = [
+        "https://evil.example/receipt",
+        "https://storelib.com.evil.example/",
+        "https://evilstorelib.com/",
+        "https://someoneelse.storelib.com/",
+        "https://user:pw@storelib.com/",
+        "https://evil.example\\@storelib.com/",
+        "//evil.example/x",
+        "/\\evil.example",
+        "http://storelib.com/app",
+        "https://storelib.com:8443/app",
+        "javascript:alert(1)",
+        "data:text/html,hi",
+        "https://storelib.com/\nx",
+        "",
+        42,
+        null,
+      ]
+      const leaks = refused.filter((u) => trustedReturnUrl(u) !== null)
+      check("every other address is refused (other hosts, look alikes, other creators' subdomains, userinfo, http, ports, schemes, control characters)", leaks.length === 0, leaks)
+      check("a refused address falls back to the platform page", billingReturnUrl("https://evil.example/", "/app/settings/billing?success=1") === "https://storelib.com/app/settings/billing?success=1")
+      check("a store's verified domain passes only when the caller names it", trustedReturnUrl("https://mybrand.example/thanks", { ownHosts: ["mybrand.example"] }) === "https://mybrand.example/thanks" && trustedReturnUrl("https://mybrand.example/thanks") === null)
+      check("a request's origin is used only when it is Storelib's", trustedRequestOrigin("https://storelib.com/api/payments/identity") === "https://storelib.com" && trustedRequestOrigin("https://evil.example/api/payments/identity") === "https://storelib.com" && trustedRequestOrigin("not a url") === "https://storelib.com")
+      env.APP_URL = "https://app.storelib-staging.example"
+      check("  and APP_URL's host is Storelib too", trustedReturnUrl("https://app.storelib-staging.example/app") !== null)
+    } finally {
+      for (const [k, v] of [["NEXT_PUBLIC_MAIN_DOMAIN", saved.main], ["APP_URL", saved.app], ["NEXT_PUBLIC_APP_URL", saved.pub], ["NEXT_PUBLIC_SITE_URL", saved.site], ["NODE_ENV", saved.env]] as const) {
+        if (v === undefined) delete env[k]
+        else env[k] = v
+      }
+    }
+    const create = code("app/api/billing/subscription/create/route.ts")
+    check("the plan checkout's success_url and cancel_url pass the check, else the billing page",
+      /const successUrl = trustedReturnUrl\(customSuccessUrl\) \?\? `\$\{appUrl\}\/app\/settings\/billing\?success=1`/.test(create) && /const cancelUrl = trustedReturnUrl\(customCancelUrl\) \?\? `\$\{appUrl\}\/app\/settings\/billing\?canceled=1`/.test(create) && !/customSuccessUrl \|\||customCancelUrl \|\|/.test(create))
+    check("Connect's return_url and refresh_url come from Storelib's origin only", /return trustedRequestOrigin\(request\.nextUrl\.toString\(\)\)/.test(code("app/api/payments/[action]/route.ts")) && !/request\.nextUrl\.origin/.test(code("app/api/payments/[action]/route.ts")))
+    const wallet = code("app/api/checkout/stripe-session/route.ts")
+    check("the app's wallet Checkout returns to Storelib's origin only", /const originHost = trustedRequestOrigin\(request\.url\)/.test(wallet) && !/new URL\(request\.url\)\.origin/.test(wallet))
+    check("the billing portals return to a fixed Storelib page", /return_url: `\$\{process\.env\.APP_URL/.test(code("app/api/billing/customer-portal/route.ts")) && /return_url: `\$\{appUrl\}\/app\/settings\/billing\?setup_success=1`/.test(code("app/api/billing/checkout/setup/route.ts")))
+  }
+
+  console.log("\nThe billing overview reads each row once per request, never across requests")
+  {
+    let loads = 0
+    const read = perRequest("t", async (id: string) => {
+      loads++
+      return { id, n: loads }
+    })
+    const [a, b, c] = await withRequestMemo(() => Promise.all([read("creator-1"), read("creator-1"), read("creator-2")]))
+    check("inside one request the same creator is read once", a === b && loads === 2, { loads })
+    check("  and another creator is its own read", c.id === "creator-2" && c !== a)
+    const before = loads
+    const d = await withRequestMemo(() => read("creator-1"))
+    check("the next request reads afresh (nothing kept between requests or people)", loads === before + 1 && d !== a)
+    const outside = loads
+    await read("creator-1")
+    await read("creator-1")
+    check("outside a request scope every call reads (no process wide cache)", loads === outside + 2)
+    let fails = 0
+    const flaky = perRequest("f", async () => {
+      fails++
+      if (fails === 1) throw new Error("db timeout")
+      return "row"
+    })
+    const second = await withRequestMemo(async () => {
+      await flaky("x").catch(() => null)
+      await new Promise((r) => setTimeout(r, 0))
+      return flaky("x")
+    })
+    check("a failed read is not kept: the next ask in the same request tries again", second === "row" && fails === 2)
+
+    const overview = code("lib/billing/overview.ts")
+    check("the overview reads the creator, the stored row and the override together, through the per request reads",
+      /await Promise\.all\(\[\s*billingCreatorFor\(creatorId\),\s*billingSubscriptionRowFor\(creatorId\),\s*billingPlanOverrideFor\(creatorId\),/.test(overview) && !/readSubscriptionRow\(admin/.test(overview) && !/readPlanOverride\(admin/.test(overview))
+    check("  and does not ask who is signed in again when the route already did", /if \(!creatorId\) \{\s*const \{\s*data: \{ user \},\s*\} = await supabase\.auth\.getUser\(\)/.test(overview))
+    check("the overview route gives the request its own memo", /withBillingRequest\(\(\) => loadBillingOverview\(\{ creatorId: who\.creatorId \}\)\)/.test(code("app/api/billing/overview/route.ts")))
+    const reads = code("lib/billing/request-reads.ts")
+    const memo = code("lib/billing/request-memo.ts")
+    check("the reads are keyed by the creator's id and scoped per request (React cache, or the route's own map)",
+      /perRequest\("creator"/.test(reads) && /perRequest\("subscription-row"/.test(reads) && /perRequest\("plan-override"/.test(reads) && /cache\(load\)/.test(memo) && /scope\.run\(new Map\(\), work\)/.test(memo))
+  }
+
+  console.log("\nPayout setup stops asking when nobody is looking")
+  {
+    const flow = code("components/app/settings/payments-setup-flow.tsx")
+    const hook = flow.slice(flow.indexOf("function useWhenPayoutsOn"), flow.indexOf("function InAppSetup"))
+    check("no fixed 4s interval any more", !/setInterval\(/.test(hook))
+    check("a hidden tab asks nothing, and coming back asks at once",
+      /document\.addEventListener\("visibilitychange", onVisibility\)/.test(hook) && /document\.removeEventListener\("visibilitychange", onVisibility\)/.test(hook) && /if \(document\.hidden\) stop\(\)\s*else void look\(\)/.test(hook) && /if \(gone \|\| document\.hidden \|\| Date\.now\(\) >= stopAt\) return/.test(hook))
+    check("it stops after a bounded time (15 minutes), and never overlaps a slow answer",
+      /const PAYOUTS_POLL_LIMIT_MS = 15 \* 60_000/.test(flow) && /const PAYOUTS_POLL_MS = 4000/.test(flow) && /const stopAt = Date\.now\(\) \+ PAYOUTS_POLL_LIMIT_MS/.test(hook) && /if \(gone \|\| busy \|\|/.test(hook))
+  }
+
+  console.log("\nThe other Stripe creates on a press carry a key")
+  {
+    check("a payout bank is added once per press", /stripe\.accounts\.createExternalAccount\(account\.id, bankParams, \{\s*idempotencyKey: stripeIdempotencyKey\("connect-bank", \[account\.id\], bankParams/.test(code("lib/payments/stripe/own-form.ts")))
+    check("a business representative is added once per save", /stripe\.accounts\.createPerson\(accountId, params as Stripe\.AccountCreatePersonParams, \{\s*idempotencyKey: stripeIdempotencyKey\("connect-representative"/.test(code("lib/payments/stripe/connect.ts")))
+    check("the membership portal configuration is made once", /billingPortal\.configurations\.create\(configParams, \{\s*idempotencyKey: stripeIdempotencyKey\("membership-portal-config"/.test(code("lib/memberships/billing.ts")))
+    const refunds: [string, RegExp][] = [
+      ["app/api/stripe/refund/route.ts", /refunds\.create\(refundParams, \{ idempotencyKey: `storelib-refund:/],
+      ["app/api/admin/orders/refund/route.ts", /\{ idempotencyKey: plan\.idempotencyKey \}/],
+      ["lib/physical/buyer-cancel-server.ts", /idempotencyKey: `storelib-buyer-cancel:/],
+      ["lib/checkout/sold-out-refund.ts", /idempotencyKey: `storelib-sold-out:/],
+      ["lib/memberships/duplicates.ts", /idempotencyKey: `membership-duplicate:/],
+      ["lib/stripe/disputes.ts", /idempotencyKey: `storelib:dispute:\$\{dispute\.id\}:reversal`/],
+      ["lib/stripe/disputes.ts", /idempotencyKey: `storelib:dispute:\$\{dispute\.id\}:restore`/],
+      ["lib/memberships/billing.ts", /idempotencyKey: `membership-price:/],
+      ["lib/tax/membership.ts", /idempotencyKey: `storelib-tax-rate:/],
+    ]
+    const missing = refunds.filter(([p, re]) => !re.test(code(p))).map(([p]) => p)
+    check("refunds, transfers, reversals, prices and tax rates stay keyed by what they are", missing.length === 0, missing)
   }
 
   console.log("\nDuplicate and out of order webhooks never take a paid plan away")

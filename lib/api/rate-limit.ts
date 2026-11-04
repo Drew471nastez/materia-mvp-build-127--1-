@@ -42,6 +42,7 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { logEvent } from "@/lib/net/log"
 
 export interface RateWindow {
   /** How many are allowed. */
@@ -239,9 +240,9 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
     )
     const answers = await Promise.all(asks)
     for (const { window, count, error } of answers) {
-      /* Table missing, permissions wrong, database unreachable: allow. */
+      /* Table missing, permissions wrong, database unreachable: allow (a warning, logEvent: failing open is the decision). */
       if (error) {
-        console.error(`[rate-limit] ${options.bucket}: counting failed, allowing (${error.message})`)
+        logEvent("warn", "rate_limit_count_failed", { msg: "[rate-limit] counting failed, allowing", bucket: options.bucket, reason: error.message })
         return null
       }
 
@@ -377,6 +378,13 @@ export const LIMITS = {
    * address, where losing the excess is the lesser harm.
    */
   track: [{ limit: 120, seconds: 60 }, { limit: 2000, seconds: 3600 }],
+  /**
+   * A visit from an AI assistant to one of Storelib's own pages
+   * (/api/track/ai-visit), per address. A page sends it once per tab
+   * session per landing, so a person sends a handful in a day; more than
+   * twenty in ten minutes is a script adding to an assistant's count.
+   */
+  aiVisit: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
   /**
    * Storelib's own search over published products (/api/v2/search), per
    * address. A person types a few searches a minute; a script walking the

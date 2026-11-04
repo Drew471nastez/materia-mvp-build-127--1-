@@ -1,0 +1,9 @@
+/* Visits to storelib.com's own pages from an AI assistant, counted by Storelib (round 46). platform_ai_visits keeps one number per day (UTC), assistant (chatgpt, perplexity, copilot, gemini, claude and the others lib/attribution/ai-sources names) and landing path (Storelib's own public pages only: no query string, no hash, lower case, at most 200 characters). A visit from an assistant to one of those pages, from a visitor who said yes to analytics, adds one through bump_platform_ai_visit, called by /api/track/ai-visit with the service role. No visitor, no address, no user agent, no cookie: a count, never a row per person. Service role only: row level security on, no policy for anyone else, the function executable by the service role alone. No rows change. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.platform_ai_visits (day date NOT NULL, ai_source text NOT NULL CHECK (ai_source ~ '^[a-z_]{2,20}$'), landing_path text NOT NULL CHECK (char_length(landing_path) BETWEEN 1 AND 200 AND landing_path ~ '^/[a-z0-9/_-]*$'), visits bigint NOT NULL DEFAULT 0 CHECK (visits >= 0), PRIMARY KEY (day, ai_source, landing_path));
+ALTER TABLE public.platform_ai_visits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.platform_ai_visits FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.platform_ai_visits TO service_role;
+CREATE OR REPLACE FUNCTION public.bump_platform_ai_visit(p_source text, p_path text) RETURNS void LANGUAGE sql SECURITY INVOKER SET search_path = public AS $f$ INSERT INTO public.platform_ai_visits AS v (day, ai_source, landing_path, visits) VALUES ((now() AT TIME ZONE 'utc')::date, p_source, p_path, 1) ON CONFLICT (day, ai_source, landing_path) DO UPDATE SET visits = v.visits + 1 $f$;
+REVOKE ALL ON FUNCTION public.bump_platform_ai_visit(text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bump_platform_ai_visit(text, text) TO service_role;
+notify pgrst, 'reload schema';

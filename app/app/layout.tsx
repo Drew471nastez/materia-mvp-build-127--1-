@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { byCreator, scopedOrders } from "@/lib/analytics/creator-orders"
 import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, profileOrThrowForRequest } from "@/lib/auth/request-scope"
 import { isServiceUnavailable } from "@/lib/net/service-error"
 import { ServiceUnavailable } from "@/components/app/service-unavailable"
@@ -51,6 +53,25 @@ async function isCapacitorWebView(): Promise<boolean> {
   const headersList = await headers()
   const ua = headersList.get("user-agent") || ""
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+}
+
+/**
+ * One sale of the store that is not failed, pending or disputed, or none: the setup ring's "first sale".
+ * By orders.creator_id, or through the product on a database before part 32 (byCreator). A failed read
+ * is "no sale", as before: the ring only decorates the shell.
+ */
+async function storeHasSale(creatorId: string): Promise<{ data: { id: string }[] | null }> {
+  try {
+    const admin = createAdminClient()
+    const data = await byCreator(async (scope) => {
+      const { data, error } = await scopedOrders(admin, "id", scope, creatorId, null).not("status", "in", "(failed,pending,disputed)").limit(1)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { id: string }[]
+    })
+    return { data }
+  } catch {
+    return { data: null }
+  }
 }
 
 export default async function AppLayout({
@@ -154,15 +175,20 @@ export default async function AppLayout({
     const creator = team?.store ?? own
     if (!creator) return null
     return Promise.all([
-      supabase.from("products").select("id").eq("creator_id", creator.id),
+      /* One row is enough: the ring asks only whether there is a product (lib/home/progress, products > 0). */
+      supabase.from("products").select("id").eq("creator_id", creator.id).limit(1),
       supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
       supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
-      supabase
-        .from("orders")
-        .select("id, products!inner(creator_id)")
-        .eq("products.creator_id", creator.id)
-        .not("status", "in", "(failed,pending,disputed)")
-        .limit(1),
+      /*
+        WHETHER THE STORE HAS A SALE, by the order's own creator with the server's client (round r48), as Home
+        counts it (lib/home/progress-server). On the caller's client this was a join through products under every
+        orders policy, and one of those policies reads auth.users, which a signed in user may not read: the read
+        failed with "permission denied for table users" on a database built from the repository's SQL, so the
+        ring never ticked the sale. The store is the session's own (or the team store it was invited to); the
+        answer is one id. One index lookup (idx_orders_creator_time_id): 0.04 ms against 2 to 9 ms through RLS on
+        local Postgres 16 with 400k orders (docs/reliability/IMPLEMENTATION_LOG.md, r48-db).
+      */
+      storeHasSale(creator.id),
       /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
       communitiesEnabled().catch(() => false),
       /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
@@ -182,9 +208,10 @@ export default async function AppLayout({
   const shellReads = Promise.all([
     profileOrThrowForRequest(user.id),
     creatorOrThrowForRequest(user.id),
+    /* Whether the OnePage is published, nothing more: its whole draft document (draft_blocks) was read here on every navigation and dropped. */
     supabase
       .from("onepages")
-      .select("id, avatar_url, published, draft_blocks, bio")
+      .select("id, status")
       .eq("owner_id", user.id)
       .maybeSingle(),
     /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
@@ -224,7 +251,7 @@ export default async function AppLayout({
 
   // Gate 1: email must be verified
   if (!gateCheck?.email_verified) {
-    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
+    redirect(`/signup/verify?userId=${encodeURIComponent(user.id)}`)
   }
 
   /*
@@ -313,7 +340,7 @@ export default async function AppLayout({
           displayName={displayName}
           stripeConnected={!!creator.stripe_account_id}
           stripeStatus={creator.stripe_onboarding_status || "not_connected"}
-          onePagePublished={!!onepage}
+          onePagePublished={onepage?.status === "published"}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
           communitiesEnabled={communitiesOn}

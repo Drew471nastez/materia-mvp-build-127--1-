@@ -103,7 +103,8 @@ function publishClears() {
   const save = code("app/api/revalidate/route.ts")
   check("a product save clears the shop and the pages drawn from it", /revalidateTag\(creatorShopTag\(owned\.creator_id\), "max"\)/.test(save) && /await revalidatePublishedPages\(owned\.creator_id\)/.test(save))
   check("so does taking a product off the website channel", /await revalidatePublishedPages\(c\.creatorId\)/.test(code("app/api/store/channels/product/route.ts")))
-  check("an imported theme's held stranger page goes with the site's and the shop's tags", /\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\)\]/.test(code("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+  /* Changed on purpose (creator blogs, P3): and the blog's own tag, so a post published shows to strangers at once. */
+  check("an imported theme's held stranger page goes with the site's and the shop's tags", /\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\)(, siteBlogTag\(creator\.creatorId\))?\]/.test(code("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
 }
 
 async function databaseBudget() {

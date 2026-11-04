@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { reportError } from "@/lib/observability/report"
+import { requestIdFrom } from "@/lib/net/request-id"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     admin.from("membership_plans").select(`${PLAN_COLUMNS}, stripe_product_id, stripe_monthly_price_id, stripe_monthly_price_cents, stripe_yearly_price_id, stripe_yearly_price_cents`).eq("product_id", productId).maybeSingle(),
   ])
   if (tableMissing(planRead.error)) {
-    await reportError({ source: "payments", where: "memberships checkout", error: new Error("membership tables missing: run supabase/sql/run-now/75_memberships.sql"), context: { productId } })
+    await reportError({ source: "payments", where: "memberships checkout", error: new Error("membership tables missing: run supabase/sql/run-now/75_memberships.sql"), context: { productId }, requestId: requestIdFrom(request.headers) })
     return NextResponse.json({ error: NOT_SET_UP }, { status: 503 })
   }
   const product = productRead.data as { id: string; title: string | null; status: string; type: string; creator_id: string } | null
@@ -228,7 +229,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const reason = refusalReason(error)
     /* The owner sees why in the admin's Health view: Stripe's own code and words, never the buyer. */
-    await reportError({ source: "payments", where: "memberships checkout", error, context: { productId, interval, reason } })
+    await reportError({ source: "payments", where: "memberships checkout", error, context: { productId, interval, reason }, requestId: requestIdFrom(request.headers) })
     return NextResponse.json({ error: buyerMessageFor(error) }, { status: (error as { type?: string })?.type === "StripeCardError" ? 402 : 502 })
   }
 }

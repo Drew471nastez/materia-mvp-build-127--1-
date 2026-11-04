@@ -1,4 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
+import { keepPageFresh } from "@/lib/edge/snapshot-capture"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
@@ -245,6 +246,12 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
           }),
         )
       : null
+
+  /*
+    Its stored copy at storelib.me/<name>, kept fresh at most hourly per server (lib/edge/snapshot-capture.ts). The copy is
+    asked for there as a stranger, whichever address drew this, so no header is read for it.
+  */
+  keepPageFresh(`onepage-${(onepage.slug || slug).toLowerCase()}`, "storelib.me", `/${onepage.slug || slug}`, "onepage")
 
   return (
     <>

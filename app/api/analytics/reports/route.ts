@@ -2,9 +2,20 @@ import { NextResponse } from "next/server"
 import { requireTeamPermission } from "@/lib/team/server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { countReportAnswer, reportQuestion, type Answer } from "@/lib/analytics/report-answer"
+import { isAnalyticsUnavailable } from "@/lib/analytics/report-read"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+/* A bounded answer: the counting functions are waited for RPC_BUDGET_MS (45s), a raw read for RAW_READ_BUDGET_MS. */
+export const maxDuration = 60
+
+/*
+  When the database's counting function fails (a timeout, an overloaded
+  database), the answer says so at once: the page keeps its frame and its
+  "could not be loaded" line, and no raw events are read in its place
+  (lib/analytics/report-read rpc).
+*/
+const UNAVAILABLE = "Analytics are unavailable right now. Try again in a minute."
 
 /**
  * The Analytics page's figures, its chart and every card under it, and
@@ -92,7 +103,8 @@ function streamed(figures: Promise<Answer | null>, all: Promise<Answer>) {
       } catch (error) {
         done = true
         console.error("[analytics/reports]", (error as Error).message)
-        controller.enqueue(encoder.encode(`${JSON.stringify({ part: "error", error: "Could not read analytics" })}\n`))
+        const unavailable = isAnalyticsUnavailable(error)
+        controller.enqueue(encoder.encode(`${JSON.stringify({ part: "error", error: unavailable ? UNAVAILABLE : "Could not read analytics", ...(unavailable ? { unavailable: true } : {}) })}\n`))
       }
       controller.close()
     },
@@ -105,13 +117,14 @@ async function answered(all: Promise<Answer>, label: string) {
     return NextResponse.json(await all, { headers: HEADERS })
   } catch (error) {
     console.error(label, (error as Error).message)
+    if (isAnalyticsUnavailable(error)) return NextResponse.json({ error: UNAVAILABLE, unavailable: true }, { status: 503, headers: { "Retry-After": "30", "Cache-Control": "no-store" } })
     return NextResponse.json({ error: "Could not read analytics" }, { status: 500 })
   }
 }
 
 export async function GET(request: Request) {
   /* The store's figures, for its owner or a team member given Analytics (lib/team). */
-  const gate = await requireTeamPermission("analytics")
+  const gate = await requireTeamPermission("analytics", { read: true })
   if (gate instanceof NextResponse) return gate
 
   const url = new URL(request.url)

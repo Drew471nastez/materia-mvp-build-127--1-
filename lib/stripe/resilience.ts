@@ -246,7 +246,7 @@ export function isBreakerRefusal(error: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 /** JSON with object keys sorted, so the same params always hash the same. Undefined is left out, as Stripe leaves it out. */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value ?? null)
   if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : stableJson(v))).join(",")}]`
   const entries = Object.entries(value as Record<string, unknown>)
@@ -278,4 +278,36 @@ export function stripeIdempotencyKey(
   const hash = createHash("sha256").update(`${scope}|${who}|${stableJson(params)}`).digest("hex").slice(0, 32)
   const head = `storelib:${scope}:${who}`.slice(0, 180)
   return `${head}:${slot}:${hash}`
+}
+
+/**
+ * An idempotency key made only from what the object is, with no time in it:
+ * for a create whose own identity is known (a payout from a given balance, a
+ * schedule on a given subscription). The same identity always makes the same
+ * key, so a retry minutes later still gets the first object; a different
+ * identity (a later cashout, another plan) is a different key, so nothing
+ * real is blocked. Stripe forgets a key after 24 hours.
+ */
+export function stripeIdentityKey(scope: string, parts: readonly (string | number | null | undefined)[], params: unknown): string {
+  const who = parts.map((p) => (p === null || p === undefined ? "-" : String(p))).join(":")
+  const hash = createHash("sha256").update(`${scope}|${who}|${stableJson(params)}`).digest("hex").slice(0, 32)
+  return `${`storelib:${scope}:${who}`.slice(0, 200)}:${hash}`
+}
+
+/**
+ * The cashout payout's key. A payout is "this store's balance, after its last
+ * recorded cashout": the connected account, the last cashout_initiated ledger
+ * event (null before the first), the wallet amount moved to in transit and the
+ * payout's exact params (amount, currency). A double press or a retry after a
+ * lost answer is the same payout; once a cashout is recorded the anchor moves,
+ * so the next genuine cashout of the same amount is a new key.
+ */
+export function cashoutIdempotencyKey(c: {
+  creatorId: string
+  accountId: string
+  lastCashoutEventId: string | null
+  walletMinor: number
+  params: unknown
+}): string {
+  return stripeIdentityKey("cashout", [c.creatorId, c.accountId, c.lastCashoutEventId ?? "first", c.walletMinor], c.params)
 }

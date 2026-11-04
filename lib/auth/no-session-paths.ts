@@ -39,6 +39,22 @@ const EXACT = new Set([
 /** Prefixes whose every handler reads no session. */
 const PREFIXES = ["/api/public/", "/api/cron/", "/api/webhooks/", "/api/tracking/webhooks/"]
 
+/*
+  A PUBLISHED WEBSITE'S PUBLIC FILES (EVD-3). An imported theme's stylesheets
+  and scripts, the cover still the builder photographs, robots.txt, the
+  sitemaps, the web manifest and the favicon: the same bytes for everybody,
+  and no handler of them reads a session (assets and cover are checked by
+  tests/vercel-runtime-costs.test.ts like every exempt /api route; robots,
+  sitemaps, manifest and icon are file routes with no request scope). A
+  signed in visitor's browser asks for a dozen of them per page, and each
+  renewed (or, before Oct 29, verified with Supabase Auth) the session in
+  front of a static answer: "auth/v1/user took longer than 10s" on
+  robots.txt, assets and cover in production. The page they come with
+  still renews it. Nothing under /app, the builder or a preview is here.
+*/
+const PUBLIC_SITE_PREFIXES = ["/api/site-theme/assets/", "/api/site-theme/cover/"]
+const PUBLIC_SITE_FILES = /^\/(?:w\/[^/]+\/)?(?:robots\.txt|sitemap(?:[-_][\w-]+)?\.xml|sitemaps?\/[\w./-]+\.xml|site\.webmanifest|favicon\.ico)$/
+
 /** A payment provider's webhook, such as the removed /api/payments/airwallex/webhook, which now only answers 410. */
 const PAYMENT_WEBHOOK = /^\/api\/payments\/[a-z0-9-]+\/webhook\/?$/
 
@@ -61,6 +77,8 @@ export function skipsSessionRefresh(pathname: string, cookieNames: readonly stri
   if (EXACT.has(path)) return true
   if (PREFIXES.some((p) => pathname.startsWith(p))) return true
   if (PAYMENT_WEBHOOK.test(pathname)) return true
+  if (PUBLIC_SITE_PREFIXES.some((p) => pathname.startsWith(p))) return true
+  if (PUBLIC_SITE_FILES.test(path)) return true
   if (TRACKERS.has(path)) return !carriesSignIn(cookieNames)
   return false
 }

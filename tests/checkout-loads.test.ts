@@ -40,7 +40,8 @@ function main() {
   const pay = read("app/checkout/parts/stripe-pay.tsx")
   check("the form asks Stripe for them by name", /paymentMethodTypes: methods/.test(pay))
   check("and steps down to the next list when Stripe refuses one", /onLoadError=\{\(\) => \(onRefused \? onRefused\(\) : setFailed\(true\)\)\}/.test(pay) && /<Elements key=\{`\$\{attempt\}:\$\{setIndex\}`\}/.test(pay))
-  check("Pay sends the list it loaded with", (pay.match(/createIntent\([^)]*, methods\)/g) ?? []).length === 2)
+  /* Changed on purpose (rel-commerce): card and wallets both get their intent from intentFor, which keeps a payment still being checked (lib/checkout/pay-retry); it asks createIntent with the loaded list once. */
+  check("Pay sends the list it loaded with", (pay.match(/createIntent\([^)]*, methods\)/g) ?? []).length === 1 && (pay.match(/await intentFor\(/g) ?? []).length === 2)
 
   console.log("\nWhen it cannot load, it says so")
   check("a form not drawn in 15 seconds, or a Stripe.js that never arrives, shows Try again", /LOAD_PATIENCE_MS = 15_000/.test(pay) && /data-pay-failed/.test(pay) && /Try again/.test(pay) && /resetStripePromise\(\)/.test(pay))

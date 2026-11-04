@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
 type Row = { id: string; title: string; kind: "manual" | "smart"; member: boolean }
 
 export async function GET(request: Request) {
-  const c = await shopCaller("products")
+  const c = await shopCaller("products", { read: true })
   if (c instanceof NextResponse) return c
   const productId = new URL(request.url).searchParams.get("productId")
   const collections = await listCollections(c.db, c.creatorId)

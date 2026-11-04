@@ -17,6 +17,9 @@ import { countryCookieIn, seenCountry } from "@/lib/markets/visitor-country"
 import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
+import { readSnapshot, snapshotResponse } from "@/lib/edge/public-snapshot"
+import { supabaseSnapshotStore } from "@/lib/edge/snapshot-store"
+import { keepPageFresh } from "@/lib/edge/snapshot-capture"
 import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { siteAccountOf } from "@/lib/site-accounts/theme-visitor"
 import { compatCartPricing } from "@/lib/storelib-theme/compat/cart-pricing-server"
@@ -44,6 +47,7 @@ import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compa
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
+import { siteBlogTag } from "@/lib/site-blog/cache"
 import { siteLanguages } from "@/lib/markets/live"
 
 /** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
@@ -192,6 +196,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   } catch (e) {
     if (!isSiteReadError(e)) throw e
     console.error("[site-theme] site unavailable:", e.message)
+    /* Its stored copy before "One moment" (lib/edge/public-snapshot.ts): the stranger's page as last kept, never a preview's. */
+    if (!token && pageAsked) {
+      const copy = await readSnapshot(supabaseSnapshotStore(), host, publicPath(req, segments)).catch(() => null)
+      if (copy) return snapshotResponse(copy, req.method)
+    }
     return new NextResponse(UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
   }
   if (found.kind !== "site") {
@@ -378,7 +387,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const root = localeRoot(found.site.i18n)
   if (where && root && sitePath !== "/localization" && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
   headers.set("Content-Type", out.type)
-  headers.set("X-Robots-Tag", token ? "noindex" : "all")
+  /* A post's preview says noindex itself (lib/storelib-theme/compat/site.ts). */
+  headers.set("X-Robots-Tag", token || headers.get("X-Robots-Tag") === "noindex" ? "noindex" : "all")
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
@@ -445,7 +455,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       */
       const scripts = calmerScripts(html)
       html = scripts.html
-      if (scripts.deferred || scripts.queued || scripts.later || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}`)
+      if (scripts.deferred || scripts.queued || scripts.later || scripts.dropped || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}; once=${scripts.dropped}`)
       /* On a desktop, a page that runs nobody else's scripts is prerendered when its link is rested on (lib/storelib-theme/compat/prerender.ts). */
       if (!runsThirdPartyScripts(html)) html = withDesktopPrerender(html)
       /* On a phone, the pages behind the links in view are fetched before the tap (lib/storelib-theme/compat/touch-prefetch.ts). Prefetch runs nothing, so any page may. */
@@ -502,7 +512,7 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   const creator = await creatorByName(username).catch(() => null)
   if (!creator) return handle(req, ctx)
   const url = new URL(req.url)
-  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId)], async () => {
+  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId), siteBlogTag(creator.creatorId)], async () => {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()
@@ -515,7 +525,16 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   headers.delete(SHAREABLE_HEADER)
   /* Said for /admin/performance and for a person checking: this page came from the hold, not a new draw. */
   headers.set("X-Storelib-Held", page.held ? "hit" : "miss")
+  /* A stranger's plain page: its stored copy kept fresh, at most hourly per server (lib/edge/snapshot-capture.ts). */
+  if (page.share && page.status === 200) keepPageFresh(`site-${username.toLowerCase()}`, host, publicPath(req, path.slice(1)), "site")
   return new NextResponse(page.body, { status: page.status, headers })
+}
+
+/** The address the visitor asked for on the website: the language the proxy named, then the page. */
+function publicPath(req: Request, segments: readonly string[]): string {
+  const locale = req.headers.get(SITE_LOCALE_HEADER)
+  const page = segments.length ? `/${segments.join("/")}` : "/"
+  return locale ? `/${locale}${page === "/" ? "" : page}` : page
 }
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts): an imported theme's pages, cart and section calls. */

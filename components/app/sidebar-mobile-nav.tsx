@@ -40,7 +40,7 @@ import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
 import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
-import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, PHONE_WIDTH_QUERY, isPhoneShell, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
 import { prefetchPlan } from "@/lib/nav/prefetch-policy"
 import {
@@ -71,6 +71,7 @@ import {
   useTabLens,
 } from "@/components/nav/tab-lens"
 import { tt } from "@/lib/i18n/text"
+import { useModalOpenWatch } from "@/lib/ui/modal-open"
 
 /* ── The palette ──────────────────────────────────────────────────────────
    The page this menu covers is #f8f9fa and its cards are white, so the menu
@@ -872,10 +873,14 @@ export function MobileNavPill({
   onCloseMenu: () => void
   onNavigate: (href: string) => void
   /** Warms a route so the first press on it does not stream from cold. */
-  onPrefetch?: (href: string) => void
+  /** `phone`: where the bar is on screen (isPhoneShell). Off it, the page alone and once. */
+  onPrefetch?: (href: string, phone: boolean) => void
   icons: { home: NavIconPair; orders: NavIconPair; products: NavIconPair; analytics: NavIconPair; settings: NavIconPair }
 }) {
   const pathname = usePathname()
+  /* The pill steps under any open dialog and gives up its taps by `html[data-modal-open]`
+     (app/globals.css), kept by this watch while the pill is mounted (lib/ui/modal-open). */
+  useModalOpenWatch()
 
   /*
     HOME, ORDERS, PRODUCTS, ANALYTICS — four pages of this person's own shop,
@@ -907,19 +912,42 @@ export function MobileNavPill({
     four cold, and every first tap after that waited for the server. Date.now,
     not performance.now: a phone that sleeps may stop the second clock.
   */
+  /*
+    ON A COMPUTER, THE PAGES ALONE AND ONCE (round 48). The bar is mounted at
+    every width and hidden from md up. On a computer it fetched its four whole
+    pages and, with Analytics, Analytics' figures (two of the heaviest reads
+    there are), on every load of /app, and kept all of it warm through every
+    refresh (a save, a pull, PlanWatch): reads nobody had pointed at. The four
+    pages are still fetched there, so a first click on them lands on the next
+    frame as before, but `phone` false asks for the pages alone and once: the
+    rail fetches Analytics' figures under the pointer (prefetchAppPage on
+    hover), and a refresh drops them like any other page. On a phone and in
+    the apps (isPhoneShell) nothing changes. A window narrowed to a phone's
+    width is warmed as a phone.
+  */
   useEffect(() => {
     if (!onPrefetch) return
     let warmedAt = 0
+    let warmedAsPhone = false
     const warm = () => {
       warmedAt = Date.now()
-      for (const item of items) onPrefetch(item.href)
+      warmedAsPhone = isPhoneShell()
+      for (const item of items) onPrefetch(item.href, warmedAsPhone)
     }
     warm()
     const onVisible = () => {
       if (document.visibilityState === "visible" && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
     }
+    const narrow = typeof window.matchMedia === "function" ? window.matchMedia(PHONE_WIDTH_QUERY) : null
+    const onNarrow = () => {
+      if (!warmedAsPhone && isPhoneShell()) warm()
+    }
     document.addEventListener("visibilitychange", onVisible)
-    return () => document.removeEventListener("visibilitychange", onVisible)
+    narrow?.addEventListener?.("change", onNarrow)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      narrow?.removeEventListener?.("change", onNarrow)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -985,7 +1013,7 @@ export function MobileNavPill({
     },
     onPress: (index) => {
       const item = items[index]
-      if (item && index !== current) onPrefetch?.(item.href)
+      if (item && index !== current) onPrefetch?.(item.href, isPhoneShell())
     },
     /* A press the screen swallowed: whatever is moving ends now, so the rest
        of the gesture — and every other control — is live again at once. */
@@ -1145,6 +1173,7 @@ export function MobileNavPill({
                 key={item.key}
                 ref={(el) => { linkRefs.current[i] = el }}
                 href={item.href}
+                prefetch={false}
                 aria-label={item.label}
                 aria-current={on ? "page" : undefined}
                 /*

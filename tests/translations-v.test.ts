@@ -270,7 +270,7 @@ async function main() {
     check("a binding resolves to the product's translated title inside the translated words", (filled[0].settings as Record<string, unknown>).heading === "Obtenez Tablier en lin aujourd'hui", filled[0].settings)
     check("  the product row the binding read is a new object: the product itself still says Linen apron", product.title === "Linen apron" && shown.title === "Tablier en lin")
     const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
-    check("  the builder's canvas lays a language over before filling bindings, as the website does", /localizeSections\(\s*canvasSections,\s*previewMap/.test(editor) && /withDynamicSources\(searchListsTheShop\(sectionsInLanguage\)/.test(editor))
+    check("  the builder's canvas lays a language over before filling bindings, as the website does", /* Changed on purpose (round AI, Add a section draws in the canvas first): the canvas's drawing steps are shared functions (inLanguageStep, filledStep, optionsStep, pricedStep) that a section just added is drawn through too. */ /inLanguageStep\(canvasSections, previewMap/.test(editor) && /localizeSections\(\s*list,\s*previewMap/.test(editor) && /filledStep\(sectionsInLanguage,/.test(editor) && /withDynamicSources\(searchListsTheShop\(list\)/.test(editor))
 
     const cards = [{ id: P1, type: "product", settings: { title: "Linen apron", description: "Washed linen." } }, { id: P2, type: "product", settings: { title: "Mug", description: "A mug." } }]
     const cmap = translationMap([row(productKey(P1, "title"), "Tablier en lin", "Linen apron"), row(productKey(P2, "title"), "Tasse", "Mug")])
@@ -401,7 +401,7 @@ async function main() {
     const hook = readCode("components/website-builder/use-preview-language.ts")
     check("the editor reads which products are shown as written with the language's values", /originals\?: string\[\]/.test(hook) && /setOriginals\(/.test(hook) && /originals: originals\.ids/.test(readCode("app/api/store/translations/route.ts")))
     const productRoute = readCode("app/api/store/translations/product/route.ts")
-    check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
+    check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"(?:, \{ read: true \})?\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
     check("  its Translate automatically goes through the sidebar's per-text press, so the glossary and Don't translate apply", /translateFieldsNow\(db, creatorId, locale/.test(readCode("lib/markets/product-translations.ts")) && /replaceManual: false/.test(readCode("lib/markets/product-translations.ts")))
     check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(readCode("app/app/products/new/product-editor.tsx")))
     const live = readCode("lib/markets/live.ts")

@@ -486,7 +486,7 @@ async function main() {
     check("a member's first steps: an active member, for themselves", code("app/api/community/[communityId]/get-started/route.ts").includes('requireMember(db, communityId, await sessionUserId(), "view")'))
     check("the questions for the join form: a published, open community only", /status !== "published"/.test(code("app/api/community/[communityId]/join-questions/route.ts")))
     check("the join route passes the answers and the question it refused", code("app/api/community/[communityId]/join/route.ts").includes("answers: body.answers") && code("app/api/community/[communityId]/join/route.ts").includes("field: answer.field"))
-    check("the cron puts up what is due, only while communities are on", /on \? await publishDuePosts\(db/.test(code("app/api/cron/community/route.ts")))
+    check("the cron puts up what is due, only while communities are on", /postsMs = on \? run\.share\(10_000\) : 0/.test(code("app/api/cron/community/route.ts")) && /postsMs > 0 \? await publishDuePosts\(db/.test(code("app/api/cron/community/route.ts")) /* Changed on purpose (rel-shared): the run-wide clock */)
     const jc = code("components/community/public/join-controls.tsx")
     check("the join form asks the questions and sends the answers", jc.includes("join-questions") && jc.includes("answers })") && jc.includes("JoinQuestionFields") && jc.includes('"answers_needed"'))
     check("a paid join with questions goes through POST join, not straight to checkout", /if \(asked\.length\) \{[\s\S]*?setRequestOpen\(true\)/.test(jc))

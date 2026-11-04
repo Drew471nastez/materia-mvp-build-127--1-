@@ -28,8 +28,8 @@
  * quiet link to the full page, or not), or the full page. Before anything is
  * paid the option is chosen and, for a product that ships, the quantity: the
  * button says what is missing until it is (sheetBuyBlocker). A product that
- * ships goes straight to the cart checkout with that option and quantity in
- * it (lib/physical/cart-link physicalCheckoutHref), not to its page first.
+ * ships goes straight to its store website's checkout with that option and
+ * quantity in it (round 49, lib/onepage/shipped-checkout), not to its page first.
  *
  * ROUND 43, "complete and smooth":
  *
@@ -64,7 +64,7 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
 import { productCheckoutUrl, sheetBuyBlocker, sheetButtonLabel, sheetMaxQuantity } from "@/lib/onepage/product-block"
-import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { onePageShippedCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartBody, SizeChartPanel } from "@/components/product/size-chart-panel"
 import { pixelEvent } from "@/lib/analytics/pixels"
@@ -193,12 +193,16 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   }, [quantity, maxQuantity])
   const left = picked && typeof picked.left === "number" ? (picked.left > 0 && picked.left < 10 ? picked.left : null) : p?.left ?? null
   const blocker = sheetBuyBlocker({ loaded: !!p, soldOut, variantCount: p?.variants.length ?? 0, variantChosen: !!variant, quantity, maxQuantity })
-  /* A product that ships: the cart checkout, with the option, quantity and what the buyer wrote. Anything else: its checkout. */
+  /*
+    A product that ships: its store website's checkout (round 49, lib/onepage/shipped-checkout), the new one every
+    product that ships is paid on, with the option, quantity and what the buyer wrote, Back to this OnePage and the
+    order's Source as the OnePage. Anything else: its checkout.
+  */
   const cartFor = (properties?: Record<string, string>) =>
-    p?.ships && p.shopId ? physicalCheckoutHref(p.shopId, [{ productId: p.id, variantId: variant?.id ?? null, quantity, ...(properties ? { properties } : {}) }], back) : null
+    p?.ships && p.shopId ? onePageShippedCheckoutHref({ siteOrigin: p.siteOrigin, shopId: p.shopId, items: [{ productId: p.id, variantId: variant?.id ?? null, quantity, ...(properties ? { properties } : {}) }], onePage: back }) : null
   const cartPath = cartFor(filledAnswers(personal.values))
   const checkoutPath = p ? (p.ships ? cartPath ?? p.pageUrl : productCheckoutUrl(p.id, variant?.id ?? null)) : null
-  /* On storelib.com itself, with the way back here: one navigation, and Back lands on this OnePage. */
+  /* The website's own address, or on storelib.com itself with the way back here: one navigation, and Back lands on this OnePage. */
   const checkoutHref = cartPath ? platformHref(cartPath) : checkoutPath ? onePageOutboundHref(checkoutPath, back) : null
   const pageHref = p?.pageUrl && p.pageUrl !== "#" ? onePageOutboundHref(p.pageUrl, back) : null
   const free = price === "Free"

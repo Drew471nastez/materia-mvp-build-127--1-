@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto"
 /**
  * ===========================================================================
  *  WHEN SUPABASE IS SLOW, DOWN OR SAYS NO (round net-1028)
@@ -205,25 +206,36 @@ async function run() {
     const c = await readCurrentUser(fake(never), { timeoutMs: 100, retries: 1 })
     check("  Auth not answering: could not tell, in about two ceilings", c.state === "indeterminate" && c.reason === "timed out" && Date.now() - t < 1500)
   }
+  /*
+    Round rel3-auth: the fallback reads the token (getSession), asks Auth about it (getUser(jwt), no lock), and when
+    Auth does not answer checks the token here (lib/auth/verify-token.ts). The project signs with the shared secret,
+    so the check is HS256 with SUPABASE_JWT_SECRET; tests/auth-hs256-outage.test.ts drives the real client.
+  */
+  const SECRET = "net-resilience-secret-0123456789abcdef0123"
+  const hs = (payload: Record<string, unknown>, secret = SECRET) => {
+    const h = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")
+    const p = Buffer.from(JSON.stringify(payload)).toString("base64url")
+    return `${h}.${p}.${createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url")}`
+  }
+  const tokenClaims = { sub: "u1", email: "a@b.c", user_metadata: { full_name: "A" }, role: "authenticated", aud: "authenticated", iss: "https://abc.supabase.co/auth/v1", exp: Math.floor(Date.now() / 1000) + 3600 }
+  const withToken = (token: string, getUser: () => Promise<unknown>) =>
+    ({ auth: { getUser, getSession: async () => ({ data: { session: { access_token: token } }, error: null }) } }) as unknown as Parameters<typeof readCurrentUser>[0]
   forgetSigningKeys()
-  globalThis.fetch = (async (u: RequestInfo | URL) => (String(u).includes("jwks") ? json(200, { keys: [{ kid: "k1", kty: "EC" }] }) : json(404))) as typeof fetch
+  process.env.SUPABASE_JWT_SECRET = SECRET
+  globalThis.fetch = (async () => json(200, { keys: [] })) as typeof fetch
   {
-    const c = await readCurrentUser(
-      fake(never, async () => ({ data: { claims: { sub: "u1", email: "a@b.c", user_metadata: { full_name: "A" }, role: "authenticated", aud: "authenticated" } }, error: null })),
-      { timeoutMs: 100, retries: 0, fallbackClaims: "https://abc.supabase.co" },
-    )
+    const c = await readCurrentUser(withToken(hs(tokenClaims), never), { timeoutMs: 100, firstTryMs: 100, fallbackClaims: "https://abc.supabase.co" })
     check("Auth not answering, token signature checks out: signed in, verified by the claims", c.state === "authenticated" && c.verifiedBy === "claims" && c.user?.id === "u1" && c.user?.email === "a@b.c" && (c.user?.user_metadata as { full_name?: string })?.full_name === "A")
   }
   {
-    const c = await readCurrentUser(fake(never, async () => ({ data: null, error: { name: "AuthInvalidJwtError", message: "invalid signature" } })), { timeoutMs: 100, retries: 0, fallbackClaims: "https://abc.supabase.co" })
+    const c = await readCurrentUser(withToken(hs(tokenClaims, "another-secret-entirely-0123456789abcdef"), never), { timeoutMs: 100, firstTryMs: 100, fallbackClaims: "https://abc.supabase.co" })
     check("  a token that fails the check is never a user", c.state === "indeterminate" && !c.user)
   }
+  delete process.env.SUPABASE_JWT_SECRET
   forgetSigningKeys()
-  globalThis.fetch = (async () => json(200, { keys: [] })) as typeof fetch
   {
-    let asked = 0
-    const c = await readCurrentUser(fake(never, async () => (asked++, { data: { claims: { sub: "u1" } }, error: null })), { timeoutMs: 100, retries: 0, fallbackClaims: "https://abc.supabase.co" })
-    check("  a project on the shared secret (no public keys): no fallback, could not tell", c.state === "indeterminate" && asked === 0)
+    const c = await readCurrentUser(withToken(hs(tokenClaims), never), { timeoutMs: 100, retries: 0, fallbackClaims: "https://abc.supabase.co" })
+    check("  the shared secret not set (and no public keys): no fallback, could not tell", c.state === "indeterminate" && !c.user)
   }
   forgetSigningKeys()
   globalThis.fetch = realFetch

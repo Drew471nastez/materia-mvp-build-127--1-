@@ -44,7 +44,7 @@ import {
   type SchemaWords,
 } from "@/lib/storelib-theme/compat/schema-sync"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
-import { agentRateLimit, themeAgentLimit } from "@/lib/sites/rate-limit"
+import { agentRateLimit, limitStatus, themeAgentLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
@@ -236,10 +236,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * body is something the editor can show where an error mid-stream is not.
    */
   const limited = await agentRateLimit((creator as { id: string }).id)
-  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
+  if (limited) return NextResponse.json({ error: limited }, { status: limitStatus(limited) })
   /* This editor's own runs, counted from its own rows: the limit above counts the code agent's (lib/sites/rate-limit.ts themeAgentLimit). */
   const busy = await themeAgentLimit((creator as { id: string }).id)
-  if (busy) return NextResponse.json({ error: busy }, { status: 429 })
+  if (busy) return NextResponse.json({ error: busy }, { status: limitStatus(busy) })
 
   /* Tidied first (lib/website-builder/agent/request-shape.ts): one odd value in the page never refuses the run. */
   const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
@@ -852,6 +852,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             page, About, Contact and the rest as drafts (lib/website-builder/agent/page-builder-server.ts). Not in a locked edit.
           */
           pages: body.lockToSelection === true || body.codeFocus === true ? undefined : sitePages(supabase, installId, body.page),
+          /*
+            THE WEBSITE'S BLOG for read_blog (lib/website-builder/blog-page.ts describeBlog): its address, categories and
+            newest live posts, the same public facts its pages show, always this creator's. A Storelib theme's only: an
+            imported theme reads the blog through its own templates. Null without a blog or before SQL part 353.
+          */
+          readBlog: importedTheme
+            ? undefined
+            : async () => {
+                const { blogFor } = await import("@/lib/site-blog/public-read")
+                const { describeBlog } = await import("@/lib/website-builder/blog-page")
+                return describeBlog(await blogFor(creatorId).catch(() => null))
+              },
           history,
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.

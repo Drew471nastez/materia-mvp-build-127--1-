@@ -10,9 +10,10 @@
  *
  * WHERE IT OPENS (round 43, the owner: "a centered modal, not a side panel
  * from the right"). On a computer a window in the middle of the screen, up
- * to 720px wide and 86% of the window tall, over the page under a light
- * scrim that fades in; it rises 8px and grows from 97% as it fades in, and
- * closes the same way back, quicker (app/globals.css .analytics-detail).
+ * to 720px wide and 640px tall (78% of a shorter window, round 49), over the
+ * page under a light scrim that fades in; it grows from 96% as it fades in
+ * over 200ms and closes the same way back in 180ms (app/globals.css
+ * .analytics-detail).
  * Escape, the scrim or the X closes it. On a phone it is the shared bottom
  * sheet (components/ui/bottom-sheet), tall, that follows the thumb and
  * flicks closed like every other sheet in /app.
@@ -139,16 +140,66 @@ export function ViewReport({ id, tab, className, label }: { id: string; tab?: st
 /* ─── The panel ─────────────────────────────────────────────────────── */
 
 /**
+ * THE SCROLL SAYS WHERE IT IS CUT (round 49, the owner: "the scrollbar is
+ * clunky"). The panel's scroller has no bar of its own (a thin one only when
+ * the system insists, app/globals.css .detail-scroll); its top edge fades
+ * while something is scrolled above it and its bottom edge while something is
+ * below, as the filter row does sideways (components/app/use-edge-fade).
+ * Written straight onto the element from a passive listener, so a scroll
+ * renders nothing.
+ */
+function useScrollFade(el: HTMLDivElement | null) {
+  React.useLayoutEffect(() => {
+    if (!el) return
+    let frame = 0
+    const mark = () => {
+      frame = 0
+      const max = el.scrollHeight - el.clientHeight
+      const top = max > 1 && el.scrollTop > 1
+      const end = max > 1 && el.scrollTop < max - 1
+      if (top !== el.hasAttribute("data-fade-top")) el.toggleAttribute("data-fade-top", top)
+      if (end !== el.hasAttribute("data-fade-end")) el.toggleAttribute("data-fade-end", end)
+    }
+    const queue = () => {
+      if (!frame) frame = requestAnimationFrame(mark)
+    }
+    mark()
+    el.addEventListener("scroll", queue, { passive: true })
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(queue) : null
+    ro?.observe(el)
+    if (el.firstElementChild) ro?.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener("scroll", queue)
+      ro?.disconnect()
+      cancelAnimationFrame(frame)
+    }
+  }, [el])
+}
+
+/**
  * The frame: a centred window on a computer, the shared sheet on a phone.
  * `sub` is the period and what it is compared with, under the title.
+ *
+ * Round 49, the owner: "too big and takes too much space ... smoother,
+ * cleaner, simpler". At most 720px wide and 640px tall (78% of a short
+ * window), the header one quiet line and its dates with no rule under it,
+ * the body scrolling under a fade instead of a bar, and in and out by a 200ms
+ * scale and fade (app/globals.css .analytics-detail).
  */
 export function DetailPanel({ open, onClose, title, sub, children, panelKey }: { open: boolean; onClose: () => void; title: string; sub?: string | null; children: React.ReactNode; panelKey?: string }) {
   const phone = usePhoneWidth()
-  const scroller = React.useRef<HTMLDivElement>(null)
+  const scroller = React.useRef<HTMLDivElement | null>(null)
+  /* The scroller as state too: the dialog mounts it a render after it opens, and the fade has to find it then. */
+  const [scrollEl, setScrollEl] = React.useState<HTMLDivElement | null>(null)
+  const scrollRef = React.useCallback((node: HTMLDivElement | null) => {
+    scroller.current = node
+    setScrollEl(node)
+  }, [])
   /* Another report in the same panel starts at its top. */
   React.useLayoutEffect(() => {
     if (scroller.current) scroller.current.scrollTop = 0
   }, [panelKey])
+  useScrollFade(scrollEl)
   if (phone) {
     return (
       <BottomSheet
@@ -159,13 +210,13 @@ export function DetailPanel({ open, onClose, title, sub, children, panelKey }: {
         maxHeight="calc(var(--vv-h, 100dvh) * 0.9)"
         scrollKey={panelKey}
         header={
-          <div className="px-5 pb-3 pt-2" data-detail-head="">
-            <p className="truncate text-[17px] font-semibold text-[#1a1a2e]">{title}</p>
-            {sub ? <p className="mt-0.5 truncate text-[12.5px] tabular-nums text-[#6b7280]">{sub}</p> : null}
+          <div className="px-5 pb-2 pt-1" data-detail-head="">
+            <p className="truncate text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
+            {sub ? <p className="mt-0.5 truncate text-[12.5px] tabular-nums text-[#9ca3af]">{sub}</p> : null}
           </div>
         }
       >
-        <div data-report-detail="" data-detail-sheet="" className="px-5 pb-[max(20px,env(safe-area-inset-bottom))]">
+        <div data-report-detail="" data-detail-sheet="" className="px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-2">
           {children}
         </div>
       </BottomSheet>
@@ -180,29 +231,39 @@ export function DetailPanel({ open, onClose, title, sub, children, panelKey }: {
         data-report-detail=""
         data-detail-panel=""
         disableOverlayDefaultAnimations={false}
-        overlayClassName="bg-[#111827]/[0.28]"
+        overlayClassName="bg-[#111827]/[0.22]"
         onOpenAutoFocus={(e) => {
           e.preventDefault()
-          ;(e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
+          /*
+            FOCUS ON THE NEXT FRAME (round 49, "no long tasks during open"). Focusing in the same task as the mount
+            forced one more restyle of the whole page before the first frame (Radix's pointer-events on <body>
+            restyles everything when a modal arrives). On the next frame the browser has just done that work for the
+            paint, so the focus costs nothing. The shared Dialog now does this itself without a touch screen
+            (lib/ui/dialog-focus.ts); this keeps it on a phone, where the panel, not a field, takes the focus.
+          */
+          const panel = e.currentTarget as HTMLElement | null
+          requestAnimationFrame(() => {
+            if (panel?.isConnected && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+          })
         }}
-        className="analytics-detail flex max-h-[min(86dvh,880px)] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb]/70 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.35),0_4px_12px_rgba(17,24,39,0.06)] outline-none sm:max-w-none"
+        className="analytics-detail flex max-h-[min(78dvh,640px)] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb]/70 bg-white p-0 shadow-[0_24px_64px_-20px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.05)] outline-none sm:max-w-none"
       >
-        <div className="flex shrink-0 items-start gap-3 border-b border-[#eef0f2] px-6 pb-4 pt-5" data-detail-head="">
+        <div className="flex shrink-0 items-start gap-3 px-6 pb-2 pt-5" data-detail-head="">
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-[18px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
-            {sub ? <p className="mt-0.5 truncate text-[13px] tabular-nums text-[#6b7280]">{sub}</p> : null}
+            <DialogTitle className="truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{title}</DialogTitle>
+            {sub ? <p className="truncate text-[12.5px] tabular-nums text-[#9ca3af]">{sub}</p> : null}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={tt("Close")}
             data-detail-close=""
-            className="-mr-2 grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-[#6b7280] outline-none hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)]"
+            className="-mr-2 -mt-1 grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)]"
           >
-            <X className="h-[18px] w-[18px]" aria-hidden />
+            <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 pt-5" data-detail-scroll="">
+        <div ref={scrollRef} className="detail-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-3" data-detail-scroll="">
           {children}
         </div>
       </DialogContent>
@@ -214,7 +275,8 @@ export function DetailPanel({ open, onClose, title, sub, children, panelKey }: {
 
 function changeText(now: number, before: number | undefined, invert = false): { text: string; tone: "up" | "down" | "flat" } | null {
   if (before === undefined) return null
-  if (before === 0) return now > 0 ? { text: tt("New"), tone: "flat" } : { text: "–", tone: "flat" }
+  /* Nothing then and nothing now is no change at all: an empty cell, not a dash (round 49). */
+  if (before === 0) return now > 0 ? { text: tt("New"), tone: "flat" } : null
   const pct = Math.round(((now - before) / Math.abs(before)) * 100)
   if (pct === 0) return { text: "0%", tone: "flat" }
   const good = invert ? pct < 0 : pct > 0
@@ -271,9 +333,9 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
   const rows = q ? s.rows.filter((r) => folded(`${r.label} ${r.note ?? ""}`).includes(q)) : s.rows
   const max = Math.max(1, ...s.rows.map((r) => Math.abs(r.value)))
   return (
-    <section className="mt-7 first:mt-0" data-detail-section={s.title}>
+    <section className="mt-6 first:mt-0" data-detail-section={s.title}>
       <div className="flex items-baseline gap-2">
-        <h3 className="text-[14px] font-semibold text-[#1a1a2e]">{s.title}</h3>
+        <h3 className="text-[13.5px] font-semibold text-[#1a1a2e]">{s.title}</h3>
         {s.rows.length > 1 ? <span className="text-[12.5px] tabular-nums text-[#9ca3af]">{s.rows.length}</span> : null}
       </div>
       {s.rows.length >= SEARCH_FROM ? (
@@ -301,7 +363,7 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
       ) : (
         <table className="mt-2 w-full table-fixed border-collapse text-[13px]" data-detail-table="">
           <thead>
-            <tr className="h-8 text-left text-[11.5px] font-medium text-[#9ca3af]">
+            <tr className="h-8 border-b border-[#f1f2f4] text-left text-[11.5px] font-medium text-[#9ca3af]">
               <th className="font-medium">
                 <span className="sr-only">{tt("Name")}</span>
               </th>
@@ -315,10 +377,11 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
               {withPrevious ? <th className="w-[60px] text-right font-medium">{tt("Change")}</th> : null}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
+          {/* SIMPLER ROWS (round 49): no rule between them, a little less air, the numbers carrying the row. */}
+          <tbody>
             {rows.map((r) => (
               <tr key={r.key} data-detail-row={r.key} className={cn("align-middle", r.strong ? "font-semibold text-[#1a1a2e]" : "text-[#303036]")}>
-                <td className="py-2.5 pr-3">
+                <td className="py-2 pr-3">
                   <div className="flex min-w-0 items-center gap-2">
                     {r.lead}
                     <span className="min-w-0 truncate" title={r.label}>{r.label}</span>
@@ -329,16 +392,16 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
                   ) : null}
                 </td>
                 {lines ? (
-                  <td className="py-2.5 pr-1" data-detail-line={lines.state}>
+                  <td className="py-2 pr-1" data-detail-line={lines.state}>
                     <span className="flex justify-end">
                       <RowLine values={series?.[r.key]} ready={!!series} />
                     </span>
                   </td>
                 ) : null}
-                <td className="py-2.5 text-right font-medium tabular-nums text-[#1a1a2e]">{r.text ?? s.format(r.value)}</td>
-                {withPrevious ? <td className="hidden py-2.5 text-right tabular-nums text-[#6b7280] sm:table-cell">{r.previousText ?? (r.previous === undefined ? "" : s.format(r.previous))}</td> : null}
+                <td className="py-2 text-right font-medium tabular-nums text-[#1a1a2e]">{r.text ?? s.format(r.value)}</td>
+                {withPrevious ? <td className="hidden py-2 text-right tabular-nums text-[#9ca3af] sm:table-cell">{r.previousText ?? (r.previous === undefined ? "" : s.format(r.previous))}</td> : null}
                 {withPrevious ? (
-                  <td className="py-2.5 text-right text-[12.5px]">
+                  <td className="py-2 text-right text-[12px]">
                     <ChangeCell now={r.value} before={r.previous} invert={r.invert} />
                   </td>
                 ) : null}
@@ -366,26 +429,26 @@ export function DetailBody({ view, compared }: { view: DetailView; compared: boo
   const change = f && f.now !== undefined && f.now !== null && f.before !== undefined && f.before !== null && compared ? changeText(f.now, f.before, f.invert) : null
   return (
     <div data-detail-body="">
-      {view.tabs ? <div className="orders-strip -mx-1 mb-4 overflow-x-auto px-1">{view.tabs}</div> : null}
+      {view.tabs ? <div className="orders-strip -mx-1 mb-3 overflow-x-auto px-1">{view.tabs}</div> : null}
       {f ? (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1" data-detail-figure="">
-          <span className="text-[30px] font-bold leading-9 tabular-nums tracking-tight text-[#1a1a2e]">{f.value}</span>
+          <span className="text-[26px] font-bold leading-8 tabular-nums tracking-tight text-[#1a1a2e]">{f.value}</span>
           {change ? <span className={cn("text-[14px] font-medium tabular-nums", change.tone === "up" ? "text-[#15803d]" : change.tone === "down" ? "text-[#b42318]" : "text-[#9ca3af]")}>{change.text}</span> : null}
           {compared && f.beforeText ? <span className="text-[13px] tabular-nums text-[#6b7280]">{tt("{value} in the previous period", { value: f.beforeText })}</span> : null}
           {f.note ? <span className="basis-full text-[13px] text-[#6b7280]">{f.note}</span> : null}
         </div>
       ) : null}
       {view.chart && view.chart.labels.length > 1 ? (
-        <div className="mt-5" data-detail-chart="">
-          <TrendMiniChart labels={view.chart.labels} current={view.chart.current} previous={compared ? view.chart.previous : NONE} format={view.chart.format} height={170} integer={view.chart.integer} label={view.chart.label} />
+        <div className="mt-4" data-detail-chart="">
+          <TrendMiniChart labels={view.chart.labels} current={view.chart.current} previous={compared ? view.chart.previous : NONE} format={view.chart.format} height={140} integer={view.chart.integer} label={view.chart.label} />
         </div>
       ) : null}
-      <div className={f || view.chart ? "mt-8" : undefined}>
+      <div className={f || view.chart ? "mt-6" : undefined}>
         {view.sections.map((s) => (
           <Section key={s.title} s={s} compared={compared} />
         ))}
       </div>
-      {view.help ? <p className="mt-8 text-[12.5px] leading-5 text-[#9ca3af]">{view.help}</p> : null}
+      {view.help ? <p className="mt-6 text-[12.5px] leading-5 text-[#9ca3af]">{view.help}</p> : null}
     </div>
   )
 }

@@ -48,6 +48,7 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
 import { markSoldOut, owesSoldOutRefund, refundOverLimit } from "./sold-out-refund"
 import { beginFollowups, resumeFollowups, type Followups } from "./followups"
+import { ensureEntitlement } from "./entitlement-grant"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -136,6 +137,8 @@ export async function fulfilPaymentIntent(
      * handed the receipt, which is the key to the download.
      */
     clientSecret?: string | null
+    /** Where the slow, non-critical follow-ups go (see Defer below). */
+    defer?: Defer
   },
 ): Promise<Fulfilment> {
   if (typeof paymentIntentId !== "string" || !/^pi_[A-Za-z0-9]+$/.test(paymentIntentId)) {
@@ -182,7 +185,7 @@ export async function fulfilPaymentIntent(
  * A payment that succeeded, made into its order. Only the few facts of the
  * payment come in `paid`; everything else is the one path it always was.
  */
-export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { request?: Request; baseUrl: string }): Promise<Fulfilment> {
+export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { request?: Request; baseUrl: string; defer?: Defer }): Promise<Fulfilment> {
   const m = paid.metadata
   const found = await existingOrder(admin, paid.paymentId, m.receipt_token)
   /* An order written over the sales limit whose refund did not go through the first time: tried again, under the same key, so once. */
@@ -287,9 +290,15 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
 }
 
+/**
+ * Runs a task after the answer has gone (the webhook passes next/server's
+ * after()). Absent, everything runs before the answer, as it always did.
+ */
+export type Defer = (task: () => Promise<void>) => void
+
 interface FollowUpInput {
   paid: PaidCheckout
-  opts: { request?: Request; baseUrl: string }
+  opts: { request?: Request; baseUrl: string; defer?: Defer }
   order: { id: string; receipt_token: string; created_at?: string | null }
   row: { currency: string | null; buyer_country: string | null }
   productId: string
@@ -310,7 +319,7 @@ interface FollowUpInput {
  * email twice or counts a sale twice on the ledger.
  */
 async function followUp(admin: Db, f: Followups, input: FollowUpInput): Promise<void> {
-  const { paid, opts, order, row, productId, creatorId, buyerId, buyerEmail, total, tipCents, variantId, variantName, feeCents } = input
+  const { paid, opts, order, row, productId, creatorId, buyerId, buyerEmail, total, variantId, feeCents } = input
   const m = paid.metadata
   const facts = paid.facts
   const origin = orderOriginFrom(m, opts.request)
@@ -384,6 +393,39 @@ async function followUp(admin: Db, f: Followups, input: FollowUpInput): Promise<
   if (m.coupon_id) await f.once("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))
   /* Stripe's balance is mirrored in seller_ledger. */
   await f.idempotent("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId, currency: row.currency }))
+
+  /*
+    EVERYTHING ABOVE is the order's durable state (the order, its library
+    entry, counts, the seller's ledger) and is written before the caller
+    answers. EVERYTHING BELOW is slow and not needed for that answer: a
+    Stripe read for the processing fee, the receipt PDF and the emails, the
+    creator's automations and the notification events. The webhook hands
+    them to after() (opts.defer), so Stripe hears back in time and does not
+    count a slow answer as a failed delivery (PAY-12). Each step keeps its
+    journal row and key (./followups.ts): a redelivery inside IN_FLIGHT_MS
+    leaves the run alone, a "once" step is claimed before it runs so an
+    email never goes twice, and a step that failed (or a run that died) is
+    left unfinished for the ten minute sweep.
+  */
+  const rest = () => slowFollowUps(admin, f, input)
+  if (!opts.defer) return rest()
+  opts.defer(async () => {
+    try {
+      await rest()
+    } catch (e) {
+      /* Steps record their own failures; this is only a run that broke between them. The order stays unfinished for the sweep. */
+      console.error(`[fulfil] follow-ups after the answer broke for order ${order.id}:`, e instanceof Error ? e.message : e)
+    }
+  })
+}
+
+async function slowFollowUps(admin: Db, f: Followups, input: FollowUpInput): Promise<void> {
+  const { paid, opts, order, row, productId, creatorId, buyerEmail, total, tipCents, variantName, feeCents } = input
+  const m = paid.metadata
+  const facts = paid.facts
+  const origin = orderOriginFrom(m, opts.request)
+  const source = orderSourceFrom(m, opts.request)
+  const business = businessFromMetadata(m)
   await f.idempotent("stripe processing fee", async () => {
     if (!facts.chargeId) return
     const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
@@ -577,19 +619,8 @@ async function grant(
     }
   }
   if (!buyerId) return
-  let q = admin.from("entitlements").select("id").eq("buyer_id", buyerId).eq("product_id", g.productId)
-  q = g.variantId ? q.eq("variant_id", g.variantId) : q.is("variant_id", null)
-  /* Any row is enough: two copies of the same entitlement made maybeSingle() error, read as none, and insert a third. */
-  const { data: owned } = await q.limit(1)
-  if (!(Array.isArray(owned) && owned.length > 0)) {
-    await admin.from("entitlements").insert({
-      buyer_id: buyerId,
-      creator_id: g.creatorId,
-      product_id: g.productId,
-      variant_id: g.variantId,
-      community_access: false,
-    })
-  }
+  /* Throws when the entry could not be read or written, so the follow-up is recorded failed and the sweep runs it again (lib/checkout/entitlement-grant). */
+  await ensureEntitlement(admin, { buyerId, creatorId: g.creatorId, productId: g.productId, variantId: g.variantId })
   /* A product that opens a community (a tier sold once, or a course that grants one) lets the buyer in. Never throws. */
   try {
     await communityAccessAfterEntitlement(admin, { userId: buyerId, productId: g.productId, orderId: g.orderId, granted: true })
@@ -628,7 +659,8 @@ export async function recordSale(
     try {
       const { data: seller } = await admin.from("creators").select("stripe_account_id").eq("id", s.creatorId).maybeSingle()
       if (seller?.stripe_account_id) {
-        const charge = await stripe.charges.retrieve(s.destinationPaymentId, { expand: ["balance_transaction"] }, { stripeAccount: seller.stripe_account_id })
+        /* Bounded (PAY-12): a slow Stripe must not hold the webhook's answer; the three day estimate below covers a read that did not come. */
+        const charge = await stripe.charges.retrieve(s.destinationPaymentId, { expand: ["balance_transaction"] }, { stripeAccount: seller.stripe_account_id, timeout: 5_000, maxNetworkRetries: 1 })
         const bt = charge.balance_transaction as Stripe.BalanceTransaction | null
         if (bt?.available_on) holdUntil = new Date(bt.available_on * 1000)
       }

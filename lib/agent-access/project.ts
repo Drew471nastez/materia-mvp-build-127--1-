@@ -54,7 +54,8 @@ import { platformSettingsDoc } from "@/lib/storelib-theme/platform-settings"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { takeBackup } from "@/lib/website-builder/backups"
-import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { BLOG_PAGE_KEYS, BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { blogArticleSections, blogListingSections } from "@/lib/website-builder/blog-page"
 import { ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { newPreviewToken } from "@/lib/website-builder/preview-link"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
@@ -124,8 +125,16 @@ async function readTheme(db: Db, installId: string, creatorId: string): Promise<
 async function readPageRow(db: Db, installId: string, pageKey: string): Promise<{ id: string | null; sections: SectionInstance[] }> {
   const { data } = await db.from("store_theme_pages").select("id, sections, draft_sections").eq("install_id", installId).eq("page_key", pageKey).maybeSingle()
   const sections = ((data?.draft_sections ?? data?.sections ?? []) as SectionInstance[]) || []
+  /* The blog's templates exist before anybody arranges them: their generated layout, around main_blog or main_article (lib/website-builder/blog-page.ts). */
+  if (!data && BLOG_PAGE_KEYS.includes(pageKey)) {
+    const home = await readPageRow(db, installId, "home")
+    return { id: null, sections: sanitizeSections(pageKey === "blogs" ? blogListingSections(home.sections, {}) : blogArticleSections(home.sections, {})) }
+  }
   return { id: (data?.id as string | undefined) ?? null, sections: sanitizeSections(Array.isArray(sections) ? sections : []) }
 }
+
+/** A page that is there before it is stored: home, and the blog's two templates. */
+const alwaysThere = (key: string) => key === "home" || BLOG_PAGE_KEYS.includes(key)
 
 async function pageKeys(db: Db, installId: string): Promise<string[]> {
   const { data } = await db.from("store_theme_pages").select("page_key").eq("install_id", installId)
@@ -137,7 +146,7 @@ function pageKeyOf(raw: unknown, focus: Focus | null): string | null {
   if (raw === undefined || raw === null || raw === "") return focus?.page_key ?? "home"
   if (typeof raw !== "string") return null
   const key = raw.trim().toLowerCase().replace(/^\//, "")
-  if (key === "home" || key === "product" || key === "products" || key === "search") return key
+  if (key === "home" || key === "product" || key === "products" || key === "search" || BLOG_PAGE_KEYS.includes(key)) return key
   return pageKeyFromSegment(key)
 }
 
@@ -153,6 +162,8 @@ export async function readProject(db: Db, who: AgentIdentity): Promise<OpResult<
       {
         site: brief.value,
         pages: keys.map((k) => ({ key: k, title: pageTitleFromKey(k) })),
+        /* The blog's templates on a Storelib theme: every list of posts ("blogs", around main_blog) and every post ("article", around main_article). Posts are written in Website Settings › Blog, never typed into a section. */
+        ...(install.compat ? {} : { blog_templates: BLOG_PAGE_KEYS.map((k) => ({ key: k, title: pageTitleFromKey(k), stored: keys.includes(k) })) }),
         your_sections: [...custom].sort(),
         /* Everything Theme settings shows, and how to change it: the theme's settings, Storelib's own, menus and colour schemes. */
         theme_settings: themeSettingsBrief(install),
@@ -185,7 +196,7 @@ export async function readPage(db: Db, who: AgentIdentity, rawPage: unknown): Pr
   const key = pageKeyOf(rawPage, focus)
   if (!key) return bad(`"${String(rawPage)}" is not a page on this site.`)
   const [{ id, sections }, { settings }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId, who.creatorId)])
-  if (!id && key !== "home") return bad(`There is no page "${key}". storelib_read_project lists the pages.`, 404)
+  if (!id && !alwaysThere(key)) return bad(`There is no page "${key}". storelib_read_project lists the pages.`, 404)
   return {
     ok: true,
     value: JSON.stringify(
@@ -296,7 +307,7 @@ export async function applyPatch(
     readTheme(db, who.installId, who.creatorId),
     schemasFor(db, who.installId),
   ])
-  if (!opts.create && !row.id && key !== "home") return bad(`There is no page "${key}". Make it with storelib_create_page.`, 404)
+  if (!opts.create && !row.id && !alwaysThere(key)) return bad(`There is no page "${key}". Make it with storelib_create_page.`, 404)
 
   const start: ThemeState = { sections: row.sections, settings: theme.settings }
   /* A new page with nothing asked for beyond its header and footer is still a page. */

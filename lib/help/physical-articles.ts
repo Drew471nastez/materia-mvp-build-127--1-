@@ -242,8 +242,6 @@ const ARTICLES: Article[] = [
     summary: "What happens when someone orders from your website, what each setting does, what to connect, and how the parcel reaches their door. In plain words.",
     keywords: ["playbook", "how it works", "what happens when someone orders", "order to door", "fulfil", "fulfilment", "fulfillment", "setup checklist", "dropshipping", "print on demand", "3pl", "warehouse", "shipstation", "shippo", "easypost", "printful", "printify", "gelato", "cj dropshipping", "tracking", "test order", "start", "overview"],
     related: ["zero-to-100", "fulfillment-methods", "ship-your-orders", "tracking-and-order-status"],
-    faq: true,
-    howTo: "How to check it all works",
     body: [
       { type: "p", text: `This is the whole picture on one page. Read it once before you set anything up. Come back when you're not sure what happens next. Each part links to a longer article. Ready to set up right now? ${link("zero-to-100", "Zero to 100")} walks you through it step by step.` },
 
@@ -806,7 +804,6 @@ const ARTICLES: Article[] = [
     title: "Physical products: common questions",
     summary: "Quick answers when a buyer can't check out, stock looks wrong, a partner missed an order or a buyer lost their order email.",
     keywords: ["faq", "problem", "not working", "can't checkout", "shipping unavailable", "stock wrong", "help", "questions"],
-    faq: true,
     related: ["shipping-zones", "inventory-and-stock", "tracking-and-order-status"],
     body: [
       { type: "h", text: "Why does a buyer see that shipping isn't available?" },
@@ -2222,7 +2219,6 @@ const ARTICLES: Article[] = [
     summary: "Buy and print a label from the order, ship by hand with or without tracking, send part of an order, deliver locally, and void a label.",
     keywords: ["label", "labels", "shipping label", "buy label", "print label", "reprint", "void label", "refund label", "shippo", "easypost", "postage", "fulfill", "fulfillment", "manual fulfillment", "mark as shipped", "partial", "no tracking", "local delivery", "pickup", "dropship", "print on demand"],
     related: ["ship-your-orders", "tracking-and-order-status", "units-and-packages", "fulfillment-methods", "integrations"],
-    howTo: "Buy a label",
     body: [
       { type: "p", text: "Every paid order that ships has an Unfulfilled card on its order page with a Fulfill items button. What you do from there depends on who sends the parcel and how. This page covers all of it, from buying a label in Storelib to a parcel you hand over yourself." },
       { type: "h", text: "The ways an order gets fulfilled" },

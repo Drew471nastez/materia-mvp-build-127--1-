@@ -1,14 +1,12 @@
+/* Only seen on a slow first load: the page is held for an hour. The shape of its header and first table. */
 export default function FeaturesLoading() {
   return (
     <div className="min-h-screen bg-white skeleton-deferred">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 animate-pulse">
-        <div className="h-10 w-72 bg-gray-200 rounded-xl mx-auto mb-4" />
-        <div className="h-5 w-96 max-w-full bg-gray-200 rounded mx-auto mb-12" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-48 bg-gray-100 rounded-2xl border border-gray-200" />
-          ))}
-        </div>
+      <div className="mx-auto max-w-[1200px] animate-pulse px-4 pt-12 sm:px-6 lg:px-8">
+        <div className="h-10 w-80 max-w-full rounded-xl bg-gray-200" />
+        <div className="mt-5 h-5 w-[640px] max-w-full rounded bg-gray-200" />
+        <div className="mt-2 h-5 w-[520px] max-w-full rounded bg-gray-200" />
+        <div className="mt-12 h-[320px] rounded-2xl border border-gray-200 bg-gray-100" />
       </div>
     </div>
   )

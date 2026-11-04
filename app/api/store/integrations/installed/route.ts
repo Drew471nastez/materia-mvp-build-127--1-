@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
  * Names, logos (the small file the sidebar shows beside each) and pages only.
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   const [{ tracking }, physical, overrides, reviewsApp] = await Promise.all([
     loadTracking(c.db, c.creatorId).catch(() => ({ tracking: {} as Record<string, string> })),

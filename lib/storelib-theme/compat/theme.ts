@@ -104,6 +104,17 @@ import type { SizeChart } from "@/lib/size-charts/model"
  *     the default language's page while its hreflang named itself. Each
  *     language is its own canonical, as on a Storelib theme.
  */
+/**
+ * `?page=N` on the canonical of a list's page past the first (round 45), as
+ * Shopify's canonical_url carries it: a collection's page 2 shows products
+ * page 1 does not. A sort or a filter in the address still names page 1 of
+ * the clean list (lib/website-builder/tab-title.ts canonicalPageOf).
+ */
+const PAGED_TEMPLATES = new Set(["collection", "list-collections", "blog"])
+export function pagedCanonical(page: { template: string; query?: Record<string, string> }): string {
+  return PAGED_TEMPLATES.has(page.template) ? pageQuery(canonicalPageOf(page.query)) : ""
+}
+
 export function canonicalPath(path: string, i18n?: SiteI18n): string {
   const own = path.replace(/^\/collections\/[^/]+(?=\/products\/[^/]+\/?$)/, "")
   const root = localeRoot(i18n)
@@ -117,20 +128,24 @@ function pageRatings(reviews: unknown): Resources["ratings"] {
 }
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
+import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 import { compileSection } from "../storelib/compile"
 import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
 import type { CompiledSection, SectionInstanceData } from "../types"
 import { themeVars } from "@/lib/website-builder/theme-css"
+import { canonicalPageOf, pageQuery } from "@/lib/website-builder/tab-title"
 import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
+import { SEALED_NOTE, sealMarkup } from "./seal"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
 function pageLinks(page: CompatPage): (url: string) => string {
   const hit = linksOfPage.get(page)
   if (hit) return hit
-  const facts = linkFactsOf(page)
+  /* A website with a blog keeps its links to it, whether or not the theme has a blog template (./links.ts). */
+  const facts = linkFactsOf(page.siteBlog ? { ...page, blog: { handle: String(page.siteBlog.handle) } } : page)
   const seen = new Map<string, string>()
   const link = (url: string) => {
     let to = seen.get(url)
@@ -241,6 +256,35 @@ const splitHeld = boundedCache<{ markup: string; schemaText: string | null }>(15
 const treesHeld = boundedCache<{ tree: Parsed | null; warning: string | null }>(1500)
 const bundlesHeld = boundedCache<string>(16)
 
+/*
+  WHERE A COMPATIBLE FILE'S OWN <template> ENDS (1 Nov 2026, andrewrullz).
+  A theme's markup may hold an HTML <template> of its own whose `</template>`
+  stands alone on its line: Materia's snippets/faq-live-accordion.storelib
+  keeps its icons in `<template data-faq-icons>`. A file Storelib writes
+  guards such a line (wrapCompatTemplate); a file written by hand on GitHub
+  may not. Read as "the first line that is only `</template>`", the snippet
+  ended inside its icons' <template>: the FAQ's questions were cut off, and
+  the page was left with a <template> open that took every section after it
+  (the footer, the phone's tab bar) and the canvas bridge out of the page.
+  So the file's own block ends at the first such line followed only by blank
+  lines and the file's `<schema>`; at the first such line at all when none
+  is, as before.
+*/
+const TEMPLATE_END = /^\s*<\/template>\s*$/
+
+/** The line a compatible file's own `<template compat="shopify">`, opened on line `start`, ends on, or -1. */
+export function compatTemplateEnd(lines: readonly string[], start: number): number {
+  let first = -1
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!TEMPLATE_END.test(lines[i])) continue
+    if (first < 0) first = i
+    let j = i + 1
+    while (j < lines.length && lines[j].trim() === "") j++
+    if (j >= lines.length || /^\s*<schema>/.test(lines[j])) return i
+  }
+  return first
+}
+
 /** The markup and the schema of a compatible file. The schema is a new object on every call. */
 function splitOf(source: string): { markup: string; schemaText: string | null } | null {
   let hit = splitHeld.get(source)
@@ -248,8 +292,8 @@ function splitOf(source: string): { markup: string; schemaText: string | null } 
     const lines = source.split("\n")
     const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
     if (start < 0) return null
-    let end = start + 1
-    while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
+    const found = compatTemplateEnd(lines, start)
+    const end = found < 0 ? lines.length : found
     const markup = lines.slice(start + 1, end).join("\n").split(GUARD).join("")
     const rest = lines.slice(end + 1).join("\n")
     const sm = rest.match(/<schema>\s*([\s\S]*?)\s*<\/schema>/)
@@ -419,6 +463,28 @@ export interface CompatPage {
    * as the product's own page.
    */
   sizeCharts?: Record<string, SizeChart>
+  /**
+   * THE WEBSITE'S BLOG ON THIS PAGE (lib/site-blog, made Shopify's objects
+   * in ./objects.ts blogObject, articleObject): `blog` as this address
+   * narrows it (a tag, a category), the post on a post's page, and the tag
+   * the address names (`current_tags`). Absent: the theme's blog with no
+   * posts, as before (emptyBlog).
+   */
+  blogData?: {
+    blog: O
+    article?: O | null
+    tags?: string[]
+    /** What the page's search facts are made from (lib/website-builder/compat-search.ts): never handed to the theme. */
+    settings?: SiteBlogSettings
+    /** The posts the blog page lists (all its pages), newest first. */
+    cards?: PublicPostCard[]
+    /** The post on a post's page. */
+    post?: PublicPost
+  }
+  /** The whole blog, on every page of a website that has one: `blogs[handle]`, `articles`, and a featured blog section's `blog` setting. */
+  siteBlog?: O | null
+  /** The page's canonical address when it names another (a post's own canonical, from its SEO). */
+  canonicalUrl?: string
 }
 
 export interface CompatThemeOptions {
@@ -757,6 +823,7 @@ export class CompatTheme {
       link: pageLinks(page),
       sizeCharts: page.sizeCharts,
       ratings: pageRatings(page.reviews),
+      ...(page.siteBlog ? { blog: page.siteBlog } : {}),
     }
   }
 
@@ -861,7 +928,7 @@ export class CompatTheme {
       page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? defaultPageDescription(page),
       /* The website's own address, as its built pages name it, whatever host this page was reached at. */
-      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}` : page.path,
+      canonical_url: page.canonicalHost ?? page.host ? `https://${page.canonicalHost ?? page.host}${canonicalPath(page.path, page.i18n)}${pagedCanonical(page)}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.themeDesignMode ?? page.designMode, inBuilder: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer, cartCount: Number((cart as { item_count?: unknown }).item_count) || 0 }),
       collections,
@@ -878,17 +945,20 @@ export class CompatTheme {
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
-      /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
-      blog: page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null,
-      blogs: {},
-      articles: {},
+      /* The website's blog (lib/site-blog) where it has one; else a blog page draws the theme's blog with its title and no posts, never a white page with nothing in it. */
+      blog: page.blogData?.blog ?? (page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null),
+      article: page.blogData?.article ?? null,
+      /* A post's page shares its cover, as Shopify's page_image is the article's picture. */
+      ...(page.blogData?.article?.image ? { page_image: page.blogData.article.image } : {}),
+      blogs: page.siteBlog ? { [String(page.siteBlog.handle)]: page.siteBlog } : {},
+      articles: page.siteBlog ? articlesByAddress(page.siteBlog) : {},
       pages: {},
       images: {},
       metaobjects: {},
       powered_by_link: "",
       current_page: Number(page.query?.page ?? 1) || 1,
       /* Nil unless a collection or blog is narrowed by tag, as on Shopify: Dawn's <title> writes ` – tagged "…"` whenever it is anything else, and an empty list is not nothing in Liquid. */
-      current_tags: null,
+      current_tags: page.blogData?.tags?.length ? [...page.blogData.tags] : null,
       additional_checkout_buttons: false,
       content_for_additional_checkout_buttons: "",
       recommendations: page.recommendations
@@ -913,6 +983,8 @@ export class CompatTheme {
       gift_card: null,
       order: null,
     }
+    /* A blog post's own canonical (its SEO), when its writer named another address. */
+    if (page.canonicalUrl) globals.canonical_url = page.canonicalUrl
     const registers: CompatRegisters = {
       assetUrl: (name) => this.opts.assetUrl(name),
       /* A file from Shopify's Files page never comes in the zip: the theme's own asset or media file by that name. */
@@ -1041,6 +1113,13 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
+    /* What the section left open is closed where it ends: an open <template> or <textarea> took every section after it, and the canvas bridge, out of the page (./seal.ts). */
+    const sealed = sealMarkup(html)
+    if (sealed.closed.length) {
+      html = sealed.html
+      errors.push(`${SEALED_NOTE} ${sealed.closed.join(", ")}`)
+      this.diagnostics.add(`The section "${instance.type}" left ${sealed.closed.join(", ")} open; it was closed where the section ends`)
+    }
     if (faqs.length && !FAQ_SHOWN.has(faqProduct as object)) {
       const placed = withFaqUnderDescription(html, String((faqProduct as O).description ?? ""), faqs)
       if (placed !== null) {
@@ -1800,6 +1879,13 @@ export function groupSections(json: string | undefined): CompatSectionInstance[]
   if (!g?.sections) return []
   const order = Array.isArray(g.order) ? g.order : Object.keys(g.sections)
   return order.filter((id) => g.sections![id]).map((id) => instanceFromJson(id, g.sections![id]))
+}
+
+/** Shopify's `articles['news/first-post']`: every post of the blog by its blog and its handle. */
+function articlesByAddress(blog: O): O {
+  const out: O = {}
+  for (const a of (blog.articles as O[] | undefined) ?? []) out[`${String(blog.handle)}/${String(a.handle)}`] = a
+  return out
 }
 
 /** A blog of no posts, named by its address (/blogs/news is News). */

@@ -25,6 +25,11 @@ import { SignupCta } from "./signup-cta"
 import { ComparisonViewTracker } from "./view-tracker"
 import { BODY, ClaimItem, ClaimList, FeatureTable, MUTED, PointList, Screens, Section, SourceMarks, StatusNote, numberSources, unsettledClaims, visualsFor } from "./parts"
 import { Disclaimer } from "./disclaimer"
+import { MOVING_HELP, MOVING_TITLES } from "@/lib/alternatives/moving"
+import { helpLink } from "@/lib/marketing/help-links"
+import { monthYear } from "@/lib/marketing/facts"
+import { useCasePath, useCasesFor, useCaseOn } from "@/lib/marketing/use-cases"
+import { RelatedVideo } from "@/components/marketing/related-video"
 
 const money = (cents: number) => (cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`)
 const rate = (r: { percent: number; fixedCents: number }) =>
@@ -48,10 +53,13 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
   const checked = formatCheckedDate(lastChecked(c))
   const unsettled = unsettledClaims(c)
   const related = relatedAlternatives(c.slug)
+  /* The competitor's own pricing page: the source its first plan was read from. Its prices are printed with the month they were checked. */
+  const pricingSource = c.sources.find((s) => s.id === c.plans[0]?.claim.sources[0])
+  const landing = useCasesFor(c.slug).filter((u) => useCaseOn(u, flags))
 
   return (
     <div className="bg-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(alternativeJsonLd(c, faqs)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(alternativeJsonLd(c)) }} />
       <ComparisonViewTracker slug={c.slug} />
 
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
@@ -134,7 +142,8 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                       </span>
                     </dt>
                     <dd className="mt-1 text-[14px] leading-[1.5] text-[#4b5563]">
-                      {rate(p.fee)} per sale to {c.name}. Card processing: {p.processingLabel}.
+                      {rate(p.fee)} per sale to {c.name}
+                      {p.feeAbove ? `, ${rate(p.feeAbove.fee)} on a sale over ${money(p.feeAbove.overCents)}` : ""}. Card processing: {p.processingLabel}.
                       {p.sellsDigital ? null : " Not able to sell digital products."}
                       <SourceMarks ids={p.claim.sources} numbers={numbers} />
                       <StatusNote status={p.claim.status} note={p.claim.note} />
@@ -142,6 +151,15 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
                   </div>
                 ))}
               </dl>
+              {pricingSource ? (
+                <p className={`mt-3 ${MUTED}`} data-checked-month>
+                  Checked {monthYear(pricingSource.checkedOn)} on{" "}
+                  <a href={pricingSource.url} rel="nofollow noopener" target="_blank" className="underline underline-offset-2 hover:text-[#1a1a2e]">
+                    {c.name}&apos;s pricing page
+                  </a>
+                  . Prices change, so check there before you decide.
+                </p>
+              ) : null}
               {c.pricingNotes.length > 0 ? (
                 <ul className="mt-4 space-y-2">
                   {c.pricingNotes.map((n) => (
@@ -245,6 +263,22 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
 
         {/* ── Switching ──────────────────────────────────────────────────── */}
         <Section id="switch" title={`Moving from ${c.name} to Storelib`}>
+          <div className="mb-10 grid gap-8 md:grid-cols-3" data-moving>
+            {(Object.keys(MOVING_TITLES) as (keyof typeof MOVING_TITLES)[]).map((k) => (
+              <div key={k}>
+                <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{MOVING_TITLES[k]}</h3>
+                <p className={`mt-2 ${BODY}`}>{c.moving[k]}</p>
+                <ul className="mt-3 space-y-1.5 text-[14px]">
+                  {[...MOVING_HELP[k], ...(c.movingHelp?.[k] ?? [])].map(helpLink).filter(<T,>(h: T): h is NonNullable<T> => !!h).map((h) => (
+                    <li key={h.href}>
+                      <a href={h.href} className="text-[#1a1a2e] underline decoration-[#c7cbd1] underline-offset-2 hover:decoration-[#1a1a2e]">{h.title}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <h3 className="mb-5 text-[16px] font-semibold text-[#1a1a2e]">Step by step</h3>
           {c.importer ? (
             <p className={`mb-6 max-w-[720px] ${BODY}`}>
               {c.importer.text}{" "}
@@ -267,7 +301,9 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
           </div>
         </Section>
 
-        {/* ── Questions: the same list FAQPage is written from ───────────── */}
+        <RelatedVideo path={alternativePath(c.slug)} />
+
+        {/* ── Questions: plain HTML, no FAQPage markup ───────────────────── */}
         <Section id="questions" title="Questions">
           <div className="max-w-[760px] divide-y divide-[#eef0f2] border-y border-[#eef0f2]">
             {faqs.map((f) => (
@@ -317,6 +353,18 @@ export function AlternativePage({ c, flags }: { c: Competitor; flags: Flags }) {
               </li>
             ))}
           </ul>
+          {landing.length > 0 ? (
+            <>
+              <h3 className="mt-8 text-[15px] font-semibold text-[#1a1a2e]">Selling on Storelib</h3>
+              <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[14px]">
+                {landing.map((u) => (
+                  <li key={u.slug}>
+                    <Link href={useCasePath(u.slug)} className="font-medium text-[#1a1a2e] underline decoration-[#c7cbd1] underline-offset-2 hover:decoration-[#1a1a2e]">{u.nav}</Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
           <p className="mt-6 text-[14px]">
             <Link href={HUB_PATH} className="font-medium text-[#1a1a2e] underline underline-offset-2">All comparisons</Link>
           </p>

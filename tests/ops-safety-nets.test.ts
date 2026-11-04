@@ -173,7 +173,8 @@ async function main() {
       check("public, no-store, private told apart", S.cacheKind("public, s-maxage=3600") === "public" && S.cacheKind("s-maxage=300, stale-while-revalidate=1") === "public" && S.cacheKind("private, no-cache, no-store, max-age=0") === "no-store" && S.cacheKind("private, no-cache") === "private" && S.cacheKind(null) === "none")
       const plan = S.plan("https://x.vercel.app", undefined) as Array<{ path?: string; url?: string; cache?: string[]; status: number[] }>
       const step = (p: string) => plan.find((c) => c.path === p)
-      check("marketing pages must be public", ["/", "/pricing", "/explore", "/features"].every((p) => JSON.stringify(step(p)?.cache) === '["public"]'))
+      check("marketing pages must be public", ["/", "/pricing", "/features"].every((p) => JSON.stringify(step(p)?.cache) === '["public"]'))
+      check("/explore is built per visitor, so it may be no-store but never fails for that", JSON.stringify(step("/explore")?.cache) === '["no-store","private","public"]')
       check("/app must never be public", !step("/app")?.cache?.includes("public"))
       check("the website checkout must be no-store", JSON.stringify(step("/checkout/site")?.cache) === '["no-store"]')
       check("robots and sitemap are asked for", !!step("/robots.txt") && !!step("/sitemap.xml"))

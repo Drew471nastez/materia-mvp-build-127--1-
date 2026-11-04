@@ -656,6 +656,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Storelib is already looking at another conversation about this order.",
   "You've asked Storelib in on several orders lately. Storelib answers those first; write to support@storelib.com if this one can't wait.",
   "Nothing to change.",
+  "We are still checking your payment with the bank. Do not use another card yet. Press Pay again to check: it uses the same payment, so you are not charged twice.",
 ]
 
 export const EMAIL_SENTENCES: readonly string[] = [

@@ -8,7 +8,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("store", { read: true })
   if (c instanceof NextResponse) return c
   return physicalJson({ locations: await loadLocations(c.db, c.creatorId) })
 }

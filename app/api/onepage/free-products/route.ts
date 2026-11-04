@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { onePageActor } from "@/lib/team/onepage"
+import { readUserForRoute } from "@/lib/auth/route-user"
 
 // GET - Fetch free products for email capture digital product selector
 export async function GET(request: Request) {
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await readUserForRoute()
     
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

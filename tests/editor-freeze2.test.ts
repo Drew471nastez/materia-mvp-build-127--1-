@@ -53,7 +53,7 @@ console.log("\nTHE FIRST LOOK: A HOLD FROM THE FIRST PAINT IS LET GO WITHOUT A C
   check("and at the page's load", /if \(document\.readyState === "complete"\) afterLoad\(\); else addEventListener\("load", afterLoad, \{ once: true \}\)/.test(CANVAS_BRIDGE))
   check("the builder says heal when it shows the page in front, and the page looks then", /m\.type === "heal"\) \{[\s\S]{0,300}checkLock\(\);\s*stalledLoaders\(\);/.test(CANVAS_BRIDGE))
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-  check("  said with \"shown\", for the first page and every page that comes forward", /type: "shown" \}, "\*"\)[\s\S]{0,600}type: "heal" \}, "\*"\)/.test(canvas))
+  check("  said with \"shown\", for the first page and every page that comes forward", /type: "shown" \}\)[\s\S]{0,600}type: "heal" \}\)/.test(canvas))
   /* Changed on purpose (round 14): the first wheel always looks (lockSeen starts null); later ones when <html> or <body> changed (lockDirty) or a second has gone. */
   check("the first wheel over a held page lets it go in its own task, before the browser scrolls", /addEventListener\("wheel", function \(e\) \{[\s\S]{0,800}if \(!unlocked && \(lockSeen === null \|\| lockDirty \|\| t0 - lockSeen > 1000\)\) \{[\s\S]{0,80}if \(lockedNow\(\)\) \{ clearTimeout\(lockTimer\); checkLock\(\); \}/.test(CANVAS_BRIDGE) && /lockSeen = null, lockDirty = true;/.test(CANVAS_BRIDGE) && /lockWatch = new MutationObserver\(function \(\) \{\s*lockDirty = true;/.test(CANVAS_BRIDGE))
   /* Changed on purpose (round 1026): the first swipe's look (AND THE FIRST SWIPE, AS THE FIRST WHEEL) now sits between the wheel's listener and ALREADY HELD; the wheel's is still capture and passive. */

@@ -25,13 +25,23 @@
 import { cache } from "react"
 import { unstable_cache } from "next/cache"
 
-import { createClient } from "@/lib/supabase/server"
-import { readPublicRow } from "@/lib/security/public-rows"
-import { publicProfileByName } from "@/lib/profile/profile-by-name"
-import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
+import { readPublicRow, readPublicRowStrict } from "@/lib/security/public-rows"
+import { publicProfileByName, publicProfileByNameStrict } from "@/lib/profile/profile-by-name"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
+import { readPublishedStoreConfig } from "@/lib/store-builder/public-config"
+
+
+/*
+  READ AS A STRANGER, FOR EVERYBODY (round 49). These rows draw the creator
+  page and the product page, which are one HTML for every visitor so a CDN
+  may hold them (tests/cdnpages-r49): the anon key with no session, never the
+  visitor's own client, so no read here touches cookies() and no session can
+  widen what the page shows. "Nothing published" is answered from the shared
+  copy; a save expires it at once (lib/storefront/creator-page-purge).
+*/
+const stranger = () => createPublicReadClient() as never
 
 /**
  * `ilike`, not `eq`, because that is what the layout has always used and a
@@ -42,38 +52,46 @@ import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./produc
  * Deduping within the request is the whole win anyway, since this is the
  * query the layout and the page each ran separately.
  */
-export const loadProfileByUsername = cache(async (username: string) => {
-  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). */
-  return publicProfileByName(await createClient(), username)
+export const loadProfileByUsernameStrict = cache(async (username: string) => {
+  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). Bounded, and a failed read THROWS (SiteReadError): null is only "no such name". */
+  return publicProfileByNameStrict(stranger(), username)
 })
 
-/** The creator row for a profile, shared with the product page's cache. */
+/**
+ * The same profile where a failed read may read as "none" (a layout's skeleton
+ * colour, a share image). The one read above, shared within the request, so
+ * the strict and the lenient caller cost one round trip between them.
+ */
+export const loadProfileByUsername = cache(async (username: string) => {
+  return loadProfileByUsernameStrict(username).catch(() => null)
+})
+
+/** The creator row for a profile, bounded; a failed read THROWS (SiteReadError), null is only "no creator row". */
+export const loadCreatorForUserStrict = cache(async (userId: string) => {
+  return readPublicRowStrict(stranger(), "creators", (q) => q.eq("user_id", userId))
+})
+
+/** The creator row for a profile, shared with the product page's cache; a failed read reads as none, as it always has. */
 export const loadCreatorForUser = cache(async (userId: string) => {
-  return readPublicRow(await createClient(), "creators", (q) => q.eq("user_id", userId))
+  return loadCreatorForUserStrict(userId).catch(() => null)
 })
 
 /**
  * The shop's published config. Goes through the shared cross-request cache,
  * so a second visitor to the same creator does not pay for it at all.
  *
- * It falls back to the per-request client when the cached read comes back
- * empty, for the reason product-page-cache spells out: the cached read has no
- * session, so a policy that needs one returns nothing rather than an error,
- * and an empty page is worse than a slow one.
+ * It reads again, uncached, when the cached read failed, or found nothing for
+ * somebody signed in (the creator who just published sees it on the next
+ * load). Both reads are the server's narrow one (lib/store-builder/
+ * public-config.ts): published_config only, no contact address in it.
  */
 export const loadShopConfig = cache(async (creatorId: string) => {
   const cached = await cachedStoreConfig(creatorId, "shop").catch(() => undefined)
   if (cached) return cached
-  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
-  if (cached === null && !(await requestMayHaveSession())) return null
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", creatorId)
-    .eq("page_type", "shop")
-    .maybeSingle()
-  return data ?? null
+  /* Nothing published, and a visitor with no session cannot have just published it (lib/supabase/session-cookie.ts). */
+  if (cached === null) return null
+  /* Read fresh, the same narrow server read the cache makes (lib/store-builder/public-config.ts, round 48). */
+  return readPublishedStoreConfig(creatorId, "shop").catch(() => null)
 })
 
 /**

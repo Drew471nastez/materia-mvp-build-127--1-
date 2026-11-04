@@ -138,8 +138,8 @@ async function main() {
       check(`${r.replace(T, "…/[installId]")} asks websiteInstallCaller, never the account's own row`, /websiteInstallCaller/.test(src) && !/\.from\("creators"\)[\s\S]{0,40}\.eq\("user_id", user\.id\)/.test(src))
     }
     const storeRoutes = ["app/api/website-builder/themes/route.ts", "app/api/website-builder/themes/add/route.ts", `${T}/duplicate/route.ts`, "app/api/website-builder/menus/route.ts", "app/api/website-builder/products/route.ts", "app/api/website-builder/cart-offers/route.ts", "app/api/website-builder/site-password/route.ts", "app/api/website-builder/performance/route.ts", "app/api/website-builder/files/route.ts", "app/api/website-builder/initialize/route.ts"]
-    for (const r of storeRoutes) check(`${r.replace("app/api/website-builder/", "…/")} asks websiteCaller`, /websiteCaller\(\)/.test(read(r)) && !/\.eq\("user_id", user\.id\)/.test(read(r)))
-    check("the builder's collection picker reads for Website, making one is Products'", /shopCaller\(\["website", "products"\]\)/.test(read("app/api/website-builder/collections/route.ts")) && /shopCaller\("products"\)/.test(read("app/api/website-builder/collections/route.ts")))
+    for (const r of storeRoutes) check(`${r.replace("app/api/website-builder/", "…/")} asks websiteCaller`, /websiteCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(read(r)) && !/\.eq\("user_id", user\.id\)/.test(read(r)))
+    check("the builder's collection picker reads for Website, making one is Products'", /shopCaller\(\["website", "products"\](?:, \{ read: true \})?\)/.test(read("app/api/website-builder/collections/route.ts")) && /shopCaller\("products"(?:, \{ read: true \})?\)/.test(read("app/api/website-builder/collections/route.ts")))
     check("deleting a website stays the owner's", /if \(!isOwner\) return NextResponse\.json\(\{ error: OWNER_KEEPS_SITE \}, \{ status: 403 \}\)/.test(read(`${T}/route.ts`)))
     check("the owner's handle and covers are the store owner's, for a member too", /eq\("id", ownerUserId!\)/.test(read(`${T}/route.ts`)) && /userId: who\.ownerUserId/.test(read(`${T}/cover/route.ts`)) && /access\.ownerUserId,/.test(read("app/app/website-builder/page.tsx")))
     for (const p of ["app/app/website-builder/page.tsx", "app/app/website-builder/navigation/page.tsx", "app/app/website-builder/themes/page.tsx"]) check(`${p} asks websitePage`, /await websitePage\(\)/.test(read(p)) && !/eq\("user_id", user\.id\)/.test(read(p)))
@@ -170,7 +170,8 @@ async function main() {
       check(`${r} asks creatorPageStore and writes by its profile and store`, /creatorPageStore\(supabase, user\.id\)/.test(src) && !/\.eq\("user_id", user\.id\)/.test(src) && !/\.eq\("id", user\.id\)/.test(src))
     }
     check("the preview of a store named in the URL: only the one the caller works in", /page\.creatorId !== creatorId/.test(read("app/api/store-builder/preview/route.ts")))
-    check("the page's own owner controls show for a member with Creator page in this very store", /teamStoreIdFor\(viewer\.id, "creator_pages"\)[\s\S]{0,40}=== creator\.id/.test(read("app/(marketing)/u/[username]/page.tsx")))
+    /* Round 49: asked after load (the page is one HTML for everybody), by the route the page's owner controls read. */
+    check("the page's own owner controls show for a member with Creator page in this very store", /teamStoreIdFor\(user\.id, "creator_pages"\)/.test(read("app/api/creator-page/viewer/route.ts")) && /teamStore === row\.id/.test(read("app/api/creator-page/viewer/route.ts")))
     for (const p of ["app/creator-page/layout.tsx", "app/creator-page/page.tsx", "app/creator-page/sections/page.tsx"]) check(`${p} asks creatorPagePage`, /await creatorPagePage\(\)/.test(read(p)))
     check("  a member without it is shown the access card there (no team bar outside /app)", /<TeamAreaClosed area="creator_pages"/.test(read("app/creator-page/layout.tsx")))
     check("a member's change and publish are on the record", /"creator_page_changed"/.test(read("app/api/creator-profile/route.ts")) && /"creator_page_changed", \{ action: "publish"/.test(read("app/api/store-builder/route.ts")))
@@ -224,7 +225,7 @@ async function main() {
       check(`${r.replace("app/api/", "")}: moneyCaller("${kind}", "${level}"), the store's row by its id`, src.includes(`moneyCaller("${kind}", "${level}"`) && !/\.eq\("user_id", user\.id\)/.test(src) && !/moneyCaller\("[a-z]+", "view"\)/.test(level === "manage" ? src : ""))
     }
     const settings = read("app/api/settings/payouts/route.ts")
-    check("settings/payouts: reading is Payouts, changing is Change payouts", /export async function POST[\s\S]*?moneyCaller\("payouts", "manage"\)/.test(settings) && /export async function GET[\s\S]*?moneyCaller\("payouts", "view"\)/.test(settings))
+    check("settings/payouts: reading is Payouts, changing is Change payouts", /export async function POST[\s\S]*?moneyCaller\("payouts", "manage"(?:, \{ read: true \})?\)/.test(settings) && /export async function GET[\s\S]*?moneyCaller\("payouts", "view"(?:, \{ read: true \})?\)/.test(settings))
     check("the Stripe customer of a plan change is the store owner's account and email, never the member's", ["customer-portal", "payment-method", "checkout/setup", "subscription/create"].every((r) => /userId: who\.ownerUserId/.test(read(`app/api/billing/${r}/route.ts`)) && /email: who\.ownerEmail/.test(read(`app/api/billing/${r}/route.ts`))))
     check("the payments hub asks paymentsActionLevel and refuses the setup to a member", /paymentsActionLevel\(action, body\)/.test(read("app/api/payments/[action]/route.ts")) && /if \(level === "owner" && !who\.isOwner\)/.test(read("app/api/payments/[action]/route.ts")))
     check("a cash out tells the store owner, whoever pressed it", /userId: who\.ownerUserId,/.test(read("app/api/stripe/cashout/route.ts")))

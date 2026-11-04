@@ -15,12 +15,15 @@ import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { creatorTag } from "@/lib/commerce/product-page-cache"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
+import { listedBlogEntries } from "@/lib/site-blog/public-read"
 import {
+  blogSitemapEntries,
   imagesOnPage,
   listedPageKeys,
   pageLastmod,
   pageUrl,
   productUrl,
+  shopUrl,
   type SitemapEntry,
 } from "./site-seo"
 import type { ThemeSettingsValues } from "./types"
@@ -28,6 +31,7 @@ import { hiddenPages } from "./page-seo"
 import { imagesOnly } from "@/lib/media/video"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { readSiteAccess } from "@/lib/site-password/store"
+import { storefrontReviews } from "@/lib/reviews/storefront-server"
 
 /**
  * The creator page's domain, at the host it is served at, or null. The
@@ -266,6 +270,34 @@ async function pageTimes(creatorId: string, installId: string): Promise<{ publis
   }
 }
 
+/**
+ * The pages a website answers with no page row of its own, as the sitemap
+ * lists them (round 45). One list, so a page added to the website's routes
+ * is added here, and tests/seo-sites-r45.test.ts holds every route of
+ * app/(site)/w/[username] to a decision: listed here, listed with the
+ * pages, products or collections, or kept out of search on purpose.
+ */
+export const GENERATED_PAGE_KEYS = ["collections", "reviews"] as const
+
+async function generatedPages(
+  creatorId: string,
+  site: { imported: boolean; keys: Record<string, unknown>; collections: number },
+): Promise<{ key: (typeof GENERATED_PAGE_KEYS)[number]; loc: (origin: string) => string; lastmod?: string }[]> {
+  const out: { key: (typeof GENERATED_PAGE_KEYS)[number]; loc: (origin: string) => string; lastmod?: string }[] = []
+  /* An imported theme draws /collections from its own template only (listed with the pages when it has one). */
+  if (!site.imported && site.collections > 0 && !site.keys.collections) out.push({ key: "collections", loc: (o) => `${o}/collections` })
+  if (!site.keys.reviews) {
+    try {
+      const reviews = await storefrontReviews(creatorId)
+      const newest = reviews.all.items.map((r) => Date.parse(r.date)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a)[0]
+      if (reviews.enabled && !reviews.sample && reviews.all.summary.count > 0) out.push({ key: "reviews", loc: (o) => `${o}/reviews`, ...(newest ? { lastmod: new Date(newest).toISOString() } : {}) })
+    } catch {
+      /* Not listed is the answer when the reviews cannot be read. */
+    }
+  }
+  return out
+}
+
 /** Everything /robots.txt and /sitemap.xml need, for the site at this name. */
 export async function siteSeo(name: string): Promise<SiteSeo> {
   const found = await publishedShopByName(name)
@@ -299,7 +331,9 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
     const products = await listedProducts(site.creatorId)
     /* The shop's own page changes when a product does: the newest product's date. */
     const newest = products.map((p) => (p.updated_at ? Date.parse(p.updated_at) : NaN)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a)[0]
-    if (products.length > 0 && !site.pages.products) entries.push({ loc: pageUrl(origin, "products"), ...(newest ? { lastmod: new Date(newest).toISOString() } : {}) })
+    /* The shop at the address it answers at: /products, or /collections/all for an imported theme (shopUrl), listed once. */
+    const shop = shopUrl(origin, { imported })
+    if (products.length > 0 && (imported || !site.pages.products) && !entries.some((e) => e.loc === shop)) entries.push({ loc: shop, ...(newest ? { lastmod: new Date(newest).toISOString() } : {}) })
     for (const p of products) {
       const pictures = imagesOnly([p.thumbnail_url, ...(p.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
       entries.push({
@@ -309,7 +343,31 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
       })
     }
     /* Each published collection's own page, /collections/<handle>: every shop can have them. */
-    for (const c of await listedCollections(site.creatorId)) entries.push({ loc: `${origin}/collections/${c.handle}`, ...(c.lastmod ? { lastmod: c.lastmod } : {}) })
+    const collections = await listedCollections(site.creatorId)
+    for (const c of collections) entries.push({ loc: `${origin}/collections/${c.handle}`, ...(c.lastmod ? { lastmod: c.lastmod } : {}) })
+    /*
+      AND THE PAGES EVERY WEBSITE ANSWERS WITHOUT A ROW OF ITS OWN (round 45),
+      each listed while it has something on it: the collections list, once
+      there is a collection (a Storelib theme draws it at /collections
+      always; an imported theme's is its list-collections template, listed
+      with the pages above), and the shop's reviews, while Storelib Reviews
+      is on and a review is published. Both were pages that said index and
+      were linked from the site, and no sitemap named them.
+    */
+    for (const extra of await generatedPages(site.creatorId, { imported, keys: site.pages, collections: collections.length })) {
+      if (!hidden.has(extra.key) && !entries.some((e) => e.loc === extra.loc(origin))) entries.push({ loc: extra.loc(origin), ...(extra.lastmod ? { lastmod: extra.lastmod } : {}) })
+    }
+    /*
+      THE BLOG (lib/site-blog), on both kinds of website at the same
+      addresses, on the site's own origin (its connected domain): the blog,
+      its live posts and its categories, unless its template is kept out of
+      search (Pages & Navigation: "blog" on an imported theme, "blogs" on a
+      Storelib theme). Before SQL part 353, nothing.
+    */
+    if (!hidden.has(imported ? "blog" : "blogs")) {
+      const blog = await listedBlogEntries(site.creatorId).catch(() => null)
+      for (const e of blogSitemapEntries(origin, blog)) if (!entries.some((x) => x.loc === e.loc)) entries.push(e)
+    }
   }
 
   return {
@@ -354,9 +412,10 @@ export async function formerSiteAddresses(creatorId: string, name: string): Prom
     const { data: pages } = await admin.from("store_theme_pages").select("page_key, sections").eq("install_id", row.id)
     const live = ((pages ?? []) as { page_key: string; sections: unknown }[]).filter((p) => Array.isArray(p.sections) && p.sections.length > 0)
     const hidden = hiddenPages(settingsRow?.settings ?? {})
-    for (const key of listedPageKeys(live.map((p) => p.page_key), { imported: !!compatOf(settingsRow?.settings) }).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
+    const imported = !!compatOf(settingsRow?.settings)
+    for (const key of listedPageKeys(live.map((p) => p.page_key), { imported }).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
     const products = await listedProducts(creatorId)
-    if (products.length > 0) urls.push(pageUrl(origin, "products"))
+    if (products.length > 0) urls.push(shopUrl(origin, { imported }))
     for (const p of products) urls.push(productUrl(origin, p.slug))
   } catch {
     /* The front page is still worth telling. */

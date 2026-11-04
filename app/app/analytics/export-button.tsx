@@ -6,9 +6,10 @@
  * ===========================================================================
  * The owner: "positioned somewhere else, without creating multiple rows ...
  * options on what to export exactly and in which format ... a modal, smooth
- * and clean". So Export is the last control in the period's own row (no row
- * of its own, never above the figures), and it opens the /app dialog (the
- * shared bottom sheet on a phone):
+ * and clean". Round 49 put it on the heading's line, an icon in a circle
+ * beside Send to (the owner: "on the same line as the Analytics heading ...
+ * icon only"), and it opens the /app dialog (the shared bottom sheet on a
+ * phone):
  *
  *   Reports   every report the page draws, each a checkbox, all on
  *             (lib/analytics/export-csv EXPORT_REPORTS; Sales only for a
@@ -31,7 +32,7 @@ import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
-import { pickerButton } from "@/components/app/date-range-picker"
+import { HeadIconButton } from "@/components/app/analytics/head-button"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { tt } from "@/lib/i18n/text"
 import { EXPORT_REPORTS, type ExportFormat, type ExportReport } from "@/lib/analytics/export-csv"
@@ -133,7 +134,7 @@ function Body({ options, picked, toggle, setAll, format, setFormat, range }: { o
 }
 
 /**
- * The control in the period's row and the dialog it opens. `options` are the
+ * The control beside the heading and the dialog it opens. `options` are the
  * reports this page draws; `range` is the period and place as the page names
  * them; `query` is the page's question; `name` the file's name without its
  * ending.
@@ -211,10 +212,10 @@ export function ExportButton({ query, name, options, range, className }: { query
 
   return (
     <span className="relative inline-flex shrink-0 items-center">
-      <button type="button" aria-haspopup="dialog" aria-label={tt("Export")} onClick={() => setOpen(true)} data-analytics-export="" className={cn(pickerButton, "px-2 sm:px-2.5", className)}>
-        <Download className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
-        <span className="hidden sm:inline">{tt("Export")}</span>
-      </button>
+      {/* Icon only, beside the heading (round 49): its name in the tooltip and to a screen reader (components/app/analytics/head-button). */}
+      <HeadIconButton label={tt("Export")} aria-haspopup="dialog" onClick={() => setOpen(true)} data-analytics-export="" className={className}>
+        <Download className="h-4 w-4" aria-hidden />
+      </HeadIconButton>
       <span role="status" aria-live="polite" className={cn("pointer-events-none absolute right-0 top-full z-10 mt-1.5 whitespace-nowrap rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] text-white transition-opacity duration-150", note ? "opacity-100" : "opacity-0")}>
         {note ?? ""}
       </span>

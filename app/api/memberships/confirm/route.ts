@@ -7,6 +7,7 @@ import { intentIdOf, intentOf } from "@/lib/memberships/billing"
 import { retrieveSubscription, syncSubscription } from "@/lib/memberships/sync"
 import { grantsAccess, isMembershipSubscription } from "@/lib/memberships/state"
 import { isStripeNotFound } from "@/lib/billing/subscription-state"
+import { declineMessage, isCardDecline, rereadIntent, settledFrom, UNKNOWN_BODY } from "@/lib/checkout/confirm-outcome"
 
 export const runtime = "nodejs"
 
@@ -25,6 +26,9 @@ export const runtime = "nodejs"
  * The client secret must be the subscription's own current one, so a
  * subscription id alone confirms nothing. Answers
  * { membershipId, status, access } or { status: "requires_action", actionUrl }.
+ * A confirm error that is not a declined card is never "nothing was charged":
+ * the intent is read again, and 503 { status: "unknown" } when Stripe still
+ * cannot say (the page then keeps this subscription for the next press).
  */
 export async function POST(request: Request) {
   let body: { subscriptionId?: unknown; clientSecret?: unknown; paymentMethodId?: unknown; returnUrl?: unknown }
@@ -90,9 +94,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "The card was declined. Nothing was charged. Try another card." }, { status: 402 })
       }
     } catch (err) {
-      const e = err as { type?: string; raw?: { message?: string }; message?: string }
-      const message = e?.type === "StripeCardError" ? e.raw?.message || e.message : null
-      return NextResponse.json({ error: message || "The payment did not go through. Nothing was charged." }, { status: 402 })
+      /* Only a declined card is a sure "no" (lib/checkout/confirm-outcome.ts). */
+      if (isCardDecline(err)) return NextResponse.json({ error: declineMessage(err) }, { status: 402 })
+      /* A timeout, a 5xx, a dropped connection: the payment may have gone through. Stripe is asked again, bounded. */
+      const id = intentIdOf(current.clientSecret)!
+      const opts = { timeout: 5_000, maxNetworkRetries: 0 }
+      const again = await rereadIntent<{ status: string; next_action?: { redirect_to_url?: { url?: string | null } | null } | null }>(() =>
+        current.type === "setup" ? stripe.setupIntents.retrieve(id, {}, opts) : stripe.paymentIntents.retrieve(id, {}, opts),
+      )
+      const settled = settledFrom(again)
+      console.warn("[memberships/confirm] confirm error, read again:", (err as { type?: string })?.type ?? "unknown", settled.kind)
+      if (settled.kind === "action") return NextResponse.json({ status: "requires_action", actionUrl: settled.actionUrl })
+      if (settled.kind === "canceled") return NextResponse.json({ error: "This payment was cancelled. Nothing was charged. Reload the page to join again." }, { status: 402 })
+      /* Paid: brought up to date below, as after any payment. Unknown: the page keeps this subscription and its intent for the next press. */
+      if (settled.kind === "unknown") return NextResponse.json(UNKNOWN_BODY, { status: 503 })
     }
   }
 

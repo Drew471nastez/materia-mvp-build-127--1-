@@ -42,7 +42,7 @@ const itemsOf = (v: unknown) =>
     .map((i) => ({ orderId: String(i.orderId), quantity: Math.min(10_000, Number(i.quantity)) }))
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller("orders")
+  const c = await physicalCaller("orders", { read: true })
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

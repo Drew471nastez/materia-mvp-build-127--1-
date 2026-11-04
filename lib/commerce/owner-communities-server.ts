@@ -14,11 +14,18 @@ import { MORE_FROM_CREATOR_COLUMNS, type CachedProductRow } from "@/lib/commerce
  * price, or free to join), before the products, keeping four cards at most.
  * Public columns only; nothing private reaches the page.
  */
-export async function withOwnersCommunities(cards: CachedProductRow[], ownerUserId: string | null | undefined, creatorId: string, excludeProductId: string): Promise<CachedProductRow[]> {
-  if (!ownerUserId || cards.filter((c) => c.kind === "community").length >= 2) return cards
-  try {
-    const db = createAdminClient()
-    const { data: communities, error } = await db
+/*
+  Round 48: `cards` may still be on its way. The communities are asked for at
+  once, beside the cached list rather than after it, so on the product page
+  this is no longer a round trip of its own after everything else (measured
+  with a 25 ms stub: the fourth wave in series). When the list already has
+  two communities the answer is simply not used, as before.
+*/
+export async function withOwnersCommunities(cardsIn: CachedProductRow[] | Promise<CachedProductRow[]>, ownerUserId: string | null | undefined, creatorId: string, excludeProductId: string): Promise<CachedProductRow[]> {
+  if (!ownerUserId) return cardsIn
+  const db = createAdminClient()
+  const communitiesRead = Promise.resolve(
+    db
       .from("communities")
       .select("id, slug, name, tagline, cover_url, logo_url, creator_id")
       .eq("owner_user_id", ownerUserId)
@@ -27,7 +34,12 @@ export async function withOwnersCommunities(cards: CachedProductRow[], ownerUser
       .is("deleted_at", null)
       .is("suspended_at", null)
       .is("archived_at", null)
-      .limit(3)
+      .limit(3),
+  ).catch(() => ({ data: null, error: true }))
+  const cards = await cardsIn
+  if (cards.filter((c) => c.kind === "community").length >= 2) return cards
+  try {
+    const { data: communities, error } = await communitiesRead
     if (error || !communities?.length) return cards
     const shown = new Set(cards.filter((c) => c.kind === "community").map((c) => String(c.title ?? "").toLowerCase()))
     const fresh = (communities as Array<{ id: string; slug: string | null; name: string | null; tagline: string | null; cover_url: string | null; logo_url: string | null; creator_id: string | null }>).filter(

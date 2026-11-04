@@ -107,7 +107,7 @@ const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
   check("a link off the site, an anchor or a page the install has none of opens nothing", ["https://x.com", "//x.com", "#top", "mailto:a@b.c", "/blogs/news"].every((h) => compatPageForHref(h, keys) === null))
   const site = { creatorId: "c", theme, pages: { home: home.sections as never }, products: [], collections: [], menus: {}, shop: { name: "Shop", currency: "USD", moneyFormat: "${{amount}}" }, host: "x", designMode: false, product: async () => null } as never
   const shop = await answer(site, { method: "GET", path: "/products", query: new URLSearchParams("sort_by=price-ascending"), body: null, cart: [] })
-  check("the live site sends /products to every product, as Shopify does", shop.status === 303 && shop.headers?.Location === "/collections/all?sort_by=price-ascending")
+  check("the live site sends /products to every product, as Shopify does, for good (308)", shop.status === 308 && shop.headers?.Location === "/collections/all?sort_by=price-ascending")
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)

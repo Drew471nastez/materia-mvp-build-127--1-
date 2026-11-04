@@ -11,7 +11,8 @@
  * usePresenceHeartbeat), counted from community_members.last_seen_at.
  */
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
+/* Not the client itself: the platform header's bell imports this file on every marketing page, so the client is fetched where it is used (lib/supabase/browser-lazy.ts, round 46). */
+import { browserSupabase, type BrowserSupabase } from "@/lib/supabase/browser-lazy"
 
 export const INBOX_EVENT = "storelib:community-inbox"
 
@@ -26,7 +27,7 @@ export const INBOX_EVENT = "storelib:community-inbox"
  * Asked through the client's own token callback (no argument), so the token
  * is still refreshed with the session afterwards. Never throws.
  */
-export async function realtimeAuth(supabase: ReturnType<typeof createClient>): Promise<void> {
+export async function realtimeAuth(supabase: BrowserSupabase): Promise<void> {
   try {
     await supabase.realtime.setAuth()
   } catch {
@@ -54,11 +55,12 @@ export function useUnreadNotifications(communityId: string, userId: string | nul
   useEffect(() => {
     if (!userId) return
     let gone = false
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
+    let supabase: BrowserSupabase | null = null
+    let channel: ReturnType<BrowserSupabase["channel"]> | null = null
     void (async () => {
       try {
-        supabase = createClient()
+        supabase = await browserSupabase()
+        if (gone) return
         await realtimeAuth(supabase)
         if (gone) return
         channel = supabase

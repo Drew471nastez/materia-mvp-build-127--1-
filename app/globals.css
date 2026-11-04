@@ -1575,6 +1575,40 @@ html.capacitor body {
   }
 
   /*
+    ROUND 47, THE BLOG'S LISTS: "moving between categories must be smooth".
+    Round 49, the owner: "too direct and fast, cheap". Now a crossfade: when
+    a pill is pressed the old list fades out fast (.blog-list-out, 120ms),
+    and the new one fades in rising 6px (.blog-list-swap, 220ms, ease out),
+    opacity and transform only, so the compositor runs it and nothing is
+    laid out again in its frames. The fill sliding between the pills is in
+    app/(marketing)/blog/_components/blog-nav.tsx. With reduced motion the
+    list simply changes.
+  */
+  .blog-list-out {
+    opacity: 0;
+    transition: opacity 120ms cubic-bezier(0.4, 0, 1, 1);
+  }
+  .blog-list-swap {
+    animation: blog-list-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  @keyframes blog-list-swap {
+    from { opacity: 0; transform: translate3d(0, 6px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+  /* The category's name and line above the pills: a plain fade, nothing moves. */
+  .blog-title-swap {
+    animation: blog-title-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  @keyframes blog-title-swap {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blog-list-out { opacity: 1; transition: none; }
+    .blog-list-swap, .blog-title-swap { animation: none; }
+  }
+
+  /*
     THE ONEPAGE ONBOARDING'S LAST STEP: two thin rings in the logo's shape
     grow out of it and fade, 1.2s apart, while the page is built
     (components/onepage/onboarding-modal.tsx). Transform and opacity on
@@ -2961,6 +2995,16 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 /* ROUND 43: A WINDOW OVER A OnePage LEAVES THE PAGE WHERE IT IS (lib/onepage/page-hold). While a window holds the page, <html> stops it scrolling and keeps the scrollbar's room; a Radix dialog's own body lock would hide the bar a second time and add its width as a margin, so here it does neither. */
 html[data-op-hold] body[data-scroll-locked] { overflow: visible !important; margin-right: 0 !important; }
 
+/* ROUND 49: RADIX'S SCROLL LOCK RESTYLES ONLY <body>. Its lock (react-remove-scroll-bar) also writes the scrollbar's
+   width as a custom property on <body>, and a custom property is inherited by default: its value changing (unset, then
+   0 or 15px) made the browser work out the style of every element in the document on every open and every close of
+   any Dialog, AlertDialog, Sheet or Select. Registered as not inherited, it is still <body>'s own (lib/onepage/page-hold
+   reads it there) and no other element's, so setting it restyles <body> alone. scripts/check-dialogs-r49.mjs. */
+@property --removed-body-scroll-bar-size {
+  syntax: "*";
+  inherits: false;
+}
+
 /* THE SHEET AND THE WINDOW IN THE PAGE'S COLOURS. The variables are on :root (sheetRootCss); the class is on the sheet, the checkout window and the free checkout. */
 :where(.op-sheet, .op-sheet *):is(.bg-white, .bg-\[\#fbfbfc\]) { background-color: var(--opk-surface, #ffffff); }
 :where(.op-sheet, .op-sheet *):is(.bg-\[\#f8f9fa\], .bg-\[\#f3f4f6\], .bg-\[\#f7f7f8\], .bg-\[\#f4f4f6\], .bg-\[\#f1f2f4\], .bg-\[\#eceef1\]) { background-color: var(--opk-raised, #f4f4f6); }
@@ -4126,6 +4170,17 @@ html.capacitor .app-content-scroll {
    * scripts/check-app-sheets-frames.mjs). The sheet sets an attribute on
    * <html> instead, which restyles the pill and nothing else, and marks its
    * own root `data-sheet-root` so the rule for other dialogs leaves it out.
+   *
+   * AND NO OTHER DIALOG IS FOUND BY :has() EITHER (round 49). The rule for
+   * the rest asked `html:has([role="dialog"][aria-modal="true"]:not(...))`,
+   * and `role` and `aria-hidden` are attributes every Radix dialog brings in
+   * sets all over the page: each one restyled the whole document, 17 to
+   * 23ms on a 1,400 element page on a computer (scripts/check-dialogs-r49.mjs,
+   * EXPERIMENT=1), part of the one long task every dialog in /app opened
+   * in. The same
+   * question is now counted in script (lib/ui/modal-open.ts) and said on
+   * <html> as `data-modal-open="<n>"`, which matches exactly what the :has()
+   * did and restyles only the pill.
    */
   /*
     SETTINGS OVER THE PROFILE. The sheet is fixed inset-0 at z-index above the
@@ -4135,7 +4190,7 @@ html.capacitor .app-content-scroll {
   */
 
   html[data-app-sheet-up] [data-app-nav-pill],
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
+  html[data-modal-open] [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
@@ -4145,12 +4200,12 @@ html.capacitor .app-content-scroll {
      53 instead: still over the layer, still under every sheet (60 and up),
      so the sheet covers it and its scrim dims it, as everywhere else. */
   html:has([data-page-layer="pill"])[data-app-sheet-up] [data-app-nav-pill],
-  html:has([data-page-layer="pill"]):has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
+  html[data-modal-open]:has([data-page-layer="pill"]) [data-app-nav-pill],
   html:has([data-page-layer="pill"]) body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 53;
   }
   html[data-app-sheet-up="open"] [data-app-nav-pill] .pointer-events-auto,
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill] .pointer-events-auto,
+  html[data-modal-open] [data-app-nav-pill] .pointer-events-auto,
   body[data-scroll-locked] [data-app-nav-pill] .pointer-events-auto {
     pointer-events: none !important;
   }
@@ -5447,14 +5502,37 @@ html.capacitor [tabindex="0"]:active {
    (docs/audits/website-builder-engine-2026-10.md, E1). The same press with
    the inner element named by its kind restyles the few elements that
    changed. Every element a card holds that can carry a press of its own is
-   one of these. */
+   one of these.
+
+   NOR IS "INSIDE A CARD WITH A PICTURE" A :has() BEFORE A COMBINATOR (round
+   49). The rule for what is inside such a card read
+   `:is(a, button, ...):has(img, picture, video, canvas) :is(div, span, ...):active`.
+   A :has() that is not the subject, followed by a descendant naming nearly
+   every element, made Chromium restyle the whole document whenever any
+   element was put in or taken out anywhere on a touch screen: every dialog,
+   sheet, toast, list row and route change, 80 to 120ms each on a phone's CPU
+   (scripts/check-dialogs-r49.mjs, VARIANTS=1; under 3ms without it). The
+   card, while pressed, now says so to what it holds with an inherited
+   property, and the inside reads it with a style query: the same elements
+   at full strength under the same press, and nothing to re-ask when the
+   document changes. An engine without style queries (Safari before 18)
+   dims a control inside a pictured card while it is pressed, as any other
+   control; the card itself still never greys. */
 @media (hover: none), (pointer: coarse) {
   :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas):active,
-  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active,
   :is([data-card], [data-product-card], [data-community-card]):active,
   :is([data-card], [data-product-card], [data-community-card]) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active {
     opacity: 1 !important;
     filter: none !important;
+  }
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas):active {
+    --sl-card-press: 1;
+  }
+  @container style(--sl-card-press: 1) {
+    :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active {
+      opacity: 1 !important;
+      filter: none !important;
+    }
   }
 }
 
@@ -5819,11 +5897,22 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
    every animation in it ends on its first frame) and its shimmer stops by
    the rule above. A rule on every element under the library made each open
    and each close restyle all of them, about 360 elements and 90 to 120ms at
-   a sixth of a computer's speed, to pause animations that are not there. */
-[data-block-picker-layer][data-state="closed"] *,
-[data-ask-card][aria-hidden="true"] *,
-[data-ask-card][aria-hidden="true"] *::before,
-[data-ask-card][aria-hidden="true"] *::after {
+   a sixth of a computer's speed, to pause animations that are not there.
+
+   KEYED ON THEIR OWN ATTRIBUTES (round 49). These asked
+   `[data-block-picker-layer][data-state="closed"] *` and
+   `[data-ask-card][aria-hidden="true"] *`. The browser keys a rule like that
+   on each attribute it names, so a change of `data-state` or `aria-hidden`
+   on ANY element restyled everything under that element. Radix puts
+   aria-hidden on every part of the page around an opening dialog (down to
+   the headings beside a live region), so every dialog in /app restyled the
+   whole page, 1,300 elements in 50 to 200ms on a computer
+   (scripts/check-dialogs-r49.mjs, INVAL=1). Each layer now says it is closed
+   in an attribute only it carries. */
+[data-block-picker-layer="closed"] *,
+[data-ask-card="closed"] *,
+[data-ask-card="closed"] *::before,
+[data-ask-card="closed"] *::after {
   animation-play-state: paused !important;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -7180,26 +7269,11 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   color: #1a1a2e;
   box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08), 0 1px 2px rgba(17, 24, 39, 0.05);
 }
-/* EXPORT, THE ROW'S ONE ACTION (round 41, the owner: "Export looks broken, text overflowing a too-small circle"): a
-   button with its icon and its name on a computer, the chips' height and ring, and an icon in a 36px circle on a phone,
-   where the label is not drawn at all (app/app/analytics/export-button.tsx). It was a 36px circle at every width with
-   the name spilling out of it from 640px. */
-[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
-  padding: 0 16px 0 13px;
-  gap: 7px;
-  flex-shrink: 0;
-}
-@media (max-width: 639.98px) {
-  [data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-}
+/* Export and Send to were the row's last controls until round 49, when they moved to the heading's line as icons in
+   circles (components/app/analytics/head-button); their rules here went with them. */
 [data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
-[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] svg { color: #4b5563; }
 /* On a phone the chips are ONE row that scrolls sideways (the owner: "they wrap onto two rows ... put them all in one
-   row"), Export pinned at its right end. Where the row is cut it fades out (.edge-fade, below), so no chip is ever
+   row"). Where the row is cut it fades out (.edge-fade, below), so no chip is ever
    sliced at a hard edge, and the pickers open their sheets through a portal, so the scroller clips none of them. */
 
 [data-analytics-controls] button[aria-haspopup="dialog"][data-open],
@@ -7261,19 +7335,36 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 /* Round 43: a centred window, not a panel from the right. It keeps its place with `translate` (the dialog's -50% -50%),
    so the motion is `transform` and `opacity` only, on the compositor: up 8px and from 97% as it fades in, back the
    same way out, quicker. */
+/* Round 49, the owner: "smooth open/close: a quick scale and fade". In over 200ms from 96%, out over 180ms to 97%,
+   both on the compositor (transform and opacity only), so nothing is laid out again while it plays. */
 @keyframes analytics-detail-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 @keyframes analytics-detail-out {
   from { opacity: 1; transform: none; }
-  to { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 0; transform: scale(0.97); }
 }
-.analytics-detail { will-change: transform, opacity; }
-.analytics-detail[data-state="open"] { animation: analytics-detail-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.analytics-detail[data-state="closed"] { animation: analytics-detail-out 160ms cubic-bezier(0.4, 0, 1, 1) both; }
+.analytics-detail { will-change: transform, opacity; transform-origin: 50% 50%; }
+.analytics-detail[data-state="open"] { animation: analytics-detail-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.analytics-detail[data-state="closed"] { animation: analytics-detail-out 180ms cubic-bezier(0.4, 0, 1, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .analytics-detail[data-state="open"], .analytics-detail[data-state="closed"] { animation-duration: 1ms; }
+}
+/* ITS BODY SCROLLS UNDER A FADE, NOT A BAR (round 49, "the scrollbar is clunky"): no bar at all
+    (a wheel, a trackpad and the keys still scroll), and 28px of fade at the edge that has more past it (app/app/analytics/report-detail.tsx useScrollFade). */
+.detail-scroll {
+  scrollbar-width: none;
+  --fade-t: 0px;
+  --fade-b: 0px;
+}
+.detail-scroll::-webkit-scrollbar { width: 0; height: 0; }
+.detail-scroll[data-fade-top] { --fade-t: 28px; }
+.detail-scroll[data-fade-end] { --fade-b: 28px; }
+.detail-scroll[data-fade-top],
+.detail-scroll[data-fade-end] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
 }
 
 /* A ROW THAT SCROLLS SIDEWAYS FADES WHERE IT IS CUT (components/app/use-edge-fade): 24px at whichever end has more
@@ -8331,12 +8422,25 @@ html[data-canvas-swap]::view-transition-new(root) {
  * `:has([role="dialog"][data-state="open"])`, which named `data-state`
  * under a :has() on the root: every tooltip, tab, switch and popover in the
  * app changes its data-state, and each change restyled the whole document
- * in Chromium (scripts/check-app-sheets-frames.mjs).
+ * in Chromium (scripts/check-app-sheets-frames.mjs). Round 49: and any
+ * other modal dialog by `data-modal-any` on <html> (lib/ui/modal-open.ts),
+ * the same question the `:has([role="dialog"][aria-modal="true"])` here
+ * asked, which every dialog's `role` re-asked over the whole document.
  */
 html[data-app-sheet-up="open"] [data-cookie-banner],
 body[data-scroll-locked] [data-cookie-banner],
-html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie-banner] {
+html[data-modal-any] [data-cookie-banner] {
   visibility: hidden;
+}
+
+/*
+ * THE SERVER'S COOKIE CARD (round 48) shows before React has run only where
+ * the head script lib/consent/early-ask put data-cookie-ask on <html>: no
+ * consent yet, not framed, not the native app, on Storelib's own host.
+ * Everywhere else it stays out of the way until the live banner decides.
+ */
+html:not([data-cookie-ask]) [data-cookie-banner-early] {
+  display: none !important;
 }
 
 /* ─── HOME CARDS ──────────────────────────────────────────────────────────

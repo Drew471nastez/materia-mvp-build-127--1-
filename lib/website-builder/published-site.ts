@@ -37,7 +37,10 @@
  * Keeping them apart is also what stops a new creator being cached as "no
  * such site" for an hour because somebody guessed their address early.
  */
+import { LastGood, keyedAs } from "./last-good"
+import { keepShared, sharedCopy } from "./shared-copy"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { forVisitors } from "@/lib/website-builder/visitor-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
@@ -51,12 +54,14 @@ import { renderWithSources, sectionSources, sourcesFromFiles } from "@/lib/websi
 import { livePointer, releaseFiles, releaseManifest, type LivePointer } from "@/lib/website-builder/site-releases-server"
 import { pageRowsOf, settingsRowOf } from "@/lib/website-builder/site-releases"
 import { siteLocalizer, type Localizer } from "@/lib/markets/live"
-import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
+import { heldShopCatalogue, heldShopProducts, shopCatalogue, shopProducts, ShopReadFailed, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { notFoundSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
+import { pageWantsBlog, storefrontArticleFull, storefrontBlog } from "@/lib/website-builder/blog-page"
+import type { BlogListing, PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
@@ -80,6 +85,8 @@ import type { RenderedSection } from "@/components/website-builder/sections/stor
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { StorefrontCollection, StorefrontData } from "@/lib/storelib-theme/types"
 import { siteStoreName, siteTabTitle } from "./tab-title"
+import { logEvent } from "@/lib/net/log"
+import { refreshSiteSoon } from "@/lib/edge/snapshot-capture"
 
 /** The product a product page is about, as a section reads it. */
 type StorefrontProduct = StorefrontData["product"]
@@ -247,7 +254,8 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
 /* Once per request too (React's cache): a page and its metadata are drawn side by side and both ask first thing. */
 export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
-  return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
+  /* Named for the data cache by a fixed label, so the entry outlives a deploy and is served stale when a read fails (./last-good.ts). */
+  return unstable_cache(keyedAs("site-name:v1", () => lookUpName(lower)), ["site-name", lower], { revalidate: NAME_TTL })()
 })
 
 /**
@@ -370,7 +378,8 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
     const published = pageSections<SectionInstance[]>(r as never, false)
     // A page that has never been published is not a page a visitor can see.
     if (!published || published.length === 0) continue
-    pages[r.page_key] = sanitizeSections(published, ownSchemas)
+    /* Without the creator's own "send messages to" address, which no visitor is shown (./visitor-sections.ts). */
+    pages[r.page_key] = forVisitors(sanitizeSections(published, ownSchemas))
   }
   /**
    * ONE HEADER AND ONE FOOTER, at render, whatever the rows hold.
@@ -485,8 +494,47 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
  * newest 24 from the site lookup.
  */
 export async function siteCatalogue(creatorId: string, opts: { cached: boolean } = { cached: true }): Promise<ProductCard[]> {
-  const read = () => shopCatalogue(createAdminClient() as never, creatorId)
-  return opts.cached ? unstable_cache(read, ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })() : read()
+  /* Held: a failed read throws (never a held []), and every caller falls back to the products it already has. */
+  if (opts.cached) return unstable_cache(() => heldShopCatalogue(createAdminClient() as never, creatorId), ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+  return shopCatalogue(createAdminClient() as never, creatorId)
+}
+
+/** What a blog page hands dressPage: the list it shows, or the post, and the blog it already read. */
+export interface BlogPageInput {
+  /** The blog and its live posts, when the route read them already (blogFor); absent, read here. */
+  source?: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null
+  /** The list a /blogs/<handle> page shows: its page, tag or category. */
+  listing?: BlogListing | null
+  /** The post a /blogs/<handle>/<slug> page (or its preview) shows. */
+  post?: PublicPost | null
+  /** Posts like it, already chosen (lib/site-blog relatedPosts). */
+  related?: PublicPostCard[] | null
+}
+
+/**
+ * `blog` and `article` for the page's sections, from the blog's live posts.
+ * Only posts whose time has come: the read is held for minutes and a
+ * scheduled post goes live by the clock, so it is filtered here, never in
+ * the cache (lib/site-blog/public-read.ts liveCards).
+ */
+export function blogPageData(
+  source: { settings: SiteBlogSettings; cards: PublicPostCard[] } | null | undefined,
+  input: BlogPageInput | undefined,
+  origin: string,
+  locale: string | null,
+): Pick<StorefrontData, "blog" | "article"> {
+  if (!source?.settings) return {}
+  const now = Date.now()
+  const cards = (source.cards ?? []).filter((c) => {
+    const at = Date.parse(c.publishedAt)
+    return Number.isFinite(at) && at <= now
+  })
+  const blog = storefrontBlog({ settings: source.settings, cards, listing: input?.listing ?? null, locale })
+  const post = input?.post ?? null
+  return {
+    blog,
+    ...(post ? { article: storefrontArticleFull({ post, cards, origin, locale, related: input?.related ?? undefined }) } : {}),
+  }
 }
 
 /**
@@ -521,7 +569,7 @@ export async function dressPage(
    * held in a cache anybody else reads, so its picked products are read
    * directly. Everything published is cached with the shop.
    */
-  opts: { cached: boolean; localizer?: Localizer | null } = { cached: true },
+  opts: { cached: boolean; localizer?: Localizer | null } & { blog?: BlogPageInput } = { cached: true },
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const localizer = opts.localizer ?? null
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
@@ -533,7 +581,7 @@ export async function dressPage(
   /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
   /* The picked products' own descriptions (round 12: a Product hero shows its product's words from Products), held with the shop, which a product's save clears. */
   const readDescriptions = () => import("@/lib/website-builder/product-descriptions").then(({ productDescriptions }) => productDescriptions(createAdminClient() as never, site.creatorId, refs))
-  const [pickedRead, siteUrl, communities, collectionsRead, reviews, descriptions] = await Promise.all([
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews, blogSource, descriptions] = await Promise.all([
     missing.ids.length || missing.slugs.length
       ? opts.cached
         ? unstable_cache(
@@ -561,6 +609,18 @@ export async function dressPage(
           storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null) as unknown as Promise<Record<string, unknown>>,
         ).catch(() => undefined)
       : Promise.resolve(undefined),
+    /*
+      THE BLOG, ONLY FOR A PAGE THAT SHOWS POSTS: the blog's own pages and any
+      page with a Blog posts section (lib/website-builder/blog-page.ts). The
+      live posts only, held under the blog's own tag, which a publish clears
+      (lib/site-blog/cache.ts). A site with no blog, or a database without
+      part 353, reads null and the sections draw nothing.
+    */
+    opts.blog?.source !== undefined
+      ? Promise.resolve(opts.blog.source)
+      : opts.blog || pageWantsBlog(sections)
+        ? import("@/lib/site-blog/public-read").then(({ blogFor }) => blogFor(site.creatorId)).catch(() => null)
+        : Promise.resolve(null),
     refs.ids.length || refs.slugs.length
       ? (opts.cached
           ? unstable_cache(readDescriptions, ["picked-descriptions", site.creatorId, [...refs.ids].sort().join(","), [...refs.slugs].sort().join(",")], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
@@ -597,6 +657,7 @@ export async function dressPage(
     reviews,
     /* The words a section draws itself (Price, Verified buyer), in the page's language: `words` in a template. */
     words: localizer?.words,
+    ...blogPageData(blogSource, opts.blog, siteUrl, localizer?.locale ?? null),
   })
   return { sections: filled, data }
 }
@@ -676,23 +737,44 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
  * (site-read.ts) and the cache has nothing to fall back on (a cold start, a
  * new server), the site is served as it last was rather than not at all.
  */
-const lastGood = new Map<string, ShopLookup>()
-const LAST_GOOD_MAX = 500
+const lastGood = new LastGood<ShopLookup>(500)
+
+/*
+  AND THE COPY EVERY SERVER CAN READ (EVD-1, ./shared-copy.ts): a server that
+  never served the site (a new deploy, a scale-out) has nothing in memory.
+  Kept per creator and name, under the site's and the shop's tags, so a
+  publish, a take down or a product change drops it with the live data; and
+  only ever served instead of an error, never instead of "no such site".
+*/
+const SHARED_SITE = "published-site:v1"
+const sharedTags = (creatorId: string) => [creatorSiteTag(creatorId), creatorShopTag(creatorId)]
 
 const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
   try {
     const found = await resolveSiteFresh(lower)
     if (found.kind === "site") {
-      if (lastGood.size >= LAST_GOOD_MAX && !lastGood.has(lower)) lastGood.delete(lastGood.keys().next().value as string)
-      lastGood.set(lower, found)
+      lastGood.remember(lower, found)
+      await keepShared(SHARED_SITE, [found.site.creatorId, lower], sharedTags(found.site.creatorId), found)
     }
     return found
   } catch (e) {
     const held = lastGood.get(lower)
     if (held) {
-      console.error(`[published-site] served the last good copy of ${lower}:`, e instanceof Error ? e.message : e)
+      logEvent("warn", "site_last_good_served", { msg: "[published-site] served the last good copy", site: lower, reason: e instanceof Error ? e.message : String(e) })
       return held
+    }
+    /* Whose site it is, from the held name (served stale when its read fails); no name, no copy. */
+    const match = await creatorByName(lower).catch(() => null)
+    const kept = match ? await sharedCopy<ShopLookup>(SHARED_SITE, [match.creatorId, lower], sharedTags(match.creatorId)) : undefined
+    if (kept && kept.kind === "site" && kept.site.creatorId === match?.creatorId) {
+      lastGood.remember(lower, kept)
+      console.error(`[published-site] served the copy every server kept of ${lower}:`, e instanceof Error ? e.message : e)
+      return kept
+    }
+    if (e instanceof SiteWithoutShop) {
+      logEvent("warn", "site_shop_unread", { msg: "[published-site] the shop could not be read and no copy was kept: drawn without products, held nowhere", site: lower })
+      return e.lookup
     }
     throw e
   }
@@ -722,8 +804,9 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     minute like any other shop read.
   */
   const shop = Promise.all([
+    /* A failed read throws rather than being held as an empty shop: resolveSite then serves the site's last good copy. */
     unstable_cache(
-      () => shopProducts(createAdminClient() as never, match.creatorId),
+      () => heldShopProducts(createAdminClient() as never, match.creatorId),
       ["shop-products", match.creatorId],
       { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
     )(),
@@ -762,9 +845,33 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
    * milliseconds and buys a shop that is never more than a minute behind.
    * Asked above, beside the site.
    */
-  const [products, productCount] = await shop
+  let products: ProductCard[]
+  let productCount: number | null
+  try {
+    ;[products, productCount] = await shop
+  } catch (e) {
+    /* Not held anywhere (it threw inside the cache): resolveSite serves the last good copy, or this site without its products. */
+    if (e instanceof ShopReadFailed) throw new SiteWithoutShop({ kind: "site", site: found.site, products: [], productCount: null }, e)
+    throw e
+  }
 
   return { kind: "site", site: found.site, products, productCount }
+}
+
+/*
+  THE SITE WAS READ AND ITS SHOP WAS NOT. resolveSite serves the last good
+  copy (this server's, then every server's) when there is one; only when
+  there is none is the site drawn without its products, for this request,
+  never kept as the last good copy nor held in a cache.
+*/
+class SiteWithoutShop extends Error {
+  constructor(
+    readonly lookup: ShopLookup,
+    cause: ShopReadFailed,
+  ) {
+    super(cause.message)
+    this.name = "SiteWithoutShop"
+  }
 }
 
 /**
@@ -775,7 +882,7 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 export async function cachedShopProducts(creatorId: string): Promise<ProductCard[]> {
   if (!creatorId) return []
   return unstable_cache(
-    () => shopProducts(createAdminClient() as never, creatorId),
+    () => heldShopProducts(createAdminClient() as never, creatorId),
     ["shop-products", creatorId],
     { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL },
   )()
@@ -818,6 +925,8 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
    * below it, which is what a publish changes.
    */
   for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+  /* And the site's stored copies, asked again after the answer (lib/edge/snapshot-capture.ts): new pages kept, a taken down site's deleted. */
+  refreshSiteSoon(creatorId)
 }
 
 /**
@@ -844,6 +953,8 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
 export async function revalidatePublishedPages(creatorId: string): Promise<void> {
   if (!creatorId) return
   for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+  /* The stored copies show prices too (lib/edge/snapshot-capture.ts). */
+  refreshSiteSoon(creatorId)
 }
 
 export async function revalidatePublishedProduct(creatorId: string, slug: string): Promise<void> {
@@ -862,6 +973,11 @@ export async function revalidatePublishedProduct(creatorId: string, slug: string
  * ever purged a rendered page: a creator pressed Publish and watched the old
  * site until the minute ran out, which is the thing this purge exists to stop.
  */
+/** The names a creator's site answers to, the first its own (for lib/edge/snapshot-capture.ts). */
+export function siteNamesOf(creatorId: string): Promise<string[]> {
+  return siteNames(creatorId)
+}
+
 async function siteNames(creatorId: string): Promise<string[]> {
   try {
     const admin = createAdminClient()
@@ -931,7 +1047,7 @@ export async function ownerOf(
       ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
       : readProfile(),
     opts.cached
-      ? unstable_cache(readProducts, ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      ? unstable_cache(() => heldShopProducts(createAdminClient() as never, creatorId), ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
       : readProducts(),
     opts.cached
       ? unstable_cache(readCount, ["shop-count", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()

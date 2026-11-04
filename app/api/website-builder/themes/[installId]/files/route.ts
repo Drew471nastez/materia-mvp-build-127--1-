@@ -1,4 +1,5 @@
 import { websiteInstallCaller } from "@/lib/team/website"
+import { draftAssetPass } from "@/lib/website-builder/draft-asset-pass"
 import { NextResponse, after } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
@@ -136,7 +137,8 @@ async function handleGET(req: Request, { params }: Params) {
       }
       if (rows.length < 1000) break
     }
-    return NextResponse.json({ files })
+    /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
+    return NextResponse.json({ files, asset_pass: draftAssetPass(installId) })
   }
 
   if (searchParams.get("sources") === "1") {

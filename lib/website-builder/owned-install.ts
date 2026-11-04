@@ -15,7 +15,7 @@
  */
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
-import { readCurrentUser } from "@/lib/auth/current-user"
+import { readerForRequest, strictUserForRequest } from "@/lib/auth/route-user"
 
 export const UNREACHABLE = "Storelib could not reach your website just now. Your changes are still here; try again in a moment."
 
@@ -40,8 +40,14 @@ export async function readTwice<R extends { error: unknown }>(run: () => Promise
  */
 export const AUTH_UNREACHABLE = "Storelib could not check your sign in just now. Your changes are still here; try again in a moment."
 
-export async function editorUser(supabase: SupabaseClient): Promise<{ user: User; status: 200; error: null } | { user: null; status: 401 | 503; error: string }> {
-  const current = await readCurrentUser(supabase)
+export async function editorUser(supabase: SupabaseClient, opts: { read?: boolean } = {}): Promise<{ user: User; status: 200; error: null } | { user: null; status: 401 | 503; error: string }> {
+  /*
+    Round 49: one answer per request (lib/auth/route-user), with backoff
+    before "could not check". A read takes a page's answer; a change still
+    needs Supabase Auth itself. `supabase` is kept for callers that pass it.
+  */
+  void supabase
+  const current = await (opts.read ? readerForRequest() : strictUserForRequest())
   if (current.user) return { user: current.user, status: 200, error: null }
   if (current.state === "indeterminate") return { user: null, status: 503, error: AUTH_UNREACHABLE }
   return { user: null, status: 401, error: "Unauthorized" }

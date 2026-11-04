@@ -45,9 +45,14 @@ import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
+import { useCanvasBlog } from "./use-canvas-blog"
+import { canvasBlogPage, canvasBlogSource, wantsCanvasBlog } from "@/lib/storelib-theme/compat/canvas-blog"
 import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
+import { CANVAS_SHEET_GUARD, SHEET_WAIT_MS } from "@/lib/storelib-theme/compat/sheet-guard"
+import { linkedSheets } from "@/lib/storelib-theme/compat/preview-styles"
+import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
 import type { CartOffers } from "@/lib/storelib-theme/compat/objects"
 import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
@@ -62,11 +67,12 @@ import { setShownCompatPage } from "@/lib/website-builder/compat-shown-page"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, liveSectionNow, liveThemeNow, onLiveChange, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 import { canvasScrolling, noteCanvasScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
-import { reportLoadProblem } from "@/lib/website-builder/load-guard"
+import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
-import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { draftAssetPassOf, draftAssetVersion, forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { CANVAS_ORIGIN, canvasFrameUrl } from "@/lib/website-builder/canvas-origin"
 import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
@@ -326,7 +332,8 @@ function themeOfFiles(installId: string, files: Record<string, string>, values: 
   mediaHeld.set(files, media)
   return themeOfInstall(files, values, {
     /* By what the file holds (THEME CODE THAT CHANGED): a push that changes it is a new address in the page. */
-    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
+    /* The draft with its pass (lib/storelib-theme/compat/draft-version.ts): the frame has no origin and sends no session, so the address carries it. */
+    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
     assetText: (name) => files[`shopify/assets/${name}`] ?? null,
     /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
@@ -428,9 +435,33 @@ export function changedCompatSettings(before: Record<string, unknown>, after: Re
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && JSON.stringify(a[k]) !== JSON.stringify(b[k])) out[k] = b[k]
   return out
 }
+/*
+  ═════════════════════════════════════════════════════════════════════════
+   THE CANVAS ON A SITE OF ITS OWN (lib/website-builder/canvas-origin.ts)
+  ═════════════════════════════════════════════════════════════════════════
+  Off unless NEXT_PUBLIC_CANVAS_ORIGIN is set. Then each frame loads the
+  canvas shell from that origin (lib/storelib-theme/compat/canvas-shell.ts)
+  instead of taking the page as srcdoc, is sent the page once it is there
+  ("doc"), and is in a process of its own, off the editor's main thread.
+  Every message to such a frame names its origin exactly, and only messages
+  from that origin are heard from it. A srcdoc frame has no origin to name,
+  so a message to one still goes to "*", to that one window, as before.
+*/
+const relayed = new WeakMap<Window, string>()
+/** A message to a canvas frame, to its exact origin when it is on the canvas origin. */
+function sendTo(win: Window | null | undefined, message: unknown): void {
+  if (!win) return
+  win.postMessage(message, relayed.get(win) ?? "*")
+}
+/** Whether a message from `source` may be heard: from a frame on the canvas origin, only when it comes from that origin. */
+function heardFrom(source: MessageEventSource | null, origin: string): boolean {
+  const want = source ? relayed.get(source as Window) : undefined
+  return want === undefined || origin === want
+}
+
 function tellSettings(win: Window, before: Record<string, unknown>, after: Record<string, unknown>, live: boolean) {
   const settings = changedCompatSettings(before, after)
-  if (Object.keys(settings).length) win.postMessage({ storelib: 1, type: "settings", settings, live }, "*")
+  if (Object.keys(settings).length) sendTo(win, { storelib: 1, type: "settings", settings, live })
 }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
@@ -649,6 +680,26 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const canvasReviews = useCanvasReviews(wantsReviews, reviewsProductId)
   const reviewsRef = useRef(canvasReviews)
   reviewsRef.current = canvasReviews
+  /*
+    THE WEBSITE'S BLOG (lib/site-blog), on the Blog and Post templates and on
+    a page with a featured blog section: its real posts, or Storelib's sample
+    posts while it has none (lib/storelib-theme/compat/canvas-blog.ts).
+  */
+  const sectionTypesKey = props.sections.map((s) => s.type).join(",")
+  const blogWanted = useMemo(() => {
+    const types = compatTheme
+      ? props.sections.flatMap((s) => {
+          const list = (compatTheme.schemaOf("sections", s.type) as { settings?: unknown }).settings
+          return Array.isArray(list) ? list.map((x) => String((x as { type?: unknown } | null)?.type ?? "")) : []
+        })
+      : []
+    return wantsCanvasBlog(templateOfPage(pageKey).template, types)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compatTheme, pageKey, sectionTypesKey])
+  const canvasBlog = useCanvasBlog(installId, blogWanted)
+  const blogKey = canvasBlog ? `${canvasBlog.settings.handle}:${canvasBlog.listing.posts.map((p) => `${p.id}@${p.updatedAt}`).join(",")}:${canvasBlog.post?.id ?? ""}` : ""
+  const blogRef = useRef(canvasBlog)
+  blogRef.current = canvasBlog
   const dataKey = JSON.stringify([products, catalog, collections, menus, shop, pageKeys])
   const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys, shop })
   dataRef.current = { products, catalog, collections, menus, shopName, pageKeys, shop }
@@ -695,7 +746,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, productId, dataKey])
-  const stockKey = stock ? `${JSON.stringify(stock)}:${showLeft}` : ""
+  /* And the blog's posts (useCanvasBlog): a page is drawn again when they arrive or change. */
+  const stockKey = `${stock ? `${JSON.stringify(stock)}:${showLeft}` : ""}${blogKey ? `|blog:${blogKey}` : ""}`
   /* The page a key draws, as the canvas draws it: the one in front (`page`), or one drawn ahead out of sight (KEPT PAGES). */
   const pageFor = (pageKey: string, productId: string | null): CompatPage => {
     const { products, catalog, collections, menus, pageKeys, shop } = dataRef.current
@@ -708,7 +760,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* The facts carry each variant's option values as saved: put in the language previewed again, as the live page's product is after its facts (compat.ts card). */
     const sample = facted && facted !== found && map ? ({ ...facted, settings: localizeOptions(facted.settings, map, { approvedOnly: true, fresh: true }) } as ProductCard) : facted
     const firstCollection = collections[0] ?? null
-    const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
+    const blogPart = canvasBlogPage(blogRef.current, template)
+    const path = blogPart.path ?? (pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`)
     return {
       template,
       suffix,
@@ -735,6 +788,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       ...(reviewsRef.current ? { reviews: reviewsRef.current } : {}),
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
+      ...(blogPart.siteBlog ? { siteBlog: blogPart.siteBlog } : {}),
+      ...(blogPart.blogData ? { blogData: blogPart.blogData, title: template === "article" ? String(blogPart.blogData.article?.title ?? "") || undefined : String(blogPart.blogData.blog.title ?? "") || undefined } : {}),
     }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -790,7 +845,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", ...canonicalOf(props.siteUrl), designMode: true, themeDesignMode: false, i18n }
+    const blog = canvasBlogSource(blogRef.current)
+    const site: SiteData = { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", ...canonicalOf(props.siteUrl), designMode: true, themeDesignMode: false, i18n }
+    return blog ? { ...site, blog } : site
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -805,10 +862,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const extra = { extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` }
     const account = !ahead && accountPath ? canvasAccountPage(canvasSite(), accountPath, extra) : null
     const drawn = account ?? drawPage(compatTheme!, drawnPage, list, { scripts: true, ...extra })
+    /* A section that left a <template> or a <textarea> open is closed where it ends (lib/storelib-theme/compat/seal.ts), and said, so it is found from the log rather than from a blank footer. */
+    if (!account) reportSealed("compat-canvas", (drawn as { errors?: Record<string, string[]> }).errors)
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
-    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
+    /* CANVAS_SHEET_GUARD first of all (lib/storelib-theme/compat/sheet-guard.ts): a stylesheet of the theme's that does not answer holds the bridge at the end of the page for SHEET_WAIT_MS at most, never for good. */
+    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_SHEET_GUARD}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
   }
 
   /*
@@ -860,6 +920,27 @@ export function CompatCanvas(props: CompatCanvasProps) {
   slotsRef.current = slots
   const frames = useRef(new Map<number, HTMLIFrameElement>())
   const counter = useRef(0)
+  /* THE CANVAS ON A SITE OF ITS OWN: each frame's shell address (null: srcdoc), fixed once per frame, the page it is to be sent, and whether it was. */
+  const relayUrls = useRef(new Map<number, string | null>())
+  const relayDocs = useRef(new Map<number, string>())
+  const relayDelivered = useRef(new Set<number>())
+  const relayFor = (n: number): string | null => {
+    if (!relayUrls.current.has(n)) {
+      const pass = CANVAS_ORIGIN ? draftAssetPassOf(installId) : undefined
+      relayUrls.current.set(n, CANVAS_ORIGIN && pass && typeof window !== "undefined" ? canvasFrameUrl(CANVAS_ORIGIN, installId, pass, window.location.origin) : null)
+    }
+    return relayUrls.current.get(n) ?? null
+  }
+  /* The shell is there (it said so, or its frame loaded): the page is sent to it, once. */
+  const deliverRelay = (n: number) => {
+    if (relayDelivered.current.has(n)) return
+    const win = frames.current.get(n)?.contentWindow
+    const html = relayDocs.current.get(n)
+    if (!win || html === undefined || !relayed.has(win)) return
+    relayDelivered.current.add(n)
+    relayDocs.current.delete(n)
+    sendTo(win, { storelib: 1, type: "doc", html, base: document.baseURI })
+  }
   const front = () => slotsRef.current[0] ?? null
   const frontWindow = () => { const f = front(); return f ? frames.current.get(f.n)?.contentWindow ?? null : null }
 
@@ -980,7 +1061,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     for (const d of drawn) {
       if (d.prev !== d.html) {
-        win.postMessage({ storelib: 1, type: "section", id: d.id, html: d.html, prev: d.prev }, "*")
+        sendTo(win, { storelib: 1, type: "section", id: d.id, html: d.html, prev: d.prev })
         ;(slot.sent ??= new Set()).add(d.id)
       }
       slot.shape.sections.set(d.id, d.html)
@@ -1047,9 +1128,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
     setKept((prev) => prev.filter((x) => x.n !== hit.n))
     setSlots((prev) => (prev.length === 0 ? [hit] : [prev[0], hit]))
     const win = frames.current.get(hit.n)?.contentWindow
-    win?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+    sendTo(win, { storelib: 1, type: "select", ...select.current, scroll: false })
     /* Loaded already: put at its top and settled, then forward ("settled" below). Not yet: its own "loaded" does that. */
-    if (hit.loaded) win?.postMessage({ storelib: 1, type: "scroll", top: 0, settle: true }, "*")
+    if (hit.loaded) sendTo(win, { storelib: 1, type: "scroll", top: 0, settle: true })
     window.setTimeout(() => promote(hit.n), BEHIND_CAP_MS)
     return true
   }
@@ -1286,7 +1367,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (!c) return
       const e = editBetween(last, html, c)
       if (e) {
-        liveWin.postMessage({ storelib: 1, type: "edits", edits: [e], key: "" }, "*")
+        sendTo(liveWin, { storelib: 1, type: "edits", edits: [e], key: "" })
         now.lastHtml = html
         tell(liveWin, true)
         return
@@ -1402,8 +1483,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
     now.lastHtml = html
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
-    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id), ...(choice ? { now: true } : {}) }, "*")
-    if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
+    for (const sw of plan.swaps) sendTo(win, { storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id), ...(choice ? { now: true } : {}) })
+    if (Object.keys(plan.message).length) {
+      /* A section new to the page comes with the text of the stylesheets it links, so it is never drawn without them (preview-styles.ts linkedSheets). */
+      const added = Array.isArray(plan.message.order) ? (plan.message.order as { html?: string }[]).flatMap((x) => (x.html ? [x.html] : [])) : []
+      const sheets = added.length ? linkedSheets(added, rowsRef.current, fixThemeCss) : {}
+      sendTo(win, { storelib: 1, type: "patch", ...plan.message, ...(Object.keys(sheets).length ? { sheets } : {}) })
+    }
     tell(win, isLive())
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, jsonOf(s))
@@ -1602,7 +1688,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (!styles || !edits) { plan.ok = false; return false }
     /* A drawing of an older value waiting for its turn would put that value back over this one. */
     cancelRedraw()
-    if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    if (edits.length) sendTo(win, { storelib: 1, type: "edits", edits, key })
     plan.shown = styles
     cssShown.current = { plan, base, path, value }
     liveThemeShown.current = null
@@ -1661,7 +1747,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* The value under the finger, said to the theme's code (storelib:settings-change, live) once the page shows it. */
     const sayLive = () => {
       const k = change.path[1]
-      if (change.path[0] === "shopify" && typeof k === "string") win.postMessage({ storelib: 1, type: "settings", settings: { [k]: compatValues(next)[k] }, live: true }, "*")
+      if (change.path[0] === "shopify" && typeof k === "string") sendTo(win, { storelib: 1, type: "settings", settings: { [k]: compatValues(next)[k] }, live: true })
     }
     /*
       STORELIB'S OWN HOVER AND FOCUS (lib/storelib-theme/compat/overrides.ts)
@@ -1674,7 +1760,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const from = overridesShown.current ?? overrideCss(compatValues(base.settings))
       const to = overrideCss(compatValues(next))
       cancelRedraw()
-      if (from !== to) win.postMessage({ storelib: 1, type: "edits", edits: [{ style: true, sel: "style[data-storelib-overrides]", from, to }], key: "storelib-overrides" }, "*")
+      if (from !== to) sendTo(win, { storelib: 1, type: "edits", edits: [{ style: true, sel: "style[data-storelib-overrides]", from, to }], key: "storelib-overrides" })
       sayLive()
       overridesShown.current = to
       liveThemeShown.current = null
@@ -1703,7 +1789,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (!edits) return
     /* A drawing of an older value waiting for its turn would put that value back over this one. */
     cancelRedraw()
-    if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    if (edits.length) sendTo(win, { storelib: 1, type: "edits", edits, key })
     sayLive()
     liveThemeShown.current = { key, value: change.to }
     window.clearTimeout(themeCheck.current)
@@ -1877,7 +1963,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         try { told = oneChange(JSON.parse(slot.drawnFrom.get(s.id)!), s) } catch { told = null }
       }
       if (told && told.path.length === 2 && told.path[0] === "settings" && typeof told.path[1] === "string") {
-        win.postMessage({ storelib: 1, type: "settings", settings: { [told.path[1]]: told.to }, live, section: s.id }, "*")
+        sendTo(win, { storelib: 1, type: "settings", settings: { [told.path[1]]: told.to }, live, section: s.id })
         /*
           APPLIED BY THE THEME (round BC). A theme's listener that writes the
           value itself and calls event.preventDefault() has said so
@@ -1911,9 +1997,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
         : null
       if (cut) {
         const edit = editBetween(prev!, html, cut)
-        win.postMessage({ storelib: 1, type: "section", id: s.id, cut, ...(edit ? { edit } : {}) }, "*")
+        sendTo(win, { storelib: 1, type: "section", id: s.id, cut, ...(edit ? { edit } : {}) })
       } else if (prev !== html) {
-        win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev }, "*")
+        sendTo(win, { storelib: 1, type: "section", id: s.id, html, prev })
         ;(slot.sent ??= new Set()).add(s.id)
       }
       slot.shape.sections.set(s.id, html)
@@ -1990,7 +2076,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (select.current.inspect) lastPicked.current = picked
     slotsRef.current.forEach((slot, i) => {
       if (!slot.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: i === 0 && scroll }, "*")
+      sendTo(frames.current.get(slot.n)?.contentWindow, { storelib: 1, type: "select", ...select.current, scroll: i === 0 && scroll })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled, levelsKey])
@@ -1998,11 +2084,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
   useEffect(() => {
     const onReveal = (e: Event) => {
-      const id = (e as CustomEvent<{ id?: string }>).detail?.id
+      const detail = (e as CustomEvent<{ id?: string; since?: number; arrival?: boolean }>).detail
+      const id = detail?.id
       if (!id) return
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id }, "*")
+      /* `since`: not if the person has moved the page themselves since then (the end of a run they scrolled away during). */
+      sendTo(frames.current.get(slot.n)?.contentWindow, { storelib: 1, type: "reveal", id, ...(typeof detail?.since === "number" ? { since: detail.since } : {}), ...(detail?.arrival ? { arrival: true } : {}) })
     }
     window.addEventListener(REVEAL_EVENT, onReveal)
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)
@@ -2022,12 +2110,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
         holding its slides would show them for good.
       */
       if (d.ids === null) {
-        queueMicrotask(() => frames.current.forEach((f) => f?.contentWindow?.postMessage(msg, "*")))
+        queueMicrotask(() => frames.current.forEach((f) => sendTo(f?.contentWindow, msg)))
         return
       }
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage(msg, "*")
+      sendTo(frames.current.get(slot.n)?.contentWindow, msg)
     }
     window.addEventListener(PREVIEW_ORDER_EVENT, onOrder)
     return () => window.removeEventListener(PREVIEW_ORDER_EVENT, onOrder)
@@ -2045,7 +2133,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const on = !!(e as CustomEvent<{ on?: boolean }>).detail?.on
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "hold-view", on }, "*")
+      sendTo(frames.current.get(slot.n)?.contentWindow, { storelib: 1, type: "hold-view", on })
     }
     window.addEventListener(HOLD_VIEW_EVENT, onHold)
     return () => window.removeEventListener(HOLD_VIEW_EVENT, onHold)
@@ -2070,13 +2158,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
     the scroll runs on. The same section moving is now written straight onto
     its box; only a section coming, going or changing is a render.
   */
-  const ghostNow = useRef<typeof ghost>(null)
+  const ghostNow = useRef<(NonNullable<typeof ghost> & { moving?: boolean }) | null>(null)
   const ghostEl = useRef<HTMLDivElement | null>(null)
   const ghostTold = useRef(0)
   const placeGhost = (el: HTMLDivElement | null) => {
     ghostEl.current = el
     const g = ghostNow.current
-    if (el && g) { el.style.top = `${g.top}px`; el.style.left = `${g.left}px`; el.style.width = `${g.width}px`; el.style.height = `${g.height}px` }
+    if (el && g) {
+      /* Moving (the page scrolls): out of the way, so the toolbar steps aside until the section stands still. */
+      el.style.display = g.moving ? "none" : ""
+      if (!g.moving) { el.style.top = `${g.top}px`; el.style.left = `${g.left}px`; el.style.width = `${g.width}px`; el.style.height = `${g.height}px` }
+    }
   }
   const onSelect = useRef(props.onSelect)
   onSelect.current = props.onSelect
@@ -2114,7 +2206,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const lang = typeof body.language_code === "string" ? i18n?.languages.find((l) => l.toLowerCase() === String(body.language_code).toLowerCase()) : undefined
       const country = typeof body.country_code === "string" ? i18n?.countries?.find((c) => c.code === String(body.country_code).toUpperCase())?.code : undefined
       if (lang || country) props.markets.pick({ ...(lang ? { language: lang } : {}), ...(country ? { country } : {}) })
-      win.postMessage({ storelib: 1, type: "response", id: m.id, status: 200, contentType: "text/html; charset=utf-8", body: "" }, "*")
+      sendTo(win, { storelib: 1, type: "response", id: m.id, status: 200, contentType: "text/html; charset=utf-8", body: "" })
       return
     }
     const { products, catalog, collections, menus, pageKeys } = dataRef.current
@@ -2133,6 +2225,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       ...canonicalOf(props.siteUrl),
       designMode: true,
       themeDesignMode: false,
+      ...(canvasBlogSource(blogRef.current) ? { blog: canvasBlogSource(blogRef.current) } : {}),
       pricing: canvasPricing(installId),
       i18n,
       /* The product the page shows, with what is true now about its variants: a section drawn again on a choice (`?option_values=`, `?variant=`) says the same stock as the page did. */
@@ -2148,11 +2241,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
       .then(({ answer, state: next }) => {
         canvasCarts.set(installId, next)
         const { type: contentType, ...rest } = answer
-        win.postMessage({ storelib: 1, type: "response", id, contentType, ...rest }, "*")
+        sendTo(win, { storelib: 1, type: "response", id, contentType, ...rest })
       })
       .catch((e) => {
         console.error("[compat-canvas] a request from the page could not be answered", e)
-        win.postMessage({ storelib: 1, type: "response", id, status: 500, contentType: "application/json", body: JSON.stringify({ status: 500, message: "Something went wrong" }) }, "*")
+        sendTo(win, { storelib: 1, type: "response", id, status: 500, contentType: "application/json", body: JSON.stringify({ status: 500, message: "Something went wrong" }) })
       })
   }
   const answerRequestRef = useRef(answerRequest)
@@ -2208,7 +2301,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
           const next = current.find((slot) => slot.n === n)
           if (!next || current[0]?.n === n) return
           const same = current[0]?.page === next.page
-          frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
+          sendTo(frames.current.get(n)?.contentWindow, { storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true })
           // The bridge acknowledges the restored offset with `settled`.
           // Its normal handler promotes the frame after that acknowledgement.
         })
@@ -2267,14 +2360,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     if (!shown || !frontN) return
     const win = frames.current.get(frontN)?.contentWindow
-    win?.postMessage({ storelib: 1, type: "shown" }, "*")
+    sendTo(win, { storelib: 1, type: "shown" })
     /*
       AND A HOLD IT HAS FROM ITS FIRST PAINT IS LOOKED AT NOW (round 1023,
       part 2): a cookie banner's consent hold, a drawer that opened itself, a
       preloader's class. The page is let go here if nothing on screen holds
       it, before anybody's first wheel (canvas-bridge.ts, "heal").
     */
-    win?.postMessage({ storelib: 1, type: "heal" }, "*")
+    sendTo(win, { storelib: 1, type: "heal" })
   }, [shown, frontN])
   /*
     A LINK PRESSED TO ANOTHER PAGE LEAVES THE PAGE IN FRONT STILL. Until the
@@ -2308,15 +2401,23 @@ export function CompatCanvas(props: CompatCanvasProps) {
   navigateFromRef.current = navigateFrom
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
+      if (!heardFrom(e.source, e.origin)) return
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
       const m = e.data as { storelib?: number; type?: string; sectionId?: string; blockPath?: string[]; scrollY?: number }
+      /* A page of ours that went on without a stylesheet that did not answer (sheet-guard.ts), or a change that took too long (canvas-bridge.ts, bounded): said to the error log, so production tells us. */
+      if (m && m.storelib === 1 && (m.type === "slow-sheets" || m.type === "slow-step") && (slot || keptRef.current.some((x) => frames.current.get(x.n)?.contentWindow === e.source))) {
+        const said = m as { names?: unknown; what?: unknown }
+        if (m.type === "slow-sheets") reportLoadProblem("compat-canvas", `stylesheets did not answer in ${SHEET_WAIT_MS / 1000}s; drawn without waiting: ${Array.isArray(said.names) ? said.names.slice(0, 6).join(", ") : ""}`)
+        else reportLoadProblem("compat-canvas", `a change to the page took too long; the next went on: ${typeof said.what === "string" ? said.what.slice(0, 40) : ""}`)
+        return
+      }
       if (!slot) {
         /* A kept page (KEPT PAGES): what it says about itself is noted, its requests answered, and nothing else of it is heard. */
         const away = keptRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
         if (!away || !m || m.storelib !== 1) return
         if (m.type === "ready") {
           away.ready = true
-          ;(e.source as Window).postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+          sendTo(e.source as Window, { storelib: 1, type: "select", ...select.current, scroll: false })
         } else if (m.type === "loaded") away.loaded = true
         else if (m.type === "request") answerRequestRef.current(e.source as Window, m as never)
         return
@@ -2337,7 +2438,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         /* A change that came in while it loaded, sent now, before it is shown. */
         if (isFront && stale.current) drawAndPatchRef.current()
         syncSlot(slot)
-        win.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+        sendTo(win, { storelib: 1, type: "select", ...select.current, scroll: false })
         /* A page behind that never says it has loaded still comes forward. */
         if (!isFront) setTimeout(() => promote(slot.n), 2500)
       } else if (m.type === "loaded") {
@@ -2348,8 +2449,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
           /* The same page, whatever files it is drawn from (pageIdFor). */
           const same = slot.key.split("|")[0] === slotsRef.current[0]?.key.split("|")[0]
           /* The same page drawn again (an edit): settled where it ends before it replaces the one in front (canvas-network.ts, instant). */
-          if (same) win.postMessage({ storelib: 1, type: "shown", instant: true }, "*")
-          win.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
+          if (same) sendTo(win, { storelib: 1, type: "shown", instant: true })
+          sendTo(win, { storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true })
         }
       } else if (m.type === "settled") {
         if (!isFront && slot.loaded) promote(slot.n)
@@ -2401,17 +2502,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
         /* The frame did not hold the drawing a cut was read against: the section whole, as it is now. */
         const id = (m as { id?: unknown }).id
         const html = typeof id === "string" ? slot.shape.sections.get(id) : undefined
-        if (typeof id === "string" && typeof html === "string") win.postMessage({ storelib: 1, type: "section", id, html }, "*")
+        if (typeof id === "string" && typeof html === "string") sendTo(win, { storelib: 1, type: "section", id, html })
       } else if (m.type === "box" && isFront) {
-        const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
-        const next = typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null
+        const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number; moving?: boolean }
         const was = ghostNow.current
-        if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height) return
+        /* Moving: where it last stood is kept, and the box set aside (placeGhost). */
+        const next: typeof ghostNow.current = typeof b.id === "string" ? (b.moving === true ? (was && was.id === b.id ? { ...was, moving: true } : null) : { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 }) : null
+        if (b.moving === true && !next) return
+        if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height && !!was.moving === !!next.moving) return
         ghostNow.current = next
         if (was && next && was.id === next.id && ghostEl.current) {
           placeGhost(ghostEl.current)
           /* The toolbar and the rest measure on the canvas's scroll event, once a frame however many boxes came in it. */
-          if ((was.top !== next.top || was.left !== next.left || was.width !== next.width) && !ghostTold.current) {
+          if ((was.top !== next.top || was.left !== next.left || was.width !== next.width || !!was.moving !== !!next.moving) && !ghostTold.current) {
             ghostTold.current = requestAnimationFrame(() => { ghostTold.current = 0; document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll")) })
           }
         } else setGhost(next)
@@ -2462,6 +2565,26 @@ export function CompatCanvas(props: CompatCanvasProps) {
     order things happened in: a page that has loaded is asked again whether
     it is ready ("hello", canvas-bridge.ts), and is shown.
   */
+  /* A shell on the canvas origin: "shell-ready" sends it its page, and "frame-load" is the page's own load event (heard as onFrameLoad below). */
+  const onFrameLoadRef = useRef<(n: number) => void>(() => {})
+  const deliverRelayRef = useRef(deliverRelay)
+  deliverRelayRef.current = deliverRelay
+  useEffect(() => {
+    const onShell = (e: MessageEvent) => {
+      const from = e.source as Window | null
+      const origin = from ? relayed.get(from) : undefined
+      if (origin === undefined || e.origin !== origin) return
+      const m = e.data as { storelib?: number; type?: string } | null
+      if (!m || m.storelib !== 1 || (m.type !== "shell-ready" && m.type !== "frame-load")) return
+      let n = -1
+      frames.current.forEach((f, k) => { if (f.contentWindow === from) n = k })
+      if (n < 0) return
+      if (m.type === "shell-ready") deliverRelayRef.current(n)
+      else onFrameLoadRef.current(n)
+    }
+    window.addEventListener("message", onShell)
+    return () => window.removeEventListener("message", onShell)
+  }, [])
   const onFrameLoad = (n: number) => {
     const at = slotsRef.current.findIndex((x) => x.n === n)
     /*
@@ -2503,11 +2626,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     if (at < 0) {
       const away = keptRef.current.find((x) => x.n === n)
-      if (away && !away.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
+      if (away && !away.ready) sendTo(frames.current.get(n)?.contentWindow, { storelib: 1, type: "hello" })
       return
     }
     const slot = slotsRef.current[at]
-    if (!slot.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
+    if (!slot.ready) sendTo(frames.current.get(n)?.contentWindow, { storelib: 1, type: "hello" })
     /*
       In front: shown once it says its first screen is in ("loaded"), or
       FIRST_PAINT_MS after it said it was ready. A page that has said
@@ -2522,6 +2645,18 @@ export function CompatCanvas(props: CompatCanvasProps) {
       window.setTimeout(() => { if (!slot.loaded) promote(n) }, 400)
     }
   }
+
+  onFrameLoadRef.current = onFrameLoad
+  /* A frame gone is forgotten (THE CANVAS ON A SITE OF ITS OWN), so no page it was to be sent is held on to. */
+  useEffect(() => {
+    const live = new Set<number>([...slots.map((x) => x.n), ...kept.map((x) => x.n), ...(handover ? [handover.n] : [])])
+    for (const n of [...relayUrls.current.keys()]) {
+      if (live.has(n)) continue
+      relayUrls.current.delete(n)
+      relayDocs.current.delete(n)
+      relayDelivered.current.delete(n)
+    }
+  }, [slots, kept, handover])
 
   /*
     A FRAME THAT SAYS NOTHING IS SHOWN AS IT IS after FRAME_CAP_MS, and a
@@ -2606,14 +2741,22 @@ export function CompatCanvas(props: CompatCanvasProps) {
           {[...(handover && !slots.some((x) => x.n === handover.n) ? [...slots, handover] : [...slots]), ...kept.filter((k) => !slots.some((x) => x.n === k.n) && k.n !== handover?.n)].sort((a, b) => a.n - b.n).map((slot) => {
             const i = slots.indexOf(slot)
             const role = i === 0 ? "front" : i > 0 ? "behind" : slot === handover ? "leaving" : slot.ahead ? "ahead" : "kept"
+            /* THE CANVAS ON A SITE OF ITS OWN: the shell's address, its page sent once it is there; a shell may hold its own origin, the page in it never does (canvas-shell.ts). */
+            const relay = relayFor(slot.n)
+            if (relay && !relayDelivered.current.has(slot.n)) relayDocs.current.set(slot.n, slot.html)
             return (
               <iframe
                 key={slot.n}
-                ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
+                ref={(el) => {
+                  if (el) {
+                    frames.current.set(slot.n, el)
+                    if (relay && CANVAS_ORIGIN && el.contentWindow) relayed.set(el.contentWindow, CANVAS_ORIGIN)
+                  } else frames.current.delete(slot.n)
+                }}
                 title={`${compat?.theme ?? "Theme"} preview`}
-                srcDoc={slot.html}
-                onLoad={() => onFrameLoad(slot.n)}
-                sandbox="allow-scripts allow-forms allow-popups"
+                {...(relay ? { src: relay } : { srcDoc: slot.html })}
+                onLoad={() => (relay ? deliverRelay(slot.n) : onFrameLoad(slot.n))}
+                sandbox={relay ? "allow-scripts allow-same-origin allow-forms allow-popups" : "allow-scripts allow-forms allow-popups"}
                 data-compat-frame={role}
                 aria-hidden={i === 0 ? undefined : true}
                 tabIndex={i === 0 ? undefined : -1}

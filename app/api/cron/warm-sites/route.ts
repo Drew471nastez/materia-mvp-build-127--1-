@@ -19,11 +19,12 @@ export const maxDuration = 60
 const RUN_BUDGET_MS = 45_000
 
 async function runJob(request: Request) {
+  /* The clock starts with the request: 45 s to start sites, every request ended by 52 s (lib/website-builder/warm-sites.ts WARM_HARD_STOP_MS), under maxDuration. */
+  const started = Date.now()
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
-  const started = Date.now()
   try {
-    const summary = await warmPublishedSites({ budgetMs: RUN_BUDGET_MS })
+    const summary = await warmPublishedSites({ budgetMs: RUN_BUDGET_MS, started })
     const ms = Date.now() - started
     /* A line only when it did something: an already warmed deploy is silent. */
     if (!summary.skipped) console.log(`[cron/warm-sites] ${summary.sites} sites, pages ${summary.pages.drawn} drawn ${summary.pages.held} already held ${summary.pages.failed} failed, ${summary.done ? "done" : "more next run"}, ${ms}ms`)

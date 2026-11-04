@@ -5,6 +5,7 @@ import * as SheetPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useNextFrameAutoFocus } from '@/lib/ui/dialog-focus'
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -64,6 +65,8 @@ function SheetContent({
   const portalRef = React.useRef<HTMLDivElement>(null)
   const onDragCloseRef = React.useRef(onDragClose)
   onDragCloseRef.current = onDragClose
+  /* Focus on the next frame without a touch screen (lib/ui/dialog-focus.ts), as the shared Dialog does. */
+  const openAutoFocus = useNextFrameAutoFocus(contentRef, props.onOpenAutoFocus)
 
   // Drag-to-close for bottom sheets
   React.useEffect(() => {
@@ -298,6 +301,7 @@ function SheetContent({
             className,
           )}
           {...props}
+          onOpenAutoFocus={openAutoFocus}
         >
           {children}
           {!hideCloseButton && (

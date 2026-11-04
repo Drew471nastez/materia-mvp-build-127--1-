@@ -108,6 +108,7 @@ const DIRECTIVES: [string, string[]][] = [
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
     "https://vercel.live",            // the preview comment toolbar
+    "https://platform.twitter.com",   // a post embedded in a product description (components/store-builder/description-rich-editor.tsx loads widgets.js)
     /* A store's own analytics and ad pixels on its website, by ID only (lib/store/tracking.ts). */
     "https://www.googletagmanager.com",
     "https://connect.facebook.net",
@@ -122,9 +123,16 @@ const DIRECTIVES: [string, string[]][] = [
     "https://*.omnisend.com",
   ]],
 
-  /* Tailwind and every inline style attribute in the product. */
-  ["style-src", ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]],
-  ["font-src", ["'self'", "data:", "https://fonts.gstatic.com"]],
+  /*
+    Tailwind and every inline style attribute in the product. cdnjs because
+    imported themes load Font Awesome's stylesheet and fonts from it: every
+    report on storelib.com on Nov 1 2026 that was not an extension was one of
+    those (Vercel logs, "[csp] would have blocked https://cdnjs.cloudflare.com/
+    ajax/libs/font-awesome/5.15.4/... (font-src)"). Script from cdnjs was
+    already allowed above, for pdf.js; a stylesheet or a font carries none.
+  */
+  ["style-src", ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"]],
+  ["font-src", ["'self'", "data:", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"]],
 
   /*
     Any https image. A creator's own uploads live on Supabase, but sections
@@ -214,6 +222,9 @@ const DIRECTIVES: [string, string[]][] = [
     "https://bandcamp.com",
     "https://widget.deezer.com",
     "https://calendar.google.com",
+    /* The blog's embed block (lib/blog/embed.ts): a Figma file and a CodePen demo. */
+    "https://www.figma.com",
+    "https://codepen.io",
   ]],
 
   /* pdf.js runs its parser in a worker made from a blob. */
@@ -222,10 +233,83 @@ const DIRECTIVES: [string, string[]][] = [
   ["report-uri", [CSP_REPORT_PATH]],
 ]
 
+/**
+ * The same directives, ENFORCED, with its reports marked so the proxy keeps
+ * every one of them (a refused load on the dashboard is a bug to fix, not
+ * noise to sample) and the route logs them as blocked rather than "would
+ * have". See CSP_ENFORCED_PATHS for where it is sent.
+ */
+export const CSP_ENFORCED_REPORT_PATH = `${CSP_REPORT_PATH}?enforced=1`
+
 /** The header value. One string, built once, compared against vercel.json. */
 export const CONTENT_SECURITY_POLICY = DIRECTIVES
   .map(([name, values]) => `${name} ${values.join(" ")}`)
   .join("; ")
+
+/** The enforced copy: identical directives, its own report address. */
+export const ENFORCED_CONTENT_SECURITY_POLICY = DIRECTIVES
+  .map(([name, values]) => `${name} ${name === "report-uri" ? CSP_ENFORCED_REPORT_PATH : values.join(" ")}`)
+  .join("; ")
+
+/*
+ * ===========================================================================
+ *  WHERE IT IS ENFORCED (round 48)
+ * ===========================================================================
+ * On storelib.com and www only, and only on the pages whose content is
+ * Storelib's own: the dashboard (/app), the admin console (/admin) and the
+ * sign in, sign up and reset pages. The report only copy in vercel.json goes
+ * on being sent everywhere, these pages included, so nothing about the
+ * review loop changes.
+ *
+ * Left report only, on purpose:
+ *  - creator subdomains, custom domains and storelib.me: a creator's theme,
+ *    an imported theme's own CDN, a store's pixels and any embed a creator
+ *    pastes. A host missing from the list is a blank site for its buyers.
+ *  - /website-builder: the editor draws imported themes in srcdoc frames,
+ *    which inherit the parent's policy, and those themes load from any CDN
+ *    their author picked (Font Awesome was the evidence above; the next
+ *    theme will name another).
+ *  - the checkout, /p, creator pages and OnePages: creator content and embeds
+ *    on storelib.com itself.
+ *
+ * Why not nonces. Next.js puts a nonce on its own inline scripts only when
+ * the page is rendered for the request (the docs: "every page must be
+ * dynamically rendered"), and /login, /signup and the reset page are served
+ * from the CDN today. Hashes do not work either: Next's inline hydration
+ * script differs per page and per build, and a hash in script-src turns
+ * 'unsafe-inline' off. So script-src keeps 'unsafe-inline' and the enforced
+ * policy's value is everything else: no script, frame or connection to a
+ * host that is not listed, no <object>, no <base>, no form posting away, no
+ * framing by another site.
+ *
+ * Sent by the proxy rather than vercel.json, joined to any policy the proxy
+ * already set (the Capacitor frame list, a framed page's frame-ancestors) as
+ * a second policy: a browser enforces both, and the narrower wins.
+ */
+
+/** First path segments where the policy is enforced. */
+const ENFORCED_FIRST_SEGMENTS = new Set([
+  "app",
+  "admin",
+  "login",
+  "signup",
+  "reset-password",
+  "verify-email",
+  "auth",
+])
+
+/** Whether this host and path get the enforced policy. */
+export function enforcesCsp(host: string | null, pathname: string, mainDomain = "storelib.com"): boolean {
+  const bare = (host || "").split(":")[0].toLowerCase()
+  if (bare !== mainDomain && bare !== `www.${mainDomain}`) return false
+  const first = pathname.split("/")[1]?.toLowerCase() ?? ""
+  return ENFORCED_FIRST_SEGMENTS.has(first)
+}
+
+/** The Content-Security-Policy value with the enforced policy joined to what is already there. */
+export function withEnforcedCsp(existing: string | null): string {
+  return existing ? `${existing}, ${ENFORCED_CONTENT_SECURITY_POLICY}` : ENFORCED_CONTENT_SECURITY_POLICY
+}
 
 /**
  * The header name while it is being watched rather than enforced. Renaming

@@ -28,11 +28,13 @@
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
-import { loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
+import { draftAssetVersion, loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
+import { SHEET_WAIT_MS, releaseLateSheets } from "@/lib/storelib-theme/compat/sheet-guard"
+import { reportLoadProblem, reportSealed } from "@/lib/website-builder/load-guard"
 import type { SectionSchema } from "@/lib/website-builder/types"
 import { markupLooksEmpty, rememberedHeightOk, rememberedHeightsFrom, sampleBlocks, textTag } from "@/lib/website-builder/preview-markup"
 import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
@@ -53,6 +55,10 @@ interface CompatPreviewValue {
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
 /** How long a closed library waits after the last change before it takes the newest (CompatPreviewProvider): as long as a Storelib theme's closed library waits to draw its previews again (section-library.tsx REWARM_AFTER_MS). */
 export const CLOSED_ADOPT_MS = 10_000
+/** An open library takes changes once they have been quiet this long (CompatPreviewProvider), */
+export const LIVE_ADOPT_QUIET_MS = 250
+/** and never later than this after the first. */
+export const LIVE_ADOPT_CAP_MS = 1_200
 const keptThemes = new WeakMap<Record<string, string>, { key: string; sources: Record<string, string>; theme: CompatTheme }>()
 
 /** Whether the library's cards are an imported theme's, drawn here. */
@@ -96,11 +102,25 @@ export function CompatPreviewProvider({
   const newest = useRef(taken)
   newest.current = { sources: sourcesNow, settings: settingsNow, filesVersion: filesVersionNow }
   const behind = taken.sources !== sourcesNow || taken.settings !== settingsNow || taken.filesVersion !== filesVersionNow
+  const behindSince = useRef<number | null>(null)
   useEffect(() => {
-    if (!behind) return
-    if (live) {
-      setTaken(newest.current)
+    if (!behind) {
+      behindSince.current = null
       return
+    }
+    /*
+      OPEN, A BURST IS TAKEN ONCE. A push or an AI run lands as several
+      changes a few milliseconds apart, and each was a new theme, a new sheet
+      and every card drawn again while somebody looked at them. Taken once
+      nothing has changed for LIVE_ADOPT_QUIET_MS, and never later than
+      LIVE_ADOPT_CAP_MS after the first.
+    */
+    if (live) {
+      const now = performance.now()
+      if (behindSince.current === null) behindSince.current = now
+      const wait = Math.max(0, Math.min(LIVE_ADOPT_QUIET_MS, behindSince.current + LIVE_ADOPT_CAP_MS - now))
+      const t = window.setTimeout(() => setTaken(newest.current), wait)
+      return () => window.clearTimeout(t)
     }
     let idleId = 0
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
@@ -136,13 +156,19 @@ export function CompatPreviewProvider({
   const theme = useMemo(() => {
     if (!files || !rows) return null
     /* The same theme for every opening of the dialog while nothing it is made of changed: its parsed files and its drawn layout are kept with it. */
-    const key = `${installId}|${JSON.stringify(settings ?? {})}`
+    /*
+      And the asset version its addresses carry (edit.<pass>): the pass is in hand before the files are
+      (compat-files.ts sets it before they resolve), so this is the version of the first draw; a theme
+      kept from before a pass was known is never taken for one drawn with it.
+    */
+    const assets = draftAssetVersion(installId)
+    const key = `${installId}|${assets}|${JSON.stringify(settings ?? {})}`
     const kept = keptThemes.get(files)
     if (kept && kept.key === key && kept.sources === sources) return kept.theme
     const media = assetAddresses(rows)
     try {
       const made = themeOfInstall(rows, settings ?? {}, {
-        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
+        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/${draftAssetVersion(installId)}/${encodeURIComponent(name)}`,
         assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
         imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
       })
@@ -259,7 +285,9 @@ export function previewDocument(theme: CompatTheme, page: CompatPage, section: S
   const shell = previewShell(theme, page)
   if (shell.includes(PREVIEW_SLOT)) {
     const ctx = pageContextFor(theme, page, [section])
-    const { html } = drawSection(theme, ctx, section, 0)
+    const { html, errors } = drawSection(theme, ctx, section, 0)
+    /* Closed where it ends if it left a <template> or a comment open (lib/storelib-theme/compat/seal.ts); said once. */
+    reportSealed("section-preview", { [section.type]: errors })
     return shell.replace(PREVIEW_SLOT, () => cleanPreview(html))
   }
   return cleanPreview(fullPreview(theme, page, [section]))
@@ -336,11 +364,41 @@ const CARD_LAYER = "storelib-card"
 function sheetRules(width: number): string {
   const card = `body>${CARD_TAG}[data-sl-card]`
   return [
-    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important}",
     `@layer ${CARD_LAYER}{`,
-    `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important}`,
-    /* The theme's <main>, at the box's top left, as tall as what it holds (a theme's floor for its <main>, often a whole window, is not the section's). */
-    `${card}>[data-sl-pv]{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;box-sizing:border-box!important}`,
+    /*
+      THE PAGE ITSELF IS THE CARDS' COORDINATE SPACE, SO NOTHING MAY MOVE IT.
+      This lock used to sit outside the layer, where an unlayered `!important`
+      with a stronger selector beats it: a section pack's
+      `body.template-index { margin-top: 40px !important }` (room under a
+      fixed bar) moved every card's picture 40px down its card, over the
+      name under it. In the first layer nothing in the theme can beat it.
+      No zoom or transform on the page either (both would scale every card's
+      place), and nothing that could scroll it. Positioned, at no offset, so
+      the body holds the cards: with `position: static` the cards were the
+      viewport's, and the list scrolled at 23ms a frame instead of 17
+      (scripts/check-section-preview-stress.mjs PROFILE=1).
+    */
+    "html,body{background:transparent!important;background-image:none!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important;position:relative!important;inset:auto!important;zoom:1!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;backdrop-filter:none!important;perspective:none!important;contain:none!important;scroll-snap-type:none!important;scroll-behavior:auto!important}",
+    /*
+      THE PAGE NEVER SCROLLS, AND THE BODY NEVER CUTS. The cards are the
+      body's (it is positioned), and the body holds nothing in its flow, so
+      it is 0px tall: with `overflow: hidden` on it as well as on <html>,
+      every card was cut away whole. Each card was measured, sized and
+      marked shown, and not one pixel of it painted: the owner's empty grey
+      boxes after #392 (scripts/check-section-preview-pixels.mjs). <html>
+      keeps `hidden`, which is the viewport's (no scrollbar); the body is
+      `visible`, so it cuts nothing. Nor may a theme hide the page until its
+      scripts run (`body { opacity: 0 }` until a load class, a preloader's
+      `visibility: hidden`): the cards run no script, so it would never be
+      shown.
+    */
+    /* No gutter kept for a scrollbar it never has (a theme's `scrollbar-gutter: stable`): it cut every card's right edge 15px short. */
+    "html{overflow:hidden!important;scrollbar-gutter:auto!important;scrollbar-width:none!important}",
+    "body{overflow:visible!important;display:block!important;opacity:1!important;visibility:visible!important;clip-path:none!important;mask:none!important;content-visibility:visible!important}",
+    `${card}{display:block!important;position:absolute!important;top:var(--sl-top,0px)!important;left:var(--sl-left,0px)!important;right:auto!important;bottom:auto!important;width:${width}px!important;height:var(--sl-h,auto)!important;min-width:0!important;max-width:none!important;min-height:0!important;max-height:none!important;margin:0!important;padding:var(--sl-pad,0px) 0 0 0!important;border:0!important;border-radius:var(--sl-r,0px)!important;box-sizing:border-box!important;overflow:clip!important;contain:strict!important;isolation:isolate!important;z-index:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;filter:none!important;clip-path:none!important;mask:none!important;content-visibility:visible!important;opacity:0!important;visibility:hidden!important;transition:none!important;pointer-events:auto!important}`,
+    /* Layout containment includes child margins and floats in the natural height,
+       instead of measuring a short box with its content spilling below it. */
+    `${card}>[data-sl-pv]{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;float:none!important;transform:none!important;translate:none!important;scale:none!important;rotate:none!important;box-sizing:border-box!important;contain:layout style!important}`,
     `${card}[data-placed]{visibility:visible!important}`,
     /* Measured: a section away from the screen is neither styled, laid out nor painted again until it nears it, so putting in the next one costs that one alone. */
     `${card}[data-measured]{content-visibility:auto!important}`,
@@ -418,7 +476,13 @@ export function blockMarkup(theme: CompatTheme, page: CompatPage, sectionType: s
 */
 type Heights = Record<string, number>
 const heightMemory = new Map<string, Heights>()
-const HEIGHTS_PREFIX = "wb-compat-preview-h3:"
+/*
+  h4: whatever an older build remembered (h2, h3) is dropped on the first
+  read rather than trusted, so no card opens at a height an earlier rule
+  for measuring or holding left behind. Each card is measured again once.
+*/
+const HEIGHTS_PREFIX = "wb-compat-preview-h4:"
+const OLD_HEIGHTS_PREFIXES = ["wb-compat-preview-h2:", "wb-compat-preview-h3:"]
 /* `heightsId` is the install and the tag of its files: `${installId}:${tag}`. */
 const heightsKey = (heightsId: string, renderWidth: number) => `${HEIGHTS_PREFIX}${heightsId}:${renderWidth}`
 const COMPAT_HEIGHT_KEY = /^[^:\s]+:\d{1,3}$/
@@ -436,7 +500,7 @@ function rememberedHeights(heightsId: string, renderWidth: number): Heights {
       for (let i = 0; i < window.localStorage.length; i++) {
         const other = window.localStorage.key(i)
         if (!other || other === k) continue
-        if (other.startsWith(`wb-compat-preview-h2:${install}:`) || (other.startsWith(`${HEIGHTS_PREFIX}${install}:`) && other.endsWith(`:${renderWidth}`))) stale.push(other)
+        if (OLD_HEIGHTS_PREFIXES.some((p) => other.startsWith(`${p}${install}:`)) || (other.startsWith(`${HEIGHTS_PREFIX}${install}:`) && other.endsWith(`:${renderWidth}`))) stale.push(other)
       }
       for (const other of stale) window.localStorage.removeItem(other)
     } catch {
@@ -503,6 +567,14 @@ function onIdle(cb: (d: IdleDeadline) => void): void {
 
 /** How much of a frame an open library spends putting sections in, at most. */
 const FRAME_BUDGET_MS = 8
+/** Input this recent means the list is being scrolled or used. */
+const SCROLLING_MS = 200
+/** How long after the last scroll or input the list counts as still (queueRefresh). */
+const SCROLL_SETTLE_MS = 150
+/** How many sections away from the screen are laid out again in one frame (queueRefresh). */
+const REFRESH_PER_FRAME = 6
+/** How much of a frame putting sections in may take while the list scrolls. */
+const SCROLL_FRAME_BUDGET_MS = 4
 /** How long a section's pictures may hold its fade-in back. */
 const DECODE_WAIT_MS = 500
 /** The card's own corner, inside its 1px border (rounded-xl). */
@@ -569,12 +641,35 @@ class PreviewSheet {
   open = false
   private scheduled = false
   private syncQueued = false
-  private remeasure = new Set<string>()
-  private remeasureQueued = false
+  /** Sections whose layout is out of date (a picture, a stylesheet or a font came) while skipped away from the screen (queueRefresh). */
+  private readonly stale = new Set<string>()
+  /** Let out of content-visibility for one frame so the browser lays them out and `sizes` reports them. */
+  private readonly unskipped = new Set<string>()
+  private refreshQueued = false
+  /** Each section's own box and its <main>, watched for their size (onSizes). */
+  private sizes: ResizeObserver | null = null
+  private readonly roots = new Map<string, HTMLElement>()
   private document_: { html: string; main: string } | null = null
-  private onFonts: (() => void) | null = null
-  /** The frame's scale and height as last written. */
+  /** The frame's scale and height as last written (sync). */
   private frameAt = ""
+  /** The theme stylesheets sections link, each once in the head, by its text (hoistSheets): the token the cards that link it carry. */
+  private readonly shared = new Map<string, string>()
+  private sharedEls: HTMLStyleElement[] = []
+  /** What the document showed under the sheet before this one (shownBefore): a section drawn the same again is shown at once, without a fade. */
+  private donor: Map<string, string> | null = null
+  private readonly instant = new Set<string>()
+  private readonly fontsLoaded = () => {
+    for (const k of this.wrappers.keys()) this.stale.add(k)
+    this.queueRefresh()
+    for (const k of this.onScreen.keys()) this.arriving.add(k)
+    this.checkOnScreen()
+  }
+
+  /* A stylesheet of the head that came late may hide what moves in (showRevealed), as well as change heights. */
+  private readonly sheetLoaded = () => {
+    for (const w of this.wrappers.values()) if (w.isConnected) showRevealed(w)
+    this.fontsLoaded()
+  }
 
   constructor(
     readonly theme: CompatTheme,
@@ -584,6 +679,11 @@ class PreviewSheet {
     readonly heightsId: string,
     readonly renderWidth: number,
   ) {}
+
+  /** Whether it has its document (attach). */
+  get attached(): boolean {
+    return !!this.doc && this.doc === this.frame?.contentDocument
+  }
 
   get windowHeight(): number {
     return this.renderWidth < 640 ? WINDOW_HEIGHT_PHONE : WINDOW_HEIGHT_DESKTOP
@@ -599,14 +699,35 @@ class PreviewSheet {
    * it attaches to the frame as it would to a frame that reloaded.
    */
   release(): void {
-    if (this.doc && this.onFonts) this.doc.fonts?.removeEventListener?.("loadingdone", this.onFonts)
-    this.onFonts = null
-    this.frameAt = ""
     this.watcher?.disconnect()
     this.watcher = null
     this.watched.clear()
     this.gridWatch?.disconnect()
     this.gridWatch = null
+    this.frameAt = ""
+    /* A section-only update can keep exactly the same srcDoc, so React
+       reuses this document for the next sheet. Forgetting the map alone
+       left its old pictures painted underneath the replacement cards.
+       Only while the document is still this sheet's: one a newer sheet has
+       taken over (attach) is that sheet's to say. */
+    if (this.doc && docOwner.get(this.doc) === this) {
+      const drawn = new Map<string, string>()
+      for (const [key, inner] of this.wrappers) {
+        const html = this.html.get(key)
+        if (html && frameOf(inner).hasAttribute("data-on")) drawn.set(key, html)
+      }
+      shownBefore.set(this.doc, drawn)
+    }
+    for (const inner of this.wrappers.values()) frameOf(inner).remove()
+    for (const el of this.sharedEls) el.remove()
+    this.sharedEls = []
+    this.shared.clear()
+    this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
+    this.sizes?.disconnect()
+    this.sizes = null
+    this.roots.clear()
+    this.stale.clear()
+    this.unskipped.clear()
     this.doc = null
     this.proto = null
     this.frame = null
@@ -626,13 +747,25 @@ class PreviewSheet {
   /** The frame's whole document, built once. */
   get srcDoc(): string {
     if (!this.document_) {
+      let made: { html: string; main: string }
       try {
-        this.document_ = sheetDocument(this.theme, this.page, this.rows, this.renderWidth, this.windowHeight)
+        made = sheetDocument(this.theme, this.page, this.rows, this.renderWidth, this.windowHeight)
       } catch {
-        this.document_ = { html: "<!doctype html><html><head></head><body></body></html>", main: "" }
+        made = { html: "<!doctype html><html><head></head><body></body></html>", main: "" }
       }
+      /* Which document it is, read back from the document itself (attach): by what it holds, so a sheet drawn the same as the one before it takes the same document. */
+      this.docTag = sheetTag(made.html)
+      const tag = `<meta name="sl-sheet" content="${this.docTag}">`
+      this.document_ = { ...made, html: /<head\b[^>]*>/i.test(made.html) ? made.html.replace(/<head\b[^>]*>/i, (m) => `${m}${tag}`) : `${tag}${made.html}` }
     }
     return this.document_.html
+  }
+  private docTag = ""
+
+  /** Whether `doc` was loaded from this sheet's srcdoc (its tag, written first in its head). */
+  private isMine(doc: Document): boolean {
+    void this.srcDoc
+    return doc.querySelector('meta[name="sl-sheet"]')?.getAttribute("content") === this.docTag
   }
 
   /* ── what a card reads ── */
@@ -676,9 +809,10 @@ class PreviewSheet {
    *
    * One observer does all of it: each card's box and its [data-library-card]
    * (register), and the list itself with every element in it, for a card
-   * that moves while the list keeps its height (watchGrid). A card coming or
-   * going is a change to the list's children, which an observer of sizes
-   * does not see: gridWatch sees it. Both are let go in release().
+   * that moves while the list keeps its height (watchGrid). A card coming,
+   * going, or shown and hidden by its group is a change to the list, which
+   * an observer of sizes does not always see: gridWatch sees it. Both are
+   * let go in release().
    */
   private watcher: ResizeObserver | null = null
   /** What the watcher observes: observing an element again would call it again for nothing (attach runs on every render). */
@@ -697,18 +831,26 @@ class PreviewSheet {
     }
   }
 
-  /** The list and every card in it, and the cards that come and go. */
+  /** The list and every card in it, and the cards that come, go, or are shown and hidden. */
   private watchGrid(grid: HTMLElement | null) {
     if (!grid) return
     this.watch(grid, true)
     for (const el of Array.from(grid.children)) if (el.tagName !== "IFRAME") this.watch(el, true)
     if (this.gridWatch || typeof MutationObserver === "undefined") return
     this.gridWatch = new MutationObserver((list) => {
-      for (const m of list) for (const n of Array.from(m.removedNodes)) if (n.nodeType === 1) this.watch(n as Element, false)
+      let moved = false
+      for (const m of list) {
+        if (m.type === "childList") {
+          moved = true
+          for (const n of Array.from(m.removedNodes)) if (n.nodeType === 1) this.watch(n as Element, false)
+        } else if ((m.target as HTMLElement).parentElement === this.grid) moved = true
+      }
+      if (!moved) return
       if (this.grid) for (const el of Array.from(this.grid.children)) if (el.tagName !== "IFRAME") this.watch(el, true)
       this.requestSync()
     })
-    this.gridWatch.observe(grid, { childList: true })
+    /* Only the cards themselves for `hidden`: a card's shimmer or name coming and going inside it moves nothing the watcher would not see. */
+    this.gridWatch.observe(grid, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] })
   }
 
   register(key: string, entry: CardEntry): () => void {
@@ -716,16 +858,91 @@ class PreviewSheet {
     const card = entry.box.closest("[data-library-card]")
     this.watch(entry.box, true)
     this.watch(card, true)
+    this.inView(entry.box, key, true)
     this.schedule()
     return () => {
       this.watch(entry.box, false)
       this.watch(card, false)
+      this.inView(entry.box, key, false)
       if (this.cards.get(key) !== entry) return
       this.cards.delete(key)
       /* Its card is gone: its section's box goes with it now, not at the next sync. */
       const w = this.wrappers.get(key)
       if (w) frameOf(w).hidden = true
     }
+  }
+
+  /**
+   * ===========================================================================
+   *  WHAT IS ON SCREEN IS ALWAYS ITS SECTION'S HEIGHT
+   * ===========================================================================
+   * A card's height follows its section through the ResizeObserver and the
+   * reads above, but a section laid out again inside a skipped card (a font
+   * or a stylesheet that landed while it was away) can come on screen with
+   * no notice at all, a few pixels or a picture's height short, cut at its
+   * foot. So a card coming on screen, or within 100px of it (an
+   * IntersectionObserver says which, nothing is read for that), has its
+   * section's height read once in the next frame, and so do the cards on
+   * screen when the library opens. The browser has just laid them out, so
+   * each read costs nothing; once on screen a card is never skipped, and the
+   * ResizeObserver follows it.
+   */
+  private readonly onScreen = new Map<string, Element>()
+  private screen: IntersectionObserver | null = null
+  private screenRoot: Element | null = null
+  private checking = false
+  private inView(box: HTMLElement, key: string, on: boolean) {
+    if (typeof IntersectionObserver === "undefined") return
+    const root = box.closest("[data-library-scroll]")
+    if (!this.screen || this.screenRoot !== root) {
+      this.screen?.disconnect()
+      this.screenRoot = root
+      this.onScreen.clear()
+      this.screen = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          const k = (e.target as HTMLElement).dataset.slKey
+          if (!k) continue
+          if (e.isIntersecting) {
+            this.onScreen.set(k, e.target)
+            this.arriving.add(k)
+          } else if (this.onScreen.get(k) === e.target) this.onScreen.delete(k)
+        }
+        this.checkOnScreen()
+      }, { root, rootMargin: "100px 0px" })
+      for (const [k, c] of this.cards) {
+        c.box.dataset.slKey = k
+        this.screen.observe(c.box)
+      }
+    }
+    box.dataset.slKey = key
+    if (on) this.screen.observe(box)
+    else {
+      this.screen.unobserve(box)
+      if (this.onScreen.get(key) === box) this.onScreen.delete(key)
+    }
+  }
+
+  /**
+   * Cards just come on screen (or near it), and sections just let out of
+   * content-visibility: each section's height is read in the next frame,
+   * after the browser has laid it out. A fresh ResizeObserver observation
+   * was tried instead and is not enough: a section laid out again inside a
+   * skipped card can be reported at its old size, and the card stays cut.
+   */
+  private readonly arriving = new Set<string>()
+  private checkOnScreen() {
+    if (this.checking || typeof window === "undefined") return
+    this.checking = true
+    requestAnimationFrame(() => {
+      this.checking = false
+      if (!this.doc) return
+      for (const key of this.arriving) {
+        const w = this.wrappers.get(key)
+        if (!w?.isConnected || frameOf(w).hidden) continue
+        this.takeHeight(key, w, Math.max(w.offsetHeight, (this.roots.get(key) ?? w).offsetHeight))
+      }
+      this.arriving.clear()
+    })
   }
 
   /* ── the frame ── */
@@ -745,36 +962,66 @@ class PreviewSheet {
       this.watch(card.box.closest("[data-library-card]"), true)
     }
     const doc = frame.contentDocument
-    /* Not the blank page a new frame holds before its own document has loaded. */
-    if (!doc?.body || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    /* Not the blank page a new frame holds before its own document has loaded, nor one still being read. */
+    if (!doc?.body || doc.URL !== "about:srcdoc" || doc.readyState === "loading") return
     if (doc === this.doc && docOwner.get(doc) === this) return
+    /*
+      NOT THE DOCUMENT ON ITS WAY OUT. A push that changes the theme's head
+      gives the frame a new srcdoc, and until that has loaded the frame still
+      holds the old document, complete and about:srcdoc. A newer sheet took
+      it for its own and drew its sections into the old theme's styles,
+      measured them there, and kept those heights. A document is this
+      sheet's only once it holds this sheet's own tag (srcDoc): read from
+      the document, not from its load event, which a stylesheet that never
+      answers holds back for good.
+    */
+    if (!this.isMine(doc)) return
+    /*
+      ITS STYLESHEETS ARE WAITED FOR, NEVER FOR GOOD (lib/storelib-theme/compat/
+      sheet-guard.ts). The cards are drawn once the document has loaded, so
+      none is ever measured without the theme's styles; but a stylesheet in
+      its head that does not answer (a web font host, the asset route held by
+      a database) held the load event, and with it every card, grey for good
+      (scripts/check-compat-stalls.mjs: all 157). After SHEET_WAIT_MS the
+      document is taken as it is, what has not come is let go of (it styles
+      the cards when it does arrive, and they are measured again), and the
+      error log is told.
+    */
+    if (doc.readyState !== "complete") {
+      const now = performance.now()
+      const seen = parsedAt.get(doc) ?? now
+      if (!parsedAt.has(doc)) parsedAt.set(doc, now)
+      if (now - seen < SHEET_WAIT_MS) return
+      const late = releaseLateSheets(doc)
+      reportLoadProblem("section-preview", `the cards' page did not load in ${SHEET_WAIT_MS / 1000}s; drawn without waiting${late.length ? `: ${late.slice(0, 6).join(", ")}` : ""}`)
+    }
     /*
       ONE SHEET PAINTS IN A DOCUMENT. A push gives the theme new files, so a
       new sheet, and when only a section changed its document is the old one
-      to the letter: React leaves the frame alone, and the new sheet attached
-      to the document the old one had filled. The old sheet's sections stayed
-      in it, put where their cards were before the push and never moved
-      again: a strip of another section in the gap between two cards, a
-      picture over the wrong card, a card's section twice. The document is
-      taken over now, and what another sheet put in it is taken out.
+      to the letter: React leaves the frame alone, and the new sheet attaches
+      to the document the old one had filled. The document is taken over:
+      the old sheet is let go of here, not only when React's cleanup gets to
+      it, and owns() keeps it from doing anything more in the document in
+      between (an idle draw already asked for, a font landing).
     */
-    const source = docSource.get(doc)
-    if (source === undefined) docSource.set(doc, frame.getAttribute("srcdoc") ?? "")
-    /* The old document of a frame about to load this sheet's own: its load attaches. */
-    else if (source !== this.srcDoc) return
     const before = docOwner.get(doc)
-    if (before && before !== this) before.release()
-    /*
-      Each section's box (sheetRules), and a bare section from before the
-      boxes. This sheet's own too, when it attaches again after a release:
-      it has let go of them (wrappers is cleared below), so they would stay
-      where their cards were, never moved again, beside the ones it puts in.
-    */
-    for (const w of Array.from(doc.querySelectorAll(`body>${CARD_TAG}[data-sl-card],body>[data-sl-pv]`))) w.remove()
     docOwner.set(doc, this)
-    if (this.doc && this.doc !== doc && this.onFonts) this.doc.fonts?.removeEventListener?.("loadingdone", this.onFonts)
+    if (before && before !== this) before.release()
+    this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
+    this.sizes?.disconnect()
+    this.sizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver((entries) => this.onSizes(entries))
+    this.roots.clear()
+    this.stale.clear()
+    this.unskipped.clear()
     this.wrappers.clear()
+    this.shared.clear()
+    this.sharedEls = []
+    this.instant.clear()
+    this.donor = shownBefore.get(doc) ?? null
+    shownBefore.delete(doc)
+    /* Nothing of another sheet's is left in it: whatever card or shared style is still in the page is no card of this sheet's. */
+    for (const el of Array.from(doc.querySelectorAll(`body>${CARD_TAG}, style[data-sl-shared]`))) el.remove()
     for (const [k, st] of this.states) if (st.state === "shown") this.states.set(k, { ...st, state: "waiting" })
     for (const key of this.states.keys()) for (const l of this.listeners.get(key) ?? []) l()
     /* The theme's <main>, copied for each card, so the theme's rules for what is in it still hold. */
@@ -799,13 +1046,15 @@ class PreviewSheet {
       own.appendChild(doc.createTextNode(`\nbody>${CARD_TAG}[data-sl-card]{background-color:${color};background-image:${image}}`))
     }
     /* A font that lands later changes heights: each drawn card is measured again then. */
-    this.onFonts = () => {
-      for (const k of this.wrappers.keys()) this.remeasure.add(k)
-      this.queueRemeasure()
+    doc.fonts?.addEventListener?.("loadingdone", this.fontsLoaded)
+    /* And so does a stylesheet of the head that came after the cards were drawn (one let go of above, or one still on its way). */
+    for (const link of Array.from(doc.head?.querySelectorAll<HTMLLinkElement>("link[rel~='stylesheet']") ?? [])) {
+      if (!link.sheet) link.addEventListener("load", this.sheetLoaded, { once: true })
     }
-    doc.fonts?.addEventListener?.("loadingdone", this.onFonts)
     this.sync()
     this.schedule()
+    for (const key of this.onScreen.keys()) this.arriving.add(key)
+    this.checkOnScreen()
   }
 
   /**
@@ -816,7 +1065,9 @@ class PreviewSheet {
   setOpen(open: boolean) {
     this.open = open
     if (!open || !this.owns()) return
-    for (const img of Array.from(this.doc!.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
+    for (const key of this.onScreen.keys()) this.arriving.add(key)
+    this.checkOnScreen()
+    for (const img of Array.from(this.doc.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
       img.setAttribute("fetchpriority", "low")
       img.loading = "eager"
     }
@@ -857,7 +1108,8 @@ class PreviewSheet {
     watchInput()
     if (this.open) {
       /* Just after a frame is drawn, so the work has the rest of the frame to itself. */
-      requestAnimationFrame(() => window.setTimeout(() => this.run(FRAME_BUDGET_MS), 0))
+      /* Half as much while the list is moving under somebody's finger or wheel: a frame then is theirs first. */
+      requestAnimationFrame(() => window.setTimeout(() => this.run(performance.now() - lastInput < SCROLLING_MS ? SCROLL_FRAME_BUDGET_MS : FRAME_BUDGET_MS), 0))
       return
     }
     const wait = Math.max(INPUT_QUIET_MS - (performance.now() - lastInput), CANVAS_QUIET_MS - (performance.now() - lastCanvasInput))
@@ -921,9 +1173,22 @@ class PreviewSheet {
       this.setState(key, { state: "named" })
       return
     }
+    /* Drawn exactly as the sheet before this one showed it: shown at once, not faded in again (a push that changed other sections). */
+    if (this.donor?.get(key) === html) this.instant.add(key)
     /* The card's own box (sheetRules), and the theme's <main> in it. */
     const box = doc.createElement(CARD_TAG)
     box.setAttribute("data-sl-card", key)
+    /*
+      A card scrolled to is laid out again by the browser as it leaves
+      content-visibility's skip, and the ResizeObserver says nothing then.
+      Its height is read in the next frame (checkOnScreen), from the layout
+      that frame did anyway.
+    */
+    box.addEventListener("contentvisibilityautostatechange", (e) => {
+      if ((e as Event & { skipped?: boolean }).skipped !== false) return
+      this.arriving.add(key)
+      this.checkOnScreen()
+    })
     const w = (this.proto ? this.proto.cloneNode(false) : doc.createElement("div")) as HTMLElement
     w.setAttribute("data-sl-pv", key)
     box.appendChild(w)
@@ -935,7 +1200,9 @@ class PreviewSheet {
   /** Puts a section's markup in its wrapper, keeps its styles to it, and measures it. */
   private fill(key: string, w: HTMLElement, html: string) {
     w.innerHTML = html
+    this.hoistSheets(w)
     keepStylesInside(w, key)
+    showRevealed(w)
     if (this.open) {
       for (const img of Array.from(w.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
         img.setAttribute("fetchpriority", "low")
@@ -943,10 +1210,20 @@ class PreviewSheet {
       }
     }
     this.measure(key, w)
-    /* A picture or a stylesheet that lands later may change the height: measured again then. */
+    /*
+      A picture or a stylesheet that lands later may change the height. On or
+      near the screen the browser lays it out and `sizes` reports the new
+      height in that frame; away from it its layout is skipped, so it is let
+      out of content-visibility for a frame once the list is still (queueRefresh).
+    */
     const again = () => {
-      this.remeasure.add(key)
-      this.queueRemeasure()
+      if (w.isConnected) showRevealed(w)
+      this.stale.add(key)
+      this.queueRefresh()
+      if (this.onScreen.has(key)) {
+        this.arriving.add(key)
+        this.checkOnScreen()
+      }
     }
     for (const img of Array.from(w.querySelectorAll("img"))) {
       if (!img.complete) img.addEventListener("load", again, { once: true })
@@ -954,6 +1231,44 @@ class PreviewSheet {
     for (const link of Array.from(w.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]"))) {
       if (!link.sheet) link.addEventListener("load", again, { once: true })
     }
+  }
+
+  /**
+   * A THEME STYLESHEET A SECTION LINKS REACHES ONLY THE CARDS THAT LINK IT.
+   * It was left inside the section, a <style> in the body of the one
+   * document every card is in, so it styled every card from the moment that
+   * section was put in: a section pack's `#MainContent { padding-top }` or
+   * `h2 { font-size }` moved and grew every other card's section after it
+   * had been measured, and its picture was cut mid line. Each linked sheet
+   * is now put in the head once (by its whole text), in an @scope of the
+   * cards that link it, and a card carries the token of each it links.
+   */
+  private hoistSheets(w: HTMLElement) {
+    const doc = this.doc
+    if (!doc?.head) return
+    const tokens: string[] = []
+    for (const el of Array.from(w.querySelectorAll<HTMLStyleElement>("style[data-sheet-from]"))) {
+      const text = el.textContent ?? ""
+      const media = el.getAttribute("media") ?? ""
+      const id = `${media}|${sheetTag(text)}`
+      let token = this.shared.get(id)
+      if (!token) {
+        token = `s${++sharedSheetCount}`
+        const copy = doc.createElement("style")
+        copy.setAttribute("data-sl-shared", token)
+        copy.setAttribute("data-sheet-from", el.getAttribute("data-sheet-from") ?? "")
+        if (media) copy.setAttribute("media", media)
+        copy.textContent = text
+        doc.head.appendChild(copy)
+        keepStyleTo(copy, `[data-sl-sheets~="${token}"]`)
+        this.shared.set(id, token)
+        this.sharedEls.push(copy)
+      }
+      if (!tokens.includes(token)) tokens.push(token)
+      el.remove()
+    }
+    if (tokens.length) w.setAttribute("data-sl-sheets", tokens.join(" "))
+    else w.removeAttribute("data-sl-sheets")
   }
 
   /** Its natural height, at the width it is pictured at, and whether it has anything to see. */
@@ -980,9 +1295,11 @@ class PreviewSheet {
       on a page; only a section whose box is empty (everything in it
       positioned) falls back to what it holds.
     */
-    const own = w.offsetHeight
-    const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const root = w.querySelector<HTMLElement>(".shopify-section") ?? w
+    /* Negative section margins can make the containing flow shorter than
+       the section's own box. They must not shrink its preview crop. */
+    const own = Math.max(w.offsetHeight, root.offsetHeight)
+    const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const shows = h > 8 && somethingToSee(root)
     if (shows) this.blank.delete(key)
     else this.blank.add(key)
@@ -999,25 +1316,122 @@ class PreviewSheet {
     }
     /* Skipped while away from the screen from now on: its box is its card's size whatever it holds (contain: strict), so skipping it moves nothing. */
     box.setAttribute("data-measured", "")
-    if (h > 0 && h !== this.heights.get(key)) {
-      this.heights.set(key, h)
-      rememberHeight(this.heightsId, this.renderWidth, key, h)
+    /* Watched from now on: any later change in its height arrives with the browser's own layout, nothing forced. */
+    if (this.sizes) {
+      const was = this.roots.get(key)
+      if (was && was !== root) this.sizes.unobserve(was)
+      this.roots.set(key, root)
+      this.sizes.observe(w)
+      if (root !== w) this.sizes.observe(root)
     }
+    if (h > 0 && h !== this.heights.get(key)) this.heights.set(key, h)
+    if (h > 0 && this.settled(w)) rememberHeight(this.heightsId, this.renderWidth, key, h)
     const prev = this.stateOf(key)
     this.setState(key, { height: h > 0 ? h : prev.height, state: shows ? (prev.state === "named" ? "waiting" : prev.state) : "named" })
   }
 
-  private queueRemeasure() {
-    if (this.remeasureQueued) return
-    this.remeasureQueued = true
+  /**
+   * Whether a section's height is final: its pictures are in and the
+   * document's fonts have loaded. Only such a height is remembered. One
+   * measured before a picture had a size, or in the fallback font, was
+   * remembered too, and the next opening held the card at it (a remembered
+   * height never moves the list) with the section cut at its foot.
+   */
+  private settled(w: HTMLElement): boolean {
+    if (this.doc?.fonts && this.doc.fonts.status !== "loaded") return false
+    return Array.from(w.querySelectorAll("img")).every((img) => img.complete)
+  }
+
+  /**
+   * ===========================================================================
+   *  A SECTION'S NEW HEIGHT ARRIVES WITH THE BROWSER'S OWN LAYOUT
+   * ===========================================================================
+   * Measuring again after a picture or a font came was offsetHeight read
+   * card by card, each read laying out the whole cards' document there and
+   * then, a few every frame: the list scrolled at 23ms a frame where it had
+   * scrolled at 17. Each section's box is watched instead (a ResizeObserver
+   * in this window can watch elements in the frame's document), so its
+   * height comes from the layout the browser does for the frame anyway.
+   */
+  private onSizes(entries: ResizeObserverEntry[]) {
+    const keys = new Set<string>()
+    for (const e of entries) {
+      const size = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height
+      measuredSize.set(e.target, size)
+      const key = (e.target as HTMLElement).closest?.("[data-sl-pv]")?.getAttribute("data-sl-pv")
+      if (key) keys.add(key)
+    }
+    for (const key of keys) {
+      const w = this.wrappers.get(key)
+      if (!w?.isConnected) continue
+      const root = this.roots.get(key) ?? w
+      this.takeHeight(key, w, Math.max(measuredSize.get(w) ?? 0, measuredSize.get(root) ?? 0))
+    }
+    /* The page never scrolls (sheetRules), but find in page or a re-snap can still scroll it; read here, where its layout is already done. */
+    const page = this.doc?.scrollingElement
+    if (page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) page.scrollTo(0, 0)
+  }
+
+  /** A section's height, as the browser laid it out. Nothing laid out (a card put away, or skipped) is not a height; a section with nothing to see was named by measure. */
+  private takeHeight(key: string, w: HTMLElement, own: number) {
+    if (!(own > 8)) return
+    const h = Math.ceil(own)
+    if (h === this.heights.get(key)) return
+    this.heights.set(key, h)
+    if (this.settled(w)) rememberHeight(this.heightsId, this.renderWidth, key, h)
+    this.setState(key, { height: h })
+  }
+
+  /**
+   * Sections laid out again away from the screen, a few a frame, nearest
+   * first, never while the list is moving: each is let out of
+   * content-visibility for one frame (the browser lays it out in that
+   * frame's own layout, and `sizes` reports it), then skipped again.
+   */
+  private queueRefresh() {
+    if (this.refreshQueued || typeof window === "undefined") return
+    this.refreshQueued = true
     requestAnimationFrame(() => {
-      this.remeasureQueued = false
-      for (const key of this.remeasure) {
+      this.refreshQueued = false
+      /* Laid out by the browser in the frame just drawn, and read (checkOnScreen): skipped again. */
+      for (const key of this.unskipped) {
         const w = this.wrappers.get(key)
-        if (w?.isConnected) this.measure(key, w)
+        if (w?.isConnected) frameOf(w).setAttribute("data-measured", "")
       }
-      this.remeasure.clear()
-      this.sync()
+      this.unskipped.clear()
+      if (!this.stale.size || !this.doc) return
+      const still = performance.now() - lastInput
+      if (this.open && still < SCROLL_SETTLE_MS) {
+        this.refreshQueued = true
+        window.setTimeout(() => {
+          this.refreshQueued = false
+          this.queueRefresh()
+        }, SCROLL_SETTLE_MS - still)
+        return
+      }
+      const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
+      const distance = (key: string) => {
+        const r = view ? this.cards.get(key)?.box.getBoundingClientRect() : null
+        if (!view || !r) return 0
+        return r.bottom < view.top ? view.top - r.bottom : r.top > view.bottom ? r.top - view.bottom : 0
+      }
+      /* A card put away (its category hidden) stays to be laid out when it is shown again (sync). */
+      const ready = [...this.stale].filter((key) => {
+        const w = this.wrappers.get(key)
+        if (!w?.isConnected) this.stale.delete(key)
+        return !!w?.isConnected && !frameOf(w).hidden
+      })
+      if (!ready.length) return
+      const next = ready.map((key) => ({ key, d: distance(key) })).sort((a, b) => a.d - b.d).slice(0, REFRESH_PER_FRAME)
+      for (const { key } of next) {
+        this.stale.delete(key)
+        frameOf(this.wrappers.get(key)!).removeAttribute("data-measured")
+        this.unskipped.add(key)
+        /* Read in the next frame: the ResizeObserver says nothing for a section put away (0) and shown again inside a skipped card. */
+        this.arriving.add(key)
+      }
+      this.checkOnScreen()
+      this.queueRefresh()
     })
   }
 
@@ -1037,39 +1451,51 @@ class PreviewSheet {
     const frame = this.frame
     const grid = this.grid
     if (!frame || !grid || !frame.isConnected || !this.owns()) return
-    const g = grid.getBoundingClientRect()
-    /*
-      A transform over the library (the dialog's entrance) scales what is
-      read; dividing by it gives the layout's own distances, the same in
-      every frame of the entrance. Its layout width as laid out, not
-      offsetWidth, which is rounded: a list at 657.5px read as 658 put a
-      card two thousand pixels down the list a pixel and more off.
-    */
-    const laidOut = parseFloat(grid.ownerDocument.defaultView?.getComputedStyle(grid).width ?? "") || grid.offsetWidth
-    const zoom = laidOut > 0 && g.width > 0 ? g.width / laidOut : 1
-    if (!(zoom > 0)) return
+    /* Read the host boxes together before writing to the preview document.
+       offsetWidth rounds fractional CSS pixels; treating that rounding as a
+       dialog transform made the error accumulate down a long list. */
+    const targets = [...this.wrappers].map(([key, inner]) => {
+      const box = this.cards.get(key)?.box
+      const st = this.stateOf(key)
+      const rect = box?.isConnected && st.state !== "named" ? box.getBoundingClientRect() : null
+      return { key, inner, box, st, rect }
+    })
+    const first = targets.find((t) => t.rect && t.rect.width > 0 && t.box)
+    if (!first?.box) {
+      for (const { inner } of targets) frameOf(inner).hidden = true
+      return
+    }
+    const width = Number.parseFloat(getComputedStyle(first.box).width)
+    const scale = width / this.renderWidth
+    if (!(scale > 0)) return
+    /* As tall as the list, unrounded, so the last card's section is never cut at the frame's foot. Written only when it changed. */
+    const at = `${scale}|${Math.ceil(grid.getBoundingClientRect().height / first.rect!.width * this.renderWidth)}`
+    if (this.frameAt !== at || !frame.style.transform) {
+      this.frameAt = at
+      frame.style.transform = `scale(${scale})`
+      frame.style.height = `${at.split("|")[1]}px`
+    }
     /* Nothing scrolls the frame's own page (an autofocus in a section could): its top is the list's top. */
     const page = this.doc!.scrollingElement
     if (page && (page.scrollTop || page.scrollLeft)) page.scrollTo(0, 0)
-    let scale = 0
-    for (const [key, inner] of this.wrappers) {
+    /* The frame supplies the exact origin and scale, including the dialog's
+       entrance transform and browser zoom. Never reconstruct them from an
+       integer offsetWidth. */
+    const surface = frame.getBoundingClientRect()
+    const paintedScale = surface.width / this.renderWidth
+    if (!(paintedScale > 0)) return
+    let reshown = false
+    for (const { key, inner, box, st, rect: r } of targets) {
       const w = frameOf(inner)
-      const card = this.cards.get(key)
-      const box = card?.box
-      const st = this.stateOf(key)
-      if (!box || !box.isConnected || st.state === "named") {
+      if (!box || !r || !(r.width > 0) || !(r.height > 0)) {
         w.hidden = true
         continue
       }
-      const r = box.getBoundingClientRect()
-      /* The box as laid out, unrounded (clientWidth and clientHeight are whole pixels): the section is scaled to exactly its card. */
-      const s = r.width / zoom / this.renderWidth
-      /* Not laid out (a hidden category), or nowhere to be put: put away, never left where its card was. */
-      if ((r.width === 0 && r.height === 0) || !(s > 0)) {
-        w.hidden = true
-        continue
+      /* Shown again after being put away: what changed meanwhile (a picture, a font) is laid out and read once (queueRefresh). */
+      if (w.hidden) {
+        this.stale.add(key)
+        reshown = true
       }
-      scale = s
       w.hidden = false
       /* Written only when it moved: the same values again would still ask the frame to look. */
       /*
@@ -1079,11 +1505,11 @@ class PreviewSheet {
         floor, the section sits in the middle of it, as the library's own
         cards do; otherwise at the top.
       */
-      const cardH = r.height / zoom / s
+      const cardH = r.height / paintedScale
       const natural = st.height ?? cardH
-      const pad = natural * s < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
+      const pad = natural * scale < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
       /* To a hundredth of the frame's pixel: what a running transform adds in float noise is not a move, and is not written. */
-      const pos = `${hundredths((r.top - g.top) / zoom / s)}|${hundredths((r.left - g.left) / zoom / s)}|${hundredths(cardH)}|${hundredths(CARD_RADIUS / s)}|${hundredths(pad)}`
+      const pos = `${hundredths((r.top - surface.top) / paintedScale)}|${hundredths((r.left - surface.left) / paintedScale)}|${hundredths(cardH)}|${hundredths(CARD_RADIUS / scale)}|${hundredths(pad)}`
       if (placedAt.get(w) !== pos) {
         placedAt.set(w, pos)
         const [top, left, height, radius, padding] = pos.split("|")
@@ -1102,19 +1528,39 @@ class PreviewSheet {
         this.setState(key, { state: "shown" })
       }
     }
-    if (!scale) {
-      const first = [...this.cards.values()].find((c) => c.box.isConnected && c.box.clientWidth > 0)
-      scale = first ? first.box.clientWidth / this.renderWidth : 0
+    if (reshown) this.queueRefresh()
+  }
+
+  /**
+   * ===========================================================================
+   *  A CARD SAID SHOWN IS LOOKED AT, NOT ONLY MEASURED
+   * ===========================================================================
+   * After #392 every card was measured, sized and marked shown while the
+   * body of the cards' document, 0px tall and `overflow: hidden`, cut all
+   * of them away: empty grey boxes, and nothing anywhere said so. A card
+   * shown on screen is checked a moment later in the cards' document
+   * itself: the browser's own hit test at a few points of its box (which
+   * honours every clip, opacity and visibility above it) must reach the
+   * card. If it does not, the card is put over its box again once; if it
+   * still cannot be reached, the error log is told what cut it.
+   */
+  private reportedUnseen = false
+  private verify(key: string, retried: boolean) {
+    const inner = this.wrappers.get(key)
+    if (!inner?.isConnected || !this.doc || !this.open || !this.onScreen.has(key)) return
+    const box = frameOf(inner)
+    if (box.hidden || !box.hasAttribute("data-on")) return
+    const why = unseenBecause(box)
+    if (!why) return
+    if (!retried) {
+      placedAt.delete(box)
+      this.sync()
+      requestAnimationFrame(() => this.verify(key, true))
+      return
     }
-    if (scale > 0) {
-      /* As tall as the list, unrounded, so the last card's section is never cut at the frame's foot. Written when it changed. */
-      const at = `${scale}|${Math.ceil(g.height / zoom / scale)}`
-      if (this.frameAt !== at || !frame.style.transform) {
-        this.frameAt = at
-        frame.style.transform = `scale(${scale})`
-        frame.style.height = `${at.split("|")[1]}px`
-      }
-    }
+    if (this.reportedUnseen) return
+    this.reportedUnseen = true
+    reportLoadProblem("section-preview", `a card marked shown cannot be seen in the cards' page (${why}): ${key}`)
   }
 
   /** Shown once its pictures are decoded and any stylesheet it still links has come: faded in if somebody is looking, simply there otherwise. */
@@ -1122,19 +1568,24 @@ class PreviewSheet {
     const w = frameOf(inner)
     const imgs = Array.from(inner.querySelectorAll("img")).filter((i) => !i.complete || i.naturalWidth > 0).slice(0, 12)
     const links = Array.from(inner.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]")).filter((l) => !l.sheet)
-    const show = () => {
+    const show = (again = false) => {
       if (!w.isConnected) return
       const view = box.closest("[data-library-scroll]")?.getBoundingClientRect()
       const r = box.getBoundingClientRect()
-      const seen = this.open && !!view && r.bottom > view.top && r.top < view.bottom
+      const seen = !again && this.open && !!view && r.bottom > view.top && r.top < view.bottom
       if (seen) w.removeAttribute("data-instant")
       else w.setAttribute("data-instant", "")
       w.setAttribute("data-on", "")
       /* Said on the section's own <main> as well, for what reads a drawn card (scripts/check-preview-reliability.ts). */
       inner.setAttribute("data-on", "")
       this.setState(key, { state: "shown" })
+      window.setTimeout(() => this.verify(key, false), VERIFY_AFTER_MS)
     }
     if (!imgs.length && !links.length) return show()
+    if (this.instant.delete(key)) {
+      w.setAttribute("data-instant", "")
+      return show(true)
+    }
     let done = false
     const once = () => {
       if (done) return
@@ -1206,37 +1657,48 @@ function retarget(rules: CSSRuleList, scope: string, scoped: boolean) {
 
 /** Each of the section's own <style>s, kept to its wrapper. Exported for its test. */
 export function keepStylesInside(w: HTMLElement, key: string) {
-  const win = w.ownerDocument.defaultView as (Window & { CSSScopeRule?: unknown; CSS?: { escape?: (s: string) => string } }) | null
+  const win = w.ownerDocument.defaultView as (Window & { CSS?: { escape?: (s: string) => string } }) | null
   const esc = win?.CSS?.escape ? win.CSS.escape(key) : key.replace(/["\\]/g, "\\$&")
-  const scope = `[data-sl-pv="${esc}"]`
-  const scoped = !!win?.CSSScopeRule
   /*
     Not the theme's own stylesheets a section links (carried in as <style
-    data-sheet-from>, lib/storelib-theme/compat/preview-styles.ts): they are
-    the theme's, the same in every card and on every page, and parsing tens
-    of kilobytes of them again for each card is what would make the library
-    slow to fill.
+    data-sheet-from>, lib/storelib-theme/compat/preview-styles.ts): those are
+    taken out of the section and put in the head once each, kept to the
+    cards that link them (PreviewSheet.hoistSheets).
   */
-  for (const el of Array.from(w.querySelectorAll("style:not([data-sheet-from])"))) {
-    const sheet = (el as HTMLStyleElement).sheet
-    if (!sheet) continue
-    try {
-      retarget(sheet.cssRules, scope, scoped)
-      if (!scoped) continue
-      /* At-rules a scope cannot hold stay outside it; everything else goes in. */
-      const outside: string[] = []
-      const inside: string[] = []
-      for (const rule of Array.from(sheet.cssRules)) {
-        if (/^@(?:import|namespace|font-face|keyframes|-webkit-keyframes|property|page|counter-style|font-feature-values|layer\s+[^{]*;)/i.test(rule.cssText)) outside.push(rule.cssText)
-        else inside.push(rule.cssText)
-      }
-      if (!inside.length) continue
-      el.textContent = `${outside.join("\n")}\n@scope (${scope}) {\n${inside.join("\n")}\n}`
-    } catch {
-      /* A sheet that cannot be read stays as it was. */
+  for (const el of Array.from(w.querySelectorAll<HTMLStyleElement>("style:not([data-sheet-from])"))) keepStyleTo(el, `[data-sl-pv="${esc}"]`)
+}
+
+/** One <style>'s rules made to reach only what is inside `scope`: in an @scope where there is one, under the selector otherwise. */
+function keepStyleTo(el: HTMLStyleElement, scope: string) {
+  const win = el.ownerDocument.defaultView as (Window & { CSSScopeRule?: unknown }) | null
+  const scoped = !!win?.CSSScopeRule
+  const sheet = el.sheet
+  if (!sheet) return
+  try {
+    retarget(sheet.cssRules, scope, scoped)
+    if (!scoped) return
+    /* At-rules a scope cannot hold stay outside it; everything else goes in. */
+    const outside: string[] = []
+    const inside: string[] = []
+    for (const rule of Array.from(sheet.cssRules)) {
+      if (/^@(?:import|namespace|font-face|keyframes|-webkit-keyframes|property|page|counter-style|font-feature-values|layer\s+[^{]*;)/i.test(rule.cssText)) outside.push(rule.cssText)
+      else inside.push(rule.cssText)
     }
+    if (!inside.length) return
+    el.textContent = `${outside.join("\n")}\n@scope (${scope}) {\n${inside.join("\n")}\n}`
+  } catch {
+    /* A sheet that cannot be read stays as it was. */
   }
 }
+
+/** A short tag of a stylesheet's whole text: two linked copies are one only when every character is the same. */
+function sheetTag(text: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
+  return `${text.length}:${(h >>> 0).toString(36)}`
+}
+/** Unique across every sheet and document, so a document a newer sheet reuses never confuses one sheet's shared styles with another's. */
+let sharedSheetCount = 0
 
 /**
  * Whether a drawn section has anything to see: a picture or a field with a
@@ -1260,12 +1722,87 @@ function somethingToSee(root: HTMLElement): boolean {
   return false
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   WHAT A THEME SHOWS WITH A SCRIPT IS SHOWN
+  ═══════════════════════════════════════════════════════════════════════
+  A card runs no script, and its document has every animation off. A theme
+  that hides a piece until its script reveals it (Materia's
+  `<motion-element class="opacity-0">` with a failsafe animation that never
+  plays, a countdown's `[data-cd-reveal]:not(.is-revealed) { opacity: 0 }`,
+  a `.reveal` that waits for an IntersectionObserver) left that piece
+  invisible for good: a slideshow whose heading and text were there, sized,
+  and never seen. The preview's own rules (fullPreview) cover the usual
+  class names; this covers the rest. Only an element whose tag, class or
+  attribute names says it moves in, that is hidden, and that holds words or
+  a picture, is shown, inline and `!important`, as the script would have.
+*/
+const MOTION_NAME = /reveal|motion|aos|animat|scroll-trigger|opacity-0|wow|appear|in-?view|fade-?(?:in|up|down|left|right)|data-sal|lazy-?show/i
+function showRevealed(w: HTMLElement): void {
+  const v = w.ownerDocument.defaultView
+  if (!v) return
+  for (const el of Array.from(w.querySelectorAll<HTMLElement>("*"))) {
+    const names = `${el.localName} ${typeof el.className === "string" ? el.className : ""} ${el.getAttributeNames().join(" ")}`
+    if (!MOTION_NAME.test(names)) continue
+    const c = v.getComputedStyle(el)
+    const hidden = Number.parseFloat(c.opacity) < 0.05 || c.visibility === "hidden" || (c.clipPath !== "none" && /inset\(\s*(?:0[^)]*100%|100%)/.test(c.clipPath))
+    if (!hidden || (!(el.textContent ?? "").trim() && !el.querySelector("img, svg, picture, video"))) continue
+    el.style.setProperty("opacity", "1", "important")
+    el.style.setProperty("visibility", "visible", "important")
+    el.style.setProperty("clip-path", "none", "important")
+    el.style.setProperty("transform", "none", "important")
+    el.style.setProperty("translate", "none", "important")
+    el.style.setProperty("filter", "none", "important")
+  }
+}
+
+/** How long after a card is shown it is checked for being seen (PreviewSheet.verify): past its fade. */
+const VERIFY_AFTER_MS = 1200
+
+/**
+ * Why a card's box cannot be seen in its document, or null when it can: the
+ * browser's hit test at three points of it reaches the card (the cards'
+ * layer gives it pointer-events; the frame itself takes none). Exported for
+ * its test.
+ */
+export function unseenBecause(box: HTMLElement): string | null {
+  const doc = box.ownerDocument
+  const v = doc.defaultView
+  if (!v) return null
+  const own = v.getComputedStyle(box)
+  if (own.visibility !== "visible") return "card hidden"
+  if (Number.parseFloat(own.opacity) < 0.05) return "card transparent"
+  const r = box.getBoundingClientRect()
+  if (!(r.width > 0 && r.height > 0)) return "card has no size"
+  let tried = 0
+  for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8]]) {
+    const x = r.left + r.width * fx
+    const y = r.top + Math.min(r.height * fy, 400)
+    if (x < 0 || y < 0 || x >= v.innerWidth || y >= v.innerHeight) continue
+    tried++
+    if (doc.elementsFromPoint(x, y).some((e) => e === box || box.contains(e))) return null
+  }
+  if (!tried) return null
+  for (let e = box.parentElement; e; e = e.parentElement) {
+    const c = v.getComputedStyle(e)
+    const er = e.getBoundingClientRect()
+    if (Number.parseFloat(c.opacity) < 0.05 || c.visibility !== "visible") return `${e.localName} is not visible`
+    if (c.overflow !== "visible" && (er.bottom < r.bottom || er.right < r.left + 1)) return `${e.localName} cuts it: overflow ${c.overflow}, ${Math.round(er.height)}px tall`
+  }
+  return "covered"
+}
+
+/** When each of the frame's documents was first seen read but not loaded (PreviewSheet.attach, SHEET_WAIT_MS). */
+const parsedAt = new WeakMap<Document, number>()
+/** What a document showed when its sheet was given up: each shown section's markup, by card. */
+const shownBefore = new WeakMap<Document, Map<string, string>>()
+/** The last size the browser reported for a section's box or its <main> (PreviewSheet.onSizes). */
+const measuredSize = new WeakMap<Element, number>()
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
 const hundredths = (v: number) => Math.round(v * 100) / 100
-/** Which sheet a frame's document is filled by, and the srcdoc it was loaded from (PreviewSheet.attach). */
+/** Which sheet a frame's document is filled by (PreviewSheet.attach). */
 const docOwner = new WeakMap<Document, PreviewSheet>()
-const docSource = new WeakMap<Document, string>()
 /** A section's card box in the cards' document (sheetRules): its <main>'s parent. */
 const frameOf = (inner: HTMLElement): HTMLElement => (inner.parentElement && inner.parentElement.localName === CARD_TAG ? inner.parentElement : inner)
 
@@ -1297,18 +1834,34 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     sheet.sync()
     sheet.schedule()
   }, [sheet, open, layoutKey])
-  /* A sheet given up for a newer one (or the library gone) lets go of the frame's document (PreviewSheet.release). */
-  useEffect(() => {
+  /* Remove the previous sheet's pictures before paint, even when its srcDoc
+     is unchanged. Reattach here too for effect cleanup/setup replay. */
+  useLayoutEffect(() => {
     if (!sheet) return
+    if (frame.current) sheet.attach(frame.current)
     return () => sheet.release()
   }, [sheet])
   /*
+    NOT ONLY AT ITS LOAD EVENT. A document whose load never comes (a
+    stylesheet that does not answer) is looked at again a few times a second
+    until it is this sheet's, then taken as it is after SHEET_WAIT_MS
+    (attach). Nothing is looked at once the sheet has its document.
+  */
+  useEffect(() => {
+    if (!sheet) return
+    const t = window.setInterval(() => {
+      if (sheet.attached) return window.clearInterval(t)
+      if (frame.current) sheet.attach(frame.current)
+    }, 250)
+    return () => window.clearInterval(t)
+  }, [sheet])
+  /*
     ANYTHING THAT MOVES A CARD PUTS ITS SECTION OVER IT AGAIN. Every card,
-    its box, the list and the cards that come and go are watched by the
-    sheet itself (PreviewSheet.watch, watchGrid), with one observer let go
-    in release(). What is left here is the editor's own fonts landing: the
-    cards' names wrap again, which the observer sees; this is for one that
-    moves a card without resizing any.
+    its box, the list, and the cards that come, go, or are shown and hidden
+    are watched by the sheet itself (PreviewSheet.watch, watchGrid), with one
+    observer of sizes, let go in release(). What is left here is the
+    editor's own fonts landing: the cards' names wrap again, which the
+    observer sees; this is for one that moves a card without resizing any.
   */
   useEffect(() => {
     if (!sheet) return
@@ -1395,21 +1948,44 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     the section cut at its foot, rather than pushing every card under it
     down the list: a wrong remembered height can mis-size a card for a
     moment, never move the list.
+
+    EXCEPT ONCE ITS SECTION IS MEASURED. The owner: a picture cut in half
+    or a heading cut mid line is worse than the list under it moving down.
+    A card grows to its section as soon as the section is measured, whether
+    its height until then was remembered or a placeholder. Only a height
+    from memory never grows a card in sight, and nothing ever shrinks one.
+  */
+  /*
+    ONLY A HEIGHT THIS VISIT MEASURED IS HELD. A card still at its
+    placeholder (half its width: 324px on a 650px card) or at a height read
+    from this browser's memory was held there whenever its section measured
+    shorter while it was on screen, so the first cards of a fresh library
+    stayed big white boxes with a 50px button at their top until the
+    library was opened again (Quick Add to Cart, a scrolling announcement
+    bar on Materia; scripts/check-section-preview-pixels.mjs "over-tall").
+    Neither height was ever the section's: the first measurement replaces it
+    at once, smaller or larger. Only a card already showing its own measured
+    height keeps it while in sight when a later measurement is smaller.
   */
   const fromMemory = remembered !== null && !named
-  const [kept, setKept] = useState(() => ({ h: wanted, w: width, mem: fromMemory }))
+  const live = snap.height !== undefined || named
+  const [kept, setKept] = useState(() => ({ h: wanted, w: width, mem: fromMemory, live }))
   const height = kept.w === width ? kept.h : wanted
   useLayoutEffect(() => {
     if (kept.w !== width) {
-      setKept({ h: wanted, w: width, mem: fromMemory })
+      setKept({ h: wanted, w: width, mem: fromMemory, live })
       return
     }
+    /* A replacement sheet has not measured this section yet. Keep the
+       existing card instead of expanding it back to a placeholder, which
+       moved the list and then left that extra height held until reopening. */
+    if (!named && drawnHeight === null) return
     if (kept.h === wanted) {
-      if (kept.mem && !fromMemory) setKept({ h: wanted, w: width, mem: false })
+      if ((kept.mem && !fromMemory) || kept.live !== live) setKept({ h: wanted, w: width, mem: fromMemory, live })
       return
     }
-    const take = () => setKept({ h: wanted, w: width, mem: fromMemory })
-    if ((wanted > kept.h && !kept.mem) || !inSight(box.current)) {
+    const take = () => setKept({ h: wanted, w: width, mem: fromMemory, live })
+    if ((wanted > kept.h && (!kept.mem || !fromMemory)) || (wanted < kept.h && live && !kept.live) || !inSight(box.current)) {
       take()
       return
     }
@@ -1417,7 +1993,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     return () => {
       held.delete(take)
     }
-  }, [wanted, width, kept, fromMemory])
+  }, [wanted, width, kept, fromMemory, named, drawnHeight, live])
   /* Its section goes where the card now is, in the same frame. */
   useLayoutEffect(() => {
     sheet?.requestSync()

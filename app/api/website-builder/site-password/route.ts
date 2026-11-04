@@ -19,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanPassword, hashPassword, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/site-password/hash"
 import { publicAccess, readSiteAccess, saveSiteAccess } from "@/lib/site-password/store"
+import { refreshSiteSoon } from "@/lib/edge/snapshot-capture"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -72,5 +73,7 @@ export async function POST(req: Request) {
     if (saved.why === "unavailable") return json({ error: "Password protection is not set up on Storelib yet." }, 503)
     return json({ error: "That did not save. Try again." }, 500)
   }
+  /* The site's stored copies and its host records say whether it is open (lib/edge/snapshot-capture.ts): asked again, so a site just closed is never drawn for a stranger from them. */
+  refreshSiteSoon(who.creatorId)
   return json(publicAccess(saved.access))
 }

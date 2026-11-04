@@ -115,6 +115,68 @@ export function accountIsGone(error: unknown): boolean {
 
 /**
  * ===========================================================================
+ *  A PERMISSION ERROR IS ONLY "GONE" WHEN THE PLATFORM KEY ITSELF WORKS
+ * ===========================================================================
+ * accountIsGone() reads every StripePermissionError as "this account is from
+ * the old platform". A platform-wide problem gives the same error for every
+ * account: a rotated or restricted secret key without Connect permissions, or
+ * Stripe restricting the platform. Releasing on it would disconnect every
+ * creator whose page or checkout is touched, one by one, closing their shops.
+ *
+ * So before any automatic release on a PermissionError the platform is asked,
+ * bounded (5s, no retries), whether its own key works: its own account, and
+ * one connected account listed (which needs the Connect permissions). Only
+ * when both answer is the error about that one account. Otherwise nobody is
+ * disconnected and it is logged loudly. STRIPE_AUTO_RELEASE=off stops every
+ * automatic release on a PermissionError. A missing or invalid account
+ * (resource_missing, account_invalid, 404) is unchanged.
+ *
+ * The verdict is kept for a minute per server instance, so an outage costs
+ * two Stripe calls a minute, not two per request.
+ */
+const PLATFORM_CHECK_TTL_MS = 60_000
+const PLATFORM_CHECK_TIMEOUT_MS = 5_000
+let platformCheck: { at: number; ok: Promise<boolean> } | null = null
+
+export function resetPlatformKeyCheck(): void {
+  platformCheck = null
+}
+
+export async function platformKeyWorks(now = Date.now()): Promise<boolean> {
+  if (platformCheck && now - platformCheck.at < PLATFORM_CHECK_TTL_MS) return platformCheck.ok
+  const opts = { timeout: PLATFORM_CHECK_TIMEOUT_MS, maxNetworkRetries: 0 }
+  const ok = Promise.all([stripe.accounts.retrieveCurrent({}, opts), stripe.accounts.list({ limit: 1 }, opts)]).then(
+    () => true,
+    (error: unknown) => {
+      console.error("[stripe connect] PLATFORM KEY CHECK FAILED: no connected account is released automatically until it passes.", stripeErrorMessage(error).slice(0, 200))
+      return false
+    },
+  )
+  platformCheck = { at: now, ok }
+  return ok
+}
+
+/**
+ * accountIsGone(), safe to act on: true only when the account is missing, or
+ * refused with a PermissionError while the platform key itself is proven to
+ * work. Every automatic release goes through this.
+ */
+export async function accountGoneFromPlatform(error: unknown): Promise<boolean> {
+  if (!accountIsGone(error)) return false
+  if ((error as { type?: string } | null)?.type !== "StripePermissionError") return true
+  if ((process.env.STRIPE_AUTO_RELEASE ?? "").trim().toLowerCase() === "off") {
+    console.error("[stripe connect] PermissionError on a connected account; STRIPE_AUTO_RELEASE=off, so it is not released.")
+    return false
+  }
+  if (!(await platformKeyWorks())) {
+    console.error("[stripe connect] PermissionError on a connected account while the platform key check fails: treated as a platform problem, NOBODY is disconnected.")
+    return false
+  }
+  return true
+}
+
+/**
+ * ===========================================================================
  *  LETTING GO OF A CONNECTION WITHOUT LOSING WHAT IT WAS
  * ===========================================================================
  * Storelib moved to a new Stripe Connect platform. Every creator linked before
@@ -260,7 +322,7 @@ export async function ensureStripeAccount(
       if ((runsInStorelib(existing) && !recipient) || !untouched) return accountId
       replacing = accountId
     } catch (error) {
-      if (!accountIsGone(error)) {
+      if (!(await accountGoneFromPlatform(error))) {
         console.error("[stripe connect] account check", error instanceof Error ? error.message : error)
         throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
       }
@@ -457,7 +519,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
   /* `in`, not `!read.ok`: it narrows under the test build's looser settings too (scripts/run-push-tests.mjs). */
   if ("error" in read) {
     /* A blip is a blip: thrown, so nothing is cleared and the caller shows the last known state. */
-    if (!accountIsGone(read.error)) throw read.error
+    if (!(await accountGoneFromPlatform(read.error))) throw read.error
     /* Not reachable from the current platform: let go, so the creator can reconnect instead of being stuck. */
     await releaseConnectedAccount(creatorId, accountId, "legacy_platform")
     return {
@@ -672,7 +734,7 @@ export async function createStripeAccountSession(
     try {
       account = await stripe.accounts.retrieve(row.stripe_account_id)
     } catch (error) {
-      if (!accountIsGone(error)) {
+      if (!(await accountGoneFromPlatform(error))) {
         console.error("[stripe connect] session account check", stripeErrorMessage(error).slice(0, 160))
         throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
       }
@@ -782,7 +844,11 @@ export async function upsertRepresentative(
 ): Promise<Stripe.Person> {
   const found = await representativeOf(accountId)
   const params = { ...person, relationship: { representative: true, executive: true, ...relationship } }
-  return found ? stripe.accounts.updatePerson(accountId, found.id, params) : stripe.accounts.createPerson(accountId, params as Stripe.AccountCreatePersonParams)
+  if (found) return stripe.accounts.updatePerson(accountId, found.id, params)
+  /* A retried save adds one representative, not two (10 minutes). */
+  return stripe.accounts.createPerson(accountId, params as Stripe.AccountCreatePersonParams, {
+    idempotencyKey: stripeIdempotencyKey("connect-representative", [accountId], params, { windowMs: 10 * 60_000 }),
+  })
 }
 
 export async function representativeOf(accountId: string): Promise<Stripe.Person | null> {
@@ -853,7 +919,7 @@ export async function disconnectStripeAccount(creatorId: string, options: { conf
   try {
     account = await stripe.accounts.retrieve(accountId)
   } catch (error) {
-    if (accountIsGone(error)) {
+    if (await accountGoneFromPlatform(error)) {
       await releaseConnectedAccount(creatorId, accountId, "legacy_platform")
       return
     }

@@ -297,7 +297,7 @@ function main() {
     check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
       /* The shared sheet says it is up on <html> (data-app-sheet-up), and the rule for other dialogs leaves its root out:
          a :has() on the root that changes its answer restyled the whole document (scripts/check-app-sheets-frames.mjs). */
-      /html\[data-app-sheet-up\] \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+      /html\[data-app-sheet-up\] \[data-app-nav-pill\],\s*\n\s*html\[data-modal-open\] \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
         /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close,
            and `a, button` every link and button in it (scripts/check-app-sheets-frames.mjs), so it is the pill's
            `pointer-events-auto` parts alone, which the links and buttons inside them inherit from. */

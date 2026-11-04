@@ -433,11 +433,13 @@ console.log("\nAdd report at the bottom, Export in the period's row")
 {
   const client = read("app/app/analytics/analytics-client.tsx")
   const head = client.slice(client.indexOf("data-analytics-head"), client.indexOf("data-analytics-controls"))
-  check("no Add report and no Export in the heading row: the heading alone", !/marker="add-report"/.test(client) && !/AddReportButton|ExportButton/.test(head))
+  /* Changed on purpose (round 49, the owner: Export "on the same line as the Analytics heading ... icon only"): the heading's line holds Send to and Export at its right, still no Add report. */
+  check("no Add report in the heading row; Export and Send to at its right", !/marker="add-report"/.test(client) && !/AddReportButton/.test(head) && /<SendAnalyticsButton \/>\s*<ExportButton query=\{exportQuery\} name=\{exportName\} options=\{exportOptions\} range=\{exportRange\} \/>/.test(head))
   check("Add report under the last card, on every width", /<AddReportButton marker="add-more" label=\{tt\("Add report"\)\}/.test(client) && client.indexOf('marker="add-more"') > client.indexOf("<AnalyticsReports"))
   /* Changed on purpose (round AC2, "positioned somewhere else, without creating multiple rows"): the last control of the period's row, outside the strip that scrolls, so it never scrolls off a phone. */
   const controls = client.slice(client.indexOf("data-analytics-controls"), client.indexOf("{/* The four figures and the chart"))
-  check("Export is the last control in the period's row, outside the strip that scrolls sideways", /<ExportButton query=\{exportQuery\} name=\{exportName\} options=\{exportOptions\} range=\{exportRange\} \/>/.test(controls) && controls.indexOf("<ExportButton") > controls.indexOf("data-analytics-pickers") && /* Changed on purpose (round 43): another control may sit between the strip and Export (the analytics integrations' Send to), Export still last. */ /<ExportButton[^>]*\/>\s*<\/div>/.test(controls))
+  /* Changed on purpose (round 49): the period's row is filters only; Export moved to the heading's line (tests/analytics-r49.test.ts). */
+  check("the period's row holds the filters only, no Export and no Send to", !/<ExportButton|<SendAnalyticsButton/.test(controls) && /data-analytics-pickers/.test(controls))
   const route = read("app/api/analytics/export/route.ts")
   check("the export is the owner's: area analytics through lib/team, a member working in another store refused", /creatorFor<[^>]+>\(admin, userId, "analytics"/.test(route) && /found\.acting/.test(route) && /q\.creatorId !== who\.creatorId/.test(route))
   check("the phone app gets a link signed for this one file, five minutes", /signOrderLink\(\{ k: "analytics"/.test(route) && /link\.k !== "analytics"/.test(route))

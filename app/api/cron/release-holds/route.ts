@@ -2,10 +2,19 @@ import { ledgerCurrency } from "@/lib/payments/ledger-currency"
 import { formatMinor } from "@/lib/markets/money"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { notifyPayoutAvailable } from "@/lib/push/notifications"
+import { pushPayoutsAvailable, type PayoutPush } from "@/lib/payments/payout-push"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { releaseDueHolds } from "@/lib/payments/ledger"
 import { recordCronRun } from "@/lib/observability/report"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+/*
+  Said here, not left to the platform's default (r48-obs): recordCronRun's
+  one-run-at-a-time lease is this long plus 30s, so a run the platform ends
+  early never holds the job longer than one run could take.
+*/
+export const maxDuration = 300
 
 /**
  * GET /api/cron/release-holds
@@ -41,13 +50,11 @@ async function runJob(request: Request) {
        code below it is the path before part 64. */
     const done = await releaseDueHolds(adminSupabase)
     if (done) {
-      for (const r of done) {
-        if (Number(r.to_available) > 0) {
-          notifyPayoutAvailable(r.creator_id, Number(r.to_available)).catch((err) =>
-            console.error(`[Release Holds] Push notification failed for ${r.creator_id}:`, err),
-          )
-        }
-      }
+      /* To each seller's user id (not the creator id), awaited inside the run (lib/payments/payout-push.ts). */
+      await pushPayoutsAvailable(
+        adminSupabase,
+        done.map((r) => ({ creatorId: r.creator_id, cents: Number(r.to_available) })),
+      )
       const total = done.reduce((n, r) => n + Number(r.released || 0), 0)
       const events = done.reduce((n, r) => n + Number(r.events || 0), 0)
       console.log(`[Release Holds] Released ${total} cents for ${done.length} creators (${events} events)`)
@@ -102,6 +109,7 @@ async function runJob(request: Request) {
 
     let totalReleased = 0
     let creatorsProcessed = 0
+    const pushes: PayoutPush[] = []
 
     for (const [creatorId, { total: releaseAmount, eventIds }] of byCreator) {
       try {
@@ -156,12 +164,8 @@ async function runJob(request: Request) {
           .update({ released_at: now.toISOString() })
           .in("id", eventIds)
 
-        // Notify seller that funds are available for cashout (fire-and-forget)
-        if (toAvailable > 0) {
-          notifyPayoutAvailable(creatorId, toAvailable).catch((err) =>
-            console.error(`[Release Holds] Push notification failed for ${creatorId}:`, err),
-          )
-        }
+        // Notify seller that funds are available for cashout (sent after the loop, awaited)
+        if (toAvailable > 0) pushes.push({ creatorId, cents: toAvailable })
 
         totalReleased += releaseAmount
         creatorsProcessed++
@@ -169,6 +173,8 @@ async function runJob(request: Request) {
         console.error(`[Release Holds] Error for creator ${creatorId}:`, err)
       }
     }
+
+    await pushPayoutsAvailable(adminSupabase, pushes)
 
     console.log(
       `[Release Holds] Released ${totalReleased} cents for ${creatorsProcessed} creators (${releasable.length} events)`,
@@ -190,5 +196,5 @@ async function runJob(request: Request) {
 
 /* Every run written down, and a failure reported (lib/observability/report, run-now part 68). */
 export async function GET(request: Request) {
-  return recordCronRun("/api/cron/release-holds", request, () => runJob(request))
+  return recordCronRun("/api/cron/release-holds", request, () => runJob(request), { maxDurationS: maxDuration })
 }

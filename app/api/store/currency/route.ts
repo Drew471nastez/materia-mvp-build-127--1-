@@ -1,6 +1,7 @@
 import { marketplaceUsdFor } from "@/lib/money/marketplace-server"
 import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { recordActivity } from "@/lib/activity/log-server"
 import { countryCode } from "@/lib/checkout/countries"
@@ -353,6 +354,8 @@ async function refreshPages(db: Db, creatorId: string) {
   } catch {
     /* Each product page is held a minute at most (PRODUCT_CACHE_TTL). */
   }
+  /* The creator page and its product pages, which the CDN holds for everybody (round 49). */
+  await creatorPagesChanged({ creatorId })
   try {
     await revalidatePublishedSite(creatorId)
   } catch {

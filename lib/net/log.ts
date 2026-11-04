@@ -39,10 +39,47 @@ export async function currentRequestId(): Promise<string | null> {
   }
 }
 
-export function logLine(evt: string, fields: Record<string, string | number | boolean | null | undefined>): string {
-  const out: Record<string, string | number | boolean | null> = { evt }
-  for (const [k, v] of Object.entries(fields)) out[k] = typeof v === "string" ? sanitizeForLog(v) : v ?? null
+/** A value fit for a log line: a primitive, or (at most three deep) an object of them, such as a job's counts. */
+export type LogValue = string | number | boolean | null | undefined | { [k: string]: LogValue }
+
+function cleanValue(v: LogValue, depth: number): string | number | boolean | null | Record<string, unknown> {
+  if (typeof v === "string") return sanitizeForLog(v)
+  if (v === null || v === undefined) return null
+  if (typeof v === "object") {
+    if (depth >= 3) return null
+    const out: Record<string, unknown> = {}
+    for (const [k, x] of Object.entries(v)) out[k] = cleanValue(x, depth + 1)
+    return out
+  }
+  return v
+}
+
+export function logLine(evt: string, fields: Record<string, LogValue>): string {
+  const out: Record<string, unknown> = { evt }
+  for (const [k, v] of Object.entries(fields)) out[k] = cleanValue(v, 0)
   return JSON.stringify(out)
+}
+
+export type LogLevel = "info" | "warn" | "error"
+
+/**
+ * One JSON line at its real level: `info` for what happened as expected (a
+ * job's summary, a model list that changed), `warn` for a fallback that still
+ * served the person (a last good copy, a rate limit that could not count),
+ * `error` for a failure someone has to look at. Vercel's log filters by level,
+ * so an informational line at error level hides the real errors.
+ * Pass `rid` (requestIdFrom(request.headers)) when there is a request.
+ * Never throws.
+ */
+export function logEvent(level: LogLevel, evt: string, fields: Record<string, LogValue> = {}): void {
+  try {
+    const line = logLine(evt, fields)
+    if (level === "info") console.info(line)
+    else if (level === "warn") console.warn(line)
+    else console.error(line)
+  } catch {
+    /* logging is never what fails a request */
+  }
 }
 
 /** Logs a ServiceUnavailable as one line. Fire and forget: logging is never what fails a request. */

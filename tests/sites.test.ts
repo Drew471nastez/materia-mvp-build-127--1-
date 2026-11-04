@@ -2108,7 +2108,8 @@ check(
     return (
       agentLimit !== -1 && agentRun !== -1 && agentLimit < agentRun &&
       publishLimit !== -1 && publishRun !== -1 && publishLimit < publishRun &&
-      /status: 429/.test(agent) && /status: 429/.test(publish)
+      /* Changed on purpose (round rel-sites): over the limit is still 429 (limitStatus), and a count that could not be read is a 503 Try again. */
+      /status: limitStatus\(limited\)/.test(agent) && /: 429 \| 503/.test(read("lib/sites/rate-limit.ts")) && /status: 429/.test(publish)
     )
   })(),
 )
@@ -2364,7 +2365,8 @@ check(
   (() => {
     const proxy = strip(read("proxy.ts"))
     const at = proxy.indexOf("bareHost === `www.${MAIN_DOMAIN}`")
-    return at > -1 && /status: 301/.test(proxy.slice(at, at + 400))
+    /* Changed on purpose (round 45 leftovers): a 308 (lib/seo/one-hop.ts wwwHop), so a POST stays a POST. */
+    return at > -1 && /wwwHop\(pathname, search, MAIN_DOMAIN\)/.test(proxy.slice(at, at + 400)) && /status: 308/.test(read("lib/seo/one-hop.ts"))
   })(),
 )
 
