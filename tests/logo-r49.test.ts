@@ -94,7 +94,7 @@ console.log("\n3. Buyer pages\n")
   check("  no shadow, no ring, never cropped", !/shadow|ring-|object-cover/.test(comp.replace(/\/\*[\s\S]*?\*\//g, "")))
   check("  a wordmark wider than its box is drawn at its own height, so its own corners are the rounded ones", /height: "auto", maxHeight: height/.test(comp) && /naturalWidth \/ img\.naturalHeight/.test(comp))
   const pages: [string, string, RegExp][] = [
-    ["the checkout's shop bar (cart, physical, site checkout, thanks, tracking, preview)", "app/checkout/parts/shop-bar.tsx", /<StoreLogo src=\{brand\.imageUrl\}/],
+    ["the checkout's shop bar (cart, physical, site checkout, thanks, tracking, preview)", "app/checkout/parts/shop-bar.tsx", /* Changed on purpose (r51): the logo is read into `logo` first (Top of checkout chooses what shows). */ /const logo = brand\.kind === "logo" && brand\.imageUrl \? brand\.imageUrl : null[\s\S]*<StoreLogo src=\{logo\}/],
     ["the order status page", "app/checkout/physical/order/[token]/order-status-view.tsx", /<StoreLogo src=\{shop\.avatar\}/],
     ["the order help page", "app/order-help/[id]/case-view.tsx", /<StoreLogo src=\{store\.logoUrl\}/],
     ["the receipt", "app/receipt/[token]/receipt-view.tsx", /kind === "logo" && avatarUrl[\s\S]{0,80}<StoreLogo src=\{avatarUrl\}/],
