@@ -105,6 +105,24 @@ body.is-leaving .page-loading-overlay { animation: plo .4s forwards; }
   return { settings: t.settings, pages, sources, files, all: t.files }
 }
 
+/**
+ * A SECTION FILE WITH `html` ADDED AT THE END OF ITS MARKUP, as a push writes
+ * one. On its own line before the line that closes the template: a closing
+ * tag counts only when it starts a line (lib/storelib-theme/storelib/parse.ts),
+ * so `<i></i></template>` on one line is a file whose template never closes.
+ * The editor cannot read its schema and leaves the section out of Add a
+ * section, and the files route refuses it (compatFileErrors), so no push
+ * ever lands one (scripts/check-library-push-cards.mjs).
+ */
+export function withMarkup(source, html) {
+  const lines = source.split("\n")
+  const open = lines.findIndex((l) => /^\s*<template(\s[^>]*)?>\s*$/.test(l))
+  const close = open < 0 ? -1 : lines.findIndex((l, i) => i > open && /^\s*<\/template>\s*$/.test(l))
+  if (close < 0) throw new Error("withMarkup: no line closes the template")
+  lines.splice(close, 0, html)
+  return lines.join("\n")
+}
+
 const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000" + "1f15c4890000000d49444154789c636060606000000005000146a53e1a0000000049454e44ae426082", "hex")
 
 

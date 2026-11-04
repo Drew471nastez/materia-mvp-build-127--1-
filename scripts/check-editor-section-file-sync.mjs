@@ -18,7 +18,7 @@ import assert from "node:assert/strict"
 
 process.env.PROBE_CSS = process.env.PROBE_CSS ?? "source"
 const { bundle, css } = await import("./editor-probe-harness.mjs")
-const { importedTheme, openEditor, sleep } = await import("./canvas-probe-kit.mjs")
+const { importedTheme, openEditor, sleep, withMarkup } = await import("./canvas-probe-kit.mjs")
 const compat = process.env.BIG_THEME_ZIP ? await (await import("./big-theme-kit.mjs")).bigImportedTheme() : await importedTheme({ store: true })
 const GLOBALS = `window.PROBE_ACTIVITY={events:[{id:1000,agent_name:"Claude Code",path:"pages/home",action:"page",detail:{page:"home",ops:[]},created_at:"2026-10-01T00:00:00.000Z"}],syncAt:null};window.PROBE_CONNECTIONS={agents:[{name:"Claude Code",kind:"claude"}],github:null,latest:null};`
 
@@ -49,7 +49,7 @@ let after
 try {
   await ed.js(() => { const P = (window.__docs = { n: 0 }); new MutationObserver((l) => { for (const r of l) for (const n of r.addedNodes) if (n.tagName === "IFRAME") n.addEventListener("load", () => P.n++) }).observe(document, { childList: true, subtree: true }) })
   for (const [k, p] of targets.entries()) {
-    const text = compat.sources[p].replace("</template>", `<p data-saved="s${k}">saved ${k}</p></template>`)
+    const text = withMarkup(compat.sources[p], `<p data-saved="s${k}">saved ${k}</p>`)
     compat.sources[p] = text
     compat.all[p] = text
     await ed.page.evaluate((path, t) => {
@@ -77,7 +77,7 @@ try {
     compat.all[cssPath] = cssText
     const rows = [{ path: cssPath, files: { [cssPath]: cssText } }]
     for (const [j, p] of more.entries()) {
-      const text = compat.sources[p].replace("</template>", `<p data-saved="b${j}">behind ${j}</p></template>`)
+      const text = withMarkup(compat.sources[p], `<p data-saved="b${j}">behind ${j}</p>`)
       compat.sources[p] = text
       compat.all[p] = text
       rows.push({ path: p, sources: { [p]: text } })

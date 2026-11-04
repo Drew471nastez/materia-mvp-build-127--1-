@@ -69,7 +69,7 @@ import sharp from "sharp"
 
 process.env.PROBE_CSS = process.env.PROBE_CSS ?? "source"
 const { bundle, css } = await import("./editor-probe-harness.mjs")
-const { importedTheme, openEditor, sleep } = await import("./canvas-probe-kit.mjs")
+const { importedTheme, openEditor, sleep, withMarkup } = await import("./canvas-probe-kit.mjs")
 
 const WIDTHS = (process.env.WIDTHS ?? "desktop,phone").split(",")
 const SHOTS = process.env.SHOTS ?? ""
@@ -373,7 +373,7 @@ async function run(shell) {
       await both(`${label}, then All, scrolled`)
     }
     const stamp = Date.now().toString(36)
-    const sections = Object.fromEntries(SECTION_PATHS.slice(0, 3).map((p) => [p, compat.sources[p].replace("</template>", `<i data-push="${stamp}"></i></template>`)]))
+    const sections = Object.fromEntries(SECTION_PATHS.slice(0, 3).map((p) => [p, withMarkup(compat.sources[p], `<i data-push="${stamp}"></i>`)]))
     await push("push of section files", { sources: sections, files: {} }, Object.keys(sections).map((path) => ({ agent_name: "GitHub · ada", path, action: "updated" })))
     if (CSS_PATH) {
       const files = { [CSS_PATH]: `${compat.files[CSS_PATH]}\n:root{--push-${stamp}:1}` }

@@ -1023,6 +1023,8 @@ const SUITES = [
   "tests/wb-stability-r13.test.ts",
   /* A push from GitHub or a coding agent redraws the sections it changed, and an imported theme's page once, instead of reloading the editor on every poll. */
   "tests/editor-incoming-push.test.ts",
+  /* A section a push changed keeps its card in Add a section, imported theme; the probes push files the server would keep (scripts/check-library-push-cards.mjs). */
+  "tests/library-push-cards.test.ts",
   /* The canvas scroll moves its chrome from the scroll offset, and a push waits until the gesture rests. */
   "tests/editor-scroll-rest.test.ts",
   /* Round 44: the canvas wheel holds hover (lib/website-builder/wheel-hold.ts) and its thumb moves by transform; scripts/check-editor-perf.mjs PART=scroll,smooth measures the canvas, the sidebar, a section switch and a push stream under a moving canvas. */
