@@ -48,15 +48,15 @@ async function headCount(q: PromiseLike<{ count: number | null; error: { code?: 
 }
 
 /** The product ids that sell this community: the same set its Overview and Analytics read (./membership-money). */
-async function sellingProducts(db: Db, communityId: string): Promise<{ recurring: string[]; all: string[] }> {
+async function sellingProducts(db: Db, communityId: string): Promise<{ recurring: string[]; all: string[]; owner: string | null }> {
   const p = await communitySellingProducts(db, communityId)
-  return { recurring: p.recurring, all: p.all }
+  return { recurring: p.recurring, all: p.all, owner: p.owner }
 }
 
 /* Round 41: MRR by the one rule (../membership-money.ts): a free trial was counted as paying here, and nowhere else. */
-async function mrrOf(db: Db, productIds: string[], creatorId: string | null): Promise<{ cents: number; currency: string; active: number }> {
+async function mrrOf(db: Db, productIds: string[], creatorId: string | null, owner: string | null): Promise<{ cents: number; currency: string; active: number }> {
   /* Round 43: in the currency the community's Analytics reports in, converted the same way (./membership-money mrrOfRows). */
-  const m = await mrrOfRows(db, (await membershipsOf(db, productIds, { open: true })) ?? [], Date.now(), creatorId)
+  const m = await mrrOfRows(db, (await membershipsOf(db, productIds, { open: true, owner })) ?? [], Date.now(), creatorId)
   return { cents: m.cents, currency: m.currency, active: m.paying }
 }
 
@@ -105,7 +105,7 @@ async function revenueStats(db: Db, communityId: string, since: string): Promise
   const recurring = products.recurring
   const subs = () => db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring)
   const [mrr, started, cancelled, why, refunds] = await Promise.all([
-    recurring.length ? storeOf(db, communityId).then((store) => mrrOf(db, recurring, store)) : Promise.resolve({ cents: 0, currency: "usd", active: 0 }),
+    recurring.length ? storeOf(db, communityId).then((store) => mrrOf(db, recurring, store, products.owner)) : Promise.resolve({ cents: 0, currency: "usd", active: 0 }),
     recurring.length ? headCount(subs().gte("created_at", since).neq("status", "incomplete")) : Promise.resolve(0),
     recurring.length ? headCount(subs().gte("canceled_at", since)) : Promise.resolve(0),
     cancellationsWithReasons(db, communityId, { since, limit: 5 }).catch(() => null),

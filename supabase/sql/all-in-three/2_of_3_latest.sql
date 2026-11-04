@@ -4332,5 +4332,10 @@ VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['applicati
 ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('356', '356_public_snapshots.sql', '7ac641a31e8cb0e76929c8fbee2317f22c5fc3c969abd8f8c46cf5fbf1bc3dbb') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 363_membership_livemode.sql
+/* Memberships made with Stripe's test keys (round 51, lib/memberships/sync.ts, lib/communities/membership-money.ts payingAt). One new column, memberships.livemode (boolean, empty by default): the membership sync writes false on a subscription Stripe says is in test mode, and the community MRR, paying members and the Analytics money then leave that row out. Empty means a live subscription, as every row was read before. Nothing else changes: no row is rewritten, no rule or policy. Until it runs, memberships read and sync as before. Needs part 75 (memberships); skips itself with a notice without it. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.memberships') IS NULL THEN RAISE NOTICE 'memberships.livemode skipped: public.memberships does not exist here (part 75)'; RETURN; END IF; ALTER TABLE public.memberships ADD COLUMN IF NOT EXISTS livemode boolean; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('363', '363_membership_livemode.sql', '8a09a2f61d5284b703738fae2a4fc718a8afb2fe92200ef5f23e6bdf57139bce') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

@@ -72,7 +72,7 @@ import "server-only"
  */
 import { bucketStarts, bucketIndex, type Grain, type Span } from "@/lib/analytics/buckets"
 import { monthlyOf, payingAt, paymentNet } from "../membership-money"
-import { communityMoneyCurrency, communitySellingProducts, membershipLevels } from "./membership-money"
+import { communityMoneyCurrency, communitySellingProducts, membershipLevels, membershipsOf } from "./membership-money"
 import { lineMoney } from "@/lib/analytics/reports"
 import { loadGaStatus, loadTracking } from "@/lib/store/tracking-server"
 import { MEMBER_SOURCES } from "../types"
@@ -517,7 +517,7 @@ function trafficRows(cur: Record<TrafficDimension, Counts>, prev: Record<Traffic
 
 /* ── Money ───────────────────────────────────────────────────────────── */
 
-type MembershipRow = { id: string; buyer_id: string | null; product_id?: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null }
+type MembershipRow = { id: string; buyer_id: string | null; product_id?: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null; livemode?: boolean | null; refunded?: ReadonlyArray<readonly [string, string]> }
 
 async function pages<T extends { id: string | number }>(ask: (after: string | number | null) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>, what: string): Promise<T[] | null> {
   const out: T[] = []
@@ -598,6 +598,8 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
   /* Levels at the end of each bucket (now, for one still running); flows in the bucket they happened in. */
   const ends = starts.map((s, i) => Math.min(i + 1 < n ? starts[i + 1] : span.end, span.end) - 1)
   for (const m of members) {
+    /* A subscription made with Stripe's test keys is no member who paid, joined or left (round 51). */
+    if (m.livemode === false) continue
     for (let i = 0; i < n; i++) {
       if (payingAt(m, ends[i])) {
         w.subscribers[i] += 1
@@ -633,13 +635,8 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
   const from = iso(Math.min(cur.span.start, prev?.span.start ?? cur.span.start))
   const to = iso(cur.span.end)
   const [members, orders, programs, tickets, refunds, why] = await Promise.all([
-    products.recurring.length
-      ? pages<MembershipRow>((after) => {
-          let q = db.from("memberships").select("id, buyer_id, product_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end").in("product_id", products.recurring)
-          if (after !== null) q = q.gt("id", after)
-          return q.order("id", { ascending: true }).limit(PAGE)
-        }, "memberships")
-      : Promise.resolve([] as MembershipRow[]),
+    /* Round 51: the same read the community list and Overview take MRR from (./membership-money membershipsOf), so test-mode rows, refunded periods and the owner's own plan are left out here too. */
+    products.recurring.length ? (membershipsOf(db, products.recurring, { owner: products.owner }) as Promise<MembershipRow[] | null>) : Promise.resolve([] as MembershipRow[]),
     products.all.length
       ? pages<{ id: string; created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; currency: string | null; product_id?: string | null }>((after) => {
           let q = db.from("orders").select("id, product_id, created_at, amount_cents, refund_amount_cents, status, currency").in("product_id", products.all).in("status", ["completed", "refunded"]).gte("created_at", from).lt("created_at", to)

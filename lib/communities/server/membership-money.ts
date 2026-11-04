@@ -12,18 +12,21 @@ import { codeOf, dayOf, ratesForDate, type DayRates } from "@/lib/money/report-c
 import { convertMinor } from "@/lib/markets/money"
 import { dayRatesBetween, latestRates } from "@/lib/markets/fx-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { lineMoney } from "@/lib/analytics/reports"
 
 const PAGE = 1000
 const MAX_PAGES = 50
 
 /**
  * The products that sell a community: its paid tiers (recurring or once, archived ones too, since a member can still
- * be paying for one) and the products made for it, with the name each is sold under.
+ * be paying for one) and the products made for it, with the name each is sold under, and the account that owns it
+ * (whose own membership is a test, not money: ../membership-money payingAt).
  */
-export async function communitySellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[]; names: Map<string, string> }> {
-  const [tiers, made] = await Promise.all([
+export async function communitySellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[]; names: Map<string, string>; owner: string | null }> {
+  const [tiers, made, community] = await Promise.all([
     db.from("community_tiers").select("product_id, billing, name").eq("community_id", communityId).eq("kind", "paid").limit(50),
     db.from("products").select("id, type, title").eq("community_id", communityId).limit(200),
+    Promise.resolve(db.from("communities").select("owner_user_id").eq("id", communityId).maybeSingle()).catch(() => ({ data: null })),
   ])
   const t = ((tiers.data as { product_id: string | null; billing: string | null; name?: string | null }[] | null) ?? []).filter((x) => x.product_id)
   const m = made.error ? [] : ((made.data as { id: string; type: string | null; title?: string | null }[] | null) ?? [])
@@ -32,31 +35,87 @@ export async function communitySellingProducts(db: Db, communityId: string): Pro
   const names = new Map<string, string>()
   for (const x of m) if (x.title?.trim()) names.set(x.id, x.title.trim())
   for (const x of t) if (x.name?.trim()) names.set(x.product_id as string, x.name.trim())
-  return { all, recurring, names }
+  const owner = ((community?.data as { owner_user_id?: string | null } | null)?.owner_user_id ?? null) || null
+  return { all, recurring, names, owner }
 }
 
-/** Every membership of these products, a page of 1000 at a time; null when the table is not there. */
-export async function membershipsOf(db: Db, productIds: string[], opts: { open?: boolean } = {}): Promise<MembershipMoneyRow[] | null> {
+/** A column the database does not have yet (part 363 not run): PostgreSQL's 42703, PostgREST's PGRST204. */
+const noColumn = (e: { code?: string; message?: string } | null | undefined) => !!e && (e.code === "42703" || e.code === "PGRST204" || /column .*livemode/i.test(e.message ?? ""))
+
+/**
+ * Every membership of these products, a page of 1000 at a time; null when the table is not there.
+ *
+ * Round 51: each row carries what tells money from no money (../membership-money payingAt): Stripe's livemode (part
+ * 363; read without it while the part has not run) and the periods refunded in full. With `owner`, the community
+ * owner's own memberships are left out: buying your own plan is a test, never a paying member.
+ */
+export async function membershipsOf(db: Db, productIds: string[], opts: { open?: boolean; owner?: string | null } = {}): Promise<MembershipMoneyRow[] | null> {
   if (productIds.length === 0) return []
-  const out: MembershipMoneyRow[] = []
+  const out: (MembershipMoneyRow & { id: string })[] = []
   let after: string | null = null
+  let columns = `${MEMBERSHIP_MONEY_COLUMNS}, livemode`
   for (let page = 0; page < MAX_PAGES; page++) {
-    let q = db.from("memberships").select(MEMBERSHIP_MONEY_COLUMNS).in("product_id", productIds)
+    let q = db.from("memberships").select(columns).in("product_id", productIds)
     /* Now only: the ones that can be paying at all. */
     if (opts.open) q = q.in("status", ["active", "past_due", "trialing", "canceled"])
     if (after) q = q.gt("id", after)
     const { data, error } = await q.order("id", { ascending: true }).limit(PAGE)
     if (error) {
-      if (missing(error)) return out.length ? out : null
+      if (noColumn(error) && columns !== MEMBERSHIP_MONEY_COLUMNS) {
+        columns = MEMBERSHIP_MONEY_COLUMNS
+        page -= 1
+        continue
+      }
+      if (missing(error)) return out.length ? withRefunds(db, out, opts.owner) : null
       console.error(`[communities] memberships: ${reasonOf(error)}`)
-      return out
+      return withRefunds(db, out, opts.owner)
     }
-    const rows = (data as (MembershipMoneyRow & { id: string })[] | null) ?? []
+    const rows = (data as unknown as (MembershipMoneyRow & { id: string })[] | null) ?? []
     out.push(...rows)
     if (rows.length < PAGE) break
     after = rows[rows.length - 1].id
   }
-  return out
+  return withRefunds(db, out, opts.owner)
+}
+
+/**
+ * The periods of these memberships whose payment was refunded in full (membership_invoices to its order): a member
+ * whose payment was given back pays nothing for that period, though the subscription goes on. A read that fails
+ * leaves the rows as they are.
+ */
+async function withRefunds<T extends MembershipMoneyRow & { id: string }>(db: Db, rows: T[], owner: string | null | undefined): Promise<T[]> {
+  const kept = owner ? rows.filter((r) => r.buyer_id !== owner) : rows
+  const ids = kept.filter((r) => r.amount_cents > 0).map((r) => r.id)
+  if (!ids.length) return kept
+  try {
+    const invoices: { membership_id: string; order_id: string | null; period_start: string | null; period_end: string | null }[] = []
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await db.from("membership_invoices").select("membership_id, order_id, period_start, period_end").in("membership_id", ids.slice(i, i + 200)).not("order_id", "is", null).limit(10_000)
+      if (error) return kept
+      invoices.push(...((data as typeof invoices | null) ?? []))
+    }
+    const orderIds = [...new Set(invoices.map((x) => x.order_id).filter((x): x is string => !!x))]
+    const refunded = new Set<string>()
+    for (let i = 0; i < orderIds.length; i += 200) {
+      const { data, error } = await db.from("orders").select("id, status, amount_cents, refund_amount_cents").in("id", orderIds.slice(i, i + 200)).eq("status", "refunded")
+      if (error) return kept
+      for (const o of (data as { id: string; amount_cents: number | null; refund_amount_cents: number | null }[] | null) ?? []) {
+        /* In full, by the rule Analytics nets orders with (lib/analytics/reports lineMoney): nothing of it is left. */
+        if (lineMoney({ ...o, status: "refunded" } as never).net <= 0) refunded.add(o.id)
+      }
+    }
+    if (!refunded.size) return kept
+    const byMember = new Map<string, [string, string][]>()
+    for (const x of invoices) {
+      if (!x.order_id || !refunded.has(x.order_id) || !x.period_start || !x.period_end) continue
+      const list = byMember.get(x.membership_id) ?? []
+      list.push([x.period_start, x.period_end])
+      byMember.set(x.membership_id, list)
+    }
+    return kept.map((r) => (byMember.has(r.id) ? { ...r, refunded: byMember.get(r.id) } : r))
+  } catch {
+    return kept
+  }
 }
 
 /* ── One currency ─────────────────────────────────────────────────────── */
@@ -164,7 +223,7 @@ const dayAt = (t: number) => new Date(t).toISOString()
  */
 export async function communityMrr(db: Db, communityId: string, now = Date.now(), creatorId?: string | null): Promise<{ cents: number; currency: string; paying: number; unconverted: number }> {
   const products = await communitySellingProducts(db, communityId)
-  const rows = (await membershipsOf(db, products.recurring, { open: true })) ?? []
+  const rows = (await membershipsOf(db, products.recurring, { open: true, owner: products.owner })) ?? []
   return mrrOfRows(db, rows, now, creatorId === undefined ? await creatorOf(db, communityId) : creatorId)
 }
 

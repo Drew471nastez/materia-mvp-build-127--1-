@@ -493,8 +493,8 @@ async function count(q: PromiseLike<{ count: number | null; error: unknown }>): 
 }
 
 /** Monthly recurring revenue of the memberships that sell this community, by the one rule and in the one currency its Analytics uses (./membership-money mrrOfRows). */
-async function monthlyRevenue(db: Db, productIds: string[], creatorId: string | null | undefined): Promise<{ cents: number; currency: string }> {
-  const m = await mrrOfRows(db, (await membershipsOf(db, productIds, { open: true })) ?? [], Date.now(), creatorId)
+async function monthlyRevenue(db: Db, productIds: string[], creatorId: string | null | undefined, owner: string | null): Promise<{ cents: number; currency: string }> {
+  const m = await mrrOfRows(db, (await membershipsOf(db, productIds, { open: true, owner })) ?? [], Date.now(), creatorId)
   return { cents: m.cents, currency: m.currency }
 }
 
@@ -510,7 +510,8 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     ONE ROUND, NOT THREE (round 32): the products that sell it were read first and the unsellable events last, each a
     round of its own before or after the figures. Now only the money waits on the products; everything else goes at once.
   */
-  const recurringRead = communitySellingProducts(db, c.id).then((p) => p.recurring)
+  const sellingRead = communitySellingProducts(db, c.id)
+  const recurringRead = sellingRead.then((p) => p.recurring)
   /* Round 33: the setup list's own facts (members who came without an invite, staff posts, the app, this person's skips), read beside the figures. */
   const staffSees = ctx.role === "owner" || ctx.role === "admin"
   const extrasRead = staffSees ? setupExtras(db, c, ctx.userId) : null
@@ -522,7 +523,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     count(db.from("community_feed_comments").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     openReportCount(db, c.id),
-    recurringRead.then((recurring) => monthlyRevenue(db, recurring, c.creator_id ?? ctx.creatorId)),
+    sellingRead.then((p) => monthlyRevenue(db, p.recurring, c.creator_id ?? ctx.creatorId, p.owner)),
     recurringRead.then((recurring) => (recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : 0)),
     inviteCount(db, c.id),
     count(db.from("community_courses").select("product_id", { count: "exact", head: true }).eq("community_id", c.id)),
