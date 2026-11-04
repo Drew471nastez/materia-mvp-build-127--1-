@@ -39,9 +39,10 @@ console.log("\nPublishing ends, and sooner")
   const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))
   /* Changed on purpose (round 34): Publish writes its draft through the draft's queue (after any autosave on its way), whose one write sends the three at once. */
   const send = editor.slice(editor.indexOf("const sendDraft = async"), editor.indexOf("const sendDraftLatest"))
-  check("the three saves before a publish go at the same time", /await draftQueue\.save\(snap\)/.test(publish) && /await Promise\.all\(\[\s*settingsSame \? [\s\S]{0,120}? : putJsonWithRetry\([^)]*settings`/.test(send) && /syncHeaderFooterToAllPages\("draft", snap\.sections, snap\.page\),\s*\]\)/.test(send))
-  check("the publish itself has an end, and says so when it is reached", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/publish`[\s\S]*?PUBLISH_MS\)/.test(publish) && /e instanceof LoadTimeout/.test(publish) && /const PUBLISH_MS = 45_000/.test(editor))
-  check("  and a refusal that is not JSON is still a message, not a spinner", /await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)/.test(publish))
+  check("the three saves before a publish go at the same time", /await deadline\(draftQueue\.save\(snap\)/.test(publish) /* Changed on purpose (r51): bounded by PUBLISH_SAVE_MS. */ && /await Promise\.all\(\[\s*settingsSame \? [\s\S]{0,120}? : putJsonWithRetry\([^)]*settings`/.test(send) && /syncHeaderFooterToAllPages\("draft", snap\.sections, snap\.page\),\s*\]\)/.test(send))
+  /* Changed on purpose (r51): the publish is a job the editor asks after (lib/website-builder/publish-run.ts), each request with its own end, the whole press within PUBLISH_TIMES.totalMs. */
+  check("the publish itself has an end, and says so when it is reached", /await runPublish\(\{/.test(publish) && /fetchWithin\(url, \{ method: "POST"[\s\S]*?PUBLISH_TIMES\.postMs\)/.test(publish) && /showNotification\(outcome\.error, "error"\)/.test(publish))
+  check("  and a refusal that is not JSON is still a message, not a spinner", /deadline\(r\.json\(\), BODY_MS, "the publish answer"\)\.catch\(\(\) => null\)/.test(publish))
   check("the header and footer copy to every page has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\/sync-global`[\s\S]{0,600}?20_000\)\)?\.catch\(\(\) => null\)/.test(editor)) /* Changed on purpose (round 12, WBPERF): inside fetchSignedIn, a 401 asked about first. */
   check("every save try has an end, retried like a dropped connection", /fetchWithin\(url, \{ method: "PUT"[^)]*\}, ATTEMPT_MS\)/.test(read("lib/website-builder/save-request.ts")))
   const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")

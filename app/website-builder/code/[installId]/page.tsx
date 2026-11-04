@@ -24,6 +24,8 @@ import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
+import { retrying } from "@/lib/website-builder/load-guard"
+import { fetchSignedIn } from "@/lib/website-builder/session-keep"
 
 // ── File tree node ────────────────────────────────────────────
 function FileTreeNode({
@@ -860,21 +862,40 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     /* Every way out ends the spinner: a refusal, a dropped connection or a server that never answered used to leave the
        whole editor on its loading screen for good (a bare `return` before setLoadingInstall). */
     try {
-      const res = await fetchWithDeadline(`/api/website-builder/themes/${installId}`, {}, WAIT_MS.read)
+      /* A 401 renewed and asked again, a failure that passes tried twice more (round 51), as the file list below. */
+      const res = await retrying(async () => {
+        const r = await fetchSignedIn(() => fetchWithDeadline(`/api/website-builder/themes/${installId}`, {}, WAIT_MS.read))
+        if (r.status >= 500 || r.status === 429) throw new Error(`the website answered ${r.status}`)
+        return r
+      }, [700, 2000])
       if (!res.ok) throw new Error(`status ${res.status}`)
       const data = await res.json()
       setInstall(data.install)
       setTeamMember(typeof data.storeOwner === "string")
 
-      // Load customized paths list
-      const filesRes = await fetchWithDeadline(`/api/website-builder/themes/${installId}/files`, {}, WAIT_MS.read).catch(() => null)
-      if (filesRes?.ok) {
-        const filesData = await filesRes.json()
-        const paths = new Set<string>(filesData.customized_paths ?? [])
+      /*
+        THE WEBSITE'S FILES, OR A WAY TO GET THEM (round 51). A list that
+        failed (a 401 from a token that had just run out, a 503 while the
+        database was busy, a read that never answered) was drawn as the
+        default theme's files alone, with no word that anything was missing:
+        an imported theme showed no sections at all. Now a 401 is renewed and
+        asked again (session-keep.ts), a failure that passes is tried twice
+        more, and one that does not is said with Try again.
+      */
+      const listed = await retrying(async () => {
+        const r = await fetchSignedIn(() => fetchWithDeadline(`/api/website-builder/themes/${installId}/files`, { cache: "no-store" }, WAIT_MS.read))
+        if (r.status >= 500 || r.status === 429) throw new Error(`the files answered ${r.status}`)
+        if (!r.ok) return null
+        const d = (await r.json()) as { customized_paths?: unknown }
+        return Array.isArray(d.customized_paths) ? d.customized_paths.filter((p): p is string => typeof p === "string") : null
+      }, [700, 2000]).catch(() => null)
+      if (listed) {
+        const paths = new Set<string>(listed)
         setCustomizedPaths(paths)
         setFileTree(buildThemeFileTree(Array.from(paths)))
       } else {
-        setFileTree(buildThemeFileTree([]))
+        setFileTree((t) => (t.length ? t : buildThemeFileTree([])))
+        toast.error("Couldn't list the website's files", { id: "code-files", action: { label: "Try again", onClick: () => { setLoadingInstall(true); void loadInstall() } } })
       }
     } catch {
       toast.error("Could not open this theme", { action: { label: "Try again", onClick: () => { setLoadingInstall(true); void loadInstall() } } })

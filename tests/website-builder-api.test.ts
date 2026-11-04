@@ -174,7 +174,8 @@ async function main() {
     ]
     for (const [route, method, bucket, allowance] of limited) {
       const src = read(`${ROUTES}/${route}/route.ts`)
-      const fn = src.slice(src.indexOf(`export async function ${method}(`))
+      /* Changed on purpose (r51): publish's POST hands the request to handlePost and writes the press's job after it; the limit is in handlePost. */
+      const fn = route === "publish" && method === "POST" && src.includes("async function handlePost(") ? src.slice(src.indexOf("async function handlePost(")) : src.slice(src.indexOf(`export async function ${method}(`))
       const body = fn.slice(0, fn.indexOf("\nexport async function ") > 0 ? fn.indexOf("\nexport async function ") : undefined)
       const where = src.indexOf(`bucket: "${bucket}"`)
       const counted = where > 0 && new RegExp(`bucket: "${bucket}",?\\s*(\\n\\s*)?subjects: \\[\`user:\\$\\{[\\w.]+\\}\`\\],?\\s*(\\n\\s*)?windows: (RATE_)?LIMITS\\.${allowance}`).test(src)

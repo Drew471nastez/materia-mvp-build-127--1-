@@ -67,7 +67,7 @@ const ROUTES = "app/api/website-builder/themes/[installId]/"
   globalThis.fetch = real
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   /* Changed on purpose (round 34): one writer of the draft (sendDraft), which autosave and publish both reach through the draft's queue. */
-  check("autosave and publish both save through it", (editor.match(/putJsonWithRetry\(`\/api\/website-builder\/themes\/\$\{installId\}\/(settings|sections)`/g) ?? []).length === 2 && /const result = await draftQueue\.save\(snap\)/.test(editor) && /const written = await draftQueue\.save\(snap\)/.test(editor))
+  check("autosave and publish both save through it", (editor.match(/putJsonWithRetry\(`\/api\/website-builder\/themes\/\$\{installId\}\/(settings|sections)`/g) ?? []).length === 2 && /const result = await draftQueue\.save\(snap\)/.test(editor) && /const written = await deadline\(draftQueue\.save\(snap\), PUBLISH_SAVE_MS/.test(editor)) /* Changed on purpose (r51): the save in front of Publish has an end. */
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)

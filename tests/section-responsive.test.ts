@@ -2032,7 +2032,8 @@ check(
   "everything else that pins itself to the top clears the inset too",
   // The editor's toast, and the code page's bar when it is opened on its own
   // rather than inside the editor's frame.
-  /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(editor) &&
+  /* Changed on purpose (r51): the editor's notice sits under the bar by the bar's own height (--wb-chrome-top, the inset in it) on a phone, over the canvas on a computer. */
+  /top-\[calc\(var\(--wb-chrome-top,48px\)\+8px\)\]/.test(editor) &&
     /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(codePageSrc) &&
     /box-content/.test(codePageSrc),
 )

@@ -126,6 +126,24 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   calls.push(`${init?.method ?? "GET"} ${url}`)
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
   if (!url.startsWith("/api/")) return realFetch(input, init)
+  /*
+    PROBE_CHAOS (round 51, scripts/check-editor-r51.mjs): a function given the method and the address of each
+    request, answering how it misbehaves ({ delay, status, hang, body }) or nothing. A hang never answers, and
+    ends only when the caller's own signal aborts it, as a real fetch does.
+  */
+  const chaos = (window as unknown as { PROBE_CHAOS?: (method: string, url: string) => { delay?: number; status?: number; hang?: boolean; body?: unknown } | null | undefined }).PROBE_CHAOS
+  const bad = chaos?.(init?.method ?? "GET", url)
+  if (bad) {
+    if (bad.hang) {
+      return new Promise<Response>((_, reject) => {
+        const s = init?.signal
+        if (s?.aborted) reject(new DOMException("The operation was aborted.", "AbortError"))
+        s?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")), { once: true })
+      })
+    }
+    if (bad.delay) await new Promise((r) => setTimeout(r, bad.delay))
+    if (bad.status) return new Response(JSON.stringify(bad.body ?? { error: "Something went wrong" }), { status: bad.status, headers: { "content-type": "application/json" } })
+  }
   /* PROBE_API_DELAY_MS: every route answers after this long, a signed-in round trip (scripts/check-editor-inspector.ts times the opening with it). */
   const apiDelay = (window as unknown as { PROBE_API_DELAY_MS?: number }).PROBE_API_DELAY_MS
   if (apiDelay) await new Promise((r) => setTimeout(r, apiDelay))
@@ -252,14 +270,17 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const own = probeGlobals.PROBE_PAGES?.[key]
     if (own) {
       await new Promise((r) => setTimeout(r, probeGlobals.PROBE_PAGE_DELAY_MS ?? 0))
-      return json({ sections: own.map((t, i) => (typeof t === "string" ? instance(t, i) : t)), has_draft: false })
+      return json({ sections: own.map((t, i) => (typeof t === "string" ? instance(t, i) : t)), has_draft: !!(window as unknown as { PROBE_HAS_DRAFT?: boolean }).PROBE_HAS_DRAFT })
     }
-    return json({ sections, has_draft: false })
+    /* PROBE_HAS_DRAFT: the draft is ahead of the live site, so Publish has something to publish (scripts/check-editor-r51.mjs). */
+    return json({ sections, has_draft: !!(window as unknown as { PROBE_HAS_DRAFT?: boolean }).PROBE_HAS_DRAFT })
   }
   if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })
   /* PROBE_FILES: the install's saved .storelib files, path to source, so a probe can give the creator a section of their own. */
   if (/\/themes\/probe-install\/files/.test(url)) return json({ files: probeGlobals.PROBE_FILES ?? [] })
   if (/\/themes\/probe-install\/backups/.test(url)) return json({ backups: [] })
+  /* A publish's job, asked after (lib/website-builder/publish-run.ts): no jobs are kept here unless a probe's PROBE_CHAOS says otherwise, as before SQL part 360. */
+  if (/\/themes\/probe-install\/publish\?job=/.test(url)) return json({ job: "untracked" })
   /* The GitHub line on Connections (f8595a46) reads this route on open; the real one always answers with its lists. */
   if (/\/themes\/probe-install\/github/.test(url)) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
   if (/\/themes\/probe-install\/agent-connections/.test(url)) return json({ connections: [], ready: true })
@@ -312,11 +333,25 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 declare global { interface Window { probeCalls: string[] } }
 window.probeCalls = calls
 
+/**
+ * The builder's error boundary, as app/website-builder/error.tsx puts one over the editor: a throw while
+ * drawing is kept in probeBoundary (the error screen a person would see), so a probe can count them.
+ */
+class ProbeBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
+  state = { error: null as string | null }
+  static getDerivedStateFromError(e: unknown) { return { error: String((e as Error)?.stack ?? e).slice(0, 600) } }
+  componentDidCatch(e: unknown) {
+    const w = window as unknown as { probeBoundary?: string[] }
+    w.probeBoundary = [...(w.probeBoundary ?? []), String((e as Error)?.stack ?? e).slice(0, 600)]
+  }
+  render() { return this.state.error ? React.createElement("div", { id: "probe-boundary" }, "Something went wrong") : this.props.children }
+}
+
 /** The page reads `params` with `use()`, which needs a Suspense boundary above it. */
 const appRoot = createRoot(document.getElementById("app")!)
 appRoot.render(
   React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
-    React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) }),
+    React.createElement(ProbeBoundary, null, React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) })),
     /* The toasts, as app/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
     React.createElement(EditorToaster),
     /* PROBE_RAIL: the sidebar's drawn scrollbar, as the layout mounts it (scripts/check-editor-details-z1.mjs). */

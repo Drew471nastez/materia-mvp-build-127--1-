@@ -332,7 +332,7 @@ async function main() {
       /if \(syncConflictRef\.current\) \{\s*if \(!options\.keepMine\)/.test(editor) && /saveDraft\(\{ quiet: true, keepMine: true \}\)/.test(editor) && /const handlePageChange = async[\s\S]{0,1600}if \(syncConflictRef\.current\) \{\s*showNotification/.test(editor))
     check("Publish waits for that choice", /if \(syncConflictRef\.current\) \{\s*showNotification\("Pick which version to keep first"/.test(editor))
     /* Changed on purpose (round 34): the write goes through the draft's queue; with nothing unsaved it only waits for a write on its way, and sends nothing. */
-    check("Publish writes the editor's copy only when it has unsaved work, so a push it has not read yet is not overwritten", /if \(isDirty\) \{\s*const written = await draftQueue\.save\(snap\)[\s\S]{0,300}\} else \{\s*await draftQueue\.idle\(\)\s*\}/.test(editor))
+    check("Publish writes the editor's copy only when it has unsaved work, so a push it has not read yet is not overwritten", /if \(isDirtyRef\.current\) \{\s*const written = await deadline\(draftQueue\.save\(snap\)[\s\S]{0,600}\} else \{\s*await within\(draftQueue\.idle\(\), PUBLISH_SAVE_MS, undefined\)\s*\}/.test(editor)) /* Changed on purpose (r51): both waits have an end (PUBLISH_SAVE_MS). */
     check("the buttons go through the GitHub route, which is rate limited per site and checks the owner",
       /\/github`, \{/.test(editor) && /bucket: "github-sync"/.test(read("app/api/website-builder/themes/[installId]/github/route.ts")) && /const own = await ownInstall\(installId\)/.test(read("app/api/website-builder/themes/[installId]/github/route.ts")))
     const status = read("app/api/website-builder/themes/[installId]/sync-status/route.ts")
