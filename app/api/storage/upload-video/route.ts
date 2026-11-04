@@ -6,6 +6,7 @@ import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/stora
 import { inspectHead, precheckUpload } from "@/lib/security/uploads/inspect"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 // The bucket is always product-videos (lib/storage/upload-location.ts), never the caller's.
 
@@ -51,9 +52,9 @@ export async function POST(request: NextRequest) {
     const adminSupabase = createAdminClient()
 
     // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -128,9 +129,9 @@ export async function PUT(request: NextRequest) {
     const adminSupabase = createAdminClient()
 
     // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

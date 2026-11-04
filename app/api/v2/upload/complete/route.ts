@@ -14,6 +14,7 @@ import { MAX_UPLOAD_BYTES, userMessage } from "@/lib/security/uploads/policy"
 import { inspectStoredObject } from "@/lib/security/uploads/stored"
 import { afterProductUpload, builtinResult, runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -64,7 +65,9 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     // Authenticate
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }

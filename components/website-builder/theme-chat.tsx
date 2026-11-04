@@ -130,6 +130,7 @@ import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/que
 import { WRITING_SECTION_ID } from "@/lib/website-builder/ai-placement"
 import { guardAskSheet } from "@/lib/website-builder/ask-sheet-guard"
 import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
+import { fetchSignedIn } from "@/lib/website-builder/session-keep"
 import { promptForPictures, restoreExchanges, type StoredMessage } from "@/lib/website-builder/ask-restore"
 import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website-builder/ask-sounds"
 import { hapticTap } from "@/lib/native-bridge"
@@ -1919,7 +1920,8 @@ function ThemeChatPanel({
       if (dock) setExpanded(false)
       let outcome: WriteOutcome | null = null
       try {
-        const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
+        /* Supabase Auth not answering is asked again quietly, and a 401 asks the browser's session first (lib/website-builder/session-keep). */
+        const sectionInit: RequestInit = {
           method: "POST",
           /* A line per step, then the answer: see the route. */
           headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
@@ -1940,7 +1942,8 @@ function ThemeChatPanel({
             conversationId: live.current.conversation.id,
             page: startedOn,
           }),
-        })
+        }
+        const res = await fetchSignedIn(() => fetch(`/api/website-builder/themes/${installId}/sections/code`, sectionInit))
         patch((e) => ({ ...e, sent: true }))
         const answer = await readWriteAnswer(res, (line) => {
           const type = typeof line.type === "string" ? line.type : ""

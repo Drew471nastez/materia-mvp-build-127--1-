@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { validateFile } from "@/lib/storage"
 import { storageExtension } from "@/lib/storage/validation"
 import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 
@@ -36,9 +37,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }

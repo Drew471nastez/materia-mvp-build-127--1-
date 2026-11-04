@@ -16,6 +16,7 @@ import { z } from "zod"
 
 import { rateLimit } from "@/lib/api/rate-limit"
 import { ownThemeInstall, REPORT_REASON_MAX, reportThemeExchange } from "@/lib/website-builder/agent/chat"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -35,6 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ instal
   }
 
   const owned = await ownThemeInstall(installId)
+  if (!owned.ok && owned.status === 503) return authUnavailableResponse()
   if (!owned.ok) {
     return NextResponse.json(
       { error: owned.status === 401 ? "Sign in to report an answer." : "Website not found." },

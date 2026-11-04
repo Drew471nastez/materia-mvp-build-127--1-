@@ -9,6 +9,7 @@ import { deleteAccount, deletionBlockers } from "@/lib/account/delete-account"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { platformEmail } from "@/lib/emails/layout"
 import { businessGroup, sessionFor } from "@/lib/businesses/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -18,10 +19,9 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

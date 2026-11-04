@@ -8,8 +8,8 @@ import { checkoutGate } from "@/lib/communities/server/join"
 import { communityOptions, communityTrialUsed } from "@/lib/communities/server/plan-checkout"
 import { checkoutTermsFor } from "@/lib/communities/server/membership-lifecycle"
 import { buyerLocale, withdrawalWaiverApplies } from "@/lib/communities/membership-policy"
-import { createClient } from "@/lib/supabase/server"
 import { buyerCountry, buyerIp, membershipTaxQuote } from "@/lib/tax/membership"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -35,9 +35,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   if (off) return off
   const { communityId } = await params
   const planId = new URL(request.url).searchParams.get("plan") ?? ""
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const caller = await routeUser()
+  if (caller.kind === "unavailable") return authUnavailableResponse()
+  const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
   const db = admin()
   const community = await loadCommunity(db, { id: communityId })

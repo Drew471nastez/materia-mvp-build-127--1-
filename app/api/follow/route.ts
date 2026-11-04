@@ -27,6 +27,7 @@
  * cannot slow the person down and still cannot undo the follow.
  */
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { afterFollow } from "@/lib/profile/follow-effects"
 import { after, type NextRequest, NextResponse } from "next/server"
@@ -43,9 +44,10 @@ const FOLLOW_WINDOWS = [
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* Supabase Auth not answering is 503 with Try again, never "Not signed in" (lib/auth/route-user). */
+  const signIn = await routeUser()
+  if (signIn.kind === "unavailable") return authUnavailableResponse()
+  const user = signIn.kind === "user" ? signIn.user : null
 
   if (!user) {
     // Not an error worth shouting about: the caller decides whether to send

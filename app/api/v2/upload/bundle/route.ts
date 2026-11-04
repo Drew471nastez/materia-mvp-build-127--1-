@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureProductBundle, BUNDLE_THRESHOLD } from "@/lib/bundles"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -26,9 +27,9 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     // Auth
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

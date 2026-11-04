@@ -10,6 +10,7 @@ import { inspectUpload } from "@/lib/security/uploads/inspect"
 import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 // Runtime must be nodejs for file handling
 export const runtime = "nodejs"
@@ -39,9 +40,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }

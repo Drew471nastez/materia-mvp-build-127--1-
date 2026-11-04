@@ -11,7 +11,7 @@
  *                     message.
  */
 import { NextResponse, type NextRequest } from "next/server"
-import { creatorIdOf } from "@/lib/creators/current"
+import { routeCreatorId } from "@/lib/creators/current"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { isKeySource, listKeys, removeKey, saveKey } from "@/lib/ai-keys/store"
 import { checkKey } from "@/lib/ai-keys/verify"
@@ -27,7 +27,8 @@ export async function GET() {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
   const who = await routeUser({ fresh: false })
   if (who.kind === "unavailable") return authUnavailableResponse()
-  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
+  const creatorId = who.kind === "user" ? await routeCreatorId(who.user.id) : null
+  if (creatorId === "unavailable") return authUnavailableResponse()
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const own = await listKeys(creatorId).catch(() => null)
   if (!own) return NextResponse.json({ error: "Could not read your connections." }, { status: 500 })
@@ -41,7 +42,8 @@ export async function POST(request: NextRequest) {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
-  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
+  const creatorId = who.kind === "user" ? await routeCreatorId(who.user.id) : null
+  if (creatorId === "unavailable") return authUnavailableResponse()
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const body = (await request.json().catch(() => null)) as { source?: unknown; key?: unknown } | null
   const source = body?.source
@@ -68,7 +70,8 @@ export async function DELETE(request: NextRequest) {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
-  const creatorId = who.kind === "user" ? await creatorIdOf(who.user.id) : null
+  const creatorId = who.kind === "user" ? await routeCreatorId(who.user.id) : null
+  if (creatorId === "unavailable") return authUnavailableResponse()
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const source = request.nextUrl.searchParams.get("source")
   if (!isKeySource(source)) return NextResponse.json({ error: "Nothing to remove." }, { status: 400 })

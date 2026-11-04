@@ -27,6 +27,7 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { isConfigured } from "@/lib/sites/agent/provider"
 import { readKeys } from "@/lib/ai-keys/store"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -48,9 +49,9 @@ const BodySchema = z.object({
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
   const { installId } = await context.params
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return NextResponse.json({ error: "Only creators can edit themes." }, { status: 403 })

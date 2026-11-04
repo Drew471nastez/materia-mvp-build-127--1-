@@ -75,6 +75,7 @@ import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
 import { sitePages } from "@/lib/website-builder/agent/page-builder-server"
 import { recordRun } from "@/lib/website-builder/agent/run-ledger"
 import type { TraceEntry } from "@/lib/website-builder/agent/loop"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -193,9 +194,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const { installId } = await context.params
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const asker = await routeUser()
+  if (asker.kind === "unavailable") return authUnavailableResponse()
+  const user = asker.kind === "user" ? asker.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
   const { data: creator } = await supabase

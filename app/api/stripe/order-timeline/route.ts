@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { formatMinor } from "@/lib/markets/money"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * GET /api/stripe/order-timeline?orderId=<uuid>
@@ -22,10 +23,9 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = new URL(request.url)

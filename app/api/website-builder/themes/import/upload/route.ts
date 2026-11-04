@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import { IMPORT_BUCKET, importPathFor, importSizeProblem, IMPORT_TOO_LARGE } from "@/lib/website-builder/theme-import"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const THEME_IMPORT_WINDOWS = [
   { limit: 5, seconds: 60 },
@@ -28,7 +29,9 @@ export const runtime = "nodejs"
  */
 export async function POST(req: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()

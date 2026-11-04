@@ -4,6 +4,7 @@ import { creatorPageStore } from "@/lib/team/creator-page"
 import { NO_ACCESS } from "@/lib/team/server"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset, Section } from "@/lib/store-builder/types"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 // POST - Apply theme globally to ALL product page configs
 // This ensures that when a theme preset is applied on one product page,
@@ -11,10 +12,9 @@ import type { ThemePreset, Section } from "@/lib/store-builder/types"
 export async function POST(request: Request) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

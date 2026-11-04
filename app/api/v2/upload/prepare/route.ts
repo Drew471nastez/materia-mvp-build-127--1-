@@ -18,6 +18,7 @@ import {
 } from "@/lib/storage/upload-guard"
 import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { sanitizeDisplayName } from "@/lib/security/uploads/filename"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -59,7 +60,9 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     // Authenticate
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
