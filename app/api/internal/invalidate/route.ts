@@ -48,7 +48,7 @@ async function purge(b: Batch): Promise<void> {
   revalidateTag(creatorTag(b.creatorId), "max")
   revalidateTag(creatorShopTag(b.creatorId), "max")
   /* The OnePage blocks that draw this store's products (lib/onepage/public-cache). */
-  onePageProductsChanged(b.creatorId)
+  await onePageProductsChanged(b.creatorId)
   if (b.explore === "taken-down") exploreCatalogueTakenDown()
   else if (b.explore === "changed") exploreCatalogueChanged()
   /* The creator page and its product pages, which the CDN holds for everybody (round 49). */

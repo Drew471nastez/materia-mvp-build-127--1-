@@ -1168,6 +1168,8 @@ const SUITES = [
 
   /* Round 49: creator pages, product pages and Explore are one HTML for everybody (no cookies() or headers() in their render), the owner's controls, Download, Contact and For you are asked after load, the CDN rule is the same for every request (never RSC, the editor's canvas or a scheme preview), a language is an address (?lang=, the proxy's 307), a save expires the data and the CDN copy by tag and path; scripts/check-creator-page-cache.mjs measures the bytes on a production build. */
   "tests/cdnpages-r49.test.ts",
+  /* Round 51: storelib.me/<name> held by the CDN for everybody (tagged by name, never RSC or a write, the render reads no cookie), a OnePage or product change expires the tag, a ban, an account deleted and a domain change take every public page of the creator down, a site password change redraws the site, the landing rule is storelib.com's alone, no new name for a fake sign in page, the payment confirm rate limited; scripts/check-public-delivery-r51.mjs measures a production build. */
+  "tests/delivery-r51.test.ts",
 ]
 
 /**

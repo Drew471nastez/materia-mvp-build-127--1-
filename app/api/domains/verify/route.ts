@@ -11,6 +11,7 @@ import { fixesFor, readRecord, recordFqdn, type RecordCheck } from "@/lib/custom
 import { syncStripePaymentDomains } from "@/lib/custom-domains/stripe-pmd"
 import { LEGACY_CNAMES, SERVING_IPS, isServingCname } from "@/lib/custom-domains/targets"
 import { communityDomainTag, communityIdOf } from "@/lib/custom-domains/community"
+import { publicPagesChanged, readPublicNames } from "@/lib/delivery/public-pages-purge"
 
 /**
  * ===========================================================================
@@ -175,6 +176,8 @@ export async function POST(request: Request) {
       const communityId = communityIdOf(domainRecord)
       if (communityId) revalidateTag(communityDomainTag(communityId), "max")
       if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+      /* A domain that is live now is in every public page's canonical and share links (lib/delivery/public-pages-purge). */
+      await publicPagesChanged(await readPublicNames({ creatorId, userId }))
       await syncStripePaymentDomains(admin, domainId, domain)
     }
 

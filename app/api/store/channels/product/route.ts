@@ -35,7 +35,7 @@ export async function PUT(request: Request) {
   /* The website's product lists are held for a minute under the shop's tag: taken off (or put back on) a channel shows on the next visit, not a minute later. */
   revalidateTag(creatorShopTag(c.creatorId), "max")
   /* Off the creator page channel is off the OnePage too: its held blocks are read afresh (lib/onepage/public-cache). */
-  onePageProductsChanged(c.creatorId)
+  await onePageProductsChanged(c.creatorId)
   /* And the creator page, which the CDN holds for everybody (round 49): a product taken off it is gone at once. */
   await creatorPagesChanged({ creatorId: c.creatorId })
   /* And the pages drawn from it, so the change is on the website at the next visit (revalidatePublishedPages). */

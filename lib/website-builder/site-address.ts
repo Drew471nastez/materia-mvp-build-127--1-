@@ -15,6 +15,8 @@
  * route's question (lib/website-builder/site-address-data.ts).
  */
 
+import { isPhishingName } from "@/lib/security/phishing-names"
+
 export const HANDLE_MIN = 3
 export const HANDLE_MAX = 40
 
@@ -50,6 +52,8 @@ export function handleProblem(handle: string): string | null {
   if (!/^[a-z0-9-]+$/.test(handle)) return "Letters, numbers and hyphens only."
   if (handle.startsWith("-") || handle.endsWith("-")) return "It cannot start or end with a hyphen."
   if (RESERVED_HANDLES.has(handle)) return "That name is kept for Storelib."
+  /* <name>.storelib.com is a trusted host: no name for a fake sign in page or support desk (lib/security/phishing-names). */
+  if (isPhishingName(handle)) return "That name is not available."
   return null
 }
 

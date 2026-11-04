@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     */
     revalidateTag(creatorShopTag(owned.creator_id), "max")
     /* And the OnePage blocks that draw this store's products, expired at once (lib/onepage/public-cache). */
-    onePageProductsChanged(owned.creator_id)
+    await onePageProductsChanged(owned.creator_id)
     /* And the rendered pages that drew it: the front page's Featured products, every grid (revalidatePublishedPages). */
     await revalidatePublishedPages(owned.creator_id)
     /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */

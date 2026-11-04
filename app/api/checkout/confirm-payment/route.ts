@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fulfilPaymentIntent } from "@/lib/checkout/fulfil-payment"
 import { timed } from "@/lib/perf/server-timing"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -28,6 +29,12 @@ async function handlePOST(request: Request) {
   if (!paymentIntentId || !clientSecret) {
     return NextResponse.json({ error: "Missing payment." }, { status: 400 })
   }
+  /*
+    Each call asks Stripe about a payment, so a script guessing at ids costs Stripe calls and server time (round 51).
+    A buyer confirms once, and again on a retry: thirty in ten minutes from one address is far past any person.
+  */
+  const limited = await rateLimit({ bucket: "checkout-confirm", subjects: [addressSubject(request)], windows: [{ limit: 30, seconds: 600 }, { limit: 200, seconds: 86400 }], memoryFirst: true, message: "Too many attempts. Wait a minute and try again." })
+  if (limited) return limited
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 

@@ -17,6 +17,7 @@ import "server-only"
  * that serves a page or a sitemap fails because of this file.
  */
 import { unstable_cache } from "next/cache"
+import { creatorBanTag, spamStateTag } from "@/lib/seo/ban-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { SpamState } from "@/lib/security/spam-signals"
 
@@ -68,7 +69,8 @@ export async function creatorIsBanned(creatorId: string): Promise<boolean> {
       }
     },
     ["creator-banned", creatorId],
-    { revalidate: 60 },
+    /* Expired by a ban, its lifting and a deletion (lib/delivery/public-pages-purge), so the minute is only a backstop. */
+    { revalidate: 60, tags: [creatorBanTag(creatorId)] },
   )()
 }
 
@@ -117,6 +119,6 @@ export async function spamStateOf(userId: string | null | undefined): Promise<Sp
       }
     },
     ["profile-spam-state", userId],
-    { revalidate: 60 },
+    { revalidate: 60, tags: [spamStateTag(userId)] },
   )()
 }

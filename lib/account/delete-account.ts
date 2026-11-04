@@ -2,6 +2,7 @@ import "server-only"
 
 import { randomBytes } from "node:crypto"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
+import { publicPagesChanged, readPublicNames } from "@/lib/delivery/public-pages-purge"
 
 /**
  * ===========================================================================
@@ -151,6 +152,8 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
   }
 
   const creatorId = await creatorOf(admin, userId)
+  /* Every address their public pages answer to, read while the rows are still there, for the purge at the end. */
+  const publicNames = await readPublicNames({ creatorId, userId }).catch(() => null)
   let mode: DeletionMode = "removed"
   try {
     if (creatorId && (await hasFinancialRecords(admin, creatorId))) mode = "retired"
@@ -341,6 +344,8 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
     const { reportError } = await import("@/lib/observability/report")
     await reportError({ source: "account", where: `account ${mode} (${by})`, error: new Error(`${failures.length} step(s) failed: ${failures.join("; ").slice(0, 1500)}`), context: { userId } })
   }
+  /* Their creator page, website and OnePage, taken out of every cache that holds them for everybody (lib/delivery/public-pages-purge). */
+  if (publicNames) await publicPagesChanged(publicNames)
   return { ok, mode, failures }
 }
 

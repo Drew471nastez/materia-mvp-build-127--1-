@@ -20,6 +20,7 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanPassword, hashPassword, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/site-password/hash"
 import { publicAccess, readSiteAccess, saveSiteAccess } from "@/lib/site-password/store"
 import { refreshSiteSoon } from "@/lib/edge/snapshot-capture"
+import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -75,5 +76,10 @@ export async function POST(req: Request) {
   }
   /* The site's stored copies and its host records say whether it is open (lib/edge/snapshot-capture.ts): asked again, so a site just closed is never drawn for a stranger from them. */
   refreshSiteSoon(who.creatorId)
+  /*
+    And every rendered page of the site (round 51): a page drawn while the site was open and held for its minute must
+    not be what a stranger gets after the password is turned on, and a site opened again is drawn for everybody now.
+  */
+  await revalidatePublishedSite(who.creatorId).catch(() => undefined)
   return json(publicAccess(saved.access))
 }

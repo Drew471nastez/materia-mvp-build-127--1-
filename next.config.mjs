@@ -392,8 +392,16 @@ const nextConfig = {
         ],
       },
       {
-        // Landing page
+        /*
+          Landing page, ON storelib.com ONLY (round 51). Without the host this rule
+          matched every host's `/`: a website subdomain whose site lives at its own
+          domain answered its 302 there `public, s-maxage=3600`, so after the creator
+          removed the domain the CDN kept sending visitors to it for up to three
+          hours (measured on a production build, scripts/check-public-delivery-r51).
+          A website's `/` is the website's (proxy.ts), a OnePage host has no `/`.
+        */
         source: '/',
+        has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }],
         headers: [
           { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=7200' },
         ],
