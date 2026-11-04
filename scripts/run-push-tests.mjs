@@ -692,6 +692,12 @@ const SUITES = [
   "tests/community-revenue-collections-r41.test.ts",
   /* Round 43: a community's MRR is one figure on the list, its Overview, its stats and both Analytics, whatever exchange rates are kept. */
   "tests/community-money-r43.test.ts",
+  /* Round 51: test mode subscriptions, refunded periods and the owner's own plan are no MRR on any screen. */
+  "tests/community-mrr-r51.test.ts",
+  /* Round 51: every event to every tool in its documented format, recorded answers, last sent, GA4 session. */
+  "tests/analytics-send-r51.test.ts",
+  /* Round 51: empty analytics cards (a ghost of the line, the zero, one line), the breakdown and channels waiting at their own height, Send analytics closing whole. */
+  "tests/analytics-empty-r51.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",

@@ -121,7 +121,8 @@ function main() {
       && /stroke=\{loading \? PLACEHOLDER_STROKE : color\}/.test(lines)
       && /area\.setAttribute\("d", ys\.length > 1 && !geo\.loading \?/.test(lines)
       && /const shown = ys\.length > 1 && !geo\.loading/.test(lines)
-      && /loading=\{isLoading\}/.test(chart))
+      /* Changed on purpose (r51): a chart with nothing to draw lies on the floor in the same grey (components/analytics/empty-state GhostLine). */
+      && /loading=\{isLoading \|\| blank\}/.test(chart))
   check("the series goes through them, in the one slot every metric shares",
     /lines=\{lines\}/.test(chart) && /\{lines\.map\(\(_, k\) => \(\s*<g key=\{k\}>/.test(lines) && /data-trend-line/.test(lines),
     "each metric its own series is what made a tab a replacement instead of a move")
@@ -131,7 +132,7 @@ function main() {
     no pointer and raises no readout.
   */
   check("nothing in a placeholder can be pressed",
-    /disabled=\{isLoading \|\| n === 0\}/.test(chart)
+    /* Changed on purpose (r51): nor a chart with nothing to draw. */ /disabled=\{isLoading \|\| blank \|\| n === 0\}/.test(chart)
       && /pointerEvents: disabled \? "none" : "auto"/.test(read("components/app/chart-scrub.tsx"))
       && /if \(live\.current\.disabled\) return/.test(read("components/app/chart-scrub.tsx")),
     "a finger on it would raise a tooltip reading zero for a number nobody has")

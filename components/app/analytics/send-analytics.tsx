@@ -662,7 +662,15 @@ export function SendAnalyticsButton({ className }: { className?: string }) {
                 {tt("Done")}
               </button>
             </div>
-            <div className="max-h-[min(72vh,640px)] overflow-y-auto px-2 py-2">{body}</div>
+            {/*
+              THE LIST STAYS WHILE IT CLOSES (round 51, the owner: "the Send analytics modal glitches when it closes").
+              It was `open ? list : null`, so the list went the moment Done was pressed and the dialog played its fade
+              on its header alone: 707px tall, then 79px and re-centred, on the first frame of the close. Radix mounts
+              the content only while open or closing, so the list is simply always in it: still read afresh each open.
+            */}
+            <div className="max-h-[min(72vh,640px)] overflow-y-auto px-2 py-2">
+              <AnalyticsDestinationsPanel />
+            </div>
           </DialogContent>
         </Dialog>
       )}

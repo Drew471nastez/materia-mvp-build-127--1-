@@ -43,10 +43,15 @@ export interface MembershipMoneyRow {
   ended_at?: string | null
   trial_end?: string | null
   product_id?: string | null
+  buyer_id?: string | null
+  /** Stripe's livemode for the subscription (part 363); null on a row synced before it was kept. */
+  livemode?: boolean | null
+  /** Periods whose payment was given back in full while the subscription went on ([start, end) ISO pairs, ./server/membership-money). */
+  refunded?: ReadonlyArray<readonly [string, string]>
 }
 
 /** The columns every MRR read asks for. */
-export const MEMBERSHIP_MONEY_COLUMNS = "id, product_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end"
+export const MEMBERSHIP_MONEY_COLUMNS = "id, product_id, buyer_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end"
 
 /**
  * Stripe's states that pay nothing whatever the dates say (round 43): a first payment that never went through, a
@@ -55,9 +60,20 @@ export const MEMBERSHIP_MONEY_COLUMNS = "id, product_id, status, billing_interva
  */
 const NOT_PAYING = new Set(["incomplete", "incomplete_expired", "unpaid", "paused"])
 
-/** Paying at a moment: started, not ended, out of any trial. A trial with no end date is not paying yet. */
+/**
+ * Paying at a moment: started, not ended, out of any trial. A trial with no end date is not paying yet.
+ *
+ * NOT MONEY, NOT MRR (round 51, the owner: "community MRR shows €74 although I have no paying members"). A $1,000 a
+ * year plan read as $83.33 a month (€74) while the community's Paid members said 0, because three kinds of row were
+ * counted as paying that bring nothing in: a subscription made with Stripe's test keys (livemode false), a period whose
+ * payment was refunded in full while the subscription went on, and the community owner's own membership (a test, like
+ * the admin's test sales Analytics already leaves out; the owner is never a paid member). They still have access as
+ * before; only the money figures leave them out.
+ */
 export function payingAt(m: MembershipMoneyRow, t: number): boolean {
   if (NOT_PAYING.has(m.status)) return false
+  if (m.livemode === false) return false
+  if (m.refunded?.some(([s, e]) => Date.parse(s) <= t && t < Date.parse(e))) return false
   const started = Date.parse(m.started_at ?? m.created_at)
   if (!(started <= t)) return false
   const ended = m.ended_at ? Date.parse(m.ended_at) : m.status === "canceled" || m.status === "expired" ? Date.parse(m.canceled_at ?? m.created_at) : Infinity

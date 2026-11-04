@@ -90,6 +90,19 @@ export async function syncSubscription(admin: Db, subscriptionId: string, opts: 
     row = data as MembershipRow
   }
 
+  /*
+    A SUBSCRIPTION MADE WITH STRIPE'S TEST KEYS (round 51): marked, so the money figures leave it out
+    (lib/communities/membership-money payingAt). Only a test one is written, its own write, so a live sync costs
+    nothing more and a database without part 363 loses only the mark.
+  */
+  if ((sub as { livemode?: unknown }).livemode === false) {
+    try {
+      await admin.from("memberships").update({ livemode: false }).eq("id", row.id)
+    } catch {
+      /* part 363 not run: the row is counted as before */
+    }
+  }
+
   const changed = transitions(before, row, now)
 
   /*

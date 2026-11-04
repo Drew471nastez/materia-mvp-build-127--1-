@@ -133,6 +133,8 @@ export interface PersonInput {
   consent: Consent
   /** GA4's client id from the _ga cookie ("123.456"). */
   gaClientId?: string | null
+  /** GA4's session id per data stream, from each _ga_<stream> cookie ({ "ABC1234": "1700000000" }). */
+  gaSessions?: Record<string, string> | null
   /** Storelib's own visitor id (visitor_id, materia_visitor). */
   visitorId?: string | null
   email?: string | null
@@ -148,6 +150,8 @@ export interface PersonInput {
 export interface ForwardPerson {
   consent: Consent
   clientId?: string
+  /** GA4 only, with analytics consent: the session id per data stream (the stream's id without "G-"). */
+  gaSessions?: Record<string, string>
   visitorId?: string
   /** SHA-256, by the tool's own rules. */
   emailHash?: string
@@ -219,6 +223,8 @@ export function personFor(tool: DestinationId, p: PersonInput, event: ForwardEve
     if (consent.analytics) {
       const cid = cleanId(p.gaClientId)
       if (cid) out.clientId = cid
+      const sessions = Object.entries(p.gaSessions ?? {}).filter(([k, v]) => /^[A-Z0-9]{4,20}$/.test(k) && /^\d{6,12}$/.test(v)).slice(0, 5)
+      if (sessions.length) out.gaSessions = Object.fromEntries(sessions)
       const vid = cleanId(p.visitorId)
       if (vid) out.visitorId = vid
     }
@@ -370,6 +376,14 @@ function ga4Request(i: BuildInput): Built {
   const p = i.person ?? { consent: NO_CONSENT }
   const currency = currencyCode(f.currency)
   const params: Record<string, unknown> = { engagement_time_msec: 1 }
+  /*
+    THE VISITOR'S OWN SESSION (round 51). Google's Measurement Protocol reference: an event without session_id is
+    no session's, so it is missing from Realtime and from the session's source, and a purchase is not put down to the
+    ad click that brought the buyer, which is what Google Ads imports from GA4. The id is the gtag session's, from the
+    _ga_<stream> cookie, only with analytics consent.
+  */
+  const session = p.consent.analytics ? p.gaSessions?.[id.replace(/^G-/, "")] : undefined
+  if (session) params.session_id = session
   if (f.url) params.page_location = f.url.slice(0, 1000)
   if (f.title) params.page_title = f.title.slice(0, 300)
   if (f.referrer) params.page_referrer = f.referrer.slice(0, 420)
@@ -462,8 +476,13 @@ function metaRequest(i: BuildInput): Built {
   }
   if (i.event === "purchase") custom.order_id = f.ref
   if (i.event === "lead" && f.form) custom.content_name = f.form
-  /* "website" needs the browser's agent (Meta refuses one without it); a purchase told only by Stripe is the system's. */
-  const website = !!user_data.client_user_agent
+  /*
+    "website" needs the browser's agent and the page (Meta's parameters reference: client_user_agent and
+    event_source_url are required for website events). A purchase or a membership sign up is read from Storelib's
+    records with no page of its own (round 51: they went as website events with no event_source_url), so it is the
+    system's; the agent and the browser ids still go in user_data for matching, and the pixel's event_id still dedupes.
+  */
+  const website = !!user_data.client_user_agent && !!f.url
   const event: Record<string, unknown> = {
     event_name: name,
     event_time: Math.floor(micros(f.at) / 1_000_000),

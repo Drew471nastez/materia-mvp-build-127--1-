@@ -146,6 +146,31 @@ for (const [name, vp] of [["desktop", DESK], ["phone", PHONE]]) {
   const meta = await p.evaluate(() => ({ inputs: document.querySelectorAll('[data-destination-body="meta"] input').length, connect: /Connect/.test(document.querySelector('[data-destination-body="meta"]')?.textContent ?? ""), ga4Shut: !document.querySelector('[data-destination-body="ga4"]') }))
   expect(meta.inputs === 3 && meta.connect && meta.ga4Shut, "Meta opened: three fields and Connect, GA4 shut", meta)
   await p.screenshot({ path: join(shots, `${name}-meta.png`) })
+  /*
+    CLOSING (round 51, the owner: "the Send analytics modal glitches when it closes"). Every frame of the close is
+    measured: the panel's layout height (offsetHeight, so the zoom of the fade is not counted). The list was taken out the moment it closed, so the dialog played its
+    fade on a header alone, 600px shorter and re-centred: a jump on the first frame.
+  */
+  const closing = await p.evaluate(async (phone) => {
+    const panel = () => document.querySelector(phone ? "[data-send-sheet]" : "[data-send-dialog]")
+    const first = panel() ? { height: panel().offsetHeight } : null
+    if (!first) return null
+    const frames = []
+    const done = phone ? null : [...document.querySelectorAll("[data-send-dialog] button")].find((b) => b.textContent?.trim() === "Done")
+    if (done) done.click()
+    else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    const t0 = performance.now()
+    while (performance.now() - t0 < 700) {
+      await new Promise((r) => requestAnimationFrame(r))
+      const el = panel()
+      if (!el) break
+      frames.push({ h: el.offsetHeight, list: !!el.querySelector("[data-analytics-destinations]") })
+    }
+    return { open: Math.round(first.height), frames: frames.length, minH: frames.length ? Math.min(...frames.map((f) => f.h)) : null, listGone: frames.some((f) => !f.list), gone: !panel() }
+  }, name === "phone")
+  console.log(`   closing: ${JSON.stringify(closing)}`)
+  expect(!!closing && closing.gone, "the dialog closes", closing)
+  expect(!!closing && closing.frames > 0 && !closing.listGone && closing.minH >= closing.open - 2, "while it closes it keeps its list and its height: nothing jumps", closing)
   expect(errors.length === 0, "no page errors", errors)
   await ctx.close()
 }

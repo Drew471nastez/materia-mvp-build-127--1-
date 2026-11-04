@@ -53,7 +53,7 @@ import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analy
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
 import { percentText } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
-import { EmptyState } from "@/components/analytics/empty-state"
+import { EmptyState, GhostLine } from "@/components/analytics/empty-state"
 import { ReportFill, ReportTabs } from "./analytics-reports"
 import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailRow, type DetailView } from "./report-detail"
 
@@ -93,8 +93,18 @@ const ACCENT = "#8b5cf6"
 const CHANNEL_ROWS = 5
 
 /** A figure card with nothing to show: its line in the figure's place, at the figure's height, so the card does not move when a number comes (round 49). */
+/*
+  A FIGURE WITH NOTHING TO COUNT (round 51, the owner: "Average order value shows 'No orders in this period.' in a big
+  empty card"). The sentence stood where the number goes. Now the card says its zero, quiet, the one short line where
+  the change goes, and the faint shape of a line at its right; the same rows a filled card has, so nothing moves when
+  the first order comes.
+*/
 function FigureEmpty({ children }: { children: React.ReactNode }) {
-  return <span data-figure-empty="" className="text-[13px] font-normal tracking-normal text-[#6b7280]">{children}</span>
+  return (
+    <span data-empty="" className="text-[12.5px] leading-[18px] text-[#6b7280]">
+      {children}
+    </span>
+  )
 }
 
 function Card({ title, help, children, className, card, tabs, detail }: { title: string; help: string; children: React.ReactNode; className?: string; card: string; tabs?: React.ReactNode; detail?: string }) {
@@ -138,11 +148,11 @@ const Pending = ({ w = "w-16" }: { w?: string }) => <ShimmerBlock className={cn(
  * re-rendering on every move, and was the one chart on the page a finger
  * could not scrub.
  */
-function LineChart({ series, previous, format, value, grain, timeZone, label, integer }: { series: Point[]; previous: Point[]; format: (n: number) => string; value: (p: Point) => number; grain: Grain; timeZone: string; label: string; integer: boolean }) {
+function LineChart({ series, previous, format, value, grain, timeZone, label, integer, emptyText }: { series: Point[]; previous: Point[]; format: (n: number) => string; value: (p: Point) => number; grain: Grain; timeZone: string; label: string; integer: boolean; emptyText?: string }) {
   const labels = React.useMemo(() => series.map((p) => bucketLabel(p.t, grain, timeZone)), [series, grain, timeZone])
   const current = React.useMemo(() => series.map(value), [series, value])
   const before = React.useMemo(() => previous.map(value), [previous, value])
-  return <TrendMiniChart labels={labels} current={current} previous={before} format={format} height={150} integer={integer} label={label} readoutTop={-50} />
+  return <TrendMiniChart labels={labels} current={current} previous={before} format={format} height={150} integer={integer} label={label} readoutTop={-50} emptyText={emptyText} />
 }
 
 /** The legend under the chart: drawn from the start, its words are the period's, not the answer's. */
@@ -190,19 +200,21 @@ export interface CommerceReportsProps {
 }
 
 type Metric = "total" | "aov" | "orders"
+type Shape = { showShipping: boolean; showFulfillment: boolean; showKinds: boolean }
 
-export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, showKinds = false, viewer = null, refresh = 0, rangeText, againstText = null }: CommerceReportsProps) {
+export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping: askShipping = true, showFulfillment: askFulfillment = true, showKinds: askKinds = false, viewer = null, refresh = 0, rangeText, againstText = null }: CommerceReportsProps) {
   const currency = useStoreCurrency()
   const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency, kind })
   const question = commerceQuestionOf(key)
-  const [state, setState] = React.useState<{ data: Answer | null; question: string; loading: boolean }>(() => ({ data: null, question: "", loading: true }))
+  const [state, setState] = React.useState<{ data: Answer | null; question: string; loading: boolean; shape?: Shape }>(() => ({ data: null, question: "", loading: true }))
+  const asked: Shape = { showShipping: askShipping, showFulfillment: askFulfillment, showKinds: askKinds }
   const [metric, setMetric] = React.useState<Metric>("total")
   const refreshed = React.useRef(refresh)
 
   /* Before the paint: the kept answer to this question, so a return draws its numbers in the first frame. */
   React.useLayoutEffect(() => {
     const known = keptCommerce<Answer>(key, viewer)
-    setState((s) => (known && s.question !== question ? { data: known.answer, question, loading: true } : { ...s, loading: true }))
+    setState((s) => (known && s.question !== question ? { data: known.answer, question, loading: true, shape: asked } : { ...s, loading: true }))
     const polled = refreshed.current !== refresh
     refreshed.current = refresh
     if (known && !polled && Date.now() - known.at < COMMERCE_FRESH_MS) {
@@ -211,7 +223,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     }
     let live = true
     askCommerce<Answer>(key, viewer)
-      .then((d) => live && setState({ data: d, question, loading: false }))
+      .then((d) => live && setState({ data: d, question, loading: false, shape: asked }))
       .catch(() => live && setState((s) => ({ ...s, loading: false })))
     return () => {
       live = false
@@ -222,6 +234,13 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const data = state.data
   /* Numbers for another question stay on screen, softened, until this one's land. */
   const soft = !!data && state.question !== question
+  /*
+    THE CARDS OF THE ANSWER ON SCREEN (round 51). Shipping, the shipping line and the Digital and Physical columns
+    followed the type the moment it was chosen, while the numbers were still the last type's: All to Digital took the
+    Shipping card away at once and the Digital cards came 600ms later, a jump each (scripts/check-analytics-empty-r51.mjs
+    SWITCH). Until the new answer lands they are the old answer's, and everything changes in the one frame.
+  */
+  const { showShipping, showFulfillment, showKinds } = soft && state.shape ? state.shape : asked
   const compared = compare !== null && data?.compared !== false
   /* In the currency's own decimals, as the tab above: a yen store's 2500 is ¥2,500. */
   const money = React.useCallback((n: number) => formatMinor(n, data?.currency || currency || "USD", appLocale()), [data?.currency, currency])
@@ -239,7 +258,12 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     { key: "tips", label: tt("Tips") },
     { key: "total", label: tt("Total sales"), strong: true },
   ]
-  const shownRows = rows.filter((r) => r.key === "gross" || r.key === "net" || r.key === "total" || !b || (b[r.key] as number) !== 0 || (!!p && (p[r.key] as number) !== 0))
+  /*
+    Round 51: while the answer is on its way the breakdown draws the three lines it always has, not all eight. It drew
+    every line and then took away the ones at nothing, so the card fell from 378px to 246px when the numbers came
+    (scripts/check-analytics-empty-r51.mjs); most periods hold no discount, return, tax or tip.
+  */
+  const shownRows = rows.filter((r) => r.key === "gross" || r.key === "net" || r.key === "total" || (!!b && (b[r.key] as number) !== 0) || (!!p && (p[r.key] as number) !== 0))
   const signed = (v: number, sign?: "-") => (sign && v > 0 ? `−${money(v)}` : money(v))
   const channels = (data?.channels ?? []).slice(0, CHANNEL_ROWS)
   const channelMax = Math.max(1, ...channels.map((c) => c.total))
@@ -260,12 +284,13 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
 
   const figures = [
     /* Nothing to divide by is said in words, not a dash (round 49). */
-    { key: "aov", title: tt("Average order value"), value: b ? (b.orders ? money(b.aov) : <FigureEmpty>{tt("No orders in this period.")}</FigureEmpty>) : null, delta: b && p && b.orders && p.orders ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
+    { key: "aov", title: tt("Average order value"), blank: !!b && !b.orders, value: b ? money(b.orders ? b.aov : 0) : null, delta: b && !b.orders ? <FigureEmpty>{tt("No orders in this period.")}</FigureEmpty> : b && p && b.orders && p.orders ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
     {
       key: "returning",
       title: tt("Returning customer rate"),
-      value: b ? (b.customers ? percentText(b.returningRate) : <FigureEmpty>{tt("No customers in this period.")}</FigureEmpty>) : null,
-      delta: b && p ? (
+      blank: !!b && !b.customers,
+      value: b ? percentText(b.customers ? b.returningRate : 0) : null,
+      delta: b && !b.customers ? <FigureEmpty>{tt("No customers in this period.")}</FigureEmpty> : b && p ? (
         b.customers ? (
           <span className="inline-flex items-center gap-2">
             {/* A period with no customer had no rate: nothing to compare with, not "New". */}
@@ -280,7 +305,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
 
   const metricValue = React.useCallback((pt: Point) => (metric === "aov" ? pt.aov : metric === "orders" ? pt.orders : pt.total), [metric])
   const metricFormat = React.useCallback((n: number) => (metric === "orders" ? Math.round(n).toLocaleString(appLocale()) : money(n)), [metric, money])
-  const head = b && p ? (metric === "aov" ? { now: b.aov, before: p.aov, text: b.orders ? money(b.aov) : "–" } : metric === "orders" ? { now: b.orders, before: p.orders, text: b.orders.toLocaleString(appLocale()) } : { now: b.total, before: p.total, text: money(b.total) }) : null
+  const head = b && p ? (metric === "aov" ? { now: b.aov, before: p.aov, text: money(b.orders ? b.aov : 0) } : metric === "orders" ? { now: b.orders, before: p.orders, text: b.orders.toLocaleString(appLocale()) } : { now: b.total, before: p.total, text: money(b.total) }) : null
 
   /* ── Each card, opened (./report-detail): its own panel, drawn from this answer. ── */
   /*
@@ -419,7 +444,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             )}
           </div>
           {data ? (
-            <LineChart series={data.series} previous={compared ? data.previousSeries : []} format={metricFormat} value={metricValue} grain={grain} timeZone={zone} integer={metric === "orders"} label={metric === "aov" ? tt("Average order value") : metric === "orders" ? tt("Orders") : tt("Total sales")} />
+            <LineChart series={data.series} previous={compared ? data.previousSeries : []} format={metricFormat} value={metricValue} grain={grain} timeZone={zone} integer={metric === "orders"} label={metric === "aov" ? tt("Average order value") : metric === "orders" ? tt("Orders") : tt("Total sales")} emptyText={metric === "total" ? tt("No sales in this period.") : tt("No orders in this period.")} />
           ) : (
             <div aria-hidden className="relative h-[150px]">
               <span className="absolute inset-x-0 bottom-0.5 h-px bg-[#eceef1]" />
@@ -435,7 +460,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         on a phone.
       */}
       {figures.map((f) => (
-        <section key={f.key} data-card={f.key} className="flex min-h-[96px] min-w-0 flex-col justify-between gap-3 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <section key={f.key} data-card={f.key} className="relative flex min-h-[96px] min-w-0 flex-col justify-between gap-3 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <div className="flex min-h-6 items-center gap-2">
             <div className="min-w-0 flex-1">
               <HelpLabel as="h3" label={f.title} description={f.help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
@@ -443,14 +468,16 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             <ViewReport id={f.key} label={f.title} />
           </div>
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-            <span className="flex h-8 items-center whitespace-nowrap text-[26px] font-bold leading-8 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>
+            <span className={cn("flex h-8 items-center whitespace-nowrap text-[26px] font-bold leading-8 tabular-nums tracking-tight transition-colors duration-200", f.blank ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{f.value ?? <Pending w="w-20" />}</span>
             <span className="h-[18px] whitespace-nowrap">{f.delta}</span>
+            {f.blank ? <GhostLine shown className="absolute bottom-4 right-5 h-8 w-20" /> : null}
           </div>
         </section>
       ))}
 
       <Card card="sales-by-channel" title={tt("Total sales by channel")} detail="sales-by-channel" help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
-        <div className="min-h-[150px]">
+        {/* Round 51: as tall as its empty state (a line and four ghost rows), so a period with no sale and the wait for one are the same card. */}
+        <div className="min-h-[164px]">
           {!data ? (
             <div aria-hidden className="space-y-3">
               {[0.9, 0.55, 0.3].map((w, i) => (
@@ -490,8 +517,8 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         change column: the change is the chart's.
       */}
       <Card card="sales-breakdown" title={tt("Sales breakdown")} detail="sales-breakdown" help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
-        {kinds ? (
-          /* The columns' names, over the amounts they head. */
+        {kinds || (showKinds && !data) ? (
+          /* The columns' names, over the amounts they head; there while the answer comes, so the lines do not move down. */
           <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
             <span />
             <span className="flex shrink-0 items-center gap-2 sm:gap-3">

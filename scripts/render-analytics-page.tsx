@@ -32,6 +32,7 @@ import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { AnalyticsSummaryFact, AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { LanguageProvider } from "@/lib/i18n/context"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type SubscriberRow, type ViewRow } from "@/lib/analytics/reports"
 import { parseProperty, type CreatorProperties } from "@/lib/analytics/properties"
@@ -145,7 +146,8 @@ type W = Window & {
 }
 const w = window as unknown as W
 w.__fetches = []
-w.__delay = 120
+/* ?delay=<ms>: how long every answer takes (round 51: the empty-state probe reads each card while it waits). */
+w.__delay = Number(params.get("delay")) || 120
 w.__listsDelay = 0
 w.__nav = []
 
@@ -277,6 +279,8 @@ const page = () =>
     summaries()
   ) : (
     <LanguageProvider>
+      {/* ?physical=1: physical commerce switched on for the platform, so a store that sells both has the type picker (round 51). */}
+      <PlatformSettingsProvider exploreMarketplace={false} buyerHeaderLight={false} physicalCommerce={params.get("physical") === "1"}>
       <div style={{ height: "100vh" }}>
         {/* ?outer=1: the pull wrapped round the whole page, as page.tsx did before round 12, for scripts/check-analytics-pull.mjs to compare. */}
         {params.get("outer") === "1" ? (
@@ -287,6 +291,7 @@ const page = () =>
           <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
         )}
       </div>
+      </PlatformSettingsProvider>
     </LanguageProvider>
   )
 let root = createRoot(document.getElementById("app")!)
