@@ -18,9 +18,13 @@ import { postPath } from "@/lib/site-blog/urls"
 import type { AdminPost, SitePostMeta } from "@/lib/site-blog/types"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { Counter, DarkScope, SearchResultPreview, Toggle, inputClass, textAreaClass } from "../parts"
-import type { BlogOverview } from "./api"
+import { createCategory, type BlogOverview } from "./api"
+import type { SiteBlogCategory } from "@/lib/site-blog/types"
 import { TAGS_MAX, addTags, cleanSlugInput, instantFromInputs, zonedInputs } from "./model"
 import { SelectField } from "./ui"
+
+/** The category list's own last line, which opens the box for a new one. Never a category id (those are uuids). */
+const NEW_CATEGORY = "__new"
 
 export const SEO_TITLE_FITS = 60
 export const SEO_DESCRIPTION_FITS = 160
@@ -129,6 +133,8 @@ export const PostPanel = React.memo(function PostPanel({
   post,
   overview,
   siteName,
+  ownerName,
+  installId,
   words,
   minutes,
   onSlugTouched,
@@ -138,11 +144,41 @@ export const PostPanel = React.memo(function PostPanel({
   post: AdminPost
   overview: BlogOverview
   siteName: string
+  /** Who a post with no author is shown as written by: the store's owner, from their account (lib/site-blog/public-read.ts ownerAuthor). */
+  ownerName?: string
+  /** For a category made from here. */
+  installId?: string
   words: number
   minutes: number
   onSlugTouched: () => void
 }) {
   const id = React.useId()
+  /*
+    A NEW CATEGORY WITHOUT LEAVING THE POST (round 51). "New category" in the
+    list opens a box in place; Add makes it (the categories route, its checks)
+    and picks it for this post. Made here, it is in this list at once.
+  */
+  const [madeCategories, setMadeCategories] = React.useState<SiteBlogCategory[]>([])
+  const [newCategory, setNewCategory] = React.useState<string | null>(null)
+  const [categoryBusy, setCategoryBusy] = React.useState(false)
+  const [categoryError, setCategoryError] = React.useState<string | null>(null)
+  const categories = React.useMemo(() => [...overview.categories, ...madeCategories.filter((m) => !overview.categories.some((c) => c.id === m.id))], [overview.categories, madeCategories])
+  const addCategory = async () => {
+    const name = (newCategory ?? "").trim()
+    if (!name || !installId || categoryBusy) return
+    setCategoryBusy(true)
+    setCategoryError(null)
+    try {
+      const made = await createCategory(installId, { name })
+      setMadeCategories((all) => [...all, made])
+      set({ categoryId: made.id })
+      setNewCategory(null)
+    } catch (e) {
+      setCategoryError(e instanceof Error ? e.message : tt("Something went wrong. Try again."))
+    } finally {
+      setCategoryBusy(false)
+    }
+  }
   const domain = overview.liveBase.replace(/^https?:\/\//, "").replace(/\/$/, "")
   const handle = overview.settings.handle
   const slugOk = isPostSlug(meta.slug)
@@ -157,7 +193,7 @@ export const PostPanel = React.memo(function PostPanel({
   return (
     <div data-post-panel="">
       <Section title={tt("Post")}>
-        <Field label={tt("Excerpt")} htmlFor={`${id}-ex`} aside={<Counter value={meta.excerpt} max={EXCERPT_FITS} />} hint={tt("A line or two under the title on the blog page. Left empty, the post's first words are used.")}>
+        <Field label={tt("Excerpt")} htmlFor={`${id}-ex`} aside={<Counter value={meta.excerpt} max={EXCERPT_FITS} />} hint={tt("Left empty, the first words are used.")}>
           <textarea id={`${id}-ex`} value={meta.excerpt} rows={3} maxLength={500} onChange={(e) => set({ excerpt: e.target.value })} className={cn(textAreaClass, "leading-snug")} />
         </Field>
         <div>
@@ -171,22 +207,60 @@ export const PostPanel = React.memo(function PostPanel({
             <input id={`${id}-alt`} value={meta.coverAlt} maxLength={200} onChange={(e) => set({ coverAlt: e.target.value })} placeholder={tt("What the picture shows")} className={field} />
           </Field>
         )}
-        <Field label={tt("Category")} htmlFor={`${id}-cat`}>
-          <SelectField id={`${id}-cat`} label={tt("Category")} value={meta.categoryId ?? ""} onChange={(v) => set({ categoryId: v || null })} className="w-full">
-            <option value="">{tt("No category")}</option>
-            {overview.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </SelectField>
+        <Field label={tt("Category")} htmlFor={`${id}-cat`} hint={categoryError ? <span className="text-red-300">{categoryError}</span> : undefined}>
+          {newCategory === null ? (
+            <SelectField
+              id={`${id}-cat`}
+              label={tt("Category")}
+              value={meta.categoryId ?? ""}
+              onChange={(v) => {
+                if (v === NEW_CATEGORY) {
+                  setCategoryError(null)
+                  setNewCategory("")
+                } else set({ categoryId: v || null })
+              }}
+              className="w-full"
+            >
+              <option value="">{tt("No category")}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              {installId && <option value={NEW_CATEGORY}>{tt("New category")}</option>}
+            </SelectField>
+          ) : (
+            <div className="flex gap-2" data-blog-new-category="">
+              <input
+                id={`${id}-cat`}
+                autoFocus
+                value={newCategory}
+                maxLength={80}
+                placeholder={tt("Category name")}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    void addCategory()
+                  } else if (e.key === "Escape") setNewCategory(null)
+                }}
+                className={cn(field, "min-w-0 flex-1")}
+              />
+              <button type="button" onClick={() => void addCategory()} disabled={!newCategory.trim() || categoryBusy} className="h-11 shrink-0 rounded-lg bg-white px-3.5 text-[14px] font-semibold text-[#0f0f0f] disabled:opacity-50 md:h-10">
+                {tt("Add")}
+              </button>
+              <button type="button" onClick={() => setNewCategory(null)} aria-label={tt("Cancel")} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-white/60 hover:bg-white/[0.08] hover:text-white md:h-10 md:w-10">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </Field>
         <Field label={tt("Tags")} htmlFor={`${id}-tags`}>
           <TagsField id={`${id}-tags`} value={meta.tags} suggestions={overview.tags} onChange={(tags) => set({ tags })} />
         </Field>
-        <Field label={tt("Author")} htmlFor={`${id}-au`} hint={overview.authors.length ? undefined : tt("Add authors in Blog settings, under Authors.")}>
+        <Field label={tt("Author")} htmlFor={`${id}-au`} hint={!meta.authorId && ownerName ? tt("Your profile name and photo, as they are now.") : undefined}>
           <SelectField id={`${id}-au`} label={tt("Author")} value={meta.authorId ?? ""} onChange={(v) => set({ authorId: v || null })} className="w-full">
-            <option value="">{tt("No author")}</option>
+            <option value="">{ownerName || tt("No author")}</option>
             {overview.authors.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -197,7 +271,7 @@ export const PostPanel = React.memo(function PostPanel({
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[14px] font-medium text-white">{tt("Featured")}</p>
-            <p className="mt-0.5 text-[12.5px] leading-snug text-white/50">{tt("Shown first wherever the blog shows featured posts.")}</p>
+            <p className="mt-0.5 text-[12.5px] leading-snug text-white/50">{tt("Shown in Featured posts sections.")}</p>
           </div>
           <Toggle checked={meta.featured} onChange={(featured) => set({ featured })} label={tt("Featured")} />
         </div>

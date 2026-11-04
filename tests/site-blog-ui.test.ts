@@ -417,7 +417,8 @@ async function main() {
   {
     const pe = code(`${SETTINGS}/blog/post-editor.tsx`)
     check("a portal over Settings at z-[160], always dark", /createPortal\(/.test(pe) && /fixed inset-0 z-\[160\]/.test(pe) && /data-ws-look="dark"/.test(pe) && /<SettingsLookContext\.Provider value="dark">/.test(pe) && /document\.body/.test(pe))
-    check("loaded only when a post is opened", /dynamic\(\(\) => import\("\.\/blog\/post-editor"\)/.test(code(`${SETTINGS}/blog.tsx`)))
+    /* Changed on purpose (r51): still its own chunk, never in Settings' bundle, and now fetched while the list is idle so the first post opens without waiting for it. */
+    check("its own chunk, fetched when the list is idle, drawn when a post is opened", /const loadWriter = \(\) => import\("\.\/blog\/post-editor"\)/.test(code(`${SETTINGS}/blog.tsx`)) && /dynamic\(\(\) => loadWriter\(\)/.test(code(`${SETTINGS}/blog.tsx`)) && /requestIdleCallback/.test(code(`${SETTINGS}/blog.tsx`)))
     check("Back, the save state, History, Preview, the settings and Publish", /tt\("Posts"\)/.test(pe) && /aria-label=\{tt\("History"\)\}/.test(pe) && /aria-label=\{tt\("Preview"\)\}/.test(pe) && /aria-controls="site-post-settings"/.test(pe) && /<PublishButton/.test(pe))
     check("  Preview opens in the press and is pointed at the signed address", /const w = window\.open\("", "_blank"\)/.test(pe) && /previewPost\(ctx\.installId, post\.id\)/.test(pe) && /w\.opener = null/.test(pe))
     check("  the panel beside the writing from lg, a drawer under it", /matchMedia\("\(min-width: 1024px\)"\)/.test(pe) && /translate-x-full/.test(pe) && /inert=\{!drawer\}/.test(pe))

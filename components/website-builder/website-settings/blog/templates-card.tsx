@@ -14,13 +14,13 @@ import { Card, Row, buttonClass } from "../parts"
 
 export function TemplatesCard({ templates, onEditPage }: { templates: BlogTemplateKeys; onEditPage: (pageKey: string) => void }) {
   return (
-    <Card title={tt("Templates")} footer={tt("Posts are written here; how they look is designed in the builder, once for every post.")}>
-      <Row label={tt("Blog page")} hint={tt("The list of posts: its layout, featured posts, categories and pages.")} inline>
+    <Card title={tt("Templates")}>
+      <Row label={tt("Blog page")} hint={tt("The list of posts.")} inline>
         <button type="button" onClick={() => onEditPage(templates.listing)} className={buttonClass} data-blog-template={templates.listing}>
           {tt("Edit")}
         </button>
       </Row>
-      <Row label={tt("Post page")} hint={tt("One article layout for every post: the cover, the author, related posts.")} inline>
+      <Row label={tt("Post page")} hint={tt("How every post looks.")} inline>
         <button type="button" onClick={() => onEditPage(templates.post)} className={buttonClass} data-blog-template={templates.post}>
           {tt("Edit")}
         </button>

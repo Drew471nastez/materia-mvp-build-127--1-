@@ -29,7 +29,6 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, ExternalLink, Loader2 } from "lucide-react"
 import { plainWords } from "@/lib/github-sync/editor-status"
 import { relativeTime } from "@/lib/website-builder/relative-time"
-import { Step, Steps } from "@/components/website-builder/setup-steps"
 import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/components/website-builder/website-settings/connection-row"
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
 import { tt, msg } from "@/lib/i18n/text"
@@ -242,11 +241,12 @@ function SyncRow({ title, detail, on, busy, onChange }: {
   )
 }
 
-const STEPS = [
-  [msg("Connect a repository"), msg("Storelib writes this website's whole theme into it: settings, pages, header and footer, sections and blocks, with an AGENTS.md your tool reads first.")],
-  [msg("Ask your agent for a change"), msg("Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section, a page or a settings change.")],
-  [msg("It appears here"), msg("Each push arrives within seconds, as a draft. Publish when you like it.")],
-] as const
+/*
+  ROUND 51, the owner: "easier, simpler, with less text". Before a
+  repository: one line and the button. The three numbered steps, a
+  paragraph each, are gone; the line says all three.
+*/
+const SETUP_LINE = msg("Storelib keeps this website's theme in a repository. What your agent pushes comes back as a draft.")
 
 /** Where an AI works on the repository, from the web. */
 const AI_TOOLS = [
@@ -425,7 +425,7 @@ export function GitHubSyncPanel({
   const picker = status && link ? (
     <div>
       <p className="text-[14px] text-white/60">
-        <Rich text={tt("Connected to {account}. Pick the repository for this website.")} parts={{ account: <span className="text-white">{link.account || "GitHub"}</span> }} />
+        <Rich text={tt("Pick a repository on {account}.")} parts={{ account: <span className="text-white">{link.account || "GitHub"}</span> }} />
       </p>
       {status.reposError ? (
         <p className="mt-3 text-[14px] text-red-300">{status.reposError}</p>
@@ -434,7 +434,7 @@ export function GitHubSyncPanel({
           {tt("Storelib cannot see any repositories. Give it access to one on GitHub, then")} <InlineButton onClick={() => void load()}>{tt("check again")}</InlineButton>.
         </p>
       ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
+        <div className="mt-4 grid gap-3">
           <label className="block">
             <span className="text-[13px] text-white/50">{tt("Repository")}</span>
             <select
@@ -450,34 +450,41 @@ export function GitHubSyncPanel({
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="text-[13px] text-white/50">{tt("Branch")}</span>
-            <input
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none focus:border-white/35 md:h-10 md:text-[14px]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-[13px] text-white/50">{tt("Folder")}</span>
-            <input
-              value={folder}
-              onChange={(e) => setFolder(e.target.value)}
-              placeholder={tt("Top of the repository")}
-              className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/35 md:h-10 md:text-[14px]"
-            />
-          </label>
-          <p className="text-[13px] leading-relaxed text-white/50 md:col-span-3">
-            {tt("An empty repository works best. If the branch is protected on GitHub, type a new one, such as storelib, and Storelib makes it.")}
-          </p>
+          {/* Branch and folder, folded: the repository's default branch at its top is right for nearly everybody. */}
+          <details className="group/more" data-github-more="">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] text-white/55 hover:text-white/80 [&::-webkit-details-marker]:hidden">
+              {tt("Branch and folder")}
+              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-open/more:rotate-180" aria-hidden />
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-[13px] text-white/50">{tt("Branch")}</span>
+                <input
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none focus:border-white/35 md:h-10 md:text-[14px]"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[13px] text-white/50">{tt("Folder")}</span>
+                <input
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder={tt("Top of the repository")}
+                  className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/35 md:h-10 md:text-[14px]"
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-[13px] leading-relaxed text-white/50">{tt("A new branch name makes that branch.")}</p>
+          </details>
           <button
             type="button"
             disabled={busy !== null || !repo}
             onClick={() => void post({ action: "select", repo, branch, folder }, "select")}
-            className={`${primaryButtonClass} md:col-span-3 md:justify-self-start`}
+            className={`${primaryButtonClass} justify-self-start`}
           >
             {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
-            {tt("Link and send the theme")}
+            {tt("Link repository")}
           </button>
         </div>
       )}
@@ -503,24 +510,18 @@ export function GitHubSyncPanel({
       ) : !status.ready ? (
         <p className="text-[14px] text-white/60">{tt("GitHub needs a database update first. Run supabase/sql/RUN_GITHUB_SYNC.sql.")}</p>
       ) : (
-        <Steps>
-          <Step n={1} title={tt(STEPS[0][0])}>
-            {!link ? (
-              <>
-                <p className="mb-3.5 text-[13.5px] leading-relaxed text-white/55">{tt(STEPS[0][1])}</p>
-                {connectButtons}
-              </>
-            ) : (
-              picker
-            )}
-          </Step>
-          <Step n={2} title={tt(STEPS[1][0])} muted>
-            <p className="text-[13.5px] leading-relaxed text-white/60">{tt(STEPS[1][1])}</p>
-          </Step>
-          <Step n={3} title={tt(STEPS[2][0])} muted>
-            <p className="text-[13.5px] leading-relaxed text-white/60">{tt(STEPS[2][1])}</p>
-          </Step>
-        </Steps>
+        <div data-github-setup={link ? "pick" : "connect"}>
+          {!link ? (
+            <>
+              <p className="mb-3.5 text-[13.5px] leading-relaxed text-white/55">
+                {tt(SETUP_LINE)}
+              </p>
+              {connectButtons}
+            </>
+          ) : (
+            picker
+          )}
+        </div>
       )}
       {messages}
     </>
@@ -677,24 +678,18 @@ export function GitHubSyncPanel({
           />
         </div>
 
-        {/* Working with an AI on it: the repository is the whole theme, and its AGENTS.md tells the tool the rest. */}
-        <div className="mt-6">
-          <p className="text-[13px] font-medium text-white/50">{tt("Use it with an AI")}</p>
-          <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[13.5px] leading-relaxed text-white/70">
-            <li>
-              {tt("Open {repo} in", { repo: link.repo })}{" "}
-              {AI_TOOLS.map((t, i) => (
-                <span key={t.name}>
-                  {i > 0 && " or "}
-                  <a href={t.href} target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-white/80">{t.name}</a>
-                </span>
-              ))}
-              .
-            </li>
-            <li>{tt("Ask for a change, such as “make the hero taller”. It reads AGENTS.md first.")}</li>
-            <li><Rich text={tt("When it pushes to {branch}, the change shows here as a draft within seconds.")} parts={{ branch: <span className="font-mono">{link.branch}</span> }} /></li>
-          </ol>
-        </div>
+        {/* Working with an AI on it: one line, the two tools linked. AGENTS.md in the repository tells the tool the rest. */}
+        <p className="mt-5 text-[13.5px] leading-relaxed text-white/60" data-github-ai="">
+          {tt("Use it with an AI:")}{" "}
+          {AI_TOOLS.map((t, i) => (
+            <span key={t.name}>
+              {i > 0 && ", "}
+              <a href={t.href} target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-white/80">{t.name}</a>
+            </span>
+          ))}
+          {". "}
+          <Rich text={tt("Pushes to {branch} show here as drafts.")} parts={{ branch: <span className="font-mono">{link.branch}</span> }} />
+        </p>
 
         {/* What went each way, lately. */}
         {status.events.length > 0 && <RecentList events={status.events} repo={link.repo} />}

@@ -1306,6 +1306,8 @@ const STRICT_SUITES = [
   "tests/communities-delete-r51.test.ts",
   /* Round 51 (E): Edit profile on the creator page with one scroll, a taller cover, every field and switch on the page before Save, four Save states, "@" social fields, and its social links synced with the OnePage's both ways; Customer emails' and Settings' pills as Analytics' chips with no flash or jump. scripts/check-profile-sheet-r51.mjs and scripts/check-emails-pills-r51.mjs measure them. */
   "tests/creator-emails-r51.test.ts",
+  /* Round 51 (website settings): a theme's own newsletter sends from the builder's canvas (an address on the builder's origin is the canvas page's own) and from a preview link, the lab test's newest result stays, a backup's preview, the owner as the blog's default author live from their profile with Written by and the photo, New post with no second read, Apps' marks, own database Coming soon, GitHub in one line, Team's access only while inviting, a domain's certificate followed; scripts/check-newsletter-canvas-r51.mjs and scripts/check-site-settings-r51.mjs measure them in a browser. Strict: the blog reads through supabase-js. */
+  "tests/site-settings-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

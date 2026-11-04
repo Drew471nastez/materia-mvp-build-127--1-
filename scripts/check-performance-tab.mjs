@@ -325,6 +325,7 @@ for (const [label, viewport] of SIZES) {
     const footer = res?.closest("section")?.lastElementChild?.textContent.trim()
     const findings = [...document.querySelectorAll("[data-finding]")].map((e) => e.textContent.trim())
     const facts = [...document.querySelectorAll("[data-quick-facts] > div")].map((e) => e.textContent.trim())
+    const metaBefore = document.querySelector("[data-lab-meta]")?.textContent.trim()
     const run = document.querySelector("[data-lab-run]")
     run.click()
     await new Promise((r) => setTimeout(r, 50))
@@ -338,6 +339,7 @@ for (const [label, viewport] of SIZES) {
       score: /score/i.test(res?.textContent ?? ""),
       busy,
       after: document.querySelector("[data-lab-result]")?.dataset.labSource,
+      metaBefore,
       meta: document.querySelector("[data-lab-meta]")?.textContent.trim(),
       posts: window.__calls.filter((c) => c.startsWith("POST") && c.includes("/performance/lab")).length,
       quota: /too many requests/i.test(document.body.textContent),
@@ -351,6 +353,8 @@ for (const [label, viewport] of SIZES) {
   expect(lab.facts.length === 6 && !lab.score, "  six measured facts and no score", lab.facts)
   expect(lab.findings.length >= 3 && lab.findings.some((f) => /hero-summer\.jpg at 1\.2 MB/.test(f)), "  concrete findings", lab.findings)
   expect(/Testing/.test(lab.busy) && lab.after === "quick" && lab.posts === 1 && !lab.quota, "Run test posts once, says it is testing, draws the quick check, never Google's quota line", { busy: lab.busy, posts: lab.posts })
+  /* Round 51: the page read again after the test answers with the test from before (another server's kept copy, as this stub does): the new one stays. */
+  expect(/Tested/.test(lab.meta ?? "") && lab.meta !== lab.metaBefore, "  the new result stays after the page is read again", { before: lab.metaBefore, after: lab.meta })
   const o2 = await overflow(p)
   expect(o2.scroll === 0 && o2.wide.length === 0, "  nothing wider than the screen with the lab result open", o2.wide)
   await p.close()

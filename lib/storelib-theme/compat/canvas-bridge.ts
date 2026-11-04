@@ -3121,10 +3121,10 @@ export const CANVAS_REQUESTS = `
     var raw = String(u);
     if (raw === "" || raw === "about:srcdoc" || raw.indexOf("srcdoc") === 0) return pagePath + (raw.indexOf("?") >= 0 ? raw.slice(raw.indexOf("?")) : "");
     var url;
-    try { url = new URL(raw, baseUrl); } catch (e) { return null; }
+    try { url = new NativeURL(raw, baseUrl); } catch (e) { return null; }
     if (url.protocol === "about:") return pagePath + url.search;
     var home;
-    try { home = new URL(baseUrl); } catch (e) { return null; }
+    try { home = new NativeURL(baseUrl); } catch (e) { return null; }
     if (url.origin !== home.origin) return null;
     var p = url.pathname;
     if (/^\\/(api|_next|cdn)\\//.test(p) || /\\.(css|png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf|mp4|webm|ico)$/i.test(p)) return null;
@@ -3141,12 +3141,25 @@ export const CANVAS_REQUESTS = `
     it (Horizon: new URL(Theme.routes.search_url, location.origin)) threw
     before it asked for anything. Such a base is read as the builder's page,
     so the address resolves and its request is answered as above.
+
+    AND AN ADDRESS OF THIS WEBSITE IS ON THIS PAGE'S ORIGIN (round 51). A
+    theme that checks a form posts to its own site before sending it
+    (Materia's newsletter: new URL(form.action).origin !== location.origin)
+    met the builder's origin on one side and "null" on the other, refused
+    to send, and said "That did not go through. Check your connection" in
+    the editor on every press. An address on the builder's origin is this
+    page's own address here, so its origin reads as this page's, "null".
+    The bridge's own routing reads the real one (NativeURL, above).
   */
   var NativeURL = window.URL;
   var fixBase = function (b) { var s = String(b); return s === "null" || s.indexOf("about:") === 0 ? baseUrl : b; };
+  var homeOrigin = null;
+  try { homeOrigin = new NativeURL(baseUrl).origin; } catch (e) {}
+  var pageOrigin = location.origin;
   try {
     window.URL = class extends NativeURL {
       constructor(u, b) { if (arguments.length > 1 && b !== undefined) super(u, fixBase(b)); else super(u); }
+      get origin() { var o = super.origin; return pageOrigin === "null" && homeOrigin && o === homeOrigin ? "null" : o; }
     };
   } catch (e) {}
   var waiting = {};

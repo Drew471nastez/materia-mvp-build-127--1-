@@ -272,7 +272,8 @@ function main() {
     check("the GitHub button and a return from GitHub open that line",
       /useState<ConnectionId \| null>\(ctx\.connectVia === "github" \|\| ctx\.githubReturned \? "github" : null\)/.test(advanced))
   }
-  check("it says how it works in three steps", /Connect a repository/.test(panel) && /Ask your agent for a change/.test(panel) && /It appears here/.test(panel))
+  /* Changed on purpose (r51): one line before a repository instead of three numbered steps, as the owner asked for less text. */
+  check("it says how it works in one line, then the button", /SETUP_LINE = (msg\()?"Storelib keeps this website's theme in a repository\. What your agent pushes comes back as a draft\."/.test(panel) && /\{(tt\()?SETUP_LINE\)?\}/.test(panel) && !/<Steps>/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
   {
     const said = (s: Parameters<typeof githubStatus>[0], failed = false) => {
@@ -364,8 +365,9 @@ function main() {
   check("a direct connection is the steps left for the tool whose line was pressed, with only its command",
     /<SetupSteps tool=\{tool\} agents=\{agents\} \/>/.test(direct) && /role="radiogroup" aria-label=\{label\}/.test(direct) &&
       /setupCommands\(tool, os, token\)/.test(direct) && /n=\{terminal \? 2 : 1\}/.test(direct) && /<Step n=\{3\}/.test(direct))
-  check("the GitHub line is the same three steps while nothing is linked, and acting is step one",
-    /<Step n=\{1\} title=\{STEPS\[0\]\[0\]\}>/.test(panel2) && /<Step n=\{3\} title=\{STEPS\[2\]\[0\]\} muted>/.test(panel2) && /\{connectButtons\}/.test(panel2) &&
+  /* Changed on purpose (r51): one line and the button while nothing is linked, no numbered steps (the owner: "easier, simpler, with less text"). */
+  check("the GitHub line is one line and the button while nothing is linked",
+    /data-github-setup=\{link \? "pick" : "connect"\}/.test(panel2) && !/<Step /.test(panel2) && /\{connectButtons\}/.test(panel2) &&
       /Continue to GitHub/.test(panel2))
 
   console.log("\nGitHub, safely")

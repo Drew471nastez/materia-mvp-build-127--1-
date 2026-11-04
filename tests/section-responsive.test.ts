@@ -2136,7 +2136,8 @@ check(
 
 check(
   "the Backups page lists moments with a Load, asks before restoring, and says what will and will not happen",
-  /A backup is saved automatically each time Storelib AI finishes a task and each time you publish/.test(settingsAll) &&
+  /* Changed on purpose (r51): the lead is one short line, the owner asked for less text. */
+  /Saved each time you publish and after each Storelib AI task/.test(settingsAll) &&
     /Restore this backup\?/.test(settingsAll) &&
     /A backup of the draft you have now is saved first, so this can be undone/.test(settingsAll) &&
     /Nothing changes on your live site until you publish/.test(settingsAll) &&

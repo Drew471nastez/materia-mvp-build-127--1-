@@ -19,7 +19,6 @@
 .bg-\[\#1f1f1f\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
 .bg-\[\#202020\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
 .bg-\[\#2b2b2b\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
-.bg-white\/10:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: rgba(16,24,40,0.07); }
 .bg-white\/\[0\.02\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
 .bg-white\/\[0\.035\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
 .bg-white\/\[0\.03\]:is([data-ws-look="light"], [data-ws-look="light"] *) { background-color: #ffffff; }
@@ -60,7 +59,6 @@
 .text-\[\#8ab4f8\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #1a0dab; }
 .text-\[\#bdc1c6\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #4d5156; }
 .text-\[\#bdc1c6\]\/85:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #4d5156; }
-.text-\[\#f5a3a3\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-\[\#f87171\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-amber-200:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }
 .text-amber-200\/80:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }

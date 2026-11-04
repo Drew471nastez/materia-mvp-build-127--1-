@@ -7,6 +7,8 @@ import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { settleRestore } from "@/lib/website-builder/restore-request"
+import type { BackupPreview } from "@/lib/website-builder/backup-preview"
+import { cn } from "@/lib/utils"
 
 interface BackupRow {
   id: string
@@ -47,6 +49,8 @@ interface ReleaseRow {
   restored: boolean
   live: boolean
 }
+
+type PreviewState = { id: string; state: "loading" } | { id: string; state: "ready"; preview: BackupPreview } | { id: string; state: "error"; error: string }
 
 const SOURCE_WORD: Record<BackupRow["source"], string> = {
   get ai() { return tt("After a Storelib AI task") },
@@ -89,6 +93,10 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   const [restoreError, setRestoreError] = useState<string | null>(null)
   const [copying, setCopying] = useState(false)
   const [copied, setCopied] = useState(false)
+  /* What Back up now did: a new restore point, or nothing because nothing changed since the last. */
+  const [backedUp, setBackedUp] = useState<null | { id: string; skipped: boolean }>(null)
+  /* The open backup's preview: what restoring it would change (lib/website-builder/backup-preview.ts). */
+  const [preview, setPreview] = useState<PreviewState | null>(null)
   useEffect(() => {
     if (backups && !error) lastBackups.set(ctx.installId, backups)
   }, [backups, error, ctx.installId])
@@ -157,11 +165,25 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
     void load()
   }, [load])
 
+  /*
+    BACK UP NOW, OF WHAT IS ON SCREEN (round 51). The backup is read from the
+    database, so an edit still waiting for autosave was not in it: the
+    editor's draft is saved and held first (onHoldDraft, as a restore does),
+    then let go. And the answer is said: a backup identical to the last one
+    is not saved twice (lib/website-builder/backups.ts), which used to look
+    like a button that did nothing.
+  */
   const backUpNow = async () => {
     if (backingUp) return
     setBackingUp(true)
     setError(null)
+    setBackedUp(null)
+    let held = false
     try {
+      if (ctx.onHoldDraft) {
+        held = true
+        if (!(await ctx.onHoldDraft(true))) throw new Error(tt("Your latest edits could not be saved yet. Try again in a moment."))
+      }
       const res = await fetch(`/api/website-builder/themes/${ctx.installId}/backups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,11 +192,27 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error || tt("Could not save a backup"))
       await load()
+      if (json?.backup?.id) setBackedUp({ id: String(json.backup.id), skipped: json.skipped === true })
     } catch (e) {
       setError(e instanceof Error ? e.message : tt("Could not save a backup"))
     } finally {
+      if (held) await Promise.resolve(ctx.onHoldDraft?.(false)).catch(() => {})
       setBackingUp(false)
     }
+  }
+
+  /* Opening a backup reads what restoring it would change; nothing is written. */
+  const openBackup = (row: BackupRow) => {
+    setConfirming(row)
+    setRestoreError(null)
+    setPreview({ id: row.id, state: "loading" })
+    void fetch(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}`, { cache: "no-store" })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || !json?.preview) throw new Error(json?.error || tt("Could not load this backup"))
+        setPreview((p) => (p && p.id === row.id ? { id: row.id, state: "ready", preview: json.preview as BackupPreview } : p))
+      })
+      .catch((e: unknown) => setPreview((p) => (p && p.id === row.id ? { id: row.id, state: "error", error: e instanceof Error ? e.message : tt("Could not load this backup") } : p)))
   }
 
   const restore = async (row: BackupRow) => {
@@ -219,11 +257,14 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
       >
         {tt("Backups & Versions")}
       </PageTitle>
-      <Lead>
-        {tt("A backup is saved automatically each time Storelib AI finishes a task and each time you publish. Restore one to put your draft back to that moment.")}
-      </Lead>
+      <Lead>{tt("Saved each time you publish and after each Storelib AI task.")}</Lead>
 
       {error && <ErrorNote>{error}</ErrorNote>}
+      {backedUp && !error && (
+        <p role="status" className="mb-3 text-[13.5px] text-white/60" data-backup-result={backedUp.skipped ? "same" : "new"}>
+          {backedUp.skipped ? tt("Nothing changed since the last backup.") : tt("Backed up.")}
+        </p>
+      )}
 
       <Card title={tt("Restore points")} footer={tt("The newest 30 are kept. A backup identical to the one before it is not saved twice.")}>
         {backups === null ? (
@@ -234,11 +275,13 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">{tt("No backups yet.")}</p>
         ) : (
           backups.map((b) => (
-            <Row key={b.id} label={b.label} hint={`${backupWhen(b.created_at)} · ${SOURCE_WORD[b.source]}`} inline>
-              <button type="button" onClick={() => setConfirming(b)} className={buttonClass}>
-                {tt("Restore")}
-              </button>
-            </Row>
+            <div key={b.id} data-backup-row={b.id} className={cn("transition-colors duration-700", backedUp?.id === b.id && "bg-white/[0.04]")}>
+              <Row label={b.label} hint={`${backupWhen(b.created_at)} · ${SOURCE_WORD[b.source]}`} inline>
+                <button type="button" onClick={() => openBackup(b)} className={buttonClass} data-backup-open="">
+                  {tt("Preview")}
+                </button>
+              </Row>
+            </div>
           ))
         )}
       </Card>
@@ -293,8 +336,10 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           onCancel={() => {
             setConfirming(null)
             setRestoreError(null)
+            setPreview(null)
           }}
           onConfirm={() => void restore(confirming)}
+          preview={<BackupChanges preview={preview && preview.id === confirming.id ? preview : null} pages={ctx.pages} />}
           lead={
             <>
               {tt("Your draft will be replaced with the website as it was on")} <span className="text-white">{backupWhen(confirming.created_at)}</span>.
@@ -340,6 +385,7 @@ function ConfirmRestore({
   title,
   label,
   lead,
+  preview,
   points,
   busy,
   error,
@@ -349,6 +395,8 @@ function ConfirmRestore({
   title: string
   label: string
   lead: ReactNode
+  /** What restoring would change, under the lead (a backup's preview). */
+  preview?: ReactNode
   points: string[]
   busy: boolean
   error: string | null
@@ -420,6 +468,7 @@ function ConfirmRestore({
       >
         <h2 className="text-[20px] font-semibold">{title}</h2>
         <p id={`${id}-lead`} className="mt-2 text-[15px] leading-relaxed text-white/70">{lead}</p>
+        {preview}
         <ul className="mt-4 space-y-2 text-[14px] text-white/70">
           {points.map((point) => (
             <li key={point} className="flex gap-2.5">
@@ -457,6 +506,58 @@ function ConfirmRestore({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const CHANGE_WORD: Record<"changed" | "comes back" | "same" | "stays", () => string> = {
+  changed: () => tt("Put back"),
+  "comes back": () => tt("Comes back"),
+  same: () => tt("No change"),
+  stays: () => tt("Kept as it is"),
+}
+
+/**
+ * THE PREVIEW (round 51): page by page, what Restore would do to the draft,
+ * read from the server (lib/website-builder/backup-preview.ts). Its box
+ * keeps a minimum height while it loads, so the sheet does not jump when
+ * the answer comes in.
+ */
+function BackupChanges({ preview, pages }: { preview: PreviewState | null; pages: SettingsContext["pages"] }) {
+  const nameOf = (key: string) => pages.find((p) => p.key === key)?.name ?? (key === "home" ? tt("Home") : key.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase()))
+  return (
+    <div className="mt-4 min-h-[88px] rounded-xl border border-white/10 bg-white/[0.03]" data-backup-preview={preview?.state ?? "none"}>
+      {!preview || preview.state === "loading" ? (
+        <div className="flex h-[88px] items-center justify-center text-white/50" role="status" aria-label={tt("Loading")}>
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      ) : preview.state === "error" ? (
+        <p className="px-3.5 py-3 text-[13.5px] text-red-300">{preview.error}</p>
+      ) : preview.preview.same ? (
+        <p className="px-3.5 py-3 text-[14px] text-white/70">{tt("This is the same as your draft. Restoring changes nothing.")}</p>
+      ) : (
+        <ul className="max-h-[220px] divide-y divide-white/[0.06] overflow-y-auto overscroll-contain">
+          {preview.preview.pages.map((p) => (
+            <li key={p.key} className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-backup-page={p.key} data-change={p.change}>
+              <span className="min-w-0 flex-1 truncate text-white">{nameOf(p.key)}</span>
+              <span className="shrink-0 text-[12.5px] text-white/50">{tt("{count, plural, one {# section} other {# sections}}", { count: p.sections })}</span>
+              <span className={cn("w-[96px] shrink-0 text-right text-[12.5px]", p.change === "changed" || p.change === "comes back" ? "text-amber-200" : "text-white/40")}>{CHANGE_WORD[p.change]()}</span>
+            </li>
+          ))}
+          {preview.preview.settingsChanged > 0 && (
+            <li className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-backup-settings={preview.preview.settingsChanged}>
+              <span className="min-w-0 flex-1 truncate text-white">{tt("Theme settings")}</span>
+              <span className="shrink-0 text-[12.5px] text-amber-200">{tt("{count, plural, one {# setting put back} other {# settings put back}}", { count: preview.preview.settingsChanged })}</span>
+            </li>
+          )}
+          {preview.preview.filesChanged > 0 && (
+            <li className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-backup-files={preview.preview.filesChanged}>
+              <span className="min-w-0 flex-1 truncate text-white">{tt("Code")}</span>
+              <span className="shrink-0 text-[12.5px] text-amber-200">{tt("{count, plural, one {# file put back} other {# files put back}}", { count: preview.preview.filesChanged })}</span>
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   )
 }

@@ -69,6 +69,12 @@ interface BlogData {
   settings: SiteBlogSettings
   categories: SiteBlogCategory[]
   authors: SiteBlogAuthor[]
+  /**
+   * The store's owner, as their Storelib account says it now: the author of
+   * every post that names none ("Written by" with their photo). Null when
+   * the account has no name to give.
+   */
+  owner?: SiteBlogAuthor | null
   /** Every published row, scheduled included, newest first. */
   rows: Row[]
 }
@@ -96,7 +102,42 @@ async function loadBlogData(creatorId: string, db: Db = siteBlogReadDeps.db()): 
     settings: settingsOf((settings.data as Row | null) ?? null),
     categories: ((cats.data ?? []) as Row[]).map((r) => ({ id: r.id, slug: r.slug, name: r.name, description: r.description ?? "", sortOrder: Number(r.sort_order) || 0, seoTitle: r.seo_title ?? "", seoDescription: r.seo_description ?? "" })),
     authors: ((authors.data ?? []) as Row[]).map(authorOf),
+    owner: await ownerAuthor(db, creatorId),
     rows,
+  }
+}
+
+/** The id the owner stands under as an author: never a uuid, so it is never one of site_blog_authors. */
+export const OWNER_AUTHOR_ID = "owner"
+
+/**
+ * THE STORE'S OWNER AS THE DEFAULT AUTHOR (round 51, the owner: "the author's
+ * name and avatar fetched dynamically, Written by <author> with the author's
+ * photo"). Read from their account each time the blog is read (held with
+ * the blog's own data, five minutes at most, and cleared with it on every
+ * change to the blog): the person's name on their profile (else the name
+ * their store shows), and their profile photo (profiles.avatar_url, the
+ * one Settings changes). An author written in Blog › Authors keeps their own
+ * name and photo, which is the per-author override. Never stops the blog:
+ * anything that does not answer is no owner, and a post with no author then
+ * shows no byline, as before.
+ */
+async function ownerAuthor(db: Db, creatorId: string): Promise<SiteBlogAuthor | null> {
+  try {
+    const creator = await db.from("creators").select("*").eq("id", creatorId).maybeSingle()
+    const c = (creator.data ?? null) as Row | null
+    if (!c) return null
+    let profile: Row | null = null
+    if (typeof c.user_id === "string" && c.user_id) {
+      const read = await db.from("profiles").select("display_name, avatar_url").eq("id", c.user_id).maybeSingle()
+      profile = read.error ? null : ((read.data ?? null) as Row | null)
+    }
+    const name = String(profile?.display_name || c.display_name || "").trim()
+    if (!name) return null
+    const avatar = String(profile?.avatar_url || c.avatar_url || "").trim()
+    return { id: OWNER_AUTHOR_ID, slug: "", name: name.slice(0, 120), role: "", bio: "", avatarUrl: /^https?:\/\//i.test(avatar) ? avatar : "", links: [] }
+  } catch {
+    return null
   }
 }
 
@@ -126,7 +167,8 @@ async function blogData(creatorId: string): Promise<BlogData | null> {
 function cardOf(r: Row, data: BlogData): PublicPostCard {
   const handle = data.settings.handle
   const cat = r.category_id ? data.categories.find((c) => c.id === r.category_id) : undefined
-  const author = r.author_id ? (data.authors.find((a) => a.id === r.author_id) ?? null) : null
+  /* The author the post names; with none (or one since deleted), the store's owner (ownerAuthor). */
+  const author = (r.author_id ? data.authors.find((a) => a.id === r.author_id) : undefined) ?? data.owner ?? null
   const summary = String(r.excerpt || r.summary || "").trim()
   return {
     id: r.id,

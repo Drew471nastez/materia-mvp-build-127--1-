@@ -16,6 +16,7 @@ import { useEffect, useState } from "react"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
+import { Mark } from "@/components/app/settings/integration-mark"
 
 type Installed = { id: string; name: string; logo?: string | null; needsAttention: boolean }
 
@@ -45,7 +46,7 @@ export function AppsSettings({ ctx: _ctx }: { ctx: SettingsContext }) {
       >
         {tt("Apps and integrations")}
       </PageTitle>
-      <Lead>{tt("What is installed on your store and running on this website. Each one opens in a new tab to change its settings.")}</Lead>
+      <Lead>{tt("Installed on your store and running on this website.")}</Lead>
       <Card>
         {list === null ? (
           <div className="h-[72px]" aria-busy />
@@ -58,14 +59,8 @@ export function AppsSettings({ ctx: _ctx }: { ctx: SettingsContext }) {
               inline
               label={
                 <span className="flex items-center gap-3">
-                  {i.logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={i.logo} alt="" className="h-7 w-7 shrink-0 rounded-md bg-white object-contain p-0.5" loading="lazy" decoding="async" />
-                  ) : (
-                    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/10 text-[12px] font-semibold">
-                      {i.name.charAt(0)}
-                    </span>
-                  )}
+                  {/* The mark the dashboard draws (integration-mark): Storelib's own apps as their tile, a logo that fails as its initial. */}
+                  <Mark item={{ id: i.id, name: i.name, logo: i.logo ?? null }} size={28} />
                   <span className="min-w-0 truncate">{i.name}</span>
                 </span>
               }
