@@ -60,7 +60,7 @@ import {
 } from "@/lib/website-builder/web-performance"
 import { fileNameOf, formatBytes, isQuickCheck, type AnyLabResult, type LabResult, type LabStrategy } from "@/lib/website-builder/pagespeed"
 import type { QuickCheckResult, QuickFinding } from "@/lib/website-builder/quick-check"
-import { PERF_SKELETON_AFTER_MS, initialLoad, loadReducer, loadView, segmentKey } from "@/lib/website-builder/perf-view"
+import { PERF_SKELETON_AFTER_MS, initialLoad, loadReducer, loadView, newestLab, segmentKey } from "@/lib/website-builder/perf-view"
 
 interface StoredLab {
   strategy: LabStrategy
@@ -925,6 +925,8 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
   const [state, dispatch] = useReducer(loadReducer<Answer>, null, () => initialLoad<Answer>(lastAnswers.get(`${ctx.installId}|7d`) ?? null, `${ctx.installId}|7d`))
   const asked = useRef(0)
   const tabs = useRef<HTMLDivElement | null>(null)
+  /* Lab tests run here, kept over any answer read after them (perf-view newestLab). */
+  const [ranLab, setRanLab] = useState<Record<LabStrategy, StoredLab | null>>({ mobile: null, desktop: null })
 
   const load = useCallback(
     async (r: PerfRange) => {
@@ -1157,14 +1159,21 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
       {report?.partial && <p className="mt-3 text-[13px] text-amber-200/90">{tt("Part of this period is still being counted, so these numbers may be low.")}</p>}
       {state.error && answer && <ErrorNote>{state.error}</ErrorNote>}
       {body}
-      {answer && answer.available && (
+      {/* The lab test needs no visitor data: it is here whenever the page has answered, set up or not. */}
+      {answer && (
         <LabCard
           ctx={{ ...ctx, live }}
-          lab={answer.lab}
+          lab={{
+            mobile: newestLab(answer.available ? answer.lab.mobile : null, ranLab.mobile),
+            desktop: newestLab(answer.available ? answer.lab.desktop : null, ranLab.desktop),
+          }}
           onRan={(l) => {
-            const next: Answer = { ...answer, lab: { ...answer.lab, [l.strategy]: l } }
-            lastAnswers.set(keyOf(range), next)
-            dispatch({ type: "patch", answer: next })
+            setRanLab((was) => ({ ...was, [l.strategy]: l }))
+            if (answer.available) {
+              const next: Answer = { ...answer, lab: { ...answer.lab, [l.strategy]: l } }
+              lastAnswers.set(keyOf(range), next)
+              dispatch({ type: "patch", answer: next })
+            }
             void load(range)
           }}
         />

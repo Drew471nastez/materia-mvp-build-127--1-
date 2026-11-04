@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { resendWait, teamEmail } from "@/lib/team/roles"
 import { accessSummary, defaultPreset, homeFor, normalizePermissions, presetPermissions, type TeamPermission } from "@/lib/team/permissions"
 import { PermissionPicker } from "./team-permissions"
+import { Reveal } from "@/components/ui/reveal"
 import { tt } from "@/lib/i18n/text"
 import { formatRelative } from "@/lib/i18n/format"
 
@@ -256,6 +257,8 @@ export function TeamPanel() {
   const full = !!team && used >= team.limit
   const expired = (m: Member) => m.status === "invited" && !!m.expires_at && Date.parse(m.expires_at) < now
   const showError = touched && !!emailProblem
+  /* An address worth inviting is typed: the access for this invite is chosen now, and only now. */
+  const choosing = !full && !!cleanEmail && !emailProblem
   const grant = team?.grant ?? []
   const open = team?.open ?? []
   /* A member with Team edits only people whose access is within their own, never themselves (the server checks it again). */
@@ -399,13 +402,19 @@ export function TeamPanel() {
                   ? emailProblem
                   : tt("They sign in with their own Storelib account. Refunds and deleting the store stay with the owner.")}
             </p>
-            {!full ? (
-              <div className="mt-4">
+            {/*
+              WHAT THEY CAN DO, ONLY WHILE INVITING (round 51, the owner): folded
+              away until an address to invite is typed, then it opens under it
+              (Reveal: its own height, 200ms, nothing below jumps) for the
+              choice that goes with this invite, and folds again once it is sent.
+            */}
+            <Reveal open={choosing} data-team-invite-access={choosing ? "open" : "closed"}>
+              <div className="pt-4">
                 <p className="mb-2 text-[13px] font-medium text-[#1a1a2e]">{tt("What they can do")}</p>
                 <PermissionPicker value={access} onChange={setAccess} grant={grant} open={open} idPrefix="team-invite" />
                 {access.length === 0 ? <p className="mt-2 text-[13px] leading-5 text-[#b45309]">{tt("Tick at least one thing they can do.")}</p> : null}
               </div>
-            ) : null}
+            </Reveal>
           </form>
         </Card>
       )}

@@ -12,7 +12,8 @@
  * server's, never guessed here.
  */
 import * as React from "react"
-import { Archive, ArchiveRestore, Copy, ExternalLink, FileText, MoreHorizontal, Pencil, Search, Trash2, Undo2, X } from "lucide-react"
+import { Archive, ArchiveRestore, Copy, ExternalLink, FileText, MoreHorizontal, Pencil, Search, SlidersHorizontal, Trash2, Undo2, X } from "lucide-react"
+import { Reveal } from "@/components/ui/reveal"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -58,6 +59,8 @@ export function PostList({
   const [busy, setBusy] = React.useState(false)
   const [dialogError, setDialogError] = React.useState<string | null>(null)
   const [tick, setTick] = React.useState(0)
+  /* Category, tag, author and order, folded under one button until asked for (round 51, less on screen). */
+  const [moreOpen, setMoreOpen] = React.useState(false)
   const seq = React.useRef(0)
 
   /* Typing in the search asks once it stops, from page 1. */
@@ -210,30 +213,50 @@ export function PostList({
 
   const statusOptions = STATUS_TABS.map((t) => ({ id: t.id, label: t.label(), count: countFor(counts, t.id) }))
   const noPostsAtAll = !loading && !error && !filtered && countFor(counts, "all") === 0 && countFor(counts, "archived") === 0 && posts.length === 0
+  /* With no post at all, the list is only its empty state: nothing to search or filter. */
+  const showFilters = !noPostsAtAll
+  const moreSet = [query.categoryId, query.tag, query.authorId, query.sort && query.sort !== "updated" ? query.sort : undefined].filter(Boolean).length
+  const moreShown = moreOpen || moreSet > 0
 
   return (
     <>
       <Card className="overflow-visible" footer={notice ? <span role="status" className={cn(notice.tone === "failed" ? "text-red-300" : notice.tone === "partial" ? "text-amber-200" : "text-white/70")}>{notice.text}</span> : undefined}>
-        {/* The filters: search and status first, the rest under them. */}
+        {/* The filters: search, the more-filters button and the status first; category, tag, author and order folded under the button. */}
+        {showFilters && (
         <div className="space-y-3 px-4 py-4 md:px-6" data-blog-filters="">
-          <div className="relative">
-            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-            <input
-              type="search"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder={tt("Search posts")}
-              aria-label={tt("Search posts")}
-              className={cn(inputClass, "pl-9 md:w-full")}
-              data-blog-search=""
-            />
-            {searchText && (
-              <button type="button" onClick={() => setSearchText("")} aria-label={tt("Clear search")} className={cn(iconButtonClass, "absolute right-0 top-1/2 -translate-y-1/2 md:right-1")}>
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <input
+                type="search"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder={tt("Search posts")}
+                aria-label={tt("Search posts")}
+                className={cn(inputClass, "pl-9 md:w-full")}
+                data-blog-search=""
+              />
+              {searchText && (
+                <button type="button" onClick={() => setSearchText("")} aria-label={tt("Clear search")} className={cn(iconButtonClass, "absolute right-0 top-1/2 -translate-y-1/2 md:right-1")}>
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setMoreOpen(!moreShown)}
+              aria-expanded={moreShown}
+              aria-label={tt("Filters")}
+              className={cn(buttonClass, "shrink-0 gap-1.5 px-3", moreShown && "bg-white/[0.1]")}
+              data-blog-more-filters={moreShown ? "open" : "closed"}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              <span className="max-sm:sr-only">{tt("Filters")}</span>
+              {moreSet > 0 && <span className="tabular-nums text-white/60">{moreSet}</span>}
+            </button>
           </div>
           <PillRow label={tt("Status")} options={statusOptions} value={query.status ?? "all"} onChange={(status) => set({ status })} />
+          <Reveal open={moreShown} data-blog-more="">
           <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
             <SelectField label={tt("Category")} value={query.categoryId ?? ""} onChange={(v) => set({ categoryId: v || undefined })} className="md:w-[180px]">
               <option value="">{tt("All categories")}</option>
@@ -265,7 +288,9 @@ export function PostList({
               <option value="title">{tt("Title, A to Z")}</option>
             </SelectField>
           </div>
+          </Reveal>
         </div>
+        )}
 
         {/* The header: select the page, and how many there are. */}
         {posts.length > 0 && (
@@ -296,7 +321,7 @@ export function PostList({
               <FileText aria-hidden className="h-5 w-5 text-white/60" />
             </span>
             <p className="mt-4 text-[16px] font-semibold text-white">{tt("Write your first post")}</p>
-            <p className="mt-1 max-w-[360px] text-[14px] leading-relaxed text-white/55">{tt("Posts appear on your website's blog page once you publish them. Drafts stay private.")}</p>
+            <p className="mt-1 max-w-[360px] text-[14px] leading-relaxed text-white/55">{tt("Drafts stay private until you publish.")}</p>
             <button type="button" onClick={onNewPost} className={cn(buttonClass, "mt-5")}>
               {tt("New post")}
             </button>

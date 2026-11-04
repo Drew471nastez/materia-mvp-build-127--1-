@@ -95,3 +95,21 @@ export function loadView<A>(s: LoadState<A>): { dim: boolean; placeholder: boole
     busy,
   }
 }
+
+/**
+ * THE NEWEST LAB TEST WINS (round 51). Run test drew its result and then
+ * read the page again, and that read could come from another server's
+ * copy kept from before the test (readPerformance holds an answer three
+ * minutes, and only the server that ran the test forgets it): the result
+ * vanished, or the previous test came back in its place. Per device, the
+ * one tested last is shown, whichever answer it came in.
+ */
+export function newestLab<L extends { ranAt: string } | null | undefined>(a: L, b: L): L {
+  if (!a) return b
+  if (!b) return a
+  const ta = Date.parse(a.ranAt)
+  const tb = Date.parse(b.ranAt)
+  if (!Number.isFinite(tb)) return a
+  if (!Number.isFinite(ta)) return b
+  return tb > ta ? b : a
+}

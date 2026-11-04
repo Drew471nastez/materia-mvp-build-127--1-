@@ -49,11 +49,18 @@ import { uploadBlogImage } from "./upload"
 
 type Load = { kind: "loading" } | { kind: "ready"; post: AdminPost; overview: BlogOverview } | { kind: "error"; message: string; sql: boolean }
 
-export function SitePostEditor({ ctx, postId, onClose }: { ctx: SettingsContext; postId: string; onClose: () => void }) {
-  const [load, setLoad] = React.useState<Load>({ kind: "loading" })
+export function SitePostEditor({ ctx, postId, onClose, opened }: { ctx: SettingsContext; postId: string; onClose: () => void; opened?: { post: AdminPost; overview: BlogOverview } | null }) {
+  /*
+    A NEW POST OPENS AT ONCE (round 51). New post already has the post the
+    server made and the blog it belongs to, so the writer starts from them:
+    no "Opening the post" and no second and third request in between. A post
+    opened from the list is read as before.
+  */
+  const [load, setLoad] = React.useState<Load>(() => (opened && opened.post.id === postId ? { kind: "ready", post: opened.post, overview: opened.overview } : { kind: "loading" }))
   const [attempt, setAttempt] = React.useState(0)
 
   React.useEffect(() => {
+    if (attempt === 0 && opened && opened.post.id === postId) return
     let live = true
     Promise.all([getPost(ctx.installId, postId), getBlog(ctx.installId)])
       .then(([post, overview]) => live && setLoad({ kind: "ready", post, overview }))
@@ -61,6 +68,7 @@ export function SitePostEditor({ ctx, postId, onClose }: { ctx: SettingsContext;
     return () => {
       live = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `opened` is read once, for the first draw
   }, [ctx.installId, postId, attempt])
 
   if (typeof document === "undefined") return null
@@ -365,7 +373,7 @@ function Writer({ ctx, initial, overview, onClose }: { ctx: SettingsContext; ini
   const dirty = post.hasUnpublishedChanges || save.kind === "dirty" || save.kind === "saving"
   const liveUrl = post.livePath ? `${overview.liveBase}${post.livePath}` : null
 
-  const panel = <PostPanel meta={meta} set={setMeta} post={post} overview={overview} siteName={siteName} words={words} minutes={readMinutes(words)} onSlugTouched={onSlugTouched} />
+  const panel = <PostPanel meta={meta} set={setMeta} post={post} overview={overview} siteName={siteName} ownerName={ctx.displayName || siteName} installId={ctx.installId} words={words} minutes={readMinutes(words)} onSlugTouched={onSlugTouched} />
 
   return (
     <>

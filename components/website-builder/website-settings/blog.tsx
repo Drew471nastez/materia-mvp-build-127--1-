@@ -30,6 +30,7 @@ import { Card, ErrorNote, Lead, PageTitle, buttonClass, primaryButtonClass } fro
 import { storeNameFor } from "./seo"
 import type { SettingsContext } from "./types"
 import { BlogApiError, createPost, getBlog, type BlogOverview } from "./blog/api"
+import type { AdminPost } from "@/lib/site-blog/types"
 import { PostList } from "./blog/post-list"
 import { CategoriesEditor } from "./blog/categories"
 import { AuthorsEditor } from "./blog/authors"
@@ -37,7 +38,8 @@ import { BlogOptions } from "./blog/blog-options"
 import { TemplatesCard } from "./blog/templates-card"
 
 /* The writer is large (the block editor with it): fetched when a post is first opened, never with Settings. */
-const SitePostEditor = dynamic(() => import("./blog/post-editor").then((m) => m.SitePostEditor), { ssr: false })
+const loadWriter = () => import("./blog/post-editor")
+const SitePostEditor = dynamic(() => loadWriter().then((m) => m.SitePostEditor), { ssr: false })
 
 type Load = { kind: "loading" } | { kind: "ready"; overview: BlogOverview } | { kind: "sql" } | { kind: "error"; message: string }
 type Part = "categories" | "authors" | "settings"
@@ -45,6 +47,8 @@ type Part = "categories" | "authors" | "settings"
 export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
   const [load, setLoad] = React.useState<Load>({ kind: "loading" })
   const [editing, setEditing] = React.useState<string | null>(null)
+  /* A post just made by New post, handed to the writer so it opens without reading it back. */
+  const [opened, setOpened] = React.useState<{ post: AdminPost; overview: BlogOverview } | null>(null)
   const [creating, setCreating] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
   const [reloadKey, setReloadKey] = React.useState(0)
@@ -66,6 +70,14 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
     refresh()
   }, [refresh])
 
+  /* The writer's code fetched while the list is read, so the first post opened does not wait for it. */
+  React.useEffect(() => {
+    const idle = (window as Window & { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback
+    const go = () => void loadWriter().catch(() => {})
+    if (idle) idle(go)
+    else setTimeout(go, 400)
+  }, [])
+
   const sqlMissing = React.useCallback(() => setLoad({ kind: "sql" }), [])
   const overview = load.kind === "ready" ? load.overview : null
 
@@ -75,6 +87,7 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
     setCreateError(null)
     try {
       const post = await createPost(ctx.installId, { meta: { authorId: overview.authors.length === 1 ? overview.authors[0].id : null } })
+      setOpened({ post, overview })
       setEditing(post.id)
     } catch (e) {
       if (e instanceof BlogApiError && e.sql) setLoad({ kind: "sql" })
@@ -100,11 +113,8 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
       >
         {tt("Blog")}
       </PageTitle>
-      <Lead>
-        {overview
-          ? tt("Write and publish posts for your website. They are listed at {address}.", { address })
-          : tt("Write and publish posts for your website, with categories, authors and search settings for each one.")}
-      </Lead>
+      {/* One line: where the posts are listed (round 51, less text). */}
+      <Lead>{overview ? tt("Your posts are listed at {address}.", { address }) : tt("Posts for your website.")}</Lead>
       {createError && <ErrorNote>{createError}</ErrorNote>}
 
       {load.kind === "loading" && (
@@ -139,7 +149,7 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
 
       {overview && (
         <>
-          <PostList ctx={ctx} overview={overview} reloadKey={reloadKey} onEdit={setEditing} onNewPost={() => void newPost()} onChanged={refresh} onSqlMissing={sqlMissing} />
+          <PostList ctx={ctx} overview={overview} reloadKey={reloadKey} onEdit={(id) => { setOpened(null); setEditing(id) }} onNewPost={() => void newPost()} onChanged={refresh} onSqlMissing={sqlMissing} />
 
           <Card>
             <PartRow
@@ -158,7 +168,7 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
             >
               <AuthorsEditor installId={ctx.installId} authors={overview.authors} onChanged={refresh} />
             </PartRow>
-            <PartRow label={tt("Blog settings")} hint={tt("Address, name, posts a page, search and social")} open={part === "settings"} onToggle={() => toggle("settings")}>
+            <PartRow label={tt("Blog settings")} hint={tt("Address, name, search")} open={part === "settings"} onToggle={() => toggle("settings")}>
               <BlogOptions installId={ctx.installId} settings={overview.settings} liveBase={overview.liveBase} siteName={storeNameFor(ctx)} onSaved={setSettings} />
             </PartRow>
           </Card>
@@ -171,8 +181,10 @@ export function BlogSettings({ ctx }: { ctx: SettingsContext }) {
         <SitePostEditor
           ctx={ctx}
           postId={editing}
+          opened={opened}
           onClose={() => {
             setEditing(null)
+            setOpened(null)
             setReloadKey((k) => k + 1)
             refresh()
           }}

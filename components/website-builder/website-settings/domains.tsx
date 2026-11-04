@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass, useSettingsLook } from "./parts"
 import type { SettingsContext } from "./types"
@@ -138,10 +138,13 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
     }
   }
 
-  const check = async (d: DomainRow) => {
-    setChecking(d.id)
-    setError(null)
-    setNote(null)
+  /* A quiet check is the page asking by itself while a certificate is issued: no spinner, no error said over the page. */
+  const check = async (d: DomainRow, quiet = false) => {
+    if (!quiet) {
+      setChecking(d.id)
+      setError(null)
+      setNote(null)
+    }
     try {
       const res = await fetch("/api/domains/verify", {
         method: "POST",
@@ -165,9 +168,11 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
           : tt("Connected. Your website is live at this domain.")
         : r.message || tt("The records are not showing yet. DNS can take up to a day to reach everyone; check again later.")
       if (r.verified) {
-        setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, status: r.sslPending ? "ssl_provisioning" : "active" } : x)))
+        setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, status: r.sslPending ? "ssl_provisioning" : "active", ...(r.sslPending ? {} : { ssl_status: "active" }) } : x)))
         if (!r.sslPending) setNote(message)
       }
+      /* Asked by itself and still waiting: the line under the records stays as the last press left it. */
+      if (quiet && !r.verified) return
       setChecked((all) => ({
         ...all,
         [d.id]: {
@@ -177,11 +182,34 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         },
       }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : tt("Could not check the DNS records"))
+      if (!quiet) setError(e instanceof Error ? e.message : tt("Could not check the DNS records"))
     } finally {
-      setChecking(null)
+      if (!quiet) setChecking(null)
     }
   }
+
+  /*
+    THE CERTIFICATE, FOLLOWED TO THE END (round 51). Once DNS is right the
+    domain is "Securing" while its certificate is issued, and this page used
+    to stop there until Check DNS was pressed again. Now it asks quietly
+    every 12 seconds while the page is in front, as Settings › Domains does
+    (components/app/settings/domains-panel.tsx), so it turns Connected by
+    itself. The verify route's own limit (90 in ten minutes) is far above it.
+  */
+  const checkRef = useRef(check)
+  useEffect(() => {
+    checkRef.current = check
+  })
+  const securing = (domains ?? []).filter((d) => d.status === "ssl_provisioning").map((d) => d.id).join(",")
+  useEffect(() => {
+    if (!securing) return
+    const tick = () => {
+      if (document.visibilityState !== "visible") return
+      for (const d of lastDomains ?? []) if (d.status === "ssl_provisioning") void checkRef.current(d, true)
+    }
+    const id = window.setInterval(tick, 12000)
+    return () => window.clearInterval(id)
+  }, [securing])
 
   return (
     <>
@@ -274,7 +302,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
             </div>
             {!current && !confirming && (
               <p className="text-[13px] leading-snug text-white/50">
-                {tt("Type the domain and press Connect. You get the records to add where you bought it, and the site answers there once they are in, usually within the hour.")}
+                {tt("You get the records to add where you bought it. Usually live within the hour.")}
               </p>
             )}
             {confirming && current && (

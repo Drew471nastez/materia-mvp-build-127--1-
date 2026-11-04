@@ -53,18 +53,17 @@
       </div>
     {% endif %}
 
+    {# Written by: whenever the post has an author (the store's owner when it names none), with their photo; the bio and links when there are some. #}
     {% if settings.show_author_bio and article.author %}
-      {% if article.author.bio %}
-        <aside class="a__bio">
-          {% if article.author.avatar %}<img class="a__bio-pic" src="{{ article.author.avatar | asset }}" alt="" loading="lazy" decoding="async">{% endif %}
-          <div class="a__bio-text">
-            <p class="a__bio-label">{{ settings.author_label }}</p>
-            <p class="a__bio-name">{{ article.author.name }}{% if article.author.role %} <span class="a__bio-role">{{ article.author.role }}</span>{% endif %}</p>
-            <p class="a__bio-about">{{ article.author.bio }}</p>
-            {% if article.author.links.size > 0 %}<p class="a__bio-links">{% for l in article.author.links %}<a href="{{ l.url | url }}" rel="noopener">{{ l.label }}</a>{% endfor %}</p>{% endif %}
-          </div>
-        </aside>
-      {% endif %}
+      <aside class="a__bio{% if article.author.bio %}{% else %} a__bio--short{% endif %}">
+        {% if article.author.avatar %}<img class="a__bio-pic" src="{{ article.author.avatar | asset }}" alt="" loading="lazy" decoding="async">{% endif %}
+        <div class="a__bio-text">
+          <p class="a__bio-label">{{ settings.author_label }}</p>
+          <p class="a__bio-name">{{ article.author.name }}{% if article.author.role %} <span class="a__bio-role">{{ article.author.role }}</span>{% endif %}</p>
+          {% if article.author.bio %}<p class="a__bio-about">{{ article.author.bio }}</p>{% endif %}
+          {% if article.author.links.size > 0 %}<p class="a__bio-links">{% for l in article.author.links %}<a href="{{ l.url | url }}" rel="noopener">{{ l.label }}</a>{% endfor %}</p>{% endif %}
+        </div>
+      </aside>
     {% endif %}
 
     {% if settings.show_neighbours %}
@@ -168,6 +167,8 @@
 
 .a__bio { display: flex; gap: 20px; margin-top: 40px; padding: 24px; border-radius: var(--s-radius); border: 1px solid var(--s-border); }
 .a__bio-pic { flex: none; width: 64px; height: 64px; border-radius: 999px; object-fit: cover; }
+.a__bio--short { align-items: center; padding: 18px 20px; }
+.a__bio--short .a__bio-pic { width: 48px; height: 48px; }
 .a__bio-text { min-width: 0; }
 .a__bio-label { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--s-para); }
 .a__bio-name { margin: 4px 0 0; font-size: 18px; font-weight: 650; color: var(--s-heading); }
@@ -264,7 +265,7 @@
     { "type": "toggle", "id": "show_tags", "label": "Show its tags", "default": true },
     { "type": "toggle", "id": "show_share", "label": "Show links to share it", "default": true },
     { "type": "text", "id": "share_label", "label": "Before the share links", "default": "Share", "visible_if": "{{ section.settings.show_share }}" },
-    { "type": "toggle", "id": "show_author_bio", "label": "Show the author's bio", "default": true },
+    { "type": "toggle", "id": "show_author_bio", "label": "Show Written by, with the author's photo", "default": true },
     { "type": "text", "id": "author_label", "label": "Above the bio", "default": "Written by", "visible_if": "{{ section.settings.show_author_bio }}" },
     { "type": "toggle", "id": "show_neighbours", "label": "Show the previous and next posts", "default": true },
     { "type": "text", "id": "previous_label", "label": "Previous post", "default": "Previous post", "visible_if": "{{ section.settings.show_neighbours }}" },

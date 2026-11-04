@@ -330,7 +330,8 @@ function connect() {
   check("off the app, followed as before", /if \(!inNativeApp\(\) \|\| !platform\) \{\s*navigate\(startPath\)/.test(nc))
   const panel = raw("components/website-builder/github-sync-panel.tsx")
   check("Continue to GitHub is still a link to the connect route, taken over only in the app", /href=\{`\/api\/github\/connect\?installId=/.test(panel) && /if \(!inNativeApp\(\)\) return\s*e\.preventDefault\(\)/.test(panel))
-  check("Connect Supabase goes the same way", /startConnect\(`\/api\/website-builder\/supabase\/connect\?installId=/.test(raw("components/website-builder/website-settings/own-database.tsx")))
+  /* Changed on purpose (r51): Your own database is "Coming soon" with nothing to press, so it starts no connect at all. */
+  check("Your own database starts no connect while it is Coming soon", !/startConnect/.test(raw("components/website-builder/website-settings/own-database.tsx")))
   check("both app link listeners finish a connect first", /if \(url && finishConnect\(url\)\) return/.test(raw("components/platform/app-link-opener.tsx")) && /if \(finishConnect\(url\)\) return/.test(raw("lib/native-oauth.ts")))
   check("  and a connect is never taken for a sign in", /if \(!isOAuthCallback\(rawUrl\) \|\| connectReturnPath\(rawUrl\)\)/.test(raw("lib/native-oauth.ts")))
   const page = raw("app/auth/connect-return/page.tsx")
