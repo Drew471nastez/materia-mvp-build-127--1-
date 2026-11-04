@@ -4332,5 +4332,13 @@ VALUES ('public-snapshots', 'public-snapshots', false, 4194304, ARRAY['applicati
 ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 4194304, allowed_mime_types = ARRAY['application/json'];
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('356', '356_public_snapshots.sql', '7ac641a31e8cb0e76929c8fbee2317f22c5fc3c969abd8f8c46cf5fbf1bc3dbb') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 360_theme_publish_jobs.sql
+/* Publish as a job with a deadline (round 51, lib/website-builder/publish-job.ts). One row per press of Publish, named by the editor (its own id, so the same press sent twice is one publish): running, done or failed, with the moment it must have ended by. The editor asks for its row when the answer to its press was lost or slow, instead of spinning. Written and read only by the server with the service role; row level security on with no policy, and nothing granted to anon or authenticated. Until it runs, Publish works exactly as before and a lost answer is asked again. No rows change. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.theme_publish_jobs ( id uuid PRIMARY KEY, install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, creator_id uuid NOT NULL, status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'done', 'failed')), error text, started_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz, deadline_at timestamptz NOT NULL DEFAULT (now() + interval '150 seconds') );
+CREATE INDEX IF NOT EXISTS idx_theme_publish_jobs_install ON public.theme_publish_jobs (install_id, started_at DESC);
+ALTER TABLE public.theme_publish_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.theme_publish_jobs FROM anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('360', '360_theme_publish_jobs.sql', 'd704893a20d2954e2e5f8e3f2fbc18cf0b9ae1e0033876da402f8b0cf7138add') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

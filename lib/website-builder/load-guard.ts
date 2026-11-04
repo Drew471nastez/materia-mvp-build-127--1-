@@ -76,6 +76,53 @@ export async function retrying<T>(run: (attempt: number) => Promise<T>, waits: r
   throw last
 }
 
+/**
+ * A READ THAT HANGS IS ASKED AGAIN BESIDE ITSELF (round 51). "I reload the
+ * editor and it's stuck on Just a moment": one request that got no answer
+ * (a connection the phone dropped, a function that never started) held the
+ * editor's first read for its whole wait, 45s, three times over, before
+ * anything was said. A read changes nothing, so once `after` ms pass with
+ * no answer the same read is sent again alongside it, and whichever answers
+ * first is used: a hung request costs `after`, not the full wait. Fails only
+ * when every try has failed (the last error). For GETs only.
+ */
+export function hedged<T>(run: (attempt: number) => Promise<T>, after: number, extra = 1): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    let started = 0
+    let failed = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const start = () => {
+      const attempt = started++
+      if (started <= extra) timer = setTimeout(start, after)
+      run(attempt).then(
+        (v) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolve(v)
+        },
+        (e) => {
+          if (settled) return
+          failed++
+          /* Every try sent has failed: a spare not yet sent goes now, rather than waiting out its timer. */
+          if (failed === started && started <= extra) {
+            clearTimeout(timer)
+            start()
+            return
+          }
+          if (failed === started) {
+            settled = true
+            clearTimeout(timer)
+            reject(e)
+          }
+        },
+      )
+    }
+    start()
+  })
+}
+
 /** `p`, or a LoadTimeout once `ms` have passed: for a wait that covers more than the headers (a body read, a parse). */
 export function deadline<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined

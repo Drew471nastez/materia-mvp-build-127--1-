@@ -208,7 +208,8 @@ import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-buil
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { deadline, fetchWithin, hedged, reportLoadProblem, retrying, within } from "@/lib/website-builder/load-guard"
+import { PUBLISH_TIMES, runPublish } from "@/lib/website-builder/publish-run"
 import { LOAD_AUTO_RETRY_MS, explainLoadProblem, type LoadFailure } from "@/lib/website-builder/load-problem"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
@@ -2719,7 +2720,8 @@ async function readSections(url: string): Promise<Response> {
   let last: Response | null = null
   try {
     return await retrying(async () => {
-      const r = await fetchSignedIn(() => fetchWithin(url, {}, SECTIONS_WAIT_MS))
+      /* A try with no answer after HEDGE_MS is sent again beside itself (round 51, load-guard.ts hedged): one hung request is not 45s of loader. */
+      const r = await hedged(() => fetchSignedIn(() => fetchWithin(url, {}, SECTIONS_WAIT_MS)), HEDGE_MS)
       /* A 429 too (round 50): it was read as a page with no sections, which the next autosave would have written over the real one. */
       if (r.status >= 500 || r.status === 429) {
         last = r
@@ -2733,8 +2735,29 @@ async function readSections(url: string): Promise<Response> {
   }
 }
 const SECTIONS_RETRY_MS = [600, 1500]
-/** How long Publish may take before the editor says so instead of spinning: the server writes it all in one step and moves the bookkeeping after its answer. */
-const PUBLISH_MS = 45_000
+/** How long a read of the website or a page waits for an answer before the same read is sent again beside it (round 51). The editor's reads answer in well under a second; one that has not in 6s is most often one that never will. */
+const HEDGE_MS = 6_000
+/** How long a body may take to arrive once its headers have. */
+const BODY_MS = 15_000
+/**
+ * How long the editor's first open may take before Try again is offered over the loader (round 51). The read goes
+ * on underneath, and the editor opens the moment it answers; Try again starts it afresh. Never a loader with nothing
+ * to press for longer than this.
+ */
+const OPEN_SLOW_MS = 15_000
+/**
+ * How long the save in front of a publish may take before the press stops and says so (round 51). The publish
+ * itself is a job the editor asks after (lib/website-builder/publish-run.ts PUBLISH_TIMES), never a wait with no end.
+ */
+const PUBLISH_SAVE_MS = 30_000
+/** A job id where crypto.randomUUID is missing (an old WebView): random enough for one press. */
+function fallbackUuid(): string {
+  const hex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16))
+  hex[12] = "4"
+  hex[16] = "89ab"[Math.floor(Math.random() * 4)]
+  const h = hex.join("")
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
 /** The longest the canvas is held for a product opened from the address. */
 const CANVAS_HOLD_CAP_MS = 6000
 /** The longest the sections panel keeps the page being left's list while an imported theme's canvas draws the next page. */
@@ -2873,8 +2896,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* Round 50: how it failed (lib/website-builder/load-problem.ts), so the words are true and a passing failure is tried again by itself. */
   const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null)
   const [loadAutoTries, setLoadAutoTries] = useState(0)
+  /** The open has taken longer than OPEN_SLOW_MS: Try again is shown over the loader (loadData). */
+  const [loadSlow, setLoadSlow] = useState(false)
+  /** Which open is the newest: an older one's answer changes nothing (loadData). */
+  const openEpoch = useRef(0)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  /** A publish still going after PUBLISH_TIMES.slowMs: the button says so (publishChanges). */
+  const [publishSlow, setPublishSlow] = useState(false)
+  /** A publish is on its way: a second press waits for it rather than starting another. */
+  const publishingRef = useRef(false)
   const [publishOpen, setPublishOpen] = useState(false)
   /** Set the instant Exit is pressed. Going back can take a second or more
    *  on a phone, and a button that does nothing for that second is a button
@@ -3950,8 +3981,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /* A save that did not go through: the banner at the top of the canvas until the next one does (lib/website-builder/save-problem.ts). */
   const [saveProblem, setSaveProblem] = useState<SaveProblem | null>(null)
+  /*
+    WHERE THE NOTICE STANDS ON A COMPUTER (round 51): over the canvas, not the
+    window, and above Ask Storelib's dock at its foot. Read once, when a notice
+    opens, from the card and the dock themselves, so the notice and the dock
+    share one number rather than two guesses (CLAUDE.md, measure once).
+  */
+  const [noticeBox, setNoticeBox] = useState<{ left: number; width: number; bottom: number } | null>(null)
   const showNotification = useCallback((message: string, type: "success" | "error" = "success") => {
     if (notificationTimer.current) clearTimeout(notificationTimer.current)
+    const card = typeof document !== "undefined" ? document.getElementById("wb-preview-root")?.getBoundingClientRect() : null
+    if (card && card.width > 0) {
+      const dock = document.querySelector("[data-ask-dock]")?.getBoundingClientRect()
+      const clear = dock && dock.height > 0 && dock.bottom > card.bottom - 160 ? window.innerHeight - dock.top + 12 : window.innerHeight - card.bottom + 24
+      setNoticeBox({ left: Math.round(card.left), width: Math.round(card.width), bottom: Math.round(Math.max(24, clear)) })
+    } else setNoticeBox(null)
     setNotification({ message, type })
     notificationTimer.current = setTimeout(() => setNotification(null), 4000)
   }, [])
@@ -4233,7 +4277,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     */
     const res = await readSections(`/api/website-builder/themes/${installId}/sections?page=home`)
     if (!res.ok) return {}
-    const data = await res.json()
+    const data = await deadline(res.json(), BODY_MS, "the home page's sections")
     const loaded: SectionInstance[] = data.sections ?? []
     /* The whole Header and Footer groups: an announcement bar above the header is on every page too. */
     return chromeOf(loaded)
@@ -4255,7 +4299,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
     if (res.status >= 500 || res.status === 429) throw new Error(`the ${page} page answered ${res.status}`)
     if (!res.ok) return []
-    const data = await res.json()
+    const data = await deadline(res.json(), BODY_MS, `the ${page} page's sections`)
     // The server's own answer to "is the draft ahead of live". See `unpublished`.
     if (data.has_draft) setUnpublished(true)
     /* Built from home and the settings, not stored: kept for a moment only (pageCache, below). */
@@ -4478,7 +4522,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const loadData = useCallback(async (opts: { quiet?: boolean } = {}) => {
     const quiet = opts.quiet === true
-    if (!quiet) setLoading(true)
+    /*
+      THE NEWEST OPEN WINS (round 51). Try again, an automatic retry and the
+      first read could all be on their way at once, and whichever answered
+      last was what the editor showed, an older failure over a newer success
+      included. Each open is numbered; one that is no longer the newest
+      changes nothing when it answers.
+    */
+    const epoch = quiet ? openEpoch.current : ++openEpoch.current
+    const stale = () => !quiet && epoch !== openEpoch.current
+    if (!quiet) {
+      setLoading(true)
+      setLoadSlow(false)
+    }
     setLoadFailed(false)
     /*
       ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
@@ -4495,10 +4551,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     try {
     /* Asked again on a dropped connection or a 5xx, and never waited on forever; one that cannot be had is said over the canvas. */
     const res = await retrying(async () => {
-      const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS))
+      /* Sent again beside itself when it has not answered in HEDGE_MS (load-guard.ts hedged). */
+      const r = await hedged(() => fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)), HEDGE_MS)
       if (r.status >= 500 || r.status === 429) throw new Error(`the website answered ${r.status}`)
       return r
     }, [700, 2000])
+    if (stale()) return false
     if (!res.ok) {
       reportLoadProblem("editor", `the website answered ${res.status}`)
       if (!quiet) {
@@ -4512,7 +4570,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (alongside) startTransition(alongside)
       return false
     }
-    const data = await res.json()
+    const data = await deadline(res.json(), BODY_MS, "the website")
+    if (stale()) return false
     const inst: ThemeInstall = data.install
     /* A team member's pictures go into the store owner's folder (lib/website-builder/team-upload-owner). */
     setWebsiteUploadOwner(typeof data.storeOwner === "string" ? data.storeOwner : null)
@@ -4584,6 +4643,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // header/footer in parallel and splice them in — home is the universal
     // source of truth for header/footer.
     const asked = await sectionsAsked
+    if (stale()) return false
     if (!asked.ok) throw asked.e
     const [loadedRaw, homeHF] = asked.v
     /**
@@ -4664,6 +4724,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     return true
     } catch (err) {
+      if (stale()) return false
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
       if (!quiet) {
@@ -4675,9 +4736,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (alongside) startTransition(alongside)
       return false
     } finally {
-      setLoading(false)
+      if (!stale()) setLoading(false)
     }
   }, [installId, currentPage, fetchPageSections, fetchHomeHeaderFooter])
+
+  /*
+    NEVER A LOADER WITH NOTHING TO PRESS FOR LONG (round 51). An open still
+    on its way after OPEN_SLOW_MS says so over the loader, with Try again:
+    the read keeps going underneath and opens the editor if it answers, and
+    Try again starts a new one, which wins over the old (openEpoch).
+  */
+  useEffect(() => {
+    if (!loading || loadFailed) return
+    const t = window.setTimeout(() => {
+      setLoadSlow(true)
+      reportLoadProblem("editor", `the editor was still opening after ${OPEN_SLOW_MS / 1000}s`)
+    }, OPEN_SLOW_MS)
+    return () => window.clearTimeout(t)
+  }, [loading, loadFailed])
 
   /* config/settings_data.json saved in the code editor wrote the values themselves: read in place, the way a push is, so the next autosave does not put the older copy back. */
   useEffect(() => {
@@ -7247,6 +7323,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification("Pick which version to keep first", "error")
       return
     }
+    /* One press at a time: a second while one is going would be a second publish. */
+    if (publishingRef.current) return
+    publishingRef.current = true
     setPublishing(true)
     try {
       /*
@@ -7260,8 +7339,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       */
       /* Through the draft's queue, after any autosave still on its way, so none of them lands after this. */
       const snap: DraftSnapshot = { page: currentPage, sections, settings: settingsDraft, rev: editRev.current }
-      if (isDirty) {
-        const written = await draftQueue.save(snap)
+      /*
+        The save in front of Publish ends too (round 51): its writes retry by
+        themselves for up to a minute, and Publish spun all that time. Past
+        PUBLISH_SAVE_MS the press stops and says so; the save goes on and
+        autosave finishes it.
+      */
+      if (isDirtyRef.current) {
+        const written = await deadline(draftQueue.save(snap), PUBLISH_SAVE_MS, "the save before publishing").catch(() => null)
+        if (!written) {
+          showNotification("Couldn't save your last edits. Publish again in a moment.", "error")
+          setPublishing(false)
+          return
+        }
         if (!written.ok) {
           setSaveProblem(written.problem)
           scheduleRetry(written.problem)
@@ -7269,26 +7359,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           return
         }
       } else {
-        await draftQueue.idle()
+        await within(draftQueue.idle(), PUBLISH_SAVE_MS, undefined)
       }
 
       /*
         2. Publish: every page's draft, the settings, the saved section files
-           and the live switch, in one step on the server. It ends too: a
-           publish that has not answered in PUBLISH_MS is said, not spun on
-           forever, and pressing Publish again is safe (the server writes it
-           all or nothing).
+           and the live switch, in one step on the server, as a job with a
+           deadline (round 51, lib/website-builder/publish-run.ts and
+           publish-job.ts). A slow or lost answer is not a button that spins:
+           the job is asked for until it is done, failed or past its
+           deadline, and the press is sent again (the same job, so one
+           publish) when it never arrived.
       */
-      const res = await fetchWithin(`/api/website-builder/themes/${installId}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "publish" }),
-      }, PUBLISH_MS)
+      const url = `/api/website-builder/themes/${installId}/publish`
+      const read = async (r: Response) => ({ status: r.status, body: (await deadline(r.json(), BODY_MS, "the publish answer").catch(() => null)) as { job?: unknown; error?: unknown } | null })
+      const outcome = await runPublish({
+        post: async (job) => read(await fetchSignedIn(() => fetchWithin(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "publish", job }) }, PUBLISH_TIMES.postMs))),
+        status: async (job) => read(await fetchWithin(`${url}?job=${encodeURIComponent(job)}`, { cache: "no-store" }, 10_000)),
+        wait: (ms) => new Promise((r) => setTimeout(r, ms)),
+        now: () => Date.now(),
+        newId: () => (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : fallbackUuid()),
+        online: () => typeof navigator === "undefined" || navigator.onLine !== false,
+        onPhase: (p) => setPublishSlow(p === "slow"),
+      })
 
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        showNotification(d.error ?? "Failed to publish", "error")
+      if (!outcome.ok) {
+        showNotification(outcome.error, "error")
         setPublishing(false)
+        setPublishSlow(false)
         return
       }
 
@@ -7308,15 +7406,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification("Changes saved and published")
       /* Nothing left to publish now; the server says so, and the GitHub line goes with it. */
       void refreshSync()
-    } catch (e) {
-      showNotification(
-        e instanceof LoadTimeout
-          ? "Publishing is taking longer than it should. Your edits are saved. Press Publish again in a moment."
-          : "Failed to publish",
-        "error",
-      )
+    } catch {
+      showNotification("Couldn't publish. Your edits are saved. Publish again.", "error")
+    } finally {
+      publishingRef.current = false
     }
     setPublishing(false)
+    setPublishSlow(false)
   }
 
   const handleSave = async () => {
@@ -11310,7 +11406,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div ref={publishBtnRef} className="relative">
                 <Button
                   size="sm"
-                  aria-label={isMobileView ? (busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved") : undefined}
+                  aria-label={isMobileView ? (busyNow ? (live ? (publishSlow ? "Still publishing" : "Publishing") : "Saving") : live ? "Publish" : pending ? "Save" : "Saved") : undefined}
                   className={cn(
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 gap-2",
                     /* On a phone an icon in a 40px round key (round 24): the word was a third of the bar. */
@@ -11337,7 +11433,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   ) : live ? (
                     <span className={cn("h-2 w-2 rounded-full", pending ? "bg-white" : "bg-white/50")} />
                   ) : null}
-                  <span className={cn(isMobileView && "sr-only")}>{busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
+                  <span className={cn(isMobileView && "sr-only")}>{busyNow ? (live ? (publishSlow ? "Still publishing" : "Publishing") : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
                 </Button>
                 <PublishPanel
                   open={publishOpen}
@@ -11603,22 +11699,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ) : null}
 
       {/* ── Top notification bar ── */}
+      {/*
+        UNDER THE BAR, NEVER ON IT (round 51, the owner: "it overlaps the site
+        and the black top bar badly, place it lower"). It was laid at the top
+        of the window, 12px down, which is on the bar itself: a dark pill on
+        the dark bar, over Publish. On a computer it now rises from the foot
+        of the canvas, clear of the bar and of the page's header; on a phone
+        it drops in just under the bar (--wb-chrome-top, the bar's own
+        height with the notch in it, so the two are one number), where the
+        sections sheet at the foot is not.
+      */}
       <div
         className={cn(
-          "fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none transition-all duration-300 ease-out",
-          notification ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+          "fixed left-0 right-0 z-[100] flex justify-center pointer-events-none transition-[translate,opacity] duration-200 ease-out",
+          isMobileView ? "top-[calc(var(--wb-chrome-top,48px)+8px)]" : "bottom-6",
+          notification ? "translate-y-0 opacity-100" : isMobileView ? "-translate-y-2 opacity-0" : "translate-y-2 opacity-0"
         )}
-        // Same inset as the bar it appears under. Without it the toast is
-        // one more thing rendered behind the status bar on a phone.
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        data-editor-notice={notification ? notification.type : undefined}
+        style={!isMobileView && noticeBox ? { left: noticeBox.left, right: "auto", width: noticeBox.width, bottom: noticeBox.bottom } : undefined}
       >
         <div
           className={cn(
             /* Between 16px gutters on a phone, and one line: a longer message ends in "...". */
-            "mx-4 mt-3 flex min-w-0 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg pointer-events-auto",
+            "mx-4 flex min-w-0 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-medium shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)] md:max-w-[480px]",
+            /* Only while it shows: a faded notice must not take a press meant for the canvas under it. */
+            notification && "pointer-events-auto",
             notification?.type === "error"
               ? "bg-red-600 text-white"
-              : "bg-neutral-900 text-white"
+              : "bg-[#1a1a2e] text-white"
           )}
         >
           {notification?.type === "error" ? (
@@ -12354,6 +12462,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     }
                   />
                 )}
+              </div>
+            )}
+
+            {/* Still opening after OPEN_SLOW_MS: said, with Try again, over the loader (round 51). */}
+            {loading && loadSlow && !loadFailed && (
+              <div className="absolute inset-0 z-10 bg-[#f4f5f7]">
+                <CanvasProblem
+                  kind="editor-still-opening"
+                  title={tt("Still opening your website")}
+                  body={tt("Storelib is slow to answer. It keeps trying, or you can try again now.")}
+                  onRetry={() => {
+                    setLoadAutoTries(0)
+                    void loadData()
+                  }}
+                />
               </div>
             )}
 

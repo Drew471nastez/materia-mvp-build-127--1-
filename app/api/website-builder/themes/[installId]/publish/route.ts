@@ -18,6 +18,7 @@ import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { publishWithOneRetry } from "@/lib/website-builder/publish-retry"
+import { beginJob, endJob, isJobId, pruneJobs, readJob } from "@/lib/website-builder/publish-job"
 
 /**
  * Two minutes, stated rather than inherited. The publish itself is one
@@ -34,9 +35,48 @@ function publishStepMissing(error: { code?: string; message?: string }): boolean
   return ["PGRST202", "42883", "42703", "42P01"].includes(error.code ?? "") || /could not find the function/i.test(error.message ?? "")
 }
 
-// POST /api/website-builder/themes/[installId]/publish
-// body: { action: "publish" | "unpublish" | "save_draft" }
-export async function POST(req: Request, { params }: Params) {
+/* The press's job, once begun (lib/website-builder/publish-job.ts): POST writes how it ended. */
+type JobHolder = { id: string | null }
+
+/*
+  POST /api/website-builder/themes/[installId]/publish
+  body: { action: "publish" | "unpublish" | "save_draft", job?: uuid }
+  A publish sent with `job` is a job (SQL part 360): the same id sent twice is
+  one publish, and GET ?job= says how it is going, for an editor whose answer
+  was lost or slow.
+*/
+export async function POST(req: Request, ctx: Params) {
+  const holder: JobHolder = { id: null }
+  let res: Response
+  try {
+    res = await handlePost(req, ctx, holder)
+  } catch (e) {
+    if (holder.id) await endJob(createAdminClient() as never, holder.id, false, "Could not publish. Try again.")
+    throw e
+  }
+  if (holder.id) {
+    const said = res.ok ? null : await res.clone().json().then((d: { error?: unknown }) => (typeof d.error === "string" ? d.error : null), () => null)
+    await endJob(createAdminClient() as never, holder.id, res.ok, said)
+  }
+  return res
+}
+
+/* GET ?job=<id>: how that press is going (running, done, failed, expired, unknown), or "untracked" before part 360. */
+export async function GET(req: Request, { params }: Params) {
+  const { installId } = await params
+  const job = new URL(req.url).searchParams.get("job")
+  if (!isJobId(job)) return NextResponse.json({ error: "Which publish?" }, { status: 400 })
+  const site = await websiteInstallCaller(installId, "id, creator_id", { read: true })
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  try {
+    const seen = await readJob(createAdminClient() as never, installId, job)
+    return NextResponse.json({ job: seen.state, error: seen.error }, { headers: { "Cache-Control": "no-store" } })
+  } catch {
+    return NextResponse.json({ error: "Could not check the publish just now." }, { status: 503, headers: { "Retry-After": "2", "Cache-Control": "no-store" } })
+  }
+}
+
+async function handlePost(req: Request, { params }: Params, holder: JobHolder): Promise<Response> {
   const { installId } = await params
   const admin = createAdminClient()
   /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
@@ -57,10 +97,24 @@ export async function POST(req: Request, { params }: Params) {
   const read = await readEditorBody(req, BODY_LIMITS.small)
   if (read.ok === false) return read.response
   /* A body that is not JSON falls through to "Invalid action", a 400, not a 500. */
-  const body = (read.invalid ? null : read.json) as { action?: unknown } | null
+  const body = (read.invalid ? null : read.json) as { action?: unknown; job?: unknown } | null
   const action = body?.action as "publish" | "unpublish" | "save_draft"
 
   if (action === "publish") {
+    /* The same press sent again (its answer was lost): how the first went, never a second publish (lib/website-builder/publish-job.ts). */
+    const jobId = body?.job
+    if (isJobId(jobId)) {
+      const begun = await beginJob(admin as never, { id: jobId, installId, creatorId: creator.id })
+      if (begun.kind === "seen") {
+        if (begun.state === "done") return NextResponse.json({ ok: true, status: "published", job: "done" })
+        if (begun.state === "running") return NextResponse.json({ ok: false, job: "running" }, { status: 202 })
+        return NextResponse.json({ error: begun.error ?? "Could not publish. Try again.", job: begun.state }, { status: 500 })
+      }
+      if (begun.kind === "new") {
+        holder.id = jobId
+        after(() => pruneJobs(admin as never, installId))
+      }
+    }
     /* The addresses live before this publish, so the ones it takes down are announced too (below). Only when IndexNow is on; never waited on here. */
     const liveBefore = indexNowKey() ? websiteAddresses(creator.id).catch(() => [] as string[]) : null
     /*

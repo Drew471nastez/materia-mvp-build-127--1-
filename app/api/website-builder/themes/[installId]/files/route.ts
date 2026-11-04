@@ -12,6 +12,7 @@ import { timed } from "@/lib/perf/server-timing"
 import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
+import { dbFailure } from "@/lib/website-builder/write-retry"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -173,16 +174,34 @@ async function handleGET(req: Request, { params }: Params) {
 
   // List all custom files if no path
   if (!path) {
-    const { data, error: listErr } = await supabase
-      .from("store_theme_custom_files")
-      .select("path, updated_at")
-      .eq("install_id", installId)
-    /* The database's own words go to the log, never to the browser. */
-    if (listErr) {
-      console.error("[theme-files] failed", { code: listErr.code })
-      return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+    /*
+      EVERY FILE, NOT THE FIRST THOUSAND (round 51). The code editor lists
+      what this answers, and the read had no range: PostgREST hands back at
+      most its max_rows (1,000 on Supabase) in no order, so an imported theme
+      with its locales, assets and snippets past that lost whichever files
+      fell off the end, its sections among them ("sometimes there are no
+      sections in it"). Read a thousand at a time, by path, like the canvas's
+      own read above. A database that blinked is a 503 the editor asks again
+      (write-retry.ts dbFailure), never an empty list.
+    */
+    const paths: string[] = []
+    for (let from = 0; from < 20_000; from += 1000) {
+      const { data, error: listErr } = await supabase
+        .from("store_theme_custom_files")
+        .select("path")
+        .eq("install_id", installId)
+        .order("path")
+        .range(from, from + 999)
+      /* The database's own words go to the log, never to the browser. */
+      if (listErr) {
+        console.error("[theme-files] failed", { code: listErr.code })
+        return dbFailure(listErr, "Could not list the website's files. Try again.")
+      }
+      const rows = (data ?? []) as { path: string }[]
+      for (const r of rows) paths.push(r.path)
+      if (rows.length < 1000) break
     }
-    return NextResponse.json({ customized_paths: data?.map(f => f.path) ?? [] })
+    return NextResponse.json({ customized_paths: paths })
   }
 
   /**

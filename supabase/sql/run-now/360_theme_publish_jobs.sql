@@ -1,0 +1,6 @@
+/* Publish as a job with a deadline (round 51, lib/website-builder/publish-job.ts). One row per press of Publish, named by the editor (its own id, so the same press sent twice is one publish): running, done or failed, with the moment it must have ended by. The editor asks for its row when the answer to its press was lost or slow, instead of spinning. Written and read only by the server with the service role; row level security on with no policy, and nothing granted to anon or authenticated. Until it runs, Publish works exactly as before and a lost answer is asked again. No rows change. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.theme_publish_jobs ( id uuid PRIMARY KEY, install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, creator_id uuid NOT NULL, status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'done', 'failed')), error text, started_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz, deadline_at timestamptz NOT NULL DEFAULT (now() + interval '150 seconds') );
+CREATE INDEX IF NOT EXISTS idx_theme_publish_jobs_install ON public.theme_publish_jobs (install_id, started_at DESC);
+ALTER TABLE public.theme_publish_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.theme_publish_jobs FROM anon, authenticated;
+notify pgrst, 'reload schema';

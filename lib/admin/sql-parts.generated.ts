@@ -233,4 +233,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "354", file: "354_builder_configs_private.sql", sha256: "d39f739ae5040c3f4b601b1e7e370b2587122d1948757ed840466d8cc3b1d44c" },
   { part: "355", file: "355_site_blog.sql", sha256: "aeeb522495c34dfd768ac77d692af55424f7fa106921e50fbc9a8d76d48d6ae9" },
   { part: "356", file: "356_public_snapshots.sql", sha256: "7ac641a31e8cb0e76929c8fbee2317f22c5fc3c969abd8f8c46cf5fbf1bc3dbb" },
+  { part: "360", file: "360_theme_publish_jobs.sql", sha256: "d704893a20d2954e2e5f8e3f2fbc18cf0b9ae1e0033876da402f8b0cf7138add" },
 ]

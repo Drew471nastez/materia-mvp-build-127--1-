@@ -14,11 +14,14 @@
  * canvas can say so and its Try again asks the server again.
  */
 import { useSyncExternalStore } from "react"
-import { deadline, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { deadline, fetchWithin, hedged, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { fetchSignedIn } from "@/lib/website-builder/session-keep"
 import { withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 
 /** One try at the theme's files, headers and body together. */
 export const FILES_WAIT_MS = 25_000
+/** How long a read of the theme's files waits for its headers before the same read is sent beside it. */
+export const FILES_HEDGE_MS = 8_000
 
 /*
  * THE FILES CHANGE UNDER AN OPEN EDITOR. A push or an agent that writes a
@@ -92,11 +95,17 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
   const version = versions.get(installId) ?? 0
   const hit = loading.get(installId)
   if (hit && hit.version === version) return hit.files
+  /*
+    Round 51: a read with no headers after FILES_HEDGE_MS is sent again beside
+    itself (load-guard.ts hedged), so one hung request is not the whole wait,
+    and a 401 from a token that had just run out is renewed and asked again
+    (session-keep.ts) rather than shown as a theme that did not load.
+  */
   const p = retrying(
     () =>
       deadline(
         (async () => {
-          const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, { cache: "no-store" }, FILES_WAIT_MS)
+          const r = await hedged(() => fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, { cache: "no-store" }, FILES_WAIT_MS)), FILES_HEDGE_MS)
           if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
           const d = (await r.json()) as { files?: Record<string, string>; asset_pass?: unknown }
           /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts), known before the first draw. */
