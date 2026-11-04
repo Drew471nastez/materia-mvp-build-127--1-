@@ -114,7 +114,7 @@ async function open(kind, chaos = "", { live = false, phone = false } = {}) {
     return r.respond({ status: 200, contentType: "text/plain", body: "" })
   })
   const t0 = Date.now()
-  await page.goto(`${base}/?kind=${kind}${live ? "&live=1" : ""}`, { waitUntil: "domcontentloaded" })
+  await page.goto(`${base}/?kind=${kind}${live ? "&live=1" : ""}`, { waitUntil: "domcontentloaded", timeout: 120_000 })
   return { page, errors, consoleErrors, t0, js: (fn, ...a) => page.evaluate(fn, ...a) }
 }
 
@@ -408,7 +408,7 @@ async function noticePlace(tab) {
     if (!n || !bar) return null
     const a = n.getBoundingClientRect()
     const b = bar.getBoundingClientRect()
-    const d = document.querySelector("[data-ask-dock]")?.getBoundingClientRect()
+    const d = document.querySelector("[data-ask-dock][data-state='pill'] [data-ask-pill]")?.getBoundingClientRect()
     const overDock = !!d && d.height > 0 && a.top < d.bottom && a.bottom > d.top && a.left < d.right && a.right > d.left
     return { top: Math.round(a.top), bottom: Math.round(a.bottom), barBottom: Math.round(b.bottom), dockTop: d ? Math.round(d.top) : null, viewport: innerHeight, overBar: a.top < b.bottom && a.bottom > b.top, overDock }
   })

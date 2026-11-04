@@ -3992,7 +3992,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (notificationTimer.current) clearTimeout(notificationTimer.current)
     const card = typeof document !== "undefined" ? document.getElementById("wb-preview-root")?.getBoundingClientRect() : null
     if (card && card.width > 0) {
-      const dock = document.querySelector("[data-ask-dock]")?.getBoundingClientRect()
+      /* The dock is laid over the whole canvas; what shows at its foot is its pill. */
+      const dock = document.querySelector("[data-ask-dock][data-state='pill'] [data-ask-pill]")?.getBoundingClientRect()
       const clear = dock && dock.height > 0 && dock.bottom > card.bottom - 160 ? window.innerHeight - dock.top + 12 : window.innerHeight - card.bottom + 24
       setNoticeBox({ left: Math.round(card.left), width: Math.round(card.width), bottom: Math.round(Math.max(24, clear)) })
     } else setNoticeBox(null)

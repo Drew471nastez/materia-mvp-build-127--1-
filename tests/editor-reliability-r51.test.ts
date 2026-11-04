@@ -221,7 +221,7 @@ async function main() {
     check("on a phone it drops in under the bar, by the bar's own height", /isMobileView \? "top-\[calc\(var\(--wb-chrome-top,48px\)\+8px\)\]" : "bottom-6"/.test(bar))
     check("it moves by translate and opacity only", /transition-\[translate,opacity\]/.test(bar) && !/transition-all/.test(bar))
     check("in Storelib's near black, not a third colour", /bg-\[#1a1a2e\] text-white/.test(bar))
-    check("on a computer over the canvas and above Ask's dock, read once when it opens", /document\.getElementById\("wb-preview-root"\)\?\.getBoundingClientRect\(\)/.test(editor) && /querySelector\("\[data-ask-dock\]"\)/.test(editor) && /left: noticeBox\.left, right: "auto", width: noticeBox\.width, bottom: noticeBox\.bottom/.test(bar))
+    check("on a computer over the canvas and above Ask's dock, read once when it opens", /document\.getElementById\("wb-preview-root"\)\?\.getBoundingClientRect\(\)/.test(editor) && /data-ask-pill/.test(editor) && /left: noticeBox\.left, right: "auto", width: noticeBox\.width, bottom: noticeBox\.bottom/.test(bar))
     check("a faded notice takes no press", /notification && "pointer-events-auto"/.test(bar))
   }
 
