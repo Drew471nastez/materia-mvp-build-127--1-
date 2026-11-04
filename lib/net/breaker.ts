@@ -35,6 +35,13 @@ export interface BreakerOptions {
   windowMs?: number
   /** How long an open breaker refuses before it lets one trial through. */
   cooldownMs?: number
+  /**
+   * How long one trial may stay out before another is let through. A trial
+   * that never reports back (a call that hangs, a caller that threw before
+   * telling the breaker) would otherwise keep every caller refused for as
+   * long as it hangs. Defaults to the cooldown.
+   */
+  trialMs?: number
   /** For tests. */
   now?: () => number
 }
@@ -67,6 +74,8 @@ export class CircuitBreaker {
   private firstFailureAt = 0
   private openedAt = 0
   private trialInFlight = false
+  private trialAt = 0
+  private readonly trialMs: number
   private _state: BreakerState = "closed"
 
   constructor(name: string, opts: BreakerOptions = {}) {
@@ -75,6 +84,7 @@ export class CircuitBreaker {
     this.windowMs = opts.windowMs ?? BREAKER_DEFAULTS.windowMs
     this.cooldownMs = opts.cooldownMs ?? BREAKER_DEFAULTS.cooldownMs
     this.now = opts.now ?? Date.now
+    this.trialMs = opts.trialMs ?? this.cooldownMs
   }
 
   get state(): BreakerState {
@@ -96,8 +106,10 @@ export class CircuitBreaker {
     const state = this.state
     if (state === "closed") return true
     if (state === "open") return false
-    if (this.trialInFlight) return false
+    /* One trial at a time, but a trial that has been out longer than trialMs no longer holds everybody back (round 50). */
+    if (this.trialInFlight && this.now() - this.trialAt < this.trialMs) return false
     this.trialInFlight = true
+    this.trialAt = this.now()
     this._state = "half-open"
     return true
   }

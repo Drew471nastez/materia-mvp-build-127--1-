@@ -6,6 +6,7 @@ import { translationsChanged } from "@/lib/markets/translate-queue"
 import { z } from "zod"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
+import { dbFailure, isDuplicate } from "@/lib/website-builder/write-retry"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -18,8 +19,9 @@ const SettingsBodySchema = z.object({
 })
 
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
-async function getCreatorInstall(installId: string) {
-  const c = await websiteInstallCaller(installId)
+/* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
+async function getCreatorInstall(installId: string, read = false) {
+  const c = await websiteInstallCaller(installId, "id, creator_id", { read })
   if (c.error !== null) return { error: c.error, status: c.status, supabase: null }
   // The creator id comes back too: a write that lands on the LIVE `settings`
   // column changes the website, so the cached published site has to go.
@@ -29,7 +31,7 @@ async function getCreatorInstall(installId: string) {
 // GET /api/website-builder/themes/[installId]/settings
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorInstall(installId)
+  const { error, status, supabase } = await getCreatorInstall(installId, true)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   const { data, error: fetchErr } = await supabase
@@ -41,7 +43,7 @@ export async function GET(_req: Request, { params }: Params) {
   /* The database's own words go to the log, never to the browser. */
   if (fetchErr) {
     console.error("[theme-settings] failed", { code: fetchErr.code })
-    return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+    return dbFailure(fetchErr, "Could not load that. Try again.")
   }
   return NextResponse.json({ settings: data })
 }
@@ -99,11 +101,16 @@ export async function PUT(req: Request, { params }: Params) {
   }
 
   // Upsert
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupErr } = await supabase
     .from("store_theme_settings")
     .select("id")
     .eq("install_id", installId)
     .maybeSingle()
+  /* Round 50: a lookup that failed is not "no settings row": read as one, the insert below met the row that was there and the save failed. */
+  if (lookupErr) {
+    console.error("[theme-settings] failed", { code: lookupErr.code })
+    return dbFailure(lookupErr, "Could not save the settings. Try again.")
+  }
 
   let result
   if (existing) {
@@ -116,19 +123,28 @@ export async function PUT(req: Request, { params }: Params) {
     /* The database's own words go to the log, never to the browser. */
     if (updateErr) {
       console.error("[theme-settings] failed", { code: updateErr.code })
-      return NextResponse.json({ error: "Could not save the settings. Try again." }, { status: 500 })
+      return dbFailure(updateErr, "Could not save the settings. Try again.")
     }
     result = data
   } else {
-    const { data, error: insertErr } = await supabase
+    let { data, error: insertErr } = await supabase
       .from("store_theme_settings")
       .insert({ install_id: installId, ...update })
       .select()
       .single()
+    /* The same save sent again after its answer was lost (round 50): the row the first try made is written to, not refused. */
+    if (insertErr && isDuplicate(insertErr)) {
+      ;({ data, error: insertErr } = await supabase
+        .from("store_theme_settings")
+        .update(update)
+        .eq("install_id", installId)
+        .select()
+        .single())
+    }
     /* The database's own words go to the log, never to the browser. */
     if (insertErr) {
       console.error("[theme-settings] failed", { code: insertErr.code })
-      return NextResponse.json({ error: "Could not save the settings. Try again." }, { status: 500 })
+      return dbFailure(insertErr, "Could not save the settings. Try again.")
     }
     result = data
   }

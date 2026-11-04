@@ -86,7 +86,8 @@ export type JsonResult<T> = {
 /* Marked with msg(): the dashboard shows them through tt(); checkout and other buyer pages read them as they are. */
 export const FAIL_COPY: Record<FailKind, string> = {
   offline: msg("You're offline. Check your connection and try again."),
-  timeout: msg("That took too long. Check your connection and try again."),
+  /* Round 50: a slow answer is the server's, not the connection's. "Check your connection" is for offline and a request that never got out. */
+  timeout: msg("This is taking longer than usual. Try again in a moment."),
   network: msg("The connection dropped. Try again."),
   auth: msg("Sign in again to do that."),
   refused: msg("Something went wrong. Try again."),
@@ -137,6 +138,20 @@ function authUnavailable(res: Response): boolean {
   return res.status === 503 && res.headers.get(AUTH_UNAVAILABLE_HEADER) === "unavailable"
 }
 
+/*
+  ===========================================================================
+   ONE QUIET RETRY FOR A READ (round 50)
+  ===========================================================================
+  A read (GET or HEAD, which changes nothing) that met a gateway in the
+  middle of a deploy or a cold start (502, 503, 504) or a connection that
+  reset before any answer is asked once more, after a short pause with
+  jitter, inside the same deadline, before a screen says anything. Only
+  while the device is online and only with at least half the deadline left.
+  A write is never repeated here: it may have happened.
+*/
+export const READ_RETRY_STATUSES: ReadonlySet<number> = new Set([502, 503, 504])
+export const READ_RETRY_PAUSE_MS = 400
+
 /** A body that can be sent twice (a string, a form, bytes); a stream cannot. */
 function resendable(body: BodyInit | null | undefined): boolean {
   return body == null || typeof body === "string" || (typeof FormData !== "undefined" && body instanceof FormData) || (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) || (typeof Blob !== "undefined" && body instanceof Blob) || body instanceof ArrayBuffer || ArrayBuffer.isView(body)
@@ -179,9 +194,22 @@ export async function requestJson<T = Record<string, unknown>>(
           : {}),
         signal: ctl.signal,
       })
-    let res = await send()
     /* Supabase Auth did not answer and nothing was done: asked again quietly, within this request's own deadline. */
     const isRead = json === undefined && /^(GET|HEAD)$/i.test(rest.method ?? "GET")
+    const pause = () => Math.round(READ_RETRY_PAUSE_MS + READ_RETRY_PAUSE_MS * Math.random())
+    let quietRetryLeft = isRead
+    const mayRetryRead = (wait: number) => quietRetryLeft && !isOffline() && now() - started + wait < timeoutMs / 2
+    let res: Response
+    try {
+      res = await send()
+    } catch (e) {
+      /* No answer at all (a reset, a deploy's dropped socket): a read is asked once more. Our deadline or the caller's abort is not. */
+      const wait = pause()
+      if (timedOut || outer?.aborted || !mayRetryRead(wait)) throw e
+      quietRetryLeft = false
+      await new Promise((r) => setTimeout(r, wait))
+      res = await send()
+    }
     for (const wait of json !== undefined || resendable(rest.body) ? authRetryDelays(rest.method) : []) {
       if (!authUnavailable(res)) break
       const ms = Math.round(wait + wait * 0.25 * Math.random())
@@ -190,6 +218,15 @@ export async function requestJson<T = Record<string, unknown>>(
       void res.body?.cancel().catch(() => {})
       await new Promise((r) => setTimeout(r, ms))
       res = await send()
+    }
+    if (READ_RETRY_STATUSES.has(res.status) && !authUnavailable(res)) {
+      const wait = pause()
+      if (mayRetryRead(wait)) {
+        quietRetryLeft = false
+        void res.body?.cancel().catch(() => {})
+        await new Promise((r) => setTimeout(r, wait))
+        res = await send()
+      }
     }
     let data = {} as T & { error?: string }
     try {
@@ -204,7 +241,8 @@ export async function requestJson<T = Record<string, unknown>>(
     return { ok: res.ok, status: res.status, data, kind }
   } catch (e) {
     if (outer?.aborted && !timedOut) throw e
-    const kind: FailKind = timedOut ? "timeout" : isOffline() ? "offline" : "network"
+    /* Offline first: a device with no connection is told so, whatever the request did. */
+    const kind: FailKind = isOffline() ? "offline" : timedOut ? "timeout" : "network"
     noteRequest(now() - started, kind)
     return { ok: false, status: 0, data: {} as T & { error?: string }, kind }
   } finally {

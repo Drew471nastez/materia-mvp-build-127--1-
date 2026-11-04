@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "{name} se elimina. Sus entradas se quedan, sin categoría, y su página deja de funcionar.",
  "{name} is deleted. Their posts stay, with no author named.": "{name} se elimina. Sus entradas se quedan, sin autor.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "{title} se elimina para siempre, con su historial. Si está publicada, su dirección deja de funcionar.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# palabra} other {# palabras}} · {minutes} min de lectura"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# palabra} other {# palabras}} · {minutes} min de lectura",
+ "This is taking longer than usual. Try again in a moment.": "Esto está tardando más de lo normal. Inténtalo de nuevo en un momento.",
+ "Storelib is slow to answer": "Storelib tarda en responder",
+ "Your changes are kept here and save again on their own.": "Tus cambios se guardan aquí y se vuelven a guardar solos.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Algo salió mal por nuestra parte. Tus cambios se guardan aquí y se vuelven a guardar solos.",
+ "Your website opens again when you're back online.": "Tu sitio web se abre de nuevo cuando vuelvas a estar en línea.",
+ "Couldn't reach Storelib": "No se pudo conectar con Storelib",
+ "Trying again on its own. If this keeps happening, check your connection.": "Se vuelve a intentar solo. Si sigue pasando, revisa tu conexión.",
+ "Your website is safe. Trying again on its own.": "Tu sitio web está a salvo. Se vuelve a intentar solo.",
+ "Your website is safe. Try again in a moment.": "Tu sitio web está a salvo. Inténtalo de nuevo en un momento.",
+ "Sign in again to open this website.": "Vuelve a iniciar sesión para abrir este sitio web.",
+ "Something went wrong on our side. Trying again on its own.": "Algo salió mal por nuestra parte. Se vuelve a intentar solo."
 }
 
 export default words

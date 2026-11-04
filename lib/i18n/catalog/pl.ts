@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "Kategoria {name} zostanie usunięta. Jej wpisy zostaną bez kategorii, a jej strona przestanie działać.",
  "{name} is deleted. Their posts stay, with no author named.": "Autor {name} zostanie usunięty. Jego wpisy zostaną, bez podanego autora.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "„{title}” zostanie usunięty na zawsze, razem z historią. Jeśli jest opublikowany, jego adres przestanie działać.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# słowo} few {# słowa} many {# słów} other {# słowa}} · {minutes} min czytania"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# słowo} few {# słowa} many {# słów} other {# słowa}} · {minutes} min czytania",
+ "This is taking longer than usual. Try again in a moment.": "To trwa dłużej niż zwykle. Spróbuj ponownie za chwilę.",
+ "Storelib is slow to answer": "Storelib odpowiada wolno",
+ "Your changes are kept here and save again on their own.": "Twoje zmiany zostają tutaj i zapiszą się ponownie same.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Coś poszło nie tak po naszej stronie. Twoje zmiany zostają tutaj i zapiszą się ponownie same.",
+ "Your website opens again when you're back online.": "Twoja strona otworzy się ponownie, gdy wrócisz do sieci.",
+ "Couldn't reach Storelib": "Nie udało się połączyć ze Storelib",
+ "Trying again on its own. If this keeps happening, check your connection.": "Ponawiamy samodzielnie. Jeśli to się powtarza, sprawdź połączenie.",
+ "Your website is safe. Trying again on its own.": "Twoja strona jest bezpieczna. Ponawiamy samodzielnie.",
+ "Your website is safe. Try again in a moment.": "Twoja strona jest bezpieczna. Spróbuj ponownie za chwilę.",
+ "Sign in again to open this website.": "Zaloguj się ponownie, aby otworzyć tę stronę.",
+ "Something went wrong on our side. Trying again on its own.": "Coś poszło nie tak po naszej stronie. Ponawiamy samodzielnie."
 }
 
 export default words

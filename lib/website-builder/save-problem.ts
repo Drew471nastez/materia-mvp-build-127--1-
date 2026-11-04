@@ -49,6 +49,13 @@ export function explainSaveProblem(
       action: "undo",
     }
   }
-  if (status >= 500) return { title: tt("Storelib didn't answer"), fix: tt("Your changes are kept here. Try again in a moment."), action: "retry" }
+  /*
+    Round 50. A 502, 503 or 504 is a server that is slow or busy (a deploy, a
+    cold start, the database catching up), and the save is tried again on
+    its own (retryDelayMs). "Storelib didn't answer" read as an outage for
+    every one of those, and for a 500 too, which is an answer.
+  */
+  if (status === 502 || status === 503 || status === 504) return { title: tt("Storelib is slow to answer"), fix: tt("Your changes are kept here and save again on their own."), action: "retry" }
+  if (status >= 500) return { title: tt("Couldn't save"), fix: tt("Something went wrong on our side. Your changes are kept here and save again on their own."), action: "retry" }
   return { title: tt("Couldn't save"), fix: said && said.length < 120 ? said : tt("Try again in a moment."), action: "retry" }
 }

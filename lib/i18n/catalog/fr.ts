@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "{name} est supprimée. Ses articles restent, sans catégorie, et sa page cesse de fonctionner.",
  "{name} is deleted. Their posts stay, with no author named.": "{name} est supprimé. Ses articles restent, sans auteur.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "{title} est supprimé définitivement, avec son historique. S'il est en ligne, son adresse cesse de fonctionner.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# mot} other {# mots}} · {minutes} min de lecture"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# mot} other {# mots}} · {minutes} min de lecture",
+ "This is taking longer than usual. Try again in a moment.": "Cela prend plus de temps que d'habitude. Réessayez dans un instant.",
+ "Storelib is slow to answer": "Storelib met du temps à répondre",
+ "Your changes are kept here and save again on their own.": "Vos modifications restent ici et sont enregistrées à nouveau automatiquement.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Un problème est survenu de notre côté. Vos modifications restent ici et sont enregistrées à nouveau automatiquement.",
+ "Your website opens again when you're back online.": "Votre site s'ouvre à nouveau dès que vous êtes de retour en ligne.",
+ "Couldn't reach Storelib": "Impossible de joindre Storelib",
+ "Trying again on its own. If this keeps happening, check your connection.": "Nouvel essai automatique. Si cela continue, vérifiez votre connexion.",
+ "Your website is safe. Trying again on its own.": "Votre site est intact. Nouvel essai automatique.",
+ "Your website is safe. Try again in a moment.": "Votre site est intact. Réessayez dans un instant.",
+ "Sign in again to open this website.": "Reconnectez-vous pour ouvrir ce site.",
+ "Something went wrong on our side. Trying again on its own.": "Un problème est survenu de notre côté. Nouvel essai automatique."
 }
 
 export default words

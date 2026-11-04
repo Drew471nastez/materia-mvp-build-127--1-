@@ -6,6 +6,7 @@ import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure
 import { sanitizeInstallRow, sectionsOfInstallRow } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { creatorFacts } from "@/lib/website-builder/storefront-data-server"
+import { dbFailure } from "@/lib/website-builder/write-retry"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -62,8 +63,9 @@ async function creatorCollectionsForBuilder(creatorId: string) {
 
 // ── Auth helper ──────────────────────────────────────────────
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
-async function getCreatorAndInstall(installId: string) {
-  const c = await websiteInstallCaller<{ id: string; creator_id: string; name?: string }>(installId, "id, creator_id, name")
+/* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
+async function getCreatorAndInstall(installId: string, read = false) {
+  const c = await websiteInstallCaller<{ id: string; creator_id: string; name?: string }>(installId, "id, creator_id, name", { read })
   if (c.error !== null) return { error: c.error, status: c.status, supabase: null, creator: null, install: null, userId: null, ownerUserId: null, isOwner: false }
   return { error: null, status: 200, supabase: c.supabase, creator: c.creator, install: c.install, userId: c.userId, ownerUserId: c.ownerUserId, isOwner: c.isOwner }
 }
@@ -72,7 +74,7 @@ async function getCreatorAndInstall(installId: string) {
 // Returns full install data with settings, pages, and username
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, install, creator, ownerUserId, isOwner } = await getCreatorAndInstall(installId)
+  const { error, status, supabase, install, creator, ownerUserId, isOwner } = await getCreatorAndInstall(installId, true)
   if (error) return NextResponse.json({ error }, { status })
 
   /*
@@ -111,28 +113,40 @@ export async function GET(_req: Request, { params }: Params) {
    * appearing on the next reload. A failure is logged and swallowed: not
    * having a refund policy is not a reason to refuse somebody their editor.
    */
-  const ensured = await ensurePolicyPages(
-    supabase! as unknown as PagesTable,
-    installId,
-    String((install as { name?: unknown } | null)?.name ?? "").trim(),
-  )
-  if (ensured.error) console.error(`[policy-pages] ${installId}: ${ensured.error}`)
-
-  const { data, error: fetchError } = await supabase!
-    .from("store_theme_installs")
-    .select(`
+  const readInstall = () =>
+    supabase!
+      .from("store_theme_installs")
+      .select(`
       *,
       theme:themes(*),
       settings:store_theme_settings(*),
       pages:store_theme_pages(*)
     `)
-    .eq("id", installId)
-    .single()
+      .eq("id", installId)
+      .single()
+  /*
+    Round 50: the site's row is read BESIDE the policy pages check, not after
+    it. They were two round trips end to end in front of every opening of
+    the editor, which on a slow database was most of its wait. On the rare
+    opening where a page was made or a footer linked, the row is read again
+    so the answer has them, as before.
+  */
+  const [ensured, firstRead] = await Promise.all([
+    ensurePolicyPages(
+      supabase! as unknown as PagesTable,
+      installId,
+      String((install as { name?: unknown } | null)?.name ?? "").trim(),
+    ),
+    readInstall(),
+  ])
+  if (ensured.error) console.error(`[policy-pages] ${installId}: ${ensured.error}`)
+  const { data, error: fetchError } = ensured.created.length > 0 || ensured.footersLinked > 0 ? await readInstall() : firstRead
 
   /* The database's own words go to the log, never to the browser. */
   if (fetchError) {
     console.error("[themes/get] read failed", { code: fetchError.code })
-    return NextResponse.json({ error: "Could not load this website. Try again." }, { status: 500 })
+    /* Round 50: a database that was slow or away is a 503 the editor asks again quietly; only a query that is wrong is a 500. */
+    return dbFailure(fetchError, "Could not load this website. Try again.")
   }
 
   /*

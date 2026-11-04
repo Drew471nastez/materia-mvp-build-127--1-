@@ -565,6 +565,7 @@ const ro: Record<string, string> = {
   "Nothing to change.": "Nimic de schimbat.",
   "You're offline. Check your connection and try again.": "Nu ai conexiune la internet. Verifică conexiunea și încearcă din nou.",
   "That took too long. Check your connection and try again.": "A durat prea mult. Verifică conexiunea și încearcă din nou.",
+  "This is taking longer than usual. Try again in a moment.": "Durează mai mult decât de obicei. Încearcă din nou peste câteva momente.",
   "The connection dropped. Try again.": "Conexiunea s-a întrerupt. Încearcă din nou.",
   "Sign in again to do that.": "Autentifică-te din nou ca să faci asta.",
   "Something went wrong. Try again.": "Ceva nu a mers. Încearcă din nou.",

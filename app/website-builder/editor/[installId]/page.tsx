@@ -209,6 +209,7 @@ import { MenusEditor } from "@/components/website-builder/editor/controls/menus-
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { LOAD_AUTO_RETRY_MS, explainLoadProblem, type LoadFailure } from "@/lib/website-builder/load-problem"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
@@ -2698,8 +2699,13 @@ function newBlockId(): string {
 const INSPECT_FADE_MS = 200
 /** The longest the editor's loader waits for an imported theme's first page to paint. */
 const COMPAT_PAINT_CAP_MS = 8000
-/** The longest one request for the website or a page's sections is waited for before it counts as failed. */
-const SECTIONS_WAIT_MS = 20_000
+/**
+ * The longest one request for the website or a page's sections is waited for before it counts as failed.
+ * Round 50: 45s, was 20s. One of these requests is several database round trips one after another (who is
+ * asking, whose store, the site, then its pages), each allowed 20s on the server (lib/net/deadline.ts), so 20s
+ * here gave up on a slow database that was about to answer, and said so as "didn't load".
+ */
+const SECTIONS_WAIT_MS = 45_000
 
 /**
  * A read of a page's sections, as the canvas waits for it (round 12). Asked
@@ -2714,7 +2720,8 @@ async function readSections(url: string): Promise<Response> {
   try {
     return await retrying(async () => {
       const r = await fetchSignedIn(() => fetchWithin(url, {}, SECTIONS_WAIT_MS))
-      if (r.status >= 500) {
+      /* A 429 too (round 50): it was read as a page with no sections, which the next autosave would have written over the real one. */
+      if (r.status >= 500 || r.status === 429) {
         last = r
         throw new Error(`${url.split("?")[0]} answered ${r.status}`)
       }
@@ -2863,6 +2870,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [loading, setLoading] = useState(true)
   /* The editor's first load ended without the website (a request that failed or never answered): said over the canvas, with Try again. */
   const [loadFailed, setLoadFailed] = useState(false)
+  /* Round 50: how it failed (lib/website-builder/load-problem.ts), so the words are true and a passing failure is tried again by itself. */
+  const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null)
+  const [loadAutoTries, setLoadAutoTries] = useState(0)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
@@ -4243,7 +4253,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Asked again quietly first (readSections): a server that blinked is not a page that could not be opened. */
     const res = await readSections(`/api/website-builder/themes/${installId}/sections?page=${page}`)
     /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
-    if (res.status >= 500) throw new Error(`the ${page} page answered ${res.status}`)
+    if (res.status >= 500 || res.status === 429) throw new Error(`the ${page} page answered ${res.status}`)
     if (!res.ok) return []
     const data = await res.json()
     // The server's own answer to "is the draft ahead of live". See `unpublished`.
@@ -4486,12 +4496,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Asked again on a dropped connection or a 5xx, and never waited on forever; one that cannot be had is said over the canvas. */
     const res = await retrying(async () => {
       const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS))
-      if (r.status >= 500) throw new Error(`the website answered ${r.status}`)
+      if (r.status >= 500 || r.status === 429) throw new Error(`the website answered ${r.status}`)
       return r
     }, [700, 2000])
     if (!res.ok) {
       reportLoadProblem("editor", `the website answered ${res.status}`)
-      if (!quiet) setLoadFailed(true)
+      if (!quiet) {
+        setLoadFailure({ status: res.status, online: typeof navigator === "undefined" || navigator.onLine !== false })
+        setLoadFailed(true)
+      }
       setLoading(false)
       /* A push waiting on this read still lands its files and its lines. Dropped here, it showed only after a reload. */
       const alongside = afterQuietLoad.current
@@ -4646,12 +4659,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     } else {
       setSettingsDraft(loadedSettings)
       setSections(loaded)
+      setLoadFailure(null)
+      setLoadAutoTries(0)
     }
     return true
     } catch (err) {
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
-      if (!quiet) setLoadFailed(true)
+      if (!quiet) {
+        setLoadFailure({ error: err, online: typeof navigator === "undefined" || navigator.onLine !== false })
+        setLoadFailed(true)
+      }
       const alongside = afterQuietLoad.current
       afterQuietLoad.current = null
       if (alongside) startTransition(alongside)
@@ -4682,6 +4700,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /*
+    A FIRST READ THAT FAILED FOR A REASON THAT PASSES IS TRIED AGAIN BY
+    ITSELF (round 50): Storelib slow (a timeout, a 502, 503, 504 or 429), no
+    answer at all, or a 500, a few more times over about a minute
+    (LOAD_AUTO_RETRY_MS, with jitter), and at once when an offline browser
+    is back online. Signed out, no access and not found are not: the same
+    read would be refused the same way. Try again stays there throughout.
+  */
+  useEffect(() => {
+    if (!loadFailed || !loadFailure) return
+    const problem = explainLoadProblem(loadFailure, false)
+    if (!problem.autoRetry) return
+    if (problem.kind === "offline") {
+      const back = () => void loadData()
+      window.addEventListener("online", back, { once: true })
+      return () => window.removeEventListener("online", back)
+    }
+    if (loadAutoTries >= LOAD_AUTO_RETRY_MS.length) return
+    const wait = Math.round(LOAD_AUTO_RETRY_MS[loadAutoTries] * (1 + 0.25 * Math.random()))
+    const t = window.setTimeout(() => {
+      setLoadAutoTries((n) => n + 1)
+      void loadData()
+    }, wait)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadFailed, loadFailure])
 
   // Username is loaded from API in loadData
 
@@ -12312,16 +12357,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             )}
 
-            {loadFailed && !loading && (
-              <div className="absolute inset-0 z-10 bg-white">
-                <CanvasProblem
-                  kind="editor"
-                  title="Your website didn't load"
-                  body="Check your connection and try again."
-                  onRetry={() => void loadData()}
-                />
-              </div>
-            )}
+            {loadFailed && !loading && (() => {
+              /* Round 50: words for what happened (lib/website-builder/load-problem.ts), never "check your connection" over a server that was slow. */
+              const problem = explainLoadProblem(loadFailure ?? { online: true }, loadAutoTries < LOAD_AUTO_RETRY_MS.length)
+              return (
+                <div className="absolute inset-0 z-10 bg-white">
+                  <CanvasProblem
+                    kind={`editor-${problem.kind}`}
+                    title={problem.title}
+                    body={problem.body}
+                    onRetry={() => {
+                      setLoadAutoTries(0)
+                      void loadData()
+                    }}
+                  />
+                </div>
+              )
+            })()}
 
             {!canvasBusy && (
               /**

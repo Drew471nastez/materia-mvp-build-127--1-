@@ -34,6 +34,7 @@
  */
 
 import { backoffMs, deadlineFetch, deadlineFor, READ_RETRIES, REST_RETRY_STATUSES } from "@/lib/net/deadline"
+import { supabaseRetryBudget } from "@/lib/net/retry-budget"
 
 const PUBLIC_PATH = "/storage/v1/object/public/"
 export const MEDIA_PATH = "/media/"
@@ -282,6 +283,8 @@ async function wholeRead(input: RequestInfo | URL, init: RequestInit | undefined
     if (!bad) return withBody(res, text as string)
     const wait = backoffMs(attempt)
     if (attempt >= READ_RETRIES || signal?.aborted || (budget !== null && Date.now() - started + wait >= budget)) return bad
+    /* Round 50: paid from the instance's retry budget (lib/net/retry-budget.ts), so an outage is not asked three times over. */
+    if (!supabaseRetryBudget.spend()) return bad
     await new Promise((resolve) => setTimeout(resolve, wait))
     if (signal?.aborted) return bad
   }
@@ -317,6 +320,7 @@ async function readWithSchemaRetry(input: RequestInfo | URL, init?: RequestInit)
   for (const wait of SCHEMA_RETRY_WAITS) {
     if (!(await isSchemaCacheReload(res, method))) return res
     if (signal?.aborted) return res
+    if (!supabaseRetryBudget.spend()) return res
     await res.body?.cancel().catch(() => {})
     await new Promise((resolve) => setTimeout(resolve, wait))
     if (signal?.aborted) return res

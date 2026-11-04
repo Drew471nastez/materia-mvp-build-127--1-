@@ -19,9 +19,15 @@
  * never repeated here: an insert, an update, an RPC, an order, a payment or
  * an upload may already have happened when its answer was lost.
  *
- * Browser safe, no imports. Used by lib/storage/media-url.ts mediaFetch,
- * which every Supabase client in the app fetches through, and by proxy.ts.
+ * Browser safe, no imports beyond ./retry-budget (none of its own). Used by
+ * lib/storage/media-url.ts mediaFetch, which every Supabase client in the
+ * app fetches through, and by proxy.ts.
+ *
+ * Round 50: every retry here is paid for from one budget per instance
+ * (./retry-budget.ts). A blip is asked again as before; an outage is not
+ * multiplied by three.
  */
+import { supabaseRetryBudget, type RetryBudget } from "./retry-budget"
 
 export type DeadlineKind = "auth" | "read" | "write" | "rpc" | "storage-read" | "storage-write" | "functions" | "other"
 
@@ -149,6 +155,8 @@ export interface DeadlineOptions {
   retry?: boolean
   /** This request's deadline instead of the one for its kind (tests, a caller that knows better). */
   ms?: number | null
+  /** Where retries are paid from: the instance's Supabase budget unless a test gives one. null: no budget. */
+  budget?: RetryBudget | null
 }
 
 /*
@@ -211,14 +219,16 @@ function fetchWithDeadline(input: RequestInfo | URL, init?: RequestInit, opts: D
   const started = Date.now()
   const go = (i: RequestInfo | URL) => base(i, signal ? { ...init, signal } : init)
   const read = method === "GET" || method === "HEAD"
+  const budget = opts.budget === undefined ? supabaseRetryBudget : opts.budget
+  budget?.deposit()
   if (!read || opts.retry === false) return go(input)
-  return transientRetry(input, go, { caller, ours, started, ms, statuses: opts.retryStatuses ?? RETRY_STATUSES })
+  return transientRetry(input, go, { caller, ours, started, ms, statuses: opts.retryStatuses ?? RETRY_STATUSES, budget })
 }
 
 async function transientRetry(
   input: RequestInfo | URL,
   go: (i: RequestInfo | URL) => Promise<Response>,
-  { caller, ours, started, ms, statuses }: { caller?: AbortSignal | null; ours: AbortSignal | null; started: number; ms: number | null; statuses: ReadonlySet<number> },
+  { caller, ours, started, ms, statuses, budget }: { caller?: AbortSignal | null; ours: AbortSignal | null; started: number; ms: number | null; statuses: ReadonlySet<number>; budget: RetryBudget | null },
 ): Promise<Response> {
   const isRequest = typeof Request !== "undefined" && input instanceof Request
   for (let attempt = 0; ; attempt++) {
@@ -232,6 +242,8 @@ async function transientRetry(
       if (last || caller?.aborted || ours?.aborted) throw e
       const wait = backoffMs(attempt)
       if (ms !== null && Date.now() - started + wait >= ms) throw e
+      /* The budget is spent: an outage, not a blip. The first try's answer stands. */
+      if (budget && !budget.spend()) throw e
       await sleep(wait)
       continue
     }
@@ -244,6 +256,7 @@ async function transientRetry(
     }
     if (ms !== null && Date.now() - started + wait >= ms) return res
     if (caller?.aborted || ours?.aborted) return res
+    if (budget && !budget.spend()) return res
     /* Let the unread body go without waiting on it: a cancel can wait on another reader of the same stream. */
     void res.body?.cancel().catch(() => {})
     await sleep(wait)

@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "{name} viene eliminata. I suoi articoli restano, senza categoria, e la sua pagina smette di funzionare.",
  "{name} is deleted. Their posts stay, with no author named.": "{name} viene eliminato. I suoi articoli restano, senza autore.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "{title} viene eliminato per sempre, con la cronologia. Se è online, il suo indirizzo smette di funzionare.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# parola} other {# parole}} · {minutes} min di lettura"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# parola} other {# parole}} · {minutes} min di lettura",
+ "This is taking longer than usual. Try again in a moment.": "Ci sta volendo più del solito. Riprova tra un momento.",
+ "Storelib is slow to answer": "Storelib è lento a rispondere",
+ "Your changes are kept here and save again on their own.": "Le tue modifiche restano qui e vengono salvate di nuovo da sole.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Qualcosa è andato storto da parte nostra. Le tue modifiche restano qui e vengono salvate di nuovo da sole.",
+ "Your website opens again when you're back online.": "Il tuo sito si riapre quando torni online.",
+ "Couldn't reach Storelib": "Impossibile raggiungere Storelib",
+ "Trying again on its own. If this keeps happening, check your connection.": "Nuovo tentativo automatico. Se continua, controlla la connessione.",
+ "Your website is safe. Trying again on its own.": "Il tuo sito è al sicuro. Nuovo tentativo automatico.",
+ "Your website is safe. Try again in a moment.": "Il tuo sito è al sicuro. Riprova tra un momento.",
+ "Sign in again to open this website.": "Accedi di nuovo per aprire questo sito.",
+ "Something went wrong on our side. Trying again on its own.": "Qualcosa è andato storto da parte nostra. Nuovo tentativo automatico."
 }
 
 export default words

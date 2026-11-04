@@ -64,8 +64,9 @@ async function pagesUsingSection(
 }
 
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
-async function getCreatorInstall(installId: string) {
-  const c = await websiteInstallCaller<{ id: string; theme_id: string; name: string }>(installId, "id, theme_id, name")
+/* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
+async function getCreatorInstall(installId: string, read = false) {
+  const c = await websiteInstallCaller<{ id: string; theme_id: string; name: string }>(installId, "id, theme_id, name", { read })
   if (c.error !== null) return { error: c.error, status: c.status, supabase: null, creator: null }
   return { error: null, status: 200, supabase: c.supabase, creator: c.creator, install: c.install }
 }
@@ -74,7 +75,7 @@ async function getCreatorInstall(installId: string) {
 // Returns file content — custom override if it exists, else default
 async function handleGET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, install } = await getCreatorInstall(installId)
+  const { error, status, supabase, install } = await getCreatorInstall(installId, true)
   if (error || !supabase || !install) return NextResponse.json({ error }, { status })
 
   const { searchParams } = new URL(req.url)

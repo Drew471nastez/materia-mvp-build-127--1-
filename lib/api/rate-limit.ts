@@ -153,6 +153,37 @@ const SWEEP_ODDS = 50
 /** What the sweep keeps: two days, longer than the longest window any bucket counts (a day). */
 export const SWEEP_KEEP_SECONDS = 2 * 86_400
 
+/*
+  ===========================================================================
+   THE LIMITER IS NEVER WHAT MAKES A REQUEST SLOW (round 50)
+  ===========================================================================
+  A count that fails allows (above), but a count that is merely slow was
+  waited out to the read's whole 20 second deadline, the hit's insert to the
+  write's 30 seconds, and one call in fifty also waited on a delete across
+  the whole table. Every editor read and save is limited, so when the
+  database was slow the limiter alone could hold a request past the
+  editor's own 20 second wait, and the screen said the website did not
+  load. Each step now has a ceiling of its own. The decisions are the same:
+  a count that does not come back in time is a count that failed (allowed,
+  as before, with the same warning); a hit or a sweep that is late is left
+  to finish on its own.
+*/
+export const LIMIT_COUNT_MS = 2_500
+export const LIMIT_RECORD_MS = 1_000
+export const LIMIT_SWEEP_MS = 1_500
+
+const LATE = Symbol("late")
+function within<T>(p: PromiseLike<T>, ms: number): Promise<T | typeof LATE> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise<typeof LATE>((resolve) => {
+      timer = setTimeout(() => resolve(LATE), ms)
+      ;(timer as unknown as { unref?: () => void }).unref?.()
+    }),
+  ]).finally(() => clearTimeout(timer))
+}
+
 /**
  * The address the request came from, as the platform reports it.
  *
@@ -225,15 +256,19 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
     const asks = subjects.flatMap((subject) =>
       options.windows.map((window) => {
         const since = new Date(Date.now() - window.seconds * 1000).toISOString()
-        return Promise.resolve(
+        return within(
           admin
             .from("rate_limit_hits")
             .select("id", { count: "exact", head: true })
             .eq("bucket", options.bucket)
             .eq("subject", subject)
             .gte("created_at", since),
+          LIMIT_COUNT_MS,
         ).then(
-          (answer) => ({ window, count: answer.count, error: answer.error as { message: string } | null }),
+          (answer) =>
+            answer === LATE
+              ? { window, count: null, error: { message: `no count within ${LIMIT_COUNT_MS}ms` } }
+              : { window, count: answer.count, error: answer.error as { message: string } | null },
           (thrown: unknown) => ({ window, count: null, error: { message: thrown instanceof Error ? thrown.message : String(thrown) } }),
         )
       }),
@@ -257,7 +292,7 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
     }
 
     /* Within every limit, so this one counts. */
-    await admin.from("rate_limit_hits").insert(subjects.map((subject) => ({ bucket: options.bucket, subject })))
+    await within(admin.from("rate_limit_hits").insert(subjects.map((subject) => ({ bucket: options.bucket, subject }))), LIMIT_RECORD_MS)
 
     /*
       And now and then, throw away what no window can still reach. Doing it
@@ -272,7 +307,7 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
     */
     if (Math.random() * SWEEP_ODDS < 1) {
       const cutoff = new Date(Date.now() - Math.max(longest, SWEEP_KEEP_SECONDS) * 1000).toISOString()
-      await admin.from("rate_limit_hits").delete().lt("created_at", cutoff)
+      await within(admin.from("rate_limit_hits").delete().lt("created_at", cutoff), LIMIT_SWEEP_MS)
     }
 
     return null

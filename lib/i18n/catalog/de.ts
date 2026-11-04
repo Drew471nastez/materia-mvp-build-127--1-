@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "{name} wird gelöscht. Ihre Beiträge bleiben, ohne Kategorie, und ihre Seite funktioniert nicht mehr.",
  "{name} is deleted. Their posts stay, with no author named.": "{name} wird gelöscht. Die Beiträge bleiben, ohne Autor.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "{title} wird endgültig gelöscht, samt Verlauf. Ist der Beitrag live, funktioniert seine Adresse nicht mehr.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# Wort} other {# Wörter}} · {minutes} Min. Lesezeit"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# Wort} other {# Wörter}} · {minutes} Min. Lesezeit",
+ "This is taking longer than usual. Try again in a moment.": "Das dauert länger als sonst. Versuche es gleich noch einmal.",
+ "Storelib is slow to answer": "Storelib antwortet langsam",
+ "Your changes are kept here and save again on their own.": "Deine Änderungen bleiben hier und werden von selbst erneut gespeichert.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Bei uns ist etwas schiefgelaufen. Deine Änderungen bleiben hier und werden von selbst erneut gespeichert.",
+ "Your website opens again when you're back online.": "Deine Website öffnet sich wieder, sobald du wieder online bist.",
+ "Couldn't reach Storelib": "Storelib war nicht erreichbar",
+ "Trying again on its own. If this keeps happening, check your connection.": "Wird von selbst erneut versucht. Wenn das weiter passiert, prüfe deine Verbindung.",
+ "Your website is safe. Trying again on its own.": "Deine Website ist sicher. Wird von selbst erneut versucht.",
+ "Your website is safe. Try again in a moment.": "Deine Website ist sicher. Versuche es gleich noch einmal.",
+ "Sign in again to open this website.": "Melde dich erneut an, um diese Website zu öffnen.",
+ "Something went wrong on our side. Trying again on its own.": "Bei uns ist etwas schiefgelaufen. Wird von selbst erneut versucht."
 }
 
 export default words

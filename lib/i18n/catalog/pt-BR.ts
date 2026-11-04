@@ -11953,7 +11953,18 @@ const words: Record<string, string> = {
  "{name} is deleted. Its posts stay, with no category, and its page stops working.": "{name} será excluída. Os posts dela continuam, sem categoria, e a página dela deixa de funcionar.",
  "{name} is deleted. Their posts stay, with no author named.": "{name} será excluído. Os posts continuam, sem autor.",
  "{title} is deleted for good, with its history. If it is live, its address stops working.": "{title} será excluído para sempre, com o histórico. Se estiver no ar, o endereço deixa de funcionar.",
- "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# palavra} other {# palavras}} · {minutes} min de leitura"
+ "{words, plural, one {# word} other {# words}} · {minutes} min read": "{words, plural, one {# palavra} other {# palavras}} · {minutes} min de leitura",
+ "This is taking longer than usual. Try again in a moment.": "Isso está demorando mais do que o normal. Tente de novo em instantes.",
+ "Storelib is slow to answer": "O Storelib está demorando para responder",
+ "Your changes are kept here and save again on their own.": "Suas alterações ficam aqui e são salvas de novo automaticamente.",
+ "Something went wrong on our side. Your changes are kept here and save again on their own.": "Algo deu errado do nosso lado. Suas alterações ficam aqui e são salvas de novo automaticamente.",
+ "Your website opens again when you're back online.": "Seu site abre de novo quando você voltar a ficar online.",
+ "Couldn't reach Storelib": "Não foi possível acessar o Storelib",
+ "Trying again on its own. If this keeps happening, check your connection.": "Tentando de novo automaticamente. Se continuar, verifique sua conexão.",
+ "Your website is safe. Trying again on its own.": "Seu site está seguro. Tentando de novo automaticamente.",
+ "Your website is safe. Try again in a moment.": "Seu site está seguro. Tente de novo em instantes.",
+ "Sign in again to open this website.": "Entre de novo para abrir este site.",
+ "Something went wrong on our side. Trying again on its own.": "Algo deu errado do nosso lado. Tentando de novo automaticamente."
 }
 
 export default words

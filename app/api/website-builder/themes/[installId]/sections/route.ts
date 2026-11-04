@@ -21,6 +21,7 @@ import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { dbFailure, isDuplicate } from "@/lib/website-builder/write-retry"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -53,8 +54,9 @@ const PutBodySchema = z.object({
 })
 
 /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
-async function getCreatorInstall(installId: string) {
-  const c = await websiteInstallCaller(installId)
+/* Round 50: a GET takes the request's read answer (lib/auth/route-user readerForRequest: Supabase Auth, or the token's verified signature when Auth is slow), as every other read does since round 49. A change still needs Auth itself. Row level security applies to every query either way. */
+async function getCreatorInstall(installId: string, read = false) {
+  const c = await websiteInstallCaller(installId, "id, creator_id", { read })
   if (c.error !== null) return { error: c.error, status: c.status, supabase: null }
   // The creator id comes back too: a write that lands on the LIVE columns
   // has to throw away the cached published site, and that cache is keyed by
@@ -65,7 +67,7 @@ async function getCreatorInstall(installId: string) {
 // GET /api/website-builder/themes/[installId]/sections?page=home
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, userId, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, userId, creatorId } = await getCreatorInstall(installId, true)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   const limited = await rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead })
@@ -88,7 +90,7 @@ export async function GET(req: Request, { params }: Params) {
   /* The database's own words go to the log, never to the browser. */
   if (fetchErr) {
     console.error("[sections] read failed", { code: fetchErr.code })
-    return NextResponse.json({ error: "Could not load this page. Try again." }, { status: 500 })
+    return dbFailure(fetchErr, "Could not load this page. Try again.")
   }
 
   // Return draft_sections if present, else sections
@@ -285,7 +287,7 @@ export async function PUT(req: Request, { params }: Params) {
     .eq("install_id", installId)
     .eq("page_key", page_key)
     .maybeSingle()
-  if (lookupErr) return NextResponse.json({ error: "Could not save the page. Try again." }, { status: 500 })
+  if (lookupErr) return dbFailure(lookupErr, "Could not save the page. Try again.")
 
   /**
    * A NEW page takes an address the editor could have made: lowercase
@@ -308,7 +310,7 @@ export async function PUT(req: Request, { params }: Params) {
       .single()
     if (updateErr) {
       console.error("[sections] save failed", { code: updateErr.code })
-      return NextResponse.json({ error: "Could not save this page. Try again." }, { status: 500 })
+      return dbFailure(updateErr, "Could not save this page. Try again.")
     }
     result = data
   } else {
@@ -317,14 +319,31 @@ export async function PUT(req: Request, { params }: Params) {
         ? { install_id: installId, page_key, sections, draft_sections: null }
         : { install_id: installId, page_key, sections: [], draft_sections: sections }
 
-    const { data, error: insertErr } = await supabase
+    let { data, error: insertErr } = await supabase
       .from("store_theme_pages")
       .insert(insertData)
       .select()
       .single()
+    /*
+      THE SAME SAVE, SENT AGAIN (round 50). The editor sends a save again
+      when an answer did not come back in time (lib/website-builder/
+      save-request.ts), and the first try may have created the page while
+      its answer was lost. UNIQUE(install_id, page_key) then refused the
+      second, and the editor said the save failed. The page is there, so
+      this save is written to it, as it would have been one moment later.
+    */
+    if (insertErr && isDuplicate(insertErr)) {
+      ;({ data, error: insertErr } = await supabase
+        .from("store_theme_pages")
+        .update(update)
+        .eq("install_id", installId)
+        .eq("page_key", page_key)
+        .select()
+        .single())
+    }
     if (insertErr) {
       console.error("[sections] create failed", { code: insertErr.code })
-      return NextResponse.json({ error: "Could not save this page. Try again." }, { status: 500 })
+      return dbFailure(insertErr, "Could not save this page. Try again.")
     }
     result = data
   }
