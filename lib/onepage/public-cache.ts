@@ -41,10 +41,11 @@ import "server-only"
  * Publish and opens their page sees what they published
  * (lib/website-builder/published-site.ts revalidatePublishedSite says why).
  *
- * The page itself is still drawn per request, never held at the edge: a
- * block's schedule is decided by the clock at the moment it is drawn
- * (lib/onepage/public-shape), which the round 40 note in next.config.mjs
- * keeps that way. What a visitor costs is a render, not the database.
+ * The page is drawn per request at the server, and since round 51 the CDN
+ * holds the drawn page for a minute (lib/onepage/edge): every clear below
+ * also expires the CDN's copy by its tag (onePageCdnTag), so a publish is
+ * on storelib.me at the next visit. A block's schedule is still decided by
+ * the clock at each draw; lib/onepage/edge says how a held copy keeps it.
  *
  * ONE_PAGE_HOLD_SECONDS is the backstop for a writer that does not clear a
  * tag (an editor that writes from the browser): a minute after it was held,
@@ -54,6 +55,7 @@ import "server-only"
  */
 import { revalidateTag, unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { onePageCdnTag } from "@/lib/onepage/edge"
 
 /** The backstop, in seconds. The tags are the fast path. */
 export const ONE_PAGE_HOLD_SECONDS = 60
@@ -116,6 +118,8 @@ export function onePageChangeTags(change: OnePageChange): string[] {
 /** A published OnePage changed: its page, its owner and every name it answers to are read afresh. */
 export function onePageChanged(change: OnePageChange): void {
   for (const tag of onePageChangeTags(change)) expire(tag)
+  /* And the CDN's copy of storelib.me/<name>, by its tag, after the data it is drawn from (lib/onepage/edge). */
+  for (const name of new Set((change.names ?? []).filter(present).map((n) => n.trim().toLowerCase()))) expire(onePageCdnTag(name))
   /* And its stored copy at storelib.me/<name>, asked again after the answer (lib/edge/snapshot-capture.ts). */
   const names = (change.names ?? []).filter(present)
   if (names.length > 0) {
@@ -148,7 +152,32 @@ export async function onePageChangedFor(ownerUserId: string | null | undefined, 
   onePageChanged({ ownerUserId, names })
 }
 
-/** A store's products changed: every OnePage block that draws one of them is read afresh. */
-export function onePageProductsChanged(creatorId: string | null | undefined): void {
-  if (present(creatorId)) expire(onePageShopTag(creatorId))
+/**
+ * A store's products changed: every OnePage block that draws one of them is
+ * read afresh, and the CDN's copy of the store's OnePage goes with it (its
+ * tag is by name, so the names are read here; a read that fails leaves the
+ * copy to its minute). Awaited by a caller that can; the data is cleared
+ * before the first await either way.
+ */
+export async function onePageProductsChanged(creatorId: string | null | undefined): Promise<void> {
+  if (!present(creatorId)) return
+  expire(onePageShopTag(creatorId))
+  /* A creator's id is a uuid; nothing else is put into a filter. */
+  if (!/^[0-9a-f-]{36}$/i.test(creatorId)) return
+  try {
+    const db = createAdminClient()
+    const [pages, creator] = await Promise.all([
+      db.from("onepages").select("slug").or(`seller_id.eq.${creatorId},creator_id.eq.${creatorId}`).limit(5),
+      db.from("creators").select("user_id").eq("id", creatorId).maybeSingle(),
+    ])
+    const names = ((pages.data as { slug?: string | null }[] | null) ?? []).map((p) => p.slug)
+    const userId = (creator.data as { user_id?: string | null } | null)?.user_id
+    if (present(userId)) {
+      const profile = await db.from("profiles").select("username").eq("id", userId).maybeSingle()
+      names.push((profile.data as { username?: string | null } | null)?.username)
+    }
+    for (const name of new Set(names.filter(present).map((n) => n.trim().toLowerCase()))) expire(onePageCdnTag(name))
+  } catch {
+    /* The blocks are cleared; the CDN's copy is a minute old at most. */
+  }
 }

@@ -8,6 +8,7 @@ import { recordAdminAction } from "@/lib/admin/audit"
 import { plainReason } from "@/lib/admin/plain-reason"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
+import { publicPagesChanged, readPublicNames } from "@/lib/delivery/public-pages-purge"
 import { announce, bannedCreatorAddresses, profileAddresses } from "@/lib/seo/announce"
 
 export const runtime = "nodejs"
@@ -381,6 +382,8 @@ async function must<T extends { error: { message: string } | null }>(
         )
         /* Off Explore's shared catalogue now, not in a minute (lib/explore/catalogue-cache.ts). */
         exploreCatalogueTakenDown()
+        /* And off every cache that holds their pages for everybody: the creator page, the website and the OnePage (lib/delivery/public-pages-purge). */
+        await publicPagesChanged(await readPublicNames({ creatorId: target.creatorId, userId: target.userId }))
         told.push({ creatorId: target.creatorId, slugs })
       } else if (action === "unban") {
         await must(
@@ -390,6 +393,8 @@ async function must<T extends { error: { message: string } | null }>(
             .eq("id", target.creatorId),
           "lift the ban",
         )
+        /* The pages a ban withheld are drawn again at the next visit, not after the verdict's minute. */
+        await publicPagesChanged(await readPublicNames({ creatorId: target.creatorId, userId: target.userId }))
         /**
          * Products are NOT republished. Which of them should come back is the
          * creator's decision, and guessing would put something live that they

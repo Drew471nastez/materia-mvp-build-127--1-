@@ -67,7 +67,7 @@ export function purgeProductCaches({
   /* The website's shop grid, its product count and its SEO product list. */
   revalidateTag(creatorShopTag(creatorId), "max")
   /* A OnePage block that drew it, expired at once rather than shown once more (lib/onepage/public-cache). */
-  onePageProductsChanged(creatorId)
+  void onePageProductsChanged(creatorId)
   /* The creator page and the product's page, which the CDN holds for everybody (round 49). */
   void creatorPagesChanged({ creatorId, handle, tags: [slug, productId].filter((x): x is string => !!x).map(productTag) })
   /* Explore's catalogue, which every visitor shares (lib/explore/catalogue-cache.ts): gone, archived or taken down is off it now. */

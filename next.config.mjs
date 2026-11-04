@@ -50,6 +50,8 @@ const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 const HANDLE_SEGMENT = RESERVED_FIRST_SEGMENTS ? `(?!(?:${RESERVED_FIRST_SEGMENTS.map(reEscape).join("|")})(?:/|$))[^/.]+` : null
 const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
 export const EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"
+/* A OnePage's name as its one spelling (lowercase, lib/onepage/username isResolvableOnePageName), never a file the host answers (robots.txt, sitemap.xml). */
+const ONEPAGE_NAME_SEGMENT = "[a-z0-9](?:[a-z0-9_-]|\\.(?!(?:txt|xml|ico|png|jpe?g|svg|webp|webmanifest|json|js|css|map)$))*"
 const NEVER_HELD = [
   { type: 'header', key: 'rsc' },
   { type: 'query', key: 'embedded' },
@@ -353,6 +355,21 @@ const nextConfig = {
           ]
         : []),
       edgeRule('/explore/:path*', 'explore'),
+      /*
+        OnePages, storelib.me/<name>: one copy for everybody (round 51, lib/onepage/edge). storelib.me reads no session and
+        writes no cookie (proxy.ts), and the page reads nothing of the visitor's. Here and not in the proxy: Next takes the
+        `rsc` header off the request the proxy sees, so only a rule here can leave a client side move out (measured on a
+        production build, scripts/check-public-delivery-r51). The tag is the name; lib/onepage/public-cache expires it.
+      */
+      {
+        source: `/:name(${ONEPAGE_NAME_SEGMENT})`,
+        has: [{ type: 'host', value: 'storelib\\.me' }],
+        missing: [{ type: 'header', key: 'rsc' }],
+        headers: [
+          { key: 'Vercel-CDN-Cache-Control', value: EDGE_PAGE },
+          { key: 'Vercel-Cache-Tag', value: 'onepage-:name' },
+        ],
+      },
       {
         /**
          * Creator store pages — NOT PUBLICLY CACHEABLE ANY MORE.
@@ -392,8 +409,16 @@ const nextConfig = {
         ],
       },
       {
-        // Landing page
+        /*
+          Landing page, ON storelib.com ONLY (round 51). Without the host this rule
+          matched every host's `/`: a website subdomain whose site lives at its own
+          domain answered its 302 there with this rule's hour, so after the creator
+          removed the domain the CDN kept sending visitors to it for up to three
+          hours (measured on a production build, scripts/check-public-delivery-r51).
+          A website's `/` is the website's (proxy.ts), a OnePage host has no `/`.
+        */
         source: '/',
+        has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }],
         headers: [
           { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=7200' },
         ],

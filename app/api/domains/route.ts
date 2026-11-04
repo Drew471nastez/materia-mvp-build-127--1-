@@ -36,6 +36,7 @@ import { addDomainHosts, recommendedRecords, removeDomainHosts, vercelConfigured
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { siteGate } from "@/lib/sites/plan"
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
+import { publicPagesChanged, readPublicNames } from "@/lib/delivery/public-pages-purge"
 import { getMainDomain } from "@/lib/url-helpers"
 import { COMMUNITY_TARGET, communityDomainTag, communityIdOf } from "@/lib/custom-domains/community"
 import { ownedCommunities, ownedCommunity, type OwnedCommunity } from "@/lib/custom-domains/community-server"
@@ -122,8 +123,13 @@ async function fallbackFor(purpose: DomainPurpose, creatorId: string, username: 
 }
 
 /** Canonicals, share links and order emails' store link read the primary domain through a cache; this empties it. Expired, not "max", which handed the next reader the old domain once. */
-function changed(creatorId: string) {
+async function changed(creatorId: string) {
   revalidateTag(creatorDomainsTag(creatorId), { expire: 0 })
+  /*
+    And every public page that names the domain (round 51): the creator page, the website and the OnePage are held by
+    the CDN or as rendered pages, with their canonical, share links and redirects drawn from the old domain.
+  */
+  await publicPagesChanged(await readPublicNames({ creatorId }))
 }
 
 // GET - List the creator's domains
@@ -301,7 +307,7 @@ export async function POST(request: Request) {
     })
     await saveRecords(admin, newRow.id, records)
 
-    changed(creatorId)
+    await changed(creatorId)
     communityChanged(community?.id)
     if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
 
@@ -366,7 +372,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
       }
       await ensurePrimary(admin, creatorId, from)
-      changed(creatorId)
+      await changed(creatorId)
       if (from === "creator_page" || to === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
       return NextResponse.json(await listed(admin, creatorId))
     }
@@ -379,7 +385,7 @@ export async function PATCH(request: Request) {
       console.error("Make primary failed:", done.error)
       return NextResponse.json({ error: "Could not make it the primary domain" }, { status: 500 })
     }
-    changed(creatorId)
+    await changed(creatorId)
     if (purposeOf(row) === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
     return NextResponse.json(await listed(admin, creatorId))
   } catch (error) {
@@ -444,7 +450,7 @@ export async function DELETE(request: Request) {
       await removeDomainHosts(domainRecord.domain)
     }
 
-    changed(creatorId)
+    await changed(creatorId)
     communityChanged(communityId)
     if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
     const communities = after.targets ? await ownedCommunities(admin, creatorId) : []
@@ -484,7 +490,7 @@ async function moveCommunityDomain(owner: Owner, row: DomainRow, rows: DomainRow
       return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
     }
     if (from !== "community") await ensurePrimary(admin, creatorId, from)
-    changed(creatorId)
+    await changed(creatorId)
     communityChanged(was, community.id)
     if (from === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
     return NextResponse.json(await listed(admin, creatorId))
@@ -502,7 +508,7 @@ async function moveCommunityDomain(owner: Owner, row: DomainRow, rows: DomainRow
     console.error("Moving a domain off a community failed:", moved.error)
     return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
   }
-  changed(creatorId)
+  await changed(creatorId)
   communityChanged(was)
   if (to === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
   return NextResponse.json(await listed(admin, creatorId))

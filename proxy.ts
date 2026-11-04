@@ -1747,6 +1747,7 @@ async function routeRequest(request: NextRequest) {
       case "next":
         return NextResponse.next()
       case "rewrite":
+        /* A OnePage is held by the CDN for everybody: next.config.mjs's storelib.me rule (lib/onepage/edge). */
         return NextResponse.rewrite(new URL(onePage.path, request.url))
       case "redirect": {
         /* An old address goes straight to where the page is now (oldOnePageTarget above). */

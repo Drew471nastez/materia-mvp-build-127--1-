@@ -1,5 +1,6 @@
 import { scoreHandle } from "@/lib/security/spam-signals"
 import { RESERVED_ROOT_SEGMENTS, RESERVED_ROOT_EXTRAS } from "@/lib/routes/reserved-segments"
+import { isPhishingName } from "@/lib/security/phishing-names"
 
 // Reserved words that cannot be used as usernames/slugs
 export const RESERVED_WORDS = [
@@ -153,6 +154,11 @@ export function isValidUsername(username: string): { valid: boolean; error?: str
    * weights are set where they are.
    */
   if (scoreHandle(username).blocked) {
+    return { valid: false, error: "This username is not available" }
+  }
+
+  /* A name for a fake sign in page or support desk (lib/security/phishing-names), refused the same way. */
+  if (isPhishingName(username)) {
     return { valid: false, error: "This username is not available" }
   }
 
