@@ -1302,6 +1302,8 @@ const STRICT_SUITES = [
   "tests/server-reliability-r50.test.ts",
   /* Round 51 (communities): a deleted community shows nowhere: its rows leave every bell (both tables, its old addresses too) when it is deleted or its scheduled deletion completes, its addresses, About page and public posts go to IndexNow, its stored copies are asked again, /app search leaves it and its plans out, the dialog names what goes, archiving as before. */
   "tests/communities-delete-r51.test.ts",
+  /* Round 51 (E): Edit profile on the creator page with one scroll, a taller cover, every field and switch on the page before Save, four Save states, "@" social fields, and its social links synced with the OnePage's both ways; Customer emails' and Settings' pills as Analytics' chips with no flash or jump. scripts/check-profile-sheet-r51.mjs and scripts/check-emails-pills-r51.mjs measure them. */
+  "tests/creator-emails-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

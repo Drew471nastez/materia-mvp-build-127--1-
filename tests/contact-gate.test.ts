@@ -115,7 +115,7 @@ async function main() {
     check("the page asks the question (after load, its own route)", /hasBoughtFromCreator\(supabase, user\.id, row\.id\)/.test(viewerRoute) && !/hasBoughtFromCreator/.test(page))
     check("and asks it beside the owner test, not in series after it", /const \[teamStore, bought\] = await Promise\.all\(/.test(viewerRoute))
     check("and only draws the link when the answer is yes; the address is never in the page", /\{contactHandle && contactShown && \(/.test(renderer) && !/resolvedContactEmail|loadAccountEmail|contactEmail:/.test(page))
-    check("the owner is not an exception", !/viewerIsOwner\s*\n?\s*\? true/.test(page) && /bought, contactEmail \}/.test(viewerRoute) && !/owner \|\| bought/.test(viewerRoute))
+    check("the owner is not an exception", !/viewerIsOwner\s*\n?\s*\? true/.test(page) && /* Changed on purpose (r51): the owner's sales figure rides along */ /bought, contactEmail, totalSales \}/.test(viewerRoute) && !/owner \|\| bought/.test(viewerRoute))
     check("everyone goes through the same question", /viewerBought: \(viewerId, creatorId\) => hasBoughtFromCreator\(supabase, viewerId, creatorId\)/.test(contactRoute))
     check("the account address still stands in", /\(await look\.accountEmail\(profile\.id\)\)/.test(readFileSync(join(process.cwd(), "lib/commerce/contact-email.ts"), "utf8")))
     check("but it goes through the same gate", /if \(banned \|\| !bought\) return null/.test(readFileSync(join(process.cwd(), "lib/commerce/contact-email.ts"), "utf8")))

@@ -484,6 +484,14 @@ export interface ShopHeaderSettings {
     reads them. Do not re-add the pill.
   */
   showSocialMedia?: boolean
+  /**
+   * THE SOCIAL LINKS SWITCH IN EDIT PROFILE, AND ONLY THAT (r51). The header
+   * stopped reading `showSocialMedia` because the builder wrote it out as
+   * false on saves nobody meant, so it cannot be trusted as a creator's
+   * choice. This one is written only by the Show on profile switch: true
+   * hides the icons, absent shows them, so no stored page changes.
+   */
+  hideSocialLinks?: boolean
   showSocialIconsOnMobile?: boolean // Added toggle for mobile social icons
   socialMediaIconColor?: string
   socialMediaIconStyle?: "default" | "filled" | "outlined" // Icon style: default, filled circle, or outlined

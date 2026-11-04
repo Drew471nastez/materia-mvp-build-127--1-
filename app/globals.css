@@ -9416,6 +9416,30 @@ dialog:focus,
   background-clip: padding-box;
   border-radius: 999px;
 }
+/*
+  ONE BAR IN A DRAWER THAT DRAWS ITS OWN (r51). The creator page's editor
+  drawer scrolls on an overlay thumb (components/storefront/overlay-scroll),
+  and its scroller is also a [data-sheet-scroll], so the rule above gave it
+  Chrome's thin bar as well: two scrollbars side by side, the native one with
+  arrow buttons. This rule is unlayered like that one and more specific, so
+  the overlay thumb is the only bar. Touch screens hide the overlay rail and
+  keep no bar at all, as before.
+*/
+/* And the page's own bar beside it, while it is open (EditorSheet hands its width back as padding). */
+html[data-editor-drawer-open] {
+  scrollbar-width: none;
+}
+html[data-editor-drawer-open]::-webkit-scrollbar {
+  display: none;
+}
+@media not (pointer: coarse) {
+  .cp-overlay-scroll[data-sheet-scroll] {
+    scrollbar-width: none;
+  }
+  .cp-overlay-scroll[data-sheet-scroll]::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 /*
   AN INTEGRATION CARD'S HOVER MESH (components/app/settings/

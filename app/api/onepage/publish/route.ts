@@ -4,6 +4,8 @@ import { announce, onePageAddresses } from "@/lib/seo/announce"
 import { onePageActor } from "@/lib/team/onepage"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { changedLinks, onePageLinks, syncOnePageLinksToCreatorPage } from "@/lib/social/onepage-sync"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 
 export async function POST(request: Request) {
   try {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     // Verify ownership
     const { data: onepage, error: fetchError } = await db
       .from("onepages")
-      .select("id, owner_id")
+      .select("id, owner_id, published_social_links")
       .eq("id", id)
       .eq("owner_id", ownerId)
       .single()
@@ -141,6 +143,20 @@ export async function POST(request: Request) {
       next sees what they just published.
     */
     await onePageChangedFor(ownerId, [(published as { slug?: string | null } | null)?.slug])
+
+    /*
+      THE SAME LINKS ON THE CREATOR PAGE (r51, lib/social/onepage-sync). Only
+      the platforms this publish changed against the copy that was live, so a
+      link the creator page changed since is never put back. A page with no
+      live copy before has nothing to compare with and changes nothing there.
+    */
+    const liveBefore = (onepage as { published_social_links?: unknown }).published_social_links
+    if (liveBefore && typeof liveBefore === "object") {
+      const changes = changedLinks(onePageLinks(liveBefore), onePageLinks(publishData.published_social_links))
+      if (Object.keys(changes).length > 0 && (await syncOnePageLinksToCreatorPage(db, ownerId, changes))) {
+        await creatorPagesChanged({ userId: ownerId }).catch(() => {})
+      }
+    }
 
     /* After the answer: the page's address, to the search engines that take
        IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
