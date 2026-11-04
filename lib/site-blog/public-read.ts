@@ -115,8 +115,8 @@ export const OWNER_AUTHOR_ID = "owner"
  * name and avatar fetched dynamically, Written by <author> with the author's
  * photo"). Read from their account each time the blog is read (held with
  * the blog's own data, five minutes at most, and cleared with it on every
- * change to the blog): the name their store shows (creators.display_name,
- * else the profile's), and their profile photo (profiles.avatar_url, the
+ * change to the blog): the person's name on their profile (else the name
+ * their store shows), and their profile photo (profiles.avatar_url, the
  * one Settings changes). An author written in Blog › Authors keeps their own
  * name and photo, which is the per-author override. Never stops the blog:
  * anything that does not answer is no owner, and a post with no author then
@@ -132,7 +132,7 @@ async function ownerAuthor(db: Db, creatorId: string): Promise<SiteBlogAuthor | 
       const read = await db.from("profiles").select("display_name, avatar_url").eq("id", c.user_id).maybeSingle()
       profile = read.error ? null : ((read.data ?? null) as Row | null)
     }
-    const name = String(c.display_name || profile?.display_name || "").trim()
+    const name = String(profile?.display_name || c.display_name || "").trim()
     if (!name) return null
     const avatar = String(profile?.avatar_url || c.avatar_url || "").trim()
     return { id: OWNER_AUTHOR_ID, slug: "", name: name.slice(0, 120), role: "", bio: "", avatarUrl: /^https?:\/\//i.test(avatar) ? avatar : "", links: [] }

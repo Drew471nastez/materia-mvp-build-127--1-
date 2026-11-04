@@ -115,7 +115,7 @@ try {
       const opened = await p.evaluate(async () => {
         const t0 = performance.now()
         if (window.location.search.includes("existing")) document.querySelector("[data-blog-post] button")?.click()
-        else document.querySelector("[data-blog-new]").click()
+        else document.querySelector("[data-blog-new]")?.click()
         let sawOpening = false
         let at = null
         for (let i = 0; i < 80; i++) {
@@ -151,7 +151,7 @@ try {
       expect(panel.box === true && panel.picked === "News", "a new category is made from the post and picked for it", panel)
       expect(!!panel.owner && panel.owner !== "No author", "  the author list starts with the owner, not No author", panel.owner)
       const back = await p.evaluate(async () => {
-        document.querySelector("[data-blog-back]").click()
+        document.querySelector("[data-blog-back]")?.click()
         const seen = []
         for (let i = 0; i < 12; i++) {
           await new Promise((r) => setTimeout(r, 40))
@@ -168,7 +168,7 @@ try {
     {
       const p = await open("section=backups", width)
       await p.waitForSelector("[data-backup-open]", { timeout: 5000 }).catch(() => null)
-      await p.evaluate(() => document.querySelector("[data-backup-open]").click())
+      await p.evaluate(() => document.querySelector("[data-backup-open]")?.click())
       await sleep(80)
       const loading = await p.evaluate(() => { const b = document.querySelector("[data-backup-preview]"); return { state: b?.getAttribute("data-backup-preview"), h: b ? Math.round(b.getBoundingClientRect().height) : null } })
       await sleep(600)

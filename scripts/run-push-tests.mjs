@@ -1290,6 +1290,8 @@ const STRICT_SUITES = [
   "tests/site-blog-native.test.ts",
   /* Round 50 (server reliability): the editor's routes and clients against a stand-in Supabase that is slow (1 to 8s), cold, resets a connection, answers 503, 504 or 429: GETs take the read answer while Auth is slow, a database blip is a 503 the editor retries, a save sent twice is one save, the limiter has ceilings, retries come from a budget, a hung breaker trial does not refuse everybody, one quiet retry for a read in the app, and words that blame the connection only when it is the connection. Strict: it imports the website routes through lib/team/website. */
   "tests/server-reliability-r50.test.ts",
+  /* Round 51 (website settings): a theme's own newsletter sends from the builder's canvas (an address on the builder's origin is the canvas page's own) and from a preview link, the lab test's newest result stays, a backup's preview, the owner as the blog's default author live from their profile with Written by and the photo, New post with no second read, Apps' marks, own database Coming soon, GitHub in one line, Team's access only while inviting, a domain's certificate followed; scripts/check-newsletter-canvas-r51.mjs and scripts/check-site-settings-r51.mjs measure them in a browser. Strict: the blog reads through supabase-js. */
+  "tests/site-settings-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

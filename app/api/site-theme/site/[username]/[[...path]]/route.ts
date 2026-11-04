@@ -371,12 +371,20 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
             return mine ? { whole: mine.whole, options: mine.options, href: guestOpenHref(mine.orderId) } : null
           }
         : undefined,
-    submit: token
-      ? undefined
-      : async (kind, payload) => {
-          const r = await (kind === "subscribe" ? subscribeRoute : contactRoute)(onward(req, kind === "subscribe" ? "/api/website-builder/subscribe" : "/api/website-builder/contact", JSON.stringify(payload)))
-          return { ok: r.ok, status: r.status }
-        },
+    /*
+      A PREVIEW LINK'S FORMS SEND TOO (round 51). A preview had none to send
+      with, so every newsletter and contact form on an imported theme's
+      preview answered "It did not send", which a theme like Materia shows
+      as "That did not go through. Check your connection". A Storelib
+      theme's preview has always sent its sign ups (the creator is on its
+      page), so an imported theme's does the same, through the same routes,
+      checks and limits. Only the builder's canvas sends nothing
+      (designMode, lib/storelib-theme/compat/site.ts formSubmit).
+    */
+    submit: async (kind, payload) => {
+      const r = await (kind === "subscribe" ? subscribeRoute : contactRoute)(onward(req, kind === "subscribe" ? "/api/website-builder/subscribe" : "/api/website-builder/contact", JSON.stringify(payload)))
+      return { ok: r.ok, status: r.status }
+    },
   })
   mark("draw")
   const headers = new Headers(out.headers ?? {})
