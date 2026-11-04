@@ -287,7 +287,8 @@ async function main() {
     const sql = read("supabase/sql/run-now/356_public_snapshots.sql")
     check("a private bucket, JSON only, 4 MB", /VALUES \('public-snapshots', 'public-snapshots', false, 4194304, ARRAY\['application\/json'\]\)/.test(sql) && /ON CONFLICT \(id\) DO UPDATE SET public = false/.test(sql))
     check("  byte for byte as the migration", sql === read("supabase/migrations/20271110_public_snapshots.sql"))
-    check("  and checked after", /exists \(select 1 from storage\.buckets where id = 'public-snapshots' and public = false\) as p356_public_snapshots;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /* Changed on purpose (r51): part 366 adds a column after this one, so it may end in a comma. */
+    check("  and checked after", /exists \(select 1 from storage\.buckets where id = 'public-snapshots' and public = false\) as p356_public_snapshots[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("no store configured (placeholders): nothing is written or read", storeConfig({ NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "x" }) === null && storeConfig({}) === null)
     check("SNAPSHOT_STORAGE_URL points it elsewhere", storeConfig({ SNAPSHOT_STORAGE_URL: "http://127.0.0.1:54340/storage/v1/", SUPABASE_SERVICE_ROLE_KEY: "k" })?.base === "http://127.0.0.1:54340/storage/v1")
   }
