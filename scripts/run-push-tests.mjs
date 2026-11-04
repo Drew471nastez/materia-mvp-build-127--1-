@@ -1118,6 +1118,8 @@ const SUITES = [
   "tests/onepage-products-r10.test.ts",
   /* Round 49: every OnePage way to buy (the block's tap, the sheet's Check out, a download's link) opens the new checkout; a product that ships pays on its store website's checkout with its option, quantity, Back to the OnePage and src=onepage; old /checkout/physical and /checkout?productId=<ships> links go on to it. */
   "tests/checkout-r49.test.ts",
+  /* Round 51 (commerce): the shop's name beside its logo at checkout (Settings › Checkout › Top of checkout), "From my own warehouse" shipped by the seller and a mix that moves no product, the packing slip's store details and the computer's notice, the order page's payment method, Clarity, Klaviyo, Omnisend and Tag Manager told the visitor's consent; scripts/check-commerce-r51.mjs measures the bar and the notice. */
+  "tests/commerce-r51.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
@@ -1229,6 +1231,8 @@ const STRICT_SUITES = [
   "tests/e2e-manual-fulfillment.test.ts",
   /* Round AE3: Hold fulfillment, Send again to a partner that refused, a send held back and released, a cancel that reaches Printful (tests/_journey) */
   "tests/e2e-fulfilment-ae3.test.ts",
+  /* Round 51: every answer to "How you fulfil orders" from checkout to delivered over the journey (self, own warehouse, Printify by its signed webhooks, dropshipping, a supplier, a fulfillment center by their email and page, a mix), and the zone, flat and free rates at checkout. */
+  "tests/fulfilment-modes-r51.test.ts",
   /* Quick setup through the real routes: explicit prices, whole or nothing, once */
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */

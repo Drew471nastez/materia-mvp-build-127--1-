@@ -190,6 +190,19 @@ export function marketingConsentJs(asks: boolean): string {
 }
 
 /**
+ * ROUND 51: THE ANALYTICS ANSWER, for Microsoft Clarity, read as
+ * marketingConsentJs reads the marketing one: the visitor's Analytics answer
+ * on the banner when there is one, else a wait in the regions that need a yes
+ * first on a page that asks, else yes.
+ */
+export function analyticsConsentJs(): string {
+  return (
+    "window.__slAnOk=window.__slAnOk||function(asks){var m=document.cookie.match(/(?:^|;\\s*)storelib_consent=(\\d{1,3})(?:\\.|%2E)p[01](?:\\.|%2E)a([01])(?:\\.|%2E)m[01]/);" +
+    "if(m&&m[1]==='2')return m[2]==='1';if(!asks)return true;var z='';try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}return !/^(Europe|Atlantic\\/(Reykjavik|Canary|Madeira|Azores|Faroe))\\//.test(z)};"
+  )
+}
+
+/**
  * The tags for a page: each service's own snippet, with its checked ID in
  * it. `src` is loaded as a script; `inline` runs once. Nothing here comes
  * from the store but the IDs, and each is checked again here.
@@ -218,7 +231,12 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
   if (t.gtm) {
     tags.push({
       key: "gtm",
-      inline: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(t.gtm)});`,
+      /*
+        Consent mode's defaults before the container loads (round 51): with Tag Manager alone (no Analytics or Ads ID,
+        so no gtag block above) the container's Google tags started with no consent state at all, so a visitor's No on
+        the banner reached none of them. The same defaults and updates as the gtag block (lib/store/ga.ts gaConsentJs).
+      */
+      inline: `${gtagIds.length ? "" : `window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){dataLayer.push(arguments)};${gaConsentJs(opts.asks !== false)}`}(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(t.gtm)});`,
     })
   }
   const mk = marketingConsentJs(opts.asks !== false)
@@ -244,15 +262,29 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
   if (t.clarity) {
     tags.push({
       key: "clarity",
-      inline: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(t.clarity)});`,
+      /*
+        Clarity's own snippet, then its Consent API v2 (round 51): it used to record every visitor whatever the banner
+        was told. clarity('consentv2', { analytics_Storage, ad_Storage }) with the visitor's Analytics and Marketing
+        answers, and again when they change; Clarity keeps no cookie while analytics is denied.
+      */
+      inline: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(t.clarity)});${mk}${analyticsConsentJs()}(function(){var g=function(v){return v?'granted':'denied'};var u=function(){window.clarity('consentv2',{ad_Storage:g(__slMkOk(__slMkAsks)),analytics_Storage:g(__slAnOk(__slMkAsks))})};u();try{window.addEventListener('storelib:consent-changed',u)}catch(e){}})();`,
     })
   }
-  /* Klaviyo's onsite script: its sign-up forms and its Active on Site tracking, by the store's public site ID. */
-  if (t.klaviyo) tags.push({ key: "klaviyo", src: `https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(t.klaviyo)}` })
+  /*
+    Klaviyo's onsite script (its sign-up forms and Active on Site tracking, by the store's public site ID) and
+    Omnisend's launcher are marketing, and set their own tracking cookies (__kla_id, omnisendContactID). Round 51:
+    each loads once there is a yes, as Pinterest does (marketingConsentJs); they loaded for every visitor before.
+  */
+  if (t.klaviyo) {
+    tags.push({
+      key: "klaviyo",
+      inline: `${mk}(function(){var go=function(){if(window.__slKlOn||!__slMkOk(__slMkAsks))return;window.__slKlOn=1;var e=document.createElement("script");e.async=!0;e.src=${JSON.stringify(`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(t.klaviyo)}`)};var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
+    })
+  }
   if (t.omnisend) {
     tags.push({
       key: "omnisend",
-      inline: `window.omnisend=window.omnisend||[];omnisend.push(["brandID",${JSON.stringify(t.omnisend)}]);omnisend.push(["track","$pageViewed"]);!function(){var e=document.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://omnisnippet1.com/inshop/launcher-v2.js";var t=document.getElementsByTagName("script")[0];t.parentNode.insertBefore(e,t)}();`,
+      inline: `${mk}(function(){var go=function(){if(window.__slOmOn||!__slMkOk(__slMkAsks))return;window.__slOmOn=1;window.omnisend=window.omnisend||[];omnisend.push(["brandID",${JSON.stringify(t.omnisend)}]);omnisend.push(["track","$pageViewed"]);var e=document.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://omnisnippet1.com/inshop/launcher-v2.js";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
     })
   }
   return tags

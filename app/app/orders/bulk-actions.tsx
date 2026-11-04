@@ -18,6 +18,7 @@ import { IMPORT_MAX_BYTES } from "@/lib/physical/bulk-fulfil"
 import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, Toggle, actionKey, api } from "@/components/physical/ui"
 import { TrackingFields, shipBody, shipProblems, type Ship } from "@/components/physical/order-panel"
 import { CarrierPicker } from "@/components/physical/carrier-picker"
+import { PRINT_AFTER_MADE_MS, printProgress, slipsWords } from "@/components/physical/slip-share"
 
 /* The answers of app/api/physical/orders/bulk, as the page reads them. */
 interface BulkLine {
@@ -289,10 +290,17 @@ export function packingSlipsHref(ids: string[]): string {
  * after a sheet closes, is what a phone's browser blocks). Null when it printed, else what went wrong.
  */
 export async function printSelectedSlips(ids: string[]): Promise<string | null> {
+  /* The ring while they are made, the check once the frame has them (components/physical/slip-share printProgress, round 51). */
+  const progress = printProgress(slipsWords())
   const res = await fetch(packingSlipsHref(ids), { credentials: "same-origin", cache: "no-store" }).catch(() => null)
-  if (!res) return tt("The packing slips could not be made. Try again.")
-  if (res.status === 404) return tt("None of these orders has anything left to pack.")
-  if (!res.ok) return tt("The packing slips could not be made. Try again.")
+  if (res?.status === 404) {
+    progress.cancel()
+    return tt("None of these orders has anything left to pack.")
+  }
+  if (!res?.ok) {
+    progress.failed()
+    return null
+  }
   const html = await res.text()
   document.querySelectorAll("iframe[data-packing-slips-frame]").forEach((f) => f.remove())
   const frame = document.createElement("iframe")
@@ -302,10 +310,17 @@ export async function printSelectedSlips(ids: string[]): Promise<string | null> 
   frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
   frame.onload = () => {
     const w = frame.contentWindow
-    if (!w) return
-    w.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 0))
-    w.focus()
-    w.print()
+    if (!w) return progress.failed()
+    progress.made()
+    w.addEventListener("afterprint", () => {
+      progress.done()
+      window.setTimeout(() => frame.remove(), 0)
+    })
+    window.setTimeout(() => {
+      w.focus()
+      w.print()
+      window.setTimeout(() => progress.done(), 1500)
+    }, PRINT_AFTER_MADE_MS)
   }
   frame.srcdoc = html
   document.body.appendChild(frame)

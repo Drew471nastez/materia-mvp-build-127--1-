@@ -13,7 +13,10 @@
  * THE SHOP IS THE SERVER'S (lib/checkout/brand-server): the website's logo,
  * drawn as it is because a wordmark is wide (with the store logo's small
  * corner, components/brand/store-logo), or the person's photo, round,
- * beside the name. Back is the page the buyer came from, checked on the
+ * beside the name. Settings › Checkout › Top of checkout picks what shows
+ * (brand.shows): the logo with the name beside it (the default), the logo
+ * alone, or the name alone. Without a logo, the photo and the name show.
+ * Back is the page the buyer came from, checked on the
  * server against the shop's own sites; with the page right behind this one
  * in the tab's history it is a history step, which is instant, and the press
  * shows at once either way.
@@ -31,6 +34,8 @@ export interface ShopBrand {
   name: string
   imageUrl: string | null
   kind: "logo" | "photo" | null
+  /** Settings › Checkout › Top of checkout. Absent: both. */
+  shows?: "both" | "logo" | "name"
 }
 
 /** The host a link names, for "Back to …". */
@@ -94,17 +99,25 @@ export function ShopBar({
     return () => window.removeEventListener("pageshow", shown)
   }, [])
 
+  const shows = brand.shows ?? "both"
+  const logo = brand.kind === "logo" && brand.imageUrl ? brand.imageUrl : null
+  const nameText = <span className="truncate" data-shop-name="">{brand.name}</span>
   const face =
-    brand.kind === "logo" && brand.imageUrl ? (
-      /* The store logo's small corner and no shadow (round 49, components/brand/store-logo). */
-      <StoreLogo src={brand.imageUrl} alt={brand.name} height={32} className="max-w-[168px] sm:max-w-[200px]" />
+    shows === "name" ? (
+      nameText
+    ) : logo ? (
+      <>
+        {/* The store logo's small corner and no shadow (round 49, components/brand/store-logo). Narrower beside the name, so a phone keeps room for it. */}
+        <StoreLogo src={logo} alt={shows === "both" ? "" : brand.name} height={32} className={shows === "logo" ? "max-w-[168px] sm:max-w-[200px]" : "max-w-[112px] shrink-0 sm:max-w-[168px]"} />
+        {shows === "both" ? nameText : null}
+      </>
     ) : (
       <>
         <AppAvatar src={brand.imageUrl} name={brand.name} alt="" size={28} className="shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]" />
-        <span className="truncate">{brand.name}</span>
+        {nameText}
       </>
     )
-  const faceClass = "flex min-h-[44px] min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-[14px] font-medium text-[#1a1a2e]"
+  const faceClass = cn("flex min-h-[44px] min-w-0 items-center rounded-full py-1 pr-2.5 text-[14px] font-medium text-[#1a1a2e]", shows === "name" ? "pl-2.5 text-[15px] font-semibold" : logo ? "gap-2.5 pl-1" : "gap-2 pl-1")
 
   return (
     <header data-checkout-bar="" className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.055),0_4px_12px_-10px_rgba(17,17,19,0.09)]">
@@ -131,11 +144,11 @@ export function ShopBar({
         ) : null}
 
         {shopUrl ? (
-          <a href={shopUrl} data-shop-link="" className={cn(faceClass, "outline-none transition-[opacity] duration-150 hover:bg-black/[0.035] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40 active:opacity-70 [-webkit-tap-highlight-color:transparent]")}>
+          <a href={shopUrl} data-shop-link="" data-shows={shows} className={cn(faceClass, "outline-none transition-[opacity] duration-150 hover:bg-black/[0.035] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40 active:opacity-70 [-webkit-tap-highlight-color:transparent]")}>
             {face}
           </a>
         ) : (
-          <span className={faceClass}>{face}</span>
+          <span className={faceClass} data-shows={shows}>{face}</span>
         )}
 
         {shopUrl ? (

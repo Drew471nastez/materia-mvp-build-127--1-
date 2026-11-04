@@ -7459,9 +7459,9 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 .slip-disc {
   fill: #2fb36b;
   transform-origin: 10px 10px;
-  transform: scale(0.4);
+  scale: 0.4;
   opacity: 0;
-  transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 160ms ease-out;
+  transition: scale 260ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 160ms ease-out;
 }
 .slip-check {
   stroke: #fff;
@@ -7470,7 +7470,11 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   transition: stroke-dashoffset 240ms ease-out 120ms;
 }
 .slip-notice-mark[data-done] .slip-ring { opacity: 0; }
-.slip-notice-mark[data-done] .slip-disc { transform: scale(1); opacity: 1; }
+.slip-notice-mark[data-done] .slip-disc { scale: 1; opacity: 1; }
+/* On a computer (round 51) there is no app bar under it: the notice sits near the foot of the window. */
+@media (min-width: 1024px) {
+  .slip-notice-wrap { bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); }
+}
 .slip-notice-mark[data-done] .slip-check { stroke-dashoffset: 0; }
 .slip-notice-share {
   margin-left: 4px;

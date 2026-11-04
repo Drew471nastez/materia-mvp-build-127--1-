@@ -57,7 +57,8 @@ export const METHODS: Record<FulfillmentMethod, MethodInfo> = {
     id: "warehouse",
     title: "A fulfillment center (3PL)",
     line: "They store your stock, pack and ship it for you.",
-    locationKinds: ["third_party_logistics", "warehouse"],
+    /* A fulfillment center only (round 51): a "Warehouse" location is one the seller runs, so it is theirs to ship from (self). */
+    locationKinds: ["third_party_logistics"],
     afterSale: "The order is sent to your warehouse by email or webhook. Add their tracking when they ship it.",
   },
   dropship: {

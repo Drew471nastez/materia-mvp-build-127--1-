@@ -26,6 +26,12 @@
  *
  * Where there is no sharing a file (a computer, Android's web view), the
  * caller does what it did before: print from a frame, or the slip's page.
+ * ON A COMPUTER THE SAME NOTICE RUNS (round 51, the owner: "on desktop,
+ * clicking the packing slip icon should show a smooth loading state like the
+ * phone version does"). It used to show nothing for the second or two the
+ * slip took to be read and its pictures to load, so the icon looked broken:
+ * printProgress below is the ring while the slip is made, the check once the
+ * frame has it, and the notice leaves when the print dialog closes.
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
@@ -84,6 +90,35 @@ function readPdf(pdf: string, fallbackName: string): Promise<File | null> {
   void made.then((f) => window.setTimeout(() => kept.get(pdf) === made && kept.delete(pdf), f ? 60_000 : 0))
   return made
 }
+
+/**
+ * The notice for a print from a frame on a computer (components/physical/order-panel printSlip, the Orders list's
+ * Packing slips): `made` once the frame has the page, `failed` when it could not be read, `done` when the print dialog
+ * is closed.
+ */
+export function printProgress(words: DocWords = slipWords()): { made: () => void; failed: () => void; done: () => void; cancel: () => void } {
+  window.clearTimeout(hideTimer)
+  set({ phase: "making", words })
+  const started = performance.now()
+  return {
+    made: () => {
+      if (state.phase === "making") set({ phase: "made", words })
+    },
+    failed: () => {
+      set({ phase: "failed", words })
+      hideSoon(3200)
+    },
+    /* Seen for a moment even when the dialog was closed at once. */
+    done: () => hideSoon(Math.max(300, 700 - (performance.now() - started))),
+    /* The caller says why itself (nothing left to pack): the notice leaves at once. */
+    cancel: () => hideSoon(0),
+  }
+}
+
+/** How long the check is seen before the print dialog covers the page. */
+export const PRINT_AFTER_MADE_MS = 280
+
+export const slipsWords = (): DocWords => ({ making: tt("Generating packing slips"), made: tt("Packing slips generated"), ready: tt("Packing slips ready"), failed: tt("The packing slips could not be made. Try again.") })
 
 /** Whether this is a phone or tablet that can hand a PDF to a share sheet. A computer prints instead, as before. */
 export function canShareSlip(): boolean {

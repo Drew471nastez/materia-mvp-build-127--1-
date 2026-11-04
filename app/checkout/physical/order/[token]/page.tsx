@@ -109,6 +109,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready], hours: order.pickup.hours ?? null } : null,
         processing: !!order.processingAt,
         cash: order.payment === "cod_due" ? "due" : order.payment === "cod_collected" ? "paid" : null,
+        /* What it was paid with, as the order email and the download receipt say it (round 51: the receipt names the payment method). */
+        paidWith: order.payment === "card" && order.totalCents > 0 ? (order.paidWith ?? null) : null,
         totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, taxLabel: order.taxLabel, total: order.totalCents, refunded: order.refundedCents, currency: order.currency },
         /* Each line as bought: its option, how many, at what each, and how far it got (sent, back, refunded). */
         /* `properties`: the buyer's own words on the line (an engraving); a theme's notes (a name starting with "_") stay with the store. */

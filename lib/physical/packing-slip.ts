@@ -152,6 +152,27 @@ export interface SlipStore {
   logoUrl: string | null
   /** Where a return is sent (lib/physical/jobs-server returnAddressOf), as address lines; absent or empty, none is printed. */
   returnAddress?: string[] | null
+  /** How the buyer reaches the store, under its name: its website, email and phone (slipContact). Absent or empty, the name alone. */
+  contact?: string[] | null
+}
+
+/**
+ * The store's details under its name on the slip (round 51, the owner: "store details"): the website's address without
+ * its https://, the store's email and its phone, from lib/store/identity-server storeIdentity. Each only when there is one.
+ */
+export function slipContact(store: { websiteUrl?: string | null; email?: string | null; phone?: string | null } | null | undefined): string[] {
+  if (!store) return []
+  const site = (() => {
+    const u = String(store.websiteUrl ?? "").trim()
+    if (!u) return ""
+    try {
+      const url = new URL(u)
+      return `${url.hostname.replace(/^www\./, "")}${url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "")}`
+    } catch {
+      return ""
+    }
+  })()
+  return [site, String(store.email ?? "").trim(), String(store.phone ?? "").trim()].filter((v) => v !== "" && v.length <= 200)
 }
 
 /**
@@ -247,7 +268,7 @@ body{margin:0;font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe 
 .bar a{color:#1a1a2e;background:#fff;border:1px solid #e5e7eb}.bar button{color:#fff;background:#1a1a2e;border:0}
 .paper{max-width:760px;margin:8px auto 32px;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.05),0 12px 32px -16px rgba(17,24,39,.18);padding:32px}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:20px;border-bottom:1px solid #e5e7eb}
-.store{display:flex;align-items:center;gap:12px;min-width:0}.store img{display:block;width:auto;height:auto;max-width:160px;max-height:44px;border-radius:${storeLogoRadius(44)}px;flex:none}.store b{font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.store{display:flex;align-items:center;gap:12px;min-width:0}.store .contact{display:block;margin-top:2px;font-size:13px;font-weight:400;color:#6b7280;overflow-wrap:anywhere}.store img{display:block;width:auto;height:auto;max-width:160px;max-height:44px;border-radius:${storeLogoRadius(44)}px;flex:none}.store b{font-size:17px;font-weight:600;overflow-wrap:anywhere}
 .doc{text-align:right;flex:none}.doc .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}.doc .ref{font-size:20px;font-weight:700;margin-top:2px}.doc .muted{margin-top:2px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:20px 0;border-bottom:1px solid #e5e7eb}
 h2{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}p{margin:0}
@@ -268,7 +289,7 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:
 </style></head><body data-slip-paper="${o.paper ?? "printer"}">
 <div class="bar" data-slip-bar><a href="${esc(o.back)}">${esc(tt("Back"))}</a>${controls ? `<div class="mid">${controls}</div>` : ""}<button type="button" onclick="window.print()">${esc(tt("Print"))}</button></div>
 <main class="paper" data-packing-slip>
-<header><div class="store">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<b>${esc(store.name)}</b></div><div class="doc"><div class="k">${esc(priced ? tt("Order summary") : tt("Packing slip"))}</div><div class="ref">${esc(tt("Order {number}", { number: ref }))}</div><div class="muted">${esc(when)}</div>${o.shipmentLabel ? `<div class="muted">${esc(o.shipmentLabel)}</div>` : ""}</div></header>
+<header><div class="store">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><b>${esc(store.name)}</b>${(store.contact ?? []).map((c) => `<span class="contact" data-slip-contact>${esc(c)}</span>`).join("")}</div></div><div class="doc"><div class="k">${esc(priced ? tt("Order summary") : tt("Packing slip"))}</div><div class="ref">${esc(tt("Order {number}", { number: ref }))}</div><div class="muted">${esc(when)}</div>${o.shipmentLabel ? `<div class="muted">${esc(o.shipmentLabel)}</div>` : ""}</div></header>
 <div class="cols"><section>${to}</section><section>${how ? `<h2>${esc(pickup ? tt("Delivery") : tt("Shipping method"))}</h2><p>${esc(how)}</p>` : ""}</section></div>
 <table><thead><tr>${head}</tr></thead><tbody>${rows || `<tr><td colspan="${cols}" class="muted">${esc(tt("Nothing to pack."))}</td></tr>`}</tbody></table>
 <div class="total">${esc(tt("{n, plural, one {# item} other {# items}}", { n: count }))}</div>

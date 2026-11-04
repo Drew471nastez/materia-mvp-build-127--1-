@@ -23,11 +23,16 @@
 import { METHODS } from "./fulfillment"
 import type { FulfillmentMethod, FulfillmentModel, Location } from "./types"
 
-/** The store's answer, as the method a product is fulfilled by. A mix ships itself unless a product says otherwise. */
+/**
+ * The store's answer, as the method a product is fulfilled by. A mix ships itself unless a product says otherwise.
+ * "From my own warehouse" (Settings: "Stock in a place you run") is the seller shipping, from a place of theirs
+ * (round 51). It was "warehouse", the 3PL method: every order then said the Stockroom "doesn't receive orders
+ * automatically. Send it to them", and a store with a fulfillment center as well sent its products there.
+ */
 export const MODEL_METHOD: Record<FulfillmentModel, FulfillmentMethod> = {
   self: "self",
   hybrid: "self",
-  warehouse: "warehouse",
+  warehouse: "self",
   third_party_logistics: "warehouse",
   print_on_demand: "print_on_demand",
   dropshipping: "dropship",
@@ -38,6 +43,8 @@ export interface StoreFulfilment {
   method: FulfillmentMethod
   /** Null for "any of my locations" (the seller ships), or no partner set up yet. */
   locationId: string | null
+  /** The store answered "A mix of these" (lib/physical/fulfilment-default-server storeFulfilmentFor): set on the server's read only. */
+  mix?: boolean
 }
 
 type Loc = Pick<Location, "id" | "kind" | "active">
