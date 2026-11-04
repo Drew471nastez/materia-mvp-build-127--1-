@@ -773,12 +773,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           twitch: links?.twitch?.url || "",
         }}
         display={{
-          showReviews: headerSettings?.showReviews,
+          /* What the page really does (r51): the rating needs the old Stats master as well, and the icons hide only on Edit profile's own switch. */
+          showReviews: (headerSettings?.showStats ?? true) && (headerSettings?.showReviews ?? true),
           // The sales badge needs both flags to be on, so the switch has to
           // show the AND of them or it lies about its own state.
           showTotalSalesBadge:
             (headerSettings?.showTotalSalesBadge ?? true) && (creator.show_total_sales_badge ?? true),
-          showSocialMedia: headerSettings?.showSocialMedia,
+          showSocialMedia: headerSettings?.hideSocialLinks !== true,
         }}
         themePreset={themePreset}
         schemeRoots={schemeRoots}

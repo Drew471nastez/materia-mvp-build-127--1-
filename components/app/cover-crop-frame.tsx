@@ -80,15 +80,30 @@ export interface CoverCropFrameProps {
   onActivate?: () => void
   /** The shape of the band on the page, measured (use-cover-aspect). */
   aspect: number
+  /**
+   * TALLER THAN THE BAND, WITH THE BAND MARKED IN IT (r51). A desktop band
+   * is about 5:1, so a frame of exactly that shape in a 520px drawer was a
+   * 93px strip: "the cover area is too low". Given a `stage` shape taller
+   * than `aspect`, the frame is drawn at the stage's shape and the band's
+   * own window sits in its middle, at exactly `aspect`, with the rest of the
+   * photograph shown dimmed above and below it. Every measure a gesture
+   * makes is still the window's, so what is dragged into the window is what
+   * the page shows. Absent, or not taller than the band: the frame is the
+   * band, as before.
+   */
+  stage?: number
   label: string
   /** The corner controls, drawn over the picture. */
   children?: React.ReactNode
   className?: string
 }
 
-export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label, children, className }: CoverCropFrameProps) {
+export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, stage, label, children, className }: CoverCropFrameProps) {
   const editable = !!onChange
   const frameRef = React.useRef<HTMLDivElement>(null)
+  /* The element that takes the gestures: the stage when there is one, else the frame itself. */
+  const stageRef = React.useRef<HTMLDivElement>(null)
+  const staged = typeof stage === "number" && Number.isFinite(stage) && stage > 0 && stage < aspect - 0.01
   const imgRef = React.useRef<HTMLImageElement>(null)
   /* The photograph's own shape, once it is known. Until then the frame draws
      the crop as a box (coverCropStyle), which looks the same and cannot be
@@ -370,7 +385,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
 
   /* ── Wheel and Safari's trackpad gestures: native, non-passive ─────── */
   React.useEffect(() => {
-    const el = frameRef.current
+    const el = stageRef.current ?? frameRef.current
     if (!el || !editable) return
     const settle = () => {
       if (wheelTimer.current != null) window.clearTimeout(wheelTimer.current)
@@ -451,7 +466,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
       }
     }
     /* Every handler reads refs (see onChangeRef), so only `editable` re-binds them. */
-  }, [editable, commit, schedule, stopAnimation])
+  }, [editable, staged, commit, schedule, stopAnimation])
 
   React.useEffect(() => () => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
@@ -493,24 +508,83 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
     ? imageRectStyle(aspect, natural.w / natural.h, crop)
     : coverCropStyle(crop)
 
+  const gestureProps = {
+    role: editable ? "group" : onActivate ? "button" : undefined,
+    tabIndex: editable || onActivate ? 0 : undefined,
+    "aria-label": editable ? tt("{label}. Drag to move it, pinch or use + and - to zoom, arrow keys to nudge.", { label }) : label,
+    "data-cover-crop-frame": "",
+    "data-sheet-no-drag": editable ? "" : undefined,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: onPointerEnd,
+    onPointerCancel: onPointerEnd,
+    /* A capture the browser takes away without an up or a cancel would
+       leave a finger in the map for good, and the next touch would pinch
+       against it. */
+    onLostPointerCapture: onPointerEnd,
+    onClick: !editable && onActivate ? (e: React.MouseEvent) => { if (!(e.target as HTMLElement).closest("button")) onActivate() } : undefined,
+    onKeyDown,
+  }
+  const cursor = editable ? (moving ? "cursor-grabbing" : "cursor-grab") : onActivate ? "cursor-pointer" : ""
+  const picture = (
+    /* eslint-disable-next-line @next/next/no-img-element -- one URL for the life of the frame, decoded before it is drawn; see the note at the top */
+    <img
+      ref={imgRef}
+      src={src}
+      alt=""
+      draggable={false}
+      decoding="async"
+      loading="eager"
+      onLoad={onLoad}
+      data-keep-transform=""
+      className="pointer-events-none select-none"
+      style={{ ...imgStyle, transformOrigin: "0 0" }}
+    />
+  )
+
+  if (staged) {
+    /*
+      THE STAGE AND ITS WINDOW. The stage clips; the window does not, so the
+      photograph runs past the band's edges into the stage and a drag shows
+      what is about to come into the band. The window's own wide shadow is
+      the dim over everything outside it, and its edge is a hairline of
+      white, so the band reads as the one bright part of the picture. The
+      window is centred by the stage's flex, not by a transform.
+    */
+    return (
+      <div
+        ref={stageRef}
+        {...gestureProps}
+        data-cover-stage=""
+        className={`relative mx-auto flex w-full items-center landscape:max-w-[calc(30vh*var(--cover-stage))] select-none overflow-hidden rounded-xl bg-[#eef0f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${cursor} ${className ?? ""}`}
+        style={{
+          aspectRatio: String(stage),
+          ["--cover-stage" as string]: String(stage),
+          /* The one element on the sheet that keeps every touch for itself. */
+          touchAction: editable ? "none" : undefined,
+          /* Nothing inside can change the size of anything outside. */
+          contain: "layout paint",
+          WebkitTouchCallout: "none",
+          WebkitUserSelect: "none",
+        }}
+      >
+        <div ref={frameRef} data-cover-window="" className="pointer-events-none relative w-full shrink-0" style={{ aspectRatio: String(aspect) }}>
+          {picture}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 shadow-[0_0_0_100vmax_rgba(17,17,19,0.42),inset_0_0_0_1px_rgba(255,255,255,0.7)]"
+          />
+        </div>
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl border border-black/[0.06]" />
+        {children}
+      </div>
+    )
+  }
+
   return (
     <div
       ref={frameRef}
-      role={editable ? "group" : onActivate ? "button" : undefined}
-      tabIndex={editable || onActivate ? 0 : undefined}
-      aria-label={editable ? tt("{label}. Drag to move it, pinch or use + and - to zoom, arrow keys to nudge.", { label }) : label}
-      data-cover-crop-frame=""
-      data-sheet-no-drag={editable ? "" : undefined}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerEnd}
-      onPointerCancel={onPointerEnd}
-      /* A capture the browser takes away without an up or a cancel would
-         leave a finger in the map for good, and the next touch would pinch
-         against it. */
-      onLostPointerCapture={onPointerEnd}
-      onClick={!editable && onActivate ? (e) => { if (!(e.target as HTMLElement).closest("button")) onActivate() } : undefined}
-      onKeyDown={onKeyDown}
+      {...gestureProps}
       /*
         SIDEWAYS, NEVER MORE THAN 30% OF THE SCREEN TALL. The frame keeps
         every touch that starts on it, and on a phone turned sideways a frame
@@ -520,9 +594,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
         unchanged, and centred. Upright, and in a desktop window of any
         ordinary height, the cap is never reached.
       */
-      className={`relative mx-auto w-full landscape:max-w-[calc(30vh*var(--cover-aspect))] select-none overflow-hidden rounded-lg bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-        editable ? (moving ? "cursor-grabbing" : "cursor-grab") : onActivate ? "cursor-pointer" : ""
-      } ${className ?? ""}`}
+      className={`relative mx-auto w-full landscape:max-w-[calc(30vh*var(--cover-aspect))] select-none overflow-hidden rounded-lg bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${cursor} ${className ?? ""}`}
       style={{
         aspectRatio: String(aspect),
         ["--cover-aspect" as string]: String(aspect),
@@ -534,19 +606,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, label,
         WebkitUserSelect: "none",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- one URL for the life of the frame, decoded before it is drawn; see the note at the top */}
-      <img
-        ref={imgRef}
-        src={src}
-        alt=""
-        draggable={false}
-        decoding="async"
-        loading="eager"
-        onLoad={onLoad}
-        data-keep-transform=""
-        className="pointer-events-none select-none"
-        style={{ ...imgStyle, transformOrigin: "0 0" }}
-      />
+      {picture}
       {/*
         THE EDGE IS DRAWN OVER THE PICTURE, NOT AROUND IT. A real border
         takes two pixels out of the inside, and `aspect-ratio` sizes the

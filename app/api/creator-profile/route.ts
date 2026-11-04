@@ -40,6 +40,8 @@ import { themePresets } from "@/lib/store-builder/defaults"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { clampPercent, clampZoom } from "@/lib/images/cover-crop"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { changedLinks, creatorPageLinks, syncCreatorLinksToOnePage } from "@/lib/social/onepage-sync"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -502,7 +504,19 @@ export async function PATCH(request: NextRequest) {
     if ("socialLinks" in body) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
     }
-    if (display) Object.assign(next, display)
+    if (display) {
+      Object.assign(next, display)
+      /*
+        THE SWITCHES SAY WHAT THE PAGE DOES (r51). Rating and reviews sits
+        under the old `showStats` master, which the builder could have left
+        off, so switching it on from Edit profile switched on nothing: on
+        means both now. And Social links writes `hideSocialLinks`, the only
+        flag the header reads for it (lib/store-builder/types); the old
+        `showSocialMedia` is still written for anything that reads it.
+      */
+      if (display.showReviews === true) next.showStats = true
+      if (typeof display.showSocialMedia === "boolean") next.hideSocialLinks = !display.showSocialMedia
+    }
     /*
       An empty array is a real value here — "forget the arrangement, newest
       first again" — so this tests for undefined rather than for truthiness.
@@ -567,6 +581,15 @@ export async function PATCH(request: NextRequest) {
     return { ...cfg, headerSettings: next, globalSettings, sections: mergeAbout(cfg.sections) }
   }
 
+  /* The links as the page had them, and as this save leaves them: what changed goes to the OnePage below (lib/social/onepage-sync). */
+  const headerBefore = ((config.published_config as { headerSettings?: ShopHeaderSettings } | null)?.headerSettings ??
+    (config.draft_config as { headerSettings?: ShopHeaderSettings } | null)?.headerSettings ??
+    {}) as ShopHeaderSettings
+  const linksChanged =
+    "socialLinks" in body
+      ? changedLinks(creatorPageLinks(headerBefore.socialLinks), creatorPageLinks(buildSocialLinks(body.socialLinks, headerBefore.socialLinks)))
+      : {}
+
   const { error } = await db
     .from("store_builder_configs")
     .update({
@@ -578,6 +601,11 @@ export async function PATCH(request: NextRequest) {
   if (error) {
     console.error("[creator-profile] config update failed", error)
     return NextResponse.json({ error: "Could not save your profile" }, { status: 500 })
+  }
+
+  /* The same links on the OnePage (r51): only the platforms this save changed, never a failure of this save. */
+  if (Object.keys(linksChanged).length > 0) {
+    if (await syncCreatorLinksToOnePage(db, page.profileId, linksChanged)) await onePageChangedFor(page.profileId).catch(() => {})
   }
 
   announceProfile()

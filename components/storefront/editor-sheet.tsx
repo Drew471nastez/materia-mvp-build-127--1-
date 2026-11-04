@@ -62,6 +62,7 @@ import { useRouter } from "next/navigation"
 import { isInEditorFrame, notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { cn } from "@/lib/utils"
+import { Check } from "lucide-react"
 
 export function EditorField({
   label,
@@ -140,6 +141,9 @@ export const SHEET_EXIT_MS_DESKTOP = 200
  */
 export const PHONE_EDITOR_MAX_HEIGHT = "calc(100dvh - env(safe-area-inset-top, 0px) - 48px)"
 
+/* A layout effect in the browser; on the server there is nothing to measure. */
+const useBeforePaint = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
+
 /**
  * ===========================================================================
  *  SAVE, CLOSE, AND THEN SHOW THE RESULT
@@ -191,6 +195,7 @@ export function EditorSheet({
   onClose,
   title,
   busy,
+  saved = false,
   error,
   notice = null,
   onSave,
@@ -206,6 +211,13 @@ export function EditorSheet({
   onClose: () => void
   title: string
   busy?: boolean
+  /**
+   * THE SAVE LANDED (r51). Save says "Saved" with a tick for a moment before
+   * the sheet goes, so the four states of the button are each something a
+   * creator can see: nothing to save (grey), something to save (dark),
+   * saving, saved. Holds the sheet like `busy` does.
+   */
+  saved?: boolean
   error?: string | null
   /** Something to know that is not an error (round 41): saved, but not on the page yet. Grey, not red. */
   notice?: string | null
@@ -274,11 +286,36 @@ export function EditorSheet({
    * the phone sheet springs back from a pull (BottomSheet `dismissible`).
    */
   const busyRef = React.useRef(busy)
-  busyRef.current = busy
+  busyRef.current = busy || saved
   const close = React.useCallback(() => {
     if (busyRef.current) return
     onClose()
   }, [onClose])
+
+  /**
+   * ONE SCROLLBAR WHILE THE DRAWER IS OPEN (r51). The page behind does not
+   * scroll while the drawer is up (Radix holds it), but its own bar was still
+   * drawn down the right edge, beside the drawer's thumb: the owner's "two
+   * scrollbars". Measured at 10px in Chromium. The page's bar is taken away
+   * while the drawer is open and its width handed back as padding, so the
+   * page does not move sideways, and the drawer, pinned to the right edge,
+   * covers the strip where the bar was. Read before paint, so no frame has
+   * both. A page with no bar (a phone, an overlay scrollbar) is left alone.
+   */
+  useBeforePaint(() => {
+    if (phone || !open || typeof document === "undefined") return
+    const root = document.documentElement
+    const gutter = window.innerWidth - root.clientWidth
+    if (gutter <= 0) return
+    const before = root.style.paddingRight
+    const pad = parseFloat(getComputedStyle(root).paddingRight) || 0
+    root.setAttribute("data-editor-drawer-open", "")
+    root.style.paddingRight = `${pad + gutter}px`
+    return () => {
+      root.removeAttribute("data-editor-drawer-open")
+      root.style.paddingRight = before
+    }
+  }, [open, phone])
 
   /**
    * ===========================================================================
@@ -333,6 +370,8 @@ export function EditorSheet({
     return () => clearTimeout(timer)
   }, [open, phone])
 
+  const state: "clean" | "dirty" | "saving" | "saved" = saved ? "saved" : busy ? "saving" : saveDisabled ? "clean" : "dirty"
+
   const footer = (
     <div
       /* Held at the bottom edge while a phone sheet is lowered; the skirt
@@ -356,7 +395,13 @@ export function EditorSheet({
           {error || notice}
         </p>
       ) : null}
-      <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full rounded-[10px] border-[#e3e5e8] bg-white text-[15px] font-medium text-[#1a1a2e] shadow-none hover:bg-[#f7f7f8] sm:h-10 sm:rounded-lg sm:text-[14px]"
+        onClick={onClose}
+        disabled={busy || saved}
+      >
         Cancel
       </Button>
       {/*
@@ -411,37 +456,55 @@ export function EditorSheet({
          * sending the request twice — is done by the guard below, which is
          * where it can actually be read. `aria-disabled` and `aria-busy` tell
          * assistive technology the truth without touching a single style.
+         *
+         * FOUR STATES, EACH ITS OWN LOOK (r51). Nothing to save was the dark
+         * button at half opacity, a muddy grey that read as broken rather
+         * than as "nothing changed yet". It is a light grey with grey type
+         * now, and it darkens over 180ms the moment the form changes. Saving
+         * and Saved keep the dark ground; only the word changes, in place.
          */
-        className="relative w-full bg-[#111113] text-white hover:bg-[#1a1a2e]"
+        data-save-state={state}
+        className={cn(
+          "relative h-11 w-full rounded-[10px] text-[15px] font-medium shadow-none transition-[background-color,color] duration-[180ms] ease-out disabled:opacity-100 motion-reduce:transition-none sm:h-10 sm:rounded-lg sm:text-[14px]",
+          state === "clean" ? "bg-[#eceef1] text-[#9ca3af] hover:bg-[#eceef1]" : "bg-[#1a1a2e] text-white hover:bg-[#2a2a40]",
+        )}
         onClick={() => {
-          if (busy || saveDisabled) return
+          if (busy || saved || saveDisabled) return
           onSave()
         }}
-        disabled={saveDisabled}
-        aria-disabled={busy || saveDisabled || undefined}
+        disabled={saveDisabled && !busy && !saved}
+        aria-disabled={busy || saved || saveDisabled || undefined}
       >
         <span className="grid place-items-center">
-          <span
-            aria-hidden={busy || undefined}
-            className={cn(
-              "col-start-1 row-start-1 transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
-              busy ? "-translate-y-1 opacity-0" : "translate-y-0 opacity-100",
-            )}
-          >
-            {saveLabel}
-          </span>
-          <span
-            aria-hidden={!busy || undefined}
-            className={cn(
-              "col-start-1 row-start-1 inline-flex items-center gap-[3px] transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
-              busy ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
-            )}
-          >
-            Saving
-            <span className="cp-saving-dots ml-0.5 inline-flex gap-[3px]" aria-hidden>
-              <i /><i /><i />
-            </span>
-          </span>
+          {(["idle", "saving", "saved"] as const).map((face) => {
+            const on = face === (state === "saving" ? "saving" : state === "saved" ? "saved" : "idle")
+            return (
+              <span
+                key={face}
+                aria-hidden={!on || undefined}
+                className={cn(
+                  "col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
+                  on ? "translate-y-0 opacity-100" : face === "idle" ? "-translate-y-1 opacity-0" : "translate-y-1 opacity-0",
+                )}
+              >
+                {face === "idle" ? (
+                  saveLabel
+                ) : face === "saving" ? (
+                  <>
+                    Saving
+                    <span className="cp-saving-dots ml-0.5 inline-flex gap-[3px]" aria-hidden>
+                      <i /><i /><i />
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                    Saved
+                  </>
+                )}
+              </span>
+            )
+          })}
         </span>
       </Button>
     </div>
@@ -452,7 +515,7 @@ export function EditorSheet({
       <BottomSheet
         isOpen={open}
         onClose={close}
-        dismissible={!busy}
+        dismissible={!busy && !saved}
         onClosed={() => closedRef.current?.()}
         label={title}
         /* useIsPhone decides; the sheet must not hide itself between 640 and 767. */

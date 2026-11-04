@@ -36,7 +36,9 @@ import { SchemePicker } from "@/components/storefront/scheme-picker"
 import { OWNER_CONTROL_DEPTH } from "@/components/storefront/owner-actions-menu"
 import { useSchemePreview } from "@/components/storefront/use-scheme-preview"
 import type { RootPaint } from "@/lib/store-builder/scheme-preview"
-import type { SocialPlatformKey } from "@/lib/social/platforms"
+import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
+import { socialFieldValue } from "@/lib/onepage/social-input"
+import { setProfileDraft } from "@/lib/storefront/profile-draft"
 
 /**
  * THE HEAVY PARTS OF THE FORM DRAW ONLY WHEN THEIR OWN VALUES CHANGE. The
@@ -59,6 +61,22 @@ const MemoSocialLinksEditor = React.memo(SocialLinksEditor)
 const LABEL = "text-[13px] font-medium text-[#4b5563]"
 const FIELD =
   "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] shadow-none outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus-visible:border-[#c9ccd3] focus-visible:ring-0 focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+
+/**
+ * WHAT EACH SOCIAL FIELD SHOWS FOR A SAVED LINK (r51): the name after the
+ * "@" for a plain profile, the whole link for anything else. The saved
+ * values themselves are not touched: a field nobody changed sends its saved
+ * link back exactly as it was (see `save`), so a link saved by the OnePage
+ * or by an older version of this form stays character for character.
+ */
+function fieldsFrom(links: Partial<Record<string, string>>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const key of SOCIAL_PLATFORM_KEYS) out[key] = socialFieldValue(key, links[key] || "")
+  return out
+}
+
+/** The taller frame the cover is placed in on a wide page (CoverCropFrame `stage`): about 180px in the drawer, not 93. */
+const COVER_STAGE = 2.6
 
 // The platforms, their order and their icons all come from
 // lib/social/platforms and components/social. This file used to carry its own
@@ -105,6 +123,9 @@ export interface EditProfileButtonProps {
   schemeRoots?: Record<string, RootPaint>
 }
 
+/** How long Save says Saved before the sheet leaves: long enough to read, short enough not to wait on. */
+const SAVED_HOLD_MS = 650
+
 export function EditProfileButton({
   embedded = false,
   displayName,
@@ -139,6 +160,8 @@ export function EditProfileButton({
     }
   }, [])
   const [saving, setSaving] = React.useState(false)
+  /* The moment between the answer and the sheet leaving, when Save says Saved (EditorSheet `saved`). */
+  const [justSaved, setJustSaved] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   /* Saved, but not on the page yet: said in grey beside Save, never as an error (round 41). */
   const [notice, setNotice] = React.useState<string | null>(null)
@@ -149,7 +172,7 @@ export function EditProfileButton({
   const [cover, setCover] = React.useState<string | null>(coverUrl ?? null)
   /* Position and zoom together, as the page draws them (lib/images/cover-crop). */
   const [crop, setCrop] = React.useState<CoverCrop>(() => cropFromSettings(coverFocalPoint, coverZoom))
-  const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
+  const [links, setLinks] = React.useState<Record<string, string>>(() => fieldsFrom(socialLinks))
   const [shown, setShown] = React.useState<Record<string, boolean>>(() => ({
     showReviews: display?.showReviews ?? true,
     showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
@@ -173,7 +196,7 @@ export function EditProfileButton({
   }, [])
   const onAvatarChange = React.useCallback((url: string | null) => setAvatar(url), [])
   const coverReposition = React.useMemo(
-    () => ({ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover }),
+    () => ({ value: crop, onChange: setCrop, aspect: coverAspect, stage: COVER_STAGE, editable: !!cover }),
     [crop, coverAspect, cover],
   )
   const { show: showScheme } = preview
@@ -210,7 +233,7 @@ export function EditProfileButton({
       setAvatar(saved.avatarUrl)
       setCover(saved.coverUrl)
       setCrop(cropFromSettings(saved.coverFocalPoint, saved.coverZoom))
-      setLinks({ ...saved.socialLinks })
+      setLinks(fieldsFrom(saved.socialLinks))
       setShown({
         showReviews: saved.display?.showReviews ?? true,
         showTotalSalesBadge: saved.display?.showTotalSalesBadge ?? true,
@@ -243,7 +266,7 @@ export function EditProfileButton({
     avatarUrl ?? null,
     coverUrl ?? null,
     cropFromSettings(coverFocalPoint, coverZoom),
-    { ...socialLinks },
+    fieldsFrom(socialLinks),
     { showReviews: display?.showReviews ?? true, showTotalSalesBadge: display?.showTotalSalesBadge ?? true, showSocialMedia: display?.showSocialMedia ?? true },
     themePreset,
   ])
@@ -255,6 +278,52 @@ export function EditProfileButton({
     setError(null)
     setNotice(null)
   }, [formNow])
+
+  /**
+   * ===========================================================================
+   *  THE PAGE BEHIND SHOWS THE FORM, BEFORE SAVE (r51)
+   * ===========================================================================
+   * While the sheet is open, everything in it is handed to the page's header
+   * and About block (lib/storefront/profile-draft), so a name typed, a photo
+   * changed, a link added or a switch pressed is on the page at once. A
+   * Cancel clears it as the sheet starts to leave, which is the page as it
+   * is saved. A Save keeps it until the page's own new values arrive
+   * (`holdDraft`), so the page never shows the old values in between.
+   */
+  const holdDraft = React.useRef<string | null>(null)
+  const savedSignature = JSON.stringify(savedValues)
+  React.useEffect(() => {
+    if (!open) return
+    const resolved: Record<string, string> = {}
+    for (const key of SOCIAL_PLATFORM_KEYS) resolved[key] = resolveSocialInput(key, links[key] || "") ?? ""
+    setProfileDraft({
+      name,
+      bio: about,
+      avatarUrl: avatar,
+      coverUrl: cover,
+      crop,
+      socialLinks: resolved,
+      showReviews: shown.showReviews ?? true,
+      showSales: shown.showTotalSalesBadge ?? true,
+      showSocialLinks: shown.showSocialMedia ?? true,
+    })
+  }, [open, name, about, avatar, cover, crop, links, shown])
+  /* Saved, and the page has its new values: the draft has nothing left to say. */
+  React.useEffect(() => {
+    if (open || holdDraft.current === null || holdDraft.current === savedSignature) return
+    holdDraft.current = null
+    setProfileDraft(null)
+  }, [open, savedSignature])
+  React.useEffect(() => {
+    if (open || holdDraft.current === null) return
+    /* A refresh that never brings new values (nothing on the page changed) still lets go. */
+    const t = window.setTimeout(() => {
+      holdDraft.current = null
+      setProfileDraft(null)
+    }, 8000)
+    return () => window.clearTimeout(t)
+  }, [open])
+  React.useEffect(() => () => setProfileDraft(null), [])
 
   const abandoned = React.useRef(false)
   const restoreRef = React.useRef(() => applySaved(savedValues))
@@ -292,7 +361,14 @@ export function EditProfileButton({
              they were for every page that never touched this. */
           coverFocalPoint: isDefaultCrop(crop) ? null : { x: crop.x, y: crop.y },
           coverZoom: crop.zoom > 1 ? crop.zoom : null,
-          socialLinks: links,
+          /* A field nobody changed sends its saved link back as it was; a changed one sends what was typed, which the route resolves. */
+          socialLinks: Object.fromEntries(
+            SOCIAL_PLATFORM_KEYS.map((key) => {
+              const before = socialLinks[key] || ""
+              const now = links[key] || ""
+              return [key, now === socialFieldValue(key, before) ? before : now]
+            }),
+          ),
           display: shown,
           themePreset: scheme,
         }),
@@ -320,6 +396,12 @@ export function EditProfileButton({
         setNotice("Saved. It shows on your page once your store is published from the store builder.")
         return
       }
+      /* Saved, said on the button, then the sheet goes. The page keeps the draft until its new values are in. */
+      holdDraft.current = savedSignature
+      setSaving(false)
+      setJustSaved(true)
+      await new Promise((resolve) => window.setTimeout(resolve, SAVED_HOLD_MS))
+      /* Still Saved while it leaves: put back only when it next opens, so the button does not flick back to Save on the way out. */
       setOpen(false)
       setPeeking(false)
       /* The scheme on the page is the saved one now; only the address still says "preview". */
@@ -380,6 +462,7 @@ export function EditProfileButton({
           onFocus={warmCover}
           onClick={() => {
             abandoned.current = false
+            setJustSaved(false)
             setOpen(true)
           }}
           aria-label="Edit profile"
@@ -410,14 +493,17 @@ export function EditProfileButton({
           abandoned.current = true
           setOpen(false)
           setPeeking(false)
-          /* Closed without saving: the page goes back to the scheme it has. */
+          /* Closed without saving: the page goes back to the scheme it has, and to its saved name, links and the rest. */
           preview.reset()
+          holdDraft.current = null
+          setProfileDraft(null)
         }}
         peek={peeking ? "[data-scheme-picker]" : null}
         onPeekEnd={() => setPeeking(false)}
         title="Profile details"
         wide
         busy={saving}
+        saved={justSaved}
         error={error}
         notice={notice}
         onSave={() => void save()}
@@ -437,12 +523,12 @@ export function EditProfileButton({
                 <Label className={LABEL}>Cover</Label>
                 {/* What the frame does, said once, in place of a pill over the picture. */}
                 {cover ? (
-                  <span className="text-right text-xs text-muted-foreground">
+                  <span className="text-right text-[12px] text-[#6b7280]">
                     <span className="pointer-fine:hidden">Drag to move, pinch to zoom</span>
-                    <span className="hidden pointer-fine:inline">Drag to move, pinch or ctrl + scroll to zoom</span>
+                    <span className="hidden pointer-fine:inline">Drag to move, ctrl + scroll to zoom</span>
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">Recommended ratio 3:1</span>
+                  <span className="text-[12px] text-[#6b7280]">Wide pictures work best</span>
                 )}
               </div>
               {/*
@@ -498,14 +584,17 @@ export function EditProfileButton({
               <Label className={LABEL} htmlFor="ep-name">Name</Label>
               <Input id="ep-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} className={FIELD} />
               {username && (
-                <p className="text-xs text-muted-foreground">
-                  Your page lives at <span className="font-medium">@{username}</span>. Change the handle in settings.
+                <p className="text-[12px] text-[#6b7280]">
+                  Your page lives at <span className="font-medium text-[#4b5563]">@{username}</span>. Change the handle in settings.
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label className={LABEL} htmlFor="ep-bio">Bio</Label>
+              <div className="flex items-baseline justify-between gap-3">
+                <Label className={LABEL} htmlFor="ep-bio">Bio</Label>
+                <span className="text-[12px] tabular-nums text-[#9ca3af]">{about.length}/500</span>
+              </div>
               <Textarea
                 id="ep-bio"
                 value={about}
@@ -515,7 +604,6 @@ export function EditProfileButton({
                 className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 leading-[1.45]")}
                 placeholder="What you make, and who it is for."
               />
-              <p className="text-xs text-muted-foreground">{about.length}/500</p>
             </div>
 
             {/*
@@ -536,14 +624,15 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-3">
-              <Label className={LABEL}>Social links</Label>
-              {/* Leave one empty to remove it — the icon disappears with it. */}
-              <p className="text-xs text-muted-foreground">
-                Only the ones you fill in appear on your page. A username or a full link both work.
-              </p>
+              <div className="flex items-baseline justify-between gap-3">
+                <Label className={LABEL}>Social links</Label>
+                {/* Leave one empty to remove it: the icon goes with it. */}
+                <span className="text-[12px] text-[#6b7280]">A username or a link</span>
+              </div>
               <MemoSocialLinksEditor
                 value={links}
                 onChange={onLinkChange}
+                handles
               />
             </div>
 
@@ -563,7 +652,7 @@ export function EditProfileButton({
             */}
             <div className="space-y-3">
               <Label className={LABEL}>Show on your profile</Label>
-              <div className="divide-y divide-border rounded-lg border border-border">
+              <div className="divide-y divide-[#eceef1] overflow-hidden rounded-xl border border-[#e3e5e8] bg-white">
                 {(
                   [
                     ["showReviews", "Rating and reviews"],
@@ -573,7 +662,7 @@ export function EditProfileButton({
                 ).map(([key, label]) => (
                   <label
                     key={key}
-                    className="flex cursor-pointer items-center justify-between gap-4 px-3 py-2.5 text-sm"
+                    className="flex min-h-11 cursor-pointer items-center justify-between gap-4 px-3.5 py-2.5 text-[15px] text-[#1a1a2e] sm:text-[14px]"
                   >
                     <span>{label}</span>
                     <Switch
@@ -583,9 +672,8 @@ export function EditProfileButton({
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Anything with nothing behind it stays hidden either way. No rating shows until
-                somebody reviews you.
+              <p className="text-[12px] text-[#6b7280]">
+                A rating shows once somebody has reviewed you.
               </p>
             </div>
       </EditorSheet>

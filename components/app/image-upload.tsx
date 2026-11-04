@@ -81,6 +81,8 @@ interface ImageUploadProps {
      * which is what a flat 3:1 here was doing.
      */
     aspect?: number
+    /** A taller shape to draw the frame at, with the band marked in its middle (CoverCropFrame `stage`). */
+    stage?: number
   }
   /**
    * THE PICKED PICTURE, AT ONCE, COMING INTO FOCUS. Replace-only images
@@ -549,6 +551,7 @@ export function ImageUpload({
           onChange={editable && !uploading ? reposition.onChange : undefined}
           onActivate={editable || !replaceOnTap ? undefined : () => !uploading && inputRef.current?.click()}
           aspect={reposition.aspect ?? 3}
+          stage={reposition.stage}
           label={replaceLabel}
         >
           {/*

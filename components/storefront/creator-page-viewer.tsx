@@ -29,9 +29,11 @@ export interface CreatorPageViewer {
   owner: boolean
   bought: boolean
   contactEmail: string | null
+  /** The page's sales figure, to the owner only, for Edit profile's live preview (r51). */
+  totalSales: number | null
 }
 
-const STRANGER: CreatorPageViewer = { owner: false, bought: false, contactEmail: null }
+const STRANGER: CreatorPageViewer = { owner: false, bought: false, contactEmail: null, totalSales: null }
 const ViewerContext = createContext<CreatorPageViewer | null>(null)
 
 /** One question per page view, shared by every part that asks. */
@@ -45,6 +47,7 @@ function askViewer(creatorId: string): Promise<CreatorPageViewer> {
       owner: d?.owner === true,
       bought: d?.bought === true,
       contactEmail: typeof d?.contactEmail === "string" ? d.contactEmail : null,
+      totalSales: typeof d?.totalSales === "number" && Number.isFinite(d.totalSales) ? d.totalSales : null,
     }))
     .catch(() => STRANGER)
   asked.set(creatorId, p)

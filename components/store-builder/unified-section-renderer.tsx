@@ -1,7 +1,8 @@
 "use client"
 
 import { cleanStoredHtml } from "@/lib/rich-text/html"
-import { useContactShown, useCreatorPageOwner } from "@/components/storefront/creator-page-viewer"
+import { useContactShown, useCreatorPageOwner, useCreatorPageViewer } from "@/components/storefront/creator-page-viewer"
+import { useProfileDraft, type ProfileDraft } from "@/lib/storefront/profile-draft"
 import { personName } from "@/lib/profile/display-name"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { usePriceCurrency } from "@/components/platform/price-currency"
@@ -688,11 +689,14 @@ function UnifiedAboutSection({
   // Get colors from settings
   const textColor = settings.colors?.textColor || undefined
   const backgroundColor = settings.colors?.backgroundColor || "transparent"
+  /* Edit profile's name and Sales count switch, before Save (r51); a hidden figure comes from the owner's own viewer answer. */
+  const draft = useProfileDraft(!!ownerActions)
+  const viewer = useCreatorPageViewer()
 
   // Always use creatorName from props for the "About [Name]" heading (non-editable)
-  const displayName = creatorName || "Seller"
+  const displayName = (draft ? draft.name.trim() || creatorName : creatorName) || "Seller"
   // Use actual totalSales from props, not from settings (settings value is deprecated)
-  const displayTotalSales = totalSales ?? 0
+  const displayTotalSales = draft ? (draft.showSales ? totalSales || viewer.totalSales || 0 : 0) : totalSales ?? 0
   // Use actual productsCount from props
   const displayProductsCount = productsCount ?? 0
   // Use actual memberSince from props
@@ -2726,9 +2730,9 @@ export interface UnifiedShopHeaderProps {
 }
 
 export function UnifiedShopHeader({
-  settings,
-  creator,
-  profile,
+  settings: givenSettings,
+  creator: givenCreator,
+  profile: givenProfile,
   productCount = 0,
   isMobile = false,
   isPreviewMode = false,
@@ -2745,6 +2749,14 @@ export function UnifiedShopHeader({
   surface,
   badges,
 }: UnifiedShopHeaderProps) {
+  /*
+    WHAT EDIT PROFILE HAS IN ITS FIELDS, DRAWN BEFORE SAVE (r51). Only on the
+    header that carries the owner's controls, which is the only one the sheet
+    can be open over (lib/storefront/profile-draft). Null everywhere else, so
+    every other header is drawn from its props exactly as before.
+  */
+  const draft = useProfileDraft(!!ownerActions)
+  const { settings, creator, profile } = withProfileDraft(givenSettings, givenCreator, givenProfile, draft)
   /**
    * One decision, used by the name, the handle, the bio and the meta row.
    *
@@ -3411,7 +3423,8 @@ export function UnifiedShopHeader({
               */
             }
 
-            if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {
+            /* Hidden only by Edit profile's own switch (hideSocialLinks, r51), never by the builder's stale showSocialMedia. */
+            if (settings.socialLinks && settings.hideSocialLinks !== true && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {
               const icons = (
                 <SocialMediaIcons
                   key="social"
@@ -3476,6 +3489,39 @@ export function UnifiedShopHeader({
       </SectionContainer>
     </div>
   )
+}
+
+/**
+ * The header's props with Edit profile's fields laid over them (r51). The
+ * picture fields follow the header's own rules: an empty avatarUrl is the
+ * initials, an absent cover is no band. Social links are drawn from the
+ * same {enabled, url} shape the page stores.
+ */
+function withProfileDraft(
+  settings: ShopHeaderSettings,
+  creator: UnifiedShopHeaderProps["creator"],
+  profile: UnifiedShopHeaderProps["profile"],
+  draft: ProfileDraft | null,
+): { settings: ShopHeaderSettings; creator: UnifiedShopHeaderProps["creator"]; profile: UnifiedShopHeaderProps["profile"] } {
+  if (!draft) return { settings, creator, profile }
+  const socialLinks = { ...(settings.socialLinks || {}) } as Record<string, { enabled: boolean; url: string }>
+  for (const [key, url] of Object.entries(draft.socialLinks)) socialLinks[key] = url ? { enabled: true, url } : { enabled: false, url: "" }
+  return {
+    settings: {
+      ...settings,
+      bio: draft.bio,
+      avatarUrl: draft.avatarUrl ?? "",
+      coverImageUrl: draft.coverUrl ?? undefined,
+      coverFocalPoint: { x: draft.crop.x, y: draft.crop.y },
+      coverZoom: draft.crop.zoom,
+      socialLinks: socialLinks as unknown as ShopHeaderSettings["socialLinks"],
+      showStats: draft.showReviews ? true : settings.showStats,
+      showReviews: draft.showReviews,
+      hideSocialLinks: !draft.showSocialLinks,
+    },
+    creator: creator ? { ...creator, bio: draft.bio, cover_url: draft.coverUrl ?? null } : creator,
+    profile: profile ? { ...profile, display_name: draft.name, avatar_url: draft.avatarUrl ?? null } : profile,
+  }
 }
 
 // ====== PRODUCT PAGE CONTENT - UNIFIED ======
