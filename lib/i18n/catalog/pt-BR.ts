@@ -11964,7 +11964,12 @@ const words: Record<string, string> = {
  "Your website is safe. Trying again on its own.": "Seu site está seguro. Tentando de novo automaticamente.",
  "Your website is safe. Try again in a moment.": "Seu site está seguro. Tente de novo em instantes.",
  "Sign in again to open this website.": "Entre de novo para abrir este site.",
- "Something went wrong on our side. Trying again on its own.": "Algo deu errado do nosso lado. Tentando de novo automaticamente."
+ "Something went wrong on our side. Trying again on its own.": "Algo deu errado do nosso lado. Tentando de novo automaticamente.",
+ "Storelib keeps this website's theme in a repository. What your agent pushes comes back as a draft.": "A Storelib guarda o tema deste site em um repositório. O que seu agente enviar volta como rascunho.",
+ "Pick a repository on {account}.": "Escolha um repositório em {account}.",
+ "Branch and folder": "Branch e pasta",
+ "A new branch name makes that branch.": "Um nome de branch novo cria esse branch.",
+ "Link repository": "Vincular repositório"
 }
 
 export default words
