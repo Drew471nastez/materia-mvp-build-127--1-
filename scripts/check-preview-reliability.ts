@@ -139,7 +139,7 @@ async function main() {
           else if (st === "named") { out.fallback++; out.names.push(`fallback ${name}`) }
           else { out.waiting++; out.names.push(`waiting ${name}`) }
         } else if (box?.querySelector("[data-preview-empty]")) { out.fallback++; out.names.push(`fallback ${name}`) }
-        else if (box?.querySelector("[data-preview-shimmer]")) { out.waiting++; out.names.push(`waiting ${name}`) }
+        else if (box?.matches("[data-preview-shimmer]") || box?.querySelector("[data-preview-shimmer]")) { out.waiting++; out.names.push(`waiting ${name}`) }
         else out.shown++
       }
       return out

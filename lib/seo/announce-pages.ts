@@ -16,6 +16,7 @@ import "server-only"
  */
 
 import { indexNowKey, submitToIndexNow } from "./indexnow"
+import { ALTERNATIVES, HUB_PATH, alternativePath } from "@/lib/alternatives"
 
 const STORELIB = "https://storelib.com"
 
@@ -30,6 +31,17 @@ export function communityAddresses(...slugs: Array<string | null | undefined>): 
 export function blogPostAddresses(...slugs: Array<string | null | undefined>): string[] {
   const posts = slugsOf(slugs).map((s) => `${STORELIB}/blog/${encodeURIComponent(s)}`)
   return posts.length > 0 ? [...posts, `${STORELIB}/blog`] : []
+}
+
+/**
+ * The comparison pages (lib/alternatives): the hub and each page named, or
+ * every page when none is. They are code, published by a deploy rather than
+ * a save, so whatever ships a change to them sends these.
+ */
+export function alternativesAddresses(...slugs: string[]): string[] {
+  const known = new Set(ALTERNATIVES.map((c) => c.slug))
+  const wanted = slugs.length > 0 ? slugsOf(slugs).filter((s) => known.has(s)) : [...known]
+  return wanted.length > 0 ? [...wanted.map((s) => `${STORELIB}${alternativePath(s)}`), `${STORELIB}${HUB_PATH}`] : []
 }
 
 /** For `after()`: send these addresses, never throwing. */

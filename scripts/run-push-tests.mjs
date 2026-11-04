@@ -952,6 +952,8 @@ const SUITES = [
   "tests/round-bb.test.ts",
   "tests/round-bc-aiagent.test.ts",
   "tests/round-bc-previews.test.ts",
+  /* Round 44: Add section on a slow phone, and the Header card: what is drawn closed stays closed, a card is a still picture, the header drawn ahead, cards kept across groups, drawing between presses (scripts/check-add-section-perf.mjs). */
+  "tests/add-section-r44.test.ts",
   "tests/round-bc-liveseo.test.ts",
   "tests/round-bc-domains.test.ts",
   "tests/round-bc-dmnotify.test.ts",
@@ -974,6 +976,8 @@ const SUITES = [
   "tests/editor-incoming-push.test.ts",
   /* The canvas scroll moves its chrome from the scroll offset, and a push waits until the gesture rests. */
   "tests/editor-scroll-rest.test.ts",
+  /* Round 44: the canvas wheel holds hover (lib/website-builder/wheel-hold.ts) and its thumb moves by transform; scripts/check-editor-perf.mjs PART=scroll,smooth measures the canvas, the sidebar, a section switch and a push stream under a moving canvas. */
+  "tests/editor-smooth-r44.test.ts",
   /* A push reaches an open editor without a reload: a sleep with no visibilitychange is an absence, a full page reads on and the pile lands once, an apply has a ceiling, online, pageshow and the app's return wake it; the session recovery and a stalled OnePage load end in something to press. */
   "tests/editor-live-follow.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */
@@ -986,6 +990,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */
   "tests/seo-marketing-r44.test.ts",
+  /* Round 45: the comparison pages (/alternatives): every competitor claim sourced and dated or marked, Storelib claims tied to code, the calculator charging as checkout does, metadata, FAQPage from the visible questions, sitemap, links, sign up tags. */
+  "tests/alternatives.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
   "tests/carrier-select.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
@@ -1041,6 +1047,8 @@ const SUITES = [
   "tests/analytics-destinations.test.ts",
   /* Round 44: /admin/seo, every address in Storelib's sitemaps with Google's URL Inspection answer (service account JWT signed with node:crypto, per property, a quota counted in the database, rotated never checked and stalest first) and a score from the live page with every check; admin only, Check now rate limited, SQL part 342; scripts/check-admin-seo.mjs renders it. */
   "tests/admin-seo-console-r44.test.ts",
+  /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
+  "tests/gumroad-import.test.ts",
 ]
 
 /**

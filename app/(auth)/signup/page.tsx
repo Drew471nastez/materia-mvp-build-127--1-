@@ -30,6 +30,8 @@ import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
 import { goToAuthHref } from "@/lib/auth/session-sync"
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
+import { readSignupSource } from "@/lib/alternatives/attribution"
+import { trackAlternatives } from "@/lib/alternatives/track"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -97,6 +99,19 @@ function SignUpFormContent() {
   /* On the way back to a team invite (app/team/join): the invited email is kept, since no other account can accept it. */
   const inviteEmail = inviteEmailFrom(searchParams)
   // Get redirect URL from search params (for returning to receipt page after signup)
+  /*
+    WHERE THIS SIGN UP CAME FROM, when the link said (lib/alternatives/attribution):
+    `src` for the Storelib page the button was on, `ref` and utm tags for
+    the visit that reached it. Told to Vercel Web Analytics once as the form
+    opens and once when the account exists; without analytics consent
+    `track` sends nothing (lib/alternatives/track).
+  */
+  const signupSource = readSignupSource(searchParams)
+  const signupSourceKey = signupSource ? JSON.stringify(signupSource) : ""
+  useEffect(() => {
+    if (signupSourceKey) trackAlternatives("Signup started", JSON.parse(signupSourceKey))
+  }, [signupSourceKey])
+
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
@@ -322,6 +337,7 @@ function SignUpFormContent() {
       }
 
       if (data.user) {
+        if (signupSource) trackAlternatives("Signup completed", { ...signupSource, method: "email" })
         // Create profile immediately (session exists because Supabase
         // email confirmation is disabled).
         await supabase.from("profiles").upsert({

@@ -157,8 +157,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
   console.log("\nAdd a section, for an imported theme (compat-section-preview.tsx)\n")
   {
     const preview = code("components/website-builder/compat/compat-section-preview.tsx")
-    check("a card's height is remembered for the theme, so it opens at it", /rememberedHeights\(ctx\.installId, renderWidth\)\[key\]/.test(preview) && /window\.localStorage\.setItem\(k, JSON\.stringify\(all\)\)/.test(preview))
-    check("a card is never made shorter where it can be seen", /if \(wanted > kept\.h \|\| !inSight\(box\.current\)\)/.test(preview) && /releaseCompatHeld\(\)/.test(read("components/website-builder/editor/section-library.tsx")))
+    check("a card's height is remembered for the theme, so it opens at it", /* Changed on purpose (round 45: remembered for the theme's version, heightsId) */ /rememberedHeights\(ctx\.heightsId, renderWidth\)\[key\]/.test(preview) && /window\.localStorage\.setItem\(k, JSON\.stringify\(all\)\)/.test(preview))
+    check("a card is never made shorter where it can be seen", /* Changed on purpose (round 45: nor taller, when its height was only remembered) */ /if \(\(wanted > kept\.h && !kept\.mem\) \|\| !inSight\(box\.current\)\)/.test(preview) && /releaseCompatHeld\(\)/.test(read("components/website-builder/editor/section-library.tsx")))
     check("a card that is coming shimmers, and only while the library is open", /wb-preview-shimmer/.test(preview) && /\.wb-library-layer\[data-state="closed"\] \.wb-preview-shimmer::after/.test(read("app/globals.css")))
     check("the sections are drawn ahead in quiet moments, the first cards first", /onIdle\(\(d\) => this\.run\(/.test(preview) && /score = card\.eager \? i - 1e6 : i/.test(preview) && /eager=\{eager\} \/>/.test(read("components/website-builder/editor/section-library.tsx")))
     check("an open list is filled nearest its own view first (the list, not the window)", /this\.grid\?\.closest\("\[data-library-scroll\]"\)\?\.getBoundingClientRect\(\)/.test(preview))

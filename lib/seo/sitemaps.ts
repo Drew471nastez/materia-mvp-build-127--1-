@@ -56,6 +56,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
+import { ALTERNATIVES, HUB_PATH, alternativePath } from "@/lib/alternatives"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, helpImages } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -383,6 +384,13 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     ...(exploreOpen && (await communitiesEnabled()) ? [{ url: `${BASE}/explore?type=communities` }] : []),
     { url: `${BASE}/faq` },
     { url: `${BASE}/signup` },
+    /*
+      The comparison pages, from the list their routes are built from
+      (lib/alternatives), so a competitor added there is listed here without
+      anybody remembering to. Each carries the day its words last changed.
+    */
+    { url: `${BASE}${HUB_PATH}`, lastModified: newestOf(...ALTERNATIVES.map((c) => c.updated)) },
+    ...ALTERNATIVES.map((c) => ({ url: `${BASE}${alternativePath(c.slug)}`, lastModified: c.updated })),
     /* Round 44: the theme marketplace, and the two legal documents with the date each says it last changed. */
     { url: `${BASE}/themes` },
     ...Object.values(LEGAL_DOCS).map((d) => ({ url: `${BASE}${d.href}`, lastModified: d.updated })),

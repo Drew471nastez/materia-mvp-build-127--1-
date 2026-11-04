@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 import { PricingPageClient } from "./pricing-client"
+import { CompareStrip } from "@/components/alternatives/compare-strip"
 
 /* Its own title, canonical and card: with none, /pricing was the home page's title and og:url. */
 export const metadata: Metadata = pageMetadata({
@@ -21,5 +22,5 @@ export const metadata: Metadata = pageMetadata({
   for its scroll-in.
 */
 export default function PricingPage() {
-  return <PricingPageClient />
+  return <PricingPageClient compare={<CompareStrip />} />
 }

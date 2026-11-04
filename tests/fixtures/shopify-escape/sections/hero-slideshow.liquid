@@ -1,0 +1,17 @@
+<style>
+  .hs { height: 100vh; min-height: 100dvh; background: #1f2a44; color: #fff; display: flex; align-items: center; justify-content: center; }
+  .hs__slide { position: absolute; top: 0; left: 100%; width: 100vw; height: 100vh; background: #3b4a6b; }
+  .hs__slide--prev { left: auto; right: 100%; }
+  .hs__pause { position: fixed; bottom: 24px; right: 24px; z-index: 2147483647; padding: 10px 16px; background: #fff; color: #111; border: 0; }
+  .hs__dots { position: fixed; top: 0; left: 0; width: 100vw; height: 12px; background: rgb(255, 0, 200); }
+</style>
+<div class="hs">
+  <h1>{{ section.settings.heading }}</h1>
+  <div class="hs__slide"></div><div class="hs__slide hs__slide--prev"></div>
+  <button class="hs__pause" type="button" aria-label="Pause gallery">Pause gallery</button>
+  <div class="hs__dots"></div>
+</div>
+{% schema %}
+{ "name": "Hero Slideshow", "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "Headline goes here" } ],
+  "presets": [ { "name": "Hero Slideshow", "category": "Hero" } ] }
+{% endschema %}

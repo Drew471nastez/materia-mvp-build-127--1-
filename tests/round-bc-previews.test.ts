@@ -105,7 +105,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
   console.log("\nThe library's code")
   {
     const cs = read("components/website-builder/compat/compat-section-preview.tsx")
-    check("a card is measured shown, whatever put it away", /private measure\(key: string, w: HTMLElement\) \{[\s\S]{0,900}w\.hidden = false/.test(cs))
+    check("a card is measured shown, whatever put it away", /* Changed on purpose (round 45: what is shown or put away is the card's box, frameOf) */ /private measure\(key: string, w: HTMLElement\) \{[\s\S]{0,900}const box = frameOf\(w\)\s*box\.hidden = false/.test(cs))
     check("words in any element count (a tree walk over its text)", /function somethingToSee[\s\S]{0,800}createTreeWalker\(root, NodeFilter\.SHOW_TEXT\)/.test(cs))
     check("a blank card is drawn again with its own blocks, once", /if \(!shows && !this\.sampled\.has\(key\)\)/.test(cs))
     check("each card's own <style>s are put in an @scope of its wrapper", /@scope \(\$\{scope\}\)/.test(cs) && /keepStylesInside\(w, key\)/.test(cs))

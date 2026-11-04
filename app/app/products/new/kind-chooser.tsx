@@ -37,6 +37,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -142,9 +143,18 @@ export function KindList({ onChoose }: { onChoose: (kind: ProductKind) => void }
           </li>
         ))}
       </ul>
+      {/* Products from elsewhere: Gumroad's, as drafts (app/app/products/import/gumroad). A quiet line under the answers, not a third kind. */}
+      <div className="mx-3 mt-1 border-t border-[#eef0f2] pt-1">
+        <Link href={GUMROAD_IMPORT_HREF} data-import-gumroad="" className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-0 text-[14px] font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent] md:min-h-9 md:text-[13.5px]">
+          <span>{tt("Import from Gumroad")}</span>
+          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2]" />
+        </Link>
+      </div>
     </div>
   )
 }
+
+export const GUMROAD_IMPORT_HREF = "/app/products/import/gumroad"
 
 const CLOSE =
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] [-webkit-tap-highlight-color:transparent]"

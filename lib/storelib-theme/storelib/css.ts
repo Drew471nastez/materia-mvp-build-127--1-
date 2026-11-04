@@ -89,17 +89,92 @@ const EXPR = /\{\{[\s\S]*?\}\}/g
  */
 function maskExpressions(css: string): { masked: string; exprs: string[] } {
   const exprs: string[] = []
-  const masked = css.replace(EXPR, (m) => {
-    const token = `--sl-x${exprs.length}`
+  const statements = statementLevel(css)
+  const masked = css.replace(EXPR, (m, offset: number) => {
+    const n = exprs.length
     exprs.push(m)
+    /*
+      ═══════════════════════════════════════════════════════════════════
+       AN EXPRESSION THAT IS A WHOLE STYLESHEET OF ITS OWN (round 44)
+      ═══════════════════════════════════════════════════════════════════
+      `{{ settings | review_widget_css }}` stands where a rule would, and
+      prints rules. Masked as a word, postcss read it as the start of the
+      NEXT rule's selector: that rule came out as
+      `[data-section-id="…"] {{ … }} .s { … }`, so once the expression was
+      filled the scope went on the widget's first rule and the section's
+      own `.s { padding … }` was left with no scope at all. Every `.s` on
+      the page took the reviews section's padding: in Add section every
+      card drawn after a reviews card grew by its own top and bottom
+      padding, cut and shifted in its frame (scripts/check-add-section-
+      perf.mjs), and on a live page with a reviews widget every section
+      did. Masked as a comment, it is a statement of its own and is printed
+      where it was; the rules round it are scoped as they always were.
+    */
+    if (statements.has(offset)) {
+      const head = `/*sl-s${n}`
+      return `${head}${" ".repeat(Math.max(0, m.length - head.length - 2))}*/`
+    }
+    const token = `--sl-x${n}`
     // Same length wherever it lands, so postcss reports the real columns.
     return token.padEnd(Math.max(m.length, token.length), "_")
   })
   return { masked, exprs }
 }
 
+/**
+ * Where each expression that stands as a statement starts: outside every
+ * rule (at the top, or straight inside an @media or @supports), with
+ * nothing but space since the last `{`, `}` or `;`. Strings and comments
+ * are passed over; an expression inside a rule or a selector is a value.
+ */
+function statementLevel(css: string): Set<number> {
+  const out = new Set<number>()
+  const blocks: ("at" | "rule")[] = []
+  let prelude = ""
+  let i = 0
+  while (i < css.length) {
+    if (css.startsWith("{{", i)) {
+      const end = css.indexOf("}}", i + 2)
+      if (end < 0) break
+      const inside = blocks.length === 0 || blocks[blocks.length - 1] === "at"
+      if (inside && prelude.trim() === "") out.add(i)
+      else prelude += "x"
+      i = end + 2
+      continue
+    }
+    if (css.startsWith("/*", i)) {
+      const end = css.indexOf("*/", i + 2)
+      i = end < 0 ? css.length : end + 2
+      continue
+    }
+    const ch = css[i]
+    if (ch === '"' || ch === "'") {
+      let j = i + 1
+      while (j < css.length && css[j] !== ch) j += css[j] === "\\" ? 2 : 1
+      prelude += css.slice(i, j + 1)
+      i = j + 1
+      continue
+    }
+    if (ch === "{") {
+      blocks.push(prelude.trim().startsWith("@") ? "at" : "rule")
+      prelude = ""
+    } else if (ch === "}") {
+      blocks.pop()
+      prelude = ""
+    } else if (ch === ";") {
+      prelude = ""
+    } else {
+      prelude += ch
+    }
+    i++
+  }
+  return out
+}
+
 function unmaskExpressions(css: string, exprs: string[]): string {
-  return css.replace(/--sl-x(\d+)_*/g, (m, i) => exprs[Number(i)] ?? m)
+  return css
+    .replace(/\/\*sl-s(\d+) *\*\//g, (m, i) => exprs[Number(i)] ?? m)
+    .replace(/--sl-x(\d+)_*/g, (m, i) => exprs[Number(i)] ?? m)
 }
 
 export function scopeCss(css: string, opts: ScopeOptions): Result<string> {

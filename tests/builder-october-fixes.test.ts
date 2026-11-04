@@ -22,7 +22,8 @@ const editor = read("app/website-builder/editor/[installId]/page.tsx")
 console.log("\nAdd a section never shows a blank white card\n")
 const lib = read("components/website-builder/editor/section-library.tsx")
 check("a section that draws nothing to see is named in its card", /const empty = height < 8 \|\| \(words === 0 && !things\)/.test(lib) && /\{live && empty \? <EmptyPreview title=\{title\} \/> : null\}/.test(lib))
-check("what a script would reveal on scroll is shown in a card", /\[data-preview-box\] :is\(\[data-reveal\]/.test(lib) && /opacity:1!important/.test(lib))
+/* Changed on purpose (round 44): found once in a copy of the drawn preview and marked with a class (stillMarkup), not by attribute selectors in the document. */
+check("what a script would reveal on scroll is shown in a card", /const REVEALED = `\[data-reveal\]/.test(lib) && /el\.classList\.add\("wb-pv-reveal"\)/.test(lib) && /\.wb-pv \.wb-pv-reveal\{opacity:1!important/.test(lib))
 
 console.log("\nA save that fails says what happened and what to do\n")
 const bad = explainSaveProblem(400, { error: "Invalid body", issues: [{ path: ["sections", 1, "name"] }] }, [{ type: "hero", name: "Hero" }, { type: "quick_add_to_cart", name: "" }])

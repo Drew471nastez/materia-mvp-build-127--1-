@@ -95,7 +95,7 @@ import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builde
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { hasBuiltInArt, StorelibTile } from "@/components/app/settings/integration-mark"
-import { lazyImages, markupLooksEmpty, previewCardHeight, previewCentered, previewKey, sampleBlocks, splitStyles } from "@/lib/website-builder/preview-markup"
+import { freezeViewport, freezeViewportInStyles, lazyImages, markupLooksEmpty, previewCardHeight, previewCentered, previewKey, rememberedHeightsFrom, sampleBlocks, splitStyles, withoutSticky } from "@/lib/website-builder/preview-markup"
 import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
@@ -121,6 +121,18 @@ export const PREVIEW_RENDER_WIDTH_MOBILE = 390
 /** Box height over box width: a glimpse of the section, not all of it. */
 export const PREVIEW_RATIO = 0.56
 export const PREVIEW_RATIO_MOBILE = 1.22
+/**
+ * The window a preview is drawn in (round 45): as wide as it is drawn and
+ * this tall, whatever the editor's own window is. A section's viewport
+ * lengths are read against it (freezeViewport), and Storelib's own through
+ * `--sl-vh`. The same windows as an imported theme's cards
+ * (compat-section-preview.tsx WINDOW_HEIGHT_DESKTOP / _PHONE).
+ */
+export const PREVIEW_WINDOW_HEIGHT = 800
+export const PREVIEW_WINDOW_HEIGHT_MOBILE = 844
+export const previewWindowHeight = (renderWidth: number) => (renderWidth <= PREVIEW_RENDER_WIDTH_MOBILE ? PREVIEW_WINDOW_HEIGHT_MOBILE : PREVIEW_WINDOW_HEIGHT)
+/** What a preview's window says to Storelib's own sections, on the card and on the ruler that measures it alike. */
+const windowVars = (renderWidth: number) => ({ "--sl-vh": `${previewWindowHeight(renderWidth) / 100}px` }) as CSSProperties
 
 const PREVIEW_THEME: ThemeSettingsValues = {
   primary_color: "#6366f1",
@@ -212,6 +224,69 @@ const HEIGHTS = new Map<string, number>()
 const EMPTY = new Set<string>()
 /** Counts every batch of heights, for what has to be worked out again when they change (the eager cards). */
 let heightsVersion = 0
+
+/*
+  ===========================================================================
+   THE HEIGHTS ARE REMEMBERED IN THIS BROWSER (round 44)
+  ===========================================================================
+  A small device draws nothing ahead (editorSpares), so every visit opened
+  the library on cards a crop tall, and a card in sight whose section
+  turned out shorter was held at that height over white until the next
+  category: the Header card a 363px box round a 55px header. The heights
+  are a number a preview, keyed by everything that decides them (the
+  preview key: type, preset, width, the look and the creator's files), so
+  the next visit's cards are their own height from the first frame, before
+  anything is drawn. A convenience: a wrong or missing one only means a
+  card is measured again, as an imported theme's are (compat-section-
+  preview.tsx, rememberedHeights).
+*/
+/*
+  ROUND 45: CHECKED AS THEY ARE READ, AND NEVER ALLOWED TO MOVE THE LIST.
+  Only a preview's key (type, preset, one of the two widths a preview is
+  drawn at, the tag) with a height a section can be is taken
+  (rememberedHeightsFrom); the store before this round's (whose sections
+  were measured against the editor's window, freezeViewport) is let go. A
+  height that is only remembered is marked so (REMEMBERED) until its
+  section is drawn and measured in this visit, and a card sized by one is
+  never made taller in front of somebody either (useSteadyHeight).
+*/
+const HEIGHTS_STORE = "wb-preview-h:r45"
+const OLD_HEIGHTS_STORES = ["wb-preview-h:r44"]
+const PREVIEW_HEIGHT_KEY = /^[\w-]+:\d{1,3}:\d{3}:[a-z0-9]*$/
+const REMEMBERED = new Set<string>()
+let heightsRead = false
+let heightsWrite = 0
+function readRememberedHeights() {
+  if (heightsRead || typeof window === "undefined") return
+  heightsRead = true
+  try {
+    for (const old of OLD_HEIGHTS_STORES) window.localStorage.removeItem(old)
+    const raw = window.localStorage.getItem(HEIGHTS_STORE)
+    const widths = new Set([`${PREVIEW_RENDER_WIDTH}`, `${PREVIEW_RENDER_WIDTH_MOBILE}`])
+    const valid = rememberedHeightsFrom(raw ? (JSON.parse(raw) as unknown) : null, PREVIEW_HEIGHT_KEY, (key) => widths.has(key.split(":")[2]))
+    for (const [key, h] of Object.entries(valid)) {
+      if (HEIGHTS.has(key)) continue
+      HEIGHTS.set(key, h)
+      REMEMBERED.add(key)
+    }
+  } catch {
+    /* no storage: measured as they come */
+  }
+}
+function rememberHeights() {
+  if (typeof window === "undefined") return
+  window.clearTimeout(heightsWrite)
+  heightsWrite = window.setTimeout(() => {
+    try {
+      /* The latest few hundred: a colour changed many times is a new look each time, and the old ones are never asked for again. */
+      const kept = [...HEIGHTS].filter(([key, h]) => h > 0 && !EMPTY.has(key)).slice(-400)
+      const all: Record<string, number> = Object.fromEntries(kept)
+      window.localStorage.setItem(HEIGHTS_STORE, JSON.stringify(all))
+    } catch {
+      /* full or blocked: kept for this visit only */
+    }
+  }, 1500)
+}
 const listeners = new Set<() => void>()
 const notify = () => {
   for (const l of listeners) l()
@@ -250,7 +325,7 @@ let running = false
 function Capture({ onCapture, children }: { onCapture: (html: string) => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    onCapture(ref.current?.innerHTML ?? "")
+    onCapture(ref.current ? stillMarkup(ref.current) : "")
   })
   return <div ref={ref}>{children}</div>
 }
@@ -344,8 +419,10 @@ function drawWith(job: Job, sample: boolean, pictures: boolean): string {
     )
   })
   const split = splitStyles(html)
-  addStyles(split.css)
-  return lazyImages(split.html)
+  /* Its viewport lengths, of the page it is drawn on (freezeViewport), not of the editor's window. */
+  const winH = previewWindowHeight(job.width)
+  addStyles(split.css.map(withoutSticky).map((css) => freezeViewport(css, job.width, winH)))
+  return lazyImages(freezeViewportInStyles(withoutSticky(split.html), job.width, winH))
 }
 
 /**
@@ -403,7 +480,7 @@ function measureMany(items: { html: string; width: number }[]): { height: number
   ruler.style.width = `${Math.max(0, ...items.map((i) => i.width))}px`
   const boxes = items.map((item) => {
     const box = document.createElement("div")
-    box.style.cssText = `width:${item.width}px;contain:layout paint`
+    box.style.cssText = `width:${item.width}px;contain:layout paint;--sl-vh:${previewWindowHeight(item.width) / 100}px`
     box.innerHTML = item.html
     return box
   })
@@ -469,13 +546,34 @@ let lastInput = 0
 let urgent = false
 let waiting = 0
 let watching = false
+/*
+  ===========================================================================
+   AN OPEN LIBRARY DRAWS BETWEEN PRESSES, NOT UNDER THEM (round 44)
+  ===========================================================================
+  The owner, on a small phone: the library "stutters and lags when clicking
+  categories and scrolling". A small device draws nothing ahead, so every
+  preview was drawn with the library open, as urgent work that ignored
+  input: one section at a time is 40 to 110ms at a quarter or a sixth of a
+  computer's speed, and they landed under every pill press and every
+  frame of a scroll (scripts/check-add-section-perf.mjs: 29 long tasks over
+  the category presses on a computer at a quarter speed, 2.2s of them).
+  Open, a press, a wheel, a touch or a scroll now holds the drawing for
+  OPEN_QUIET_MS, about a third of a second, so the press is answered and
+  the scroll runs on frames of its own; the cards it reaches are drawn the
+  moment it rests, nearest the screen first (promotePreviews). Hovering is
+  not a press: a pointer resting over the list holds nothing.
+*/
+const OPEN_QUIET_MS = 320
+let lastPress = -Infinity
 function watchInput() {
   if (watching || typeof window === "undefined") return
   watching = true
   const seen = () => { lastInput = performance.now() }
+  const pressed = () => { lastPress = lastInput = performance.now() }
   const o = { capture: true, passive: true } as const
-  for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(type, seen, o)
-  document.addEventListener("scroll", seen, o)
+  window.addEventListener("pointermove", seen, o)
+  for (const type of ["pointerdown", "keydown", "wheel", "touchstart", "touchmove"]) window.addEventListener(type, pressed, o)
+  document.addEventListener("scroll", pressed, o)
   /* A sheet sliding (Ask Storelib's going down, the sections sheet coming up) is the screen in use too: a batch laid out in its slide was a 278ms task at a quarter speed (scripts/check-ask-sheet-r18.mjs). */
   const moving = (e: Event) => {
     if (e.target instanceof Element && e.target.matches("[data-mobile-bottom-sheet]")) seen()
@@ -506,11 +604,36 @@ export function holdPreviewsForAi(on: boolean) {
   if (!on && typeof window !== "undefined" && (queue.length || unmeasured.length)) pump()
 }
 
+/** How long since the last press, scroll or key, while the library is open: the work it waits on waits this much longer. */
+function pressQuietFor(): number {
+  return Math.max(0, OPEN_QUIET_MS - (performance.now() - lastPress))
+}
+
 /** How much longer warm work has to wait, or 0 when it may run. */
 function busyFor(): number {
-  if (urgent || typeof performance === "undefined") return 0
+  if (typeof performance === "undefined") return 0
+  if (urgent) return pressQuietFor()
   if (aiAtWork) return INPUT_QUIET_MS
   return Math.max(0, INPUT_QUIET_MS - (performance.now() - lastInput))
+}
+
+/*
+  ===========================================================================
+   A SLICE TAKES ON WHAT IT HAS ROOM FOR, AS THE DEVICE HAS SHOWN IT (round 44)
+  ===========================================================================
+  A slice went on drawing while it had 12ms left and measured eight at a
+  time whatever it had left, numbers that suit a computer at full speed. On
+  a slow phone one section is 40ms and eight measured are 100ms and more,
+  so nearly every slice overran its idle moment into the next frame. What a
+  draw and a measured preview have cost on this device is learnt as they
+  happen, and a slice starts another only when the moment left has room
+  for it; always one, so the work still finishes.
+*/
+let drawCost = 8
+let measureCost = 4
+const learnCost = (was: number, ms: number) => (Number.isFinite(ms) && ms >= 0 ? was * 0.6 + ms * 0.4 : was)
+function roomFor(deadline: { timeRemaining: () => number }, each: number, most: number): number {
+  return Math.max(1, Math.min(most, Math.floor(deadline.timeRemaining() / Math.max(1, each))))
 }
 
 function pump() {
@@ -531,26 +654,30 @@ function pump() {
     if (unmeasured.length) {
       /* After the styles are in, so each is measured as it will look. */
       flushStyles()
-      /* A batch per idle moment (measureMany), and more while the moment has room. */
+      /* A batch per idle moment (measureMany), as many as the moment has room for, and more while it has room. */
       do {
-        const batch = unmeasured.splice(0, MEASURE_BATCH)
+        const batch = unmeasured.splice(0, roomFor(deadline, measureCost, MEASURE_BATCH))
         let sizes: { height: number; empty: boolean }[]
+        const began = performance.now()
         try {
           sizes = measureMany(batch)
         } catch {
           sizes = batch.map(() => ({ height: 0, empty: true }))
         }
+        measureCost = learnCost(measureCost, (performance.now() - began) / batch.length)
         batch.forEach((next, k) => {
           const { height, empty } = sizes[k]
           if (empty || !next.html) EMPTY.add(next.key)
           else EMPTY.delete(next.key)
           HEIGHTS.set(next.key, height)
+          REMEMBERED.delete(next.key)
           MARKUP.set(next.key, next.html)
           pending.delete(next.key)
         })
-      } while (unmeasured.length && deadline.timeRemaining() > MEASURE_ROOM_MS)
+      } while (unmeasured.length && deadline.timeRemaining() > Math.max(MEASURE_ROOM_MS, measureCost * 2))
       heightsVersion++
       notify()
+      rememberHeights()
     } else {
       do {
         const job = queue.shift()
@@ -558,14 +685,16 @@ function pump() {
         queued.delete(job.key)
         if (MARKUP.has(job.key) || pending.has(job.key)) continue
         let html = ""
+        const began = performance.now()
         try {
           html = drawOne(job)
         } catch {
           html = ""
         }
+        drawCost = learnCost(drawCost, performance.now() - began)
         pending.add(job.key)
         unmeasured.push({ key: job.key, html, width: job.width })
-      } while (queue.length && deadline.timeRemaining() > 12)
+      } while (queue.length && deadline.timeRemaining() > Math.max(12, drawCost * 1.25))
     }
     if (queue.length || unmeasured.length) pump()
     else urgent = false
@@ -581,6 +710,23 @@ function pump() {
  */
 export function calmPreviews() {
   urgent = false
+}
+
+/**
+ * What the library shows now goes first, in the order it shows it: a
+ * category pressed, or cards scrolled near (PreviewBox). The queue is the
+ * order of the whole library, so a category near its foot waited for every
+ * card above it to be drawn.
+ */
+export function promotePreviews(keys: readonly string[]) {
+  if (!queue.length || !keys.length) return
+  const want = new Map(keys.map((k, i) => [k, i]))
+  const first: Job[] = []
+  const rest: Job[] = []
+  for (const j of queue) (want.has(j.key) ? first : rest).push(j)
+  if (!first.length) return
+  first.sort((a, b) => want.get(a.key)! - want.get(b.key)!)
+  queue.splice(0, queue.length, ...first, ...rest)
 }
 
 /** Ask for previews; the first in the list first. Already drawn, being drawn or already asked for: nothing. */
@@ -614,7 +760,51 @@ function useDrawnEmpty(key: string): boolean {
  * written and imported sections use for the same) would stay hidden in its
  * card forever. In a card they are simply there.
  */
-const REVEAL_SHOWN = `[data-preview-box] :is([data-reveal],[data-animate],[data-aos],.reveal,.fade-in,.fade-up,.scroll-trigger,.animate-on-scroll,.js-animate,.wow,[class*="reveal"],[class*="animate--"],[style*="opacity: 0"],[style*="opacity:0"]){opacity:1!important;visibility:visible!important;transform:none!important;clip-path:none!important}`
+/*
+  ===========================================================================
+   BUT NEVER WHAT IS CLOSED ON PURPOSE (round 44)
+  ===========================================================================
+  The owner: the Header card was "completely broken ... garbled". Its card
+  showed the header's search field, an X and an empty suggestions box, with
+  the logo and the menu under them. The header draws its search panel
+  closed as `opacity: 0; pointer-events: none` with aria-hidden, over the
+  header's own row, and the rule below took every inline `opacity: 0` for
+  a reveal still to come and showed it. A closed panel, drawer or menu says
+  so: aria-hidden, inert, or no pointer events. Those keep their own look.
+
+  AND NOTHING STICKY, NOTHING MOVING. A card is a still picture: a sticky
+  header (and an FAQ's sticky column) has nothing to stick to in it, and as
+  relative it lays out exactly where sticky put it at rest. A section's own
+  animations (a spinner, a ticker, an entrance) and its will-change layers
+  were drawn again on every frame the list scrolled, in cards nobody was
+  looking at as animations: at a sixth of a computer's speed, freezing them
+  took one scroll of the whole list from 43 long tasks to 35 and its 95th
+  percentile frame from 50ms to 33ms (one A/B, on a busy machine).
+  Each ends at once on its last frame, so an entrance shows what it brings
+  in, never the nothing it starts from.
+*/
+/*
+  WHAT WOULD BE REVEALED IS FOUND ONCE, AS THE PREVIEW IS DRAWN, NOT BY THE
+  PAGE'S STYLESHEET (round 44). These were attribute substring selectors in
+  the document, tried against every element restyled anywhere in the editor
+  while somebody scrolled the canvas. A copy of the drawn preview is walked
+  once instead, and what is to be shown gets a class of its own; the cards'
+  rules are class selectors under the preview's own class, `.wb-pv`.
+*/
+const REVEALED = `[data-reveal],[data-animate],[data-aos],.reveal,.fade-in,.fade-up,.scroll-trigger,.animate-on-scroll,.js-animate,.wow,[class*="reveal"],[class*="animate--"],[style*="opacity: 0"],[style*="opacity:0"]`
+function closedOnPurpose(el: Element): boolean {
+  const style = el.getAttribute("style") ?? ""
+  return el.getAttribute("aria-hidden") === "true" || el.hasAttribute("inert") || /pointer-events\s*:\s*none/i.test(style)
+}
+/** A drawn preview's markup, what a script would reveal marked to be shown (wb-pv-reveal). Read from a copy: the drawing root's own nodes are React's. */
+function stillMarkup(root: HTMLElement): string {
+  const copy = root.cloneNode(true) as HTMLElement
+  for (const el of Array.from(copy.querySelectorAll(REVEALED))) if (!closedOnPurpose(el)) el.classList.add("wb-pv-reveal")
+  return copy.innerHTML
+}
+const REVEAL_SHOWN = `.wb-pv .wb-pv-reveal{opacity:1!important;visibility:visible!important;transform:none!important;clip-path:none!important}
+.wb-pv .sticky{position:relative!important;inset:auto!important}
+.wb-pv *{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;will-change:auto!important}`
 let revealStyled = false
 function showRevealsInCards() {
   if (revealStyled || typeof document === "undefined") return
@@ -623,6 +813,33 @@ function showRevealsInCards() {
   sheet.setAttribute("data-section-preview-reveal", "")
   sheet.textContent = REVEAL_SHOWN
   document.head.appendChild(sheet)
+}
+
+/*
+  CARDS SCROLLED NEAR ARE DRAWN NEXT (round 44). One observer for every card
+  still waiting for its preview, a screen above and below the list's
+  window: what comes into reach goes to the front of the queue, top first.
+*/
+let nearObserver: IntersectionObserver | null = null
+const nearKeys = new WeakMap<Element, string>()
+function observeNear(el: Element, key: string): () => void {
+  if (typeof IntersectionObserver === "undefined") return () => {}
+  if (!nearObserver) {
+    nearObserver = new IntersectionObserver(
+      (seen) => {
+        const keys = seen
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+          .map((e) => nearKeys.get(e.target))
+          .filter((k): k is string => !!k)
+        promotePreviews(keys)
+      },
+      { rootMargin: "100% 0px" },
+    )
+  }
+  nearKeys.set(el, key)
+  nearObserver.observe(el)
+  return () => nearObserver?.unobserve(el)
 }
 
 /** The section's own height as drawn, in the width it was drawn at; undefined until it has been. */
@@ -714,18 +931,23 @@ function releaseHeld(all: boolean) {
  * whose section is not measured yet keeps what it has, so a creator's
  * section drawn again does not grow its card to the crop and back.
  */
-function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted: number, width: number, known: boolean): number {
-  const [kept, setKept] = useState(() => ({ height: wanted, width }))
+function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted: number, width: number, known: boolean, fromMemory = false): number {
+  const [kept, setKept] = useState(() => ({ height: wanted, width, mem: fromMemory }))
   useLayoutEffect(() => {
     /* A new width is a new layout: everything is its new size at once. */
     if (kept.width !== width) {
-      setKept({ height: wanted, width })
+      setKept({ height: wanted, width, mem: fromMemory })
       return
     }
-    if (kept.height === wanted || !known) return
-    const take = () => setKept({ height: wanted, width })
+    if (kept.height === wanted) {
+      if (kept.mem && !fromMemory) setKept({ height: wanted, width, mem: false })
+      return
+    }
+    if (!known) return
+    const take = () => setKept({ height: wanted, width, mem: fromMemory })
     const box = boxRef.current
-    if (wanted > kept.height || !box || !inSight(box)) {
+    /* Round 45: a card sized by a height only remembered is not made taller in front of somebody either: its section is cut at its foot until nobody can see it change. */
+    if ((wanted > kept.height && !kept.mem) || !box || !inSight(box)) {
       take()
       return
     }
@@ -734,7 +956,7 @@ function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted:
     return () => {
       heldCards.delete(held)
     }
-  }, [boxRef, wanted, width, known, kept])
+  }, [boxRef, wanted, width, known, kept, fromMemory])
   return kept.width === width ? kept.height : wanted
 }
 
@@ -799,8 +1021,15 @@ const PreviewBox = memo(function PreviewBox({
   }, [html])
   /* As tall as its section, between a floor and the crop, and never shorter in front of somebody. */
   const boxRef = useRef<HTMLDivElement | null>(null)
+  const waitingForIt = stored === undefined
+  useEffect(() => {
+    const el = boxRef.current
+    if (!waitingForIt || !el) return
+    return observeNear(el, markupKey)
+  }, [waitingForIt, markupKey])
   const drawn = useDrawnHeight(markupKey)
-  const height = useSteadyHeight(boxRef, previewCardHeight(drawn, width, renderWidth, ratio), width, drawn !== undefined)
+  const fromMemory = drawn !== undefined && REMEMBERED.has(markupKey)
+  const height = useSteadyHeight(boxRef, previewCardHeight(drawn, width, renderWidth, ratio), width, drawn !== undefined, fromMemory)
   const scale = width > 0 ? width / renderWidth : 0.3
   const centered = previewCentered(drawn, width, renderWidth, height)
   const inner: CSSProperties = {
@@ -809,6 +1038,11 @@ const PreviewBox = memo(function PreviewBox({
     minHeight: height ? Math.ceil(height / scale) : undefined,
     ...(centered ? IN_THE_MIDDLE : null),
     transform: `scale(${scale})`,
+    /* The page the section is drawn on: what it paints past its own width or its foot is cut here, and its window is the card's (windowVars). */
+    contain: "layout paint style",
+    overflow: "clip",
+    isolation: "isolate",
+    ...windowVars(renderWidth),
     pointerEvents: "none",
     userSelect: "none",
   }
@@ -816,22 +1050,40 @@ const PreviewBox = memo(function PreviewBox({
     <div
       ref={boxRef}
       data-preview-box=""
-      className="relative w-full overflow-hidden bg-[#f3f4f6]"
+      /*
+        Until its preview is in: a soft band of light crossing the grey, only
+        while the library is open (app/globals.css, .wb-preview-shimmer). On
+        the box itself, not a child laid over it (round 44): a child of a box
+        that content-visibility skipped has no place until the box is drawn,
+        and every one that came into view was reported as a layout shift
+        from nowhere, 0.09 of one in a single scroll on a small phone.
+      */
+      data-preview-shimmer={!html && !(live && empty) ? "" : undefined}
+      className={cn("relative w-full overflow-hidden bg-[#f3f4f6]", !html && !(live && empty) && "wb-preview-shimmer")}
       style={{
         /* The box is its section's height before anything is drawn in it, so the list never moves. */
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
+        /*
+          A HARD BOX (round 45). Its own size whatever it holds (strict: size,
+          layout, paint, style), the box every absolute and fixed element in
+          its section is placed against (the scale on .wb-pv is one too), cut
+          at its edges, and a stacking context of its own, so a z-index of a
+          million in a section is a million inside this card and nowhere
+          else. Nothing drawn in a card can paint outside it.
+        */
+        contain: "strict",
+        overflow: "clip",
+        isolation: "isolate",
         contentVisibility: eager ? "visible" : "auto",
         containIntrinsicSize: `${width || 200}px ${height || 200}px`,
       }}
     >
       {live && empty ? <EmptyPreview title={title} /> : null}
-      {/* Until its preview is in: a soft band of light crossing the grey, only while the library is open (app/globals.css, .wb-preview-shimmer). */}
-      {!html && !(live && empty) ? <span aria-hidden data-preview-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
       {html && (
         <div
           ref={innerRef}
-          className="absolute left-0 top-0 origin-top-left bg-white"
+          className="wb-pv absolute left-0 top-0 origin-top-left bg-white"
           data-keep-transform
           style={inner}
           aria-hidden
@@ -932,6 +1184,8 @@ const PHONE_QUERY = "(max-width: 639px)"
 const FILL_PER_FRAME = 4
 /** How many at the top of what is showing are drawn outright rather than when the browser gets to them. */
 const EAGER_CARDS = 3
+/** How many at the top of the list a small device draws ahead, with the header and the footer (see the warm-up). */
+const SPARE_DEVICE_AHEAD = 4
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
 /** And again after the look changed (an Ask Storelib run, a colour slider), once it has stood this long. */
@@ -1002,6 +1256,8 @@ export const SectionLibrary = memo(function SectionLibrary({
    */
   compatInstallId?: string | null
 }) {
+  /* Before any card asks for its height (readRememberedHeights). */
+  readRememberedHeights()
   const [phone, setPhone] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY)
@@ -1098,6 +1354,32 @@ export const SectionLibrary = memo(function SectionLibrary({
     return out
   }, [addable, schemas, own, sourcesTag, lookTag, compatInstallId])
 
+  /*
+    ===========================================================================
+     A CARD ONCE BUILT IS KEPT, WHICHEVER GROUP THE LIBRARY OPENS FOR (round 44)
+    ===========================================================================
+    Add section in the Header group lists the header and the bars that go
+    above it, three cards; the page's lists sixty. Each opening built its
+    own list, so going to the Header group took the other fifty seven cards
+    and their previews out of the document, and coming back to the page put
+    them all in again in one commit, every preview parsed at once: 400ms
+    and more on a small phone (scripts/check-add-section-perf.mjs, "hdr
+    open"). The cards a group does not offer stay, hidden as a category
+    hides them, so either way is a filter. Forgotten only when their section
+    is no longer the one the theme has.
+  */
+  const keptCards = useRef(new Map<string, LibraryEntry>())
+  const cards = useMemo(() => {
+    const kept = keptCards.current
+    const now = new Set<string>()
+    for (const e of entries) {
+      now.add(cardKey(e))
+      kept.set(cardKey(e), e)
+    }
+    for (const [k, e] of kept) if (!now.has(k) && schemas[e.type] !== e.schema) kept.delete(k)
+    return [...entries, ...[...kept].filter(([k]) => !now.has(k)).map(([, e]) => e)]
+  }, [entries, schemas])
+
   /**
    * The creator's own sections FIRST, then everything, then the theme's own
    * order. What somebody made themselves is what they come back for.
@@ -1150,6 +1432,26 @@ export const SectionLibrary = memo(function SectionLibrary({
     () => entries.map((e) => ({ key: e.keyFor(renderWidth), type: e.type, presetIndex: e.presetIndex, schema: e.schema, width: renderWidth, sources, theme: previewTheme })),
     [entries, renderWidth, sources, previewTheme],
   )
+  /*
+    THE HEADER AND THE FOOTER, DRAWN AHEAD AS WELL (round 44). Add section in
+    the Header group (or the Footer's) is a library of its own, the header
+    first in it, and the header is never among a page's sections: its
+    preview was only drawn once that library was opened, so its card stood
+    a crop tall, 363px round a 55px header, until the next category. Drawn
+    after everything else, in the same quiet moments, so its card is its
+    own height the first time.
+  */
+  const spareJobs = useMemo(() => {
+    if (compatInstallId) return []
+    const out: typeof jobs = []
+    for (const type of ["header", "footer"]) {
+      const schema = schemas[type]
+      if (!schema || addable.includes(type) || own.has(type)) continue
+      const n = (schema.presets?.length ?? 0) > 1 ? schema.presets!.length : 1
+      for (let i = 0; i < n; i++) out.push({ key: previewKey(type, i, renderWidth, lookTag), type, presetIndex: i, schema, width: renderWidth, sources, theme: previewTheme })
+    }
+    return out
+  }, [compatInstallId, schemas, addable, own, renderWidth, lookTag, sources, previewTheme])
   /**
    * The cards are built the first time the library is opened, or once the
    * previews have been drawn in idle time, whichever is first. Until then
@@ -1187,16 +1489,28 @@ export const SectionLibrary = memo(function SectionLibrary({
       is drawn ahead as before; a changed one once it has stood for
       REWARM_AFTER_MS, and an open library draws what it shows at once.
     */
-    /* A small device draws the previews when Add section is opened, not while the canvas is being scrolled. */
-    if (editorSpares()) return
+    /*
+      A small device draws the previews when Add section is opened, not while
+      the canvas is being scrolled. All but the first screen of them (round
+      44): the header, the footer and the top of the list are drawn in the
+      editor's quiet moments as on any device, a handful of sections, so the
+      library opens on pictures at their own heights, and a Header group
+      library on a header its own size, rather than on grey a crop tall.
+    */
+    if (editorSpares()) {
+      if (compatInstallId) return
+      const t = window.setTimeout(() => requestPreviews([...jobs.slice(0, SPARE_DEVICE_AHEAD), ...spareJobs]), WARM_AFTER_MS)
+      return () => window.clearTimeout(t)
+    }
     const t = window.setTimeout(() => {
       const again = warmed.current
       warmed.current = true
       if (!compatInstallId) requestPreviews(again ? jobs.filter((j) => !MARKUP.has(j.key)).slice(0, REWARM_FIRST) : jobs)
+      requestPreviews(again ? spareJobs.filter((j) => !MARKUP.has(j.key)) : spareJobs)
       idle(() => setBuilt(true))
     }, warmed.current ? REWARM_AFTER_MS : WARM_AFTER_MS)
     return () => window.clearTimeout(t)
-  }, [open, jobs, compatInstallId])
+  }, [open, jobs, spareJobs, compatInstallId])
 
   /**
    * ===========================================================================
@@ -1231,6 +1545,11 @@ export const SectionLibrary = memo(function SectionLibrary({
   useEffect(() => {
     orderRef.current = order
   }, [order])
+  /* A category pressed in an open library: its cards are drawn first, top to bottom (promotePreviews). */
+  useEffect(() => {
+    if (!open || compatInstallId) return
+    promotePreviews(entries.filter((e) => shown.has(e)).map((e) => e.keyFor(renderWidth)))
+  }, [open, compatInstallId, entries, shown, renderWidth])
   useEffect(() => {
     if (!built) return
     /* Closed, on a small device: nothing is parsed until Add section is open. */
@@ -1250,7 +1569,8 @@ export const SectionLibrary = memo(function SectionLibrary({
         cards among the renders of a one section edit).
       */
       watchInput()
-      const wait = open ? 0 : busyFor()
+      /* Open, between presses and scrolls (OPEN_QUIET_MS): each batch is markup parsed and laid out, which a scroll's frames have no room for on a slow phone. */
+      const wait = open ? pressQuietFor() : busyFor()
       if (wait > 0) {
         later = window.setTimeout(step, wait)
         return
@@ -1532,7 +1852,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       <div ref={gridRef} data-library-grid="" className="relative flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
         {/* An imported theme's sections, every one in one document over the cards (compat-section-preview.tsx). */}
         {compatInstallId ? <CompatPreviewSheet renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} open={open} layoutKey={`${filterKey}:${cardWidth}`} /> : null}
-        {entries.map((e) => {
+        {cards.map((e) => {
           const k = cardKey(e)
           return (
             <LibraryCard

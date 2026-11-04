@@ -1,0 +1,24 @@
+<style>
+  .ba { padding: 40px 0; text-align: center; }
+  .ba__stage { display: flex; gap: 0; margin: 0 auto; width: 80%; }
+  .ba__half { flex: 1; height: 260px; }
+  .ba__half--before { background: #d9c7b8; margin-top: -180px; }
+  .ba__half--after { background: #8fb3a5; transform: translateY(240px) scale(1.4); z-index: 9999; position: relative; }
+  .ba__label { position: absolute; top: -90px; left: 8px; background: #111; color: #fff; padding: 4px 10px; z-index: 99999; }
+  .ba__label--after { top: auto; bottom: -400px; left: auto; right: -300px; }
+  .ba__arrow { position: absolute; left: 50%; top: -260px; width: 360px; height: 360px; }
+  .ba::before { content: ""; position: absolute; inset: -500px; border: 6px solid rgb(255, 0, 200); }
+  .ba::after { content: "After"; position: fixed; bottom: -40px; right: -40px; background: rgb(255, 0, 200); padding: 20px; }
+</style>
+<div class="ba page-width">
+  <h2>{{ section.settings.heading }}</h2>
+  <div class="ba__stage">
+    <div class="ba__half ba__half--before"><span class="ba__label">Before</span></div>
+    <div class="ba__half ba__half--after"><span class="ba__label ba__label--after">After</span></div>
+  </div>
+  <svg class="ba__arrow" viewBox="0 0 100 100"><path d="M10 80 C 30 10, 70 10, 90 60" stroke="#111" stroke-width="4" fill="none"/></svg>
+</div>
+{% schema %}
+{ "name": "Before / After", "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "Before / After" } ],
+  "presets": [ { "name": "Before / After", "category": "Hero" } ] }
+{% endschema %}

@@ -243,7 +243,7 @@ export function marketplaceReferrer(referer: string | null | undefined, mainDoma
 }
 
 const RESERVED_FIRST = new Set([
-  "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "cart", "checkout", "creators", "dashboard",
+  "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "cart", "checkout", "creators", "dashboard",
   "developers", "downloads", "faq", "features", "forgot-password", "legal", "library", "login", "logout", "native-start",
   "onboarding", "pricing", "privacy", "purchase", "receipt", "reset-password", "settings", "signup", "terms", "welcome", "w",
 ])

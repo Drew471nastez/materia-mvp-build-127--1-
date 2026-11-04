@@ -127,9 +127,11 @@ async function handlers() {
 console.log("\nWhat is kept hidden stays still, and drawing ahead steps aside")
 {
   const css = read("app/globals.css")
-  check("animations inside the closed library, block picker and Ask card are paused", /\.wb-library-layer\[data-state="closed"\] \*,[\s\S]*?\[data-block-picker-layer\]\[data-state="closed"\] \*,[\s\S]*?\[data-ask-card\]\[aria-hidden="true"\] \*::after \{\s*animation-play-state: paused !important;/.test(css))
+  /* Changed on purpose (round 44): the section library's previews hold nothing that moves (REVEAL_SHOWN freezes them), so it is no longer in the pause rule, whose `*` restyled the whole library on every open and close. */
+  check("animations inside the closed block picker and Ask card are paused, and the library's previews never move", /\[data-block-picker-layer\]\[data-state="closed"\] \*,[\s\S]*?\[data-ask-card\]\[aria-hidden="true"\] \*::after \{\s*animation-play-state: paused !important;/.test(css) && !/\.wb-library-layer\[data-state="closed"\] \*,/.test(css) && /\.wb-pv \*\{animation-duration:0s!important/.test(read("components/website-builder/editor/section-library.tsx")))
   const lib = read("components/website-builder/editor/section-library.tsx")
-  check("a closed library puts its cards in only once the editor is quiet", /const wait = open \? 0 : busyFor\(\)/.test(lib) && /later = window\.setTimeout\(step, wait\)/.test(lib) && /window\.clearTimeout\(later\)/.test(lib))
+  /* Changed on purpose (round 44): an open one waits out a press or a scroll (pressQuietFor), a third of a second. */
+  check("a closed library puts its cards in only once the editor is quiet", /const wait = open \? pressQuietFor\(\) : busyFor\(\)/.test(lib) && /later = window\.setTimeout\(step, wait\)/.test(lib) && /window\.clearTimeout\(later\)/.test(lib))
   check("and steps aside while a change from outside lands", /export function deferPreviewsForChange\(\)/.test(lib) && /if \(events\.length > 0\) deferPreviewsForChange\(\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 }
 

@@ -19,25 +19,41 @@ import { cn } from '@/lib/utils'
  * screen less 24px on a phone, so the whole sentence is always there.
  */
 
+/*
+  ONE PROVIDER FOR A SCREEN FULL OF TOOLTIPS (round 44). Each tooltip came in
+  a provider of its own, three components more for every one, and the
+  website builder draws about forty on a section pick (its bars, the
+  section's toolbar, the fields): about 540 component renders of a four
+  section walk (scripts/check-editor-perf.mjs PART=smooth HOOKS=1). Inside a
+  TooltipProvider a tooltip uses that one. Its own delay is still 0 unless it
+  asks for another, as it was with a provider of its own.
+*/
+const SharedProvider = React.createContext(false)
+
 function TooltipProvider({
   delayDuration = 0,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
+    <SharedProvider.Provider value>
+      <TooltipPrimitive.Provider
+        data-slot="tooltip-provider"
+        delayDuration={delayDuration}
+        {...props}
+      />
+    </SharedProvider.Provider>
   )
 }
 
 function Tooltip({
+  delayDuration,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  const shared = React.useContext(SharedProvider)
+  if (shared) return <TooltipPrimitive.Root data-slot="tooltip" delayDuration={delayDuration ?? 0} {...props} />
   return (
     <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+      <TooltipPrimitive.Root data-slot="tooltip" delayDuration={delayDuration} {...props} />
     </TooltipProvider>
   )
 }

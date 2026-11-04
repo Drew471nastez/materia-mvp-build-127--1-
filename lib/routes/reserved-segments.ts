@@ -26,6 +26,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "account",
   "account-deletion",
   "admin",
+  /* The comparison pages: /alternatives and /alternatives/<platform>. */
+  "alternatives",
   "api",
   "app",
   "auth",

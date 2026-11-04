@@ -113,7 +113,9 @@ const MEASURE = () => {
     if (!doc?.body) continue
     const fw = f.clientWidth
     const fh = f.clientHeight
-    for (const w of doc.querySelectorAll("[data-sl-pv]")) {
+    for (const inner of doc.querySelectorAll("[data-sl-pv]")) {
+      /* Each section sits in its card's <sl-card> box (round 45, sheetRules): the box is what is put over the card and cut at its foot. */
+      const w = inner.parentElement?.localName === "sl-card" ? inner.parentElement : inner
       const ws = doc.defaultView.getComputedStyle(w)
       if (w.hidden || ws.display === "none") { skip("hidden"); continue }
       /* One fading in (data-on, its first frame at opacity 0) is there, and is held to its card like any other. */
@@ -128,7 +130,7 @@ const MEASURE = () => {
       const visible = cl[2] > cl[0] && cl[3] > cl[1]
       const [cl0, cl1] = toScreen(cl[0], cl[1])
       const [cl2, cl3] = toScreen(cl[2], cl[3])
-      painted.push({ key: w.getAttribute("data-sl-pv"), frame: frames.indexOf(f), r: [l, t, rr, bb], clip: visible ? [cl0, cl1, cl2, cl3] : null })
+      painted.push({ key: inner.getAttribute("data-sl-pv"), frame: frames.indexOf(f), r: [l, t, rr, bb], clip: visible ? [cl0, cl1, cl2, cl3] : null })
     }
   }
   const out = { cards: cards.length, seen: cards.filter((c) => c.seen).length, shown: cards.filter((c) => c.state === "shown").length, frames: frames.length, painted: painted.length, skipped, bad: [] }
@@ -148,7 +150,8 @@ const MEASURE = () => {
   for (const c of cards) {
     if (c.state !== "shown" || wrapped.has(c.key)) continue
     /* What became of its section, to tell a picture that is gone from one not yet put back. */
-    const w = frames.map((f) => f.contentDocument?.querySelector(`[data-sl-pv="${CSS.escape(c.key)}"]`)).find(Boolean)
+    const found = frames.map((f) => f.contentDocument?.querySelector(`[data-sl-pv="${CSS.escape(c.key)}"]`)).find(Boolean)
+    const w = found?.parentElement?.localName === "sl-card" ? found.parentElement : found
     const ws = w ? w.ownerDocument.defaultView.getComputedStyle(w) : null
     const wrapper = w ? { hidden: w.hidden, on: w.hasAttribute("data-on"), placed: w.hasAttribute("data-placed"), opacity: ws.opacity, visibility: ws.visibility, h: Math.round(w.getBoundingClientRect().height) } : null
     out.bad.push({ kind: "missing", key: c.key, card: round(c.r), seen: c.seen, wrapper })

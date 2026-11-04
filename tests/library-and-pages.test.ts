@@ -256,11 +256,13 @@ async function main() {
 
     const pump = library.slice(library.indexOf("function pump()"), library.indexOf("export function requestPreviews"))
     check("each preview is measured once, after it is drawn and its styles are in",
-      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /sizes = measureMany\(batch\)/.test(pump) && /const batch = unmeasured\.splice\(0, MEASURE_BATCH\)/.test(pump))
+      /* Changed on purpose (round 44): the batch is what the moment has room for (roomFor), eight at most. */
+      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /sizes = measureMany\(batch\)/.test(pump) && /const batch = unmeasured\.splice\(0, roomFor\(deadline, measureCost, MEASURE_BATCH\)\)/.test(pump))
     check("and its card is handed the preview and the height together",
-      /HEIGHTS\.set\(next\.key, height\)\s*\n\s*MARKUP\.set\(next\.key, next\.html\)/.test(pump) && /unmeasured\.push\(\{ key: job\.key, html, width: job\.width \}\)/.test(pump) && !/MARKUP\.set\(job\.key/.test(pump))
+/* Changed on purpose (round 45: a height measured this visit is no longer only remembered, REMEMBERED) */ /HEIGHTS\.set\(next\.key, height\)\s*\n\s*REMEMBERED\.delete\(next\.key\)\s*\n\s*MARKUP\.set\(next\.key, next\.html\)/.test(pump) && /unmeasured\.push\(\{ key: job\.key, html, width: job\.width \}\)/.test(pump) && !/MARKUP\.set\(job\.key/.test(pump))
     check("an idle moment measures or draws, never both, and stops at its deadline",
-      /\} while \(unmeasured\.length && deadline\.timeRemaining\(\) > MEASURE_ROOM_MS\)/.test(pump) && /\} else \{\s*\n\s*do \{/.test(pump) && /\} while \(queue\.length && deadline\.timeRemaining\(\) > 12\)/.test(pump))
+      /* Changed on purpose (round 44): another only while the moment has room for what one has cost on this device. */
+      /\} while \(unmeasured\.length && deadline\.timeRemaining\(\) > Math\.max\(MEASURE_ROOM_MS, measureCost \* 2\)\)/.test(pump) && /\} else \{\s*\n\s*do \{/.test(pump) && /\} while \(queue\.length && deadline\.timeRemaining\(\) > Math\.max\(12, drawCost \* 1\.25\)\)/.test(pump))
     check("and a preview being measured is not asked for twice", /!MARKUP\.has\(j\.key\) && !queued\.has\(j\.key\) && !pending\.has\(j\.key\)/.test(library))
     const flush = library.slice(library.indexOf("function flushStyles()"), library.indexOf("/* ── The preview store"))
     check("each idle moment's styles go in a small sheet of their own, not on the end of one that is read again",
@@ -270,18 +272,18 @@ async function main() {
       /const subscribeWhileOpen = useCallback\(\(l: \(\) => void\) => \(open \? subscribe\(l\) : \(\) => \{\}\), \[open\]\)/.test(library) &&
         /const heightsSeen = useSyncExternalStore\(subscribeWhileOpen, \(\) => heightsVersion, \(\) => 0\)/.test(library))
     check("in a ruler out of sight, as wide as the preview is drawn, kept to itself",
-      /ruler\.style\.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"/.test(library) && /box\.style\.cssText = `width:\$\{item\.width\}px;contain:layout paint`/.test(library) && /ruler\.textContent = ""/.test(library))
+      /ruler\.style\.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"/.test(library) && /* Changed on purpose (round 45: the ruler's box has the card's window, --sl-vh) */ /box\.style\.cssText = `width:\$\{item\.width\}px;contain:layout paint;--sl-vh:\$\{previewWindowHeight\(item\.width\) \/ 100\}px`/.test(library) && /ruler\.textContent = ""/.test(library))
     const box = library.slice(library.indexOf("const PreviewBox = memo("), library.indexOf("const LibraryCard = memo("))
     check("a card takes that height, from its first frame when it is known by then",
-      /const height = useSteadyHeight\(boxRef, previewCardHeight\(drawn, width, renderWidth, ratio\), width, drawn !== undefined\)/.test(box) &&
-        /ref=\{boxRef\}/.test(box) && /useState\(\(\) => \(\{ height: wanted, width \}\)\)/.test(library))
+      /* Changed on purpose (round 45: whether the height was only remembered goes with it) */ /const height = useSteadyHeight\(boxRef, previewCardHeight\(drawn, width, renderWidth, ratio\), width, drawn !== undefined, fromMemory\)/.test(box) &&
+        /ref=\{boxRef\}/.test(box) && /useState\(\(\) => \(\{ height: wanted, width, mem: fromMemory \}\)\)/.test(library))
     check("a section shorter than its card still sits on white to the card's foot",
       /minHeight: height \? Math\.ceil\(height \/ scale\) : undefined/.test(box) && /height: height \|\| undefined,/.test(box))
     check("in the middle of it under the floor", /const centered = previewCentered\(drawn, width, renderWidth, height\)/.test(box) && /\.\.\.\(centered \? IN_THE_MIDDLE : null\)/.test(box))
     const steady = library.slice(library.indexOf("function useSteadyHeight("), library.indexOf("const PreviewBox = memo("))
     check("a card is never made shorter where somebody can see it: it is held instead",
-      /if \(wanted > kept\.height \|\| !box \|\| !inSight\(box\)\) \{\s*\n\s*take\(\)/.test(steady) && /heldCards\.add\(held\)/.test(steady) && /heldCards\.delete\(held\)/.test(steady))
-    check("and one not measured yet keeps what it has rather than growing to the crop and back", /if \(kept\.height === wanted \|\| !known\) return/.test(steady))
+      /* Changed on purpose (round 45: nor taller, when its height was only remembered) */ /if \(\(wanted > kept\.height && !kept\.mem\) \|\| !box \|\| !inSight\(box\)\) \{\s*\n\s*take\(\)/.test(steady) && /heldCards\.add\(held\)/.test(steady) && /heldCards\.delete\(held\)/.test(steady))
+    check("and one not measured yet keeps what it has rather than growing to the crop and back", /* Changed on purpose (round 45: the same height first, then not known) */ /if \(kept\.height === wanted\) \{[\s\S]{0,120}return\s*\}\s*\n\s*if \(!known\) return/.test(steady))
     const sight = library.slice(library.indexOf("function inSight("), library.indexOf("function releaseHeld("))
     check("in sight counts a card above the fold too, since iOS will not anchor the list for it",
       /return box\.getBoundingClientRect\(\)\.top < list\.getBoundingClientRect\(\)\.bottom/.test(sight) && /visibilityProperty: true, opacityProperty: true/.test(sight))

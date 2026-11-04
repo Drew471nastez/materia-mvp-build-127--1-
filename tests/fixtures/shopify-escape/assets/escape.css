@@ -1,0 +1,6 @@
+/* A theme's own sheet that tries to undo a card's frame: its <main> and every element told to let things out. */
+body { font-family: Georgia, serif; color: #1d1d29; margin: 0; }
+#MainContent, main#MainContent.content-for-layout { overflow: visible !important; contain: none !important; position: static !important; isolation: auto !important; }
+* { overflow: visible !important; contain: none !important; }
+.page-width { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.full-bleed { width: 100vw; margin-left: calc(50% - 50vw); }

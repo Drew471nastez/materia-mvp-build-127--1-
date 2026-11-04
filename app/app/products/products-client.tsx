@@ -1178,6 +1178,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
                   {tt("Create product")}
                 </Link>
               ) : null}
+              {!searchQuery && products.length === 0 ? (
+                <Link href="/app/products/import/gumroad" data-import-gumroad="" className="mt-3 text-[13px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-sm:py-2 max-sm:text-[14px]">
+                  {tt("Import from Gumroad")}
+                </Link>
+              ) : null}
             </div>
           ) : null}
 

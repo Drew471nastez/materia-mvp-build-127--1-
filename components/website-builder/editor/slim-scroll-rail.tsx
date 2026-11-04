@@ -15,8 +15,17 @@
  *
  * One thumb for the whole editor, placed with `position: fixed` from the
  * scroller's box, written straight to the node once a frame at most.
+ *
+ * And where the browser can, not even that while it scrolls (round 44): a
+ * transform written every scrolled frame was the whole editor layerized
+ * again each frame, about 680ms of a sidebar wheel at a sixth of the speed
+ * (scripts/check-editor-perf.mjs PART=smooth TRACE=sidebar). The scroller
+ * the thumb is on publishes its scroll (`scroll-timeline`), and the thumb's
+ * travel between its two ends is a scroll-driven animation the compositor
+ * runs. The ends are written when a gesture starts or the scroller changes.
  */
 import * as React from "react"
+import { holdHoverWhileWheeling, WHEEL_LIST_HOLD_ATTRIBUTE } from "@/lib/website-builder/wheel-hold"
 
 const LINGER_MS = 900
 /* How long after the pointer leaves the panel the bar starts to fade. */
@@ -31,6 +40,10 @@ const MIN_THUMB = 28
 export const THUMB_PX = 7
 const THUMB_INSET = 2
 const SELECTOR = ".wb-slim-scroll"
+/* The name the scroller under the thumb publishes its scroll as (globals.css, wb-slim-thumb). */
+const TIMELINE = "--wb-slim-scroll"
+/* A scroll this long after the last one starts a gesture: the thumb's ends are read again then. */
+const GESTURE_GAP_MS = 200
 
 export function SlimScrollRail() {
   const thumbRef = React.useRef<HTMLDivElement>(null)
@@ -46,11 +59,21 @@ export function SlimScrollRail() {
     let hide = 0
     let frame = 0
     let drag: { startY: number; startTop: number; ratio: number } | null = null
+    /* Driven by the scroll itself where the browser can: the scroller publishing it, and when the thumb was last placed for it. */
+    const driven = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("animation-timeline", TIMELINE) && CSS.supports("timeline-scope", TIMELINE)
+    let publishing: HTMLElement | null = null
+    let placedFor: HTMLElement | null = null
+    let lastScroll = 0
+    if (driven) {
+      html.style.setProperty("timeline-scope", TIMELINE)
+      thumb.setAttribute("data-scroll-driven", "")
+    }
 
     const place = () => {
       frame = 0
       const el = current
       if (!el) return
+      placedFor = el
       const room = el.scrollHeight - el.clientHeight
       if (room <= 1) {
         thumb.style.opacity = "0"
@@ -61,6 +84,16 @@ export function SlimScrollRail() {
       const y = box.top + (el.scrollTop / room) * (box.height - h)
       thumb.style.height = `${h}px`
       thumb.style.transform = `translate3d(${box.right - THUMB_PX - THUMB_INSET}px, ${y}px, 0)`
+      if (driven) {
+        if (publishing !== el) {
+          publishing?.style.removeProperty("scroll-timeline")
+          el.style.setProperty("scroll-timeline", `${TIMELINE} block`)
+          publishing = el
+        }
+        thumb.style.setProperty("--slim-x", `${box.right - THUMB_PX - THUMB_INSET}px`)
+        thumb.style.setProperty("--slim-from", `${box.top}px`)
+        thumb.style.setProperty("--slim-to", `${box.top + box.height - h}px`)
+      }
       thumb.style.opacity = "1"
     }
     const schedule = () => {
@@ -88,7 +121,17 @@ export function SlimScrollRail() {
 
     const onScroll = (e: Event) => {
       const el = e.target instanceof HTMLElement ? e.target : null
-      if (el?.matches(SELECTOR)) show(el)
+      if (!el?.matches(SELECTOR)) return
+      const now = performance.now()
+      const going = driven && el === placedFor && now - lastScroll < GESTURE_GAP_MS
+      lastScroll = now
+      /* Mid gesture on the scroller it was placed for, the scroll moves the thumb: nothing is read or written. */
+      if (going) {
+        window.clearTimeout(hide)
+        if (!inside) fadeLater(LINGER_MS)
+        return
+      }
+      show(el)
     }
     const onOver = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return
@@ -128,6 +171,8 @@ export function SlimScrollRail() {
       if (current) show(current)
     }
 
+    /* Every panel's list being wheeled takes no pointer until it rests (wheel-hold.ts, its pane is the list's ::after in globals.css). Not the section library's, which is its own, and not a field you type in. */
+    const letGo = holdHoverWhileWheeling(`${SELECTOR}:not([data-library-scroll]):not([contenteditable]):not(textarea)`, { attribute: WHEEL_LIST_HOLD_ATTRIBUTE })
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("pointerover", onOver, { passive: true })
     document.addEventListener("pointerout", onLeaveWindow, { passive: true })
@@ -137,7 +182,13 @@ export function SlimScrollRail() {
     thumb.addEventListener("pointerup", onUp)
     thumb.addEventListener("pointercancel", onUp)
     return () => {
+      letGo()
       html.classList.remove("slim-rail")
+      if (driven) {
+        html.style.removeProperty("timeline-scope")
+        publishing?.style.removeProperty("scroll-timeline")
+        thumb.removeAttribute("data-scroll-driven")
+      }
       document.removeEventListener("scroll", onScroll, { capture: true })
       document.removeEventListener("pointerover", onOver)
       document.removeEventListener("pointerout", onLeaveWindow)

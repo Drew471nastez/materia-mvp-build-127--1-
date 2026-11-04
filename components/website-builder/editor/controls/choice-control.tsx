@@ -27,6 +27,7 @@
  * to the first and last.
  */
 import * as React from "react"
+import { flushSync } from "react-dom"
 import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -50,10 +51,25 @@ function measure(labels: string[], font: string): number[] | null {
   }
 }
 
+/* The font a control's labels are drawn in, read once per kind of control and screen size: every select in the sidebar shares one. */
+const fonts = new Map<string, string>()
+function fontOf(el: HTMLElement): string {
+  const key = `${el.className}|${typeof window !== "undefined" && window.innerWidth < 640 ? "sm" : ""}`
+  let font = fonts.get(key)
+  if (!font) {
+    const cs = getComputedStyle(el)
+    font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+    fonts.set(key, font)
+  }
+  return font
+}
+
 /** Buttons or a dropdown for these options, measured against the element once it is on screen. */
 function useShape(options: readonly ChoiceOption[], ref: React.RefObject<HTMLElement | null>): ChoiceShape {
   const estimate = choiceShape(options)
   const [shape, setShape] = React.useState<ChoiceShape>(estimate)
+  const now = React.useRef(shape)
+  now.current = shape
   const labels = options.map((o) => o.label).join("\u0000")
   React.useLayoutEffect(() => {
     const el = ref.current
@@ -62,15 +78,27 @@ function useShape(options: readonly ChoiceOption[], ref: React.RefObject<HTMLEle
       setShape("dropdown")
       return
     }
-    const decide = () => {
-      const width = el.clientWidth
+    /*
+      MEASURED BY THE OBSERVER, NOT READ IN THE EFFECT (round 44). Each
+      control read its width here, in a layout effect, and a control whose
+      shape changed rendered again before the next one read: a section with
+      a dozen selects opening was a dozen layouts of the whole editor, 425ms
+      of a four section walk at a quarter speed (scripts/check-editor-perf.mjs
+      PART=smooth, PROFILE=select, "decide"). The observer hands every
+      control its width after the one layout, before the first paint; a shape
+      that changes is drawn then, still before that paint, so nothing flickers.
+    */
+    const decide = (entries: readonly ResizeObserverEntry[]) => {
+      const width = entries.length ? entries[entries.length - 1].contentRect.width : el.clientWidth
       if (!width) return
-      const cs = getComputedStyle(el)
-      const widths = measure(options.map((o) => o.label), `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`)
-      setShape(widths ? (labelsFit(widths, width) ? "segments" : "dropdown") : choiceShape(options, width))
+      const widths = measure(options.map((o) => o.label), fontOf(el))
+      const next: ChoiceShape = widths ? (labelsFit(widths, width) ? "segments" : "dropdown") : choiceShape(options, width)
+      if (next !== now.current) flushSync(() => setShape(next))
     }
-    decide()
-    if (typeof ResizeObserver === "undefined") return
+    if (typeof ResizeObserver === "undefined") {
+      decide([])
+      return
+    }
     const ro = new ResizeObserver(decide)
     ro.observe(el)
     return () => ro.disconnect()

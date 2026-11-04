@@ -1853,7 +1853,9 @@ export function PlatformHeaderClient({
     header now; Help keeps its own search, inside the page.
   */
   const isReadRoute = pathname === "/help" || pathname.startsWith("/help/") || pathname === "/terms" || pathname === "/privacy"
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute || isReadRoute
+  /* The comparison pages read like the pricing page they sit beside (lib/alternatives). */
+  const isCompareRoute = pathname === "/alternatives" || pathname.startsWith("/alternatives/")
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute || isReadRoute || isCompareRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -2148,6 +2150,8 @@ export function PlatformHeaderClient({
                       : []),
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
+                    /* From 1024 only, like Home: at 768 the row is already full. The phone menu has it. */
+                    { href: "/alternatives", label: "Compare", active: isCompareRoute, wide: true },
                     { href: "/faq", label: "FAQ", active: isFaqRoute },
                   ].map((item) => (
                     <Link
@@ -2707,6 +2711,14 @@ export function PlatformHeaderClient({
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link
+                  href="/alternatives"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <span>Compare</span>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </Link>
+                <Link
                   href="/faq"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -2847,7 +2859,7 @@ export function PlatformHeaderClient({
       */}
       {/* Not where the tab bar is (its Search is the way in there), and
           never on the library, the account or inside a community. */}
-      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
+      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on

@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useState, useSyncExternalStore } from "react"
+import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
@@ -29,7 +29,8 @@ function readUpgradeQuery(): { source?: string; returnTo?: string } {
   return { source: q.get("source") ?? undefined, returnTo }
 }
 
-export function PricingPageClient() {
+/** `compare` is the "Compare Storelib" line, rendered on the server (components/alternatives/compare-strip) so its list stays out of this bundle. */
+export function PricingPageClient({ compare }: { compare?: ReactNode } = {}) {
   /*
     WHO IS SIGNED IN, AFTER HYDRATION. The server render is the signed out
     page; the header checks the session on mount and keeps this record in
@@ -119,6 +120,9 @@ export function PricingPageClient() {
         subtitleOverride={isUpgradeMode ? "Pro is $29 a month. Cancel at any time from Billing." : undefined}
         upgradeCallbacks={upgradeCallbacks}
       />
+
+      {/* COMPARE STORELIB: a line of links to each comparison (lib/alternatives). */}
+      {compare}
 
       {/* FEATURE BADGES - Launch in minutes, Cancel anytime, No coding, Get paid directly */}
       <FeaturesBadgesSection />
