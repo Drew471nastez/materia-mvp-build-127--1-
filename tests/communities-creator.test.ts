@@ -163,7 +163,7 @@ async function main() {
   /* Round 14 moved the cleaning and the cap into lib/communities/search.ts, where the ticket holder search reads them too. */
   check("a member search reads at most 300 accounts and then says so", /SEARCH_CAP = 300/.test(code("lib/communities/search.ts")) && /SEARCH_CAP/.test(creatorSrc) && /capped/.test(creatorSrc))
   /* Changed on purpose (round 41): monthly revenue is the one MRR rule (lib/communities/membership-money mrrAt), its memberships read a page of 1000 at a time by ./membership-money. */
-  check("monthly revenue reads memberships 1000 at a time, by the one MRR rule", /* Changed on purpose (round 43): through mrrOfRows, mrrAt in the store's currency, the one Analytics reports in. */ /mrrOfRows\(db, \(await membershipsOf\(db, productIds, \{ open: true \}\)\)/.test(creatorSrc) && /\.limit\(PAGE\)/.test(readFileSync("lib/communities/server/membership-money.ts", "utf8")) && /const PAGE = 1000/.test(readFileSync("lib/communities/server/membership-money.ts", "utf8")))
+  check("monthly revenue reads memberships 1000 at a time, by the one MRR rule", /* Changed on purpose (round 43): through mrrOfRows, mrrAt in the store's currency, the one Analytics reports in. */ /* Changed on purpose (r51): the owner is passed, whose own plan is no MRR. */ /mrrOfRows\(db, \(await membershipsOf\(db, productIds, \{ open: true(?:, owner)? \}\)\)/.test(creatorSrc) && /\.limit\(PAGE\)/.test(readFileSync("lib/communities/server/membership-money.ts", "utf8")) && /const PAGE = 1000/.test(readFileSync("lib/communities/server/membership-money.ts", "utf8")))
 
   /* ── Time ────────────────────────────────────────────────────────────── */
   console.log("\ntime")

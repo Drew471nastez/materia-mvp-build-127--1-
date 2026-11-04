@@ -90,7 +90,16 @@ export async function loadDestinations(db: Db, creatorId: string): Promise<Desti
         .order("updated_at", { ascending: false })
         .limit(25)
       const list = (Array.isArray(jobs) ? jobs : []) as { id: string; event_name: string; status: string; attempts: number; response_status: number | null; last_error: string | null; sent_at: string | null; updated_at: string }[]
-      const sent = list.filter((j) => j.status === "sent" && j.sent_at).sort((a, b) => String(b.sent_at).localeCompare(String(a.sent_at)))[0]
+      /*
+        LAST SENT IS THE LAST ONE SENT (round 51), not the last sent among the newest 25 rows: a store whose newest 25
+        were skipped (a Meta lead without marketing consent) or waiting read "Nothing sent yet" for a tool that had
+        sent a minute before them. Asked on its own when the newest rows hold none.
+      */
+      let sent = list.filter((j) => j.status === "sent" && j.sent_at).sort((a, b) => String(b.sent_at).localeCompare(String(a.sent_at)))[0]
+      if (!sent && list.length >= 25) {
+        const { data: last } = await db.from("analytics_forward_jobs").select("id, event_name, status, attempts, response_status, last_error, sent_at, updated_at").eq("destination_id", r.id).eq("status", "sent").order("sent_at", { ascending: false }).limit(1)
+        sent = (Array.isArray(last) ? last[0] : undefined) as typeof sent
+      }
       return {
         provider,
         connected: r.status === "connected",

@@ -52,6 +52,28 @@ export function gaClientIdOf(cookie: string | undefined): string | null {
   return m ? m[1] : null
 }
 
+/**
+ * GA4's session per data stream, from the request's _ga_<stream> cookies: GS1.1.<session>.… (gtag before 2025) and
+ * GS2.1.s<session>$o…$g… (since). Read from the Cookie header, so it works for every kind of request.
+ */
+export function gaSessionsOf(cookieHeader: string | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (typeof cookieHeader !== "string") return out
+  for (const part of cookieHeader.split(";")) {
+    const m = /^\s*_ga_([A-Z0-9]{4,20})=(.+)$/.exec(part)
+    if (!m) continue
+    let v = m[2].trim()
+    try {
+      v = decodeURIComponent(v)
+    } catch {
+      /* kept as it is */
+    }
+    const id = /^GS1\.\d+\.(\d{6,12})\./.exec(v)?.[1] ?? /^GS2\.\d+\.s(\d{6,12})(?:\$|$)/.exec(v)?.[1]
+    if (id) out[m[1]] = id
+  }
+  return out
+}
+
 /** What a visitor's request can say about them, consent first. Nothing past the consent record without it. */
 export function personOf(req: RequestLike, extra: { visitorId?: string | null; email?: string | null; phone?: string | null } = {}, now = Date.now()): PersonInput {
   const c = parse(req.cookie(CONSENT_COOKIE), now)
@@ -60,6 +82,7 @@ export function personOf(req: RequestLike, extra: { visitorId?: string | null; e
   return {
     consent,
     gaClientId: gaClientIdOf(req.cookie("_ga")),
+    gaSessions: gaSessionsOf(req.headers.get("cookie")),
     visitorId: extra.visitorId ?? req.cookie("visitor_id") ?? null,
     email: extra.email ?? null,
     phone: extra.phone ?? null,

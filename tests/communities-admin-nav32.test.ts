@@ -61,7 +61,7 @@ function main() {
   check("routes still decide with viewerContext (requireCreatorCommunity)", /const viewer = await viewerContext\(db, community, ctx\.userId\)/.test(code("lib/communities/server/context.ts")))
   const overview = fn(creator, "loadOverview")
   /* Changed on purpose (round 43): the money is in the store's currency, so monthlyRevenue also takes the store; it still waits only on the products, beside the figures. */
-  check("the overview: the products that sell it are not a round before the figures", !/await recurringProductIds/.test(overview) && /recurringRead\.then\(\(recurring\) => monthlyRevenue\(db, recurring(?:, [^)]+)?\)\)/.test(overview) && !/await communitySellingProducts/.test(overview))
+  check("the overview: the products that sell it are not a round before the figures", !/await recurringProductIds/.test(overview) && /* Changed on purpose (r51): the same read, its owner passed on. */ /(?:recurringRead\.then\(\(recurring\) => monthlyRevenue\(db, recurring(?:, [^)]+)?\)\)|sellingRead\.then\(\(p\) => monthlyRevenue\(db, p\.recurring, [^)]+\)\))/.test(overview) && !/await communitySellingProducts/.test(overview))
   check("the overview: the unsellable events are counted with the figures, not after", /ctx\.paymentsReady \? Promise\.resolve\(0\) : pricedEventCount\(db, c\.id\),\s*\]\)/.test(overview) && !/await pricedEventCount/.test(overview))
   check("events: the ticket setup is read beside the events", /await Promise\.all\(\[eventReadColumns\(db\), ticketsReady\(db\), eventTicketSetup\(db, communityId\)\]\)/.test(fn(creator, "loadEvents")) && !/tickets: await/.test(fn(creator, "loadEvents")))
   check("spaces: a chat's messages are counted beside the posts, one round", !/const messages = await/.test(fn(creator, "loadSpaces")))

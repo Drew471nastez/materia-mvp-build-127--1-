@@ -30,6 +30,7 @@ import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/ch
 import { MorphLines } from "@/components/app/morph-lines"
 import { fixedScale } from "@/components/app/chart-morph"
 import { tt } from "@/lib/i18n/text"
+import { GhostLine, nothingToDraw } from "./empty-state"
 
 const ACCENT = "#8b5cf6"
 const COMPARED = "#b8bcc6"
@@ -55,10 +56,14 @@ export interface TrendMiniChartProps {
   loading?: boolean
   /** Where the readout floats, from the chart's top: above a short plot, so it never covers the line it reads. */
   readoutTop?: number
+  /** Round 51: the one short line over a chart with nothing to draw ("No sales in this period."). */
+  emptyText?: string
 }
 
-function TrendMiniChartInner({ labels, current, previous, format, height, integer = true, label, loading = false, readoutTop = -58 }: TrendMiniChartProps) {
+function TrendMiniChartInner({ labels, current, previous, format, height, integer = true, label, loading = false, readoutTop = -58, emptyText }: TrendMiniChartProps) {
   const n = current.length
+  /* Nothing in this period or the one it is compared with: the ghost of a line, never a full colour line at zero (./empty-state GhostLine). */
+  const blank = !loading && nothingToDraw(current, previous)
   const compared = previous.length > 0
   const before = React.useMemo(() => (compared ? current.map((_, i) => previous[i] ?? 0) : null), [compared, current, previous])
   const top = React.useMemo(() => fixedScale(Math.max(0, ...current, ...(before ?? [])), integer).top, [current, before, integer])
@@ -88,8 +93,14 @@ function TrendMiniChartInner({ labels, current, previous, format, height, intege
       style={{ height }}
     >
       <span aria-hidden className="absolute inset-x-0 h-px bg-[#eef0f2]" style={{ top: TOP + plotHeight }} />
-      <MorphLines lines={lines} compared={before} top={top} left={0} right={RIGHT} plotTop={TOP} plotHeight={plotHeight} loading={loading} color={ACCENT} comparedColor={COMPARED} />
-      <ChartScrub count={n} left={0} right={RIGHT} top={TOP} bottom={TOP + plotHeight} series={series} title={title} rows={rows} disabled={loading || n === 0} tone="light" readoutTop={readoutTop} crosshairColor="#d1d5db" />
+      <GhostLine shown={blank} className="absolute inset-x-0" style={{ top: TOP + plotHeight * 0.25, height: plotHeight * 0.75 }} />
+      {emptyText ? (
+        <p aria-hidden={!blank} data-empty={blank ? "" : undefined} className="pointer-events-none absolute left-0 top-0 text-[13px] leading-5 text-[#6b7280] transition-opacity duration-200 ease-out" style={{ opacity: blank ? 1 : 0 }}>
+          {emptyText}
+        </p>
+      ) : null}
+      <MorphLines lines={lines} compared={before} top={top} left={0} right={RIGHT} plotTop={TOP} plotHeight={plotHeight} loading={loading || blank} color={ACCENT} comparedColor={COMPARED} />
+      <ChartScrub count={n} left={0} right={RIGHT} top={TOP} bottom={TOP + plotHeight} series={series} title={title} rows={rows} disabled={loading || blank || n === 0} tone="light" readoutTop={readoutTop} crosshairColor="#d1d5db" />
     </div>
   )
 }

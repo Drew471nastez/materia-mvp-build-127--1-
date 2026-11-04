@@ -54,6 +54,7 @@ import { MorphLines } from "@/components/app/morph-lines"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
+import { GhostLine, nothingToDraw } from "@/components/analytics/empty-state"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -421,9 +422,13 @@ function AnalyticsChartWithTooltipInner({
   }, [chartDisplayData, visibleKeys, compareKey, format, seriesLabels, color])
   const scrubTitle = useCallback((i: number) => chartDisplayData[i]?.date ?? "", [chartDisplayData])
 
+  /* Round 51: nothing in this period or the one it is compared with is the ghost of a line (components/analytics/empty-state), not a full colour line at zero under an axis of 1, 2, 3. */
+  const blank = !isLoading && n > 0 && nothingToDraw(...lines, comparedLine)
+
   return (
     <div data-chart-loading={isLoading ? "true" : "false"} style={{ position: "relative", height: CHART_H }}>
       <Frame dates={dates} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
+      <GhostLine shown={blank} className="absolute" style={{ left: plotLeft, right: PLOT_RIGHT, top: PLOT_TOP + plotHeight * 0.3, height: plotHeight * 0.7 }} />
 
       {/*
         THE LINE, WHAT IT IS COMPARED WITH, AND THE DOT AT ITS END:
@@ -439,13 +444,15 @@ function AnalyticsChartWithTooltipInner({
         right={PLOT_RIGHT}
         plotTop={PLOT_TOP}
         plotHeight={plotHeight}
-        loading={isLoading}
+        loading={isLoading || blank}
         color={color}
         comparedColor={CHART_COLORS.compared}
       />
 
       {/* The numbers over the line, on their grid lines inside the plot, so a line that crosses one passes under it. */}
-      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} inside />
+      <div style={{ opacity: blank ? 0 : 1, transition: "opacity 200ms ease-out" }}>
+        <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} inside />
+      </div>
 
       {/*
         THE CROSSHAIR, THE DOTS AND THE READOUT: components/app/chart-scrub,
@@ -462,7 +469,7 @@ function AnalyticsChartWithTooltipInner({
         series={scrubSeries}
         title={scrubTitle}
         rows={scrubRows}
-        disabled={isLoading || n === 0}
+        disabled={isLoading || blank || n === 0}
       />
     </div>
   )

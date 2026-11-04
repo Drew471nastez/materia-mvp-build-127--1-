@@ -354,12 +354,6 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const reportChoices = useMemo(() => reportOptions(profile), [profile])
   const shownAdded = added.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode }))
   const actions = reportActions(added, saveAdded)
-  /* What Digital and Physical need on their own (round 43): Digital its downloads and refunds, Physical its refunds (returns). */
-  const standingReports = useMemo<ReportId[]>(() => {
-    if (shownView !== "digital" && shownView !== "physical") return []
-    const wanted: ReportId[] = shownView === "digital" ? ["downloads", "refunds"] : ["refunds"]
-    return wanted.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode }))
-  }, [shownView, profile, property, chosenProduct, mode])
   const [picking, setPicking] = useState(false)
   /* A report just added is brought into view once it is on screen, wherever the picker was opened from. */
   const reveal = useRef<ReportId | null>(null)
@@ -492,6 +486,22 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   }, [reportsState.loading, tick])
 
   const answer = reportsState.data
+  /*
+    What Digital and Physical need on their own (round 43): Digital its downloads and refunds, Physical its refunds (returns).
+    THE TYPE ON SCREEN, NOT THE ONE ASKED FOR (round 51, the owner: switching types must not flash). They followed the
+    type the moment it was chosen, while every other card still showed the last type's answer: Digital to Physical took
+    Downloads away at once and put Shipping in 600ms later, two jumps of the cards under them
+    (scripts/check-analytics-empty-r51.mjs SWITCH). Now they follow the answer on screen (its key names its kind),
+    so the cards change together when the new answer lands.
+  */
+  const answeredMode = answer ? new URLSearchParams(answer.key).get("kind") ?? "all" : mode
+  const standingView: AnalyticsView = answeredMode === mode ? shownView : answeredMode === "digital" || answeredMode === "physical" ? answeredMode : "all"
+  const standingMode: SalesMode = answeredMode === mode ? mode : (answeredMode as SalesMode)
+  const standingReports = useMemo<ReportId[]>(() => {
+    if (standingView !== "digital" && standingView !== "physical") return []
+    const wanted: ReportId[] = standingView === "digital" ? ["downloads", "refunds"] : ["refunds"]
+    return wanted.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode: standingMode }))
+  }, [standingView, profile, property, chosenProduct, standingMode])
   /*
     SOFT ONLY WHILE THE FIGURES ARE THE WRONG ONES: a new period, place or
     product is on its way. The minute refresh asks the same question again
