@@ -5,6 +5,13 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Logo and name": "Logo e nome",
+ "Top of checkout": "In cima al checkout",
+ "Your shop's name comes from Store details, else your website.": "Il nome del negozio viene dai Dettagli del negozio, altrimenti dal tuo sito web.",
+ "Without a logo, your photo shows beside the name.": "Senza logo, accanto al nome appare la tua foto.",
+ "Generating packing slips": "Creazione delle distinte di imballaggio",
+ "Packing slips generated": "Distinte di imballaggio create",
+ "Packing slips ready": "Distinte di imballaggio pronte",
  "We couldn't check your bank account right now": "Non siamo riusciti a controllare il tuo conto bancario in questo momento",
  "1 draft added": "1 bozza aggiunta",
  "Access token": "Token di accesso",

@@ -151,7 +151,8 @@ async function main() {
     ]
     const want: Record<string, [string, string | null]> = {
       self: ["self", null],
-      warehouse: ["warehouse", "wh"],
+      /* Changed on purpose (r51): "From my own warehouse" is the seller shipping from a place they run, never the fulfillment center. */
+      warehouse: ["self", null],
       print_on_demand: ["print_on_demand", PRINTER],
       dropshipping: ["dropship", "sup"],
       supplier: ["dropship", "sup"],

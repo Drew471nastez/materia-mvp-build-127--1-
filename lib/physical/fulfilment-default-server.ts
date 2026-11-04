@@ -13,11 +13,18 @@ import { storeFulfilment, type StoreFulfilment } from "./fulfilment-default"
 
 export async function storeFulfilmentFor(db: Db, creatorId: string): Promise<StoreFulfilment> {
   const [settings, locations] = await Promise.all([loadSettings(db, creatorId), loadLocations(db, creatorId)])
-  return storeFulfilment(settings.fulfillmentModel, settings.defaultLocationId, locations)
+  return { ...storeFulfilment(settings.fulfillmentModel, settings.defaultLocationId, locations), mix: settings.fulfillmentModel === "hybrid" }
 }
 
-/** How many products moved to the new answer; 0 when nothing changed or the update failed (it never blocks the settings save). */
+/**
+ * How many products moved to the new answer; 0 when nothing changed or the update failed (it never blocks the settings save).
+ *
+ * "A mix of these" moves nothing (round 51): it says different products ship from different places, so each keeps
+ * the answer it has. It used to move every product that followed the old answer to the seller's own shipping, so a
+ * print on demand store that said "a mix" stopped sending its Printify products to Printify.
+ */
 export async function followNewDefault(db: Db, creatorId: string, before: StoreFulfilment, after: StoreFulfilment): Promise<number> {
+  if (after.mix) return 0
   if (before.method === after.method && before.locationId === after.locationId) return 0
   const patch = { fulfillment_method: after.method, fulfillment_location_id: after.locationId, updated_at: new Date().toISOString() }
   let moved = 0

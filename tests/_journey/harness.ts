@@ -88,6 +88,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/integrations": () => import("@/app/api/physical/integrations/route"),
   "/api/physical/integrations/[provider]": () => import("@/app/api/physical/integrations/[provider]/route"),
   "/api/physical/integrations/[provider]/links": () => import("@/app/api/physical/integrations/[provider]/links/route"),
+  /* Round 51: a partner says it shipped, from the supplier email's page or a 3PL's own system (tests/fulfilment-modes-r51.test.ts). */
+  "/api/physical/partner-tracking": () => import("@/app/api/physical/partner-tracking/route"),
   "/api/physical/orders/[id]/label": () => import("@/app/api/physical/orders/[id]/label/route"),
   "/api/integrations/shipstation/[token]": () => import("@/app/api/integrations/shipstation/[token]/route"),
   "/api/integrations/webhooks/[provider]/[token]": () => import("@/app/api/integrations/webhooks/[provider]/[token]/route"),

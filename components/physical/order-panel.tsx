@@ -54,7 +54,7 @@ import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice
 import { LabelFields, ShipModeSwitch, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import { propertyText } from "@/lib/cart-uploads/rules"
-import { canShareSlip, shareSlip } from "@/components/physical/slip-share"
+import { PRINT_AFTER_MADE_MS, canShareSlip, printProgress, shareSlip } from "@/components/physical/slip-share"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
 
 export interface PhysicalLine {
@@ -2008,11 +2008,16 @@ function PartnerSendLine({ state, fallback, currency, place }: { state: PartnerS
 
 /**
  * Prints a packing slip on a computer without leaving the order: the page is read, put in a frame out of sight, and
- * the frame prints itself once its pictures are in. Null when it printed, else what went wrong.
+ * the frame prints itself once its pictures are in. Null when it printed, else what went wrong. The phone's notice
+ * (components/physical/slip-share printProgress) runs over it: the ring while it is made, the check once it is in.
  */
 export async function printSlip(href: string): Promise<string | null> {
+  const progress = printProgress()
   const res = await fetch(href, { credentials: "same-origin", cache: "no-store" }).catch(() => null)
-  if (!res?.ok) return tt("The packing slip could not be made. Try again.")
+  if (!res?.ok) {
+    progress.failed()
+    return null
+  }
   const html = await res.text()
   document.querySelectorAll("iframe[data-packing-slip-frame]").forEach((f) => f.remove())
   const frame = document.createElement("iframe")
@@ -2022,10 +2027,19 @@ export async function printSlip(href: string): Promise<string | null> {
   frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
   frame.onload = () => {
     const w = frame.contentWindow
-    if (!w) return
-    w.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 0))
-    w.focus()
-    w.print()
+    if (!w) return progress.failed()
+    progress.made()
+    w.addEventListener("afterprint", () => {
+      progress.done()
+      window.setTimeout(() => frame.remove(), 0)
+    })
+    /* The check is seen, then the print dialog. */
+    window.setTimeout(() => {
+      w.focus()
+      w.print()
+      /* A browser whose print() returns at once without afterprint: the notice still goes. */
+      window.setTimeout(() => progress.done(), 1500)
+    }, PRINT_AFTER_MADE_MS)
   }
   frame.srcdoc = html
   document.body.appendChild(frame)

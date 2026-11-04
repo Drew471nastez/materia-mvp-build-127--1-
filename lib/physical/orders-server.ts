@@ -141,6 +141,12 @@ export interface PhysicalOrder {
    * free with a code, or in cash on delivery, still to collect or collected.
    */
   payment: PaymentState
+  /**
+   * What the buyer paid with, as Stripe said it when the order was written (orders.payment_method, card_brand,
+   * card_last4 on its lines; lib/physical/checkout-server): "card", "paypal", "link", with the card's brand and last
+   * four. Null for an order with none kept (free, cash, or written before these columns).
+   */
+  paidWith?: { method: string; brand: string | null; last4: string | null } | null
   /** When the seller marked the cash received. Null for every order not paid in cash, and for one still to collect. */
   cashCollectedAt: string | null
   couponCode: string | null
@@ -287,6 +293,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     refundedCents: refunded,
     platformFeeCents: co.platform_fee_cents,
     payment: paymentStateOf(co.provider, co.cod_collected_at ?? null),
+    paidWith: paidWithOf((orders ?? []) as Record<string, any>[]),
     cashCollectedAt: co.provider === COD_PROVIDER ? (co.cod_collected_at ?? null) : null,
     couponCode: co.coupon_code,
     address: co.shipping_address,
@@ -1314,4 +1321,12 @@ export async function listOrders(
 export async function checkoutOfOrderRow(db: Db, creatorId: string, orderId: string): Promise<string | null> {
   const { data } = await db.from("orders").select("checkout_id, products!inner(creator_id)").eq("id", orderId).eq("products.creator_id", creatorId).maybeSingle()
   return data?.checkout_id ?? null
+}
+
+/** The first line that kept how it was paid (every line of one checkout was paid the same way). */
+export function paidWithOf(rows: { payment_method?: unknown; card_brand?: unknown; card_last4?: unknown }[]): PhysicalOrder["paidWith"] {
+  const row = rows.find((r) => typeof r.payment_method === "string" && r.payment_method.trim())
+  if (!row) return null
+  const s = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 40) : null)
+  return { method: String(row.payment_method).trim().slice(0, 40), brand: s(row.card_brand), last4: typeof row.card_last4 === "string" && /^\d{4}$/.test(row.card_last4) ? row.card_last4 : null }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { checkoutOfOrderRow, loadOrder } from "@/lib/physical/orders-server"
-import { packingSlipHtml, paperAsked, slipLines, slipPaper } from "@/lib/physical/packing-slip"
+import { packingSlipHtml, paperAsked, slipContact, slipLines, slipPaper } from "@/lib/physical/packing-slip"
 import { packingSlipFilename, renderPackingSlipPdf } from "@/lib/physical/packing-slip-pdf"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { creatorTimeZone } from "@/lib/account/time-zone"
@@ -58,8 +58,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const f = url.searchParams.get("f")
   const loc = url.searchParams.get("loc")
   const shipmentId = isUuid(f) ? f : null
-  /* Where a return goes, printed on the slip as the return email says it: the store's own address when it ships from one. */
-  const [store, zone, { tt, language }, returnAddress] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt(), returnAddressOf(c.db, c.creatorId).catch(() => null)])
+  /* Where a return goes, printed on the slip as the return email says it: the store's own address when it ships from one. The store's whole identity (round 51): its website, email and phone go under its name. */
+  const [store, zone, { tt, language }, returnAddress] = await Promise.all([storeIdentity(c.db, c.creatorId).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt(), returnAddressOf(c.db, c.creatorId).catch(() => null)])
   const lines = slipLines(order, { shipmentId, locationId: isUuid(loc) ? loc : null })
   const shipmentIndex = shipmentId ? order.shipments.findIndex((s) => s.id === shipmentId) : -1
   /* A4 or Letter, prices or none: the bar's links are this same page with the one thing changed. */
@@ -75,7 +75,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   const whole = !shipmentId && !isUuid(loc)
   if (url.searchParams.get("format") === "pdf") {
-    const pdf = await renderPackingSlipPdf(order, lines, { name: store?.name || "Storelib", logoUrl: null, returnAddress }, {
+    const pdf = await renderPackingSlipPdf(order, lines, { name: store?.name || "Storelib", logoUrl: null, returnAddress, contact: slipContact(store) }, {
       tt,
       lang: language,
       timeZone: zone,
@@ -92,7 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
     })
   }
-  const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null, returnAddress }, {
+  const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null, returnAddress, contact: slipContact(store) }, {
     tt,
     lang: language,
     timeZone: zone,

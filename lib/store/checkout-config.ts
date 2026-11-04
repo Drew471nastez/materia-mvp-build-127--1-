@@ -62,7 +62,18 @@ export interface CheckoutConfig {
    * in their own tax number for invoices.
    */
   businessInvoice: boolean
+  /**
+   * The shop across the top of a website's checkout (app/checkout/parts/shop-bar.tsx): its logo and its name
+   * beside it, the logo alone (a wordmark that already says the name), or the name alone. The name is the
+   * store's, read on the server (lib/checkout/brand-server.ts). With no logo, "logo" and "both" show the
+   * person's photo and the name, so the bar is never empty.
+   */
+  brandShows: BrandShows
 }
+
+export type BrandShows = "both" | "logo" | "name"
+export const BRAND_SHOWS: BrandShows[] = ["both", "logo", "name"]
+export const readBrandShows = (v: unknown): BrandShows => (BRAND_SHOWS.includes(v as BrandShows) ? (v as BrandShows) : "both")
 
 /** The largest cash on delivery fee, in hundredths: a fee, not a second price. */
 export const COD_FEE_MAX_CENTS = 100_000
@@ -83,6 +94,7 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   codFeeCents: 0,
   codInstructions: "",
   businessInvoice: false,
+  brandShows: "both",
 }
 
 const RULES: FieldRule[] = ["off", "optional", "required"]
@@ -109,6 +121,7 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     codFeeCents: cents(o.codFeeCents, COD_FEE_MAX_CENTS),
     codInstructions: typeof o.codInstructions === "string" ? o.codInstructions.replace(/\s+/g, " ").trim().slice(0, COD_INSTRUCTIONS_MAX) : "",
     businessInvoice: bool(o.businessInvoice, DEFAULT_CHECKOUT.businessInvoice),
+    brandShows: readBrandShows(o.brandShows),
   }
 }
 

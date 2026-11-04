@@ -84,7 +84,10 @@ export async function renderPackingSlipPdf(
 
   /* The store, and what this is. */
   doc.font(BOLD).fontSize(15).fillColor(INK)
-  put(store.name, left, 48, { width: width / 2 })
+  let ys = put(store.name, left, 48, { width: width / 2 })
+  /* Its website, email and phone under it (./packing-slip.ts slipContact). */
+  doc.font(REG).fontSize(9.5).fillColor(MUTED)
+  for (const c of store.contact ?? []) ys = put(c, left, ys + 1, { width: width / 2 - 12 })
   doc.font(REG).fontSize(9).fillColor(MUTED)
   put(tt("Packing slip").toUpperCase(), left + width / 2, 48, { width: width / 2, align: "right", characterSpacing: 0.6 })
   doc.font(BOLD).fontSize(18).fillColor(INK)
@@ -92,7 +95,7 @@ export async function renderPackingSlipPdf(
   doc.font(REG).fontSize(10).fillColor(MUTED)
   let y = put(when, left + width / 2, doc.y + 2, { width: width / 2, align: "right" })
   if (o.shipmentLabel) y = put(o.shipmentLabel, left + width / 2, y + 1, { width: width / 2, align: "right" })
-  y = Math.max(y, 100) + 14
+  y = Math.max(y, ys, 100) + 14
   rule(y)
 
   /* Where it goes, and how. */

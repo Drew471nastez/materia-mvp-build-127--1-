@@ -13,6 +13,8 @@
  * In the order the page shows them:
  *
  *   customer accounts     an account before paying, and a confirmed one
+ *   top of checkout       the shop's logo, its name, or both, across the top
+ *                         of a website's checkout (app/checkout/parts/shop-bar)
  *   checkout text         the store's own words on its checkout, per language
  *                         (./checkout-text-editor.tsx, lib/checkout-text).
  *                         High on the page, above abandoned checkouts: it is
@@ -36,12 +38,18 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { X } from "lucide-react"
 import { BTN_SECONDARY, Card, Field, MoneyInput, Notice, Toggle, api, centsOf, dollarsOf, peekGet } from "@/components/physical/ui"
-import { COD_INSTRUCTIONS_MAX, DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
+import { COD_INSTRUCTIONS_MAX, DEFAULT_CHECKOUT, checkoutConfig, type BrandShows, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
 import { CountryFlag, CountryPicker } from "./country-picker"
 import { tt } from "@/lib/i18n/text"
 import { CheckoutTextEditor } from "./checkout-text-editor"
+
+const BRAND_OPTIONS: { id: BrandShows; label: string }[] = [
+  { id: "both", get label() { return tt("Logo and name") } },
+  { id: "logo", get label() { return tt("Logo") } },
+  { id: "name", get label() { return tt("Name") } },
+]
 
 const RULES: { id: FieldRule; label: string }[] = [
   { id: "off", get label() { return tt("Don't include") } },
@@ -179,6 +187,14 @@ export function CheckoutPanel() {
             checked={config.requireConfirmedEmail}
             onChange={(v) => change({ requireConfirmedEmail: v, ...(v ? { requireAccount: true } : {}) })}
           />
+        </div>
+      </Card>
+
+      <Card title={tt("Top of checkout")} description={tt("Your shop's name comes from Store details, else your website.")}>
+        <div data-brand-shows-setting="">
+          <Row title={tt("Show")} line={tt("Without a logo, your photo shows beside the name.")}>
+            <Segmented label={tt("Top of checkout")} value={config.brandShows} onChange={(v) => change({ brandShows: v })} options={BRAND_OPTIONS} />
+          </Row>
         </div>
       </Card>
 

@@ -189,9 +189,15 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
     }
     return
   }
-  const { data: locs } = await db.from("inventory_locations").select("id, name, forwarding, email, integration_id").eq("creator_id", creatorId).in("id", ids)
-  for (const loc of (locs ?? []) as { id: string; name: string; forwarding: string; email: string | null; integration_id: string | null }[]) {
+  const { data: locs } = await db.from("inventory_locations").select("id, name, kind, forwarding, email, integration_id").eq("creator_id", creatorId).in("id", ids)
+  for (const loc of (locs ?? []) as { id: string; name: string; kind?: string | null; forwarding: string; email: string | null; integration_id: string | null }[]) {
     const partnerHere = partnerLines.some((l) => l.location_id === loc.id)
+    /*
+      The seller's own place (home, their own warehouse, a shop) that takes no orders: they ship from it themselves.
+      A product saved while "From my own warehouse" meant a 3PL (before round 51) still says "warehouse" here; it is
+      the seller's to pack, never "send it to them".
+    */
+    if (loc.forwarding === "none" && partnerHere && loc.kind && OWN_PLACE_KINDS.has(loc.kind)) continue
     if (loc.forwarding === "none" && partnerHere) {
       await addOrderEvent(db, {
         checkoutId,
@@ -220,6 +226,9 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
     }
   }
 }
+
+/** The kinds of place the seller runs themselves (lib/physical/fulfillment.ts METHODS.self.locationKinds). */
+const OWN_PLACE_KINDS = new Set<string>(METHODS.self.locationKinds)
 
 /** A location's integration that Storelib sends orders to: Printful, Printify, Gelato or CJ Dropshipping, connected. */
 async function providerTakesOrders(db: Db, creatorId: string, integrationId: string): Promise<boolean> {

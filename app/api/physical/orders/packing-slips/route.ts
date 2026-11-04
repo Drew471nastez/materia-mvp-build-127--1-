@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { packingSlipHtml, paperAsked, slipLines, slipPaper } from "@/lib/physical/packing-slip"
+import { packingSlipHtml, paperAsked, slipContact, slipLines, slipPaper } from "@/lib/physical/packing-slip"
+import { returnAddressOf } from "@/lib/physical/jobs-server"
 import { resolveOrder } from "@/lib/physical/bulk-fulfil-server"
 import { BULK_MAX_ORDERS } from "@/lib/physical/bulk-fulfil"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
   if (limited) return limited
   const ids = [...new Set((new URL(request.url).searchParams.get("ids") ?? "").split(",").filter(isUuid))].slice(0, BULK_MAX_ORDERS)
   if (ids.length === 0) return page("Choose at least one order.", 400)
-  const [store, zone, { tt, language }] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt()])
+  /* The same store details and return address as one order's slip (../[id]/packing-slip): every slip in the pile is that slip. */
+  const [store, zone, { tt, language }, returnAddress] = await Promise.all([storeIdentity(c.db, c.creatorId).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt(), returnAddressOf(c.db, c.creatorId).catch(() => null)])
   const seen = new Set<string>()
   const slips: string[] = []
   /* The same paper and prices controls as one order's slip, for the whole stack. */
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
     seen.add(order.id)
     const lines = slipLines(order, {})
     if (!lines.length || order.cancelledAt) continue
-    slips.push(packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, { tt, lang: language, timeZone: zone, back: "/app/orders", paper, paperShown, controls, prices: withPrices ? { currency: order.currency, totals: null } : null }))
+    slips.push(packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null, returnAddress, contact: slipContact(store) }, { tt, lang: language, timeZone: zone, back: "/app/orders", paper, paperShown, controls, prices: withPrices ? { currency: order.currency, totals: null } : null }))
   }
   if (slips.length === 0) return page(tt("None of these orders has anything left to pack."), 404)
   /* One head and bar, then each order's paper, a new sheet each. */

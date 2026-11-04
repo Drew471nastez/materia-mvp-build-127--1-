@@ -63,6 +63,8 @@ interface Props {
     totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; taxLabel?: string; total: number; refunded: number; currency?: string }
     /** Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): "due" until the shop has the cash, "paid" after. */
     cash?: "due" | "paid" | null
+    /** What a paid order was paid with (lib/physical/orders-server paidWith): the card's brand and last four, PayPal, Link. */
+    paidWith?: { method: string; brand: string | null; last4: string | null } | null
     /** `shipped`, `returned`: how many of the line went out and came back; `refunded`: money went back on it. */
     lines: { orderId: string; title: string; variantName: string | null; properties?: [string, string][]; files?: { id: string; name: string; url: string }[]; imageUrl: string | null; quantity: number; unitCents?: number; cents: number; type: string; receiptToken: string | null; returnable: number; shipped?: number; returned?: number; refunded?: boolean }[]
     /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
@@ -453,6 +455,11 @@ export function OrderStatusView({ token, justPaid, shop, orderUrl, order, canRet
               <Row label={ct("Total")} value={`${money(order.totals.total)}${order.totals.currency && order.totals.currency.toUpperCase() === "USD" ? " USD" : ""}`} strong />
               {order.totals.refunded ? <Row label={ct("Refunded")} value={`-${money(order.totals.refunded)}`} /> : null}
             </dl>
+            {paidWithText(order.paidWith, ct) ? (
+              <p data-order-paid-with="" className="mt-3 text-[13.5px] text-[#6b7280]">
+                {ct("Paid with {method}", { method: paidWithText(order.paidWith, ct) as string })}
+              </p>
+            ) : null}
             {order.invoiceToken ? (
               <a
                 data-order-invoice=""
@@ -814,4 +821,15 @@ function CancelRequest({ token, shopName, now, refund, money, onClose }: { token
       </div>
     </section>
   )
+}
+
+/** "Visa ending 4242", "PayPal", "Link", as the download receipt writes it (app/receipt/[token]/receipt-view.tsx); null when nothing was kept. */
+export function paidWithText(p: { method: string; brand: string | null; last4: string | null } | null | undefined, ct: (s: string, v?: Record<string, string | number>) => string): string | null {
+  if (!p) return null
+  const named: Record<string, string> = { paypal: "PayPal", link: "Link", apple_pay: "Apple Pay", google_pay: "Google Pay", klarna: "Klarna" }
+  if (named[p.method]) return named[p.method]
+  if (p.method !== "card") return null
+  const brand = p.brand ? (p.brand === "amex" ? "American Express" : p.brand.charAt(0).toUpperCase() + p.brand.slice(1)) : null
+  if (brand && p.last4) return ct("{brand} ending {last4}", { brand, last4: p.last4 })
+  return brand ?? ct("Card")
 }

@@ -26,6 +26,7 @@ import { cache } from "react"
 import { compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
 import { chooseStoreLogo, chooseStoreName, compatPicture, pictureUrl as absolute, themeSettingsOf, websiteLogo as siteLogo } from "@/lib/store/logo-server"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
+import { readBrandShows, type BrandShows } from "@/lib/store/checkout-config"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -35,6 +36,8 @@ export interface CheckoutBrand {
   imageUrl: string | null
   /** A logo is drawn as it is; a photo is round, beside the name. */
   kind: "logo" | "photo" | null
+  /** What the bar shows, Settings › Checkout › Top of checkout (store_settings.checkout.brandShows): the logo and the name, either alone. Absent: both. */
+  shows?: BrandShows
   /** The browser tab's icon: the website's favicon, else its logo, else the person's photo (as the live site does, lib/website-builder/site-icon). */
   iconUrl?: string | null
   /** The picture a shared checkout link shows: the website's share image, else its logo (not an SVG, which share cards cannot draw), else the photo. */
@@ -53,7 +56,7 @@ async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown 
 }
 
 export async function checkoutBrand(db: Db, creatorId: string): Promise<CheckoutBrand> {
-  const [settings, creator, install] = await Promise.all([
+  const [settings, creator, install, checkoutRow] = await Promise.all([
     soft<{ store_name?: string | null; logo_url?: string | null }>(() => db.from("store_settings").select("store_name, logo_url").eq("creator_id", creatorId).maybeSingle()).then(
       async (r) => r ?? (await soft<{ store_name?: string | null }>(() => db.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle())),
     ),
@@ -63,6 +66,8 @@ export async function checkoutBrand(db: Db, creatorId: string): Promise<Checkout
     soft<{ id: string; store_theme_settings?: unknown }>(() =>
       db.from("store_theme_installs").select("id, store_theme_settings ( settings )").eq("creator_id", creatorId).eq("status", "published").limit(1).maybeSingle(),
     ),
+    /* Apart from the name and logo: a database without part 109's column still has its logo. */
+    soft<{ checkout?: { brandShows?: unknown } | null }>(() => db.from("store_settings").select("checkout").eq("creator_id", creatorId).maybeSingle()),
   ])
   const profile = creator?.user_id
     ? await soft<{ display_name?: string | null; username?: string | null; avatar_url?: string | null }>(() => db.from("profiles").select("display_name, username, avatar_url").eq("id", creator.user_id).maybeSingle())
@@ -93,8 +98,9 @@ export async function checkoutBrand(db: Db, creatorId: string): Promise<Checkout
   const drawable = (v: string | null) => (v && !/\.svg(?:\?|$)/i.test(v) ? v : null)
   const iconUrl = websiteIcon ?? logo ?? photo
   const shareImageUrl = websiteShare ?? drawable(logo) ?? photo
-  if (logo) return { name, imageUrl: logo, kind: "logo", iconUrl, shareImageUrl }
-  return { name, imageUrl: photo, kind: photo ? "photo" : null, iconUrl, shareImageUrl }
+  const shows = readBrandShows(checkoutRow?.checkout?.brandShows)
+  if (logo) return { name, imageUrl: logo, kind: "logo", shows, iconUrl, shareImageUrl }
+  return { name, imageUrl: photo, kind: photo ? "photo" : null, shows, iconUrl, shareImageUrl }
 }
 
 /**
