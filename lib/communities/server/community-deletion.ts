@@ -232,11 +232,48 @@ function scheduledView(row: DeletionRow, members: DeletionMemberRow[], now: numb
   }
 }
 
+/**
+ * ROUND 51: PAID TICKETS HOLD A DELETION BACK. Memberships were stopped and
+ * refunded through Stripe, but an event somebody bought a ticket for was
+ * deleted with the community and its money kept. Each event still to come
+ * with a paid ticket is named; the owner cancels it in Events, which refunds
+ * every ticket (./event-admin.ts refundEveryTicketFor), and then deletes.
+ * Before the tickets part has run there are none.
+ */
+export async function ticketedEventsAhead(db: Db, communityId: string, now: number = Date.now()): Promise<{ id: string; title: string; sold: number }[]> {
+  try {
+    const { data: events, error } = await db.from("community_events").select("id, title, starts_at, ends_at, status").eq("community_id", communityId).neq("status", "cancelled").limit(500)
+    if (error) {
+      if (!missing(error)) console.error(`[communities] deletion events ${communityId}: ${reasonOf(error)}`)
+      return []
+    }
+    const ahead = ((events as { id: string; title: string; starts_at: string; ends_at: string | null }[] | null) ?? []).filter((e) => Date.parse(e.ends_at ?? e.starts_at) > now)
+    if (!ahead.length) return []
+    const { data: tickets, error: ticketError } = await db.from("community_event_tickets").select("event_id").in("event_id", ahead.map((e) => e.id)).eq("status", "paid").eq("source", "purchase").gt("amount_cents", 0).limit(5000)
+    if (ticketError) {
+      if (!missing(ticketError)) console.error(`[communities] deletion tickets ${communityId}: ${reasonOf(ticketError)}`)
+      return []
+    }
+    const sold = new Map<string, number>()
+    for (const t of (tickets as { event_id: string }[] | null) ?? []) sold.set(t.event_id, (sold.get(t.event_id) ?? 0) + 1)
+    return ahead.filter((e) => sold.has(e.id)).map((e) => ({ id: e.id, title: e.title, sold: sold.get(e.id) ?? 0 }))
+  } catch (e) {
+    console.error(`[communities] deletion tickets ${communityId}: ${reasonOf(e)}`)
+    return []
+  }
+}
+
+/** The refusal while tickets are sold for events ahead. */
+export function ticketsHoldText(events: { title: string }[]): string {
+  const names = events.slice(0, 3).map((e) => `"${e.title}"`).join(", ")
+  return `People bought tickets for ${names}${events.length > 3 ? " and more" : ""}. Cancel ${events.length === 1 ? "that event" : "those events"} in Events and refund the tickets, then delete the community.`
+}
+
 const ESTIMATE_SAMPLE = 200
 
 /** What the dialog shows before it asks: who pays, until when, about what a deletion now refunds, and what is scheduled. */
 export async function deletionPlan(db: Db, community: Pick<CommunityRow, "id">, now: number = Date.now()): Promise<DeletionPlanView> {
-  const [{ ready, row }, paid] = await Promise.all([readDeletion(db, community.id), paidMemberships(db, community.id, now)])
+  const [{ ready, row }, paid, ticketedEvents] = await Promise.all([readDeletion(db, community.id), paidMemberships(db, community.id, now), ticketedEventsAhead(db, community.id, now)])
   /* About, as the dialog says: the first ESTIMATE_SAMPLE payments are read and the rest counted at their average. */
   let refund = 0
   let currency = "usd"
@@ -249,7 +286,7 @@ export async function deletionPlan(db: Db, community: Pick<CommunityRow, "id">, 
   })
   if (paid.length > sample.length && sample.length) refund = Math.round((refund / sample.length) * paid.length)
   const scheduled = row && row.state === "scheduled" ? scheduledView(row, await memberRows(db, community.id), now) : null
-  return { ready, paying: paid.length, lastPaidUntil: paid.length ? deletionDate(paid, now) : null, refundEstimateCents: refund, currency, scheduled }
+  return { ready, paying: paid.length, lastPaidUntil: paid.length ? deletionDate(paid, now) : null, refundEstimateCents: refund, currency, scheduled, ticketedEvents }
 }
 
 /** The membership's last paid payment: its order, what it paid and for which period. */

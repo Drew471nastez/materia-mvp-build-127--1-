@@ -976,7 +976,7 @@ function ModulePrice({ cents, title, onSave }: { cents: number | null; title: st
         onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
         placeholder={tt("Price")}
         aria-label={tt("Price of {title} on its own", { title })}
-        className="h-8 w-[78px] rounded-lg border border-transparent bg-transparent pl-5 pr-1.5 text-[13px] tabular-nums text-[#1a1a2e] outline-none placeholder:text-[#b0b4bb] hover:border-[#e5e7eb] focus:border-[#d1d5db] focus:bg-white"
+        className="h-10 w-[78px] rounded-lg border border-transparent sm:h-8 bg-transparent pl-5 pr-1.5 text-[13px] tabular-nums text-[#1a1a2e] outline-none placeholder:text-[#b0b4bb] hover:border-[#e5e7eb] focus:border-[#d1d5db] focus:bg-white"
       />
     </label>
   )

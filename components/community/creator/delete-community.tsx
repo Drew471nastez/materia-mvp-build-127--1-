@@ -116,6 +116,7 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
 
   const scheduled = plan?.scheduled ?? null
   const paying = plan?.paying ?? 0
+  const ticketed = plan?.ticketedEvents ?? []
   const until = longDate(plan?.lastPaidUntil)
   const estimate = plan ? money(plan.refundEstimateCents, plan.currency) : ""
   const matches = typed.trim() === head.name.trim() || typed.trim() === head.slug
@@ -192,7 +193,7 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
             <button type="button" onClick={() => setOpen(false)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
               {tt("Cancel")}
             </button>
-            <button type="button" disabled={!matches || busy || !plan} onClick={() => void remove()} className={dangerButton} data-delete-confirm="">
+            <button type="button" disabled={!matches || busy || !plan || ticketed.length > 0} onClick={() => void remove()} className={dangerButton} data-delete-confirm="">
               {busy ? tt("Working") : paying === 0 ? tt("Delete") : mode === "now" ? tt("End memberships and delete") : tt("Cancel memberships and delete")}
             </button>
           </>
@@ -223,6 +224,12 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
             />
             {plan && !plan.ready ? <p className="text-[13px] text-[#b42318]">{tt("Deleting a community members pay for is not switched on yet. Archive it for now; nobody can join an archived community.")}</p> : null}
           </div>
+        ) : null}
+        {/* Round 51: tickets sold for an event still to come hold the deletion back until that event is cancelled with refunds (the server refuses too). */}
+        {ticketed.length ? (
+          <p className={cn("rounded-lg border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b4e00]", paying > 0 ? "mt-4" : "mb-4")} data-delete-tickets="">
+            {tt("People bought tickets for {events}. Cancel {n, plural, one {that event} other {those events}} in Events and refund the tickets, then delete the community.", { events: ticketed.slice(0, 3).map((e) => e.title).join(", "), n: ticketed.length })}
+          </p>
         ) : null}
         {/* Round 51: what goes, named, before the name is typed. */}
         <p className={cn("text-[14px] leading-relaxed text-[#4b5563]", paying > 0 && "mt-4")} data-delete-what="">

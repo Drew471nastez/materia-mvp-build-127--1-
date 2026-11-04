@@ -11965,7 +11965,8 @@ const words: Record<string, string> = {
  "Your website is safe. Try again in a moment.": "Deine Website ist sicher. Versuche es gleich noch einmal.",
  "Sign in again to open this website.": "Melde dich erneut an, um diese Website zu öffnen.",
  "Something went wrong on our side. Trying again on its own.": "Bei uns ist etwas schiefgelaufen. Wird von selbst erneut versucht.",
- "Its page, posts, spaces, events, library, courses, chat and notifications go for everyone. {n, plural, one {# member loses} other {# members lose}} access. Orders and payments are kept.": "Seite, Beiträge, Bereiche, Events, Bibliothek, Kurse, Chat und Benachrichtigungen verschwinden für alle. {n, plural, one {# Mitglied verliert} other {# Mitglieder verlieren}} den Zugang. Bestellungen und Zahlungen bleiben erhalten."
+ "Its page, posts, spaces, events, library, courses, chat and notifications go for everyone. {n, plural, one {# member loses} other {# members lose}} access. Orders and payments are kept.": "Seite, Beiträge, Bereiche, Events, Bibliothek, Kurse, Chat und Benachrichtigungen verschwinden für alle. {n, plural, one {# Mitglied verliert} other {# Mitglieder verlieren}} den Zugang. Bestellungen und Zahlungen bleiben erhalten.",
+ "People bought tickets for {events}. Cancel {n, plural, one {that event} other {those events}} in Events and refund the tickets, then delete the community.": "Für {events} wurden Tickets gekauft. Sag {n, plural, one {dieses Event} other {diese Events}} unter Events ab und erstatte die Tickets, dann lösch die Community."
 }
 
 export default words

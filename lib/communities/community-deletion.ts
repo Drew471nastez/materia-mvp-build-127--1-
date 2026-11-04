@@ -42,6 +42,12 @@ export interface DeletionPlanView {
   refundEstimateCents: number
   currency: string
   scheduled: ScheduledDeletionView | null
+  /**
+   * Round 51: events still to come that people bought tickets for. A deletion
+   * waits until each is cancelled (its tickets refunded, Events › Cancel), so
+   * nobody loses a seat they paid for with no money back. Absent on older callers.
+   */
+  ticketedEvents?: { id: string; title: string; sold: number }[]
 }
 
 export interface ScheduledDeletionView {

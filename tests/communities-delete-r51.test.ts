@@ -29,7 +29,7 @@ import { stripComments } from "./_source"
 import { untt } from "./i18n-source"
 import { fakeDb } from "./_fake-db"
 import { deleteCommunity, setArchived } from "@/lib/communities/server/creator"
-import { runDueDeletions, type DeletionDeps } from "@/lib/communities/server/community-deletion"
+import { deletionPlan, runDueDeletions, ticketedEventsAhead, type DeletionDeps } from "@/lib/communities/server/community-deletion"
 import { addressesOf, linkFilter } from "@/lib/communities/server/community-gone"
 import { goneAddresses } from "@/lib/communities/server/community-gone-announce"
 import { communityLink, listInbox } from "@/lib/notifications/user-inbox"
@@ -158,6 +158,48 @@ async function main() {
     const run = await runDueDeletions(db, 10_000, d)
     check("when the date comes it is deleted", run.completed === 1 && !!row(db).deleted_at, run)
     check("and only then its rows leave every bell", JSON.stringify(ids(db.tables.community_notifications)) === JSON.stringify(["n3"]) && JSON.stringify(ids(db.tables.user_notifications)) === JSON.stringify(["u5", "u6"]))
+  }
+
+  console.log("\npaid tickets hold it back")
+  {
+    const E1 = "e1000000-0000-4000-8000-000000000001"
+    const E2 = "e1000000-0000-4000-8000-000000000002"
+    const E3 = "e1000000-0000-4000-8000-000000000003"
+    const E4 = "e1000000-0000-4000-8000-000000000004"
+    const later = iso(Date.now() + 10 * DAY)
+    const db = <Any>fakeDb({
+      communities: [community()],
+      community_members: [],
+      community_audit_log: [],
+      community_tiers: [],
+      community_deletions: [],
+      community_deletion_members: [],
+      community_events: [
+        { id: E1, community_id: C, title: "Wheel day", starts_at: later, ends_at: null, status: "scheduled" },
+        { id: E2, community_id: C, title: "Called off", starts_at: later, ends_at: null, status: "cancelled" },
+        { id: E3, community_id: C, title: "Last week", starts_at: iso(Date.now() - 7 * DAY), ends_at: iso(Date.now() - 7 * DAY + 3_600_000), status: "scheduled" },
+        { id: E4, community_id: C, title: "Invites only", starts_at: later, ends_at: null, status: "scheduled" },
+      ],
+      community_event_tickets: [
+        { id: "t1", event_id: E1, status: "paid", source: "purchase", amount_cents: 2500 },
+        { id: "t2", event_id: E1, status: "paid", source: "purchase", amount_cents: 2500 },
+        { id: "t3", event_id: E1, status: "refunded", source: "purchase", amount_cents: 2500 },
+        { id: "t4", event_id: E2, status: "paid", source: "purchase", amount_cents: 2500 },
+        { id: "t5", event_id: E3, status: "paid", source: "purchase", amount_cents: 2500 },
+        { id: "t6", event_id: E4, status: "paid", source: "invite", amount_cents: 0 },
+      ],
+    })
+    const ahead = await ticketedEventsAhead(db, C)
+    check("only an event still to come, not cancelled, with tickets people paid for", JSON.stringify(ahead) === JSON.stringify([{ id: E1, title: "Wheel day", sold: 2 }]), ahead)
+    const plan = await deletionPlan(db, { id: C })
+    check("the dialog's plan names it", plan.ticketedEvents?.length === 1 && plan.ticketedEvents[0].title === "Wheel day")
+    const refused = await deleteCommunity(db, { community: row(db), actorId: OWNER, confirm: "Makers" })
+    check("deleting is refused and nothing changes", !refused.ok && refused.status === 409 && /Wheel day/.test(refused.error) && !row(db).deleted_at && row(db).status === "published", refused)
+    db.tables.community_events[0].status = "cancelled"
+    const done = await deleteCommunity(db, { community: row(db), actorId: OWNER, confirm: "Makers" })
+    check("once that event is cancelled, it deletes", done.ok && !!row(db).deleted_at, done)
+    const dialog = raw("components/community/creator/delete-community.tsx")
+    check("the dialog says so before the name is typed and waits", /data-delete-tickets/.test(dialog) && /ticketed\.length > 0\} onClick=\{\(\) => void remove\(\)\}/.test(dialog))
   }
 
   console.log("\nthe engines")

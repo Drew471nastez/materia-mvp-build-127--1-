@@ -117,7 +117,7 @@ import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
 import { communityRoom, loadPolicies, madeWithinLimit, pendingDeletions, type PendingDeletion } from "./creator-policies"
-import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
+import { deletionScheduled, paidMemberships, scheduleDeletion, ticketedEventsAhead, ticketsHoldText, type DeletionDeps } from "./community-deletion"
 import { communityGone } from "./community-gone"
 import { factsFrom, setupExtras } from "./setup-checklist"
 import { setupChecklist, stepsLeft } from "../setup-checklist"
@@ -978,6 +978,9 @@ export async function deleteCommunity(db: Db, a: { community: CommunityRow; acto
   const c = a.community
   const typed = typeof a.confirm === "string" ? a.confirm.trim() : ""
   if (typed !== c.name.trim() && typed !== c.slug) return no(400, "Type the community's name exactly to delete it.", "confirm")
+  /* Round 51: tickets sold for an event still to come are refunded by cancelling it first; nothing changes until then. */
+  const ticketed = await ticketedEventsAhead(db, c.id)
+  if (ticketed.length) return no(409, ticketsHoldText(ticketed))
   const paid = await paidMemberships(db, c.id)
   if (paid.length > 0) return scheduleDeletion(db, { community: c, actorId: a.actorId, mode: a.mode, paid }, deps)
   if (await deletionScheduled(db, c.id)) return no(409, "It is already being deleted. Keep it first to delete it another way.")

@@ -210,7 +210,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
     <article data-event-page={event.id} className="pb-10">
       <div className="mb-4 flex items-center justify-between gap-3">
         <EventBack href={eventsHref} />
-        <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
+        <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center sm:h-9 gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
           <Share2 className="h-4 w-4" aria-hidden />
           Share
         </button>
@@ -423,11 +423,11 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
                     <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
                     Add to calendar
                   </p>
-                  <a href={event.googleUrl} target="_blank" rel="noopener noreferrer" className="text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-google-calendar>
+                  <a href={event.googleUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline sm:min-h-0" data-google-calendar>
                     Google
                   </a>
                   {event.icsUrl ? (
-                    <a href={event.icsUrl} download className="text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-ics>
+                    <a href={event.icsUrl} download className="inline-flex min-h-10 items-center text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline sm:min-h-0" data-ics>
                       Apple, Outlook
                     </a>
                   ) : null}
