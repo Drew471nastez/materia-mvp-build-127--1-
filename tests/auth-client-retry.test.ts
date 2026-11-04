@@ -58,7 +58,12 @@ async function main() {
     let n = 0
     globalThis.fetch = (async () => (n++, new Response("{}", { status: 503 }))) as typeof fetch
     await requestJson("/api/x")
-    check("an ordinary 503 is not asked again here", n === 1, n)
+    /* Changed on purpose (round 50): a read gets one quiet retry on a 502, 503 or 504 (lib/net/request READ_RETRY_STATUSES), never the auth loop's three. */
+    check("an ordinary 503 on a read is asked again once, not by the auth loop", n === 2, n)
+    let m = 0
+    globalThis.fetch = (async () => (m++, new Response("{}", { status: 503 }))) as typeof fetch
+    await requestJson("/api/x", { json: { a: 1 } })
+    check("an ordinary 503 on a change is not asked again here", m === 1, m)
   }
   {
     let n = 0
