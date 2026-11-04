@@ -52,7 +52,8 @@ console.log("\nClosing it does not stop a publish")
 check("the publish is the editor's: the panel only calls onPublish",
   /onPublish=\{\(\) => \{ void handleSave\(\) \}\}/.test(editor) && !/abort|AbortController/.test(panel))
 check("and the bar's button says Publishing while it runs",
-  /busyNow \? \(live \? "Publishing" : "Saving"\)/.test(editor))
+  /* Changed on purpose (r51): "Still publishing" once a press has gone on past PUBLISH_TIMES.slowMs. */
+  /busyNow \? \(live \? \(publishSlow \? "Still publishing" : "Publishing"\) : "Saving"\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)
