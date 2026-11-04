@@ -874,6 +874,12 @@ function ThemeChatPanel({
   /** The words the last part that carried on by itself stopped with. */
   const lastStopReply = React.useRef("")
   /**
+   * WHERE A PART THAT RAN OUT OF TIME GOT TO, when it kept nothing (the
+   * `checkpoint` line, lib/website-builder/agent/run-clock.ts). Sent back with
+   * the next part only, then dropped: a message of the creator's own starts fresh.
+   */
+  const checkpoint = React.useRef<unknown>(null)
+  /**
    * ONLY THE OPEN SECTION MAY CHANGE.
    *
    * On by default whenever a section is selected, because that is what
@@ -1496,6 +1502,9 @@ function ThemeChatPanel({
         return
       }
       if (prompt !== CONTINUE_PROMPT) continues.current = 0
+      /* The checkpoint goes with the next part and no further. */
+      const resume = prompt === CONTINUE_PROMPT ? checkpoint.current : null
+      checkpoint.current = null
 
       /* `into`: the message already on screen since Enter (dispatch), which this run takes over in place. */
       const id = opts.into ?? crypto.randomUUID()
@@ -1599,6 +1608,7 @@ function ThemeChatPanel({
             /* The conversation on screen; the route opens a new one for null. */
             conversationId: live.current.conversation.id,
             continueEarlier: live.current.conversation.earlier,
+            ...(resume ? { resume } : {}),
           }),
           {
             signal: controller.signal,
@@ -1723,6 +1733,10 @@ function ThemeChatPanel({
                 /* Its turn is over, and it is waiting on an answer: the rising sixth. */
                 if (!finished) playAskSound("question")
                 finished = true
+                return
+              } else if (type === "checkpoint") {
+                /* Kept for the next part, which the `continue` after it sends. Never drawn. */
+                checkpoint.current = event.checkpoint ?? null
                 return
               } else if (type === "continue") {
                 /*

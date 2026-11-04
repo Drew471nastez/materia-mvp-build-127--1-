@@ -50,7 +50,7 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section
 import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { EFFORT } from "@/lib/website-builder/ask-engines"
-import { canAnswer, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
+import { canAnswer, isConfigured, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
@@ -75,6 +75,10 @@ import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
 import { sitePages } from "@/lib/website-builder/agent/page-builder-server"
 import { recordRun } from "@/lib/website-builder/agent/run-ledger"
 import type { TraceEntry } from "@/lib/website-builder/agent/loop"
+import { decideTarget, resolveTarget, type TargetInput } from "@/lib/website-builder/agent/targeting"
+import { targetClassifier } from "@/lib/website-builder/agent/router-model"
+import { CHECKPOINT_MAX_PROMPT, CHECKPOINT_MAX_SOURCE, type RunCheckpoint } from "@/lib/website-builder/agent/run-clock"
+import { readBrief } from "@/lib/website-builder/agent/project-state"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -98,6 +102,9 @@ function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
   b.addEventListener("abort", stop, { once: true })
   return both.signal
 }
+
+/** How long before the backstop signal the loop's own clock stops it, so the clock always wins the race. */
+const CLOCK_MARGIN_MS = 5_000
 
 /* Long enough for a detailed brief: creators write a paragraph per change, and a refusal here read as "describe it". */
 const MAX_PROMPT = 8_000
@@ -185,6 +192,27 @@ const BodySchema = z.object({
   conversationId: z.string().uuid().nullable().optional(),
   /** Continuing the messages from before conversations were kept apart. */
   continueEarlier: z.boolean().optional(),
+  /**
+   * THE PART BEFORE THIS ONE RAN OUT OF TIME HAVING KEPT NOTHING, and this is
+   * where it got to (lib/website-builder/agent/run-clock.ts), sent back by the
+   * chat with its automatic next part. Context for the model only: nothing in
+   * it is applied, and any code in it is written again through every check.
+   */
+  resume: z
+    .object({
+      v: z.literal(1),
+      runId: z.string().min(1).max(80),
+      part: z.number().int().min(2).max(20),
+      prompt: z.string().max(CHECKPOINT_MAX_PROMPT),
+      plan: z.string().max(2_000).optional(),
+      target: z.string().max(400).optional(),
+      read: z.array(z.string().max(200)).max(24),
+      draft: z.object({ path: z.string().max(200), source: z.string().max(CHECKPOINT_MAX_SOURCE), problem: z.string().max(400) }).optional(),
+    })
+    .nullable()
+    .optional()
+    /* A checkpoint that does not read is dropped, never a refused request: the next part simply starts fresh. */
+    .catch(null),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -347,7 +375,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * cheap model, while "add a pricing section" classified as medium and
          * got the strong one. Ambition was being penalised.
          */
-        const shape = classifyRequest(body.prompt)
+        /*
+          THE REQUEST ITSELF, when this is the automatic next part of one that ran out of time: "Continue where you
+          stopped" says nothing about what was asked, so the checkpoint's words are what is classified and targeted.
+        */
+        const resume: RunCheckpoint | null = body.resume ?? null
+        const asked = resume?.prompt || body.prompt
+        const shape = resume ? classifyRequest(resume.prompt) : classifyRequest(body.prompt)
         /**
          * AND WHAT KIND OF CHANGE IT IS (lib/website-builder/agent/intent.ts):
          * a small edit that preserves everything else, or a new direction
@@ -360,8 +394,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           below this" asks for a new one, and is not read as the open section to be rethought.
         */
         const openShape = body.lockToSelection === true || body.codeFocus === true ? null : selectedShapeOf(body.sections as never, body.selectedSectionId, (type) => (SECTION_SCHEMAS[type]?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")))
-        const asksForNew = !!openShape && readSelection(body.prompt, openShape).aim === "new"
-        const intent = classifyIntent(body.prompt, {
+        const asksForNew = !!openShape && readSelection(body.prompt, openShape).aim === "new" ? true : !!openShape && resolveTarget({ prompt: asked, sections: body.sections, selectedId: body.selectedSectionId }).action === "add"
+        const intent = classifyIntent(asked, {
           selected: !!body.selectedSectionId && !asksForNew,
           locked: body.lockToSelection === true && !!body.selectedSectionId,
           codeFocus: body.codeFocus === true && !!body.selectedSectionId,
@@ -639,6 +673,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          */
         const selected = resolveSelectedSection(body.sections as never, body.selectedSectionId, origin)
 
+        /*
+          WHICH SECTION THIS IS ABOUT, OR WHAT TO ADD WHERE (lib/website-builder/agent/targeting.ts): decided here,
+          before the model reads the page, from the words, the selection and the page itself. A small fast model is
+          asked only when the rules can only guess, and only on a deployment or account that has Claude.
+        */
+        const targetSchemas = schemaMapFor(agentSources)
+        const targetInput: TargetInput = {
+          prompt: asked,
+          sections: body.sections,
+          selectedId: selected?.id,
+          locked: body.lockToSelection === true && !!selected,
+          codeFocus: body.codeFocus === true && !!selected,
+          addable: [...ADDABLE_SECTIONS, ...customAddableSections(customSectionSchemas(agentSources))].map((type) => ({ type, name: targetSchemas[type]?.name })),
+          schema: (type) => {
+            const found = targetSchemas[type]
+            return found ? { name: found.name, fields: found.fields, blocks: found.blocks } : undefined
+          },
+          lastChanged: history.length ? readBrief(body.settings).recent?.slice(-1)[0]?.ids : undefined,
+          images: images.length,
+        }
+        const target = await decideTarget(targetInput, isConfigured("anthropic") || resolved.provider.id.startsWith("own:anthropic") ? targetClassifier(creatorId) : undefined)
+
         /**
          * STOP BEFORE THE PLATFORM STOPS US. At maxDuration the function is
          * killed mid-stream: no closing message, nothing written to the
@@ -651,6 +707,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * fifteen seconds from the stream's start, which a slow start spent.
          */
         const deadline = AbortSignal.timeout(loopDeadlineMs({ requestStartedAt, maxDurationS: maxDuration }))
+        /*
+          THE LOOP'S OWN CLOCK ends a few seconds before that signal (lib/website-builder/agent/run-clock.ts): it stops
+          between turns with what it kept, or with a checkpoint, and the signal is only the backstop.
+        */
+        const deadlineAt = Date.now() + loopDeadlineMs({ requestStartedAt, maxDurationS: maxDuration }) - CLOCK_MARGIN_MS
         /**
          * THE RUN'S LOG, for whoever debugs it: the intent, the plan, every
          * tool call, what the checks found and what was repaired, the model
@@ -869,6 +930,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           // theme id, never anything about the person.
           cacheKey: `theme:${installId}`,
           signal: eitherSignal(request.signal, deadline),
+          target,
+          deadlineAt,
+          runId: resume?.runId ?? messageId ?? undefined,
+          checkpoint: resume,
         })
 
         let step = await loop.next()
@@ -903,7 +968,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             status: result.status,
             stopped: result.stopped ?? null,
             intent: intent.kind,
+            target: { action: target.action, sections: target.sections.map((t) => t.id), kind: target.kind ?? null, confidence: target.confidence, via: target.via },
+            part: resume?.part ?? 1,
             ms: Date.now() - startedAt,
+            startedAfterMs: startedAt - requestStartedAt,
             usage: result.usage,
             ops: result.ops.length,
             wroteCode: !!result.wroteCode,
@@ -974,14 +1042,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           result.error = "The section's code could not be saved, so it is back to how it was. Try again."
           result.message = ""
         }
-        if (result.status === "failed") {
-          send({
-            type: "error",
-            message:
-              deadline.aborted && !request.signal.aborted && !codeLost
-                ? "This edit ran out of time before it changed anything. Try asking for one part of it."
-                : result.error ?? "The edit failed.",
-          })
+        /* The reply's first line says what was changed: "Edited: Hero", "Added: Testimonials, after Hero". */
+        const reply = (text: string) => (result.headline ? `${result.headline}\n${text}` : text)
+        if (result.status === "failed" && deadline.aborted && !request.signal.aborted && !codeLost) {
+          /*
+            THE BACKSTOP, NOT AN ERROR. The loop's own clock stops it first (deadlineAt); if the platform's signal got
+            there anyway, nothing is lost by saying so plainly and carrying on: the chat sends the next part itself.
+          */
+          result.status = "succeeded"
+          result.error = null
+          result.message = "This one needs more than one pass, so I am carrying on from where I got to."
+          send({ type: "continue", reason: "time" })
+          send({ type: "message", text: result.message })
+        } else if (result.status === "failed") {
+          send({ type: "error", message: result.error ?? "The edit failed." })
         } else {
           /*
             OUT OF TIME, NOT OUT OF WORK. A function here lives 300 seconds, and a whole site takes longer. A run the
@@ -989,9 +1063,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             (components/website-builder/theme-chat.tsx, CONTINUE_PROMPT), with this conversation as its memory, so a
             task of ten or fifteen minutes runs as one request from where the creator sits.
           */
-          const outOfTime = deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode || (result.pages?.length ?? 0) > 0)
+          /* The loop says it stopped for time itself (its `continue` is already sent); this is for the backstop. */
+          const outOfTime = result.stopped !== "time" && deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode || (result.pages?.length ?? 0) > 0)
           if (outOfTime) send({ type: "continue", reason: "time" })
-          send({ type: "message", text: (result.message || "Done.") + (outOfTime ? " Carrying on with the rest." : "") })
+          result.message = (result.message || "Done.") + (outOfTime ? " Carrying on with the rest." : "")
+          send({ type: "message", text: reply(result.message) })
         }
 
         /* One row of facts per run (lib/website-builder/agent/run-ledger.ts): never in the way of the reply. */
@@ -1021,7 +1097,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         await completeThemeExchange({
           installId,
           pageKey: body.page,
-          reply: result.message || (result.status === "failed" ? "" : "Done."),
+          reply: result.status === "failed" ? result.message : reply(result.message || "Done."),
           ops: result.ops,
           error: result.status === "failed" ? result.error : null,
           conversationId,

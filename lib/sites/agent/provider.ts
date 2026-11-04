@@ -235,6 +235,7 @@ export function ownAccount(provider: AgentProvider, source: KeySource, creatorId
   return {
     /* Recorded on the run as "own:openai" and so on: how the monthly AI edits count leaves it out (run.ts). */
     id: `${OWN_PREFIX}${source}`,
+    streams: provider.streams,
     async complete(request: ProviderRequest): Promise<ProviderTurn> {
       try {
         const turn = await provider.complete(request)

@@ -153,6 +153,7 @@ export function plainRunError(thrown: unknown, where: string, fallback: string =
 export function plainFailures(provider: AgentProvider): AgentProvider {
   return {
     id: provider.id,
+    streams: provider.streams,
     async complete(request: ProviderRequest): Promise<ProviderTurn> {
       try {
         return await provider.complete(request)

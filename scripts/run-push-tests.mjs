@@ -1000,6 +1000,10 @@ const SUITES = [
   "tests/round-ba.test.ts",
   "tests/round-bb.test.ts",
   "tests/round-bc-aiagent.test.ts",
+  /* Round 50: which section Storelib AI changes, or what it adds where, decided before the run (lib/website-builder/agent/targeting.ts): 55 requests plus 24 held out, selected and not, edit and new, ambiguous, several sections, six languages, scored against what decided before; "Edited: Hero" and "Added: Testimonials, after Hero" from what the run did. */
+  "tests/agent-targeting-r50.test.ts",
+  /* Round 50: no "ran out of time before it changed anything": the run's own clock (lib/website-builder/agent/run-clock.ts), the smallest change first, a per call limit with one retry for a call that hung, `working` lines through a long call, no doubled output room late in a part, and a part that kept nothing pausing with a checkpoint the chat sends back with the next part. */
+  "tests/agent-deadline-r50.test.ts",
   "tests/round-bc-previews.test.ts",
   /* Round 44: Add section on a slow phone, and the Header card: what is drawn closed stays closed, a card is a still picture, the header drawn ahead, cards kept across groups, drawing between presses (scripts/check-add-section-perf.mjs). */
   "tests/add-section-r44.test.ts",

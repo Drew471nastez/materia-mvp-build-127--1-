@@ -11,6 +11,7 @@ import "server-only"
 
 import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { classifierPrompt, readClassifierAnswer, type RouteClassifier } from "./router"
+import { readTargetAnswer, targetClassifierPrompt, type TargetClassifier } from "./targeting"
 
 export const ROUTER_MODEL = "claude-haiku-5-5"
 const ROUTER_TIMEOUT_MS = 4_000
@@ -29,5 +30,28 @@ export function routerClassifier(creatorId: string): RouteClassifier {
       signal: AbortSignal.timeout(ROUTER_TIMEOUT_MS),
     })
     return readClassifierAnswer(turn.text)
+  }
+}
+
+/**
+ * THE SAME SMALL MODEL, for which section a request is about when the rules
+ * can only guess (./targeting.ts decideTarget): "make the club bit pop more"
+ * with nothing selected. The page as a numbered list, one line back, four
+ * seconds or the rules' guess.
+ */
+export function targetClassifier(creatorId: string): TargetClassifier {
+  return async (prompt, ctx) => {
+    const resolved = await resolveForCreator(creatorId, { requested: "anthropic", model: ROUTER_MODEL })
+    if (resolved.id !== "anthropic") return null
+    const turn = await resolved.provider.complete({
+      model: resolved.model,
+      system: "Answer with exactly one line.",
+      turns: [{ role: "user", content: targetClassifierPrompt(prompt, ctx.sections) }],
+      tools: [],
+      maxOutputTokens: 400,
+      effort: "low",
+      signal: AbortSignal.timeout(ROUTER_TIMEOUT_MS),
+    })
+    return readTargetAnswer(turn.text, ctx.sections.map((s) => s.id))
   }
 }
