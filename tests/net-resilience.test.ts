@@ -259,7 +259,8 @@ async function run() {
 
   console.log("\n7. Wired where it matters")
   const proxy = read("proxy.ts")
-  check("the proxy's session client fetches with a deadline", /createServerClient\(supabaseUrl, supabaseAnonKey, \{[\s\S]{0,700}global: \{ fetch: deadlineFetch \}/.test(proxy))
+  /* Round 50: deadlineFetch under watchRenewals (lib/auth/renewal-watch.ts), which only counts renewals. */
+  check("the proxy's session client fetches with a deadline", /watchRenewals\(deadlineFetch\)/.test(proxy) && /createServerClient\(supabaseUrl, supabaseAnonKey, \{[\s\S]{0,700}global: \{ fetch: renewalWatch\.fetch \}/.test(proxy))
   check("  and every other client in the proxy ends in 5s", (proxy.match(/createClient\(/g) ?? []).length === (proxy.match(/createClient\([^)]*PROXY_DB/g) ?? []).length && /PROXY_READ_MS = 5_000/.test(proxy))
   check("  the proxy sends the request id on and back", /request\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy) && /res\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy))
   const layout = read("app/app/layout.tsx")

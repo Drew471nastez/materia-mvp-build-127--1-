@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * POST /api/store-builder/ensure-published
@@ -16,10 +17,9 @@ import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published
 export async function POST() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }

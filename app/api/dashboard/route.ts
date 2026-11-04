@@ -5,6 +5,7 @@ import { startTimer, logSlowRequest } from "@/lib/perf"
 import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
 import { timed } from "@/lib/perf/server-timing"
 import { splitByCurrency } from "@/lib/orders/money"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * GET /api/dashboard
@@ -21,10 +22,9 @@ async function handleGET(request: NextRequest) {
     const supabase = await createClient()
     const admin = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

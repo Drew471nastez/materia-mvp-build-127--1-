@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -95,9 +96,9 @@ export async function POST(request: NextRequest) {
     const toAccount = body.to === "account" && resendType === "buyer"
     if (toAccount) {
       const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser()
+      if (who.kind === "unavailable") return authUnavailableResponse()
+      const user = who.kind === "user" ? who.user : null
       if (!user) return NextResponse.json({ error: "Sign in again to send it to your account email." }, { status: 401 })
       if (!order.buyer_id || order.buyer_id !== user.id || !user.email) {
         return NextResponse.json({ error: "This order is on another account." }, { status: 403 })

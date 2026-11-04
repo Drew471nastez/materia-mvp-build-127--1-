@@ -4,6 +4,7 @@ import { COVERS_PAYMENT_SETUP } from "@/lib/notifications/rules"
 import { notExpiredFilter, pageOf, parseListParams } from "@/lib/notifications/center"
 import { timed } from "@/lib/perf/server-timing"
 import { panelMessages, panelMessagesUnread, readPanelMessages } from "@/lib/notifications/dm-panel"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -73,10 +74,9 @@ async function handleGET(request: NextRequest) {
   const { limit, offset, before, unreadOnly } = parseListParams(searchParams)
   const now = new Date().toISOString()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
   }
@@ -230,10 +230,9 @@ async function handleGET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
   }

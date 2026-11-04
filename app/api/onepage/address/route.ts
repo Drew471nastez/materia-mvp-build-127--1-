@@ -16,14 +16,15 @@ import { onePageActor } from "@/lib/team/onepage"
 import { checkOnePageName } from "@/lib/onepage/username"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in again to check a name." }, { status: 401, headers: NO_STORE })
 
   const raw = new URL(request.url).searchParams.get("name")

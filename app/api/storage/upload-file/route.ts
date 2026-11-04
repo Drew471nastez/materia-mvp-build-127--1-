@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { DIGITAL_BUCKETS, updateCreatorStorageUsed } from "@/lib/storage"
 import { UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
 import { sanitizeDisplayName } from "@/lib/security/uploads"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -27,9 +28,9 @@ export async function DELETE(request: NextRequest) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
@@ -101,9 +102,9 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
 
     const assetId = new URL(request.url).searchParams.get("assetId")

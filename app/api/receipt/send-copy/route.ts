@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { sendReceiptCopyEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, emailSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -47,9 +48,9 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to send a copy." }, { status: 401 })
 
   const limited = await rateLimit({

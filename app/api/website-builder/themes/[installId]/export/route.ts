@@ -42,6 +42,7 @@ import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { exportShopifyTheme } from "@/lib/storelib-theme/compat/export"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { installFiles } from "@/lib/website-builder/compat-site"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -116,7 +117,9 @@ export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const caller = await routeUser()
+  if (caller.kind === "unavailable") return authUnavailableResponse()
+  const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { data: creator, error: creatorReadErr } = await readTwice(() => supabase

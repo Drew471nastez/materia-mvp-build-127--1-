@@ -5,7 +5,7 @@ import { joinRateLimit, redeemInvite } from "@/lib/communities/server/join"
 import { guardInvite, joinAddressLimit } from "@/lib/communities/server/safety"
 import { loadCommunity } from "@/lib/communities/server/context"
 import { grantTicketOnJoin } from "@/lib/communities/server/jobs/event_ticket_invite"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -42,9 +42,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "sign_in", message: "Sign in to use this invite." }, { status: 401, headers: noStore })
   const limited = (await joinRateLimit(user.id)) ?? (await joinAddressLimit(request))
   if (limited) return limited

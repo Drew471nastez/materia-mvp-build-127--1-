@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { missingPrivacyColumn, privacyPatch } from "@/lib/profile/privacy"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -18,9 +19,9 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function PATCH(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
   const limited = await rateLimit({ bucket: "profile-privacy", subjects: [`user:${user.id}`], windows: [{ limit: 30, seconds: 60 }] })
   if (limited) return limited

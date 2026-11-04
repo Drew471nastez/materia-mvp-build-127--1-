@@ -11,6 +11,7 @@ import { ADD_REFUSALS, LISTING_SLUG_RE, addVerdict, builtinListings } from "@/li
 import { PACKAGE_PATH_RE, listingRowBySlug, rowToListing } from "@/lib/themes/marketplace-server"
 import { POST as addRegistryTheme } from "@/app/api/website-builder/themes/add/route"
 import { POST as importThemePackage } from "@/app/api/website-builder/themes/import/route"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 /* The same work the import does, and its photograph after. */
@@ -39,7 +40,9 @@ export const maxDuration = 60
  */
 export async function POST(req: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to add themes.", code: "signin" }, { status: 401 })
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()

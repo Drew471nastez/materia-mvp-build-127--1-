@@ -6,6 +6,7 @@ import { attachLine, grantLine, normaliseEmail } from "@/lib/orders/attach-guest
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
 import { heldGrants } from "@/lib/receipts/guest-access-server"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * Moves a guest order into the signed-in person's library. The receipt token
@@ -42,9 +43,9 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const admin = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }

@@ -7,6 +7,7 @@ import { actingStore } from "@/lib/team/server"
 import { permits, type TeamArea } from "@/lib/team/permissions"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { communitiesEnabled } from "@/lib/communities/flag"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * Which part of a store each group belongs to (lib/team/permissions), so a
@@ -50,9 +51,9 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in again to search." }, { status: 401, headers: NO_STORE })
 
   const body = await request.json().catch(() => null)

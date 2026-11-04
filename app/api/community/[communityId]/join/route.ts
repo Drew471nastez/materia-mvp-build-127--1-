@@ -3,7 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { joinCommunity, joinRateLimit } from "@/lib/communities/server/join"
 import { joinAddressLimit } from "@/lib/communities/server/safety"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -27,9 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "sign_in", message: "Sign in to join this community." }, { status: 401, headers: noStore })
   const limited = (await joinRateLimit(user.id)) ?? (await joinAddressLimit(request))
   if (limited) return limited

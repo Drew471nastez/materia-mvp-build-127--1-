@@ -6,6 +6,7 @@ import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { emit } from "@/lib/notify/outbox"
 import { PAST_PROVIDER_REFUND_NOTE, paidThroughAirwallex } from "@/lib/payments/past-provider"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 function tryCreateAdminClient() {
   try {
@@ -21,10 +22,9 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const dbClient = tryCreateAdminClient() || supabase
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { data: creator } = await dbClient.from("creators").select("*").eq("user_id", user.id).single()

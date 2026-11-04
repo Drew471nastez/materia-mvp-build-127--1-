@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server"
 
 import { deleteThemeChat, ownThemeInstall } from "@/lib/website-builder/agent/chat"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -23,6 +24,7 @@ export async function DELETE(
   const { installId, conversationId } = await context.params
 
   const owned = await ownThemeInstall(installId)
+  if (!owned.ok && owned.status === 503) return authUnavailableResponse()
   if (!owned.ok) {
     return NextResponse.json(
       { error: owned.status === 401 ? "Sign in to delete this conversation." : "Website not found." },

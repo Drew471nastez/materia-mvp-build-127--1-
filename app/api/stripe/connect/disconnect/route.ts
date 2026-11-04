@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { disconnectStripeAccount } from "@/lib/payments/stripe/connect"
 import { PaymentsProblem } from "@/lib/payments/errors"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * The older disconnect, used by two older settings screens. It cleared the
@@ -15,9 +16,9 @@ import { PaymentsProblem } from "@/lib/payments/errors"
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to change your payments." }, { status: 401 })
 
   const { data: creator } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()

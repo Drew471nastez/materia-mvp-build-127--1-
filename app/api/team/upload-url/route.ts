@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NO_ACCESS, actingStore } from "@/lib/team/server"
 import { teamUploadPathOk } from "@/lib/team/uploads"
 import { uploadRateLimit, UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,9 +25,9 @@ export const dynamic = "force-dynamic"
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in again to upload." }, { status: 401, headers: UPLOAD_HEADERS })
   const admin = createAdminClient()
   const acting = await actingStore(admin, user.id).catch(() => null)

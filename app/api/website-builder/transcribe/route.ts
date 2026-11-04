@@ -21,6 +21,7 @@ import { NextResponse } from "next/server"
 
 import { rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { readRecording } from "@/lib/website-builder/voice-format"
 
 export const dynamic = "force-dynamic"
@@ -32,24 +33,26 @@ const MAX_AUDIO_BYTES = 4 * 1024 * 1024
 
 const MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe"
 
-async function signedInCreator(): Promise<string | null> {
+/* "unavailable": Supabase Auth or the creator read did not answer, which is never "sign in" (lib/auth/route-user). */
+async function signedInCreator(): Promise<string | null | "unavailable"> {
+  const who = await routeUser()
+  if (who.kind === "unavailable") return "unavailable"
+  if (who.kind !== "user") return null
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error } = await supabase.from("creators").select("id").eq("user_id", who.user.id).maybeSingle()
+  if (error) return "unavailable"
   return (creator as { id: string } | null)?.id ?? null
 }
 
 /** Whether a recorded clip can be turned into text on this deployment. */
 export async function GET() {
   const creatorId = await signedInCreator()
-  return NextResponse.json({ available: !!creatorId && !!process.env.OPENAI_API_KEY })
+  return NextResponse.json({ available: !!creatorId && creatorId !== "unavailable" && !!process.env.OPENAI_API_KEY })
 }
 
 export async function POST(request: Request) {
   const creatorId = await signedInCreator()
+  if (creatorId === "unavailable") return authUnavailableResponse()
   if (!creatorId) return NextResponse.json({ error: "Sign in to use voice input." }, { status: 401 })
 
   const apiKey = process.env.OPENAI_API_KEY

@@ -25,6 +25,7 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import { readSessionBounded, signedOutForSure } from "@/lib/auth/session-read"
+import { AUTH_UNAVAILABLE_HEADER, jittered } from "@/lib/auth/recovery-backoff"
 
 export type SessionVerdict = "renewed" | "signed-out" | "unsure"
 
@@ -95,8 +96,28 @@ export const UNSURE_BODY = { error: "Storelib could not check your sign in just 
  * `run`, and once more after the session is renewed if it was answered 401.
  * A real sign out comes back as the 401 it was; a blip as a 503.
  */
-export async function fetchSignedIn(run: () => Promise<Response>, client?: AuthLike): Promise<Response> {
-  const res = await run()
+/*
+  "WE COULD NOT CHECK YOUR SIGN IN" IS ASKED AGAIN QUIETLY FIRST (round 50). A route answers 503 with
+  X-Storelib-Auth: unavailable when Supabase Auth did not answer, before it did anything (lib/auth/route-user),
+  so sending it again is safe, a change included. Two more tries over about four seconds, then its words.
+*/
+export const AUTH_QUIET_RETRY_MS = [1_200, 2_800] as const
+
+/** A 503 that says Supabase Auth did not answer and nothing was done. */
+export function refusedForAuth(res: { status: number; headers: { get(name: string): string | null } }): boolean {
+  return res.status === 503 && res.headers.get(AUTH_UNAVAILABLE_HEADER) === "unavailable"
+}
+
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+export async function fetchSignedIn(run: () => Promise<Response>, client?: AuthLike, { wait = pause }: { wait?: (ms: number) => Promise<void> } = {}): Promise<Response> {
+  let res = await run()
+  for (const ms of AUTH_QUIET_RETRY_MS) {
+    if (!refusedForAuth(res)) break
+    void res.body?.cancel().catch(() => {})
+    await wait(jittered(ms))
+    res = await run()
+  }
   if (res.status !== 401) return res
   const verdict = await renewSession(client)
   if (verdict === "renewed") return run()

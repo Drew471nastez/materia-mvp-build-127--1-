@@ -102,7 +102,9 @@ async function main() {
   check("a listing with no zip cannot be added", (addVerdict(listing({ hasPackage: false }), true) as { reason: string }).reason === "no_package" && addVerdict(builtin[0], false).ok === true)
   check("the refusals are plain words", Object.values(ADD_REFUSALS).every((t) => t.length < 60 && !/—/.test(t)))
   const add = code("app/api/themes/marketplace/add/route.ts")
-  check("the add route asks who is signed in before anything else", add.indexOf("auth.getUser()") > 0 && add.indexOf("auth.getUser()") < add.indexOf("listingRowBySlug(slug)"))
+  /* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
+  const asks = add.indexOf("auth.getUser()") > 0 ? add.indexOf("auth.getUser()") : add.indexOf("await routeUser()")
+  check("the add route asks who is signed in before anything else", asks > 0 && asks < add.indexOf("listingRowBySlug(slug)"))
   check("  checks Pro on the server with the plan every check reads", /creatorSitePlan\(creator\.id/.test(add) && /addVerdict\(listing, plan === "growth" \|\| plan === "pro"\)/.test(add))
   check("  adds Storelib's own through the registry add, and a zip through the import pipeline", /addRegistryTheme\(/.test(add) && /importThemePackage\(forward\("\/api\/website-builder\/themes\/import", \{ path: copy \}\)\)/.test(add))
   check("  hands the import a copy in the creator's own upload folder, never the listing's zip", /importPathFor\(user\.id, randomUUID\(\)\)/.test(add) && /\.copy\(source, copy\)/.test(add) && /PACKAGE_PATH_RE\.test\(source\)/.test(add))

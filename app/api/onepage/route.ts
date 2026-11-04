@@ -10,6 +10,7 @@ import { onePageChangedFor } from "@/lib/onepage/public-cache"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { onePageActor } from "@/lib/team/onepage"
 import { stripResolved } from "@/lib/onepage/storelib-blocks"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -40,10 +41,9 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -118,10 +118,9 @@ export async function PUT(request: Request) {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

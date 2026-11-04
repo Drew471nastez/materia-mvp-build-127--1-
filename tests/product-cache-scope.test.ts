@@ -135,7 +135,8 @@ check(
 
 check(
   "the revalidate route checks the caller owns the product",
-  /auth\.getUser\(\)/.test(revalidateSrc) && /eq\(["']creator_id["']/.test(revalidateSrc),
+  /* Round 50: routeUser (lib/auth/route-user) is getUser with a 503 when Auth did not answer. */
+  (/auth\.getUser\(\)/.test(revalidateSrc) || /await routeUser\(\)/.test(revalidateSrc)) && /eq\(["']creator_id["']/.test(revalidateSrc),
   "app/api/revalidate/route.ts took any slug from anybody",
 )
 

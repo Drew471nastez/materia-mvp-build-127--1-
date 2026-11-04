@@ -22,6 +22,7 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -45,7 +46,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const { installId } = await context.params
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()

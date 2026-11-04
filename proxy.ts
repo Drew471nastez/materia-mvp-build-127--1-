@@ -8,6 +8,7 @@ import { readSessionPresence, readVerifiedSession, shouldSendToLogin } from "@/l
 import { verifierKind } from "@/lib/auth/verify-token"
 import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
 import { deadlineFetch } from "@/lib/net/deadline"
+import { RENEWAL_WAIT_MS, watchRenewals } from "@/lib/auth/renewal-watch"
 import { REQUEST_ID_HEADER, requestIdOf } from "@/lib/net/request-id"
 import { logLine } from "@/lib/net/log"
 import { createClient } from "@supabase/supabase-js"
@@ -2739,6 +2740,8 @@ async function routeRequest(request: NextRequest) {
   // Determine if we're on localhost for cookie domain settings
   const isLocalhost = MAIN_DOMAIN.includes("localhost")
 
+  /* Which renewal this request started, so the response can wait for it below (watchRenewals). */
+  const renewalWatch = watchRenewals(deadlineFetch)
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     /*
       A DEADLINE ON THE REQUEST ITSELF (lib/net/deadline.ts). readVerifiedSession stops waiting after 3s, but a
@@ -2746,12 +2749,13 @@ async function routeRequest(request: NextRequest) {
       refresh that finished after the response had left wrote its rotated cookies to a response nobody would
       read. Now the request is aborted at its deadline instead of running on.
     */
-    global: { fetch: deadlineFetch },
+    global: { fetch: renewalWatch.fetch },
     cookies: {
       getAll() {
         return request.cookies.getAll()
       },
       setAll(cookiesToSet) {
+        renewalWatch.saved()
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
         // The same response, rebuilt from the request that now carries the
         // renewed cookies (see `respond` above).
@@ -2807,6 +2811,16 @@ async function routeRequest(request: NextRequest) {
   */
   const current: Awaited<ReturnType<typeof readVerifiedSession>> =
     request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : !signedIn ? { user: null, state: "anonymous" } : decidesHere ? await readVerifiedSession(supabase, supabaseUrl) : await readSessionPresence(supabase)
+
+  /*
+    A RENEWAL THAT OUTLIVED THE READ STILL LEAVES WITH THIS RESPONSE (round 50). The read above stops waiting
+    after 3s and once more, but the renewal it started goes on, and when Supabase Auth finished it after the
+    response had left, Auth had rotated the refresh token and its replacement was written to a response
+    nobody would send. The browser kept the spent token. So when a renewal is still under way, this waits
+    for it, at most RENEWAL_WAIT_MS more (its own request ends at 10s, lib/net/deadline.ts), and its cookies
+    are on the response. Nothing is asked again here: this only waits.
+  */
+  if (current.state === "indeterminate" && renewalWatch.started()) await renewalWatch.settle(RENEWAL_WAIT_MS)
 
   if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     /* One JSON line (lib/net/log.ts): the path, why, and the request's id; never a cookie or a query. */

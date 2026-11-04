@@ -13,6 +13,7 @@ import type { PageType } from "@/lib/store-builder/types"
 import { pagePhotoForProfile } from "@/lib/account/avatar"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 // GET - Fetch store builder config for a page type or specific product
 export async function GET(request: Request) {
@@ -26,10 +27,9 @@ export async function GET(request: Request) {
 
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -268,10 +268,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -483,10 +482,9 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

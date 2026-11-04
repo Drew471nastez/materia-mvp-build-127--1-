@@ -39,6 +39,7 @@ import { canonicalVideoUrl } from "@/lib/social/video"
 import { themePresets } from "@/lib/store-builder/defaults"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { clampPercent, clampZoom } from "@/lib/images/cover-crop"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -90,10 +91,9 @@ function buildSocialLinks(input: unknown, existing?: SocialLinksConfig): SocialL
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const asker = await routeUser()
+  if (asker.kind === "unavailable") return authUnavailableResponse()
+  const user = asker.kind === "user" ? asker.user : null
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 })
   }

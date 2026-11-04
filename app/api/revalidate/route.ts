@@ -39,6 +39,7 @@ import { queueProductFanout } from "@/lib/notifications/fanout"
 import { creatorShopTag, revalidatePublishedPages, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
 import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 import { translationsChanged } from "@/lib/markets/translate-queue"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,9 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ revalidated: false, error: "Not signed in" }, { status: 401 })
     }

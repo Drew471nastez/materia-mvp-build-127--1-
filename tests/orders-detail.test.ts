@@ -118,7 +118,8 @@ async function main() {
       const src = code(path)
       /* Changed on purpose (round AA, Team): storeIdFor (lib/team/server) is auth.getUser() and then
          the store this account owns, or works in as a member whose role has orders, checked in the database. */
-      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || (/await storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(src) && /if \(store\.ok === false\)/.test(src))
+      /* Round 50: routeUser (lib/auth/route-user), Auth's own answer with a 503 when it did not answer. */
+      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || /await routeUser\(\)/.test(src) || (/await storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(src) && /if \(store\.ok === false\)/.test(src))
         /* shopCaller("orders") (lib/physical/auth): the same sign in and store check, for a route that only reads counts. */
         || (/await shopCaller\("orders"(?:, \{ read: true \})?\)/.test(src) && /if \(c instanceof NextResponse\) return c/.test(src))
       check(`${path} asks who is signed in`, who)

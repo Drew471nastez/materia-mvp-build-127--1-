@@ -49,6 +49,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const BUCKET = "store-builder-images"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -83,7 +84,9 @@ export async function POST(req: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const caller = await routeUser()
+  if (caller.kind === "unavailable") return authUnavailableResponse()
+  const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { data: creator } = await supabase

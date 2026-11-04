@@ -428,7 +428,7 @@ async function main() {
     for (const r of routes) {
       const src = code(r)
       check(`${r}: the switch first`, /export async function POST\([^)]*\)[^{]*\{\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(src))
-      check(`${r}: a signed in person, never a user id from the body`, /auth\.getUser\(\)/.test(src) && !/body\.(userId|user_id|role|price)/.test(src))
+      check(`${r}: a signed in person, never a user id from the body`, /auth\.getUser\(\)|await routeUser\(\)/.test(src) && !/body\.(userId|user_id|role|price)/.test(src))
       check(`${r}: rate limited`, /const limited = \(?await joinRateLimit\(/.test(src) && /if \(limited\) return limited/.test(src))
       check(`${r}: no store`, /Cache-Control": "no-store"/.test(src))
     }

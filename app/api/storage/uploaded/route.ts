@@ -6,6 +6,7 @@ import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -31,9 +32,9 @@ export const maxDuration = 60
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return NextResponse.json({ ok: false }, { status: 401, headers: UPLOAD_HEADERS })
 
     const body = (await request.json().catch(() => null)) as { bucket?: unknown; path?: unknown } | null

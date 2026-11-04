@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { announce, productAddresses, profileAddresses, removedProductAddresses } from "@/lib/seo/announce"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -29,9 +30,9 @@ const SLUG = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,199}$/
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = (await request.json().catch(() => null)) as { product?: unknown; removedProduct?: unknown; profile?: unknown } | null

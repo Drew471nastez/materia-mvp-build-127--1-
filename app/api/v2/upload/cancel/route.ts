@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DIGITAL_BUCKETS, STORAGE_BUCKET, updateCreatorStorageUsed } from "@/lib/storage"
 import { UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -26,7 +27,9 @@ const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
 
     const body = (await request.json().catch(() => null)) as { assetId?: unknown } | null

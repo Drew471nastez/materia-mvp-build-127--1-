@@ -15,6 +15,9 @@
  * JSON at a time.
  */
 
+import { AUTH_UNAVAILABLE_HEADER, jittered } from "@/lib/auth/recovery-backoff"
+import { AUTH_QUIET_RETRY_MS, refusedForAuth, renewSession, UNSURE_BODY, type SessionVerdict } from "./session-keep"
+
 export interface ListedConversation {
   id: string
   title: string
@@ -109,6 +112,8 @@ export interface StreamResult {
   status: number
   /** The route's own sentence when it refused before streaming. */
   error?: string
+  /** A 503 that says Supabase Auth did not answer and nothing was done (lib/auth/route-user). */
+  authUnavailable?: boolean
 }
 
 /** Splits text into whole lines, keeping the unfinished end for next time. */
@@ -184,8 +189,45 @@ function aborted(): DOMException {
  * arrives. Throws an AbortError when `signal` fires, and a TypeError when the
  * connection is lost, as `fetch` would.
  */
-export async function streamPost(url: string, body: string, options: StreamOptions): Promise<StreamResult> {
-  if (options.onUpload && typeof XMLHttpRequest !== "undefined") return streamWithProgress(url, body, options)
+/*
+  A RUN REFUSED AT THE SIGN IN CHECK IS NOT "SIGN IN TO USE THIS" (round 50). The agent route answers before
+  it streams anything, so a refusal can be sent again whole:
+
+    503, Supabase Auth did not answer   asked again quietly, twice, over about four seconds (session-keep)
+    401                                 the browser's session is asked first (session-keep renewSession):
+                                        renewed, sent once more; Auth did not answer, a 503 with Try again;
+                                        signed out for sure, the 401 as it was
+*/
+export async function streamPost(
+  url: string,
+  body: string,
+  options: StreamOptions,
+  deps: { renew?: () => Promise<SessionVerdict>; wait?: (ms: number) => Promise<void> } = {},
+): Promise<StreamResult> {
+  const renew = deps.renew ?? (() => renewSession())
+  const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+  let quiet = 0
+  let renewed = false
+  for (;;) {
+    const result = options.onUpload && typeof XMLHttpRequest !== "undefined" ? await streamWithProgress(url, body, options) : await streamOnce(url, body, options)
+    if (result.ok) return result
+    if (result.authUnavailable && quiet < AUTH_QUIET_RETRY_MS.length) {
+      await wait(jittered(AUTH_QUIET_RETRY_MS[quiet++]))
+      if (options.signal.aborted) throw aborted()
+      continue
+    }
+    if (result.status === 401 && !renewed) {
+      renewed = true
+      const verdict = await renew()
+      if (options.signal.aborted) throw aborted()
+      if (verdict === "renewed") continue
+      if (verdict === "unsure") return { ok: false, status: 503, error: UNSURE_BODY.error }
+    }
+    return result
+  }
+}
+
+async function streamOnce(url: string, body: string, options: StreamOptions): Promise<StreamResult> {
 
   const response = await fetch(url, {
     method: "POST",
@@ -196,7 +238,7 @@ export async function streamPost(url: string, body: string, options: StreamOptio
   options.onSent?.()
   if (!response.ok || !response.body) {
     const answer = await json(response)
-    return { ok: false, status: response.status, error: typeof answer.error === "string" ? answer.error : undefined }
+    return { ok: false, status: response.status, error: typeof answer.error === "string" ? answer.error : undefined, authUnavailable: refusedForAuth(response) }
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -263,7 +305,7 @@ function streamWithProgress(url: string, body: string, options: StreamOptions): 
         } catch {
           /* no sentence to pass on */
         }
-        resolve({ ok: false, status: xhr.status, error })
+        resolve({ ok: false, status: xhr.status, error, authUnavailable: xhr.status === 503 && xhr.getResponseHeader(AUTH_UNAVAILABLE_HEADER) === "unavailable" })
         return
       }
       drain()

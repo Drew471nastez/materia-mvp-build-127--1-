@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 
 import {
   isConversationId,
@@ -32,6 +33,7 @@ export async function GET(request: Request, context: { params: Promise<{ install
   const { installId } = await context.params
 
   const owned = await ownThemeInstall(installId)
+  if (!owned.ok && owned.status === 503) return authUnavailableResponse()
   if (!owned.ok) {
     return NextResponse.json(
       { error: owned.status === 401 ? "Sign in to read this conversation." : "Website not found." },

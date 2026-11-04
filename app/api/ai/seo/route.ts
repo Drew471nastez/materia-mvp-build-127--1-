@@ -4,15 +4,16 @@ import { DEFAULT_MODEL } from "@/lib/sites/agent/models"
 import { openai } from "@/lib/sites/agent/openai-provider"
 import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 // A product's meta description: ChatGPT when it can, the extraction below
 // when it cannot.
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
   try {

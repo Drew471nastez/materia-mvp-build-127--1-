@@ -7,6 +7,7 @@ import { readOrdersForExport, type ExportChoice } from "@/lib/orders/paged"
 import { decodeRuns, isExportFormat, ordersCsv, safeFileName } from "@/lib/orders/export-csv"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -62,9 +63,9 @@ function csvResponse(csv: string, name: string): NextResponse {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in again to export." }, { status: 401 })
 
   const admin = createAdminClient()

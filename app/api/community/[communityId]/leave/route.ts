@@ -4,7 +4,7 @@ import { admin } from "@/lib/communities/server/db"
 import { joinRateLimit, leaveCommunity } from "@/lib/communities/server/join"
 import { saveLeaveReason } from "@/lib/communities/server/leave-reasons"
 import { parseLeaveReason } from "@/lib/communities/leave-reasons"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,9 +32,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const caller = await routeUser()
+  if (caller.kind === "unavailable") return authUnavailableResponse()
+  const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "sign_in", message: "Sign in first." }, { status: 401, headers: noStore })
   const limited = await joinRateLimit(user.id)
   if (limited) return limited

@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { askAiForCategory, canAskAi } from "@/lib/products/category-suggest-ai"
 import { SUGGEST_LIMITS, parseSuggestRequest, resolveSuggestion } from "@/lib/products/category-suggest"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,9 +29,9 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in again." }, { status: 401, headers: NO_STORE })
 
   const limited = await rateLimit({

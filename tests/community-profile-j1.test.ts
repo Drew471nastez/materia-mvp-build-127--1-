@@ -229,7 +229,8 @@ async function main() {
     const prime = code("components/account/settings-subpage.tsx")
     check("Edit profile opened from the profile is primed with their own cover, not the page's as if it were theirs", /seed\.coverUrl !== undefined \? seed\.coverUrl : base\?\.cover\?\.url/.test(prime) && /page: seed\.pageCoverUrl !== undefined/.test(prime))
     const route = code("app/api/profile/cover/route.ts")
-    check("the cover route is still the session's own row only", /auth\.getUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route))
+    /* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
+    check("the cover route is still the session's own row only", (/auth\.getUser\(\)/.test(route) || /await routeUser\(\)/.test(route)) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route))
   }
 
   console.log("\nWords")

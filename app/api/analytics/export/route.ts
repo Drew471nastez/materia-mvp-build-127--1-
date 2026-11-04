@@ -12,7 +12,7 @@ import { propertyLabel, propertyParam } from "@/lib/analytics/properties"
 import { todayIn } from "@/lib/date-range/range"
 import type { Reports } from "@/lib/analytics/reports"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
-import { readUserForRoute } from "@/lib/auth/route-user"
+import { authUnavailableResponse, readUserForRoute, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -159,9 +159,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const caller = await routeUser()
+  if (caller.kind === "unavailable") return authUnavailableResponse()
+  const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const body = (await request.json().catch(() => null)) as { query?: unknown; disposition?: unknown } | null
   if (!body || typeof body.query !== "string" || body.query.length > 2000) return NextResponse.json({ error: "Bad request" }, { status: 400 })

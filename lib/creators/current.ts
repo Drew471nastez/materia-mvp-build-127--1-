@@ -42,6 +42,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { dataOrThrow } from "@/lib/net/service-error"
 
 /*
   THE REQUEST'S ONE ANSWER (lib/auth/request-scope). This asked Supabase Auth
@@ -59,12 +60,26 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 export async function currentCreatorId(): Promise<string | null> {
   const { user } = await currentUserForRequest()
   if (!user) return null
-  return creatorIdOf(user.id)
+  /* A failed read is drawn as no creator here, as before; the routes below tell the two apart. */
+  return creatorIdOf(user.id).catch(() => null)
 }
 
-/** The creator row of a user id that the caller has already verified (routeUser, currentUserForRequest). */
+/**
+ * The creator row of a user id that the caller has already verified (routeUser, currentUserForRequest).
+ * null when the user has no creator. A read that failed THROWS (ServiceUnavailable): it used to come back
+ * as null, and the AI routes answered a signed in creator "Sign in to use this." for a database blip.
+ */
 export async function creatorIdOf(userId: string): Promise<string | null> {
   const admin = createAdminClient()
-  const { data } = await admin.from("creators").select("id").eq("user_id", userId).maybeSingle()
+  const data = dataOrThrow("creator id", await admin.from("creators").select("id").eq("user_id", userId).maybeSingle())
   return (data as { id: string } | null)?.id ?? null
+}
+
+/** creatorIdOf for a route: "unavailable" when the read failed, so the route answers 503 with Try again rather than 401. */
+export async function routeCreatorId(userId: string): Promise<string | null | "unavailable"> {
+  try {
+    return await creatorIdOf(userId)
+  } catch {
+    return "unavailable"
+  }
 }

@@ -14,6 +14,7 @@
  */
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { expiryFor, keyExpired, mintToken } from "@/lib/agent-access/token-format"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -34,9 +35,12 @@ async function ownInstall(installId: string) {
   /* Not a site id at all: no session lookup, no query, and no database
      error about a malformed uuid on its way back to the browser. */
   if (!UUID.test(installId)) return null
+  /* Supabase Auth not answering is "Try again" (503), never "Not found" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return "unavailable" as const
+  if (who.kind !== "user") return null
+  const user = who.user
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return null
   const { data: install } = await supabase
@@ -55,6 +59,7 @@ function notSetUp(message: string | undefined) {
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return authUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const read = (cols: string) =>
     createAdminClient()
@@ -83,6 +88,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return authUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   let name = ""
@@ -149,6 +155,7 @@ export async function POST(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return authUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const id = new URL(req.url).searchParams.get("id")
   if (!id || !UUID.test(id)) return NextResponse.json({ error: "id required" }, { status: 400 })

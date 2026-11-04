@@ -121,7 +121,8 @@ async function main() {
   check("the server client (mediaFetch)", /global: \{ fetch: mediaFetch \}/.test(readCode("lib/supabase/server.ts")))
   check("the browser and app client (mediaFetch)", (readCode("lib/supabase/client.ts").match(/global: \{ fetch: mediaFetch \}/g) ?? []).length >= 1)
   check("mediaFetch is deadlineFetch for auth", /if \(!url\.includes\("\/rest\/v1\/"\)\) return deadlineFetch\(input, init\)/.test(readCode("lib/storage/media-url.ts")))
-  check("the proxy's session client", /global: \{ fetch: deadlineFetch \}/.test(readCode("proxy.ts")))
+  /* Round 50: through watchRenewals, which is deadlineFetch underneath and only counts renewals. */
+  check("the proxy's session client", /watchRenewals\(deadlineFetch\)/.test(readCode("proxy.ts")) && /global: \{ fetch: renewalWatch\.fetch \}/.test(readCode("proxy.ts")))
 
   Date.now = realNow
   console.log(`\n${passed} passed, ${failed} failed`)

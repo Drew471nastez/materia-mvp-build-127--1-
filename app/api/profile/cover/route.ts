@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cropFromBody, missingCoverColumn, ownCoverUrl, parseProfileCover, profileCoverValue, supabaseStorageHost } from "@/lib/profile/cover"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -24,9 +25,9 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function PATCH(request: Request) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
   /* A crop is saved once per gesture, so placing a cover is a few saves, not one: the window allows for that. */
   const limited = await rateLimit({ bucket: "profile-cover", subjects: [`user:${user.id}`], windows: [{ limit: 60, seconds: 600 }] })

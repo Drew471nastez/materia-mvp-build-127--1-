@@ -3,15 +3,15 @@ import { createClient } from "@/lib/supabase/server"
 import { announce, onePageAddresses } from "@/lib/seo/announce"
 import { onePageActor } from "@/lib/team/onepage"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const caller = await routeUser()
+    if (caller.kind === "unavailable") return authUnavailableResponse()
+    const user = caller.kind === "user" ? caller.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

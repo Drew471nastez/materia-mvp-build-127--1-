@@ -79,6 +79,7 @@ import { decideTarget, resolveTarget, type TargetInput } from "@/lib/website-bui
 import { targetClassifier } from "@/lib/website-builder/agent/router-model"
 import { CHECKPOINT_MAX_PROMPT, CHECKPOINT_MAX_SOURCE, type RunCheckpoint } from "@/lib/website-builder/agent/run-clock"
 import { readBrief } from "@/lib/website-builder/agent/project-state"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -221,9 +222,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const { installId } = await context.params
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const asker = await routeUser()
+  if (asker.kind === "unavailable") return authUnavailableResponse()
+  const user = asker.kind === "user" ? asker.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
   const { data: creator } = await supabase

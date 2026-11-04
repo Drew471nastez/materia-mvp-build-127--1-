@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export async function POST(request: Request) {
   try {
@@ -9,10 +10,9 @@ export async function POST(request: Request) {
     const adminSupabase = createAdminClient()
 
     // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

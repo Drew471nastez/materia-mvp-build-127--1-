@@ -173,13 +173,23 @@ export interface DeadlineOptions {
   three-state auth (lib/auth/current-user.ts) never sees it, because it
   happens inside the library before an answer comes back.
 
-  So a 500, 502, 504 or 429 from the refresh is handed to the library as a
+  So a 5xx, a 408 or a 429 from the refresh is handed to the library as a
   503, which it retries with its own backoff and, failing that, returns as a
   retryable error with the session kept. Only the refresh: a sign in, a code
   exchange or a 400 such as refresh_token_not_found ("Already Used") are
   handed back as they are, so a token Auth really refused still signs out.
 */
-export const REFRESH_OUTAGE_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 504])
+export const REFRESH_OUTAGE_STATUSES: ReadonlySet<number> = new Set([408, 429, 500, 502, 504])
+
+/*
+  Round 50: EVERY 5xx, not four of them. Supabase answers through Cloudflare, and during an incident the
+  refresh comes back 520, 522, 524 or 530 as an HTML page. The library read each of those as AuthApiError
+  (or AuthUnknownError for the HTML) and removed the session, so the person was signed out by an outage
+  that was not theirs. A 408 is the same: nobody answered.
+*/
+export function isRefreshOutageStatus(status: number): boolean {
+  return status >= 500 || REFRESH_OUTAGE_STATUSES.has(status)
+}
 
 export function isRefreshTokenRequest(url: string, method: string): boolean {
   if (method !== "POST" || !url.includes("/auth/v1/token")) return false
@@ -190,21 +200,137 @@ export function isRefreshTokenRequest(url: string, method: string): boolean {
   }
 }
 
-export function refreshOutageAsRetryable(url: string, method: string, res: Response): Response {
-  if (!REFRESH_OUTAGE_STATUSES.has(res.status) || !isRefreshTokenRequest(url, method)) return res
-  console.warn(`[auth] token refresh answered ${res.status}; kept the session and passed it on as 503 so it is retried`)
+function asRetryable(res: Response, why: string): Response {
+  console.warn(`[auth] token refresh answered ${why}; kept the session and passed it on as 503 so it is retried`)
   void res.body?.cancel().catch(() => {})
   const headers = new Headers(res.headers)
   headers.delete("content-length")
   headers.delete("content-encoding")
   headers.set("content-type", "application/json")
-  return new Response(JSON.stringify({ message: `Auth answered ${res.status} to a token refresh` }), { status: 503, statusText: "Service Unavailable", headers })
+  return new Response(JSON.stringify({ message: `Auth answered ${why} to a token refresh` }), { status: 503, statusText: "Service Unavailable", headers })
+}
+
+export function refreshOutageAsRetryable(url: string, method: string, res: Response): Response {
+  if (res.status === 503 || !isRefreshOutageStatus(res.status) || !isRefreshTokenRequest(url, method)) return res
+  return asRetryable(res, String(res.status))
+}
+
+/*
+  A 4XX THAT IS NOT SUPABASE AUTH'S OWN ANSWER IS NOT A REFUSAL EITHER. Auth refuses a token with JSON that
+  names it (refresh_token_not_found, refresh_token_already_used, session_not_found). A 403 page from a
+  firewall or a captive portal has no such body; the library read it as AuthUnknownError and signed the
+  person out. Only a body that parses as JSON is handed back as a refusal.
+*/
+export async function refreshAnswer(url: string, method: string, res: Response): Promise<Response> {
+  const mapped = refreshOutageAsRetryable(url, method, res)
+  if (mapped !== res || res.ok || res.status === 503 || !isRefreshTokenRequest(url, method)) return mapped
+  const text = await res.text().catch(() => null)
+  let parsed: unknown = null
+  try {
+    parsed = text === null ? null : JSON.parse(text)
+  } catch {
+    parsed = null
+  }
+  if (!parsed || typeof parsed !== "object") return asRetryable(new Response(null), `${res.status} without Auth's own answer`)
+  return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers })
+}
+
+/*
+  ===========================================================================
+   ONE RENEWAL PER REFRESH TOKEN, SHARED BY EVERY REQUEST THAT HOLDS IT
+  ===========================================================================
+  Round 50. An app brought back from the background, a page with its prefetches, a layout and its page:
+  each request carries the same expired session, and each one's Supabase client renewed it on its own,
+  every one a POST to Supabase Auth with the same refresh token. Auth tolerates that only inside its
+  reuse interval; outside it, a token used again that is two renewals behind ends the whole session
+  ("Invalid Refresh Token: Already Used").
+
+  So on one server instance, and in one page, a renewal of refresh token T that is already under way is
+  waited for rather than sent again, and its answer is handed to every caller that presents T for a few
+  seconds after (SHARE_RENEWAL_MS, inside Auth's own reuse interval of 10s). Each caller still saves the
+  session itself, onto its own response. Only a successful answer is shared; a failure is each caller's
+  own. The key is the exact token, so nobody is handed a session they did not hold the token for, and the
+  answer is the one Auth gives that caller anyway inside its reuse interval.
+*/
+export const SHARE_RENEWAL_MS = 5_000
+const SHARED_RENEWALS_MAX = 500
+type HeldAnswer = { status: number; statusText: string; headers: [string, string][]; body: string }
+type Held = Map<string, { at: number; answer: Promise<HeldAnswer | null> }>
+/* One table per fetch underneath: production has one, and a test that hands its own stub shares nothing with the next. */
+const ownFetch = {}
+let sharedByBase = new WeakMap<object, Held>()
+function renewalsFor(base: DeadlineOptions["base"]): Held {
+  const key = base ?? ownFetch
+  let held = sharedByBase.get(key)
+  if (!held) sharedByBase.set(key, (held = new Map()))
+  return held
+}
+
+/** How many renewals this instance sent to Supabase Auth, and how many it shared (tests, the harness). */
+export const renewalCounts = { sent: 0, shared: 0 }
+
+function refreshTokenIn(body: BodyInit | null | undefined): string | null {
+  if (typeof body !== "string") return null
+  try {
+    const t = (JSON.parse(body) as { refresh_token?: unknown }).refresh_token
+    return typeof t === "string" && t ? t : null
+  } catch {
+    return null
+  }
+}
+
+function heldResponse(a: HeldAnswer): Response {
+  return new Response(a.body, { status: a.status, statusText: a.statusText, headers: a.headers })
+}
+
+/** Forget every shared renewal (tests). */
+export function forgetSharedRenewals(): void {
+  sharedByBase = new WeakMap()
+  renewalCounts.sent = 0
+  renewalCounts.shared = 0
+}
+
+function sendRenewal(input: RequestInfo | URL, init: RequestInit | undefined, opts: DeadlineOptions, url: string, method: string): Promise<Response> {
+  renewalCounts.sent++
+  return fetchWithDeadline(input, init, opts).then((res) => refreshAnswer(url, method, res))
+}
+
+function sharedRenewal(input: RequestInfo | URL, init: RequestInit | undefined, opts: DeadlineOptions, url: string, method: string): Promise<Response> {
+  const token = refreshTokenIn(init?.body)
+  if (!token) return sendRenewal(input, init, opts, url, method)
+  const sharedRenewals = renewalsFor(opts.base)
+  const now = Date.now()
+  for (const [k, v] of sharedRenewals) if (now - v.at >= SHARE_RENEWAL_MS) sharedRenewals.delete(k)
+  const held = sharedRenewals.get(token)
+  if (held) {
+    renewalCounts.shared++
+    return held.answer.then((a) => (a ? heldResponse(a) : sendRenewal(input, init, opts, url, method)))
+  }
+  const sent = sendRenewal(input, init, opts, url, method)
+  const answer: Promise<HeldAnswer | null> = sent.then(
+    async (res) => {
+      if (!res.ok) return null
+      const body = await res.clone().text()
+      return { status: res.status, statusText: res.statusText, headers: [...res.headers.entries()], body }
+    },
+    () => null,
+  )
+  if (sharedRenewals.size >= SHARED_RENEWALS_MAX) {
+    const oldest = sharedRenewals.keys().next().value
+    if (oldest !== undefined) sharedRenewals.delete(oldest)
+  }
+  sharedRenewals.set(token, { at: now, answer })
+  /* A renewal that failed is not kept: the next caller asks Auth itself. */
+  void answer.then((a) => {
+    if (!a && sharedRenewals.get(token)?.answer === answer) sharedRenewals.delete(token)
+  })
+  return sent
 }
 
 export function deadlineFetch(input: RequestInfo | URL, init?: RequestInit, opts: DeadlineOptions = {}): Promise<Response> {
   const method = methodOf(input, init)
   const url = urlOf(input)
-  if (isRefreshTokenRequest(url, method)) return fetchWithDeadline(input, init, opts).then((res) => refreshOutageAsRetryable(url, method, res))
+  if (isRefreshTokenRequest(url, method)) return sharedRenewal(input, init, opts, url, method)
   return fetchWithDeadline(input, init, opts)
 }
 

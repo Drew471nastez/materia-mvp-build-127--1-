@@ -17,6 +17,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { attachmentsFor, type PictureProblem } from "./attachment-store"
 import { createClient } from "@/lib/supabase/server"
+import { routeUser } from "@/lib/auth/route-user"
 import { readPictureNote } from "@/lib/website-builder/ask-attach"
 import { isMissingTable } from "./db-errors"
 
@@ -102,13 +103,14 @@ export function isConversationId(value: unknown): value is string {
  */
 export async function ownThemeInstall(
   installId: string,
-): Promise<{ ok: true; creatorId: string } | { ok: false; status: 401 | 404 }> {
+): Promise<{ ok: true; creatorId: string } | { ok: false; status: 401 | 404 | 503 }> {
   if (!isConversationId(installId)) return { ok: false, status: 404 }
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* 503 when Supabase Auth did not answer: "Try again", never "Sign in" (lib/auth/route-user). */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return { ok: false, status: 503 }
+  const user = who.kind === "user" ? who.user : null
   if (!user) return { ok: false, status: 401 }
+  const supabase = await createClient()
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return { ok: false, status: 404 }
   const creatorId = (creator as { id: string }).id

@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 
 import {
   deleteThemeChat,
@@ -26,6 +27,7 @@ export async function GET(_request: Request, context: { params: Promise<{ instal
   const { installId } = await context.params
 
   const owned = await ownThemeInstall(installId)
+  if (!owned.ok && owned.status === 503) return authUnavailableResponse()
   if (!owned.ok) {
     return NextResponse.json(
       { error: owned.status === 401 ? "Sign in to see your conversations." : "Website not found." },
@@ -57,6 +59,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ ins
   const { installId } = await context.params
 
   const owned = await ownThemeInstall(installId)
+  if (!owned.ok && owned.status === 503) return authUnavailableResponse()
   if (!owned.ok) {
     return NextResponse.json(
       { error: owned.status === 401 ? "Sign in to delete your conversations." : "Website not found." },

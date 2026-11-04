@@ -77,7 +77,8 @@ const GATE = /\b(requireMember|requireCreatorCommunity|viewerContext|requireCrea
   lib/communities/server/join.ts, whose functions decide with viewerContext or
   the member row itself (checked below against that file).
 */
-const JOIN_GATE = /\.auth\.getUser\(\)[\s\S]*?if\s*\(\s*!user\s*\)\s*return[\s\S]*?\b(joinCommunity|leaveCommunity|redeemInvite|finishOnboarding)\s*\(\s*admin\(\)\s*,\s*\w+\s*,\s*user\.id\b/
+/* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
+const JOIN_GATE = /(?:\.auth\.getUser\(\)|await routeUser\(\))[\s\S]*?if\s*\(\s*!user\s*\)\s*return[\s\S]*?\b(joinCommunity|leaveCommunity|redeemInvite|finishOnboarding)\s*\(\s*admin\(\)\s*,\s*\w+\s*,\s*user\.id\b/
 
 export interface RouteProblem {
   handler: string

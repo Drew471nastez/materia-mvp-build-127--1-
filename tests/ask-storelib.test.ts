@@ -274,7 +274,7 @@ section("Voice")
   )
   check(
     "recording is offered only where the server says it can turn it into text",
-    /setEngine\(\(chosen\) => chosen \?\? "record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
+    /setEngine\(\(chosen\) => chosen \?\? "record"\)/.test(voice) && /available: !!creatorId && (?:creatorId !== "unavailable" && )?!!process\.env\.OPENAI_API_KEY/.test(transcribe),
   )
   check(
     "  and a phone with nothing to record to keeps its recogniser rather than losing its microphone",
