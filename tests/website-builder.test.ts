@@ -1503,7 +1503,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("rename takes text only, trimmed, at most 80, and bad JSON is a 400",
     /await req\.json\(\)\.catch\(\(\) => null\)/.test(install) && /typeof body\?\.name === "string"/.test(install) && /name\.length > 80/.test(install))
   // Read up to a cap now (lib/website-builder/request-body.ts); a body that is not JSON is still no action.
-  check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+  /* Changed on purpose (r51): the body may carry the press's job id (lib/website-builder/publish-job.ts). */
+  check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown; job\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
     /* Changed on purpose (round 12, WBPERF): the install route asks through editorUser (readCurrentUser: 401 for nobody, 503 for a blip). */
     /* Changed on purpose (round 42 team): duplicate, the install route, publish and add ask lib/team/website (signed in through editorUser, the store's install checked in lib/team/areas storeInstall); import stays the owner's. */

@@ -7349,7 +7349,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (isDirtyRef.current) {
         const written = await deadline(draftQueue.save(snap), PUBLISH_SAVE_MS, "the save before publishing").catch(() => null)
         if (!written) {
-          showNotification("Couldn't save your last edits. Publish again in a moment.", "error")
+          showNotification("Couldn't save. Publish again soon.", "error")
           setPublishing(false)
           return
         }
@@ -7408,7 +7408,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* Nothing left to publish now; the server says so, and the GitHub line goes with it. */
       void refreshSync()
     } catch {
-      showNotification("Couldn't publish. Your edits are saved. Publish again.", "error")
+      showNotification("Couldn't publish. Try again.", "error")
     } finally {
       publishingRef.current = false
     }

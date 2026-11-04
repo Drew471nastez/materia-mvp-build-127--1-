@@ -126,7 +126,7 @@ export async function runPublish(deps: PublishRunDeps, times: Partial<Record<key
     if (posted) return posted
     if (state === "done") return { ok: true }
     if (state === "failed") return { ok: false, kind: "refused", error: words(said, tt("Couldn't publish. Try again.")) }
-    if (state === "expired") return { ok: false, kind: "unfinished", error: tt("Publishing didn't finish. Your edits are saved. Publish again.") }
+    if (state === "expired") return { ok: false, kind: "unfinished", error: tt("Publishing didn't finish. Publish again.") }
     /*
       Never arrived (unknown), or no record is kept (untracked), and the POST
       has ended without saying: sent once more, the same press, so it is one
@@ -139,6 +139,6 @@ export async function runPublish(deps: PublishRunDeps, times: Partial<Record<key
     }
     await pause(t.pollMs)
   }
-  if (deps.online && !deps.online()) return { ok: false, kind: "offline", error: tt("You're offline. Your edits are saved. Publish again when you're back.") }
-  return { ok: false, kind: "unconfirmed", error: tt("Publishing is taking longer than it should. Your edits are saved. Check your site in a minute, or publish again.") }
+  if (deps.online && !deps.online()) return { ok: false, kind: "offline", error: tt("You're offline. Publish again later.") }
+  return { ok: false, kind: "unconfirmed", error: tt("Publish not confirmed. Check your site.") }
 }

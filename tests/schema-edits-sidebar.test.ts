@@ -347,7 +347,7 @@ async function main() {
   console.log("\nThe open editor takes a push in place")
   {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
-    check("a page or the settings a push rewrote is read again quietly: no loading state, the open section stays", /const loadData = useCallback\(async \(opts: \{ quiet\?: boolean \} = \{\}\) => \{\s*const quiet = opts\.quiet === true\s*if \(!quiet\) setLoading\(true\)/.test(editor) && /await loadData\(\{ quiet: true \}\)/.test(editor))
+    check("a page or the settings a push rewrote is read again quietly: no loading state, the open section stays", /const loadData = useCallback\(async \(opts: \{ quiet\?: boolean \} = \{\}\) => \{\s*const quiet = opts\.quiet === true[\s\S]{0,900}?if \(!quiet\) \{\s*setLoading\(true\)/.test(editor) /* Changed on purpose (r51): each open is numbered first (openEpoch), and the slow notice reset with the loading state. */ && /await loadData\(\{ quiet: true \}\)/.test(editor))
     check("  an edit made while it was on its way is not written over: the choice is shown", /if \(quiet && \(isDirtyRef\.current \|\| savingRef\.current\)\) \{\s*setSyncConflict/.test(editor))
     check("  a failed quiet read leaves the editor as it was", /if \(!quiet\) \{\s*setLoadFailure\(\{[^}]*\}\)\s*setLoadFailed\(true\)/.test(editor))
     check("an imported theme's Theme settings read their file again after a push, Storelib AI or the code editor", /setCompatPanelVersion\(\(n\) => n \+ 1\)/.test(editor) && /panelVersion=\{compatPanelVersion\}/.test(editor))
