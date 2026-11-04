@@ -4,7 +4,8 @@ import { NextResponse } from "next/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { actingStore, creatorFor } from "@/lib/team/server"
+import { actingStore, creatorFor, storeUnavailableResponse } from "@/lib/team/server"
+import { isServiceUnavailable } from "@/lib/net/service-error"
 import { permits } from "@/lib/team/permissions"
 import { teamStampDb } from "@/lib/team/audit"
 import type { TeamArea } from "@/lib/team/roles"
@@ -83,7 +84,12 @@ export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store",
   const db = createAdminClient()
   /* Whose store: their own, or the one they work in when their role has this area (lib/team/server creatorFor). */
   /* Round 41: a route a team member reaches from more than one area (a read the OnePage editor shows, kept by Settings) names them all; the first their permissions hold is asked. One area, as before, reads the store once. */
-  const found = Array.isArray(area) ? await creatorForAny(db, user.id, area) : await creatorFor(db, user.id, area as TeamArea)
+  /* The store could not be read: 503, never "Set up your store first" (round 51, lib/team/server storeUnavailableResponse). */
+  const found = await (Array.isArray(area) ? creatorForAny(db, user.id, area) : creatorFor(db, user.id, area as TeamArea)).catch((e: unknown) => {
+    if (isServiceUnavailable(e)) return null
+    throw e
+  })
+  if (!found) return storeUnavailableResponse()
   if (found.kind === "denied") return physicalJson({ error: "Your role on this store's team does not include this. Ask the store's owner." }, 403)
   if (found.kind === "none") return physicalJson({ error: "Set up your store first." }, 403)
   /* A team member's client writes their account on every line of the order's timeline and the other records (lib/team/audit, round 41). The owner's is the plain client. */

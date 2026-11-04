@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { dataOrThrow } from "@/lib/net/service-error"
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
@@ -50,7 +51,9 @@ export default async function PayoutsPage() {
     .eq("id", access.creatorId)
     .single();
 
-  if (creatorError || !creator) {
+  /* A read that failed is not "no store" (round 51): thrown, and app/app/error.tsx asks again quietly. It sent a seller to /onboarding. */
+  if (creatorError) dataOrThrow("creator", { data: creator, error: creatorError });
+  if (!creator) {
     redirect("/onboarding");
   }
 

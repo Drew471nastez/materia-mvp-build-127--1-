@@ -1290,6 +1290,8 @@ const STRICT_SUITES = [
   "tests/site-blog-native.test.ts",
   /* Round 50 (server reliability): the editor's routes and clients against a stand-in Supabase that is slow (1 to 8s), cold, resets a connection, answers 503, 504 or 429: GETs take the read answer while Auth is slow, a database blip is a 503 the editor retries, a save sent twice is one save, the limiter has ceilings, retries come from a budget, a hung breaker trial does not refuse everybody, one quiet retry for a read in the app, and words that blame the connection only when it is the connection. Strict: it imports the website routes through lib/team/website. */
   "tests/server-reliability-r50.test.ts",
+  /* Round 51 (stability): a platform switch the database did not answer is not off (Explore sent everybody to the landing page), where /explore goes while it is off (never the landing page in the app), the /app menus offer Explore only while it is on, a failed creator read throws instead of sending a seller to /onboarding, /sell and /signup/verify, and the dashboard's boundary asks the server again quietly. scripts/check-app-navigation-r51.mjs measures the navigation. */
+  "tests/app-stability-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

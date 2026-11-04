@@ -188,7 +188,19 @@ export interface RequestCreator {
  * the second copy of the question. The service role reads only the three private
  * columns of the row the caller's client returned (SHELL_PRIVATE_CREATOR_COLUMNS).
  */
-export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => (await creatorRead(userId)).row)
+/*
+  A FAILED READ THROWS HERE TOO (round 51). It answered null, the same as "no store", and every page that
+  asked decided from it: Home, Analytics and Orders sent a seller whose read timed out to /onboarding, then
+  /sell, then /signup/verify ("Check your email"), Products and Community to /app. Measured with
+  scripts/check-app-navigation-r51.mjs against a database answering 503: thrown out of the dashboard on 3 of
+  4 page changes. Now the page throws a ServiceUnavailable, which app/app/error.tsx asks the server for again,
+  quietly. null still means one thing: this account has no store.
+*/
+export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
+  const { row, failure } = await creatorRead(userId)
+  if (failure) throw failure
+  return row
+})
 
 /** The creator row, or a ServiceUnavailable thrown when it could not be read (never null for a failure). */
 export const creatorOrThrowForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
@@ -242,6 +254,17 @@ async function creatorRow(userId: string): Promise<RequestCreator | null> {
  * nothing more for the answer.
  */
 export const sellerAccessForRequest = cache(async (userId: string): Promise<SellerAccess> => {
-  const [creator, profile] = await Promise.all([creatorForRequest(userId), profileForRequest(userId)])
+  /* Where it only decorates (a community page's seller links): a read that failed is "no seller" there, as before. */
+  const [creator, profile] = await Promise.all([creatorForRequest(userId).catch(() => null), profileForRequest(userId)])
+  return sellerAccessFrom({ creator, profile })
+})
+
+/**
+ * The same, for a page that SENDS somebody somewhere from the answer (/sell,
+ * onboarding): both rows read to the end, or a ServiceUnavailable thrown
+ * (round 51). /sell sent a seller whose reads failed to /signup/verify.
+ */
+export const sellerAccessOrThrowForRequest = cache(async (userId: string): Promise<SellerAccess> => {
+  const [creator, profile] = await Promise.all([creatorForRequest(userId), profileOrThrowForRequest(userId)])
   return sellerAccessFrom({ creator, profile })
 })

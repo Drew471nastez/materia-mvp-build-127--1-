@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { creatorForRequest, currentUserForRequest, profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, currentUserForRequest, profileOrThrowForRequest, sellerAccessOrThrowForRequest } from "@/lib/auth/request-scope"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { ServiceUnavailable } from "@/components/app/service-unavailable"
 import { onboardingResume, type OnboardingResume } from "@/lib/account/onboarding-resume"
 import { createClient } from "@/lib/supabase/server"
 import { BUYER_HOME, safeNext, sellDecision } from "@/lib/auth/continue"
@@ -48,9 +50,19 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
 
   const current = await currentUserForRequest()
   const user = current.user
-  const [profile, access] = user
-    ? await Promise.all([profileForRequest(user.id), sellerAccessForRequest(user.id)])
-    : [null, { state: "none" as const }]
+  /*
+    READ TO THE END, OR SAID SO (round 51). A profile or creator row that could not be read came back as none:
+    a seller whose reads timed out was told to verify their email (/signup/verify) or shown seller onboarding
+    from the start. Now that is "Storelib is not answering", with Try again, and nobody is sent anywhere.
+  */
+  let rows: [Awaited<ReturnType<typeof profileOrThrowForRequest>>, Awaited<ReturnType<typeof sellerAccessOrThrowForRequest>>] | [null, { state: "none" }]
+  try {
+    rows = user ? await Promise.all([profileOrThrowForRequest(user.id), sellerAccessOrThrowForRequest(user.id)]) : [null, { state: "none" as const }]
+  } catch (e) {
+    if (!isServiceUnavailable(e)) throw e
+    return <ServiceUnavailable />
+  }
+  const [profile, access] = rows
 
   /* The whole table is lib/auth/continue.ts sellDecision, unit tested in tests/sell-intent.test.ts. */
   const decision = sellDecision({ user, emailVerified: !!profile?.email_verified, access, next })

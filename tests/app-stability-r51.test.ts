@@ -104,6 +104,25 @@ async function main() {
   check("Explore is not read ahead while it is off", /exploreOn \? warmStorelibPages\(router\) : undefined/.test(sidebar))
   check("the phone's sheet drops the row", /\.\.\.\(exploreOn \? \[\{ href: "\/explore"/.test(readCode("components/app/mobile-account-menu.tsx")) && /exploreOn=\{exploreOn\}/.test(sidebar))
 
+  section("4. A read that failed is not \"no store\": nobody is sent to /onboarding, /sell or /signup/verify")
+  const scope = readCode("lib/auth/request-scope.ts")
+  check("creatorForRequest throws the failure instead of answering null", /export const creatorForRequest = cache\(async \(userId: string\): Promise<RequestCreator \| null> => \{\s*const \{ row, failure \} = await creatorRead\(userId\)\s*if \(failure\) throw failure/.test(scope))
+  check("the strict seller access reads both rows to the end; the lenient one stays for decoration", /export const sellerAccessOrThrowForRequest = cache\(/.test(scope) && /creatorForRequest\(userId\), profileOrThrowForRequest\(userId\)/.test(scope) && /creatorForRequest\(userId\)\.catch\(\(\) => null\), profileForRequest\(userId\)/.test(scope))
+  const team = readCode("lib/team/server.ts")
+  check("creatorFor throws a failed read (Orders sent a seller to /onboarding)", (team.match(/dataOrThrow\("(store|creator)", await db\.from\("creators"\)/g) ?? []).length === 2)
+  check("team routes answer 503 for it, not 403 Set up your store first", /if \(!found\) return storeUnavailableResponse\(\)/.test(team) && /if \(!found\) return storeUnavailableResponse\(\)/.test(readCode("lib/physical/auth.ts")))
+  const home = readCode("app/app/page.tsx")
+  check("Home's creator read throws its failure; its title does not", /return dataOrThrow\("creator", \{ data, error \}\)/.test(home) && /homeCreator\(user\.id\)\.catch\(\(\) => null\)/.test(home))
+  check("Payouts throws a failed read rather than redirecting", /if \(creatorError\) dataOrThrow\("creator"/.test(readCode("app/app/payouts/page.tsx")))
+  const sell = readCode("app/(auth)/sell/page.tsx")
+  check("/sell says Storelib is not answering instead of deciding from a failed read", /sellerAccessOrThrowForRequest\(user\.id\)/.test(sell) && /profileOrThrowForRequest\(user\.id\)/.test(sell) && /return <ServiceUnavailable \/>/.test(sell))
+
+  section("5. The dashboard's boundary asks the server again, quietly")
+  const boundary = readCode("app/app/error.tsx")
+  check("Try again refreshes the router and resets in one transition (reset alone redrew the same failure)", /startTransition\(\(\) => \{\s*router\.refresh\(\)\s*reset\(\)/.test(boundary) && /reset=\{retry\}/.test(boundary))
+  check("a server failure (digest) gets two quiet tries behind the slow page's spinner, then the screen", /QUIET_RETRY_MS = \[1_200, 3_500\]/.test(boundary) && /!!error\.digest && triesFor\(path\) < QUIET_RETRY_MS\.length/.test(boundary) && /<PageSpinner \/>/.test(boundary))
+  check("offline waits for the connection, and a failure in the browser shows at once", /addEventListener\("online"/.test(boundary) && /<ErrorScreen error=\{error\}/.test(boundary) && /<PageLanded \/>/.test(boundary))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

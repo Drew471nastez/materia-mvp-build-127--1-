@@ -325,6 +325,36 @@ async function appResume() {
   record("app resume after a lost renewal", { revoked: auth.revoked, cleared: alive(browser) || auth.revoked ? 0 : 1, prompts, dropped: droppedNow, authCalls: auth.refreshCalls })
 }
 
+/*
+  ROUND 51: WIFI TO CELLULAR. The phone was in the background past the token's
+  expiry; it comes back on wifi, a renewal reaches Auth and rotates, and the
+  wifi goes before the answer arrives. The next requests go on cellular while
+  it is still coming up (the renewal fails at the network), then on cellular
+  once it is up.
+*/
+async function networkSwitch() {
+  auth.reset()
+  const browser = jar(newSession(-900))
+  let prompts = 0
+  await refreshGrant({ refresh_token: browser.session().refresh_token })
+  auth.refresh = "network"
+  for (const p of ["/app/orders", "/api/notifications"]) {
+    const r = await visit(browser, p, { rsc: p.startsWith("/app") })
+    browser.take(r.setCookies)
+    if (r.location?.includes("/login")) prompts++
+  }
+  const keptThrough = !!browser.session()
+  auth.refresh = "ok"
+  await sleep(auth.reuseMs + 200)
+  for (const p of ["/app/orders", "/app/products", "/api/app/session"]) {
+    const r = await visit(browser, p, { rsc: p !== "/api/app/session" })
+    browser.take(r.setCookies)
+    if (r.location?.includes("/login")) prompts++
+  }
+  const droppedNow = dropped(browser)
+  record("wifi to cellular mid renewal", { revoked: auth.revoked, cleared: keptThrough && (alive(browser) || auth.revoked) ? 0 : 1, prompts, dropped: droppedNow, authCalls: auth.refreshCalls })
+}
+
 async function slowRenewal() {
   auth.reset()
   const browser = jar(newSession(-30))
@@ -374,6 +404,7 @@ try {
   await parallelAtExpiry()
   await twoTabs()
   await appResume()
+  await networkSwitch()
   await slowRenewal()
   for (const mode of [500, 502, 503, 504, "html-520", "html-522", 408, 429, "html-403", "network"]) await authOutage(mode)
 

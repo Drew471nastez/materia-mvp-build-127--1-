@@ -18,6 +18,7 @@ import { creatorSalesRows, creatorSalesTotals } from "@/lib/analytics/creator-or
 import { salesSummaryFrom } from "@/lib/home/announcements"
 import { commerceActionCounts } from "@/lib/physical/action-counts-server"
 import { within } from "@/lib/website-builder/load-guard"
+import { dataOrThrow } from "@/lib/net/service-error"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -28,6 +29,7 @@ import { within } from "@/lib/website-builder/load-guard"
   through the cached readers below, on the service role exactly as both of
   these read them before, always filtered by the signed in user's own id.
 */
+/* Only a name to greet with: a profile that could not be read greets without one. */
 const homeProfile = cache(async (userId: string) => {
   const { data } = await createAdminClient()
     .from("profiles")
@@ -38,12 +40,13 @@ const homeProfile = cache(async (userId: string) => {
 })
 
 const homeCreator = cache(async (userId: string) => {
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from("creators")
     .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, details_submitted, stripe_requirements, stripe_connected_at, store_published, subscription_plan_id")
     .eq("user_id", userId)
     .maybeSingle()
-  return data
+  /* A read that failed throws (round 51): it was "no store", and Home sent a seller to /onboarding, /sell and /signup/verify. app/app/error.tsx asks again quietly. */
+  return dataOrThrow("creator", { data, error })
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +58,8 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: { absolute: "Storelib" } }
   }
 
-  const [profile, creator] = await Promise.all([homeProfile(user.id), homeCreator(user.id)])
+  /* The title only: a store that could not be read is titled without its name (the page itself asks again). */
+  const [profile, creator] = await Promise.all([homeProfile(user.id), homeCreator(user.id).catch(() => null)])
 
   const username =
     profile?.username || creator?.username || creator?.slug || null
