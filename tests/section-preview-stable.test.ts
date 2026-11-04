@@ -87,7 +87,8 @@ console.log("\nA push swaps the document cleanly")
   check("  nothing of another sheet's is left in a document a sheet takes", /doc\.querySelectorAll\(`body>\$\{CARD_TAG\}, style\[data-sl-shared\]`\)/.test(sheet))
   check("  a section drawn the same as before is shown at once, not faded in again", /if \(this\.donor\?\.get\(key\) === html\) this\.instant\.add\(key\)/.test(sheet) && /shownBefore\.set\(this\.doc, drawn\)/.test(sheet))
   check("an open library takes a burst of changes once", /export const LIVE_ADOPT_QUIET_MS = 250/.test(src) && /export const LIVE_ADOPT_CAP_MS = 1_200/.test(src) && /behindSince\.current \+ LIVE_ADOPT_CAP_MS - now/.test(src))
-  check("a card put in, taken out or hidden puts every section back over its card", /new MutationObserver\(\(\) => sheet\.requestSync\(\)\)/.test(src) && /attributeFilter: \["hidden"\]/.test(src))
+  /* Changed on purpose (merge): the component's two MutationObservers are the sheet's one (gridWatch), beside its one ResizeObserver of the list and its cards, let go in release(). */
+  check("a card put in, taken out or hidden puts every section back over its card", /this\.gridWatch = new MutationObserver\(/.test(src) && /this\.requestSync\(\)/.test(src) && /attributeFilter: \["hidden"\]/.test(src))
 }
 
 console.log("\nNo long task while the list scrolls")
@@ -102,7 +103,8 @@ console.log("\nNo long task while the list scrolls")
   check("  and never while the list is moving", /if \(this\.open && still < SCROLL_SETTLE_MS\)/.test(sheet) && /const SCROLL_SETTLE_MS = 150/.test(src))
   check("  the page's scroll is read only where its layout is already done", !/sync\(\) \{[\s\S]{0,400}scrollingElement/.test(sheet))
   check("putting sections in takes less of a frame while the list scrolls", /performance\.now\(\) - lastInput < SCROLLING_MS \? SCROLL_FRAME_BUDGET_MS : FRAME_BUDGET_MS/.test(sheet))
-  check("only the cards themselves, not what changes inside them, ask for every picture to be placed again", /mo\?\.observe\(grid, \{ childList: true \}\)/.test(src) && /\(r\.target as HTMLElement\)\.parentElement === grid/.test(src))
+  /* Changed on purpose (merge): the same rule in the sheet's gridWatch: a list change, or `hidden` on a card itself, not on what is inside one. */
+  check("only the cards themselves, not what changes inside them, ask for every picture to be placed again", /this\.gridWatch\.observe\(grid, \{ childList: true, subtree: true, attributes: true, attributeFilter: \["hidden"\] \}\)/.test(src) && /\(m\.target as HTMLElement\)\.parentElement === this\.grid\) moved = true/.test(src) && /if \(!moved\) return/.test(src))
   check("a height is remembered only once the section's pictures are in and the fonts have loaded", /if \(h > 0 && this\.settled\(w\)\) rememberHeight/.test(sheet) && /if \(this\.settled\(w\)\) rememberHeight/.test(sheet) && /this\.doc\.fonts\.status !== "loaded"\) return false/.test(sheet) && /every\(\(img\) => img\.complete\)/.test(sheet))
 }
 

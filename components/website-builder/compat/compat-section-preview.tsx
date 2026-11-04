@@ -1475,9 +1475,6 @@ class PreviewSheet {
       frame.style.transform = `scale(${scale})`
       frame.style.height = `${at.split("|")[1]}px`
     }
-    /* Nothing scrolls the frame's own page (an autofocus in a section could): its top is the list's top. */
-    const page = this.doc!.scrollingElement
-    if (page && (page.scrollTop || page.scrollLeft)) page.scrollTo(0, 0)
     /* The frame supplies the exact origin and scale, including the dialog's
        entrance transform and browser zoom. Never reconstruct them from an
        integer offsetWidth. */
