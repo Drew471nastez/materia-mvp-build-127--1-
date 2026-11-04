@@ -273,7 +273,7 @@ function main() {
       /useState<ConnectionId \| null>\(ctx\.connectVia === "github" \|\| ctx\.githubReturned \? "github" : null\)/.test(advanced))
   }
   /* Changed on purpose (r51): one line before a repository instead of three numbered steps, as the owner asked for less text. */
-  check("it says how it works in one line, then the button", /SETUP_LINE = msg\("Storelib keeps this website's theme in a repository\. What your agent pushes comes back as a draft\."\)/.test(panel) && /SETUP_LINE\)/.test(panel) && !/<Steps>/.test(panel))
+  check("it says how it works in one line, then the button", /SETUP_LINE = (msg\()?"Storelib keeps this website's theme in a repository\. What your agent pushes comes back as a draft\."/.test(panel) && /\{(tt\()?SETUP_LINE\)?\}/.test(panel) && !/<Steps>/.test(panel))
   check("and says so plainly when GitHub is not set up on the server", /GitHub is not switched on for this Storelib yet/.test(panel))
   {
     const said = (s: Parameters<typeof githubStatus>[0], failed = false) => {
