@@ -122,13 +122,15 @@ interface ProductIndex {
   price_cents: number | null
   /** A membership or community plan's price is in US dollars whatever the store sells in (lib/money/product-currency). */
   type?: string | null
+  /** A community's plan (round 51): kept by its community, so not a Products hit, as the Products page leaves it out. */
+  community_id?: string | null
 }
 
 async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> {
   const rows = await readWithFallback(
     "products",
     (columns) => db.from("products").select(columns).eq("creator_id", creatorId),
-    "id, title, status, price_cents, type",
+    "id, title, status, price_cents, type, community_id",
   )
   return rows.map((p) => ({
     id: text(p.id),
@@ -136,6 +138,7 @@ async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> 
     status: text(p.status),
     price_cents: typeof p.price_cents === "number" ? p.price_cents : null,
     type: typeof p.type === "string" ? p.type : null,
+    community_id: typeof p.community_id === "string" ? p.community_id : null,
   }))
 }
 
@@ -469,6 +472,8 @@ async function readCommunities(db: Db, ownerUserId: string, q: string): Promise<
         .from("communities")
         .select(columns)
         .eq("owner_user_id", ownerUserId)
+        /* Round 51: a deleted community is gone from /app, so from its search too (it opened a 404). */
+        .is("deleted_at", null)
         .ilike("name", containsPattern(q))
         .order("created_at", { ascending: false })
         .limit(GROUP_LIMIT),
@@ -524,7 +529,8 @@ export function helpHits(q: string, physical: boolean): SearchHit[] {
 function productHits(products: ProductIndex[], q: string, currency: string): SearchHit[] {
   const needle = q.trim().toLowerCase()
   return products
-    .filter((p) => p.title.toLowerCase().includes(needle))
+    /* Round 51: a deleted community's plans kept its name and showed here, opening a product the Products page never lists. */
+    .filter((p) => !p.community_id && p.title.toLowerCase().includes(needle))
     .slice(0, GROUP_LIMIT)
     .map((p) => ({
       id: p.id,

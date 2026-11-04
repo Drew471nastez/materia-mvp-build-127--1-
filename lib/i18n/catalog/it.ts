@@ -11964,7 +11964,8 @@ const words: Record<string, string> = {
  "Your website is safe. Trying again on its own.": "Il tuo sito è al sicuro. Nuovo tentativo automatico.",
  "Your website is safe. Try again in a moment.": "Il tuo sito è al sicuro. Riprova tra un momento.",
  "Sign in again to open this website.": "Accedi di nuovo per aprire questo sito.",
- "Something went wrong on our side. Trying again on its own.": "Qualcosa è andato storto da parte nostra. Nuovo tentativo automatico."
+ "Something went wrong on our side. Trying again on its own.": "Qualcosa è andato storto da parte nostra. Nuovo tentativo automatico.",
+ "Its page, posts, spaces, events, library, courses, chat and notifications go for everyone. {n, plural, one {# member loses} other {# members lose}} access. Orders and payments are kept.": "Pagina, post, spazi, eventi, libreria, corsi, chat e notifiche spariscono per tutti. {n, plural, one {# membro perde} other {# membri perdono}} l’accesso. Ordini e pagamenti restano."
 }
 
 export default words

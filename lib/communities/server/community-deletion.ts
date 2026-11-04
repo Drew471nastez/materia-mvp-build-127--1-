@@ -60,6 +60,7 @@ import { money } from "@/lib/memberships/state"
 import type { CommunityRow } from "../types"
 import { canUndoDeletion, deletionDate, deletionRefundKey, emailDate, isDeletionMode, proratedRefundCents, renews, stillPaid, type DeletionMode, type DeletionPlanView, type ScheduledDeletionView } from "../community-deletion"
 import { audit } from "./audit"
+import { communityGone } from "./community-gone"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 import { communityProducts, defaultRefundDeps, defaultSubscriptionDeps, type RefundLike } from "./membership-lifecycle"
 import { syncTierProducts } from "./tiers"
@@ -578,6 +579,8 @@ async function completeIfDue(db: Db, deps: DeletionDeps, community: CommunityRow
   await db.from("communities").update({ status: "archived", archived_at: community.archived_at ?? nowIso(now), deleted_at: nowIso(now) }).eq("id", community.id)
   await syncTierProducts(db, { ...community, status: "archived" }, false)
   await audit(db, { communityId: community.id, actorId: deletion.requested_by, actorKind: "system", action: "community.deleted", targetType: "community", targetId: community.id, targetLabel: community.name, detail: { scheduled: true, mode: deletion.mode, memberships: rows.length, refunded: rows.filter((r) => r.stripe_refund_id).length } })
+  /* Round 51: out of everybody's bell, and the engines and stored copies told, as it was before it was archived for the deletion (./community-gone.ts). */
+  await communityGone(db, community, deletion.prior_status)
   return "completed"
 }
 

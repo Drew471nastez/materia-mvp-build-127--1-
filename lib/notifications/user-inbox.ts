@@ -292,7 +292,7 @@ export async function listInbox(db: Db, o: { userId: string; filter: InboxFilter
     if (r.c) {
       const c = r.c
       const community = communities.get(c.community_id) ?? null
-      const url = community ? safeInboxUrl(c.url) : null
+      const url = community ? communityLink(safeInboxUrl(c.url), community.slug) : null
       return {
         id: c.id,
         from: "community",
@@ -300,7 +300,7 @@ export async function listInbox(db: Db, o: { userId: string; filter: InboxFilter
         source: "communities",
         title: c.title,
         body: c.body,
-        url: url && community && url.startsWith(`/community/${community.slug}`) ? url : null,
+        url,
         read: !!c.read_at,
         createdAt: c.created_at,
         actor: c.actor_id ? (actors.get(c.actor_id) ?? null) : null,
@@ -328,6 +328,21 @@ export async function listInbox(db: Db, o: { userId: string; filter: InboxFilter
   return { items, unread, nextCursor: merged.length > limit && last ? encodeInboxCursor(last) : null, available }
 }
 
+/**
+ * A community row's link, always inside its own community, at its address now.
+ *
+ * Round 51: the row keeps the address the community had when it was written,
+ * and the check was `url.startsWith("/community/" + slug)`. After a slug
+ * change every older row failed it and lost its link (a tap did nothing), and
+ * "/community/makers-club/..." passed it for "makers". The first segment is
+ * now read whole and put back as the community's current address.
+ */
+export function communityLink(url: string | null, slug: string): string | null {
+  if (!url) return null
+  const m = /^\/community\/[^/?#]+(?=[/?#]|$)/.exec(url)
+  return m ? `/community/${slug}${url.slice(m[0].length)}` : null
+}
+
 async function readActors(db: Db, ids: string[]): Promise<Map<string, InboxActor>> {
   const out = new Map<string, InboxActor>()
   if (!ids.length) return out
@@ -342,7 +357,8 @@ async function readActors(db: Db, ids: string[]): Promise<Map<string, InboxActor
 async function readCommunities(db: Db, ids: string[]): Promise<Map<string, { name: string; slug: string; logoUrl: string | null }>> {
   const out = new Map<string, { name: string; slug: string; logoUrl: string | null }>()
   if (!ids.length) return out
-  const { data, error } = await db.from("communities").select("id, name, slug, logo_url").in("id", ids)
+  /* Round 51: a deleted community's rows are deleted with it (lib/communities/server/community-gone.ts); one left over has no link to a 404. */
+  const { data, error } = await db.from("communities").select("id, name, slug, logo_url").in("id", ids).is("deleted_at", null)
   if (error) return out
   for (const c of (data as { id: string; name: string; slug: string; logo_url: string | null }[] | null) ?? []) out.set(c.id, { name: c.name, slug: c.slug, logoUrl: c.logo_url })
   return out

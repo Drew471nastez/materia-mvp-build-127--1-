@@ -1290,6 +1290,8 @@ const STRICT_SUITES = [
   "tests/site-blog-native.test.ts",
   /* Round 50 (server reliability): the editor's routes and clients against a stand-in Supabase that is slow (1 to 8s), cold, resets a connection, answers 503, 504 or 429: GETs take the read answer while Auth is slow, a database blip is a 503 the editor retries, a save sent twice is one save, the limiter has ceilings, retries come from a budget, a hung breaker trial does not refuse everybody, one quiet retry for a read in the app, and words that blame the connection only when it is the connection. Strict: it imports the website routes through lib/team/website. */
   "tests/server-reliability-r50.test.ts",
+  /* Round 51 (communities): a deleted community shows nowhere: its rows leave every bell (both tables, its old addresses too) when it is deleted or its scheduled deletion completes, its addresses, About page and public posts go to IndexNow, its stored copies are asked again, /app search leaves it and its plans out, the dialog names what goes, archiving as before. */
+  "tests/communities-delete-r51.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

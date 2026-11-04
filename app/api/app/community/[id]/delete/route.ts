@@ -19,7 +19,8 @@ export const maxDuration = 30
  *      (lib/communities/server/community-deletion.ts deletionPlan).
  * POST /api/app/community/<id>/delete  { confirm: "<the community's name>", mode?: "period_end" | "now" }
  *      Nobody pays: a soft delete at once (hidden everywhere, archived, off
- *      sale; rows, posts and orders kept) -> { deleted: true }.
+ *      sale; rows, posts and orders kept; out of every bell, round 51)
+ *      -> { deleted: true }.
  *      Somebody pays (round 33): archived now, every membership stopped
  *      through Stripe, deleted when the last paid period ends, or now with
  *      prorated refunds -> { deleted, scheduled }.
@@ -52,8 +53,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const done = await deleteCommunity(gate.ctx.admin, { community: gate.community, actorId: gate.ctx.userId, confirm: body.confirm, mode: body.mode })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
-  /* Deleted or waiting to be, its page is gone from the sitemap; tell the engines after the answer. */
+  /*
+    Waiting to be deleted, its page is gone from the sitemap and says noindex; tell the engines after the answer.
+    Deleted, every address it had was sent already, its posts too (lib/communities/server/community-gone.ts).
+  */
   const slug = gate.community.slug
-  after(() => announceAddresses(communityAddresses(slug)))
+  if (!done.deleted) after(() => announceAddresses(communityAddresses(slug)))
   return NextResponse.json({ ok: true, deleted: done.deleted, scheduled: done.scheduled }, { headers: noStore })
 }

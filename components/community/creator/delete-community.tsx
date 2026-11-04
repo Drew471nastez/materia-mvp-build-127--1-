@@ -224,7 +224,11 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
             {plan && !plan.ready ? <p className="text-[13px] text-[#b42318]">{tt("Deleting a community members pay for is not switched on yet. Archive it for now; nobody can join an archived community.")}</p> : null}
           </div>
         ) : null}
-        <p className={cn("text-[14px] leading-relaxed text-[#4b5563]", paying > 0 && "mt-4")}>
+        {/* Round 51: what goes, named, before the name is typed. */}
+        <p className={cn("text-[14px] leading-relaxed text-[#4b5563]", paying > 0 && "mt-4")} data-delete-what="">
+          {tt("Its page, posts, spaces, events, library, courses, chat and notifications go for everyone. {n, plural, one {# member loses} other {# members lose}} access. Orders and payments are kept.", { n: Math.max(0, head.memberCount) })}
+        </p>
+        <p className="mt-3 text-[14px] leading-relaxed text-[#4b5563]">
           <Rich text={tt("Type {name} to delete it.")} parts={{ name: <span className="font-semibold text-[#1a1a2e]">{head.name}</span> }} />
         </p>
         <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={tt("Community name")} autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} data-delete-name="" />

@@ -118,6 +118,7 @@ import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
 import { communityRoom, loadPolicies, madeWithinLimit, pendingDeletions, type PendingDeletion } from "./creator-policies"
 import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
+import { communityGone } from "./community-gone"
 import { factsFrom, setupExtras } from "./setup-checklist"
 import { setupChecklist, stepsLeft } from "../setup-checklist"
 import type { WizardInput } from "../create-wizard"
@@ -986,6 +987,8 @@ export async function deleteCommunity(db: Db, a: { community: CommunityRow; acto
   if (!Array.isArray(gone) || gone.length !== 1) return no(409, "It has already been deleted.")
   await syncTierProducts(db, { ...c, status: "archived" }, false)
   await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: "community.deleted", targetType: "community", targetId: c.id, targetLabel: c.name })
+  /* Round 51: out of everybody's bell, and the engines and stored copies told (./community-gone.ts). */
+  await communityGone(db, c, c.status)
   return { ok: true, deleted: true, scheduled: null }
 }
 
