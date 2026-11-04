@@ -24,26 +24,15 @@
  * asked again by the browser at once, from the server, never the CDN (an
  * RSC request is never held): the minute is the most anybody waits.
  *
- * Never held: anything but GET and HEAD, an RSC request (a client side move
- * or ScheduleRefresh's own), and every answer on storelib.me other than a
- * OnePage (robots, sitemaps, the canvas, the API calls the page makes).
+ * The rule is next.config.mjs's storelib.me rule, not the proxy's: Next
+ * takes the `rsc` header off the request the proxy is shown, so a header set
+ * there was sent on a client side move too (measured on a production build,
+ * scripts/check-public-delivery-r51). Never held: an RSC request (a client
+ * side move, ScheduleRefresh's own), and every storelib.me address that is
+ * not one name (robots, sitemaps, the canvas, the API calls the page makes).
+ * Vercel's CDN stores only GET and HEAD.
  */
 export const ONEPAGE_EDGE = "public, s-maxage=60, stale-while-revalidate=300"
 
-/** The tag every CDN copy of a OnePage carries, by the name in its address, lower case. */
+/** The tag every CDN copy of a OnePage carries (next.config.mjs `onepage-:name`), by the name in its address, lower case. */
 export const onePageCdnTag = (name: string) => `onepage-${name.trim().toLowerCase()}`
-
-const ONEPAGE_ROUTE = /^\/([a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?)\/links(?:\?|$)/
-
-/**
- * The CDN headers for a request the proxy rewrites on storelib.me, or null.
- * `path` is the rewrite's destination (lib/onepage/host-route: `/<name>/links`
- * with the query), which is only ever a name already in its one spelling.
- */
-export function onePageEdgeHeaders(r: { method: string; rsc: boolean; path: string }): Record<string, string> | null {
-  if (r.method !== "GET" && r.method !== "HEAD") return null
-  if (r.rsc) return null
-  const m = ONEPAGE_ROUTE.exec(r.path)
-  if (!m || m[1].includes("..")) return null
-  return { "Vercel-CDN-Cache-Control": ONEPAGE_EDGE, "Vercel-Cache-Tag": onePageCdnTag(m[1]) }
-}

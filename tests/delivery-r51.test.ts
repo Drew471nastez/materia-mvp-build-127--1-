@@ -49,27 +49,44 @@ const ROOT = process.cwd()
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8")
 const code = (p: string) => stripComments(read(p))
 
+/** What next.config.mjs's header rules answer for a host, a path and a request's headers, by Next's own matchers. */
+async function configAnswer() {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abcdefghijkl.supabase.co"
+  const { pathToFileURL } = await import("node:url")
+  const config = await import(`${pathToFileURL(join(ROOT, "next.config.mjs")).href}?d51=${Date.now()}`)
+  const rules = (await config.default.headers()) as { source: string; has?: object[]; missing?: object[]; headers: { key: string; value: string }[] }[]
+  const { getPathMatch } = require("next/dist/shared/lib/router/utils/path-match") as { getPathMatch: (p: string) => (path: string) => Record<string, string> | false }
+  const { matchHas } = require("next/dist/shared/lib/router/utils/prepare-destination") as { matchHas: (req: object, query: object, has?: object[], missing?: object[]) => unknown }
+  return (host: string, path: string, headers: Record<string, string> = {}) => {
+    const out: Record<string, string> = {}
+    for (const r of rules) {
+      const params = getPathMatch(r.source)(path)
+      if (!params) continue
+      if (!matchHas({ headers: { host, ...headers } }, {}, r.has as object[], r.missing as object[])) continue
+      for (const h of r.headers) out[h.key.toLowerCase()] = h.value.replace(/:(\w+)/g, (_, k: string) => params[k] ?? `:${k}`)
+    }
+    return out
+  }
+}
+
 async function main() {
   console.log("\n1. storelib.me/<name> is held by the CDN, for everybody")
   {
-    const { onePageEdgeHeaders, onePageCdnTag, ONEPAGE_EDGE } = await import("@/lib/onepage/edge")
-    const { onePageRoute } = await import("@/lib/onepage/host-route")
-    const route = (pathname: string, method = "GET", search = "") => onePageRoute({ host: "storelib.me", pathname, search, method, mainDomain: "storelib.com", sitesDomain: "storelib.com", platformSubdomains: ["www", "app", "api"] })
-    const edgeFor = (pathname: string, o: { method?: string; rsc?: boolean; search?: string } = {}) => {
-      const r = route(pathname, o.method ?? "GET", o.search ?? "")
-      return r && r.kind === "rewrite" ? onePageEdgeHeaders({ method: o.method ?? "GET", rsc: !!o.rsc, path: r.path }) : null
-    }
-    const page = edgeFor("/satori")
-    check("a OnePage: Vercel-CDN-Cache-Control, the same rule as a creator page, tagged by its name", JSON.stringify(page) === JSON.stringify({ "Vercel-CDN-Cache-Control": ONEPAGE_EDGE, "Vercel-Cache-Tag": "onepage-satori" }), page)
-    check("  a minute, served stale for five while drawn again (as round 49's EDGE_PAGE)", ONEPAGE_EDGE === "public, s-maxage=60, stale-while-revalidate=300" && /EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"/.test(read("next.config.mjs")))
-    check("  a query is its own address and keeps the same rule", JSON.stringify(edgeFor("/satori", { search: "?utm_source=ig" })) === JSON.stringify(page))
-    check("  HEAD too", edgeFor("/satori", { method: "HEAD" }) !== null)
-    check("never an RSC request (a client side move, ScheduleRefresh's own ask)", edgeFor("/satori", { rsc: true }) === null)
-    check("never a write", onePageEdgeHeaders({ method: "POST", rsc: false, path: "/satori/links" }) === null)
-    check("never another storelib.me answer: robots, a sitemap, the canvas, an API call, a 404", ["/robots.txt", "/sitemap.xml", "/api/onepage/track", "/Satori", "/satori/links", "/"].every((p) => edgeFor(p) === null) && onePageEdgeHeaders({ method: "GET", rsc: false, path: "/sitemap/onepages.xml" }) === null && onePageEdgeHeaders({ method: "GET", rsc: false, path: "/__canvas/abc" }) === null && onePageEdgeHeaders({ method: "GET", rsc: false, path: "/l/-" }) === null)
+    const { onePageCdnTag, ONEPAGE_EDGE } = await import("@/lib/onepage/edge")
+    const answer = await configAnswer()
+    const visitors = [{}, { cookie: "sb-abcdefghijkl-auth-token=x" }, { cookie: "sl_owned_hint=1; sl_lang=fr; sl_country=FR" }, { referer: "https://storelib.com/app" }]
+    const all = visitors.map((h) => JSON.stringify(answer("storelib.me", "/satori", h)))
+    check("a OnePage: one answer for every visitor", new Set(all).size === 1, all)
+    const page = answer("storelib.me", "/satori")
+    check("  Vercel-CDN-Cache-Control, the same rule as a creator page, tagged by its name", page["vercel-cdn-cache-control"] === ONEPAGE_EDGE && page["vercel-cache-tag"] === onePageCdnTag("satori") && page["cache-control"] === undefined, page)
+    check("  a minute, served stale for five while drawn again (round 49's EDGE_PAGE)", ONEPAGE_EDGE === "public, s-maxage=60, stale-while-revalidate=300" && /EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"/.test(read("next.config.mjs")))
+    check("  a name with a dot or an underscore (pages older than the rules) too", answer("storelib.me", "/old.page_1")["vercel-cache-tag"] === "onepage-old.page_1")
+    check("never an RSC request (a client side move, ScheduleRefresh's own ask)", answer("storelib.me", "/satori", { rsc: "1" })["vercel-cdn-cache-control"] === undefined)
+    check("never another storelib.me answer: robots, a sitemap, a file, the canvas, an API call, two segments", ["/robots.txt", "/sitemap.xml", "/favicon.ico", "/site.webmanifest", "/api/onepage/track", "/__canvas/abc", "/satori/links", "/sitemap/onepages-1-of-2.xml", "/"].every((p) => answer("storelib.me", p)["vercel-cdn-cache-control"] === undefined))
+    check("only on storelib.me: not a look alike host, not storelib.com's own /<handle> rule", answer("storelib.me.evil.test", "/satori")["vercel-cache-tag"] === undefined && answer("xstorelib.me", "/satori")["vercel-cache-tag"] === undefined && answer("storelib.com", "/satori")["vercel-cache-tag"] === "creator-page-satori")
     check("  the tag is the name lower case", onePageCdnTag(" Satori ") === "onepage-satori")
     const proxy = code("proxy.ts")
-    check("the proxy sets it on the OnePage rewrite, from the destination the host route chose", /case "rewrite": \{\s*const r = NextResponse\.rewrite\(new URL\(onePage\.path, request\.url\)\)\s*const edge = onePageEdgeHeaders\(\{ method: request\.method, rsc: request\.headers\.has\("rsc"\), path: onePage\.path \}\)\s*if \(edge\) for \(const \[k, v\] of Object\.entries\(edge\)\) r\.headers\.set\(k, v\)\s*return r/.test(proxy))
+    check("the proxy sets nothing of its own on the OnePage rewrite (Next hides the rsc header from it)", /case "rewrite":\s*return NextResponse\.rewrite\(new URL\(onePage\.path, request\.url\)\)/.test(proxy) && !/onePageEdgeHeaders/.test(proxy))
     check("  and storelib.me still returns before any session is read or cookie written", proxy.indexOf("const onePage = onePageRoute(") > 0 && proxy.indexOf("const onePage = onePageRoute(") < proxy.indexOf("skipsSessionRefresh(pathname, cookieNames)"))
     const render = code("app/(marketing)/l/[slug]/page.tsx")
     check("the OnePage's render reads no cookie, and a header only for a renamed page's redirect (the host, which the CDN keys on)", !/\bcookies\s*\(/.test(render) && (render.match(/\bheaders\(\)/g) ?? []).length === 1 && /const onOnePageHost = isOnePageHost\(\(await headers\(\)\)\.get\("host"\)\)/.test(render) && !/getUser|currentUserForRequest|createClient\(\)/.test(render))
@@ -128,21 +145,7 @@ async function main() {
 
   console.log("\n4. The landing page's hour at the CDN is storelib.com's alone")
   {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abcdefghijkl.supabase.co"
-    const { pathToFileURL } = await import("node:url")
-    const config = await import(`${pathToFileURL(join(ROOT, "next.config.mjs")).href}?d51=${Date.now()}`)
-    const rules = (await config.default.headers()) as { source: string; has?: object[]; missing?: object[]; headers: { key: string; value: string }[] }[]
-    const { getPathMatch } = require("next/dist/shared/lib/router/utils/path-match") as { getPathMatch: (p: string) => (path: string) => Record<string, string> | false }
-    const { matchHas } = require("next/dist/shared/lib/router/utils/prepare-destination") as { matchHas: (req: object, query: object, has?: object[], missing?: object[]) => unknown }
-    const answer = (host: string, path: string) => {
-      const out: Record<string, string> = {}
-      for (const r of rules) {
-        if (!getPathMatch(r.source)(path)) continue
-        if (!matchHas({ headers: { host } }, {}, r.has as object[], r.missing as object[])) continue
-        for (const h of r.headers) out[h.key.toLowerCase()] = h.value
-      }
-      return out
-    }
+    const answer = await configAnswer()
     check("storelib.com/ keeps its hour", answer("storelib.com", "/")["cache-control"] === "public, s-maxage=3600, stale-while-revalidate=7200" && answer("www.storelib.com", "/")["cache-control"] === "public, s-maxage=3600, stale-while-revalidate=7200")
     check("a website's / gets nothing from it: its subdomain (the 302 to its own domain too), its own domain, storelib.me", ["lena.storelib.com", "www.lenashop.test", "storelib.me"].every((h) => answer(h, "/")["cache-control"] === undefined))
   }

@@ -1,6 +1,5 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
 import { isCreatorPagePath, isEdgeHeldRequest, STORELIB_HOST } from "@/lib/storefront/shared-view"
-import { onePageEdgeHeaders } from "@/lib/onepage/edge"
 import { creatorPageLanguageStep } from "@/lib/markets/creator-page-language-step"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
 import { heldListPath } from "@/lib/website-builder/held-list"
@@ -1747,13 +1746,9 @@ async function routeRequest(request: NextRequest) {
     switch (onePage.kind) {
       case "next":
         return NextResponse.next()
-      case "rewrite": {
-        const r = NextResponse.rewrite(new URL(onePage.path, request.url))
-        /* A OnePage is one HTML for everybody: the CDN holds it, tagged by its name, and a change expires the tag (lib/onepage/edge). */
-        const edge = onePageEdgeHeaders({ method: request.method, rsc: request.headers.has("rsc"), path: onePage.path })
-        if (edge) for (const [k, v] of Object.entries(edge)) r.headers.set(k, v)
-        return r
-      }
+      case "rewrite":
+        /* A OnePage is held by the CDN for everybody: next.config.mjs's storelib.me rule (lib/onepage/edge). */
+        return NextResponse.rewrite(new URL(onePage.path, request.url))
       case "redirect": {
         /* An old address goes straight to where the page is now (oldOnePageTarget above). */
         const target = onePage.onePage ? await oldOnePageTarget(onePage.onePage, onePage, search) : null
