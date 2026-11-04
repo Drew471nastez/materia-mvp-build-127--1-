@@ -650,6 +650,8 @@ class PreviewSheet {
   private sizes: ResizeObserver | null = null
   private readonly roots = new Map<string, HTMLElement>()
   private document_: { html: string; main: string } | null = null
+  /** The frame's scale and height as last written (sync). */
+  private frameAt = ""
   /** The theme stylesheets sections link, each once in the head, by its text (hoistSheets): the token the cards that link it carry. */
   private readonly shared = new Map<string, string>()
   private sharedEls: HTMLStyleElement[] = []
@@ -699,10 +701,16 @@ class PreviewSheet {
   release(): void {
     this.watcher?.disconnect()
     this.watcher = null
+    this.watched.clear()
+    this.gridWatch?.disconnect()
+    this.gridWatch = null
+    this.frameAt = ""
     /* A section-only update can keep exactly the same srcDoc, so React
        reuses this document for the next sheet. Forgetting the map alone
-       left its old pictures painted underneath the replacement cards. */
-    if (this.doc) {
+       left its old pictures painted underneath the replacement cards.
+       Only while the document is still this sheet's: one a newer sheet has
+       taken over (attach) is that sheet's to say. */
+    if (this.doc && docOwner.get(this.doc) === this) {
       const drawn = new Map<string, string>()
       for (const [key, inner] of this.wrappers) {
         const html = this.html.get(key)
@@ -725,6 +733,15 @@ class PreviewSheet {
     this.frame = null
     this.grid = null
     this.wrappers.clear()
+  }
+
+  /** Whether the frame's document is still this sheet's: a newer sheet may have taken it over (attach). */
+  private owns(): boolean {
+    if (this.doc && docOwner.get(this.doc) !== this) {
+      this.release()
+      return false
+    }
+    return !!this.doc
   }
 
   /** The frame's whole document, built once. */
@@ -789,13 +806,51 @@ class PreviewSheet {
    * the cards had been, over the next card. Every card is watched for its
    * size (shown or hidden is a size too), and any change puts every section
    * where its card now is, before that frame is painted.
+   *
+   * One observer does all of it: each card's box and its [data-library-card]
+   * (register), and the list itself with every element in it, for a card
+   * that moves while the list keeps its height (watchGrid). A card coming,
+   * going, or shown and hidden by its group is a change to the list, which
+   * an observer of sizes does not always see: gridWatch sees it. Both are
+   * let go in release().
    */
   private watcher: ResizeObserver | null = null
+  /** What the watcher observes: observing an element again would call it again for nothing (attach runs on every render). */
+  private readonly watched = new Set<Element>()
+  private gridWatch: MutationObserver | null = null
   private watch(el: Element | null, on: boolean) {
     if (!el || typeof ResizeObserver === "undefined") return
+    if (on === this.watched.has(el)) return
     if (!this.watcher) this.watcher = new ResizeObserver(() => this.sync())
-    if (on) this.watcher.observe(el)
-    else this.watcher.unobserve(el)
+    if (on) {
+      this.watched.add(el)
+      this.watcher.observe(el)
+    } else {
+      this.watched.delete(el)
+      this.watcher.unobserve(el)
+    }
+  }
+
+  /** The list and every card in it, and the cards that come, go, or are shown and hidden. */
+  private watchGrid(grid: HTMLElement | null) {
+    if (!grid) return
+    this.watch(grid, true)
+    for (const el of Array.from(grid.children)) if (el.tagName !== "IFRAME") this.watch(el, true)
+    if (this.gridWatch || typeof MutationObserver === "undefined") return
+    this.gridWatch = new MutationObserver((list) => {
+      let moved = false
+      for (const m of list) {
+        if (m.type === "childList") {
+          moved = true
+          for (const n of Array.from(m.removedNodes)) if (n.nodeType === 1) this.watch(n as Element, false)
+        } else if ((m.target as HTMLElement).parentElement === this.grid) moved = true
+      }
+      if (!moved) return
+      if (this.grid) for (const el of Array.from(this.grid.children)) if (el.tagName !== "IFRAME") this.watch(el, true)
+      this.requestSync()
+    })
+    /* Only the cards themselves for `hidden`: a card's shimmer or name coming and going inside it moves nothing the watcher would not see. */
+    this.gridWatch.observe(grid, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] })
   }
 
   register(key: string, entry: CardEntry): () => void {
@@ -809,7 +864,11 @@ class PreviewSheet {
       this.watch(entry.box, false)
       this.watch(card, false)
       this.inView(entry.box, key, false)
-      if (this.cards.get(key) === entry) this.cards.delete(key)
+      if (this.cards.get(key) !== entry) return
+      this.cards.delete(key)
+      /* Its card is gone: its section's box goes with it now, not at the next sync. */
+      const w = this.wrappers.get(key)
+      if (w) frameOf(w).hidden = true
     }
   }
 
@@ -890,8 +949,13 @@ class PreviewSheet {
 
   /** The frame has (re)loaded its document: everything drawn before is put in again, nearest first. */
   attach(frame: HTMLIFrameElement) {
+    if (this.grid && this.grid !== frame.parentElement) {
+      this.gridWatch?.disconnect()
+      this.gridWatch = null
+    }
     this.frame = frame
     this.grid = frame.parentElement
+    this.watchGrid(this.grid)
     /* Watched again after a release (a sheet given up and asked for again keeps its cards). */
     for (const card of this.cards.values()) {
       this.watch(card.box, true)
@@ -899,7 +963,8 @@ class PreviewSheet {
     }
     const doc = frame.contentDocument
     /* Not the blank page a new frame holds before its own document has loaded, nor one still being read. */
-    if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState === "loading") return
+    if (!doc?.body || doc.URL !== "about:srcdoc" || doc.readyState === "loading") return
+    if (doc === this.doc && docOwner.get(doc) === this) return
     /*
       NOT THE DOCUMENT ON ITS WAY OUT. A push that changes the theme's head
       gives the frame a new srcdoc, and until that has loaded the frame still
@@ -930,6 +995,18 @@ class PreviewSheet {
       const late = releaseLateSheets(doc)
       reportLoadProblem("section-preview", `the cards' page did not load in ${SHEET_WAIT_MS / 1000}s; drawn without waiting${late.length ? `: ${late.slice(0, 6).join(", ")}` : ""}`)
     }
+    /*
+      ONE SHEET PAINTS IN A DOCUMENT. A push gives the theme new files, so a
+      new sheet, and when only a section changed its document is the old one
+      to the letter: React leaves the frame alone, and the new sheet attaches
+      to the document the old one had filled. The document is taken over:
+      the old sheet is let go of here, not only when React's cleanup gets to
+      it, and owns() keeps it from doing anything more in the document in
+      between (an idle draw already asked for, a font landing).
+    */
+    const before = docOwner.get(doc)
+    docOwner.set(doc, this)
+    if (before && before !== this) before.release()
     this.doc?.fonts?.removeEventListener?.("loadingdone", this.fontsLoaded)
     this.doc = doc
     this.sizes?.disconnect()
@@ -955,7 +1032,9 @@ class PreviewSheet {
     }
     /* The page's own background under each section, as on the page: read with the frame's see-through rule off. */
     const own = doc.querySelector<HTMLStyleElement>("style[data-storelib-sheet]")
-    if (own?.sheet) {
+    /* Once a document: a sheet taking over a document another one filled finds it said already. */
+    if (own?.sheet && !own.hasAttribute("data-page-background")) {
+      own.setAttribute("data-page-background", "")
       own.sheet.disabled = true
       const v = doc.defaultView
       const b = v?.getComputedStyle(doc.body)
@@ -985,7 +1064,7 @@ class PreviewSheet {
    */
   setOpen(open: boolean) {
     this.open = open
-    if (!open || !this.doc) return
+    if (!open || !this.owns()) return
     for (const key of this.onScreen.keys()) this.arriving.add(key)
     this.checkOnScreen()
     for (const img of Array.from(this.doc.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
@@ -1023,7 +1102,7 @@ class PreviewSheet {
   }
 
   schedule() {
-    if (this.scheduled || !this.doc || typeof window === "undefined") return
+    if (this.scheduled || typeof window === "undefined" || !this.owns()) return
     if (!this.hasPending()) return
     this.scheduled = true
     watchInput()
@@ -1047,7 +1126,7 @@ class PreviewSheet {
 
   private run(budget: number) {
     this.scheduled = false
-    if (!this.doc) return
+    if (!this.owns()) return
     const t0 = performance.now()
     let put = 0
     for (const key of this.pending()) {
@@ -1371,7 +1450,7 @@ class PreviewSheet {
   sync() {
     const frame = this.frame
     const grid = this.grid
-    if (!frame || !grid || !this.doc || !frame.isConnected) return
+    if (!frame || !grid || !frame.isConnected || !this.owns()) return
     /* Read the host boxes together before writing to the preview document.
        offsetWidth rounds fractional CSS pixels; treating that rounding as a
        dialog transform made the error accumulate down a long list. */
@@ -1389,8 +1468,13 @@ class PreviewSheet {
     const width = Number.parseFloat(getComputedStyle(first.box).width)
     const scale = width / this.renderWidth
     if (!(scale > 0)) return
-    frame.style.transform = `scale(${scale})`
-    frame.style.height = `${Math.ceil(grid.getBoundingClientRect().height / first.rect!.width * this.renderWidth)}px`
+    /* As tall as the list, unrounded, so the last card's section is never cut at the frame's foot. Written only when it changed. */
+    const at = `${scale}|${Math.ceil(grid.getBoundingClientRect().height / first.rect!.width * this.renderWidth)}`
+    if (this.frameAt !== at || !frame.style.transform) {
+      this.frameAt = at
+      frame.style.transform = `scale(${scale})`
+      frame.style.height = `${at.split("|")[1]}px`
+    }
     /* The frame supplies the exact origin and scale, including the dialog's
        entrance transform and browser zoom. Never reconstruct them from an
        integer offsetWidth. */
@@ -1421,16 +1505,17 @@ class PreviewSheet {
       const cardH = r.height / paintedScale
       const natural = st.height ?? cardH
       const pad = natural * scale < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
-      const pos = `${(r.top - surface.top) / paintedScale}|${(r.left - surface.left) / paintedScale}|${cardH}|${CARD_RADIUS / scale}|${pad}`
+      /* To a hundredth of the frame's pixel: what a running transform adds in float noise is not a move, and is not written. */
+      const pos = `${hundredths((r.top - surface.top) / paintedScale)}|${hundredths((r.left - surface.left) / paintedScale)}|${hundredths(cardH)}|${hundredths(CARD_RADIUS / scale)}|${hundredths(pad)}`
       if (placedAt.get(w) !== pos) {
         placedAt.set(w, pos)
-        const [top, left, height, radius] = pos.split("|")
+        const [top, left, height, radius, padding] = pos.split("|")
         /* Read by the cards' layer (sheetRules), whose !important nothing in the theme can beat. */
         w.style.setProperty("--sl-top", `${top}px`)
         w.style.setProperty("--sl-left", `${left}px`)
         w.style.setProperty("--sl-h", `${height}px`)
         w.style.setProperty("--sl-r", `${radius}px`)
-        w.style.setProperty("--sl-pad", `${pad}px`)
+        w.style.setProperty("--sl-pad", `${padding}px`)
       }
       if (!w.hasAttribute("data-placed")) {
         w.setAttribute("data-placed", "")
@@ -1712,6 +1797,9 @@ const shownBefore = new WeakMap<Document, Map<string, string>>()
 const measuredSize = new WeakMap<Element, number>()
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
+const hundredths = (v: number) => Math.round(v * 100) / 100
+/** Which sheet a frame's document is filled by (PreviewSheet.attach). */
+const docOwner = new WeakMap<Document, PreviewSheet>()
 /** A section's card box in the cards' document (sheetRules): its <main>'s parent. */
 const frameOf = (inner: HTMLElement): HTMLElement => (inner.parentElement && inner.parentElement.localName === CARD_TAG ? inner.parentElement : inner)
 
@@ -1764,24 +1852,22 @@ export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWid
     }, 250)
     return () => window.clearInterval(t)
   }, [sheet])
-  /* The list's width changes every card's size: put each section over its card again. */
+  /*
+    ANYTHING THAT MOVES A CARD PUTS ITS SECTION OVER IT AGAIN. Every card,
+    its box, the list, and the cards that come, go, or are shown and hidden
+    are watched by the sheet itself (PreviewSheet.watch, watchGrid), with one
+    observer of sizes, let go in release(). What is left here is the
+    editor's own fonts landing: the cards' names wrap again, which the
+    observer sees; this is for one that moves a card without resizing any.
+  */
   useEffect(() => {
-    const grid = frame.current?.parentElement
-    if (!sheet || !grid || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => sheet.sync())
-    ro.observe(grid)
-    /* A card put in, taken out or shown by a category, whatever React did or did not render around it: every section put back over its card before paint. */
-    /* Only the cards themselves: a card's shimmer or name coming and going inside it moves nothing its ResizeObserver would not see. */
-    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => sheet.requestSync())
-    mo?.observe(grid, { childList: true })
-    const shown = typeof MutationObserver === "undefined" ? null : new MutationObserver((records) => {
-      if (records.some((r) => (r.target as HTMLElement).parentElement === grid)) sheet.requestSync()
-    })
-    shown?.observe(grid, { subtree: true, attributes: true, attributeFilter: ["hidden"] })
+    if (!sheet) return
+    const fonts = typeof document === "undefined" ? undefined : document.fonts
+    const settled = () => sheet.requestSync()
+    fonts?.addEventListener?.("loadingdone", settled)
+    fonts?.ready?.then(settled, () => {})
     return () => {
-      ro.disconnect()
-      mo?.disconnect()
-      shown?.disconnect()
+      fonts?.removeEventListener?.("loadingdone", settled)
     }
   }, [sheet])
   if (!sheet) return null

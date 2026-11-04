@@ -86,7 +86,7 @@ import { inflateSync } from "node:zlib"
 
 process.env.PROBE_CSS = process.env.PROBE_CSS ?? "source"
 const { bundle, css } = await import("./editor-probe-harness.mjs")
-const { importedTheme, openEditor, sleep, STORELIB_GLOBALS } = await import("./canvas-probe-kit.mjs")
+const { importedTheme, openEditor, sleep, STORELIB_GLOBALS, withMarkup } = await import("./canvas-probe-kit.mjs")
 const { STORE_CHANGES } = await import("./materia-store-kit.mjs")
 
 const N = Number(process.env.N ?? 10)
@@ -369,7 +369,7 @@ async function push(ed, kind, i, compat) {
     /* What each push changes can be read in the canvas: a CSS variable, a value the script sets, a mark in the section. */
     const next = (p, text) => p.endsWith(".css") ? `${text.replace(/\n:root\{--probe-push:\d+\}$/, "")}\n:root{--probe-push:${i + 1}}`
       : p.endsWith(".js") ? `${text.replace(/\n;window\.__probePush=\d+;$/, "")}\n;window.__probePush=${i + 1};`
-      : text.replace(/<i data-probe-push="\d+" hidden><\/i>/, "").replace("</template>", `<i data-probe-push="${i + 1}" hidden></i></template>`)
+      : withMarkup(text.replace(/\n<i data-probe-push="\d+" hidden><\/i>/, ""), `<i data-probe-push="${i + 1}" hidden></i>`)
     /* The server's copy (the node side serves the theme's assets) and the routes' (the page answers the files routes). */
     for (const p of changed) compat.all[p] = next(p, compat.all[p])
     await page.evaluate((all) => {
