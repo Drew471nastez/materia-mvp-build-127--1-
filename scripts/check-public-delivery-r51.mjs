@@ -106,7 +106,7 @@ function get(host, path, headers = {}) {
       })
     })
     req.on("error", reject)
-    req.setTimeout(30_000, () => req.destroy(new Error("timeout")))
+    req.setTimeout(90_000, () => req.destroy(new Error("timeout")))
     req.end()
   })
 }
