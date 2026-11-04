@@ -15,6 +15,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
+import { pathToFileURL } from "node:url"
 import JSZip from "jszip"
 import { customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
 import { compatBlockTypes, compatFileErrors, syncCompatFile } from "@/lib/storelib-theme/compat/schema-sync"
@@ -60,7 +61,8 @@ async function main() {
     if (synced.ok === false) return null
     return compatFileErrors(path, synced.source).length ? null : synced.source
   }
-  const { withMarkup } = (await import("../scripts/canvas-probe-kit.mjs")) as { withMarkup: (s: string, html: string) => string }
+  /* From the checkout itself: the suite runs a compiled copy of tests/ elsewhere, without scripts/. */
+  const { withMarkup } = (await import(pathToFileURL(join(process.cwd(), "scripts/canvas-probe-kit.mjs")).href)) as { withMarkup: (s: string, html: string) => string }
   const addable = customAddableSections(customSectionSchemas(sources))
   const pushed = ["sections/image-text.storelib", "sections/rich-text.storelib", "sections/slideshow.storelib"].filter((p) => p in sources)
   check("the fixture has the sections pushed", pushed.length === 3 && pushed.every((p) => addable.includes(p.slice(9, -9))), { addable })
