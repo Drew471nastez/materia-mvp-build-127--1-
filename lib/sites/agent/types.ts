@@ -180,11 +180,31 @@ export interface ProviderRequest {
    * smuggled through the model id.
    */
   effort?: "low" | "medium" | "high" | "xhigh" | "max"
+  /**
+   * CALLED ON EVERY STREAMED EVENT, where the provider streams. What lets a
+   * caller tell a long answer from a call that stopped answering (the theme
+   * agent's per call guard, lib/website-builder/agent/run-clock.ts), and say
+   * which tool is being written while it is. Never throws into the provider:
+   * a caller's mistake here is caught there. Optional; a provider that does
+   * not stream simply never calls it.
+   */
+  onActivity?: (event: ProviderActivity) => void
+}
+
+/** One streamed event, as a caller of `complete` sees it: no content, only its shape. */
+export interface ProviderActivity {
+  kind: "start" | "thinking" | "text" | "tool"
+  /** The tool whose call is being written, once its block starts. */
+  tool?: string
+  /** Characters of text or tool input this event carried. */
+  chars?: number
 }
 
 export interface AgentProvider {
   /** Stable id recorded on every run: "openai", "anthropic", … */
   readonly id: string
+  /** It calls `onActivity` while it answers (it streams): a caller may treat silence from it as a call that hung. */
+  readonly streams?: boolean
   /** One round trip. The loop is in run.ts and is provider-independent. */
   complete(request: ProviderRequest): Promise<ProviderTurn>
 }

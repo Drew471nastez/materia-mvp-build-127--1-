@@ -92,6 +92,8 @@ import { CREATIVE_BRIEF, DESIGN_RUBRIC, IMAGE_FIDELITY_RULES, editingSubject, ne
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
 import { followUpTarget } from "./follow-up"
+import { changeHeadline, describeTarget, targetGuidance, type TargetDecision } from "./targeting"
+import { CHECKPOINT_MAX_SOURCE, RunClock, TIME_UP_NOTE, WRITE_NOW_NOTE, describeCheckpoint, guardCall, type ClockLimits, type RunCheckpoint } from "./run-clock"
 import { themeBrief, themeBriefStats } from "./theme-brief"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
@@ -213,7 +215,15 @@ export type ThemeAgentEvent =
    * time limit. "budget": the chat offers Continue, because the cost ceiling
    * is the creator's to pass.
    */
-  | { type: "continue"; reason: "budget" | "turns" | "interrupted" }
+  | { type: "continue"; reason: "budget" | "turns" | "interrupted" | "time" }
+  /**
+   * THE PART STOPPED FOR TIME WITH NOTHING KEPT, and this is where the next
+   * part starts: the browser holds it and sends it back with the automatic
+   * next part (theme-chat CONTINUE_PROMPT, `resume`). Never applied: context.
+   */
+  | { type: "checkpoint"; checkpoint: RunCheckpoint }
+  /** The model is still answering: sent every few seconds of a long call, so the stream is never silent. Not drawn. */
+  | { type: "working"; tool?: string; chars?: number }
   /**
    * WHERE THE RUN IS: reading, products, planning, writing <section>,
    * checking, saving, done. One headline at a time, documented with the
@@ -263,7 +273,11 @@ export interface ThemeAgentResult {
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
   /** The run ended at a ceiling rather than by finishing (./limits.ts): its work is kept and it can be continued. */
-  stopped?: "budget" | "turns" | "interrupted" | null
+  stopped?: "budget" | "turns" | "interrupted" | "time" | null
+  /** The reply's first line, from what was changed: "Edited: Hero", "Added: Testimonials, after Hero" (./targeting.ts). */
+  headline?: string
+  /** A part the clock stopped before it kept anything: what the next part starts from (./run-clock.ts). */
+  checkpoint?: RunCheckpoint | null
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -1095,6 +1109,25 @@ export interface ThemeAgentInput {
   visualCheck?: (state: ThemeState, sources: Record<string, string>, opts: { shots: boolean; reference?: AgentImage | null }) => Promise<VisualCheckReport | null>
   /** Structured log of the run, for developers: tool calls, findings, repairs, the plan. */
   trace?: (entry: TraceEntry) => void
+  /**
+   * WHICH SECTION THE REQUEST IS ABOUT, OR WHAT TO ADD WHERE, decided before
+   * the run (./targeting.ts resolveTarget). Told to the model in its first
+   * message with the section read for it; the reply's first line says what
+   * was actually changed. Absent: the run finds the section itself, as before.
+   */
+  target?: TargetDecision | null
+  /**
+   * WHEN THIS PART MUST STOP, as a time (./run-clock.ts). The model is told
+   * when time is passing, each call has a limit of its own, and a part that
+   * reaches it stops between turns with what it kept, or with a checkpoint
+   * for the next part when it kept nothing. Absent: only `signal` ends it.
+   */
+  deadlineAt?: number
+  clockLimits?: Partial<ClockLimits>
+  /** The id the next part's checkpoint is kept under: the first part's, carried through. */
+  runId?: string
+  /** What the part before this one had done when its time ran out with nothing kept. */
+  checkpoint?: RunCheckpoint | null
 }
 
 export async function* themeAgent(
@@ -1120,11 +1153,14 @@ export async function* themeAgent(
   const limits = input.limits ?? AGENT_LIMITS
   const maxTurns = Math.min(input.maxTurns ?? MAX_TURNS, limits.maxTurns)
   /** Which ceiling ended this part of the work, if one did. */
-  let stopped: "budget" | "turns" | "interrupted" | null = null
+  let stopped: "budget" | "turns" | "interrupted" | "time" | null = null
   /** The provider failed part way through, for a reason a moment's wait can fix: see the catch at the end of the loop. */
   let interrupted = false
   /** The model has been told a ceiling is close, once. */
   let warnedCeiling = false
+  /** The model has been told, once each, that nothing is kept a third of the way in, and that time is nearly up. */
+  let warnedWrite = false
+  let warnedTime = false
   /** Output room per turn: the ceiling's, raised to the retry size once a turn of this run was cut off. */
   let outputCap = limits.turnOutputTokens
   const maxReviews = input.maxReviews ?? MAX_REVIEWS
@@ -1260,6 +1296,77 @@ export async function* themeAgent(
     }
   }
   if (intent) trace("intent", { kind: intent.kind, also: intent.also, scope: intent.scope, reasons: intent.reasons })
+  if (input.target) trace("target", { action: input.target.action, sections: input.target.sections.map((x) => x.id), kind: input.target.kind ?? null, index: input.target.placement?.index ?? null, confidence: input.target.confidence, via: input.target.via })
+
+  /*
+    THE CLOCK (./run-clock.ts). Each model call ends at the part's deadline,
+    or sooner when the provider stops answering, and is asked once more when
+    it hung with time to spare. While a call runs the stream gets a `working`
+    line every few seconds, so a phone's connection never sits silent through
+    a long write and a proxy never takes the quiet for a dead request.
+  */
+  const clock = input.deadlineAt !== undefined ? new RunClock({ deadlineAt: input.deadlineAt, startedAt: t0, limits: input.clockLimits }) : null
+  const clockLimits = clock?.limits
+  /** The last code that did not pass its checks, for the checkpoint when the clock stops a part that kept nothing. */
+  let lastDraft: RunCheckpoint["draft"] | undefined
+  const noteDraft = (path: string, source: unknown, problem: string) => {
+    if (typeof source === "string" && source.length > 0) lastDraft = { path, source: source.slice(0, CHECKPOINT_MAX_SOURCE), problem: problem.slice(0, 400) }
+  }
+  async function* callModel(request: ProviderRequest): AsyncGenerator<ThemeAgentEvent, ProviderTurn> {
+    for (let tryNo = 0; ; tryNo++) {
+      const left = clock ? clock.left() : 0
+      if (clock && left <= 0) throw new OutOfTime()
+      const guard = guardCall({
+        caller: signal,
+        deadlineMs: clock ? left : null,
+        connectMs: clockLimits?.connectMs ?? 0,
+        idleMs: clockLimits?.idleMs ?? 0,
+        watch: !!clock && !!provider.streams,
+      })
+      let tool: string | undefined
+      let chars = 0
+      let settled: { ok: true; turn: ProviderTurn } | { ok: false; error: unknown } | null = null
+      const callStarted = Date.now()
+      const pending = completeOnce(provider, {
+        ...request,
+        signal: guard.signal,
+        onActivity: (a) => {
+          guard.activity()
+          if (a.tool) tool = a.tool
+          chars += a.chars ?? 0
+        },
+      }).then(
+        (turn) => {
+          settled = { ok: true, turn }
+        },
+        (error: unknown) => {
+          settled = { ok: false, error }
+        },
+      )
+      try {
+        while (!settled) {
+          await pauseUntil(pending, clockLimits?.keepAliveMs ?? KEEPALIVE_MS)
+          if (!settled) yield { type: "working", ...(tool ? { tool } : {}), ...(chars ? { chars } : {}) }
+        }
+      } finally {
+        guard.done()
+      }
+      const end = settled as { ok: true; turn: ProviderTurn } | { ok: false; error: unknown }
+      trace("call", { ms: Date.now() - callStarted, ok: end.ok, ended: guard.why(), tool: tool ?? null, chars })
+      if (end.ok) return end.turn
+      const why = guard.why()
+      if (why === "deadline") throw new OutOfTime()
+      if (why === "hung") {
+        if (tryNo < (clockLimits?.retries ?? 0) && clock?.roomForTurn() && !signal?.aborted) {
+          trace("hung", { try: tryNo + 1 })
+          yield { type: "thinking", text: "The model went quiet, so I asked again." }
+          continue
+        }
+        throw new OutOfTime()
+      }
+      throw (end as { ok: false; error: unknown }).error
+    }
+  }
   /** Section types whose code this run wrote or created: the project check holds their instances to the new schema. */
   const rewrittenTypes = new Set<string>()
   /** The browser check: how many times it ran, what it found, how long it took. */
@@ -1338,7 +1445,7 @@ export async function* themeAgent(
     const planTurns: AgentTurn[] = [{ role: "user", content: planTurn(planContext), images: images.length ? images : undefined }]
     for (let tryNo = 0; tryNo < 2 && !plan; tryNo++) {
       try {
-        const answer = await completeOnce(provider, {
+        const answer = yield* callModel({
           model,
           system: PLANNER_SYSTEM,
           turns: [...planTurns],
@@ -1356,6 +1463,11 @@ export async function* themeAgent(
         }
       } catch (thrown) {
         if (thrown instanceof Error && thrown.name === "AbortError") throw thrown
+        /* Out of time while planning: the run stops with a checkpoint rather than ending on an error. */
+        if (thrown instanceof OutOfTime) {
+          stopped = "time"
+          break
+        }
         trace("plan-failed", { error: plainRunError(thrown, "theme agent planner", "planner failed") })
         break
       }
@@ -1418,6 +1530,17 @@ export async function* themeAgent(
   const openSource = input.code && selected && selectedContext?.origin === "own" && (input.codeFocus || codeAsk) ? input.code.read(selected.type) : null
   const attachSource = openSource !== null && openSource.length <= OPEN_SOURCE_MAX
   if (attachSource && selected) reads.set(`read_section_code:${selected.type}`, ATTACHED)
+  /*
+    AND THE TARGET'S FILE, the same way, when nothing is selected and the target decision named one section of the
+    creator's own whose change is to its code (./targeting.ts): "make the testimonials slide in" with nothing open no
+    longer spends its first turn reading the file the server already has.
+  */
+  const codeTarget = !selected && input.code && codeAsk && input.target?.action === "edit" && input.target.sections.length === 1 && !locked
+    ? state.sections.find((x) => x.id === input.target!.sections[0].id)
+    : undefined
+  const targetSource = codeTarget && originOf(codeTarget.type) === "own" ? input.code?.read(codeTarget.type) ?? null : null
+  const attachTarget = !!codeTarget && targetSource !== null && targetSource.length <= OPEN_SOURCE_MAX
+  if (attachTarget && codeTarget) reads.set(`read_section_code:${codeTarget.type}`, TARGET_ATTACHED)
   /**
    * THE THEME, READ ONCE PER VERSION (./theme-brief.ts): what its tokens are
    * on this site, the sections the creator wrote, the store on this page.
@@ -1436,8 +1559,22 @@ export async function* themeAgent(
   const blockTypesOf = (type: string) => (schemaOf(schemas, type)?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")).filter(Boolean)
   const selectionRead = selected && !follow && !locked && !input.codeFocus ? (() => {
     const shape = selectedShapeOf(state.sections, selected.id, blockTypesOf)
-    return shape ? readSelection(prompt, shape) : null
+    const read = shape ? readSelection(prompt, shape) : null
+    /*
+      A DOUBT IS SETTLED, NOT ASKED (./targeting.ts): "add testimonials" with the FAQ open was a question back. The
+      target decided before the run is the likeliest reading, and the reply says it was one.
+    */
+    const t = input.target
+    if (read?.aim === "ask" && t) {
+      if (t.action === "add") return { ...read, aim: "new" as const, index: t.placement?.index ?? read.index }
+      if (t.action === "edit") return { ...read, aim: "edit" as const }
+    }
+    return read
   })() : null
+  /* The sections the target decision read for the run: a read_section of one is answered with a note, not again. */
+  if (input.target && !locked && !input.codeFocus) {
+    for (const x of input.target.sections.slice(0, 2)) if (x.id !== selected?.id && state.sections.some((y) => y.id === x.id)) reads.set(`read_section:${x.id}`, TARGET_ATTACHED)
+  }
   if (selectionRead) trace("selection", { aim: selectionRead.aim, reason: selectionRead.reason, index: selectionRead.index ?? null })
 
   /* SEVERAL PARTS, DONE IN ORDER (./task-list.ts). Not for a question, and not beside a creative plan, which has its own order. */
@@ -1494,6 +1631,7 @@ export async function* themeAgent(
             : "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE: read_section_code on its type, then edit_section_code (write_section_code only for a new layout). If it is Storelib's built in section, call copy_section_to_code on it first WITHOUT asking: choosing Code a section is their agreement. Keep every setting id and block it has, and give anything new a setting."
           : "",
         attachSource && selected ? `THE OPEN SECTION'S FILE, the whole of sections/${selected.type}.storelib as it is now (read for you; change it with edit_section_code):\n\n${openSource}` : "",
+        attachTarget && codeTarget ? `THE TARGET SECTION'S FILE, the whole of sections/${codeTarget.type}.storelib as it is now (read for you under TARGET; change it with edit_section_code):\n\n${targetSource}` : "",
         store ? `STORE, read for you just now:\n${describeStore(store)}` : "",
         /* What was just said, so a follow-up or an answer means what it meant. */
         describeRecent(history),
@@ -1515,6 +1653,19 @@ export async function* themeAgent(
         fallbackKnowledge,
         /* Right beside the request: what kind of request it is, and the plan it is built to. */
         intent ? intentGuidance(intent) : "",
+        /* WHICH SECTION, OR WHAT TO ADD WHERE, decided before the run (./targeting.ts), with the section read for it. */
+        input.target && !locked && !input.codeFocus
+          ? targetGuidance(input.target, {
+              selectedId: selected?.id,
+              describe: (id) => {
+                const found = state.sections.find((x) => x.id === id)
+                return found ? describeSection(found, schemas) : ""
+              },
+              fileSize: (type) => (originOf(type) === "own" ? input.code?.read(type)?.length ?? null : null),
+            })
+          : "",
+        /* The part before this one ran out of time having kept nothing: where it got to (./run-clock.ts). */
+        input.checkpoint ? describeCheckpoint(input.checkpoint) : "",
         plan ? describeCreativePlan(plan, state, schemas, applied?.placed) : "",
         /* A whole site is more than its home page: the pages it needs, built with build_page and linked (./page-builder-server.ts). */
         intent && input.pages && !locked && (intent.kind === "NEW_SITE_GENERATION" || intent.kind === "FULL_SITE_REDESIGN")
@@ -1573,6 +1724,12 @@ export async function* themeAgent(
   try {
     for (let attempt = 1; ; attempt++) {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
+      /* Not enough time left for a turn to finish: stopped here, between turns, never inside one. */
+      if (stopped === "time" || (clock && !clock.roomForTurn())) {
+        stopped = "time"
+        trace("out-of-time", { n: attempt, left: clock?.left() ?? 0 })
+        break
+      }
 
       /* A ceiling ends this part of the work, never the work: see the end of the run, and ./limits.ts. */
       if (attempt > maxTurns) {
@@ -1592,7 +1749,7 @@ export async function* themeAgent(
 
       let turn: ProviderTurn
       try {
-        turn = await completeOnce(provider, {
+        turn = yield* callModel({
           model,
           system: SYSTEM_PROMPT,
           turns: [...turns],
@@ -1635,7 +1792,8 @@ export async function* themeAgent(
       */
       if (turn.stop === "length") {
         trace("cut-off", { n: attempt, output: turn.usage.outputTokens, cap: outputCap })
-        if (outputCap < limits.retryOutputTokens) {
+        /* More room only while there is time to write into it: late in a part, smaller steps instead. */
+        if (outputCap < limits.retryOutputTokens && (!clock || clock.mayRegrow())) {
           outputCap = limits.retryOutputTokens
           continue
         }
@@ -1734,6 +1892,7 @@ export async function* themeAgent(
           (ops.length > 0 || wroteCode) &&
           attempt < maxTurns - 1 &&
           !signal?.aborted &&
+          !clock?.shouldWrapUp() &&
           (bigIntent || wroteCode || added.size > 0 || ops.length >= 4 || intent?.kind === "SECTION_REDESIGN" || !!reference)
         if (wantsVisual) {
           const shots = visual.ran === 0 && (bigIntent || intent?.kind === "SECTION_REDESIGN" || wroteCode)
@@ -1796,7 +1955,7 @@ export async function* themeAgent(
           input.selfCheck === "auto"
             ? images.length > 0 || !!input.ambitious || wroteCode || !!input.codeFocus || ops.length >= 3
             : input.selfCheck === true
-        if (!selfChecked && wantsCheck && (ops.length > 0 || wroteCode) && attempt < maxTurns - 1 && !signal?.aborted) {
+        if (!selfChecked && wantsCheck && (ops.length > 0 || wroteCode) && attempt < maxTurns - 1 && !signal?.aborted && !clock?.shouldWrapUp()) {
           selfChecked = true
           checkingStep = { id: "self-check", label: images.length ? "Comparing it with your picture" : "Checking every part you asked for" }
           yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "running" }
@@ -2136,7 +2295,7 @@ export async function* themeAgent(
         if (readKey && reads.has(readKey)) {
           results.push({
             id: call.id,
-            output: reads.get(readKey) === ATTACHED ? "Its whole file is in the first message (THE OPEN SECTION'S FILE) and nothing has changed it since. Use that." : `You read this earlier in this run and nothing has changed it since. Use that result.`,
+            output: reads.get(readKey) === ATTACHED ? "Its whole file is in the first message (THE OPEN SECTION'S FILE) and nothing has changed it since. Use that." : reads.get(readKey) === TARGET_ATTACHED ? "It is in the first message, read for you under TARGET, and nothing has changed it since. Use that." : `You read this earlier in this run and nothing has changed it since. Use that result.`,
           })
           yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           continue
@@ -2253,6 +2412,15 @@ export async function* themeAgent(
               if (created.reason === "quality") codeRefusals.set(codeType, (codeRefusals.get(codeType) ?? 0) + 1)
               else if (created.reason !== "args") codeFailures.set(codeType, failures + 1)
               if (created.reason !== "args") refusedCode.set(`sections/${codeType}.storelib`, firstFinding(created.output))
+              if (created.reason !== "args") {
+                let draft: unknown
+                try {
+                  draft = (JSON.parse(call.argumentsJson || "{}") as { source?: unknown }).source
+                } catch {
+                  /* no draft to keep */
+                }
+                noteDraft(`sections/${codeType}.storelib`, draft, firstFinding(created.output))
+              }
               results.push({ id: call.id, output: created.output })
               trace("repair", { tool: call.name, type: codeType, reason: created.reason, feedback: created.output.slice(0, 400) })
               yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
@@ -2367,6 +2535,7 @@ export async function* themeAgent(
             if (checked.reason === "quality") codeRefusals.set(codeType, qualitySent + 1)
             else codeFailures.set(codeType, failures + 1)
             refusedCode.set(path, firstFinding(checked.feedback))
+            noteDraft(path, prepared.source, firstFinding(checked.feedback))
             trace("repair", { tool: call.name, type: codeType, reason: checked.reason, feedback: checked.feedback.slice(0, 400) })
             const spent = checked.reason !== "quality" && failures + 1 >= MAX_CODE_ATTEMPTS
             results.push({
@@ -2513,9 +2682,29 @@ export async function* themeAgent(
         results[results.length - 1] = { ...last, output: `${last.output}\n\n${WRAP_UP_NOTE}` }
         trace("wrap-up", { n: attempt })
       }
+      /*
+        TIME, said to the model (./run-clock.ts): with a third of the part gone
+        and nothing kept, make the smallest correct change now; near the end,
+        finish the one in hand. Appended like the cost note, never earlier.
+      */
+      if (clock && results.length) {
+        const kept = ops.length > 0 || wroteCode || pagesWritten.length > 0
+        const note = !warnedWrite && clock.shouldWriteNow(kept) ? WRITE_NOW_NOTE : !warnedTime && clock.shouldWrapUp() ? TIME_UP_NOTE : ""
+        if (note) {
+          if (note === WRITE_NOW_NOTE) warnedWrite = true
+          else warnedTime = true
+          const last = results[results.length - 1]
+          results[results.length - 1] = { ...last, output: `${last.output}\n\n${note}` }
+          trace(note === WRITE_NOW_NOTE ? "write-now" : "time-up", { n: attempt, spent: Math.round(clock.spent() * 100) })
+        }
+      }
       turns.push({ role: "tool", results })
     }
   } catch (thrown) {
+    if (thrown instanceof OutOfTime) {
+      /* The clock, not a failure: what was kept stays, and the next part starts from here (the end of the run). */
+      stopped = "time"
+    } else {
     status = "failed"
     /* Never the provider's own words: they were "400 {"type":"error",...}" on screen once (lib/sites/agent/plain-errors). */
     error =
@@ -2530,6 +2719,7 @@ export async function* themeAgent(
     */
     const kind = failureKind(thrown)
     if (kind && kind !== "unavailable" && !signal?.aborted && !stopped) interrupted = true
+    }
   }
 
   /**
@@ -2562,6 +2752,15 @@ export async function* themeAgent(
     } else if (message) {
       // It answered without changing anything, which is a real outcome:
       // "your FAQ already covers that" is a useful reply, not a failure.
+      status = "succeeded"
+      error = null
+    } else if (stopped === "time") {
+      /*
+        OUT OF TIME HAVING KEPT NOTHING: not a failure. The next part starts
+        from a checkpoint of this one (./run-clock.ts) and the chat sends it
+        by itself, so the creator sees one request carry on, never "ran out
+        of time before it changed anything".
+      */
       status = "succeeded"
       error = null
     } else if (stopped === "budget") {
@@ -2606,7 +2805,7 @@ export async function* themeAgent(
   if (codeProblems.length) {
     trace("code-unresolved", { problems: codeProblems.map((p) => p.slice(0, 240)) })
     for (const p of codeProblems) if (!unresolved.includes(p)) unresolved.push(p)
-    if (status === "succeeded" && !asked && ops.length === 0 && !wroteCode && pagesWritten.length === 0 && refusedCode.size) {
+    if (status === "succeeded" && !asked && ops.length === 0 && !wroteCode && pagesWritten.length === 0 && refusedCode.size && stopped !== "time") {
       status = "failed"
       error = `Nothing was saved. ${[...refusedCode.keys()].map((p) => fileLabel(p.replace(/^sections\/|\.storelib$/g, ""))).join(" and ")} did not pass ${refusedCode.size > 1 ? "their" : "its"} checks: ${[...refusedCode.values()][0]}`
     }
@@ -2666,12 +2865,69 @@ export async function* themeAgent(
   */
   const workDone = ops.length > 0 || wroteCode || pagesWritten.length > 0
   if (interrupted && workDone && status === "succeeded") stopped = "interrupted"
-  if (stopped && status === "succeeded" && !asked && (workDone || stopped === "budget")) {
+  /*
+    OUT OF TIME WITH NOTHING KEPT: the checkpoint the next part starts from
+    (./run-clock.ts), sent before the `continue` that makes the chat send it.
+  */
+  let checkpoint: RunCheckpoint | null = null
+  if (stopped === "time" && !workDone && status === "succeeded" && !asked) {
+    const before = input.checkpoint ?? null
+    checkpoint = {
+      v: 1,
+      runId: before?.runId ?? input.runId ?? `run-${t0.toString(36)}`,
+      part: Math.min(20, (before?.part ?? 1) + 1),
+      prompt: (before?.prompt ?? prompt).slice(0, 8_000),
+      ...(openingPlan || before?.plan ? { plan: (openingPlan || before?.plan || "").slice(0, 2_000) } : {}),
+      ...(input.target || before?.target ? { target: (input.target ? describeTarget(input.target) : before?.target ?? "").slice(0, 400) } : {}),
+      read: [...new Set([...(before?.read ?? []), ...[...reads.keys()].map((k) => k.replace(":", " "))])].slice(0, 24),
+      ...(lastDraft ?? before?.draft ? { draft: lastDraft ?? before?.draft } : {}),
+    }
+    trace("checkpoint", { part: checkpoint.part, read: checkpoint.read.length, draft: !!checkpoint.draft })
+    yield { type: "checkpoint", checkpoint }
+  }
+  if (stopped && status === "succeeded" && !asked && (workDone || stopped === "budget" || stopped === "time")) {
     message = `${message ? `${message} ` : ""}${stoppedSentence(workDone, stopped)}`
     yield { type: "continue", reason: stopped }
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten, stopped }
+  /* The reply's first line, from what was changed (./targeting.ts): "Edited: Hero", "Added: Testimonials, after Hero". */
+  const nameOfSection = (x: { id: string; type: string; name?: string | null; label?: string | null }) => (x.label ?? "").trim() || (x.name ?? "").trim() || typeName(schemas, x.type)
+  const headline =
+    status === "succeeded" && !asked
+      ? changeHeadline({
+          before: input.state.sections as never,
+          after: state.sections as never,
+          added: [...added],
+          touched: [...touched],
+          removed: ops.filter((op): op is Extract<ThemeOp, { kind: "remove_section" }> => op.kind === "remove_section").map((op) => op.id),
+          name: nameOfSection as never,
+          decision: input.target ?? null,
+        })
+      : ""
+
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten, stopped, ...(headline ? { headline } : {}), checkpoint }
+}
+
+/** The clock ended a model call or the part (./run-clock.ts): a pause with a checkpoint, never the run's failure. */
+class OutOfTime extends Error {
+  constructor() {
+    super("The run is out of time")
+    this.name = "OutOfTime"
+  }
+}
+
+/** How often a long model call says it is still working (the `working` line). */
+export const KEEPALIVE_MS = 8_000
+
+/** Waits for `done`, or `ms`, whichever is first, and leaves no timer behind. */
+function pauseUntil(done: Promise<unknown>, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    void done.then(() => {
+      clearTimeout(t)
+      resolve()
+    })
+  })
 }
 
 /**
@@ -2728,6 +2984,8 @@ export function firstFinding(feedback: string): string {
 export const OPEN_SOURCE_MAX = 24_000
 /** What `reads` holds for a file sent with the request. */
 const ATTACHED = "\u0000attached"
+/** What `reads` holds for a section the target decision described in the first message (./targeting.ts). */
+const TARGET_ATTACHED = "\u0000target"
 
 /**
  * ONE MODEL CALL, WITH A SECOND (AND THIRD) CHANCE WHEN THE PROVIDER WAS ONLY BUSY.

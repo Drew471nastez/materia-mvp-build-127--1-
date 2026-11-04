@@ -195,6 +195,7 @@ export function readUsage(usage: Anthropic.Usage | undefined): TokenUsage {
 export function createAnthropicProvider(client: () => Anthropic, options: { id?: string; modelInfo?: Anthropic.ModelInfo } = {}): AgentProvider {
   return {
     id: options.id ?? "anthropic",
+    streams: true,
     complete: (request) => completeWith(client, request, options.modelInfo),
   }
 }
@@ -290,6 +291,32 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
     },
     { signal: request.signal },
   )
+
+  /*
+    WHAT THE STREAM IS DOING, for a caller that has to tell a long answer
+    from one that stopped (lib/website-builder/agent/run-clock.ts guardCall).
+    The shape only: which kind of block, which tool, how many characters.
+  */
+  const onActivity = request.onActivity
+  if (onActivity) {
+    stream.on("streamEvent", (event) => {
+      try {
+        if (event.type === "message_start") onActivity({ kind: "start" })
+        else if (event.type === "content_block_start") {
+          const block = event.content_block
+          if (block.type === "tool_use") onActivity({ kind: "tool", tool: block.name, chars: 0 })
+          else onActivity({ kind: block.type === "text" ? "text" : "thinking", chars: 0 })
+        } else if (event.type === "content_block_delta") {
+          const delta = event.delta
+          if (delta.type === "input_json_delta") onActivity({ kind: "tool", chars: delta.partial_json.length })
+          else if (delta.type === "text_delta") onActivity({ kind: "text", chars: delta.text.length })
+          else onActivity({ kind: "thinking", chars: 0 })
+        } else onActivity({ kind: "thinking", chars: 0 })
+      } catch {
+        /* a caller's mistake never ends the call */
+      }
+    })
+  }
 
   const response = await stream.finalMessage()
 
