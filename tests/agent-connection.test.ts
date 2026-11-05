@@ -231,7 +231,7 @@ async function main() {
 
   const manage = read("app/api/website-builder/themes/[installId]/agent-connections/route.ts")
   check("only the site's owner can make, list or disconnect one",
-    /\.eq\("creator_id", creator\.id\)/.test(manage) && (manage.match(/const own = await ownInstall\(installId\)/g) ?? []).length === 3)
+    /\.eq\("creator_id", creator\.id\)/.test(manage) && (manage.match(/const own = await ownInstall\(installId(, \{ strict: true \})?\)/g) ?? []).length === 3) /* Changed on purpose (r52): making and ending a key ask Supabase Auth itself */
   // Changed on purpose: the answer and the list now carry the key's expiry and access (part 132); never its hash.
   check("the token is returned once, at creation, and the list never has it",
     /token: minted\.token,\s*\}\)/.test(manage) && (manage.match(/minted\.token/g) ?? []).length === 1

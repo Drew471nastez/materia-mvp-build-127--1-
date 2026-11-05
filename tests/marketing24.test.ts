@@ -600,7 +600,7 @@ async function main() {
     check("the timeline hook is there, after a new entry only", /MARKETING_KINDS\.has\(e\.kind\)/.test(read("lib/physical/events-server.ts")) && /!error && e\.creatorId && MARKETING_KINDS/.test(read("lib/physical/events-server.ts")))
     check("the cron schedules the syncs", /scheduleMarketingSyncs\(db\)/.test(read("app/api/cron/physical/route.ts")))
     const route = read("app/api/store/integrations/marketing/route.ts")
-    check("the settings route: the owner's store only, rate limited, paused from /admin refuses a connect", /shopCaller\(\)/.test(route) && /rateLimit\(/.test(route) && /cachedCatalogOverrides/.test(route))
+    check("the settings route: the owner's store only, rate limited, paused from /admin refuses a connect", /shopCaller\((\"store\", \{ strict: true \})?\)/.test(route) /* Changed on purpose (r52): a provider key saved asks Supabase Auth itself */ && /rateLimit\(/.test(route) && /cachedCatalogOverrides/.test(route))
     const sql = read("supabase/sql/run-now/166_marketing_sync.sql")
     const lines = sql.trim().split("\n")
     check("SQL 161: one statement per line, the DO blocks on one line each, notify last", lines.length === 10 && lines.slice(1).every((l) => l.trim().endsWith(";")) && lines[lines.length - 1] === "notify pgrst, 'reload schema';" && lines.filter((l) => l.startsWith("DO $do$")).length === 3)

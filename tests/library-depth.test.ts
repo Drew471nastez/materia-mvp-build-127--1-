@@ -203,7 +203,8 @@ async function main() {
   )
   check(
     "the page does not ask Supabase who is signed in a second time",
-    !/auth\.getUser\(\)/.test(page) && /currentUserForRequest\(\)/.test(page),
+    /* Changed on purpose (r52): the full read (Auth first), for email_confirmed_at; still once. */
+    !/auth\.getUser\(\)/.test(page) && /fullUserForRequest\(\)/.test(page),
   )
   /* Changed on purpose: the page no longer draws the buyer's own face (that
      is /account now), so it has no profile row to read at all. What stays

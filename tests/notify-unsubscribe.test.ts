@@ -203,7 +203,7 @@ async function main() {
     check("one change reads as one", "changes" in one && one.changes.length === 1 && one.changes[0].enabled === false)
 
     const route = readCode("app/api/notifications/preferences/route.ts")
-    check("the route asks who it is with the person's own session", /readCurrentUser\(supabase\)/.test(route) && /createClient\(\)/.test(route))
+    check("the route asks who it is with the person's own session", /readCurrentUser\(supabase\)|readerForRequest\(\)/.test(route) /* Changed on purpose (r52) */ && /createClient\(\)/.test(route))
     check("and writes through preferences.ts with the source settings", /setPreference\(db, current\.user\.id, c\.category, c\.channel, c\.enabled, "settings"\)/.test(route))
     check("the body is checked before anything is written", route.indexOf("parseChanges(body)") < route.indexOf("setPreference("))
 
