@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { CART_HINT_COOKIE, cartHintCookie } from "@/lib/storelib-theme/compat/personal-fill"
 import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
@@ -115,6 +116,13 @@ function clean(value: unknown, max: number): string {
 
 /** An imported theme's cart cookie (lib/storelib-theme/compat/site CART_COOKIE), emptied once the whole cart is an order. */
 const THEME_CART_COOKIE = "sl_theme_cart"
+/** The cart cookie and its readable count beside it (lib/storelib-theme/compat/personal-fill.ts), always written together. */
+function themeCartHeaders(cartCookie: string, kept: { q: number }[], secure: boolean): Headers {
+  const h = new Headers({ "Cache-Control": "no-store" })
+  h.append("Set-Cookie", cartCookie)
+  h.append("Set-Cookie", cartHintCookie(kept.reduce((n, l) => n + (Number(l.q) || 0), 0), secure))
+  return h
+}
 
 async function handlePOST(request: Request) {
   let body: Body
@@ -220,7 +228,7 @@ async function forget(request: Request, admin: Admin, site: SiteOfCheckout) {
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   return NextResponse.json(
     { ok: true, removed: theme.cart.length - kept.length },
-    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+    { headers: themeCartHeaders(`${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}`, kept, secure !== "") },
   )
 }
 
@@ -241,7 +249,7 @@ async function themeCart(request: Request, site: SiteOfCheckout, body: Body) {
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   return NextResponse.json(
     { ok: true, changed: true },
-    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+    { headers: themeCartHeaders(`${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}`, kept, secure !== "") },
   )
 }
 
@@ -669,7 +677,10 @@ function afterPaidHeaders(site: SiteOfCheckout, fingerprint: string | null, whol
   const h = new Headers({ "Cache-Control": "no-store" })
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   if (fingerprint) h.append("Set-Cookie", `materia_session=${encodeURIComponent(fingerprint)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly${secure}`)
-  if (wholeCart) h.append("Set-Cookie", `${THEME_CART_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure}`)
+  if (wholeCart) {
+    h.append("Set-Cookie", `${THEME_CART_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure}`)
+    h.append("Set-Cookie", `${CART_HINT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`)
+  }
   return h
 }
 

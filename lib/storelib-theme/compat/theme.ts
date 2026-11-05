@@ -29,7 +29,7 @@ import { compatFilter, escapeHtml } from "./filters"
 import { WRITING_SPOT_TYPE, writingSpotHtml } from "./writing-spot"
 import { CompatSyntaxError } from "./lexer"
 import { parseCompat, type Node, type Parsed } from "./parser"
-import { Ctx, OUTPUT, evaluate, renderString, renderTree, toList, toOutput, type Env } from "./runtime"
+import { Ctx, OUTPUT, evaluate, renderString, renderTree, toList, toOutput, type Env, type PersonalReads } from "./runtime"
 import { parseOutput } from "./expression"
 import {
   SHOPIFY_ROUTES,
@@ -1059,6 +1059,19 @@ export class CompatTheme {
   }
 
   private renderSectionRaw(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
+    /* A read of `cart` or `customer` while this section is drawn is this section's (runtime.ts PersonalReads), whichever way it is drawn: in the template, in a group, by {% section %}. */
+    const reads = ctx.registers.personalReads as PersonalReads | undefined
+    if (!reads) return this.renderSectionDrawn(ctx, instance, index, group)
+    const before = reads.current
+    reads.current = instance.id
+    try {
+      return this.renderSectionDrawn(ctx, instance, index, group)
+    } finally {
+      reads.current = before
+    }
+  }
+
+  private renderSectionDrawn(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
     /* The spot Storelib AI is writing a section into, held in the canvas until the section takes its place (./writing-spot.ts). */
     if (instance.type === WRITING_SPOT_TYPE) return { html: writingSpotHtml(instance.id, typeof instance.settings?.prompt === "string" ? instance.settings.prompt : ""), errors: [] }
     const path = this.fileFor("sections", instance.type)
@@ -1768,12 +1781,13 @@ export class CompatTheme {
    * finger (compat-canvas.tsx, A THEME VALUE THAT ONLY CSS READS); null when
    * the layout cannot be read.
    */
-  layoutAlone(ctx: Ctx, layout?: string): string | null {
+  layoutAlone(ctx: Ctx, layout?: string, slot = ""): string | null {
     const path = (layout && layout !== "theme" ? this.fileFor("layout", layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
     if (!tree) return null
-    const c = ctx.child({ content_for_layout: "" })
-    const env = { ...c.env, sections: () => "", section: () => "" }
+    /* `slot`: what stands where the page's content and each section group would be (./personal-fill.ts SLOT_MARK); nothing by default. */
+    const c = ctx.child({ content_for_layout: slot })
+    const env = { ...c.env, sections: () => slot, section: () => slot }
     const cc = new Ctx(c.globals, env, { registers: c.registers, steps: c.steps, out: c.out })
     cc.registers.drawnIds = new Set<string>()
     try {

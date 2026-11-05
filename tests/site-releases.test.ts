@@ -334,7 +334,17 @@ async function main() {
       ["a cookie of Storelib's own nobody listed", "sl_something_new=1"],
       ["an app cookie of Storelib's own", "storelib_language=fr"],
     ]
-    for (const [what, cookie] of cookies) check(`private with ${what} (${cookie.split("=")[0]})`, !with_({ cookie: `_ga=1; ${cookie}` }) && !strangerCookies(cookie))
+    /*
+      Changed on purpose (r53): the marked page reads no cookie at all, so a
+      cookie of Storelib's own still counts as one a draw could read
+      (strangerCookies), but only a cart or a website session without its
+      readable hint keeps a page private, for one request, which writes the
+      hint. Everybody else gets the one shared page, and the browser fills in
+      what is theirs (lib/storelib-theme/compat/personal-fill.ts).
+    */
+    const stillPrivate = new Set(["the theme's cart", "a website customer's session"])
+    for (const [what, cookie] of cookies) check(`${stillPrivate.has(what) ? "private" : "shared (r53)"} with ${what} (${cookie.split("=")[0]})`, (stillPrivate.has(what) ? !with_({ cookie: `_ga=1; ${cookie}` }) : with_({ cookie: `_ga=1; ${cookie}` })) && !strangerCookies(cookie))
+    check("  the cart and the session with their hints: shared (r53)", with_({ cookie: `${CART_COOKIE}=abc; sl_cart_n=2` }) && with_({ cookie: `${sessionCookieName(host)}=s; ${HINT_COOKIE}=1` }))
     /* Changed on purpose (live speed, Oct 21): a cookie Storelib's server never reads (the theme's, an app's, a tool's) no longer makes a page private; Storelib's tracker ids and the consent choice neither. Every one of these used to send a visitor's second page, and every page of a visitor who came back, to a draw of their own. */
     check("a stranger still with a cookie nobody listed that is not Storelib's", with_({ cookie: "whatever=1; recently_viewed=a,b; __kla_id=x; _shopify_y=1" }))
     check("  and with Storelib's tracker ids, the consent choice and a purchase's device", with_({ cookie: "materia_visitor=v_1; sl_asid=s_1; storelib_consent=2.p0.a1.x; materia_session=f" }))
@@ -359,7 +369,7 @@ async function main() {
     check("not held: one that sets a cookie or changes the cart", !publicAnswer({ ...page, setsCookie: true }) && !publicAnswer({ ...page, changesCart: true }))
     check("not held: the cart, checkout, account and password pages (no-store)", !publicAnswer({ ...page, cacheControl: "private, no-store" }))
     check("not held: a 404, a redirect, JSON, a POST", !publicAnswer({ ...page, status: 404 }) && !publicAnswer({ ...page, status: 303 }) && !publicAnswer({ ...page, type: "application/json" }) && !publicAnswer({ ...page, method: "POST" }))
-    check("held by the hold alone, never by a CDN a Publish cannot reach: the browser told what any page of the theme says, the hold told apart by a header never sent on", /* Changed on purpose (tests/publish-shows-new-release.test.ts: a CDN copy showed the previous theme after a Publish). */ PUBLIC_PAGE_CACHE === "private, no-cache" && SHAREABLE_HEADER === "x-storelib-shareable")
+    check("the browser told what any page of the theme says, the hold told apart by a header never sent on (the CDN's own header since r53, under tags Publish expires: tests/site-speed-r53.test.ts)", /* Changed on purpose (tests/publish-shows-new-release.test.ts: a CDN copy showed the previous theme after a Publish). */ PUBLIC_PAGE_CACHE === "private, no-cache" && SHAREABLE_HEADER === "x-storelib-shareable")
 
     /* A stranger's page, drawn twice, is the same page; a visitor's cart is drawn into it, which is why a cart cookie keeps a page private. */
     const section = (type: string, markup: string) => `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ type, name: type, settings: [] })}\n</schema>\n`
@@ -376,9 +386,9 @@ async function main() {
     check("  and it is the kind the CDN may hold", publicAnswer({ method: "GET", status: a.status, type: a.type, cacheControl: a.headers?.["Cache-Control"] ?? null, setsCookie: (a.cookies ?? []).length > 0, changesCart: a.cart !== undefined }), a.headers)
     check("  with nothing of a visitor's in it: an empty cart, signed out, no token", /<span class="count">0<\/span>/.test(String(a.body)) && String(a.body).includes("Sign in") && !/csrf|authenticity_token|sl_theme_cart|__Host-/i.test(String(a.body)))
     const carted = await ask([{ k: "l1", p: card.id, v: null, q: 3 }])
-    check("a visitor's cart is drawn into the page (so a cart cookie keeps it private)", /<span class="count">3<\/span>/.test(String(carted.body)) && carted.body !== a.body)
+    check("a visitor's cart is drawn into the page (so the marked page is drawn with none: r53)", /<span class="count">3<\/span>/.test(String(carted.body)) && carted.body !== a.body)
     const signedIn = await ask([], { customer: { email: "ana@example.com", firstName: "Ana", orders: [] } })
-    check("  and a signed in customer (so a session cookie does too)", String(signedIn.body).includes("ana@example.com"))
+    check("  and a signed in customer (so it is drawn with nobody signed in)", String(signedIn.body).includes("ana@example.com"))
     const cart = await answer(site, { method: "GET", path: "/cart", query: new URLSearchParams(), body: null, cart: [] })
     check("the cart page is never held, even empty", !publicAnswer({ method: "GET", status: cart.status, type: cart.type, cacheControl: cart.headers?.["Cache-Control"] ?? null, setsCookie: false, changesCart: cart.cart !== undefined }), cart.headers)
     const clear = await answer(site, { method: "GET", path: "/", query: new URLSearchParams("sl_cart=clear"), body: null, cart: [] })
@@ -388,7 +398,8 @@ async function main() {
     check("the handler reads no cookie for a marked request", handler.includes("const cookie = stranger ? undefined :") && handler.includes("token || stranger || !page ? undefined : await siteAccountOf("))
     check("  draws the country from the marker, never a cookie", handler.includes("siteVisitorCountry({ chosen: null, told: stranger.country, seen: null })"))
     check("  refuses a marker for another host, or one whose language, market or country the proxy did not name", handler.includes("if (stranger.host !== host || told(SITE_LOCALE_HEADER) !== stranger.locale || told(SITE_MARKET_HEADER) !== stranger.market || told(SITE_COUNTRY_HEADER) !== stranger.country) {"))
-    check("  and sends the public header only for a plain page", /if \(stranger && !ajax && publicAnswer\(/.test(handler))
+    /* Changed on purpose (r53): the same test, kept as `shared`, which also gives the CDN its header. */
+    check("  and sends the public header only for a plain page", /const shared = stranger !== null && !ajax && publicAnswer\(/.test(handler))
     const proxy = read("proxy.ts")
     check("the proxy marks a stranger's page, and refuses a marked address typed at the API", proxy.includes("strangerMarker({ host: siteHostOf(request.headers), country, locale, market })") && proxy.includes("if (markedThemeAddress(pathname)) return new NextResponse"))
     check("  a website with a password is never marked", proxy.includes("protectedSite = gate.protected") && proxy.includes("    protectedSite,\n"))

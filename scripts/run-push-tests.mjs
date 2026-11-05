@@ -1188,6 +1188,8 @@ const SUITES = [
   "tests/cdnpages-r49.test.ts",
   /* Round 51: storelib.me/<name> held by the CDN for everybody (tagged by name, never RSC or a write, the render reads no cookie), a OnePage or product change expires the tag, a ban, an account deleted and a domain change take every public page of the creator down, a site password change redraws the site, the landing rule is storelib.com's alone, no new name for a fake sign in page, the payment confirm rate limited; scripts/check-public-delivery-r51.mjs measures a production build. */
   "tests/delivery-r51.test.ts",
+  /* Round 53: an imported theme's page is one page for everybody, at the CDN under the site's tags (a cart or a sign in no longer keeps it private, only one without its readable hint), the visitor's sections, layout and owned notice filled in after load from a private answer, unknown query keys left out of the shared copy's address, the first big picture preloaded, limits on posts, private draws and shared misses; scripts/check-site-speed-r53.mjs measures a production build. */
+  "tests/site-speed-r53.test.ts",
 ]
 
 /**

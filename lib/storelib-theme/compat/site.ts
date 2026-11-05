@@ -45,6 +45,7 @@ import { regionCode } from "@/lib/physical/regions"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
+import { PERSONAL_LAYOUT_PARAM, PERSONAL_PARAM, SLOT_MARK, personalIds } from "./personal-fill"
 import { canonicalPath, defaultPageTitle, groupSections, pagedCanonical } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
@@ -245,6 +246,8 @@ export interface SiteResponse {
   discountCode?: string
   /** The codes asked for, when this request changed them ([] for none). */
   discountCodes?: string[]
+  /** A page's sections that read `cart` or `customer`, and whether its layout did: what the browser fills in after a shared copy (./personal-fill.ts). */
+  personal?: { sections: string[]; layout: boolean }
 }
 
 const MAX_LINES = 50
@@ -488,6 +491,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
+  /* What is this visitor's on the shared copy of this page, asked for by the copy itself after load (./personal-fill.ts). */
+  if (req.query.has(PERSONAL_PARAM) && (method === "GET" || method === "HEAD")) return await personalAnswer(site, req, path)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
   /* Free shipping over an amount counts the cart after its offers and its code, as the checkout does (Shopify's rule). */
   const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD", "", {}, req.cartDiscount ?? null, false, req.cartOffers ?? null).total_price) || 0 : 0, site.shop.currency ?? undefined)
@@ -498,7 +503,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
   const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
-  const done = pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200)
+  const done: SiteResponse = { ...pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200), personal: drawn.personal }
   /* A post's preview is its editor's: never kept by anyone, never a search result. */
   return route.private ? { ...done, headers: { ...done.headers, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } } : done
 }
@@ -1366,6 +1371,52 @@ function sectionsAnswer(site: SiteData, page: CompatPage, sections: StoredSectio
   const out: Record<string, string | null> = {}
   for (const id of ids) out[id] = one(id)
   return json(out)
+}
+
+/** One section by its id, for this page's context: the page's own, a section file named by its type, or a section of another page (sectionsAnswer). */
+function sectionById(site: SiteData, page: CompatPage, sections: StoredSection[], id: string): string | null {
+  const r = sectionsAnswer(site, page, sections, [id], false)
+  return r.status === 200 ? String(r.body) : null
+}
+
+/**
+ * WHAT IS THIS VISITOR'S ON A SHARED PAGE (round 53, ./personal-fill.ts):
+ * each section the shared copy names, drawn as the shared copy drew it (no
+ * cart, nobody signed in, nothing bought) and as it is for this visitor, so
+ * the browser changes only what differs; the layout drawn alone both ways
+ * when the copy says it read the cart or the customer; "You already own
+ * this"; the cart's count and whether they are signed in. JSON, never kept
+ * (`sl_personal` keeps a request off the shared address).
+ */
+async function personalAnswer(site: SiteData, req: SiteRequest, path: string): Promise<SiteResponse> {
+  const ids = personalIds(req.query.get(PERSONAL_PARAM))
+  const asked = new URLSearchParams(req.query)
+  asked.delete(PERSONAL_PARAM)
+  asked.delete(PERSONAL_LAYOUT_PARAM)
+  const stranger: SiteRequest = { ...req, query: asked, cart: [], note: "", attributes: {}, discountCode: "", discountCodes: [], cartDiscount: null, cartOffers: null, account: undefined, owned: undefined }
+  const theirs: SiteRequest = { ...req, query: asked }
+  const [shared, own] = await Promise.all([pageFor(site, path, stranger), pageFor(site, path, theirs)])
+  const count = theirs.cart.reduce((n, l) => n + (Number(l.q) || 0), 0)
+  const signedIn = !!req.account?.customer
+  const none = json({ count, signedIn, sections: {}, layout: null, end: "" })
+  if (!shared || !own || shared.redirect || own.redirect || shared.moved || own.moved) return none
+  const sections: Record<string, [string, string] | null> = {}
+  for (const id of ids) {
+    const a = sectionById(site, shared.page, shared.sections, id)
+    const b = sectionById(site, own.page, own.sections, id)
+    sections[id] = a !== null && b !== null && a !== b ? [a, b] : null
+  }
+  let layout: [string, string] | null = null
+  if (req.query.get(PERSONAL_LAYOUT_PARAM) === "1") {
+    const name = site.theme.templateLayout(shared.page.template, shared.page.suffix)
+    if (name !== "none") {
+      const a = site.theme.layoutAlone(pageContextFor(site.theme, shared.page, shared.sections), name, SLOT_MARK)
+      const b = site.theme.layoutAlone(pageContextFor(site.theme, own.page, own.sections), name, SLOT_MARK)
+      if (a !== null && b !== null && a !== b) layout = [a, b]
+    }
+  }
+  const end = (own.bodyEnd ?? "") !== (shared.bodyEnd ?? "") ? (own.bodyEnd ?? "") : ""
+  return json({ count, signedIn, sections, layout, end })
 }
 
 // ── Products ────────────────────────────────────────────────────────────────

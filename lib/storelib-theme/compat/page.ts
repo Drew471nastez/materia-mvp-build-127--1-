@@ -10,7 +10,7 @@
  * Shopify's theme editor does.
  */
 import type { Ctx } from "./runtime"
-import { renderTree } from "./runtime"
+import { renderTree, trackPersonalReads } from "./runtime"
 import { parseCompat } from "./parser"
 import { CompatTheme, compatMarkupOf, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
@@ -107,6 +107,8 @@ export interface DrawnPage {
   /** Problems while drawing, by section id. */
   errors: Record<string, string[]>
   ctx: Ctx
+  /** The sections that read `cart` or `customer` while drawn, and whether the layout did (./personal-fill.ts). */
+  personal: { sections: string[]; layout: boolean }
 }
 
 /**
@@ -121,6 +123,8 @@ export function pageContextFor(theme: CompatTheme, page: CompatPage, sections: r
 /** The whole document. */
 export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonly StoredSection[], opts: DrawOptions): DrawnPage {
   const ctx = pageContextFor(theme, page, sections)
+  const reads = trackPersonalReads(ctx.registers)
+  const personal = () => ({ sections: [...reads.sections], layout: reads.layout })
   const errors: Record<string, string[]> = {}
   const parts = pageParts(sections)
   let content = ""
@@ -170,7 +174,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     layout, no head, nothing added: a script reads it as markup or JSON.
   */
   const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : opts.content === undefined ? theme.templateLayout(page.template, page.suffix) : undefined
-  if (layout === "none" && opts.content === undefined) return { html: withNewTabAnchors(withoutVendorTraces(theme.finish(content))), errors, ctx }
+  if (layout === "none" && opts.content === undefined) return { html: withNewTabAnchors(withoutVendorTraces(theme.finish(content))), errors, ctx, personal: personal() }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
   let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail, layout })
@@ -179,7 +183,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   if (!opts.scripts) html = withoutScripts(html)
   else html = withShopifyModules(html)
   /* A menu link (or any link) set to open in a new tab prints its address with the mark; here it becomes a real target="_blank" link, live and in the canvas (lib/website-builder/new-tab.ts). */
-  return { html: withNewTabAnchors(withoutVendorTraces(html)), errors, ctx }
+  return { html: withNewTabAnchors(withoutVendorTraces(html)), errors, ctx, personal: personal() }
 }
 
 /**

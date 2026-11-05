@@ -210,7 +210,8 @@ async function importedHold() {
   check("after the real Publish purge: the new theme for the very next stranger", after.body.includes("NEW-THEME") && !after.held, { body: after.body, held: after.held })
 
   const { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER } = await import("@/lib/storelib-theme/compat/anonymous-cache")
-  check("a stranger's page is not one a shared cache keeps (no s-maxage, not public)", !/s-maxage|public/.test(PUBLIC_PAGE_CACHE) && PUBLIC_PAGE_CACHE === "private, no-cache", PUBLIC_PAGE_CACHE)
+  /* Changed on purpose (r53): the CDN keeps it through its own header, under the site's tags, which revalidatePublishedSite expires (tests/site-speed-r53.test.ts); what the browser is told is unchanged. */
+  check("what the browser is told of a stranger's page says no s-maxage, not public", !/s-maxage|public/.test(PUBLIC_PAGE_CACHE) && PUBLIC_PAGE_CACHE === "private, no-cache", PUBLIC_PAGE_CACHE)
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the handler marks what may be shared for its hold, and never sends that on", /headers\.set\(SHAREABLE_HEADER, "1"\)/.test(route) && /res\.headers\.get\(SHAREABLE_HEADER\) === "1"/.test(route) && /headers\.delete\(SHAREABLE_HEADER\)/.test(route) && SHAREABLE_HEADER.startsWith("x-storelib-"))
   const proxy = code("proxy.ts")

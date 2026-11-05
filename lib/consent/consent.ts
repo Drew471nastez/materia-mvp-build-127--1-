@@ -136,6 +136,7 @@ export const STORED: StoredItem[] = [
   { name: "sl_suggest", category: "necessary", kind: "cookie", purpose: "Offers a creator's website in your language, once a visit, when it has it", lasts: "Until you close the browser" },
   { name: "sl_tx:*", category: "necessary", kind: "local storage", purpose: "Tells a creator's own analytics about your order once, never twice. Holds the order's reference, nothing about you", lasts: "Until cleared" },
   { name: "sl_ga_seen:*, sl_ga_bc", category: "necessary", kind: "session storage", purpose: "Tells the creator their Google Analytics is working, and counts a checkout once. Nothing about you", lasts: "Until you close the tab" },
+  { name: "sl_cart_n", category: "necessary", kind: "cookie", purpose: "How many things are in your cart on a creator's website, so its page shows your cart. Only the number", lasts: "2 weeks" },
   { name: "sl_wishlist", category: "necessary", kind: "cookie", purpose: "Your wishlist on a creator's website before you sign in", lasts: "1 year" },
   { name: "storelib_language, storelib_currency", category: "necessary", kind: "cookie", purpose: "The language and currency you chose", lasts: "1 year" },
   { name: "_sl_bell_v1", category: "necessary", kind: "local storage", purpose: "Shows your unread notification count as a page opens, for the account signed in on this device", lasts: "Until you sign out" },

@@ -28,7 +28,7 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { heldLookup } from "@/lib/website-builder/held-lookup"
-import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, markedThemeAddress, sharedQuery, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
@@ -913,9 +913,10 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   }
   /*
     A STRANGER'S PAGE, DRAWN ONCE A MINUTE FOR EVERY STRANGER (lib/storelib-theme/
-    compat/anonymous-cache.ts): a GET for a page, with no cookie that could
-    change it, on a website without a password, where no language is being
-    offered. It goes to an address of its own, marked with the host, the
+    compat/anonymous-cache.ts): a GET for a page, on a website without a
+    password, where no language is being offered. Since round 53 a cart or a
+    sign in no longer keeps it private: the marked page reads no cookie, and
+    the browser fills in what is the visitor's after load. It goes to an address of its own, marked with the host, the
     country, the language and the market it is drawn for, so the copy held
     there is never handed to anybody else. Everything else is drawn per
     request and kept private, as before.
@@ -938,7 +939,8 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     : null
   const to = request.nextUrl.clone()
   to.pathname = `/api/site-theme/site/${name}${marker ? `/${marker}` : ""}${page === "/" ? "" : page}`
-  to.search = query
+  /* A shared page is drawn and held with only the keys it reads, so an added utm_source or a random string is the same copy, not a new draw (sharedQuery). */
+  to.search = marker ? sharedQuery(new URLSearchParams(query)) : query
   /* Sealed for this name on this host: the handler draws nothing it was not sent by this proxy (lib/storelib-theme/compat/site-seal.ts). */
   const headers = new Headers(request.headers)
   headers.delete(SITE_SEAL_HEADER)
@@ -959,6 +961,15 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
   const r = offerLanguage(NextResponse.rewrite(to, { request: { headers } }), own && "suggest" in own && !gated ? own.suggest : null)
   if (gated) r.headers.set("X-Robots-Tag", "noindex")
+  /*
+    A CART FROM BEFORE ITS READABLE COUNT (round 53): its next page may come
+    from the CDN, which never asks the handler that would write the count, so
+    the count is said here, as 1. The page's fill script asks for the cart
+    and writes the real count (lib/storelib-theme/compat/personal-fill.ts).
+  */
+  if (request.method === "GET" && request.cookies.get("sl_theme_cart")?.value && !request.cookies.get("sl_cart_n")) {
+    r.cookies.set("sl_cart_n", "1", { path: "/", maxAge: 1_209_600, sameSite: "lax", secure: true })
+  }
   /*
     THE FRONT PAGE, SAID HERE. next.config's rule for `/` (the marketing
     landing page's `public, s-maxage=3600`) matches the path the browser

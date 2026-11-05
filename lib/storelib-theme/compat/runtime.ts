@@ -73,6 +73,39 @@ export class LFloat {
   constructor(public readonly v: number) {}
 }
 
+/*
+  WHAT ON A PAGE IS ONE VISITOR'S (round 53). An imported theme's page is
+  drawn once for everybody and held by the CDN (./anonymous-cache.ts), with
+  an empty cart and nobody signed in. The parts of it a theme draws from
+  `cart` or `customer` are filled in by the browser after load
+  (./personal-fill.ts). Which parts those are is seen here, as the page is
+  drawn: every read of either name from the page's globals is noted against
+  the section being drawn, or against the layout when no section is.
+*/
+const PERSONAL_GLOBALS = new Set(["cart", "customer"])
+
+/** Who read `cart` or `customer` during a draw: section ids, and whether the layout did outside any section. */
+export interface PersonalReads {
+  /** The section being drawn now, or null while the layout is. */
+  current: string | null
+  sections: Set<string>
+  layout: boolean
+}
+
+/** Starts noting personal reads for a draw; the registers are shared by every child context of it. */
+export function trackPersonalReads(registers: Record<string, unknown>): PersonalReads {
+  const reads: PersonalReads = { current: null, sections: new Set(), layout: false }
+  registers.personalReads = reads
+  return reads
+}
+
+function notePersonalRead(registers: Record<string, unknown>): void {
+  const reads = registers.personalReads as PersonalReads | undefined
+  if (!reads) return
+  if (reads.current) reads.sections.add(reads.current)
+  else reads.layout = true
+}
+
 export class Ctx {
   /** The template's own variables: assign and capture write here. */
   scope: Record<string, unknown>
@@ -112,7 +145,10 @@ export class Ctx {
       if (Object.prototype.hasOwnProperty.call(this.frames[i], name)) return this.frames[i][name]
     }
     if (Object.prototype.hasOwnProperty.call(this.scope, name)) return this.scope[name]
-    if (Object.prototype.hasOwnProperty.call(this.globals, name)) return this.globals[name]
+    if (Object.prototype.hasOwnProperty.call(this.globals, name)) {
+      if (PERSONAL_GLOBALS.has(name)) notePersonalRead(this.registers)
+      return this.globals[name]
+    }
     return undefined
   }
 
