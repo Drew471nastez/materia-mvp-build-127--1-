@@ -218,7 +218,8 @@ async function settle(page, t0) {
         const tag = [...el.attributes].map((a) => a.name).filter((n) => n.startsWith("data-") || n === "aria-busy").join(" ")
         return `${el.tagName.toLowerCase()} ${tag} "${(el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40)}"`
       })(),
-      text: (document.querySelector("main")?.innerText || document.body?.innerText || "").length,
+      /* The page itself: inside the shell, the main column; a page drawn with an empty main (a redirect on its way, a stream not in) is not settled. */
+      text: (document.querySelector("main") ? document.querySelector("main").innerText : document.body?.innerText || "").trim().length,
       seen: window.__screenSeen || 0,
     })).catch(() => null)
     if (s) {
@@ -248,6 +249,7 @@ async function visit(ctx, path) {
   /* What stands where a part could not be read: a Try again, a retry, a spinner. */
   r.retryShown = await page.evaluate(() => /Try again|Retry|Could not load|did not load/i.test(document.querySelector("main")?.innerText || "")).catch(() => false)
   r.screenSeen = (await page.evaluate(() => window.__screenSeen || 0).catch(() => 0)) > 0 || r.outcome === "screen"
+  if (process.env.R53_DUMP) r.dump = await page.evaluate(() => `${location.pathname} | ${(document.querySelector("main")?.innerText || "").replace(/\s+/g, " ").slice(0, 400)}`).catch(() => "")
   await page.close()
   return r
 }
@@ -290,6 +292,7 @@ for (const m of MODES) {
       if (r.screenSeen) row.screen++
       row[r.outcome === "screen" ? "screen_end" : r.outcome] = (row[r.outcome === "screen" ? "screen_end" : r.outcome] || 0) + 1
       row.slowest = Math.max(row.slowest, r.ms)
+      if (process.env.R53_DUMP) out(`      ${p} try ${i + 1}: ${r.dump}\n        sections: ${r.sections.join(" / ")}`)
       if (process.env.R53_DETAIL) out(`      ${p} try ${i + 1}: ${r.outcome}, document ${r.domMs}ms, settled ${r.ms}ms${r.busyWhat ? `, still busy: ${r.busyWhat}` : ""}`)
       if (m === "ok") baseline[p] = r.sections
       else if (r.outcome === "page" && !r.retryShown) {

@@ -31,7 +31,7 @@ export function OverviewView({ onGo }: { onGo: (view: ManageView, opts?: { statu
   if (error && !data) return <ReadFailed error={error} onRetry={reload} />
   if (!data) {
     return (
-      <div className="space-y-4" aria-label={tt("Loading")}>
+      <div className="space-y-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
         <Placeholder className="h-[188px]" />
         <Placeholder className="h-[260px]" />
       </div>

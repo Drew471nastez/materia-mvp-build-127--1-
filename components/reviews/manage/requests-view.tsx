@@ -130,7 +130,7 @@ export function RequestsView() {
         {error && !data ? (
           <ReadFailed className="m-4" error={error} onRetry={reload} />
         ) : !data ? (
-          <div className="space-y-2 p-4" aria-label={tt("Loading")}>
+          <div className="space-y-2 p-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
             <Placeholder className="h-12" />
             <Placeholder className="h-12" />
             <Placeholder className="h-12" />

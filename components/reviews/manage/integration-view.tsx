@@ -23,7 +23,7 @@ import { MANAGE_VIEWS, type ManageView } from "./views"
 
 function Loading() {
   return (
-    <div className="space-y-4" aria-label={tt("Loading")}>
+    <div className="space-y-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
       <div className="h-[188px] animate-pulse rounded-2xl bg-[#f3f4f6]" />
       <div className="h-[260px] animate-pulse rounded-2xl bg-[#f3f4f6]" />
     </div>

@@ -357,7 +357,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
         {error && !data ? (
           <ReadFailed className="m-4" error={error} onRetry={reload} />
         ) : !data ? (
-          <div className="space-y-3 p-4" aria-label={tt("Loading")}>
+          <div className="space-y-3 p-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
             <Placeholder className="h-24" />
             <Placeholder className="h-24" />
             <Placeholder className="h-24" />
