@@ -149,7 +149,14 @@ function authUnavailable(res: Response): boolean {
   while the device is online and only with at least half the deadline left.
   A write is never repeated here: it may have happened.
 */
-export const READ_RETRY_STATUSES: ReadonlySet<number> = new Set([502, 503, 504])
+/*
+  Round 53: and a 500. A route whose database read failed answers 500
+  (a statement timeout, a pool that had no connection), and the panels that
+  read through here showed their error, or nothing, on the first one
+  (scripts/check-app-resilience-r53.mjs). A read changes nothing, so it is
+  asked again once like a 503.
+*/
+export const READ_RETRY_STATUSES: ReadonlySet<number> = new Set([500, 502, 503, 504])
 export const READ_RETRY_PAUSE_MS = 400
 
 /** A body that can be sent twice (a string, a form, bytes); a stream cannot. */

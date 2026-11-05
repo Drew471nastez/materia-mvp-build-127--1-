@@ -142,7 +142,7 @@ const env = {
 let next = null
 let log = ""
 if (process.env.NO_SERVER !== "1") {
-  next = spawn(process.execPath, ["--max-old-space-size=4096", NEXT_BIN, "dev", "--turbopack", "-p", String(PORT), "-H", "localhost"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] })
+  next = spawn(process.execPath, ["--max-old-space-size=4096", NEXT_BIN, "dev", "--turbopack", "-p", String(PORT), "-H", "localhost"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], detached: true })
   const LOG = process.env.NEXT_LOG || null
   next.on("exit", (code, sig) => {
     console.log(`  next dev exited ${code ?? ""} ${sig ?? ""}: the numbers after this are not the app's\n${log.slice(-1500)}`)
@@ -151,7 +151,15 @@ if (process.env.NO_SERVER !== "1") {
   next.stdout.on("data", (d) => { log = (log + d).slice(-20_000); if (LOG) appendFileSync(LOG, d) })
   next.stderr.on("data", (d) => { log = (log + d).slice(-20_000); if (LOG) appendFileSync(LOG, d) })
 }
-process.on("exit", () => { next?.kill("SIGKILL"); front.close() })
+/* The whole group: `next dev` starts a server of its own, which outlived its parent and held the port for the next run. */
+process.on("exit", () => {
+  try {
+    if (next?.pid) process.kill(-next.pid, "SIGKILL")
+  } catch {
+    next?.kill("SIGKILL")
+  }
+  front.close()
+})
 let up = false
 for (let i = 0; i < 300 && !up; i++) {
   await sleep(1500)

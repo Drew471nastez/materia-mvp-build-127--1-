@@ -26,7 +26,7 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { CHART_COLORS } from "@/components/app/analytics-chart"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { changePercent, type Bucket, type PeriodTotals, type RequestFunnel, type SeriesPoint } from "@/lib/reviews/manage"
-import { CARD, CARD_HEAD, Distribution, H3, MUTED, Placeholder, formatCount, useRead } from "./parts"
+import { CARD, CARD_HEAD, Distribution, H3, MUTED, Placeholder, formatCount, useRead, ReadFailed } from "./parts"
 
 interface Analytics {
   from: string
@@ -70,7 +70,7 @@ export function AnalyticsView() {
   const today = React.useMemo(() => todayIn(appTimeZone(), Date.now()), [])
   const [period, setPeriod] = React.useState<RangeValue>(() => resolveValue({ preset: "last_30_days" }, today))
   const [compare, setCompare] = React.useState(true)
-  const { data, error, loading } = useRead<Analytics>(`/api/app/reviews/analytics?from=${period.start}&to=${period.end}`)
+  const { data, error, loading, reload } = useRead<Analytics>(`/api/app/reviews/analytics?from=${period.start}&to=${period.end}`)
   const series = React.useMemo(() => (data?.series ?? []).map((p) => ({ ...p, label: bucketLabel(p.key, data?.bucket ?? "day") })), [data])
 
   const c = data?.current
@@ -97,7 +97,7 @@ export function AnalyticsView() {
         {loading && data ? <span className="text-[12px] text-[#9ca3af]">{tt("Updating")}</span> : null}
       </div>
 
-      {error && !data ? <p className="rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}
+      {error && !data ? <ReadFailed error={error} onRetry={reload} /> : null}
 
       <section className={cn(CARD, "grid grid-cols-2 gap-x-4 gap-y-4 p-4 sm:grid-cols-5 sm:p-5", loading && data && "opacity-70")} aria-label={tt("Readings")}>
         {c && p && f && pf ? (
