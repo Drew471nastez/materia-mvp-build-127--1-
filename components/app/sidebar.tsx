@@ -1,5 +1,6 @@
 "use client"
 
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { MiniMark } from "@/components/app/settings/integration-mark"
 import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
@@ -259,8 +260,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const badgeProps = { stripeConnected, stripeStatus, onePagePublished }
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    /* The browser's sign out, then the server's, which clears the cookie whatever Supabase Auth answered (lib/auth/log-out, round 53). */
+    await endDeviceSession("local", createClient().auth)
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {

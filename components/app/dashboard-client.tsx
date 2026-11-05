@@ -421,6 +421,8 @@ interface DashboardClientProps {
    * another page (use-home-progress).
    */
   initialProgress?: ProgressFacts
+  /** Some of those facts could not be read in time on the server: asked for again in the browser at once (round 53). */
+  progressPartial?: boolean
   /** The banner's sales news, counted on the server (app/app/page.tsx). */
   bannerSales?: SalesSummary
   /** The old checklist, read only when `initialProgress` is not given. */
@@ -662,6 +664,7 @@ export function DashboardClient({
   displayName,
   initialDayPart = "morning",
   initialProgress,
+  progressPartial = false,
   bannerSales,
   initialSetupSteps,
   productIds,
@@ -1023,7 +1026,7 @@ export function DashboardClient({
    * Analytics answer, asked again when an order comes in over realtime: a
    * first sale ticks moments after it lands.
    */
-  const { facts: readFacts, markGuideOpened } = useHomeProgress(initialProgress ?? legacyFacts(initialSetupSteps ?? [], subscriptionPlanId))
+  const { facts: readFacts, markGuideOpened } = useHomeProgress(initialProgress ?? legacyFacts(initialSetupSteps ?? [], subscriptionPlanId), { partial: progressPartial })
   const facts = useMemo<ProgressFacts>(
     () =>
       /* The server's count (every order, app/app/page.tsx) until Home's first answer, then the answer's all time line, which a new order moves. */

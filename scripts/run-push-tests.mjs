@@ -1321,6 +1321,8 @@ const STRICT_SUITES = [
   "tests/app-stability-r51.test.ts",
   /* Round 53: a profile photo saved from the OnePage editor is read back with Storelib's own address (lib/storage/media-url mediaFetch) and is the same file, not a refusal (lib/account/avatar-save sameMediaAddress). */
   "tests/photo-save-r53.test.ts",
+  /* Round 53 (reliability): a slow or failing read degrades only the part that needs it. The shell's two rows asked again once, then the last good copy (lib/net/last-good), and never the whole page screen; every decoration of the shell and Getting started on Home with a ceiling; Log out ends the session on this device whatever Supabase Auth answers (app/api/auth/logout). scripts/check-app-resilience-r53.mjs counts it in Chromium against a slow and a flaky database. */
+  "tests/app-resilience-r53.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

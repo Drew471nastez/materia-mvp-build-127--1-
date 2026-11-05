@@ -9,6 +9,7 @@ import { verifierKind, type VerifierKind } from "@/lib/auth/verify-token"
 import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
 import { ServiceUnavailable, classifyServiceError, dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
+import { lastGood } from "@/lib/net/last-good"
 
 /**
  * ===========================================================================
@@ -181,9 +182,9 @@ export interface RequestProfile {
   `profileOrThrowForRequest` throws it, for the one caller that decides
   where somebody belongs from the answer.
 */
-const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile | null; failure: ServiceUnavailable | null }> => {
+const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile | null; failure: ServiceUnavailable | null; stale?: boolean }> => {
   const supabase = await createClient()
-  try {
+  return keptRead(`profile:${userId}`, async () => {
     const row = dataOrThrow(
       "profile",
       await supabase
@@ -192,13 +193,55 @@ const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile 
         .eq("id", userId)
         .maybeSingle(),
     )
-    return { row: (row as RequestProfile | null) ?? null, failure: null }
-  } catch (e) {
-    if (!isServiceUnavailable(e)) throw e
-    logServiceFailure(e)
-    return { row: null, failure: e }
-  }
+    return (row as RequestProfile | null) ?? null
+  })
 })
+
+/*
+  ===========================================================================
+   A FAILED READ OF ONE OF THE SHELL'S TWO ROWS (round 53)
+  ===========================================================================
+  Measured with scripts/check-app-resilience-r53.mjs: with 10% of database
+  requests failing, the profile or the creator read failed on about one full
+  /app load in five, and every one of those was the whole page "Storelib is
+  not answering right now". The fetch underneath asks a read again only for
+  a 502, a 504, a 429 or a dropped connection (lib/net/deadline.ts); a 503,
+  a 500 statement timeout or a gateway's page reached the shell on the first
+  try. Now:
+
+    1  a read that failed with a blip (ServiceUnavailable.transient) is asked
+       once more here, after RETRY_PAUSE_MS. Both rows are one key lookup;
+    2  still failing, the last row this instance read for the same person
+       stands in (lib/net/last-good.ts), marked stale;
+    3  only with neither is the failure handed on.
+
+  A row the database gave, or "no row", is never replaced by a kept one.
+*/
+export const RETRY_PAUSE_MS = 250
+
+async function keptRead<T>(key: string, read: () => Promise<T>): Promise<{ row: T | null; failure: ServiceUnavailable | null; stale?: boolean }> {
+  let failure: ServiceUnavailable | null = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const row = await read()
+      if (row !== null && row !== undefined) lastGood.remember(key, row)
+      else lastGood.forget(key)
+      return { row: row ?? null, failure: null }
+    } catch (e) {
+      if (!isServiceUnavailable(e)) throw e
+      logServiceFailure(e)
+      failure = e
+      if (!e.transient) break
+      if (attempt === 0) await new Promise((r) => setTimeout(r, RETRY_PAUSE_MS + Math.round(Math.random() * 150)))
+    }
+  }
+  const kept = lastGood.recall<T>(key)
+  if (kept !== undefined) {
+    void currentRequestId().then((rid) => console.warn(logLine("served_last_good", { where: key.split(":")[0], rid }))).catch(() => {})
+    return { row: kept, failure: null, stale: true }
+  }
+  return { row: null, failure }
+}
 
 export const profileForRequest = cache(async (userId: string): Promise<RequestProfile | null> => (await profileRead(userId)).row)
 
@@ -278,15 +321,19 @@ export const creatorOrThrowForRequest = cache(async (userId: string): Promise<Re
   return row
 })
 
-const creatorRead = cache(async (userId: string): Promise<{ row: RequestCreator | null; failure: ServiceUnavailable | null }> => {
-  try {
-    return { row: await creatorRow(userId), failure: null }
-  } catch (e) {
-    if (!isServiceUnavailable(e)) throw e
-    logServiceFailure(e)
-    return { row: null, failure: e }
-  }
-})
+const creatorRead = cache(async (userId: string): Promise<{ row: RequestCreator | null; failure: ServiceUnavailable | null; stale?: boolean }> =>
+  keptRead(`creator:${userId}`, () => creatorRow(userId)),
+)
+
+/**
+ * Whether this request's profile or creator row is a kept copy, or could not
+ * be read at all (round 53): the /app shell draws from what it has and asks
+ * again quietly instead of deciding where somebody belongs from it.
+ */
+export async function shellRowsState(userId: string): Promise<{ stale: boolean; missing: boolean }> {
+  const [p, c] = await Promise.all([profileRead(userId), creatorRead(userId)])
+  return { stale: !!(p.stale || c.stale), missing: !!(p.failure || c.failure) }
+}
 
 async function creatorRow(userId: string): Promise<RequestCreator | null> {
   const supabase = await createClient()
