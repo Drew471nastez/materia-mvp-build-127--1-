@@ -1011,7 +1011,7 @@ function AdsLabelInstall({ value, adsId, onSaved }: { value: string | null; adsI
               {busy ? tt("Saving") : tt("Save")}
             </button>
           </div>
-          <p id="tracker-google_ads_label-where" className="text-[12.5px] leading-[18px] text-[#6b7280] sm:col-span-2">{tt("In your purchase conversion's event snippet, after {id}/ in send_to.", { id: adsId })}</p>
+          <p id="tracker-google_ads_label-where" className="text-[12.5px] leading-[18px] text-[#6b7280] sm:col-span-2">{tt("Where to find it: {where}", { where: tt("Google Ads › Goals › Conversions › your purchase › Event snippet, after {id}/ in send_to.", { id: adsId }) })}</p>
         </div>
       </Field>
       {error ? <Notice>{error}</Notice> : null}
