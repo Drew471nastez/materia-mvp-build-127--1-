@@ -192,7 +192,7 @@ async function main() {
   }
 
   console.log("\n7. Reads that need what a token does not carry ask Auth first")
-  for (const f of ["app/checkout/page.tsx", "app/checkout/physical/page.tsx", "app/account/library/page.tsx", "app/account/library/memberships/page.tsx", "app/account/library/memberships/[id]/page.tsx"]) {
+  for (const f of ["app/(storelib)/checkout/page.tsx", "app/(storelib)/checkout/physical/page.tsx", "app/(storelib)/account/library/page.tsx", "app/(storelib)/account/library/memberships/page.tsx", "app/(storelib)/account/library/memberships/[id]/page.tsx"]) {
     check(`${f}: fullUserForRequest (email_confirmed_at)`, /fullUserForRequest\(\)/.test(readCode(f)) && !/currentUserForRequest\(\)/.test(readCode(f)))
   }
   check("community checkout: routeUser({ full: true })", /routeUser\(\{ full: true \}\)/.test(readCode("app/api/community/[communityId]/checkout/route.ts")))
@@ -203,7 +203,7 @@ async function main() {
     check("a token from a reset link is a recovery session", isRecoveryToken(tok([{ method: "recovery", timestamp: 1 }])))
     check("  a password, OAuth or OTP session is not", !isRecoveryToken(tok([{ method: "password", timestamp: 1 }])) && !isRecoveryToken(tok([{ method: "oauth" }])) && !isRecoveryToken(tok([{ method: "otp" }])))
     check("  nothing, junk or no amr: not", !isRecoveryToken(null) && !isRecoveryToken("junk") && !isRecoveryToken(tok(undefined)))
-    const page = readCode("app/(auth)/reset-password/page.tsx")
+    const page = readCode("app/(storelib)/(auth)/reset-password/page.tsx")
     check("both Back to log in links end a recovery session, then open /login", (page.match(/<BackToLogin \/>/g) ?? []).length === 2 && !/<a href="\/login"/.test(page) && /await endRecoverySession\(\)[\s\S]{0,80}window\.location\.assign\("\/login"\)/.test(page))
     check("  on this device only, and never held up by a slow Auth", /signOut\(\{ scope: "local" \}\)/.test(page) && /setTimeout\(r, 2_000\)/.test(page))
   }
