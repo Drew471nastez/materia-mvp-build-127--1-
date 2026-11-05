@@ -57,8 +57,9 @@ const headOf = (html: string) => html.slice(0, html.search(/<body\b/i))
 const bodyOf = (html: string) => html.slice(html.search(/<body\b/i))
 
 function cdn() {
-  section("A stranger's page is drawn once for every stranger, and kept by no CDN (a Publish cannot reach a CDN copy: tests/publish-shows-new-release.test.ts)")
-  check("the browser is told what any page of the theme says, and no shared cache keeps it", PUBLIC_PAGE_CACHE === "private, no-cache" && !/s-maxage|public/.test(PUBLIC_PAGE_CACHE), PUBLIC_PAGE_CACHE)
+  /* Changed on purpose (r53): the CDN keeps it too now, under the tags Publish expires (tests/site-speed-r53.test.ts); the browser's header is unchanged. */
+  section("A stranger's page is drawn once for every stranger; the browser told what any page says")
+  check("the browser is told what any page of the theme says (the CDN's own header is Vercel-CDN-Cache-Control, r53)", PUBLIC_PAGE_CACHE === "private, no-cache" && !/s-maxage|public/.test(PUBLIC_PAGE_CACHE), PUBLIC_PAGE_CACHE)
   check("an answer that sets a cookie is never shared", !publicAnswer({ method: "GET", status: 200, type: "text/html", cacheControl: "private, no-cache", setsCookie: true, changesCart: false }))
   check("nor one that changed the cart", !publicAnswer({ method: "GET", status: 200, type: "text/html", cacheControl: "private, no-cache", setsCookie: false, changesCart: true }))
   check("a plain page is", publicAnswer({ method: "GET", status: 200, type: "text/html; charset=utf-8", cacheControl: "private, no-cache", setsCookie: false, changesCart: false }))

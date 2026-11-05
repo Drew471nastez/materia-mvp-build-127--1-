@@ -277,7 +277,8 @@ async function main() {
     check("  a market's own currency copy is private", /if \(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\) rewritten\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(proxy))
     check("  a page let in with a password pass is no-store", /if \(guarded\) rewritten\.headers\.set\("Cache-Control", "private, no-store"\)/.test(proxy))
     check("Storelib theme site pages are ISR, a minute", /export const revalidate = 60/.test(read("app/(site)/w/[username]/page.tsx")))
-    check("imported theme pages stay private at the CDN (Vercel keys a rewritten copy on the browser's address: round 48)", /export const PUBLIC_PAGE_CACHE = "private, no-cache"/.test(read("lib/storelib-theme/compat/anonymous-cache.ts")))
+    /* Changed on purpose (r53): the browser is still told "private, no-cache"; the CDN is given its own header for the one page every visitor shares (tests/site-speed-r53.test.ts), never in a market's currency, since Vercel keys a rewritten copy on the browser's address (round 48). */
+    check("imported theme pages tell the browser private (the CDN's own header since r53)", /export const PUBLIC_PAGE_CACHE = "private, no-cache"/.test(read("lib/storelib-theme/compat/anonymous-cache.ts")))
     check("OnePages stay private at the CDN (scheduled links, round 40)", /source: '\/l\/:slug\*',\s*headers: \[\s*\{ key: 'Cache-Control', value: 'private, no-cache, must-revalidate' \}/.test(cfg))
     check("the only header this round adds is the copy's own, no-store", !/s-maxage/.test(code("lib/edge/public-snapshot.ts")) && !/s-maxage/.test(code("lib/edge/snapshot-capture.ts")))
   }

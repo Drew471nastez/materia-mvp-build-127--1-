@@ -98,7 +98,9 @@ console.log("\nSERVER (origin, no CDN)\n")
 for (const host of SITES) {
   const first = await ask(host, "/")
   const drawn = []
-  for (let i = 2; i <= 7; i++) drawn.push(await ask(host, `/?page=${i}`))
+  /* A page number never asked before (the hold keeps what it drew between runs, in .next/cache): a real draw every time. */
+  const salt = 1000 + (Date.now() % 100_000) * 10
+  for (let i = 0; i < 6; i++) drawn.push(await ask(host, `/?page=${salt + i}`))
   const held = []
   for (let i = 0; i < 6; i++) held.push(await ask(host, "/"))
   const html = first.body
@@ -117,6 +119,13 @@ for (const host of SITES) {
   console.log(`  warm, held         TTFB ${ms(row.heldTtfb)}   (${row.held})`)
   console.log(`  HTML               ${kb(row.bytes)} raw, ${kb(row.gzip)} gzip, ${kb(row.br)} brotli`)
   console.log(`  headers            ${JSON.stringify(row.cache)}`)
+  /* A Storelib theme's other pages: what the CDN is told for each (ISR, a minute). */
+  if (host.startsWith("nova.")) for (const path of ["/about", "/products/nova-pack-1", "/products"]) {
+    await ask(host, path)
+    const r = await ask(host, path)
+    row[path] = { status: r.status, cc: r.h["cache-control"] ?? null, cache: r.h["x-nextjs-cache"] ?? null }
+    console.log(`  ${path.padEnd(18)} ${r.status} ${r.h["cache-control"] ?? "-"}  (${r.h["x-nextjs-cache"] ?? "-"})`)
+  }
 }
 
 /* ── Personas: the same page for everybody ── */

@@ -77,8 +77,14 @@
  * told "private, no-cache": Vercel reads Vercel-CDN-Cache-Control and never
  * passes it on.
  */
-/** How long the CDN keeps a shared page: five minutes, then served stale for a day while it is drawn again. Writes purge it by tag. */
-export const SHARED_PAGE_CDN = "public, s-maxage=300, stale-while-revalidate=86400"
+/**
+ * How long the CDN keeps a shared page: a minute fresh, as every public page
+ * of Storelib's, then served at once for a day while it is drawn again
+ * behind the visitor. So a page anybody opened in the last day is never a
+ * wait, and a change no tag names (a review approved, an offer that ended)
+ * shows within a minute and one visit. Writes purge it by tag at once.
+ */
+export const SHARED_PAGE_CDN = "public, s-maxage=60, stale-while-revalidate=86400"
 
 /** What a stranger's page is sent with: what every page of a theme says (./site.ts pageHtml), which keeps Back and Forward instant and no shared cache holds. */
 export const PUBLIC_PAGE_CACHE = "private, no-cache"

@@ -142,7 +142,7 @@ async function main() {
   console.log("\nThe CDN\n")
   {
     const route = readFileSync("app/api/site-theme/site/[username]/[[...path]]/route.ts", "utf8")
-    check("a shared page is the CDN's, for minutes, stale while drawn again", SHARED_PAGE_CDN === "public, s-maxage=300, stale-while-revalidate=86400")
+    check("a shared page is the CDN's, a minute fresh, then served at once for a day while drawn again", SHARED_PAGE_CDN === "public, s-maxage=60, stale-while-revalidate=86400")
     check("  the browser still told what any page says (Vercel never passes the CDN header on)", PUBLIC_PAGE_CACHE === "private, no-cache")
     check("  only on a shared page opened as a page, and never in a market's currency (the CDN keys on the browser's address: round 48)", /if \(openedAsDocument\(req\.headers\) && stranger\?\.market === null\) \{\s*const id = found\.site\.creatorId\s*headers\.set\("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN\)/.test(route))
     check("  under the tags the hold is kept under, which Publish and saves expire", route.includes('headers.set("Vercel-Cache-Tag", [creatorSiteTag(id), creatorShopTag(id), siteBlogTag(id)].join(","))'))
