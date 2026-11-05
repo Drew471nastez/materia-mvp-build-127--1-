@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { BrowserTabPreview, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass, DarkScope } from "./parts"
-import { siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
+import { siteFallbackDescription, siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
 import { siteIconUrl } from "@/lib/website-builder/site-icon"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
@@ -30,7 +30,7 @@ function previewOf(ctx: SettingsContext) {
     /* What another page's tab reads like, said under the field. */
     example: siteTabTitle({ page: { kind: "page", name: "About" }, storeName: store }),
     /* What the site itself serves when none is written (app/(site)/w/[username]/render-site.tsx), word for word. i18n-ignore-next-line */
-    description: str(ctx.settings.seo_description).trim() || `Visit ${store}'s website on Storelib`,
+    description: str(ctx.settings.seo_description).trim() || siteFallbackDescription(store),
   }
 }
 

@@ -298,8 +298,33 @@ function plain(value: unknown, max = 500): string | undefined {
   return t ? t.slice(0, max) : undefined
 }
 
+/**
+ * THE SITE'S OTHER NAME, for Google's site name (round 53). Google reads the
+ * site name from the front page's WebSite `name`, and takes `alternateName`
+ * when it will not use that one; with neither it falls back to the domain or
+ * to whatever the page's title says. The first of the names the store also
+ * goes by (Store details' name, the person's, the handle) that is not the
+ * name itself, else the address without "www.", which is how people write
+ * it. Undefined only when there is nothing that differs.
+ */
+export function siteAlternateName(name: string, origin: string, others: unknown[] = []): string | undefined {
+  const norm = (v: string) => v.toLowerCase().replace(/\s+/g, " ").trim()
+  const own = norm(name)
+  for (const o of others) {
+    const v = plain(o, 120)
+    if (v && norm(v) !== own) return v
+  }
+  try {
+    const host = new URL(origin).host.replace(/^www\./i, "")
+    return host && norm(host) !== own ? host : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** The home page's structured data: the website, and who it belongs to. */
-export function websiteJsonLd(site: { origin: string; name: string; description?: string; logo?: string; sameAs?: string[] }) {
+export function websiteJsonLd(site: { origin: string; name: string; description?: string; logo?: string; sameAs?: string[]; alternateNames?: unknown[] }) {
+  const alternateName = siteAlternateName(site.name, site.origin, site.alternateNames)
   const owner = {
     "@type": "Organization",
     "@id": `${site.origin}/#owner`,
@@ -316,6 +341,7 @@ export function websiteJsonLd(site: { origin: string; name: string; description?
         "@id": `${site.origin}/#website`,
         url: `${site.origin}/`,
         name: site.name,
+        ...(alternateName ? { alternateName } : {}),
         ...(plain(site.description) ? { description: plain(site.description) } : {}),
         publisher: { "@id": `${site.origin}/#owner` },
       },

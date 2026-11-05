@@ -77,7 +77,8 @@ const base = (over: Record<string, unknown> = {}, settings: Record<string, unkno
 function resolution() {
   console.log("\nFollowing the page")
   const d = base()
-  check("the title is the name, the handle and the brand", d.title.value === "Satori Studio (@satori) | Storelib" && d.title.auto)
+  /* Changed on purpose (r53): no "| Storelib" after a creator's name (lib/onepage/seo.ts autoTitle). */
+  check("the title is the name and the handle", d.title.value === "Satori Studio (@satori)" && d.title.auto)
   check("the description is the bio", d.description.value === "Prints, posters and a newsletter" && d.description.auto)
   check("the shared title is the name alone: the app prints the site beside it", d.socialTitle.value === "Satori Studio" && d.socialTitle.auto)
   check("the shared description is the description", d.socialDescription.value === d.description.value && d.socialDescription.auto)
@@ -90,14 +91,14 @@ function resolution() {
   check("the host and Google's grey line", d.domain === "storelib.me" && d.breadcrumb === "storelib.me › satori")
 
   const renamed = base({ name: "Satori Prints" })
-  check("a rename moves the title, the shared title and the card", renamed.title.value === "Satori Prints (@satori) | Storelib" && renamed.socialTitle.value === "Satori Prints" && cardOf({ name: "Satori Prints" }).image.url !== dc.image.url)
+  check("a rename moves the title, the shared title and the card", renamed.title.value === "Satori Prints (@satori)" && renamed.socialTitle.value === "Satori Prints" && cardOf({ name: "Satori Prints" }).image.url !== dc.image.url)
   check("a new bio moves the description and not the picture", base({ bio: "Posters only" }).description.value === "Posters only" && base({ bio: "Posters only" }).image.url === d.image.url)
   check("a new photo moves the picture", base({ avatarUrl: "https://x.supabase.co/b.jpg" }).image.url !== d.image.url)
   check("a new theme colour moves the card", cardOf({ theme: { ...THEME, background_color: "#000000" } }).image.url !== dc.image.url)
 
   console.log("\nAn empty page")
   const empty = base({ bio: "", name: "" })
-  check("no name: the handle", empty.name === "@satori" && empty.title.value === "@satori | Storelib")
+  check("no name: the handle", empty.name === "@satori" && empty.title.value === "@satori")
   check("no bio and nothing on the page: a plain line naming it", empty.description.value === "@satori on Storelib." && empty.derived.description.kind === "name")
   check("only spaces and markup in the bio count as none", base({ bio: "  <p> </p> " }).description.value === "Satori Studio on Storelib.")
 
@@ -111,7 +112,7 @@ function resolution() {
   check("a typed title no longer follows a rename", ownRenamed.title.value === "Risograph prints from Kyoto")
   check("but the fields nobody typed still do", ownRenamed.socialDescription.value === "Prints, posters and a newsletter" && ownRenamed.image.card.name === "Somebody Else")
   const social = base({}, { social_title: "Come say hi", social_description: "New prints every Friday" })
-  check("a shared title of its own leaves the search title alone", social.socialTitle.value === "Come say hi" && !social.socialTitle.auto && social.title.value === "Satori Studio (@satori) | Storelib")
+  check("a shared title of its own leaves the search title alone", social.socialTitle.value === "Come say hi" && !social.socialTitle.auto && social.title.value === "Satori Studio (@satori)")
   check("a shared description of its own", social.socialDescription.value === "New prints every Friday" && !social.socialDescription.auto)
 
   console.log("\nGoing back to following")
@@ -151,7 +152,7 @@ function resolution() {
 
   console.log("\nThe metadata it makes")
   const m = onePageMetadataFrom(d, { handle: "satori", indexable: true, icon: "https://x.supabase.co/a.jpg" }) as any
-  check("the title whole, so the layout adds no second brand", m.title.absolute === "Satori Studio (@satori) | Storelib")
+  check("the title whole, so the layout adds no brand", m.title.absolute === "Satori Studio (@satori)")
   check("one address for canonical and og:url", m.alternates.canonical === PAGE_URL && m.openGraph.url === PAGE_URL)
   /* Changed on purpose: the photo is a square summary card, the drawn card a large one. */
   check("the photo is a summary card, 600 square", m.twitter.card === "summary" && m.openGraph.images[0].width === 600 && m.openGraph.images[0].height === 600)
@@ -265,13 +266,14 @@ function describedFromThePage() {
   check("text that fits is left alone", cutAtWord("Short bio.", 155) === "Short bio.")
 
   console.log("\nThe title")
-  check("the name and the handle", described([]).title.value === "Mara Lee (@mara) | Storelib")
-  check("the handle is not repeated when it is the name", described([], { name: "Mara", handle: "mara" }).title.value === "Mara | Storelib" && described([], { name: "Mara Lee", handle: "mara.lee" }).title.value === "Mara Lee | Storelib")
+  /* Changed on purpose (r53): the name and the handle with no "| Storelib" (lib/onepage/seo.ts autoTitle). */
+  check("the name and the handle", described([]).title.value === "Mara Lee (@mara)")
+  check("the handle is not repeated when it is the name", described([], { name: "Mara", handle: "mara" }).title.value === "Mara" && described([], { name: "Mara Lee", handle: "mara.lee" }).title.value === "Mara Lee")
   const longish = described([], { name: "Satori Risograph Print Studio of Leeds", handle: "satoristudioleeds" }).title.value
-  check("the brand goes before the handle, the handle before the name is cut", longish === "Satori Risograph Print Studio of Leeds (@satoristudioleeds)" && textLength(longish) <= 60, longish)
+  check("the handle goes before the name is cut", longish === "Satori Risograph Print Studio of Leeds (@satoristudioleeds)" && textLength(longish) <= 60, longish)
   const longer = described([], { name: "Satori Risograph Print Studio of Leeds and Co", handle: "satoristudioleeds" }).title.value
   const longest = described([], { name: "Satori Risograph Print Studio of Leeds, Bradford and York", handle: "satoristudioleeds" }).title.value
-  check("then the name with the brand, then the name alone", longer === "Satori Risograph Print Studio of Leeds and Co | Storelib" && longest === "Satori Risograph Print Studio of Leeds, Bradford and York", JSON.stringify([longer, longest]))
+  check("then the name alone", longer === "Satori Risograph Print Studio of Leeds and Co" && longest === "Satori Risograph Print Studio of Leeds, Bradford and York", JSON.stringify([longer, longest]))
   check("the title note says where it comes from", described([]).derived.title === "name-and-handle" && described([], { name: "Mara", handle: "mara" }).derived.title === "name")
 
   console.log("\nOverrides and the way back")

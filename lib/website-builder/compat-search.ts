@@ -7,7 +7,7 @@
  * (app/(site)/w/[username]/render-site.tsx and products/[slug]/page.tsx):
  *
  *   description   the page's own (Website settings), else the site's, else
- *                 "Visit <store>'s website on Storelib", as a Storelib
+ *                 "Visit <store>'s website." (tab-title.ts siteFallbackDescription), as a Storelib
  *                 theme's page says it;
  *   share picture a product's first photo on its page, a collection's
  *                 picture on its page, else the page's or the site's share
@@ -36,11 +36,14 @@ import { jsonLdScript, productJsonLd, websiteJsonLd } from "./site-seo"
 import { breadcrumbJsonLd } from "./breadcrumbs"
 import { articleJsonLd, blogJsonLd } from "@/lib/site-blog/seo"
 import { blogPath } from "@/lib/site-blog/urls"
+import { siteFallbackDescription } from "./tab-title"
 
 export interface CompatSearchSite {
   /** https://<the website's own host>. */
   origin: string
   storeName: string
+  /** The store's other names (Store details', the person's), for the WebSite's alternateName (site-seo.ts siteAlternateName). */
+  alternateNames?: unknown[]
   /** The site's description (SEO & Social), when it has one. */
   siteDescription?: string
   /** The share picture for a page with none of its own: the site's (compat-site.ts). */
@@ -97,7 +100,7 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
   const own = key ? site.pageSeo?.(key) ?? null : null
   const url = `${site.origin}${path === "/" ? "/" : path}`
 
-  if (t === "password") return { noindex: true, description: site.siteDescription || `Visit ${site.storeName}'s website on Storelib` }
+  if (t === "password") return { noindex: true, description: site.siteDescription || siteFallbackDescription(site.storeName) }
 
   const noindex =
     emptyTemplate(page) ||
@@ -114,7 +117,7 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
   const home = { name: site.storeName, url: `${site.origin}/` }
 
   if (t === "index") {
-    jsonLd.push(jsonLdScript(websiteJsonLd({ origin: site.origin, name: site.storeName, description: site.siteDescription, logo: site.logo, sameAs: site.sameAs })))
+    jsonLd.push(jsonLdScript(websiteJsonLd({ origin: site.origin, name: site.storeName, alternateNames: site.alternateNames, description: site.siteDescription, logo: site.logo, sameAs: site.sameAs })))
   } else if (t === "product" && page.product) {
     const p = productObject(page.product, { descriptionHtml: page.product.descriptionHtml })
     const pictures = ((p.images as { src?: unknown }[] | undefined) ?? []).map((i) => fullImageUrl(i?.src, site.origin)).filter((u): u is string => !!u)
@@ -179,7 +182,7 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
       ),
     )
     jsonLd.push(jsonLdScript(breadcrumbJsonLd([home, { name: blog.title, url: blogUrl }, { name: post.title, url: postUrl }])))
-    return { description: description || `Visit ${site.storeName}'s website on Storelib`, image: image || fullImageUrl(blog.ogImageUrl, site.origin) || site.shareImage, noindex, jsonLd, ogType: "article" }
+    return { description: description || siteFallbackDescription(site.storeName), image: image || fullImageUrl(blog.ogImageUrl, site.origin) || site.shareImage, noindex, jsonLd, ogType: "article" }
   } else if (t === "blog" && page.blogData?.cards?.length && page.blogData.settings) {
     const blog = page.blogData.settings
     const blogUrl = `${site.origin}${blogPath(blog.handle)}`
@@ -198,7 +201,7 @@ export function compatSearchHead(site: CompatSearchSite, page: CompatPage, path:
   }
 
   return {
-    description: description || `Visit ${site.storeName}'s website on Storelib`,
+    description: description || siteFallbackDescription(site.storeName),
     image: image || fullImageUrl(own?.image, site.origin) || site.shareImage,
     noindex,
     jsonLd,

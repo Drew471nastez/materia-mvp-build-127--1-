@@ -111,7 +111,7 @@ console.log("\nWhat each page says (lib/website-builder/compat-search.ts)\n")
   const home = compatSearchHead(site, page({ template: "index", path: "/" }), "/")!
   const graph = JSON.parse(home.jsonLd![0])["@graph"]
   check("the front page: the WebSite and the Organization that owns it, with its logo", graph[0]["@type"] === "WebSite" && graph[0].url === `${ORIGIN}/` && graph[1]["@type"] === "Organization" && graph[1].logo === site.logo, graph)
-  check("  shared with the site's picture, described even with no SEO description", home.image === site.shareImage && home.description === "Visit BESTSHOPS's website on Storelib" && !home.noindex)
+  check("  shared with the site's picture, described even with no SEO description", home.image === site.shareImage && /* Changed on purpose (r53): the store's, without Storelib's name (tab-title.ts siteFallbackDescription). */ home.description === "Visit BESTSHOPS's website." && !home.noindex)
   const about = compatSearchHead(site, page({ template: "page", suffix: "about", path: "/about", pageObject: { title: "About", content: "", handle: "about", url: "/pages/about" } }), "/about")!
   check("a page: its own description, a BreadcrumbList home › page", about.description === "About our shop" && JSON.parse(about.jsonLd![0]).itemListElement[1].name === "About")
   const coll = compatSearchHead(site, page({ template: "collection", path: "/collections/summer", collection: { id: "c", title: "Summer", handle: "summer", image: "/_next/image?url=https%3A%2F%2Fstorelib.com%2Fc.png&w=900", description: "<p>Hot</p>" } }), "/collections/summer")!

@@ -19,6 +19,8 @@ import { isBanned } from "./bans"
 import { activeDomainOf, formerSiteAddresses } from "@/lib/website-builder/site-seo-data"
 import { BASE, siteSitemap } from "./sitemaps"
 import { submitToIndexNow, indexNowKey } from "./indexnow"
+import { readSiteBlog } from "@/lib/site-blog/public-read"
+import { blogPath, postPath } from "@/lib/site-blog/urls"
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -154,6 +156,24 @@ export async function collectionAddresses(creatorId: string, ...slugs: Array<str
   const site = await siteSitemap(handle)
   if (!site || site.entries.length === 0) return []
   return [...wanted.map((s) => `${site.origin}/collections/${s}`), `${site.origin}/collections`]
+}
+
+/**
+ * A POST OF THE WEBSITE'S BLOG (round 53): its page and the blog that lists
+ * it, at the site's canonical origin, when it goes live, is updated, or is
+ * taken down (an engine told fetches it, finds a 404, and drops it). Only
+ * while a website is published and open to search engines. A post set for
+ * later goes live by itself with no request to announce it from; the
+ * sitemap names it from then on.
+ */
+export async function blogPostAddresses(creatorId: string, slug: string | null | undefined): Promise<string[]> {
+  const post = (slug ?? "").trim()
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post)) return []
+  const handle = await handleOfCreator(createAdminClient(), creatorId)
+  if (!notSpam(handle)) return []
+  const [site, blog] = await Promise.all([siteSitemap(handle), readSiteBlog(creatorId).catch(() => null)])
+  if (!site || site.entries.length === 0 || !blog) return []
+  return [`${site.origin}${postPath(blog.handle, post)}`, `${site.origin}${blogPath(blog.handle)}`]
 }
 
 /**

@@ -1128,6 +1128,8 @@ const SUITES = [
   "tests/commerce-r51.test.ts",
   /* Round 52 (websites): a published website has a root layout and a stylesheet of its own (app/(site)/layout.tsx, app/site.css by scripts/site-css.cjs), Storelib's pages theirs (app/(storelib)/layout.tsx), and an imported theme's next page is drawn ahead on a capable phone; scripts/check-site-speed-r52.mjs and scripts/check-site-css-r52.mjs measure it in a browser. */
   "tests/site-root-r52.test.ts",
+  /* Round 53 (SEO): Google's favicon (a theme's 32 pixel one replaced by the site's sized square; a creator page domain's own /favicon.ico from the photo; an hour for the unversioned address), og:site_name and the WebSite's alternateName, no "on Storelib" in a store's description, a OnePage titled by its name, and IndexNow for blog posts; scripts/check-site-seo-r53.mjs reads every page type on every host of a production build. */
+  "tests/site-seo-r53.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */

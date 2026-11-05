@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { storeNameFor } from "./seo"
-import { siteTabTitle } from "@/lib/website-builder/tab-title"
+import { siteFallbackDescription, siteTabTitle } from "@/lib/website-builder/tab-title"
 import { pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass, DarkScope } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
@@ -29,7 +29,7 @@ export function PageSettings({ ctx }: { ctx: SettingsContext }) {
   /* The live page's own rule for its tab (lib/website-builder/tab-title.ts), so the placeholder is what the tab says. */
   const brand = storeNameFor(ctx)
   /* What the site itself serves when none is written (render-site.tsx), word for word. i18n-ignore-next-line */
-  const siteDescription = str(ctx.settings.seo_description) || `Visit ${brand}'s website on Storelib`
+  const siteDescription = str(ctx.settings.seo_description) || siteFallbackDescription(brand)
   const titleOf = (key: string) =>
     key === "home"
       ? siteTabTitle({ page: { kind: "home" }, storeName: brand, siteTitle: str(ctx.settings.seo_title) })

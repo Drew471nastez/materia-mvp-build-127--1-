@@ -103,6 +103,8 @@ export interface SiteData {
   extraBodyEnd?: string
   /** The website's favicon (or its logo when it has none), for a theme whose layout draws no icon (lib/website-builder/site-icon.ts). */
   icon?: string
+  /** The creator set a favicon (not the logo standing in): the theme's own 32 pixel icon links are replaced by the site's sized one (site-icon.ts withSiteIcon, round 53). */
+  ownFavicon?: boolean
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
@@ -496,7 +498,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
   const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
-  const done = pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
+  const done = pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200)
   /* A post's preview is its editor's: never kept by anyone, never a search result. */
   return route.private ? { ...done, headers: { ...done.headers, "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } } : done
 }
@@ -964,8 +966,18 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const { template, suffix } = templateOfPage(key)
     /* The page's own title and description from Website settings, as the theme's page_title and page_description. */
     const seo = site.seo?.(key) ?? null
-    const told: Partial<CompatPage> = { ...(seo?.title ? { title: seo.title } : {}), ...(seo?.description ? { description: seo.description } : {}) }
-    const head = seoHead(seo)
+    /*
+      A PRODUCT OR A COLLECTION SAYS ITS OWN (round 53). The page's SEO falls
+      back to the site's description and share picture, and handed those to
+      every product: page_description was the site's, not the product's
+      (measured: "<store> makes handmade goods..." on a product page), and
+      the share card the site's picture, not the product's photo. Its own
+      description is the theme's default (defaultPageDescription) and its
+      picture compat-search.ts's; whether it may be listed still holds.
+    */
+    const item = !!(extra.product || extra.collection)
+    const told: Partial<CompatPage> = { ...(seo?.title ? { title: seo.title } : {}), ...(seo?.description && !item ? { description: seo.description } : {}) }
+    const head = seoHead(item && seo ? { noindex: seo.noindex } : seo)
     const alternate = viewOf(site, req, template, sections)
     /* A product's own SEO title (Products), else the page's (Website settings), said exactly in the tab. */
     const ownTitle = productTitle ?? seo?.title

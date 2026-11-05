@@ -55,7 +55,12 @@ function matches(row, key, raw) {
   }
 }
 
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0 } = {}) {
+/**
+ * `files`: public storage objects by path under /storage/v1/object/public/
+ * ("media/nova/favicon.png"), each { type, body }, for a probe whose page
+ * reads a picture through the server (a website's favicon, round 53).
+ */
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {} } = {}) {
   const log = []
   const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
   const token = user ? tokenOf(user) : null
@@ -91,6 +96,13 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
       return
     }
     if (url.pathname.startsWith("/auth/v1/")) return send(200, {})
+    if (url.pathname.startsWith("/storage/v1/object/public/")) {
+      const file = files[decodeURIComponent(url.pathname.slice("/storage/v1/object/public/".length))]
+      if (file) {
+        res.writeHead(200, { "content-type": file.type, "content-length": String(file.body.length), "access-control-allow-origin": "*" })
+        return res.end(file.body)
+      }
+    }
     if (url.pathname.startsWith("/storage/v1/")) return send(404, { error: "not found" })
     if (url.pathname.startsWith("/rest/v1/rpc/")) return send(200, null)
 

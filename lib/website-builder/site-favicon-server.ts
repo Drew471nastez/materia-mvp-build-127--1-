@@ -9,7 +9,7 @@ import "server-only"
  */
 import sharp from "sharp"
 import { siteIconUrl } from "./site-icon"
-import { fetchableIconSource } from "./site-favicon"
+import { fetchableIconSource, iconVersion } from "./site-favicon"
 import { getMainDomain } from "@/lib/url-helpers"
 
 /** The published site's picture and name, or null for no site or no picture. */
@@ -26,8 +26,16 @@ export async function siteIconSource(name: string): Promise<{ source: string; na
   return { source, name: String(brand), themeColor: accent }
 }
 
-/** A day at the edge and in the browser; the page links the icon with `?v=`, so a new picture is a new address at once. */
-const ICON_CACHE = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
+/*
+  THE ADDRESS THE PAGE LINKS (`?v=` naming the picture) is held for a year:
+  a new picture is a new address. ANY OTHER, /favicon.ico as Google and a
+  browser ask for it with nothing after it, for an hour (round 53): it was
+  held for a day and served stale for a week after, so a favicon changed
+  and published stayed the old one there for up to eight days, and that is
+  the address Google's icon falls back to.
+*/
+const ICON_CURRENT = "public, max-age=86400, s-maxage=31536000, immutable"
+const ICON_CACHE = "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"
 const NOTHING_CACHE = "public, max-age=3600, s-maxage=3600"
 /** Larger than any favicon anybody uploads on purpose. */
 const MAX_BYTES = 8 * 1024 * 1024
@@ -44,7 +52,7 @@ export function noIcon(): Response {
  * sent there (302), as the old link did. A picture that cannot be read or
  * drawn is sent there too, so the tab still shows it.
  */
-export async function squareIconResponse(source: string, size: number, opaque: boolean): Promise<Response> {
+export async function squareIconResponse(source: string, size: number, opaque: boolean, asked: string | null = null): Promise<Response> {
   const fallback = () =>
     /^https:\/\//i.test(source)
       ? new Response(null, { status: 302, headers: { Location: source, "Cache-Control": NOTHING_CACHE } })
@@ -62,7 +70,7 @@ export async function squareIconResponse(source: string, size: number, opaque: b
     })
     if (opaque) image = image.flatten({ background: "#ffffff" })
     const png = await image.png().toBuffer()
-    return new Response(new Uint8Array(png), { headers: { "Content-Type": "image/png", "Cache-Control": ICON_CACHE } })
+    return new Response(new Uint8Array(png), { headers: { "Content-Type": "image/png", "Cache-Control": asked && asked === iconVersion(source) ? ICON_CURRENT : ICON_CACHE } })
   } catch {
     return fallback()
   }

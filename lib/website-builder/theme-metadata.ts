@@ -31,7 +31,7 @@ function str(value: unknown, fallback = ""): string {
  */
 export function themeMetadata(
   theme: ThemeSettingsValues,
-  base: { title: string; description: string; url?: string; image?: string },
+  base: { title: string; description: string; url?: string; image?: string; siteName?: string },
 ): Pick<Metadata, "openGraph" | "twitter" | "robots"> {
   const t = theme as Record<string, unknown>
   const image = str(t.seo_og_image) || str(base.image)
@@ -50,6 +50,8 @@ export function themeMetadata(
     openGraph: {
       title: base.title,
       description: base.description,
+      /* The store's name over the card in a chat app, and one more place Google reads the site's name from (round 53). */
+      ...(base.siteName ? { siteName: base.siteName } : {}),
       type: "website",
       ...(locale ? { locale } : {}),
       ...(base.url ? { url: base.url } : {}),
