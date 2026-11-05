@@ -189,9 +189,10 @@ check("the creator page asks for content", /\.select\("id, rating, content, crea
   it the creator page had nothing to write under a guest review and drew a
   "?" for the face.
 */
+/* Changed on purpose (r54): the fallback is a readLadder, which remembers per server the list that answered, so the page is not refused first on every view. */
 check("and for the name a guest bought with, with the old list when part 52 has not run",
   /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage)
-    && /missingColumn\(res\.error\)/.test(creatorPage))
+    && /readLadder\(\s*"reviews:creator-page"/.test(creatorPage) && /\],\s*missingColumn,\s*\)/.test(creatorPage))
 check("and not for comment", !/rating, comment/.test(creatorPage))
 check(
   "and it no longer drops the error that would tell it",

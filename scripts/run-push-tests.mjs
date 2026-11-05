@@ -1331,6 +1331,8 @@ const STRICT_SUITES = [
   "tests/photo-save-r53.test.ts",
   /* Round 53 (reliability): a slow or failing read degrades only the part that needs it. The shell's two rows asked again once, then the last good copy (lib/net/last-good), and never the whole page screen; every decoration of the shell and Getting started on Home with a ceiling; Log out ends the session on this device whatever Supabase Auth answers (app/api/auth/logout). scripts/check-app-resilience-r53.mjs counts it in Chromium against a slow and a flaky database. */
   "tests/app-resilience-r53.test.ts",
+  /* Round 54 (database load): the SEO cron takes only what is due (a page scored, a site listed and Google asked a day after the last time, a sitemap walk six hours after the last), a read with a missing column is refused once per server and not on every read (lib/supabase/missing-memory, tolerant-select), and the live site and the editor read only the columns they draw. */
+  "tests/db-load-r54.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

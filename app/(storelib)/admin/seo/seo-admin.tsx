@@ -315,14 +315,14 @@ function KindTable({ rows, current, onPick }: { rows: KindTotals[]; current: Kin
 }
 
 function SyncLine({ sync }: { sync: SeoConsoleData["sync"] }) {
-  if (!sync) return <p className="text-[12px] text-[#6b6b76]">The cron has not run yet. It reads the sitemaps every ten minutes.</p>
+  if (!sync) return <p className="text-[12px] text-[#6b6b76]">The cron has not run yet. It reads the sitemaps every six hours.</p>
   const files = sync.files.length
   return (
     <p className="text-[12px] text-[#6b6b76] tabular-nums" data-sync>
       Sitemap files read in this pass: {Math.min(sync.next_file, files)} of {files}
       {sync.sweep_started_at ? `, started ${ago(sync.sweep_started_at)}` : ""}
       {sync.sweep_finished_at ? `. Last full pass finished ${ago(sync.sweep_finished_at)}` : ""}
-      {sync.last_run_at ? `. Last run ${ago(sync.last_run_at)}.` : "."}
+      {sync.last_run_at ? `. Files last read ${ago(sync.last_run_at)}.` : "."}
       {sync.last_error ? <span className="block text-[#d4a72c]">Last run said: {sync.last_error}</span> : null}
     </p>
   )

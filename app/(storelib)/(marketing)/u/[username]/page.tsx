@@ -132,6 +132,7 @@ import { resolveStorefrontChrome, type StorefrontBarColors, type StoredChrome } 
 import { SCHEME_PREVIEW_PARAM, previewSchemeFrom, schemeRootPaints, type RootPaint } from "@/lib/store-builder/scheme-preview"
 import { planIntervals } from "@/lib/memberships/intervals"
 import { offChannel } from "@/lib/store/channel-filter"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 export const dynamic = "force-dynamic"
 
@@ -568,31 +569,38 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       refuses a select naming a column that is not there (42703) rather than
       skipping it, and that would empty the whole panel.
     */
-    (async () => {
-      /* With run-now part 134: `verified`, so an imported review without a name is never called a verified buyer. */
-      const withVerified = await supabase
-        .from("reviews")
-        .select("id, rating, content, created_at, reviewer_name, verified, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false })
-        .limit(30)
-      if (!(withVerified.error && missingColumn(withVerified.error))) return withVerified
-      const res = await supabase
-        .from("reviews")
-        .select("id, rating, content, created_at, reviewer_name, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false })
-        .limit(30)
-      if (!(res.error && missingColumn(res.error))) return res
-      /* Both column lists are written out rather than built from a variable, so
-         tests/review-columns can read them and hold them to the table. */
-      return await supabase
-        .from("reviews")
-        .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false })
-        .limit(30)
-    })(),
+    /*
+      With run-now part 134: `verified`, so an imported review without a name
+      is never called a verified buyer. The rung that answered is remembered
+      per server (lib/supabase/missing-memory.ts, round 54): this page is not
+      cached, and on a database without the part every view was refused once
+      first. Both column lists are written out rather than built from a
+      variable, so tests/review-columns can read them and hold them to the table.
+    */
+    readLadder(
+      "reviews:creator-page",
+      [
+        () => supabase
+          .from("reviews")
+          .select("id, rating, content, created_at, reviewer_name, verified, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+        () => supabase
+          .from("reviews")
+          .select("id, rating, content, created_at, reviewer_name, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+        () => supabase
+          .from("reviews")
+          .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+      ],
+      missingColumn,
+    ),
   ])
   const pageHost = await pageHostPromise
   /* Where the creator is from. No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */

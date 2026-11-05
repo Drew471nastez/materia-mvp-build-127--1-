@@ -420,7 +420,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
-    : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
+    : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select((draft ? "page_key, sections, draft_sections" : "page_key, sections") as "page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
   /* And its own questions (round 13, ./product-extras.ts): a Featured product's `product.metafields.storelib.faqs`, as on its page. */
   const readCatalog = () =>

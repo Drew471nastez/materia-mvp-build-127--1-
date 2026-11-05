@@ -9,9 +9,12 @@ import { announceScheduledBlogPosts } from "@/lib/blog/went-live"
  * GET /api/cron/seo-index
  *
  * Every ten minutes (vercel.json): the next sitemap files read into the SEO
- * inventory, this run's share of Google's daily URL inspections (never
- * checked and stalest first), and the pages scored longest ago fetched and
- * scored again (lib/admin/seo/run.ts). /admin/seo shows the result.
+ * inventory (a new walk six hours after the last one ended), this run's
+ * share of Google's daily URL inspections (never checked and stalest first),
+ * and the pages scored longest ago fetched and scored again, each only once
+ * a day at most (lib/admin/seo/store.ts SCORE_EVERY_MS; round 54: every run
+ * fetched every page again, each a render with its own database reads).
+ * /admin/seo shows the result.
  * Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"

@@ -14,6 +14,7 @@ import { countryCode } from "@/lib/checkout/countries"
 import { cleanPhone } from "./phone-rule"
 import { checkoutConfig, mergeCheckout, type CheckoutConfig } from "./checkout-config"
 import { businessFromFields, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -50,8 +51,11 @@ const BASE_COLUMNS = "store_name, phone, phone_country, default_country, checkou
 export async function loadStoreSettings(db: Db, creatorId: string): Promise<StoreSettings> {
   const legalRead = loadStoreLegal(db, creatorId)
   /* With the logo (part 118) when the column is there; without it on a database that hasn't run that part, so nothing else stops working. */
-  let { data, error } = await db.from("store_settings").select(`${BASE_COLUMNS}, logo_url`).eq("creator_id", creatorId).maybeSingle()
-  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await db.from("store_settings").select(BASE_COLUMNS).eq("creator_id", creatorId).maybeSingle())
+  const { data, error } = await readLadder(
+    "store_settings:logo",
+    [() => db.from("store_settings").select(`${BASE_COLUMNS}, logo_url`).eq("creator_id", creatorId).maybeSingle(), () => db.from("store_settings").select(BASE_COLUMNS).eq("creator_id", creatorId).maybeSingle()],
+    (e) => e?.code === "42703" || e?.code === "PGRST204",
+  )
   const ready = !error || !isMissingTable(error)
   const legal = await legalRead
   return {

@@ -26,6 +26,7 @@ import { publishedReviewsApp } from "./app-server"
 import { readReviewsApp, type ReviewsAppSettings } from "./app-settings"
 import { buildStorefrontReviews, emptyStorefrontReviews, sampleStorefrontReviews, type StorefrontProductRow, type StorefrontReviewRow, type StorefrontReviews } from "./storefront"
 import { missingColumn } from "./store"
+import { readLadder } from "@/lib/supabase/missing-memory"
 import { cachedWidgetConfigs, listWidgetConfigs, publicConfigs } from "./widgets/server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,9 +48,8 @@ async function readRows(db: Db, key: "creator_id" | "product_id", value: string,
     if (creatorId && key === "product_id") q = q.eq("creator_id", creatorId)
     return (site ? q.eq("site_status", "shown") : q).order("created_at", { ascending: false }).limit(limit)
   }
-  let res = await run(IMPORT_COLUMNS, true)
-  if (res.error && missingColumn(res.error)) res = await run(COLUMNS, true)
-  if (res.error && missingColumn(res.error)) res = await run(OLD_COLUMNS, false)
+  /* A database before part 232 or 134 is asked the shorter list from the start, not refused first on every page (lib/supabase/missing-memory.ts). */
+  const res = await readLadder("reviews:storefront-rows", [() => run(IMPORT_COLUMNS, true), () => run(COLUMNS, true), () => run(OLD_COLUMNS, false)], missingColumn)
   if (res.error) return []
   return (res.data ?? []) as StorefrontReviewRow[]
 }
@@ -60,8 +60,7 @@ async function readRatingRows(db: Db, key: "creator_id" | "product_id", value: s
     if (creatorId && key === "product_id") q = q.eq("creator_id", creatorId)
     return (site ? q.eq("site_status", "shown") : q).limit(5000)
   }
-  let res = await run(true)
-  if (res.error && missingColumn(res.error)) res = await run(false)
+  const res = await readLadder("reviews:storefront-ratings", [() => run(true), () => run(false)], missingColumn)
   if (res.error) return []
   return ((res.data ?? []) as { product_id: string; rating: number }[]).map((r) => ({ product_id: String(r.product_id ?? ""), rating: Number(r.rating) }))
 }
