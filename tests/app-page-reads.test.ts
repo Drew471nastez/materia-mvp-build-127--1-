@@ -124,8 +124,9 @@ section("The layout: everything that needs only the user, together")
   /* Changed on purpose (round net-1028): the batch is criticalShellReads, whose profile and creator reads throw on a failed read instead of reading as no row. */
   /* Changed on purpose (round 42 merge fixes): the batch is inline again, as const shellReads, keyed by user.id. */
   const first = batchAfter(layout, /const shellReads = /)
+  /* Changed on purpose (r53): the two gate rows are their own promise (gateReads) with a ceiling, raced inside the same batch. */
   check("the gates, the creator row and the OnePage are one batch",
-    /profileOrThrowForRequest\(user\.id\)/.test(first) && /creatorOrThrowForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
+    /const gateReads = Promise\.all\(\[profileOrThrowForRequest\(user\.id\), creatorOrThrowForRequest\(user\.id\)\]\)/.test(layout) && /gateAnswer/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))
@@ -133,7 +134,7 @@ section("The layout: everything that needs only the user, together")
   check("and the redirects are still decided in their order: verified, then seller access",
     /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access. */
     /* Round Y2: seller access is decided by lib/team/landing appLanding, after the same verified gate (tests/team-landing.test.ts). */
-    /if \(!gateCheck\?\.email_verified\)[\s\S]*const landing = appLanding\([\s\S]*if \(!creator \|\| landing\.kind === "sell"\)/.test(layout))
+    /* Changed on purpose (r53): decided only from rows that were read. */ /if \(known && !gateCheck\?\.email_verified\)[\s\S]*const landing = appLanding\([\s\S]*if \(\(!creator \|\| landing\.kind === "sell"\) && !memberRead\.failed\)/.test(layout))
   /* Changed on purpose (round 48, db): the setup ring's "first sale" is one lookup by the session's own creator id on the admin client (the user's client failed with 42501 on a legacy orders policy that reads auth.users). Nothing else in the layout takes the admin client. */
   check("on the caller's own client, except the first sale lookup scoped to the session's own store", (layout.match(/createAdminClient\(\)/g) ?? []).length === 1 && /async function storeHasSale\(creatorId: string\)[\s\S]{0,120}const admin = createAdminClient\(\)[\s\S]{0,200}scopedOrders\(admin, "id", scope, creatorId, null\)/.test(layout))
   /* Round 12 (PLATPERF): the setup ring's payments answer was one more trip after the second batch. */

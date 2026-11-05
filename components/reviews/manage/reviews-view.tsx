@@ -43,7 +43,7 @@ import { Pill, usePill } from "@/app/(storelib)/app/coupons/coupon-parts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { appTimeZone } from "@/lib/i18n/format"
-import { CARD, MUTED, Placeholder, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead, errorOf } from "./parts"
+import { CARD, MUTED, Placeholder, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead, errorOf, ReadFailed } from "./parts"
 import { ImportDialog } from "./import-dialog"
 
 const TAB_LABEL: Record<ReviewTab, () => string> = {
@@ -90,7 +90,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
   const today = React.useMemo(() => todayIn(appTimeZone(), Date.now()), [])
   const [period, setPeriod] = React.useState<RangeValue>(() => resolveValue({ preset: "all_time" }, today))
   const [showFilters, setShowFilters] = React.useState(false)
-  const { data, error, loading, set } = useRead<ReviewListAnswer>(`/api/app/reviews?${listQueryString(query)}`)
+  const { data, error, loading, set, reload } = useRead<ReviewListAnswer>(`/api/app/reviews?${listQueryString(query)}`)
   /* The product filter's list, once, beside the first page. */
   const products = useRead<{ products: { id: string; title: string }[] }>("/api/app/reviews?only=products").data?.products ?? null
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
@@ -355,9 +355,9 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
         ) : null}
 
         {error && !data ? (
-          <p className="m-4 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p>
+          <ReadFailed className="m-4" error={error} onRetry={reload} />
         ) : !data ? (
-          <div className="space-y-3 p-4" aria-label={tt("Loading")}>
+          <div className="space-y-3 p-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
             <Placeholder className="h-24" />
             <Placeholder className="h-24" />
             <Placeholder className="h-24" />

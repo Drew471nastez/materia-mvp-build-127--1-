@@ -30,7 +30,7 @@ import { COPY_LIMITS, DEFAULT_COPY, type CopyField, type EmailCopy } from "@/lib
 import type { ManagedRequest, RequestShown } from "@/lib/reviews/manage"
 import { StatusBadge, buttonPrimary, buttonSecondary } from "@/app/(storelib)/app/orders/order-parts"
 import { Pill, usePill } from "@/app/(storelib)/app/coupons/coupon-parts"
-import { CARD, CARD_HEAD, H3, MUTED, Placeholder, SEG, Sheet, shortDate, useRead, errorOf } from "./parts"
+import { CARD, CARD_HEAD, H3, MUTED, Placeholder, SEG, Sheet, shortDate, useRead, errorOf, ReadFailed } from "./parts"
 
 type Filter = "all" | "scheduled" | "sent" | "opened" | "submitted" | "skipped"
 
@@ -128,9 +128,9 @@ export function RequestsView() {
         </div>
         {data && !data.tracked ? <p className="border-b border-[#eef0f2] bg-[#fafbfb] px-4 py-2 text-[12.5px] text-[#6b7280]">{tt("Opens show here after the database update (SQL part 215).")}</p> : null}
         {error && !data ? (
-          <p className="m-4 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p>
+          <ReadFailed className="m-4" error={error} onRetry={reload} />
         ) : !data ? (
-          <div className="space-y-2 p-4" aria-label={tt("Loading")}>
+          <div className="space-y-2 p-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
             <Placeholder className="h-12" />
             <Placeholder className="h-12" />
             <Placeholder className="h-12" />

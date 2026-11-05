@@ -1,5 +1,6 @@
 "use client"
 
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { AppearanceMenuRow } from "@/components/platform/appearance-switch"
 import { displayEmail, emailLocalPart } from "@/lib/businesses/email-alias"
 import { hasConsent } from "@/lib/consent/client"
@@ -321,7 +322,8 @@ function SheetLogOut({ onPress }: { onPress: () => void }) {
  */
 export async function endStorelibSession(router: { push: (href: string) => void; refresh: () => void }) {
   const supabase = await browserSupabase()
-  await supabase.auth.signOut({ scope: "local" })
+  /* The browser's sign out, then the server's, which clears the cookie whatever Supabase Auth answered (lib/auth/log-out, round 53). */
+  await endDeviceSession("local", supabase.auth)
   /*
     EVERY READER OF "WHO IS SIGNED IN" HEARS IT NOW, not when a header that
     may not be on this page notices: the phone's tab bar, a community's bar

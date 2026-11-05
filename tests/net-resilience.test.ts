@@ -265,7 +265,7 @@ async function run() {
   check("  the proxy sends the request id on and back", /request\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy) && /res\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy))
   const layout = read("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 merge fixes): the batch is inline in the layout again, keyed by user.id. */
-  check("the /app shell decides its gates from reads that throw on failure", /profileOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /creatorOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /if \(!isServiceUnavailable\(e\)\) throw e/.test(layout) && /<ServiceUnavailable \/>/.test(layout))
+  check("the /app shell decides its gates from reads that throw on failure", /profileOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /creatorOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /* Changed on purpose (r53): a failed or slow read is never the whole page screen; the kept rows stand in, else the shell draws from the session and no gate is decided (tests/app-resilience-r53.test.ts). */ /if \(isServiceUnavailable\(e\)\) return TIMED_OUT/.test(layout) && !/<ServiceUnavailable/.test(layout))
   const settings = read("app/(storelib)/app/settings/_server.ts")
   check("Settings never sends a seller to /onboarding for a read that failed", /dataOrThrow\("settings creator", creatorRead\)/.test(settings) && /dataOrThrow\("settings profile", profileRead\)/.test(settings) && /<ServiceUnavailable inline \/>/.test(read("app/(storelib)/app/settings/_view.tsx")))
   const gate = read("components/native-auth-gate.tsx")

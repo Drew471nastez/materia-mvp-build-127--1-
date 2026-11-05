@@ -18,7 +18,9 @@ import { creatorSalesRows, creatorSalesTotals } from "@/lib/analytics/creator-or
 import { salesSummaryFrom } from "@/lib/home/announcements"
 import { commerceActionCounts } from "@/lib/physical/action-counts-server"
 import { within } from "@/lib/website-builder/load-guard"
-import { dataOrThrow } from "@/lib/net/service-error"
+import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
+import { lastGood } from "@/lib/net/last-good"
+import { supabaseRetryBudget } from "@/lib/net/retry-budget"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -39,7 +41,7 @@ const homeProfile = cache(async (userId: string) => {
   return data
 })
 
-const homeCreator = cache(async (userId: string) => {
+const readHomeCreator = async (userId: string) => {
   const { data, error } = await createAdminClient()
     .from("creators")
     .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, details_submitted, stripe_requirements, stripe_connected_at, store_published, subscription_plan_id")
@@ -47,6 +49,32 @@ const homeCreator = cache(async (userId: string) => {
     .maybeSingle()
   /* A read that failed throws (round 51): it was "no store", and Home sent a seller to /onboarding, /sell and /signup/verify. app/app/error.tsx asks again quietly. */
   return dataOrThrow("creator", { data, error })
+}
+
+/*
+  ASKED AGAIN ONCE, THEN THE LAST GOOD ROW (round 53), as the shell's own rows are (lib/auth/request-scope
+  keptRead): a blip asked again after a pause, and failing that, the row this instance last read for the same
+  person. Only with neither does Home throw, to its own boundary (app/app/error.tsx), with the shell kept.
+*/
+const homeCreator = cache(async (userId: string) => {
+  const key = `home-creator:${userId}`
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const row = await readHomeCreator(userId)
+      if (row) lastGood.remember(key, row)
+      else lastGood.forget(key)
+      return row
+    } catch (e) {
+      if (!isServiceUnavailable(e)) throw e
+      if (attempt === 0 && e.transient && supabaseRetryBudget.spend()) {
+        await new Promise((r) => setTimeout(r, 250 + Math.round(Math.random() * 150)))
+        continue
+      }
+      const kept = lastGood.recall<Awaited<ReturnType<typeof readHomeCreator>>>(key)
+      if (kept) return kept
+      throw e
+    }
+  }
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -85,6 +113,17 @@ const HOME_EXTRA_MS = 2_500
  * ECB history is never downloaded from this render (noFetch).
  */
 const HOME_TOTALS_MS = 3_000
+/**
+ * Getting started's own reads, each with a ceiling (round 53). Home waited for
+ * every one of them with no limit but the read's own 20s, so with the
+ * database answering in 2 to 10s the whole of Home waited on the slowest
+ * count. Past it (or on an error) the facts this instance last worked out for
+ * the store stand in, and without those the page asks again in the browser at
+ * once (dashboard-client progressPartial, GET /api/home/progress) instead of
+ * drawing a step as not done.
+ */
+const HOME_PROGRESS_MS = 3_000
+const LATE = "late" as const
 const NO_BANNER_ROWS: Awaited<ReturnType<typeof creatorSalesRows>> = { recent: [], earliest: [] }
 
 export default async function AppDashboard() {
@@ -138,11 +177,12 @@ export default async function AppDashboard() {
     if (!creator || !creator.onboarding_completed) return null
     return Promise.all([
       /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
-      adminSupabase
-        .from("products")
-        .select("id, status")
-        .eq("creator_id", creator.id),
-      adminSupabase
+      within(
+        Promise.resolve(adminSupabase.from("products").select("id, status").eq("creator_id", creator.id)).then((r) => (r.error ? LATE : r)),
+        HOME_PROGRESS_MS,
+        LATE,
+      ),
+      within(Promise.resolve(adminSupabase
         .from("custom_domains")
         /* Every domain, not maybeSingle: a creator can have several now, and
            one row too many read as none. The creator page's is picked below,
@@ -150,7 +190,7 @@ export default async function AppDashboard() {
            (active, or ssl_provisioning while its certificate is issued). */
         .select("*")
         .eq("creator_id", creator.id)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })).then((r) => (r.error ? LATE : r)), HOME_PROGRESS_MS, LATE),
       /**
        * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
        *
@@ -164,18 +204,16 @@ export default async function AppDashboard() {
        * once RUN_THEME_PUBLISHED_AT.sql has been run, and stays after an
        * unpublish. One row is enough to know.
        */
-      adminSupabase
-        .from("store_theme_installs")
-        .select("id")
-        .eq("creator_id", creator.id)
-        .eq("status", WEBSITE_LIVE_STATUS)
-        .limit(1)
-        .maybeSingle(),
+      within(
+        Promise.resolve(adminSupabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle()).then((r) => (r.error ? LATE : r)),
+        HOME_PROGRESS_MS,
+        LATE,
+      ),
       within<{ sales: number; revenueCents: number } | null>(creatorSalesTotals(adminSupabase, creator.id, { noFetch: true }), HOME_TOTALS_MS, null),
       /* Subscribers, emails sent, automations on and coupons used, for the
          challenges after Getting started (lib/home/progress-server): head
          counts, each 0 on a database without its table. */
-      readChallengeCounts(adminSupabase, creator.id),
+      within<Awaited<ReturnType<typeof readChallengeCounts>> | typeof LATE>(readChallengeCounts(adminSupabase, creator.id), HOME_PROGRESS_MS, LATE),
       /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
       /* With a ceiling of its own (HOME_EXTRA_MS): the banner's news is the one read here Home can be drawn without, and it is several reads one after another. Past it, no news, and the rest of Home is not held. */
       within(creatorSalesRows(adminSupabase, creator.id, now, { noFetch: true }), HOME_EXTRA_MS, NO_BANNER_ROWS),
@@ -193,15 +231,13 @@ export default async function AppDashboard() {
 
   const reads = await creatorReads
   if (!reads) redirect("/onboarding")
-  const [
-    { data: products },
-    { data: activeDomains },
-    { data: publishedSite },
-    salesTotals,
-    challengeCounts,
-    bannerRows,
-    attention,
-  ] = reads
+  const [productsRead, domainsRead, siteRead, salesTotals, countsRead, bannerRows, attention] = reads
+  /* Any of Getting started's reads late or failed: the facts kept from the last full answer, else drawn and asked again in the browser. */
+  const progressLate = productsRead === LATE || domainsRead === LATE || siteRead === LATE || countsRead === LATE
+  const products = productsRead === LATE ? null : productsRead.data
+  const activeDomains = domainsRead === LATE ? null : domainsRead.data
+  const publishedSite = siteRead === LATE ? null : siteRead.data
+  const challengeCounts = countsRead === LATE ? undefined : countsRead
   const counted = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
   /* Without the all time totals a "10th sale" or "$1,000" milestone would be counted from the last 30 days alone: none is said. */
   const bannerSales = salesTotals ? counted : { ...counted, milestone: null }
@@ -219,15 +255,20 @@ export default async function AppDashboard() {
    * "Make your first sale" and the Orders tab's all time count can never
    * disagree.
    */
-  const progressFacts = factsFromRows({
-    creator,
-    products: products ?? [],
-    domains: activeDomains ?? [],
-    websiteLive: !!publishedSite,
-    sales,
-    userMetadata: user.user_metadata ?? null,
-    counts: challengeCounts,
-  })
+  const factsKey = `home-progress:${creator.id}`
+  const keptFacts = progressLate ? lastGood.recall<ReturnType<typeof factsFromRows>>(factsKey) : undefined
+  const progressFacts = keptFacts
+    ? { ...keptFacts, sales: sales.sales, revenueCents: sales.revenueCents }
+    : factsFromRows({
+        creator,
+        products: products ?? [],
+        domains: activeDomains ?? [],
+        websiteLive: !!publishedSite,
+        sales,
+        userMetadata: user.user_metadata ?? null,
+        counts: challengeCounts,
+      })
+  if (!progressLate) lastGood.remember(factsKey, progressFacts)
 
   const displayName = profile?.display_name || creator.display_name || "there"
   const [jar, head] = await Promise.all([cookies(), headers()])
@@ -239,6 +280,7 @@ export default async function AppDashboard() {
       displayName={displayName}
       initialDayPart={dayPart(Date.now(), greetingTimeZone)}
       initialProgress={progressFacts}
+      progressPartial={progressLate && !keptFacts}
       bannerSales={bannerSales}
       productIds={productIds}
       viewerId={user.id}

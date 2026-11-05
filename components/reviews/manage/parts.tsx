@@ -8,6 +8,7 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 import { api } from "@/components/physical/ui"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -147,6 +148,22 @@ export function useRead<T>(path: string | null): { data: T | null; error: string
   }, [path, tick])
   const reload = React.useCallback(() => setTick((n) => n + 1), [])
   return { data, error, loading, reload, set: setData }
+}
+
+/**
+ * A read that did not come, said where its part would be, with Try again
+ * (round 53). The message alone left the part empty with no way back but a
+ * reload (scripts/check-app-resilience-r53.mjs).
+ */
+export function ReadFailed({ error, onRetry, className }: { error: string; onRetry: () => void; className?: string }) {
+  return (
+    <div role="alert" className={cn("flex items-center justify-between gap-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5", className)} data-read-failed="">
+      <p className="min-w-0 text-[14px] text-[#b42318]">{error}</p>
+      <button type="button" onClick={onRetry} className="h-8 shrink-0 cursor-pointer rounded-lg px-3 text-[13px] font-medium text-[#b42318] hover:bg-[#fde4e1]">
+        {tt("Try again")}
+      </button>
+    </div>
+  )
 }
 
 /** Why a read or a write did not go through (the result's own words). */

@@ -179,7 +179,7 @@ check("  a visitor with nothing to read is answered without the client: not in t
 check("  with what the read's signed out answer did (the record cleared, nobody's badge, the guest's buttons)", /function signedOutWithoutReading\(\): null \{[\s\S]{0,200}clearAuthSnapshot\(\)[\s\S]{0,120}storelib_wishlist_count=0; path=\/; max-age=0[\s\S]{0,300}setLoading\(false\)\s*setInitialLoadDone\(true\)/.test(header))
 check("  and a sign in or out in another tab is still heard, on Supabase's own channel, until the client listens itself", /otherTabs = new BroadcastChannel\(key\)/.test(header) && /if \(client\) return\s*onAuthEvent\(/.test(header) && /const key = storedSessionKey\(\)/.test(header))
 check("  the first paint is still the snapshot, in a layout effect (no signed out flash)", /useLayoutEffect\(/.test(header) && /readAuthSnapshot\(\)/.test(header))
-check("  sign out is the same call on the same client, then the shared record is cleared", /const supabase = await browserSupabase\(\)\s*await supabase\.auth\.signOut\(\{ scope: "local" \}\)\s*clearAuthSnapshot\(\)/.test(header))
+check("  sign out is the same call on the same client, then the shared record is cleared", /* Changed on purpose (r53): lib/auth/log-out */ /const supabase = await browserSupabase\(\)[\s\S]{0,200}await endDeviceSession\("local", supabase\.auth\)\s*clearAuthSnapshot\(\)/.test(header))
 check("  isNativePlatform is the same function, from its own file", /from "@\/lib\/supabase\/native-platform"/.test(header) && /export \{ isNativePlatform \}/.test(stripComments(read("lib/supabase/client.ts"))))
 
 const lazy = stripComments(read("lib/supabase/browser-lazy.ts"))

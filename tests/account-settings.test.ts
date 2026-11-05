@@ -208,8 +208,9 @@ async function main() {
     check("deleting an account counts wrong codes too", /update\(\{ attempts: next \}\)/.test(del) && /codeMatches\(codeRecord\.code/.test(del))
 
     const form = readCode("components/app/settings-form-new.tsx")
-    check("Sign out is this device", /const handleSignOut = async \(\) => \{\s*const supabase = createClient\(\)\s*await supabase\.auth\.signOut\(\{ scope: "local" \}\)/.test(form))
-    check("Sign out everywhere is every device", /await supabase\.auth\.signOut\(\{ scope: "global" \}\)/.test(form))
+    /* Changed on purpose (r53): through lib/auth/log-out, which also ends the session on the server whatever Auth answers. */
+    check("Sign out is this device", /const handleSignOut = async \(\) => \{\s*await endDeviceSession\("local", createClient\(\)\.auth\)/.test(form))
+    check("Sign out everywhere is every device", /await endDeviceSession\("global", createClient\(\)\.auth\)/.test(form))
   }
 
   console.log("\nThe SQL that gives them somewhere to live")

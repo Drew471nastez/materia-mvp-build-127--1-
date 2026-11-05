@@ -48,6 +48,7 @@
  * fills: they stay the accent.
  */
 
+import { useQuietRetry } from "@/lib/ui/quiet-retry"
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { MoreHorizontal, Search, X } from "lucide-react"
@@ -1564,6 +1565,8 @@ export interface ReportsState {
   lists: ReportsAnswer | null
   loading: boolean
   failed: boolean
+  /** Asks again at once, after the quiet tries gave up (round 53, lib/ui/quiet-retry). */
+  again?: () => void
   /**
    * The figures on screen answer another question than the one being asked:
    * a new period, place or product is on its way. Only then does anything go
@@ -1655,6 +1658,8 @@ export function useAnalyticsReports({
   const refreshed = React.useRef(refresh)
   const cs = compare?.start ?? null
   const ce = compare?.end ?? null
+  /* A failed read asks again twice, quietly, before the cards say so (round 53). */
+  const quiet = useQuietRetry(questionOf(questionKey(cs, ce)))
   /*
     Before the paint: a kept answer goes on screen in the same frame the page
     first draws, and not one frame later.
@@ -1704,19 +1709,22 @@ export function useAnalyticsReports({
       })
       .catch((e) => {
         if (!live || (e as Error).name === "AbortError") return
+        /* Asked again quietly first (lib/ui/quiet-retry): the cards stay as they are, still loading. */
+        const gaveUp = quiet.failed()
         /* A failed refresh of the same question keeps the figures on screen;
            figures for a different question would read as this one's, so those go. */
-        setState((s) => ({ ...s, data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: false, failed: true }))
+        setState((s) => ({ ...s, data: s.data && questionOf(s.data.key) === question ? s.data : null, loading: !gaveUp, failed: gaveUp }))
       })
     return () => {
       live = false
       release()
     }
-  }, [start, end, cs, ce, product, property, refresh, viewer, ccy, kind])
+  }, [start, end, cs, ce, product, property, refresh, viewer, ccy, kind, quiet.tick])
   const stale = state.loading && !!state.data && questionOf(state.data.key) !== state.asking
+  const again = quiet.again
   return React.useMemo(
-    () => ({ data: state.data, lists: state.lists, loading: state.loading, failed: state.failed, stale }),
-    [state.data, state.lists, state.loading, state.failed, stale],
+    () => ({ data: state.data, lists: state.lists, loading: state.loading, failed: state.failed, stale, again }),
+    [state.data, state.lists, state.loading, state.failed, stale, again],
   )
 }
 
@@ -1766,7 +1774,7 @@ function SelfLoading({ start, end, product, property, sections, currency }: { st
 }
 
 function ReportsView({ state, property, sections, extra, added, standing }: { state: ReportsState; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[] }) {
-  const { data, lists, loading, failed, stale } = state
+  const { data, lists, loading, failed, stale, again } = state
   /* A quick first answer to a new question keeps the last whole answer's lists on screen, softened, until the rest comes. */
   const shown = data && data.reports.partial && lists && !lists.reports.partial ? lists : data
   const soft = stale || (!!data?.reports.partial && shown !== data)
@@ -1785,12 +1793,18 @@ function ReportsView({ state, property, sections, extra, added, standing }: { st
       {/* Softened by opacity alone while new figures are on their way: no blur, nothing but the compositor. */}
       <div aria-busy={loading} data-analytics-cards="" data-soft={soft ? "" : undefined} className={cn("relative grid gap-4 transition-opacity duration-200 md:grid-cols-2 xl:grid-cols-3", soft ? "opacity-60 delay-150" : "opacity-100")}>
         {failed && (!shown || shown.reports.partial) ? (
-          <p className="rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#8a1c0f] md:col-span-2 xl:col-span-3">
-            {tt("The reports could not be loaded. Refresh the page to try again.")}
-          </p>
+          <div role="alert" data-read-failed="" className="flex items-center justify-between gap-3 rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 md:col-span-2 xl:col-span-3">
+            <p className="min-w-0 text-[13px] text-[#8a1c0f]">{tt("These reports could not be loaded.")}</p>
+            {again ? (
+              <button type="button" onClick={again} className="h-8 shrink-0 cursor-pointer rounded-lg px-3 text-[13px] font-medium text-[#8a1c0f] hover:bg-[#fde8e7]">
+                {tt("Try again")}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
-        <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />
+        {/* Given up on (round 53): the line above stands in their place, not gray shapes that never fill. */}
+        {failed && !shown ? null : <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />}
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">

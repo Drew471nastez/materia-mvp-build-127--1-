@@ -40,7 +40,16 @@ function whenIdle(task: () => void): () => void {
   return () => window.clearTimeout(handle)
 }
 
-export function useHomeProgress(initial: ProgressFacts) {
+/** After a first answer that did not come, the facts are asked again after these (round 53). */
+export const PARTIAL_RETRY_MS = [4_500, 12_000] as const
+
+/**
+ * `partial`: the server drew Home without some of its facts (a read was late
+ * or failed, app/app/page.tsx progressPartial), so they are asked for at the
+ * first idle moment even on a full load, and again after PARTIAL_RETRY_MS
+ * while no answer has come (round 53).
+ */
+export function useHomeProgress(initial: ProgressFacts, { partial = false }: { partial?: boolean } = {}) {
   const [facts, setFacts] = useState(initial)
   const factsRef = useRef(facts)
   useEffect(() => {
@@ -49,15 +58,15 @@ export function useHomeProgress(initial: ProgressFacts) {
   const lastAsked = useRef(0)
   const guideSent = useRef(false)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     const now = Date.now()
-    if (now - lastAsked.current < MIN_GAP_MS) return
+    if (now - lastAsked.current < MIN_GAP_MS) return false
     lastAsked.current = now
     try {
       const res = await fetch("/api/home/progress?sales=0", { cache: "no-store", credentials: "same-origin" })
-      if (!res.ok) return
+      if (!res.ok) return false
       const next = readFacts((await res.json())?.facts)
-      if (!next) return
+      if (!next) return false
       setFacts((prev) => {
         const merged: ProgressFacts = {
           ...next,
@@ -69,13 +78,22 @@ export function useHomeProgress(initial: ProgressFacts) {
         }
         return sameFacts(prev, merged) ? prev : merged
       })
+      return true
     } catch {
       /* Offline, or the server did not answer: the page keeps what it has. */
+      return false
     }
   }, [])
 
   useEffect(() => {
-    const cancelIdle = hasInAppHistory() ? whenIdle(() => void refresh()) : () => {}
+    let tries = 0
+    let retry: number | undefined
+    const ask = () =>
+      void refresh().then((ok) => {
+        if (ok || !partial || tries >= PARTIAL_RETRY_MS.length) return
+        retry = window.setTimeout(ask, PARTIAL_RETRY_MS[tries++])
+      })
+    const cancelIdle = partial || hasInAppHistory() ? whenIdle(ask) : () => {}
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh()
     }
@@ -86,10 +104,11 @@ export function useHomeProgress(initial: ProgressFacts) {
     window.addEventListener("pageshow", onShow)
     return () => {
       cancelIdle()
+      window.clearTimeout(retry)
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("pageshow", onShow)
     }
-  }, [refresh])
+  }, [refresh, partial])
 
   const markGuideOpened = useCallback(() => {
     if (factsRef.current.guideOpened || guideSent.current) return

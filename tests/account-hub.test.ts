@@ -189,7 +189,7 @@ console.log("\nSettings: the Skool shape, in Storelib's own parts")
   check("the settings route says whether the column is there, from PostgREST's own answer", /loadAccountSettingsForUser/.test(code("app/(storelib)/account/settings/page.tsx")) && /PGRST204/.test(settingsLoad) && /42703/.test(settingsLoad))
   /* Every flow that was on the page before is still on it, and still the shared one. */
   check("the email change, the password card and the preference switches are /app Settings' own", /EmailChangeFlow,/.test(settings) && /PasswordCard,/.test(settings) && /useSavedSwitch,/.test(settings) && /from "@\/components\/app\/settings\/account-panels"/.test(settings))
-  check("log out here, log out everywhere, and deleting behind a 6 digit code", /signOut\(\{ scope \}\)/.test(settings) && /logOut\("global"\)/.test(settings) && /"\/api\/auth\/delete-account"/.test(settings) && /action: "send-code"/.test(settings) && /action: "verify", code/.test(settings))
+  check("log out here, log out everywhere, and deleting behind a 6 digit code", /* Changed on purpose (r53): lib/auth/log-out */ /endDeviceSession\(scope, createClient\(\)\.auth\)/.test(settings) && /logOut\("global"\)/.test(settings) && /"\/api\/auth\/delete-account"/.test(settings) && /action: "send-code"/.test(settings) && /action: "verify", code/.test(settings))
   check("the name still tells the rest of Storelib it changed", /\/api\/account\/profile-changed/.test(settings) && /writeAuthSnapshot\(\{ \.\.\.snap, displayName: nextName \}\)/.test(settings))
 }
 

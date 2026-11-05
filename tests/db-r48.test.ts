@@ -159,7 +159,7 @@ async function run() {
   check("no orders read through products on the caller's client", !/from\("orders"\)/.test(layout) && !/products!inner\(creator_id\)/.test(layout))
   check("  the store's own orders, one id, failed, pending and disputed left out", /scopedOrders\(admin, "id", scope, creatorId, null\)\.not\("status", "in", "\(failed,pending,disputed\)"\)\.limit\(1\)/.test(layout) && /storeHasSale\(creator\.id\)/.test(layout))
   check("  by orders.creator_id, through the product before part 32 (byCreator)", /await byCreator\(async \(scope\) =>/.test(layout) && /from "@\/lib\/analytics\/creator-orders"/.test(layout))
-  check("  a failed read is no sale, as before (the ring only decorates)", /catch \{\s*return \{ data: null \}/.test(layout) && /\{ data: aSale \}/.test(layout))
+  check("  a failed read is no sale, as before (the ring only decorates)", /* Changed on purpose (r53): a failed sale read leaves the ring out rather than counting no sale. */ /catch \{\s*return \{ data: null \}/.test(layout) && /rows\[3\]\.data === null \? null : rows/.test(layout))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) {

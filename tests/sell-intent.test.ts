@@ -256,7 +256,7 @@ function main() {
   check("/app: no seller access goes to /sell, and the role gate is gone",
     /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access.
        Round Y2: the same answer through lib/team/landing appLanding, and a member with no cookie goes back into the store (tests/team-landing.test.ts). */
-    /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(app) && /if \(!creator \|\| landing\.kind === "sell"\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
+    /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(app) && /* Changed on purpose (r53): only from rows that were read, and never on a membership read that failed. */ /if \(\(!creator \|\| landing\.kind === "sell"\) && !memberRead\.failed\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
   for (const layout of ["app/(storelib)/account/library/layout.tsx", "app/(storelib)/dashboard/layout.tsx", "app/(storelib)/creator-page/layout.tsx"]) {
     check(`${layout}: a buyer is not sent to the creator or buyer question`, !/roleSelected/.test(code(layout)) && !/signup\/success/.test(code(layout)))
   }

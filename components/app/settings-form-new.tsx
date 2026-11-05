@@ -1,5 +1,6 @@
 "use client"
 
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { STORE_SIDE_ACCOUNT_TABS } from "@/lib/team/settings"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { announceChange } from "@/lib/seo/announce-client"
@@ -1469,28 +1470,28 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   /* This device only. "Sign out everywhere" below is the one that ends every
      session; this used to be the same call, because supabase-js signs out
      globally unless told otherwise. */
+  /* Round 53: the browser's sign out, then the server's, which clears the cookie whatever Supabase Auth answered (lib/auth/log-out), and the front page loaded whole. */
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await endDeviceSession("local", createClient().auth)
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
-      router.push("/")
+      window.location.assign("/")
     }
   }
 
   const handleSignOutAllDevices = async () => {
     setSigningOutAll(true)
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: "global" })
-      if (isNativePlatform()) {
-        nativeLogOut()
-      } else {
-        router.push("/")
-      }
-    } catch {
+    const { ended } = await endDeviceSession("global", createClient().auth)
+    /* Not done by Supabase Auth: nothing was ended, and the button is there to press again. */
+    if (!ended) {
       setSigningOutAll(false)
+      return
+    }
+    if (isNativePlatform()) {
+      nativeLogOut()
+    } else {
+      window.location.assign("/")
     }
   }
 

@@ -5,9 +5,9 @@ import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { byCreator, scopedOrders } from "@/lib/analytics/creator-orders"
-import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, profileOrThrowForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, keptShellRows, profileOrThrowForRequest } from "@/lib/auth/request-scope"
 import { isServiceUnavailable } from "@/lib/net/service-error"
-import { ServiceUnavailable } from "@/components/app/service-unavailable"
+import { ShellRefill } from "@/components/app/shell-refill"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { LiveStoreCurrency } from "@/lib/store/currency-context"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
@@ -29,7 +29,7 @@ import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/b
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { exploreMarketplaceAnswer } from "@/lib/platform/explore-marketplace"
-import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
+import { teamStoreForRequest, teamStoresReadForRequest } from "@/lib/team/server"
 import { appLanding, ownAccountHref } from "@/lib/team/landing"
 import { TeamBar } from "@/components/app/team-bar"
 import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
@@ -43,6 +43,16 @@ export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 /** How long the shell waits for what only decorates it (the account menu's other businesses) before drawing without it. */
 const SHELL_EXTRA_MS = 2_500
+/**
+ * How long the shell waits for the two rows it is decided from (round 53).
+ * Past it, the shell is drawn from what it has (a kept copy, else the name
+ * on the session) and asks again quietly (components/app/shell-refill): a
+ * slow database holds only the parts that need it, never the whole screen.
+ */
+const SHELL_ROWS_MS = 6_000
+/** The setup ring's reads and the store's currency: decoration, drawn without past this. */
+const SHELL_SETUP_MS = 3_000
+const TIMED_OUT: unique symbol = Symbol("late")
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -170,12 +180,18 @@ export default async function AppLayout({
     account menu's businesses, the team's stores). Same reads, same client, same answers; the gates below still
     decide first, and a request they redirect just drops these. Every /app page pays this on a full load and on
     every pull to refresh (router.refresh draws the layout again).
+
+    EACH WITH A CEILING (round 53). The ring and the store's currency decorate the shell, and the shell waited for
+    the slowest of seven reads with no limit but each read's own 20s: with the database answering in 2 to 10s, a
+    full load of any /app page took as long as its slowest decoration. Past SHELL_SETUP_MS the ring is left out
+    (never a wrong count) and the currency provider asks for itself, as it does when the browser restores the
+    session.
   */
   const setupRead = Promise.all([creatorForRequest(user.id), teamStoreForRequest(user.id).catch(() => null)]).then(([own, team]) => {
     /* The store the shell draws below: the team store first, then their own. */
     const creator = team?.store ?? own
     if (!creator) return null
-    return Promise.all([
+    const ringRead = Promise.all([
       /* One row is enough: the ring asks only whether there is a product (lib/home/progress, products > 0). */
       supabase.from("products").select("id").eq("creator_id", creator.id).limit(1),
       supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
@@ -190,12 +206,16 @@ export default async function AppLayout({
         local Postgres 16 with 400k orders (docs/reliability/IMPLEMENTATION_LOG.md, r48-db).
       */
       storeHasSale(creator.id),
+    ]).then((rows) => (rows[0].error || rows[1].error || rows[2].error || rows[3].data === null ? null : rows))
+    return Promise.all([
+      /* The ring's four reads together: any one missing, or past the ceiling, and the ring is left out rather than counted wrong. */
+      within(ringRead, SHELL_SETUP_MS, null),
       /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
-      communitiesEnabled().catch(() => false),
+      within(communitiesEnabled().catch(() => false), SHELL_SETUP_MS, false),
       /* Explore in the account menu only while it is switched on; not known yet, it shows (round 51, lib/explore/off-target.ts). Cached for every instance: no trip on most requests. */
       within(exploreMarketplaceAnswer(), SHELL_EXTRA_MS, null),
-      /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
-      cachedStoreCurrency(creator.id).catch(() => null),
+      /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). null: the provider asks for it itself. */
+      within(cachedStoreCurrency(creator.id), SHELL_SETUP_MS, null),
     ])
   })
   /* A redirect below leaves it unawaited: never an unhandled rejection. */
@@ -203,45 +223,61 @@ export default async function AppLayout({
   /*
     A READ THAT FAILED IS NOT "NO ROW" (lib/net/service-error.ts). The profile and the creator row decide where
     somebody belongs: a profile read that timed out used to read as an unverified email and sent a seller to
-    /signup/verify, a creator read that failed sent them to /sell. Now a failure of either is said as one
-    (components/app/service-unavailable.tsx, Try again in place, once by itself), and no gate below is decided
-    from it. Everything else here keeps falling back as it did: those rows only decorate the shell.
+    /signup/verify, a creator read that failed sent them to /sell. No gate below is decided from a failure.
+
+    AND IT IS NOT THE WHOLE SCREEN (round 53). A failure of either row put "Storelib is not answering right now"
+    over everything, the sidebar and the page included, on a full load, a pull to refresh, and after every save
+    that refreshes the page. Measured with scripts/check-app-resilience-r53.mjs. Now each row is asked again once
+    and, failing that, the last copy this instance read stands in (lib/auth/request-scope keptRead). With
+    neither, or with the database slower than SHELL_ROWS_MS, the shell is drawn from the session's own name, no
+    gate is decided (the page under it reads what it needs and has its own boundary, app/app/error.tsx), and
+    the shell asks again by itself (components/app/shell-refill).
   */
-  /* The reads the shell's gates are decided from, together, in one round. The profile and the creator row throw a ServiceUnavailable when they could not be read. */
+  /* The reads the shell's gates are decided from, together, in one round. */
+  const gateReads = Promise.all([profileOrThrowForRequest(user.id), creatorOrThrowForRequest(user.id)])
+  gateReads.catch(() => {})
+  let ceiling: ReturnType<typeof setTimeout> | undefined
+  const gateAnswer = Promise.race([
+    gateReads,
+    new Promise<typeof TIMED_OUT>((resolve) => {
+      ceiling = setTimeout(() => resolve(TIMED_OUT), SHELL_ROWS_MS)
+    }),
+  ])
+    .catch((e) => {
+      if (isServiceUnavailable(e)) return TIMED_OUT
+      throw e
+    })
+    .finally(() => clearTimeout(ceiling))
   const shellReads = Promise.all([
-    profileOrThrowForRequest(user.id),
-    creatorOrThrowForRequest(user.id),
+    gateAnswer,
     /* Whether the OnePage is published, nothing more: its whole draft document (draft_blocks) was read here on every navigation and dropped. */
-    supabase
-      .from("onepages")
-      .select("id, status")
-      .eq("owner_id", user.id)
-      .maybeSingle(),
+    within(
+      Promise.resolve(supabase.from("onepages").select("id, status").eq("owner_id", user.id).maybeSingle()).then((r) => (r.data as { id: string; status: string | null } | null) ?? null),
+      SHELL_EXTRA_MS,
+      null,
+    ),
     /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
        shell draws no later; an error reads as this business alone, as it always was. */
     /* With a ceiling of its own (SHELL_EXTRA_MS): up to three reads one after another for a menu, and the shell waited on the slowest of them. Past it, this business alone, as on an error. */
     within(listBusinesses(user.id), SHELL_EXTRA_MS, []),
-    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
-    teamStoreForRequest(user.id).catch(() => null),
-    /* The stores they are on as a team member, for the account menu's switcher. */
-    teamStoresForRequest(user.id),
+    /* Working in a store they were invited to (lib/team): read from the database again on every request. No cookie naming a store: no read. */
+    within(teamStoreForRequest(user.id).catch(() => null), SHELL_ROWS_MS, null),
+    /* The stores they are on as a team member, for the account menu's switcher. Past the ceiling, unknown: never "on no team". */
+    within(teamStoresReadForRequest(user.id), SHELL_EXTRA_MS, { stores: [], failed: true }),
   ])
-  let critical: Awaited<typeof shellReads>
-  try {
-    critical = await shellReads
-  } catch (e) {
-    if (!isServiceUnavailable(e)) throw e
-    return (
-      <>
-        {arrival}
-        <NativeAuthGate loadingFallback={<AppColdStart />}>
-          <ServiceUnavailable />
-        </NativeAuthGate>
-      </>
-    )
-  }
-  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = critical
+  const [answered, onepage, businesses, team, memberRead] = await shellReads
+  /* Not answered in time (or failed with no copy): the last good copy this instance read for this person, when it has one. */
+  const rows = answered !== TIMED_OUT ? answered : keptShellRows(user.id) ?? TIMED_OUT
+  const known = rows !== TIMED_OUT
+  const [gateCheck, ownCreator] = rows !== TIMED_OUT ? rows : [null, null]
   const profile = gateCheck
+  const memberOf = memberRead.stores
+  /*
+    Nothing to draw the shell from but the session: it asks again by itself once it is drawn. A kept copy is
+    drawn as it is and not asked again here (the next page load reads it afresh): a refresh is the whole page
+    read again, and on a slow database that doubled the load for the sake of a sidebar.
+  */
+  const refill = !known
   /*
     A TEAM MEMBER'S DASHBOARD IS THE STORE'S. The chrome (its name, its
     address, its plan) is the store they work in; who they are (their photo,
@@ -252,8 +288,8 @@ export default async function AppLayout({
   const acting = team?.acting ?? null
   const creator = teamStore ?? ownCreator
 
-  // Gate 1: email must be verified
-  if (!gateCheck?.email_verified) {
+  // Gate 1: email must be verified. Decided only from a profile that was read (or kept).
+  if (known && !gateCheck?.email_verified) {
     redirect(`/signup/verify?userId=${encodeURIComponent(user.id)}`)
   }
 
@@ -270,14 +306,17 @@ export default async function AppLayout({
     A TEAM MEMBER IS NEVER SENT TO ONBOARDING (round Y2, lib/team/landing).
     On a team with no store of their own, and no cookie naming the store
     (another device, the app, Back to my account): back into that store
-    through /api/team/home, then its dashboard. Only somebody with
-    no store and no team goes to /sell.
+    through /api/team/home, then its dashboard. Only somebody with no store
+    and no team goes to /sell, never somebody whose rows or memberships
+    could not be read (round 53).
   */
   const ownAccess = !!ownCreator && hasSellerAccess(sellerAccessFrom({ creator: ownCreator, profile: gateCheck }))
-  const landing = appLanding({ acting: !!teamStore, ownAccess, memberships: memberOf.length, path: "/app" })
-  if (landing.kind === "adopt") redirect(landing.to)
-  if (!creator || landing.kind === "sell") {
-    redirect("/sell")
+  if (known) {
+    const landing = appLanding({ acting: !!teamStore, ownAccess, memberships: memberOf.length, path: "/app" })
+    if (landing.kind === "adopt") redirect(landing.to)
+    if ((!creator || landing.kind === "sell") && !memberRead.failed) {
+      redirect("/sell")
+    }
   }
 
   /*
@@ -289,10 +328,9 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  /* Started above, from the same store as `creator` (team store first, then their own). */
-  const setupRows = await setupRead
-  if (!setupRows) redirect("/sell")
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, exploreAnswer, storeCurrency] = setupRows
+  /* Started above, from the same store as `creator` (team store first, then their own). Its parts each have a ceiling. */
+  const setupRows = creator ? await within(setupRead, SHELL_SETUP_MS + 500, null) : null
+  const [ring, communitiesOn, exploreAnswer, storeCurrency] = setupRows ?? [null, false, null, null]
 
   /*
     THE PROFILE'S PHOTO, OR THE INITIALS (lib/account/avatar). This used to
@@ -307,20 +345,21 @@ export default async function AppLayout({
      /app page reads it before any of them hydrates. */
   const accountZone = accountTimeZone(null, user.user_metadata)
 
-  const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator?.slug || user.email?.split("@")[0] || ""
 
-  const setup = homeProgress({
-    ...factsFromRows({
-      creator,
-      products: products ?? [],
-      domains: domains ?? [],
-      websiteLive: !!liveSite,
-      userMetadata: user.user_metadata ?? null,
-    }),
-    sales: (aSale?.length ?? 0) > 0 ? 1 : 0,
-  })
-  const completedSteps = setup.completed
-  const totalSteps = setup.total
+  /* The ring only from a creator and all four of its reads: otherwise it is left out, never drawn with a wrong count. */
+  const setup = creator && ring
+    ? homeProgress({
+        ...factsFromRows({
+          creator,
+          products: ring[0].data ?? [],
+          domains: ring[1].data ?? [],
+          websiteLive: !!ring[2].data,
+          userMetadata: user.user_metadata ?? null,
+        }),
+        sales: (ring[3].data?.length ?? 0) > 0 ? 1 : 0,
+      })
+    : null
 
   return (
     <>
@@ -332,19 +371,21 @@ export default async function AppLayout({
     <TimeZoneSync accountZone={accountZone} />
     {/* A plan set from /admin redraws what is open (components/app/plan-watch.tsx). */}
     <PlanWatch creatorId={(creator as { id?: string } | null)?.id ?? null} />
+    {/* Drawn from a kept copy or the session alone: asked again quietly, in place (components/app/shell-refill). */}
+    {refill ? <ShellRefill /> : null}
     <AppLayoutWrapper>
       {/* The sidebar's width, open or a row of icons, for the sidebar and the page alike (lib/ui/app-rail). */}
       <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar" data-app-rail={rail} style={{ ["--app-rail-w" as string]: `${railWidth(rail)}px` }}>
         <AppSidebar
-          creatorSlug={creator.slug ?? undefined}
-          username={profile?.username || creator.slug || undefined}
-          storePublished={creator.store_published ?? undefined}
+          creatorSlug={creator?.slug ?? undefined}
+          username={profile?.username || creator?.slug || undefined}
+          storePublished={creator?.store_published ?? undefined}
           avatarUrl={avatarUrl ?? undefined}
           displayName={displayName}
-          stripeConnected={!!creator.stripe_account_id}
-          stripeStatus={creator.stripe_onboarding_status || "not_connected"}
+          stripeConnected={!!creator?.stripe_account_id}
+          stripeStatus={creator?.stripe_onboarding_status || "not_connected"}
           onePagePublished={onepage?.status === "published"}
-          setupProgress={{ completed: completedSteps, total: totalSteps }}
+          setupProgress={setup ? { completed: setup.completed, total: setup.total } : undefined}
           businesses={businesses}
           communitiesEnabled={communitiesOn}
           exploreOn={exploreAnswer !== false}

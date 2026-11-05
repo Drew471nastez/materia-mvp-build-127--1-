@@ -54,6 +54,7 @@
  * them, and deleting the account behind a code.
  */
 
+import { endDeviceSession } from "@/lib/auth/log-out"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -674,15 +675,29 @@ function LeaveCard({ email, createdAt, isSeller }: { email: string; createdAt: s
     else router.push("/")
   }, [router])
 
+  /*
+    LOG OUT ENDS THE SESSION ON THIS DEVICE, WHATEVER AUTH ANSWERS (round 53).
+    `auth.signOut()` answers { error } without clearing the cookie when its
+    request fails with anything but a 401, 403 or 404 (@supabase/auth-js
+    2.87.3), and the page went to "/" still signed in
+    (scripts/check-auth-flows-r52.mjs, "the cookie stayed"). The server
+    clears every session cookie as well (app/api/auth/logout), and the front
+    page is loaded whole, so nothing of the session is left in memory. Only
+    "everywhere", which Supabase Auth alone can do, says when it did not.
+  */
   const logOut = async (scope: "local" | "global") => {
     if (leaving) return
     setLeaving(scope === "local" ? "here" : "everywhere")
-    try {
-      await createClient().auth.signOut({ scope })
-      done()
-    } catch {
+    setError(null)
+    const { ended } = await endDeviceSession(scope, createClient().auth)
+    if (!ended) {
       setLeaving(null)
+      setError(scope === "global" ? "Your other devices could not be reached, so nothing was logged out. Try again in a moment." : "Could not reach Storelib. Check your connection and try again.")
+      return
     }
+    clearAuthSnapshot()
+    if (isNativePlatform()) nativeLogOut()
+    else window.location.assign("/")
   }
 
   const sendCode = async () => {
@@ -742,16 +757,27 @@ function LeaveCard({ email, createdAt, isSeller }: { email: string; createdAt: s
           title="Log out"
           detail="On this device."
           control={
-            <button
-              type="button"
-              onClick={() => void logOut("local")}
-              disabled={!!leaving}
-              data-account-logout=""
-              className={cn(secondaryDepth, "h-10 shrink-0 rounded-xl px-4 text-[14px] sm:rounded-lg sm:text-[13px]")}
+            /* A form, so a press before the page's script has run still logs out (app/api/auth/logout); with the script, logOut does it in place. */
+            <form
+              method="post"
+              action="/api/auth/logout"
+              className="contents"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void logOut("local")
+              }}
             >
-              {leaving === "here" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-              Log out
-            </button>
+              <input type="hidden" name="scope" value="local" />
+              <button
+                type="submit"
+                disabled={!!leaving}
+                data-account-logout=""
+                className={cn(secondaryDepth, "h-10 shrink-0 rounded-xl px-4 text-[14px] sm:rounded-lg sm:text-[13px]")}
+              >
+                {leaving === "here" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                Log out
+              </button>
+            </form>
           }
         />
         <PrivacyRow

@@ -24,6 +24,23 @@ import "server-only"
  * client (tests/avatar-one-source.test.ts).
  */
 import { AVATAR_CHOSEN, followProfilePhoto } from "./avatar"
+import { toStorageUrl } from "@/lib/storage/media-url"
+
+/*
+  ONE PHOTO, TWO ADDRESSES (round 53). Every row the server client reads,
+  including the row a write hands back, has its storage address turned into
+  Storelib's own (lib/storage/media-url mediaFetch): what was saved as
+  https://<project>.supabase.co/storage/v1/object/public/avatars/<id>/a.jpg
+  is read back as https://storelib.com/media/avatars/<id>/a.jpg. The OnePage
+  editor's upload hands back the first form, so the read back never matched
+  it, and every profile photo saved from the OnePage editor was answered
+  409 "The photo did not save. Try again in a moment." after the row had in
+  fact been written. The two forms are one file, so they are compared as one.
+*/
+export function sameMediaAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  const norm = (v: string | null | undefined) => (typeof v === "string" && v.trim() !== "" ? toStorageUrl(v.trim()) : null)
+  return norm(a) === norm(b)
+}
 
 type Result<T> = PromiseLike<{ data: T | null; error: { code?: string; status?: number; message?: string } | null }>
 
@@ -88,7 +105,7 @@ export async function saveProfilePhoto(
     console.error("[account/avatar] not saved (no profile row was changed)")
     return { ok: false, status: 409, error: url ? "The photo did not save. Reload the page and try again." : "The photo was not removed. Reload the page and try again." }
   }
-  if ((saved.avatar_url ?? null) !== url) {
+  if (!sameMediaAddress(saved.avatar_url as string | null | undefined, url)) {
     console.error("[account/avatar] the database kept a different photo than the one saved")
     return { ok: false, status: 409, error: url ? "The photo did not save. Try again in a moment." : "The photo was not removed. Try again in a moment." }
   }

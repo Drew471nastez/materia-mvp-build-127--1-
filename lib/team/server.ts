@@ -514,8 +514,18 @@ export interface MemberStore {
 
 /** The stores this account is on as a member, with their names. */
 export async function storesOf(db: Db, userId: string): Promise<MemberStore[]> {
+  return (await storesRead(db, userId)).stores
+}
+
+/** The same, and whether the membership read failed (round 53): an account whose read failed is not "on no team", and the /app shell does not send it to /sell. */
+export async function storesRead(db: Db, userId: string): Promise<{ stores: MemberStore[]; failed: boolean }> {
   const { data, error } = await readRows<Record<string, unknown>[] | null>((cols) => db.from("store_team_members").select(cols).eq("user_id", userId).eq("status", "active"))
-  if (error || !data?.length) return []
+  if (error) return { stores: [], failed: true }
+  if (!data?.length) return { stores: [], failed: false }
+  return { stores: await storesFrom(db, data), failed: false }
+}
+
+async function storesFrom(db: Db, data: Record<string, unknown>[]): Promise<MemberStore[]> {
   const rows = data.map(memberOf)
   const ids = rows.map((r) => r.creator_id)
   const [{ data: creators }, names] = await Promise.all([db.from("creators").select("id, slug, display_name, avatar_url").in("id", ids), storeNames(db, ids)])
@@ -582,7 +592,12 @@ export const teamStoreForRequest = cache(async (userId: string): Promise<{ actin
 })
 
 /** The stores this account is on as a member, once per request, for the account menu (app/app/layout.tsx). One indexed read; none listed is []. */
-export const teamStoresForRequest = cache(async (userId: string): Promise<MemberStore[]> => storesOf(createAdminClient(), userId).catch(() => []))
+export const teamStoresForRequest = cache(async (userId: string): Promise<MemberStore[]> => (await teamStoresReadForRequest(userId)).stores)
+
+/** The stores and whether their read failed, once per request (the /app shell decides "on no team" only from a read that answered). */
+export const teamStoresReadForRequest = cache(async (userId: string): Promise<{ stores: MemberStore[]; failed: boolean }> =>
+  storesRead(createAdminClient(), userId).catch(() => ({ stores: [], failed: true })),
+)
 
 /**
  * Round 41: for library code that checks "is this the seller" by account

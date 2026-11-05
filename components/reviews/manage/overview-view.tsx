@@ -16,7 +16,7 @@ import { Stars } from "@/components/reviews/stars"
 import { StatusBadge, buttonSecondary } from "@/app/(storelib)/app/orders/order-parts"
 import type { RequestFunnel, ReviewTab, ReviewsSummary } from "@/lib/reviews/manage"
 import type { ManageView } from "./views"
-import { CARD, CARD_HEAD, Distribution, Figure, H3, MUTED, Placeholder, formatCount, shortDate, useRead } from "./parts"
+import { CARD, CARD_HEAD, Distribution, Figure, H3, MUTED, Placeholder, ReadFailed, formatCount, shortDate, useRead } from "./parts"
 
 interface Overview {
   summary: ReviewsSummary
@@ -27,11 +27,11 @@ interface Overview {
 }
 
 export function OverviewView({ onGo }: { onGo: (view: ManageView, opts?: { status?: ReviewTab }) => void }) {
-  const { data, error } = useRead<Overview>("/api/app/reviews/overview")
-  if (error && !data) return <p className="rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p>
+  const { data, error, reload } = useRead<Overview>("/api/app/reviews/overview")
+  if (error && !data) return <ReadFailed error={error} onRetry={reload} />
   if (!data) {
     return (
-      <div className="space-y-4" aria-label={tt("Loading")}>
+      <div className="space-y-4" role="status" aria-busy="true" aria-label={tt("Loading")}>
         <Placeholder className="h-[188px]" />
         <Placeholder className="h-[260px]" />
       </div>
