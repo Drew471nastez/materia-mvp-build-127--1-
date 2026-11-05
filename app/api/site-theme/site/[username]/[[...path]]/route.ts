@@ -40,7 +40,7 @@ import { gaProductFor } from "@/lib/store/ga-server"
 import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, SHARED_PAGE_CDN, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, SHARED_PAGE_CDN, publicAnswer, readStrangerMarker, sharedQuery } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, personalFillTag } from "@/lib/storelib-theme/compat/personal-fill"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
@@ -169,6 +169,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
     }
     segments = segments.slice(1)
+    /* Drawn with only the keys a page reads: the rewrite carries the browser's own query along (utm_source, fbclid, a random key), which must not change the shared copy (sharedQuery). */
+    url.search = sharedQuery(url.searchParams)
   } else if (req.method !== "GET" && req.method !== "HEAD") {
     /*
       HOW OFTEN ONE ADDRESS MAY CHANGE A CART OR POST A FORM (round 53): each
@@ -585,6 +587,8 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   const creator = await creatorByName(username).catch(() => null)
   if (!creator) return handle(req, ctx)
   const url = new URL(req.url)
+  /* Held under the keys a page reads only (sharedQuery), as it is drawn. */
+  url.search = sharedQuery(url.searchParams)
   const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId), siteBlogTag(creator.creatorId)], async () => {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]

@@ -136,6 +136,8 @@ async function main() {
     check("  a long value is left out", sharedQuery(new URLSearchParams(`page=${"9".repeat(300)}`)) === "")
     const proxy = readFileSync("proxy.ts", "utf8")
     check("the proxy draws a shared page with that query", proxy.includes("to.search = marker ? sharedQuery(new URLSearchParams(query)) : query"))
+    const handler = readFileSync("app/api/site-theme/site/[username]/[[...path]]/route.ts", "utf8")
+    check("  and the handler draws and holds it with that query (a rewrite carries the browser's own query along)", /segments = segments\.slice\(1\)\s*\/\*[^*]*\*\/\s*url\.search = sharedQuery\(url\.searchParams\)/.test(handler) && /url\.search = sharedQuery\(url\.searchParams\)\s*const page = await heldStrangerPage\(/.test(handler))
     check("a cart from before its count is given one by the proxy (its next page may be the CDN's)", proxy.includes('if (request.method === "GET" && request.cookies.get("sl_theme_cart")?.value && !request.cookies.get("sl_cart_n")) {') && proxy.includes('r.cookies.set("sl_cart_n", "1",'))
   }
 
