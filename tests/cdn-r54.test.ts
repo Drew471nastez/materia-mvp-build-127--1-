@@ -112,7 +112,7 @@ async function main() {
     await publicPagesChanged({ creatorId: "c1", userId: "u1", names: ["lena"] }, { expire: (t) => seen.push(t), creatorPages: async () => {}, site: async () => {}, onePage: () => {} })
     check("  and a ban, a deletion or a domain change expires each name read before it", seen.includes("site-name:lena"), seen)
     check("the shop's reads follow the database's pings", (site.match(/revalidate: shopHoldSeconds\(\)/g) ?? []).length >= 8 && !/SHOP_TTL/.test(site))
-    check("  a community card, which no tag announces, keeps five minutes", /\["community-cards"[^\]]*\], \{ revalidate: SHOP_HOLD_UNPINGED_S \}/.test(site))
+    check("  a community card, which no tag announces, keeps five minutes", /\["community-cards"[^\n]*\], \{ revalidate: SHOP_HOLD_UNPINGED_S \}\)/.test(site))
   }
 
   console.log("\n3. The front page is held like every other page, and only a shared answer is")

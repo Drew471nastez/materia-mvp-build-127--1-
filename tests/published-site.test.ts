@@ -185,11 +185,12 @@ function main() {
      * publishes, which we are told about exactly.
      */
     check("the name map is held for an hour under each name's tag (Changed on purpose (r54))", /const NAME_TTL = PUBLISHED_HOLD_S/.test(cache) && /tags: \[siteNameTag\(lower\)\], revalidate: NAME_TTL/.test(cache))
-    check("the site is held until Publish says otherwise", /const SITE_TTL = 3600/.test(cache) && /tags: \[creatorSiteTag\(match\.creatorId\)\]/.test(cache))
-    check("a creator who has not published yet is not cached as missing for an hour", (() => {
-      // The "no such creator" answer lives in the short-lived name layer,
-      // and "creator with nothing published" is inside the tagged layer,
-      // which a publish clears. Neither can strand a new site.
+    check("the site is held until Publish says otherwise", /const SITE_TTL = PUBLISHED_HOLD_S/.test(cache) /* Changed on purpose (r54): the hour named in lib/delivery/holds. */ && /tags: \[creatorSiteTag\(match\.creatorId\)\]/.test(cache))
+    /* Changed on purpose (r54): the name layer is held an hour too, under each name's tag, which Publish expires (revalidatePublishedSite). */
+    check("a creator who has not published yet is never stranded as missing: the name layer is tagged and Publish clears it", /revalidateTag\(siteNameTag\(name\), \{ expire: 0 \}\)/.test(cache) && (() => {
+      // The "no such creator" answer lives in the name layer, tagged by
+      // name, and "creator with nothing published" is inside the tagged
+      // site layer. Publish clears both, so neither can strand a new site.
       const named = cache.indexOf('["site-name", lower]')
       const renamed = cache.indexOf('["site-renamed", lower]')
       return /revalidate: NAME_TTL/.test(cache.slice(named, named + 200)) && /revalidate: NAME_TTL/.test(cache.slice(renamed, renamed + 200))

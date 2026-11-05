@@ -3778,12 +3778,16 @@ check(
     // rest to /site. The header rule sits below it and applies to both.
     const at = proxy.indexOf("const isWebsite = (!looksLikeFile || seoFile)")
     const body = proxy.slice(at, proxy.indexOf("return rewritten", at) + 20)
-    const route = read("app/(site)/w/[username]/page.tsx")
-    const seconds = /export const revalidate = (\d+)/.exec(route)?.[1]
+    /*
+      Changed on purpose (r54): the landing rule names storelib.com's hosts (next.config.mjs, round 51), so it cannot
+      reach a website's `/` at all, and the homepage keeps the route's own ISR header with no override here. A
+      market's homepage is still per visitor (round AC).
+    */
+    const config = strip(read("next.config.mjs"))
     return (
-      seconds !== undefined &&
-      /* Changed on purpose (round AC): a market's homepage is per visitor, so it is left out. */ /if \(pathname === "\/"(?:\)| && !\(inLanguage)/.test(body) &&
-      body.includes(`rewritten.headers.set("Cache-Control", "public, s-maxage=${seconds}, stale-while-revalidate=`)
+      /source: '\/',\s*has: \[\{ type: 'host', value: `\(\?:\$\{STORELIB_HOSTS\}\)` \}\]/.test(config) &&
+      !/public, s-maxage=\d+, stale-while-revalidate=300/.test(body) &&
+      /if \(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\) rewritten\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(body)
     )
   })(),
 )

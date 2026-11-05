@@ -222,11 +222,12 @@ async function collectionPages() {
   check("held under the shop's tag, keyed by creator and handle", held.length === 1 && held[0].tags[0] === creatorShopTag(SITE.creatorId) && held[0].key.includes(SITE.creatorId) && held[0].key.includes("maya-best"))
   /* A product leaves the collection; the shop tag (a deleted product, lib/products/forget-product.ts) or the minute clears it. */
   fixture.tables.product_collection_items = fixture.tables.product_collection_items.filter((i) => i.product_id !== first.value?.productIds[0])
-  nextCache.clock.advance(61_000)
+  /* Changed on purpose (r54): the shop's hold is five minutes when the database cannot ping (lib/delivery/holds shopHoldSeconds). */
+  nextCache.clock.advance(301_000)
   await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
   await settle()
   const later = await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
-  check("within the shop's minute the page lists what the collection holds now", !later.value?.productIds.includes(first.value!.productIds[0]))
+  check("within the shop's hold the page lists what the collection holds now", !later.value?.productIds.includes(first.value!.productIds[0]))
 }
 
 const code = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))

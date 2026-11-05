@@ -427,7 +427,8 @@ async function main() {
     check("  the buy box's quantity picks the tier; what it would cost without struck through", rows[1]?.props?.["aria-checked"] === true && rows[0]?.props?.["aria-checked"] === false && /\$108\.00/.test(text(rows[2])) && /\$180\.00/.test(text(rows[2])) && /Most popular/.test(text(rows[1])), rows.map((r) => text(r)))
     const block = read("components/website-builder/sections/renderers/product/offers-block.tsx")
     check("  in the Bundles and upsells block, its own toggle, setting the buy box's quantity", /on\(s\.show_breaks, true\)/.test(block) && /ctx\.setQuantity/.test(block) && /"id": "show_breaks"/.test(read("themes/default/sections/product.json")))
-    check("  one read for the three kinds (GET /api/offers)", /fetch\(`\/api\/offers\?product=/.test(read("components/offers/bundle-offers.tsx")))
+    /* Changed on purpose (r54): through the page's shared read (lib/net/shared-read), so the buy box drawn twice asks once. */
+    check("  one read for the three kinds (GET /api/offers)", /sharedJson<[\s\S]{0,200}>\(`\/api\/offers\?product=/.test(read("components/offers/bundle-offers.tsx")))
   }
 
   section("CREATOR: try a cart, and what to watch for before saving")

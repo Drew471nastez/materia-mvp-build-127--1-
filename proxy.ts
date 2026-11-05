@@ -2130,7 +2130,7 @@ async function routeRequest(request: NextRequest) {
       /*
         SITE_FRONT_PAGE_OWN_HEADER, NO MORE (round 54). Since round 51 next.config's `/` rule names storelib.com's own
         hosts, so it no longer reaches a website's `/` and nothing needs overriding. What this said instead,
-        `public, s-maxage=60, stale-while-revalidate=300`, was the one page of a website with a five minute stale
+        (a minute fresh, five minutes stale) was the one page of a website with a five minute stale
         window: every other page carries Next's own ISR header (s-maxage the page's lifetime, stale for a year), so
         the front page, the page visited most, was a whole draw for anybody who came six minutes after the last
         visitor (scripts/check-cdn-r54.mjs: half its visits a MISS, against 8% for a product page). Now it is held

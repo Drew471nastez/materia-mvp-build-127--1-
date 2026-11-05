@@ -182,7 +182,8 @@ async function main() {
     /* Changed on purpose (round 42): the proxy holds the answer a moment to put its request id on it, so the cleared answer is kept as `res` before it is returned. */
     check("  and every answer clears a country cookie from before choices were marked", /(?:return|const res =) forgetStaleCountry\(request, await routeRequest\(request\)\)/.test(proxy) && !/return routeRequest\(request\)/.test(proxy) && /readCountryCookie\(request\.cookies\??\.get\(COUNTRY_COOKIE\)\?\.value\)\.stale/.test(proxy))
     check("  the builder theme's selector writes its choice marked", /countryCookieValue\(option\.country\)/.test(read("components/website-builder/theme/language-switch.tsx")) && !/sl_country=\$\{encodeURIComponent\(option\.country\)\}/.test(read("components/website-builder/theme/language-switch.tsx")))
-    check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
+    /* Changed on purpose (r54): the front page has no public header of its own to leave a market out of; the market's page is said private outright. */
+    check("  and a page in a market's currency is never kept by a shared cache", /if \(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\) rewritten\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(proxy))
     const compat = read("lib/markets/compat.ts")
     /* Changed on purpose (the owner: currency in the builder like the live site): the conversion moved to lib/markets/compat-prices.ts, which the builder's canvas uses too. */
     const prices = read("lib/markets/compat-prices.ts")
