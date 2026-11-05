@@ -63,6 +63,7 @@ import { draftAssetPass } from "./draft-asset-pass"
 import { LastGood, keyedAs } from "./last-good"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
+import { faviconOf } from "./favicon-sync"
 import { logEvent } from "@/lib/net/log"
 import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/site-blog/public-read"
 
@@ -506,7 +507,14 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
   const currency = await currencyAsked
   const origin = await originAsked
-  const shareImage = compatShareImage(settings as Record<string, unknown>, pages.home ?? [], await avatarAsked)
+  /*
+    The site's own share picture (SEO & Social) first, on every page, as a
+    Storelib theme's pages take it (theme-metadata.ts): it reached only the
+    pages with a key of their own, so the blog and a post without a cover
+    were shared with no picture at all (round 53, scripts/check-site-seo-r53.mjs).
+  */
+  const ownShare = (settings as { seo_og_image?: unknown }).seo_og_image
+  const shareImage = (typeof ownShare === "string" && /^https:\/\/\S+$/i.test(ownShare.trim()) ? ownShare.trim() : undefined) ?? compatShareImage(settings as Record<string, unknown>, pages.home ?? [], await avatarAsked)
   const storeName = brandOf(settings) || store.name || creator.displayName
   /* The handle alone (the settings' own switch is pageSeoForSite's): the one rule a Storelib theme's pages read. */
   const heldBack = !builtSiteIndexable({}, name)
@@ -549,6 +557,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
             {
               origin,
               storeName,
+              alternateNames: [store.name, creator.displayName],
               siteDescription: typeof (settings as { seo_description?: unknown }).seo_description === "string" ? String((settings as { seo_description?: unknown }).seo_description).trim() || undefined : undefined,
               shareImage,
               logo: fullLogo(settings as Record<string, unknown>),
@@ -617,6 +626,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
     /* At the site's own host, square (./site-favicon.ts, round 41). */
     icon: ownIconPath(siteIconUrl(settings as Record<string, unknown>)) || undefined,
+    ownFavicon: !!faviconOf(settings as Record<string, unknown>),
     /* A post's own page reads the post (held per slug under the blog's tag), its preview the draft (never held), and a slug that changed its new one. */
     ...(blog
       ? {

@@ -14,6 +14,8 @@ import { archivePost, duplicatePost, publishPost, unarchivePost, unpublishPost, 
 import { revalidateSiteBlog } from "@/lib/site-blog/cache"
 import { blogBody, blogCaller, blogError, blogFailure, blogJson } from "@/lib/site-blog/http"
 import { BODY_LIMITS } from "@/lib/website-builder/request-body"
+import { after } from "next/server"
+import { announce, blogPostAddresses } from "@/lib/seo/announce"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -42,6 +44,13 @@ export async function POST(req: Request, { params }: Params) {
     else m = await duplicatePost(db, creatorId, userId, postId)
     const { liveChanged, ...post } = m
     if (liveChanged) await revalidateSiteBlog(creatorId).catch(() => undefined)
+    /*
+      SEARCH ENGINES TOLD AT ONCE (round 53, IndexNow): a post that went
+      live, was updated, or was taken down, and the blog that lists it
+      (lib/seo/announce.ts blogPostAddresses). After the answer, never
+      failing the action. A post set for later is announced by the sitemap.
+    */
+    if (liveChanged && action !== "schedule" && action !== "duplicate") after(() => announce(() => blogPostAddresses(creatorId, post.slug)))
     return blogJson({ post })
   } catch (e) {
     return blogFailure(e)

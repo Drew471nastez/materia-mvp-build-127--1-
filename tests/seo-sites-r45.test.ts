@@ -377,6 +377,9 @@ async function main() {
       "l/[slug]/page.tsx": "listed: onepages file",
       "u/[username]/page.tsx": "redirect: /<handle>",
       "u/[username]/robots.txt/route.ts": "file",
+      /* Round 53: a creator page domain's own icons, from the creator's photo (lib/onepage/host-icon-server.ts). */
+      "u/[username]/favicon.ico/route.ts": "file",
+      "u/[username]/apple-touch-icon/route.ts": "file",
       "u/[username]/sitemap.xml/route.ts": "file",
       "member/[username]/page.tsx": "redirect: /<handle>",
       "c/[slug]/page.tsx": "redirect: /<handle>",

@@ -38,7 +38,7 @@ import { pageSeoOf } from "@/lib/website-builder/page-seo"
 import { builtSiteIndexable, websiteIndexable } from "@/lib/seo/indexing"
 import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
-import { siteStoreName, siteTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
+import { siteFallbackDescription, siteStoreName, siteTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
@@ -172,7 +172,7 @@ export async function siteMetadata(
   })
   const description = own.description ?? (typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
-    : `Visit ${brand}'s website on Storelib`)
+    : siteFallbackDescription(brand))
   /* The favicon, or the store's logo when there is none (lib/website-builder/site-icon.ts), served square from the site's own host (lib/website-builder/site-favicon.ts, round 41). */
   const ownIcons = ownHostIcons(origin, siteIconUrl(settings as Record<string, unknown>, found.site.pages.home ?? found.site.sections))
 
@@ -220,7 +220,7 @@ export async function siteMetadata(
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
     /* A page's own share picture (Website settings › Pages) over the site's (lib/website-builder/page-seo.ts). */
-    ...themeMetadata(own.image ? { ...settings, seo_og_image: own.image } : settings, { title: rawTitle, description, url, image: shareImage }),
+    ...themeMetadata(own.image ? { ...settings, seo_og_image: own.image } : settings, { title: rawTitle, description, url, image: shareImage, siteName: brand }),
     /* A page kept out of search on its own, whatever the site's setting. */
     ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
     /*
@@ -518,7 +518,7 @@ export async function coverPage(installId: string) {
 }
 
 async function homeStructuredData(
-  site: { creatorId: string; displayName: string; themeSettings: ThemeSettingsValues },
+  site: { creatorId: string; displayName: string; themeSettings: ThemeSettingsValues; profile?: { storeName?: string } | null },
   username: string,
 ): Promise<string> {
   const t = site.themeSettings as Record<string, unknown>
@@ -526,7 +526,10 @@ async function homeStructuredData(
   return jsonLdScript(
     websiteJsonLd({
       origin: await siteOrigin(site.creatorId, username),
-      name: str(t.brand_name) ?? site.displayName,
+      /* The name the tab and og:site_name say (siteStoreName): Google takes the site's name from here. */
+      name: siteStoreName({ brandName: t.brand_name, storeName: site.profile?.storeName, displayName: site.displayName, handle: username }),
+      /* The store's other names, else its address (site-seo.ts siteAlternateName). */
+      alternateNames: [site.profile?.storeName, site.displayName],
       description: str(t.seo_description),
       logo: str(t.logo_url) ?? (faviconOf(t) || undefined),
       /* Social links in Website Settings: the owner's profiles elsewhere. */

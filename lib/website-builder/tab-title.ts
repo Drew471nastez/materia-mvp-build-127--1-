@@ -77,6 +77,16 @@ export function siteStoreName(names: { brandName?: unknown; storeName?: unknown;
   return cleanTitle(names.brandName) || cleanTitle(names.storeName) || cleanTitle(names.displayName) || cleanTitle(names.handle) || "Store"
 }
 
+/**
+ * The description a website's page has when its creator wrote none, on both
+ * kinds of theme and in Website settings' previews. It said "Visit <store>'s
+ * website on Storelib", which put Storelib's name in the search result of
+ * every site without an SEO description (round 53): the site is the store's.
+ */
+export function siteFallbackDescription(store: string): string {
+  return `Visit ${cleanTitle(store) || "the store"}'s website.`
+}
+
 /** What the page is called, without the store: Shopify's `page_title`. */
 export function tabPagePart(page: TabPage): string {
   switch (page.kind) {

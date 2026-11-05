@@ -40,7 +40,7 @@ import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
-import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
+import { isSiteIconPath, SITE_ICON_PATH, SITE_MANIFEST_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
 import { trailingSlashHop, wwwHop } from "@/lib/seo/one-hop"
 import { unknownExploreCategory } from "@/lib/explore/category-pages"
@@ -2393,11 +2393,15 @@ async function routeRequest(request: NextRequest) {
   /*
     A CONNECTED DOMAIN'S ICON (round 41): a published website's own, square,
     from this host (lib/website-builder/site-favicon.ts). A domain showing the
-    creator page passes it on as before.
+    creator page answers with the creator's photo (round 53,
+    lib/onepage/host-icon-server.ts): it answered Storelib's 404 page, so
+    Google had no icon for the domain. A live AI site keeps its own files.
   */
   if (username && isCustomDomain && isSiteIconPath(pathname)) {
-    const website = domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+    const ai = domainPurpose === "website" && (await hasLiveAiSite(username))
+    const website = domainPurpose === "website" && !ai && (await hasPublishedWebsite(username))
     if (website) return NextResponse.rewrite(new URL(`/w/${username}${pathname}${search}`, request.url))
+    if (!ai && pathname !== SITE_MANIFEST_PATH) return NextResponse.rewrite(new URL(`/u/${username}${pathname}${search}`, request.url))
     return NextResponse.next()
   }
 

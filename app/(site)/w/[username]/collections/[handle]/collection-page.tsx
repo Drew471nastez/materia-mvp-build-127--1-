@@ -38,7 +38,22 @@ export async function collectionMetadata(segment: string, rawHandle: string, ask
   const name = inIt?.collection.title?.trim()
   /* Its own address for search engines, in each language: every collection used to name the collections index as its canonical. */
   const path = HANDLE.test(handle) ? `/collections/${handle}` : undefined
-  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path, canonicalPage: canonicalPageOf(asked) } : { path })
+  const base = await siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path, canonicalPage: canonicalPageOf(asked) } : { path })
+  /*
+    ITS OWN DESCRIPTION AND PICTURE (round 53). Every collection said the
+    site's description and was shared with the site's picture, so two
+    collections were two identical search results; an imported theme's
+    collection page already said its own (lib/website-builder/compat-search.ts).
+  */
+  const about = (inIt?.collection.description ?? "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0, 300)
+  const picture = /^https:\/\/\S+$/i.test(inIt?.collection.imageUrl?.trim() ?? "") ? inIt!.collection.imageUrl!.trim() : ""
+  if (!inIt || (!about && !picture)) return base
+  return {
+    ...base,
+    ...(about ? { description: about } : {}),
+    openGraph: { ...(base.openGraph ?? {}), ...(about ? { description: about } : {}), ...(picture ? { images: [{ url: picture }] } : {}) },
+    twitter: { ...(base.twitter ?? {}), ...(about ? { description: about } : {}), ...(picture ? { images: [picture] } : {}) },
+  }
 }
 
 /**

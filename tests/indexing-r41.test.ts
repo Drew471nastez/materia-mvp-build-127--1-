@@ -239,7 +239,8 @@ async function main() {
   const manifest = siteManifest({ name: "Mara Ceramics", source: "https://storelib.com/media/a.png", themeColor: "#aa3311" }) as { icons: Array<{ src: string; sizes: string }>; name: string }
   check("the manifest names the icons on the same host", manifest.name === "Mara Ceramics" && manifest.icons.every((i) => i.src.startsWith("/")) && manifest.icons[0].sizes === "192x192")
   const imported = withSiteIcon("<html><head></head><body></body></html>", ownIconPath("https://storelib.com/media/a.png"))
-  check("an imported theme's page links the icon at its own host", /<link rel="icon" href="\/favicon\.ico\?v=[a-z0-9]+"/.test(imported) && /rel="apple-touch-icon"[^>]*href="\/favicon\.ico\?v=/.test(imported))
+  /* Changed on purpose (r53): with its size and type, and the home screen icon at /apple-touch-icon (lib/website-builder/site-icon.ts). */
+  check("an imported theme's page links the icon at its own host", /<link rel="icon" href="\/favicon\.ico\?v=[a-z0-9]+" type="image\/png" sizes="192x192"/.test(imported) && /rel="apple-touch-icon"[^>]*href="\/apple-touch-icon\?v=/.test(imported))
 
   check("the paths a website host answers itself", isSiteIconPath("/favicon.ico") && isSiteIconPath("/apple-touch-icon") && isSiteIconPath("/site.webmanifest") && !isSiteIconPath("/favicon.png"))
   check("the browser's own picture request for the home screen icon is not refused", !pageAskedAsSubresource("image", "/apple-touch-icon") && pageAskedAsSubresource("image", "/DJ"))
@@ -266,7 +267,8 @@ async function main() {
     const out = await sharp(Buffer.from(await res.arrayBuffer())).metadata()
     check("a wide logo becomes a 192 by 192 PNG", res.status === 200 && res.headers.get("content-type") === "image/png" && out.width === 192 && out.height === 192 && out.format === "png", `${res.status} ${out.width}x${out.height}`)
     check("with a clear background around it", out.hasAlpha === true)
-    check("held a day, with a stable address", /max-age=86400/.test(res.headers.get("cache-control") ?? ""))
+    /* Changed on purpose (r53): an address without the current ?v= (what Google asks for) an hour, so a new favicon shows there the same day; the one the page links, a year. */
+    check("held an hour without the page's ?v=", /max-age=3600, s-maxage=3600/.test(res.headers.get("cache-control") ?? ""))
     const touch = await squareIconResponse("https://abc.supabase.co/storage/v1/object/public/a/wide.png", TOUCH_ICON_SIZE, true)
     const t = await sharp(Buffer.from(await touch.arrayBuffer())).metadata()
     check("the home screen icon is 180 by 180 on white", t.width === 180 && t.height === 180 && t.hasAlpha === false)

@@ -12,9 +12,9 @@
  * again. Linktree, Beacons, Stan and Shopify all behave this way.
  *
  *   field              follows, until overridden          stored override
- *   title              "<name> (@handle) | Storelib"      settings.seo_title
- *                      ("<name> | Storelib" when the name
- *                      is the handle), 60 at most
+ *   title              "<name> (@handle)", or "<name>"     settings.seo_title
+ *                      when the name is the handle
+ *                      (no "| Storelib" since round 53), 60 at most
  *   description        the bio, else a sentence made from settings.seo_description
  *                      the page's products, socials and
  *                      links, else "<name> on Storelib."
@@ -226,16 +226,26 @@ export function onePageName(name: unknown, handle: unknown): string {
 const bare = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")
 
 /**
- * The search title: "<name> (@handle) | Storelib", as Instagram and TikTok
- * title a profile, or "<name> | Storelib" when the name is the handle
- * already. Held to 60: the brand goes first, then the handle, and only then
- * is the name cut.
+ * The search title: "<name> (@handle)", as Instagram and TikTok title a
+ * profile, or "<name>" when the name is the handle already. Held to 60: the
+ * handle goes first, and only then is the name cut.
+ *
+ * NOT "| Storelib" ANY MORE (round 53). The owner: "the site's name must be
+ * the SEO title". A search result for a creator's page said Storelib, and on
+ * the creator's own domain Google took Storelib for the site's name.
  */
 export function autoTitle(name: string, handle?: unknown): string {
   const h = plainText(handle).replace(/^@+/, "")
   const withHandle = h && bare(h) !== bare(name) ? `${name} (@${h})` : null
-  const ways = [withHandle && `${withHandle} | ${BRAND}`, withHandle, `${name} | ${BRAND}`, name].filter((w): w is string => !!w)
+  const ways = [withHandle, name].filter((w): w is string => !!w)
   return ways.find((w) => textLength(w) <= SEO_TITLE_MAX) ?? clipText(name, SEO_TITLE_MAX)
+}
+
+/** The titles autoTitle made before round 53, with "| Storelib" after them: saved back by an older editor, they are not overrides either. */
+export function legacyAutoTitles(name: string, handle?: unknown): string[] {
+  const h = plainText(handle).replace(/^@+/, "")
+  const withHandle = h && bare(h) !== bare(name) ? `${name} (@${h})` : null
+  return [withHandle && `${withHandle} | ${BRAND}`, `${name} | ${BRAND}`].filter((w): w is string => !!w)
 }
 
 /**
@@ -298,7 +308,7 @@ export function resolveOnePageSeo(input: OnePageSeoInput): ResolvedOnePageSeo {
 
   const autoT = autoTitle(name, input.handle)
   /* The name, and the title as it was made before the handle was in it, typed back are not overrides either. */
-  const titleOverride = overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName, autoTitle(name)])
+  const titleOverride = overrideOf(settings.seo_title, autoT, SEO_TITLE_MAX, [name, plainName, autoTitle(name), ...legacyAutoTitles(name, input.handle)])
   const title: ResolvedField = titleOverride ? { value: titleOverride, auto: false } : { value: autoT, auto: true }
 
   const page = summarizePage({ blocks: input.blocks, socialLinks: input.socialLinks, now: input.now })
@@ -589,6 +599,7 @@ export function coverRect(w: number, h: number, boxW: number, boxH: number, fx: 
  */
 export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: string | null; indexable: boolean; icon?: string | null; follow?: boolean }) {
   const images = [{ url: seo.image.url, width: seo.image.width, height: seo.image.height, alt: seo.image.alt, type: seo.image.type }]
+  const hostIcons = onePageHostIcons(seo, extra.icon)
   return {
     /*
       THE PAGE'S OWN ORIGIN, storelib.me for a OnePage on it (lib/onepage/
@@ -599,10 +610,24 @@ export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: s
     ...(originOf(seo.url) ? { metadataBase: new URL(originOf(seo.url) as string) } : {}),
     title: { absolute: seo.title.value },
     description: seo.description.value,
+    /*
+      THE PAGE IS THE CREATOR'S (round 53). The root layout names Storelib as
+      the author, creator, publisher and generator of every page and gives
+      Storelib's keywords, and a page inherits what it does not set: measured
+      on storelib.me/<name>, every OnePage said it was Storelib's, about
+      "sell digital products". Null clears an inherited value, as
+      app/(site)/layout.tsx does for a website.
+    */
+    authors: [{ name: seo.name }],
+    creator: null,
+    publisher: null,
+    generator: null,
+    keywords: null,
     alternates: { canonical: seo.url },
     openGraph: {
       url: seo.url,
-      siteName: BRAND,
+      /* The page's own name, as its title says it (round 53): a chat app prints it over the card, and Google reads the site's name here too. */
+      siteName: seo.name,
       title: seo.socialTitle.value,
       description: seo.socialDescription.value,
       type: "profile" as const,
@@ -620,6 +645,30 @@ export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: s
     robots: extra.indexable
       ? { index: true, follow: extra.follow !== false, googleBot: { index: true, follow: extra.follow !== false, "max-image-preview": "large" as const } }
       : { index: false, follow: false, googleBot: { index: false, follow: false } },
-    ...(extra.icon ? { icons: { icon: extra.icon, apple: extra.icon } } : {}),
+    ...(hostIcons ? { icons: hostIcons } : extra.icon ? { icons: { icon: extra.icon, apple: extra.icon } } : {}),
+  }
+}
+
+/** Storelib's own hosts, where the host's icon is Storelib's and a page's photo is only its tab's. */
+const STORELIB_HOSTS = /^(?:www\.)?storelib\.(?:com|me)$/i
+
+/**
+ * ON THE CREATOR'S OWN DOMAIN, THE DOMAIN'S OWN ICON (round 53). A OnePage
+ * at <domain>/links linked its photo where it was stored: another host, any
+ * shape, no size, which Google does not take as the domain's icon. The
+ * domain answers /favicon.ico and /apple-touch-icon itself, square, from the
+ * same photo (lib/onepage/host-icon-server.ts), and the page links those,
+ * with `?v=` naming the photo. Nothing on storelib.me or with no photo.
+ */
+export function onePageHostIcons(seo: Pick<ResolvedOnePageSeo, "url" | "image">, drawn?: string | null) {
+  const origin = originOf(seo.url)
+  /* The photo a shared link shows, else the one the page draws (the same one but for an address that is not https). */
+  const photo = seo.image.photoUrl || (typeof drawn === "string" && /^https?:\/\//i.test(drawn) ? drawn : null)
+  if (!origin || !photo) return null
+  if (STORELIB_HOSTS.test(new URL(origin).hostname)) return null
+  const v = profilePhotoVersion(photo)
+  return {
+    icon: [{ url: `${origin}/favicon.ico?v=${v}`, type: "image/png", sizes: "192x192" }],
+    apple: [{ url: `${origin}/apple-touch-icon?v=${v}`, sizes: "180x180" }],
   }
 }
