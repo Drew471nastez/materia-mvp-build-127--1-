@@ -81,7 +81,7 @@ const REVIEW_COLUMNS = new Set([
     from, the app's own id for it and its content's fingerprint (the
     duplicate check), the app, its verified purchase, and videos. Reads
     that name them ask again without them before the part has run
-    (lib/reviews/storefront-server, app/app/reviews/load-reviews), and the
+    (lib/reviews/storefront-server, app/(storelib)/app/reviews/load-reviews), and the
     import's duplicate check reads them only when the import has its
     history row, which needs the part (lib/reviews/import-server).
   */
@@ -180,7 +180,7 @@ check(
 )
 
 /* The specific one that caused it, named so the regression is unmistakable. */
-const creatorPage = readFileSync("app/(marketing)/u/[username]/page.tsx", "utf8")
+const creatorPage = readFileSync("app/(storelib)/(marketing)/u/[username]/page.tsx", "utf8")
 check("the creator page asks for content", /\.select\("id, rating, content, created_at/.test(creatorPage))
 /*
   CHANGED ON PURPOSE: it now asks for `reviewer_name` too, and falls back to

@@ -269,7 +269,7 @@ async function main() {
       readFileSync(join(root, "components/website-builder/website-settings/types.ts"), "utf8") +
       readFileSync(join(root, "components/website-builder/website-settings/policies.tsx"), "utf8") +
       readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
-    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const switcher = readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")
 
     check("project settings has a Policies section", /id: "policies"/.test(settings) && /POLICY_PAGES\.map/.test(settings))
@@ -311,7 +311,7 @@ async function main() {
   section("A policy is written in, not typed as markup")
   // ════════════════════════════════════════════════════════════════════════
   {
-    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const rich = readFileSync(join(root, "components/website-builder/rich-text-field.tsx"), "utf8")
     const auto = readFileSync(join(root, "components/website-builder/auto-textarea.tsx"), "utf8")
     const css = readFileSync(join(root, "app/globals.css"), "utf8")
@@ -342,7 +342,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════
   {
     const rich = readFileSync(join(root, "components/website-builder/rich-text-field.tsx"), "utf8")
-    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const picker = readFileSync(join(root, "components/website-builder/link-picker.tsx"), "utf8")
     const panels = readFileSync(join(root, "components/website-builder/editor/design-panels.tsx"), "utf8")
     const renderer = readFileSync(join(root, "components/website-builder/sections/SectionRenderer.tsx"), "utf8")
@@ -402,7 +402,7 @@ async function main() {
   section("One header and one footer, whatever the rows hold")
   // ════════════════════════════════════════════════════════════════════════
   {
-    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const body = (id: string): SectionInstance => ({ id, type: "rich_text", name: id, settings: {}, blocks: [], hidden: false })
     const oldFooter: SectionInstance = { ...footer(), id: "stale-footer", settings: { logo_text: "Old" } }
 

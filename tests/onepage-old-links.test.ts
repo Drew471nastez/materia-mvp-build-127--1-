@@ -374,10 +374,10 @@ function wiring() {
   const found = code("lib/onepage/published-page.ts")
   check("the page reads the same resolver, once per request", /export const resolveOnePage = cache\(/.test(found) && /resolveOnePageAddress<any>\(slug, supabaseOnePageLookup/.test(found))
   check("and findPublishedOnePage (metadata, share image) is its page", /address\.kind === "page" \? address\.page : null/.test(found))
-  const page = code("app/(marketing)/l/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   check("the page sends a renamed name on, permanently", /if \(address\.kind === "moved"\)[\s\S]{0,700}permanentRedirect\(/.test(page))
   check("and an account with no OnePage to its creator page, temporarily", /if \(address\.kind === "creator"\)[\s\S]{0,500}redirect\(`\$\{creatorPageUrl\(address\.username, getMainDomain\(\)\)\}\$\{query\}`\)/.test(page))
-  check("with the query", /queryOf\(await searchParams\)/.test(page) && /PublicOnePageRoute\(\{ params: asSlug\(params\), searchParams \}\)/.test(code("app/(marketing)/[sellername]/links/page.tsx")))
+  check("with the query", /queryOf\(await searchParams\)/.test(page) && /PublicOnePageRoute\(\{ params: asSlug\(params\), searchParams \}\)/.test(code("app/(storelib)/(marketing)/[sellername]/links/page.tsx")))
   check("the old username_history read in the page is gone, not doubled", !/from\("username_history"\)/.test(page))
 
   console.log("\nThe old addresses are the ones that carry the name")

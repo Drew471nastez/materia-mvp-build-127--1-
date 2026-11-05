@@ -111,15 +111,15 @@ async function main() {
     store.setItem(EXISTING_EMAIL_KEY, "<script>")
     check("  and only if it is an address", takeExistingEmail(store) === null)
   }
-  const signup = readCode("app/(auth)/signup/page.tsx")
-  const login = readCode("app/(auth)/login/page.tsx")
-  const receiptView = readCode("app/receipt/[token]/receipt-view.tsx")
-  const receiptPage = readCode("app/receipt/[token]/page.tsx")
+  const signup = readCode("app/(storelib)/(auth)/signup/page.tsx")
+  const login = readCode("app/(storelib)/(auth)/login/page.tsx")
+  const receiptView = readCode("app/(storelib)/receipt/[token]/receipt-view.tsx")
+  const receiptPage = readCode("app/(storelib)/receipt/[token]/page.tsx")
   check("an old receipt link (claim=1&receiptToken) comes back to its receipt", /legacyReceipt = searchParams\.get\("claim"\) === "1"/.test(signup) && /carry\.next = `\/receipt\/\$\{legacyReceipt\}`/.test(signup))
   check("the receipt's links carry it as the page to come back to", /`\$\{authBase\}\/signup\?redirect=\$\{encodeURIComponent\(receiptPath\)\}`/.test(receiptView) && /`\$\{authBase\}\/login\?redirect=\$\{encodeURIComponent\(receiptPath\)\}`/.test(receiptView))
   check("  and no longer the claim and token for the sign up form to act on", !/autoBuyer=1&claim=1&receiptToken/.test(receiptView))
   check("sign up always goes through the email code, with the carry", /withCarry\(\s*`\/signup\/verify\?userId=\$\{data\.user\.id\}/.test(signup))
-  check("the library's verify gate keeps the way back (by account id, no address in the URL: rel3-leftovers SEC-11)", /\/signup\/verify\?userId=\$\{encodeURIComponent\(user\.id\)\}&next=\$\{encodeURIComponent\(LIBRARY_HOME\)\}/.test(readCode("app/account/library/layout.tsx")))
+  check("the library's verify gate keeps the way back (by account id, no address in the URL: rel3-leftovers SEC-11)", /\/signup\/verify\?userId=\$\{encodeURIComponent\(user\.id\)\}&next=\$\{encodeURIComponent\(LIBRARY_HOME\)\}/.test(readCode("app/(storelib)/account/library/layout.tsx")))
   check("withCarry adds next beside what the path had", withCarry("/login?exists=1", { next: "/x" }) === "/login?exists=1&next=%2Fx")
 
   section("EXISTS: Create account with an address that has an account is a sign in, and says so")
@@ -127,9 +127,9 @@ async function main() {
   check("  Supabase's own 'already registered' takes the same move", /failure\.code === "wrong_method"\) \{[\s\S]{0,200}switchToSignIn\(trimmedEmail\)/.test(signup))
   check("  a refusal of the look up (429) is said, not taken as a new address", /res\.status === 429/.test(signup) && /origin\?\.limited/.test(signup))
   check("sign up never claims an order before the address is verified", !/\/api\/purchases\/claim/.test(signup))
-  check("login fills in the address and says why it is a sign in", /searchParams\.get\(EXISTS_PARAM\) === "1"/.test(login) && /takeExistingEmail\(\)/.test(login) && /already has a Storelib account\. Sign in to continue\./.test(readSource("app/(auth)/login/page.tsx")))
+  check("login fills in the address and says why it is a sign in", /searchParams\.get\(EXISTS_PARAM\) === "1"/.test(login) && /takeExistingEmail\(\)/.test(login) && /already has a Storelib account\. Sign in to continue\./.test(readSource("app/(storelib)/(auth)/login/page.tsx")))
   check("  and asks the address's way in at once", /if \(existingEmail && email === existingEmail && !showPasswordField\) void askWayIn\(existingEmail\)/.test(login))
-  check("  the heading is Sign in there, not Welcome back", /cameFromSignUp && !inviteEmail \? "Sign in" : "Welcome back"/.test(readSource("app/(auth)/login/page.tsx")))
+  check("  the heading is Sign in there, not Welcome back", /cameFromSignUp && !inviteEmail \? "Sign in" : "Welcome back"/.test(readSource("app/(storelib)/(auth)/login/page.tsx")))
   const origin = readCode("app/api/auth/account-origin/route.ts")
   check("whether an address has an account is rate limited, per caller and per address", /bucket: "account-origin"/.test(origin) && /subjects: \[addressSubject\(request\), emailSubject\(email\)\]/.test(origin) && /if \(limited\) return limited/.test(origin))
   check("  before any user is looked up", origin.indexOf("if (limited) return limited") < origin.indexOf("findAuthUserByEmail(adminSupabase, email)"))
@@ -178,7 +178,7 @@ async function main() {
     check("  nor an address with no account, nor junk", (await verifiedAccountForEmail(db as any, "nobody@example.com")) === null && (await verifiedAccountForEmail(db as any, "not an email")) === null)
     check("addresses are compared trimmed and lower case", normaliseEmail("  A@B.co ") === "a@b.co" && normaliseEmail("a b@c.d") === null)
   }
-  const cont = readCode("app/auth/continue/route.ts")
+  const cont = readCode("app/(storelib)/auth/continue/route.ts")
   check("/auth/continue attaches a guest's orders", /attachGuestOrdersByEmail\(createAdminClient\(\), \{ id: user\.id, email: user\.email \}\)/.test(cont))
   check("  only after the address is known to be verified", cont.indexOf("email_verified") > 0 && cont.indexOf("email_verified") < cont.indexOf("attachGuestOrdersByEmail("))
   check("  bounded, so a slow database never holds a sign in", /Promise\.race\(\[\s*attachGuestOrdersByEmail/.test(cont) && /ATTACH_WAIT_MS = 2500/.test(cont))
@@ -278,7 +278,7 @@ async function main() {
   check("  a clear Save it to your account", /ct\("Save it to your account"\)/.test(receiptView))
   check("the server decides the door from a CONFIRMED account for the order's address", /verifiedAccountForEmail\(admin, data\?\.buyer_email\)/.test(receiptPage))
   check("  and on a creator's website the doors go to Storelib, where the session is", /\(await isPlatformDomain\(\)\) \? "" : getCanonicalSiteUrl\(\)/.test(receiptPage))
-  const product = readCode("app/(marketing)/p/[slug]/page.tsx")
+  const product = readCode("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   /*
     Changed on purpose (round 49, cdnpages): the product page is one HTML for
     everybody (a CDN holds it, tests/cdnpages-r49), so it no longer reads the
@@ -337,7 +337,7 @@ async function main() {
   check("  it listens for a sign in or out in this tab or another, and the back button", /event !== "SIGNED_IN" && event !== "SIGNED_OUT"/.test(vs) && /if \(e\.persisted\) void reconcile\(\)/.test(vs))
 
   section("COPY")
-  const words = [receiptView, readSource("components/checkout/guest-owned-actions.tsx"), readSource("app/(auth)/login/page.tsx")].join("\n")
+  const words = [receiptView, readSource("components/checkout/guest-owned-actions.tsx"), readSource("app/(storelib)/(auth)/login/page.tsx")].join("\n")
   const added = ["In your library", "In your Storelib library", "Save it to your account", "Open receipt", "Bought without an account.", "already has a Storelib account. Sign in"]
   check("the new sentences are there", added.every((w) => words.includes(w)))
   check("  no em dash and none of the banned words in them", !/—/.test(added.join(" ")) && !/\b(unlock|elevate|seamless|powerful|effortlessly|supercharge|transform)\b/i.test(added.join(" ")))

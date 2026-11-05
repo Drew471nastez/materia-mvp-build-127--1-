@@ -89,7 +89,7 @@ URLs, per-request billing reads).
 | Auth | JWKS claims fallback when Auth is down | `lib/auth/request-scope.ts:37`, `lib/auth/route-user.ts:46` |
 | Auth | Builder turns an auth blip into 503, not 401 | `lib/website-builder/session-keep.ts`, `owned-install.ts:43-46` |
 | Auth | Native gate keeps a stored session on a slow read (2 recoveries, no loop) | `components/native-auth-gate.tsx` |
-| Auth | All in-app sync-session callers use same-origin POST with Origin and Sec-Fetch-Site checks | `lib/auth/session-sync.ts`, `app/auth/sync-session/route.ts:60-66` |
+| Auth | All in-app sync-session callers use same-origin POST with Origin and Sec-Fetch-Site checks | `lib/auth/session-sync.ts`, `app/(storelib)/auth/sync-session/route.ts:60-66` |
 | Stripe | 20s per attempt, 2 retries with jitter, circuit breaker (5 failures, 10s to 60s cooldown) | `lib/stripe/resilience.ts`, `lib/stripe.ts` |
 | Billing | A read never writes and never shows Free when Stripe could not answer; stale-if-error cache with single flight | `lib/billing/subscription-state.ts`, `subscription-reader.ts` |
 | Billing | Free written only when Stripe answered for every customer; errors make the webhook answer 500 | `lib/billing/subscription-sync.ts` |
@@ -109,7 +109,7 @@ URLs, per-request billing reads).
 | Crons | `CRON_SECRET` bearer, fails closed, constant-time; lease in `cron_runs` | `lib/api/require-secret.ts`, `lib/observability/report.ts:155-210` |
 | Email | Mailgun 15s per attempt, bounded 429 retries; inbound webhook signed, 5 min window, deduped | `lib/mailgun.ts`, `app/api/webhooks/mailgun/route.ts` |
 | Email | Community emails and DMs deduped by key; scheduled posts published once | `lib/communities/server/email.ts:275-292` etc. |
-| Dashboard | Per-request memo of user, creator, profile; Home caps extras (2-2.5s); Payouts caps Stripe at 2.5s; Orders refund sweep in `after()` | `lib/auth/request-scope.ts`, `app/app/page.tsx` |
+| Dashboard | Per-request memo of user, creator, profile; Home caps extras (2-2.5s); Payouts caps Stripe at 2.5s; Orders refund sweep in `after()` | `lib/auth/request-scope.ts`, `app/(storelib)/app/page.tsx` |
 | Analytics | Collection always 204, rate limit in memory first, forwarding in `after()`; reports cached 15s | `lib/analytics/collect-route.ts`, `app/api/analytics/reports/route.ts` |
 | Security | Webhook signatures on Stripe (separate platform and Connect secrets), Mailgun, GitHub, Supabase auth hook, marketing | see [SECURITY.md](SECURITY.md) |
 | Security | No service-role key or admin module in client code (`server-only`) | `lib/supabase/admin.ts`, `lib/admin/gate.ts` |
@@ -126,7 +126,7 @@ URLs, per-request billing reads).
 | Stripe failures | **Handled.** Bounded calls and a breaker are in place; no Stripe errors in 48h. | `f3e1f58bb`, `lib/stripe/resilience.ts` | PAY-1 (ambiguous confirm says "Nothing was charged"), PAY-7 (PermissionError disconnects Connect) |
 | Repeated billing requests | **Fixed for the billing page; still present on Payouts and Orders.** | `299772b2e` per-request billing reads | PAY-4 (~14 Stripe calls per Payouts open, 8 per tick), DB-8 (Orders checks up to 60 PIs per visit) |
 | Billing fallback | **Fixed.** Reads never show Free when Stripe could not answer; sync writes Free only on a complete answer. | `2e88c64ea`, `21c0882e5` | PAY-10 (sync reads only 20 subscriptions), PAY-8 (memberships cron can cancel a trial) |
-| Session token in URL | **Callers moved to POST; the GET endpoint and two legacy token URLs remain.** | `app/auth/sync-session/route.ts:32-50` | SEC-4 (GET sync-session), SEC-9 (custom-scheme recovery tokens, `/auth/app-callback`), SEC-11 (email and code in verify URL) |
+| Session token in URL | **Callers moved to POST; the GET endpoint and two legacy token URLs remain.** | `app/(storelib)/auth/sync-session/route.ts:32-50` | SEC-4 (GET sync-session), SEC-9 (custom-scheme recovery tokens, `/auth/app-callback`), SEC-11 (email and code in verify URL) |
 
 ## 4. Findings, ranked
 
@@ -156,7 +156,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### SEC-1. Anyone can mark an email as verified without owning it, then take the guest orders bought with that email
 - **System:** email verification (`/api/auth/verify-email`, `/api/auth/confirm-email`), `/auth/continue`, guest-order attach.
 - **Problem/Risk:** verify-email is unauthenticated, takes `userId` and `email` from the body and mails a code to whatever address was posted. confirm-email is unauthenticated and sets `profiles.email_verified=true` and auth `email_confirm` for that `userId`. An attacker signs up with a victim's address (confirmation is off), gets a code at their own mailbox, confirms, visits `/auth/continue`, and `attachGuestOrdersByEmail` moves every guest order bought with the victim's address into the attacker's library. A second path: `profiles` has an owner UPDATE policy and no trigger protects `email_verified`, so a user can probably set it directly through PostgREST (UNPROVEN against the live DB).
-- **Evidence:** `app/api/auth/verify-email/route.ts:13-24, 77-82, 103-108`; `app/api/auth/confirm-email/route.ts` (~:15-20, ~:37-50); `app/auth/continue/route.ts:83-104`; `lib/orders/attach-guest-orders.ts:108-123`; `supabase/sql/RUN_CREATOR_BADGES.sql:28-31`; no `email_verified` in any `*.sql`.
+- **Evidence:** `app/api/auth/verify-email/route.ts:13-24, 77-82, 103-108`; `app/api/auth/confirm-email/route.ts` (~:15-20, ~:37-50); `app/(storelib)/auth/continue/route.ts:83-104`; `lib/orders/attach-guest-orders.ts:108-123`; `supabase/sql/RUN_CREATOR_BADGES.sql:28-31`; no `email_verified` in any `*.sql`.
 - **Root cause:** the code is bound to a caller-supplied `userId`, not to the session or the account's email; `email_verified` is user-writable.
 - **Severity:** CRITICAL.
 - **User impact:** buyers lose purchases; guest purchase history exposed; also an open mail relay (SEC-5).
@@ -196,7 +196,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### PAY-1. "Nothing was charged" shown after a confirm that may have charged; a retry can double-charge
 - **System:** `confirm-with-pm` card confirm, `memberships/confirm`.
 - **Problem/Risk:** every non-card Stripe error (timeout after retries, reset, 5xx, `payment_intent_unexpected_state`) answers "The payment did not go through. Nothing was charged." Stripe may have charged. The buyer presses Pay again, a new PaymentIntent is made (keys never match, PAY-9) and confirmed.
-- **Evidence:** `app/api/checkout/confirm-with-pm/route.ts:52-69`; `app/checkout/checkout-client.tsx:885-899`; `app/api/memberships/confirm/route.ts:91-95`; `app/api/checkout/stripe-session/route.ts:192-194`.
+- **Evidence:** `app/api/checkout/confirm-with-pm/route.ts:52-69`; `app/(storelib)/checkout/checkout-client.tsx:885-899`; `app/api/memberships/confirm/route.ts:91-95`; `app/api/checkout/stripe-session/route.ts:192-194`.
 - **Root cause:** ambiguous errors treated as declines; PI state not re-read.
 - **Severity:** HIGH.
 - **User impact:** double charge or false message.
@@ -244,7 +244,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### SITE-3. A Creator Page database blip becomes a permanent redirect or a 404
 - **System:** `storelib.com/<handle>`.
 - **Problem/Risk:** `readPublicRow` returns null on any error; the storefront gate then issues a 308 to `/@handle`; a failed profile read renders `notFound()`. No timeouts.
-- **Evidence:** `lib/security/public-rows.ts:28-33`; `lib/profile/storefront-gate.ts:7-11`; `lib/profile/member-url.ts:17-18`; `app/(marketing)/u/[username]/page.tsx:380, 414-428`.
+- **Evidence:** `lib/security/public-rows.ts:28-33`; `lib/profile/storefront-gate.ts:7-11`; `lib/profile/member-url.ts:17-18`; `app/(storelib)/(marketing)/u/[username]/page.tsx:380, 414-428`.
 - **Root cause:** error and "no row" folded together.
 - **Severity:** HIGH.
 - **User impact:** visitors and search engines told the store moved permanently or does not exist.
@@ -256,7 +256,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### SITE-4. A OnePage lookup failure renders "not found"
 - **System:** `storelib.me/<name>`, `/l/<slug>`.
 - **Problem/Risk:** `resolveOnePage` catches every error and returns missing, so the page is a 404. Lookups have no abort. After a publish the cache tag is expired and the next read is synchronous.
-- **Evidence:** `lib/onepage/published-page.ts:196-211`; `app/(marketing)/l/[slug]/page.tsx:103-127`; `lib/onepage/address-lookup.ts:52-78`; `lib/onepage/public-cache.ts:93-97`.
+- **Evidence:** `lib/onepage/published-page.ts:196-211`; `app/(storelib)/(marketing)/l/[slug]/page.tsx:103-127`; `lib/onepage/address-lookup.ts:52-78`; `lib/onepage/public-cache.ts:93-97`.
 - **Root cause:** design choice from before `siteRead`.
 - **Severity:** HIGH (highest-traffic pages).
 - **User impact:** bio links show "not found" during slowness; crawlers record 404s.
@@ -320,7 +320,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### SEC-4. GET `/auth/sync-session?access_token=…&refresh_token=…` still exists
 - **System:** native and browser session bridge.
 - **Problem/Risk:** no Origin or Sec-Fetch-Site check on GET. Any page, including a published `<slug>.storelib.com` site, can sign a victim into the attacker's account (login CSRF); tokens land in request logs.
-- **Evidence:** `app/auth/sync-session/route.ts:32-50` (POST guard at :60-66 not applied); `lib/auth/native-session.ts:40-46`; `lib/auth/continue-client.ts:59-68`; `lib/auth/session-sync.ts:64-68`.
+- **Evidence:** `app/(storelib)/auth/sync-session/route.ts:32-50` (POST guard at :60-66 not applied); `lib/auth/native-session.ts:40-46`; `lib/auth/continue-client.ts:59-68`; `lib/auth/session-sync.ts:64-68`.
 - **Root cause:** GET kept "until they move"; they have moved.
 - **Severity:** MEDIUM. **User impact:** purchases or uploads land in the wrong account; tokens in logs. **Financial impact:** low to moderate.
 - **Solution:** GET refuses unless `Sec-Fetch-Site` is `same-origin` or `none` and it is a top-level navigation; after checking Vercel logs for GET volume, answer 303 to `/login` without `setSession`.
@@ -345,7 +345,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### SEC-7. After sign-in, `next` can send the user to any `*.storelib.com` host, including attacker-built sites
 - **System:** `lib/auth/return-to.ts` `safeReturnTarget` and its callers.
 - **Problem/Risk:** absolute targets on any subdomain are allowed; AI-built sites with model-written JavaScript live on subdomains; a phishing page after a real login.
-- **Evidence:** `lib/auth/return-to.ts`; `lib/auth/continue.ts:72-89`; `app/account/continue/route.ts`.
+- **Evidence:** `lib/auth/return-to.ts`; `lib/auth/continue.ts:72-89`; `app/(storelib)/account/continue/route.ts`.
 - **Root cause:** trust boundary moved when sites moved to subdomains. **Severity:** MEDIUM. **User impact:** credential phishing. **Financial impact:** indirect (payout redirection after takeover).
 - **Solution:** allow absolute targets only on apex, `www` and reserved platform subdomains; check no flow needs to return to a creator site.
 - **Complexity:** S. **Verification:** `https://foo.storelib.com/x` rejected; apex, `help.` and `/x` accepted.
@@ -361,7 +361,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 #### PAY-4. Payouts page calls Stripe about 14 times per open and 8 per background tick
 - **System:** `/app/payouts`, `/api/stripe/payouts`, `/api/stripe/payout-method`.
 - **Problem/Risk:** server render plus two client components each fetch the same endpoint; each call makes 4 Stripe calls; ticks every 2 minutes and on focus; no server cache.
-- **Evidence:** `app/app/payouts/page.tsx:197-210`; `payouts-client.tsx:2805-2817, 3110-3121, 3366-3372, 3448-3460, 3876`; `app/api/stripe/payouts/route.ts:49-63`.
+- **Evidence:** `app/(storelib)/app/payouts/page.tsx:197-210`; `payouts-client.tsx:2805-2817, 3110-3121, 3366-3372, 3448-3460, 3876`; `app/api/stripe/payouts/route.ts:49-63`.
 - **Root cause:** two components read one endpoint; no shared result or per-account cache. **Severity:** MEDIUM. **User impact:** slower page; empty figures under rate limiting. **Financial impact:** invocations, Stripe volume, possible 429 pressure on checkout (UNPROVEN at current traffic).
 - **Solution:** no `refreshKey` bump on background ticks; one fetch per tick lifted to the parent; skip first tick when SSR data is fresh; per-account single-flight cache 15-30s invalidated on `payout.*` and cashout.
 - **Complexity:** S-M. **Verification:** call counts 1 (or 0) on mount and 1 per tick; two concurrent GETs make one set of Stripe calls.
@@ -467,7 +467,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 
 #### DB-3. Home waits on uncapped sales totals that can scan every order and download FX history
 - **System:** `/app` Home.
-- **Evidence:** `app/app/page.tsx:161` (not wrapped, unlike :168, :170); `lib/analytics/creator-orders.ts:76-111`; `lib/money/report-currency-server.ts:51-89`; `lib/markets/fx-server.ts:99`.
+- **Evidence:** `app/(storelib)/app/page.tsx:161` (not wrapped, unlike :168, :170); `lib/analytics/creator-orders.ts:76-111`; `lib/money/report-currency-server.ts:51-89`; `lib/markets/fx-server.ts:99`.
 - **Problem/Risk:** 3 serial calls; mixed-currency stores read every order (up to 200k) and may trigger a 60s ECB history download inside the render; the "not ilike" probe walks every order of single-currency stores.
 - **Root cause:** rare slow branches inside a critical path. **Severity:** MEDIUM. **User impact:** Home takes seconds to a minute for multi-currency stores. **Financial impact:** churn risk for top stores.
 - **Solution:** `within(…, 3000, fallback)`; never fetch FX history from a render (`noFetch`); memoize the currency probe 5-10 min.
@@ -475,7 +475,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 
 #### DB-4. Customers page reads unpaginated and truncates at 1,000
 - **System:** `/app/customers`.
-- **Evidence:** `app/app/customers/page.tsx:52-70, ~97`.
+- **Evidence:** `app/(storelib)/app/customers/page.tsx:52-70, ~97`.
 - **Problem/Risk:** wrong lifetime values past 1,000 orders; truncated list; `.in(product_id, all)` URL can exceed limits (about 400 ids, UNPROVEN threshold) and show zero orders; O(customers x orders).
 - **Root cause:** code from before `orders.creator_id` and paging helpers. **Severity:** MEDIUM. **User impact:** wrong customer values. **Financial impact:** bad decisions, no direct money movement.
 - **Solution:** filter by creator via `scopedOrders`, named columns, `readByKeyset`; paginate or aggregate in SQL.
@@ -483,14 +483,14 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 
 #### DB-5. Payouts page and tax summary read orders unpaged; the 1099-K draft understates past 1,000 rows
 - **System:** `/app/payouts`, `/api/stripe/tax-summary`.
-- **Evidence:** `app/app/payouts/page.tsx:197-198, 229-270, 305-307`; `app/api/stripe/tax-summary/route.ts:77-84`.
+- **Evidence:** `app/(storelib)/app/payouts/page.tsx:197-198, 229-270, 305-307`; `app/api/stripe/tax-summary/route.ts:77-84`.
 - **Root cause:** same as DB-4. **Severity:** MEDIUM. **User impact:** wrong tax summary and missing history. **Financial impact:** creators may under-report from the draft.
 - **Solution:** creator-scoped keyset reads; named columns; product Map; paginate or cap with a note.
 - **Complexity:** M. **Verification:** 1,500 rows over two pages give the full sum.
 
 #### DB-6. The /app layout reads `draft_blocks` and every product id on each navigation, and uses neither
 - **System:** /app shell.
-- **Evidence:** `app/app/layout.tsx:157, 161-165, 186-188, 316`; `components/app/notifications-modal.tsx:346`; `lib/home/progress.ts:221,283`.
+- **Evidence:** `app/(storelib)/app/layout.tsx:157, 161-165, 186-188, 316`; `components/app/notifications-modal.tsx:346`; `lib/home/progress.ts:221,283`.
 - **Problem/Risk:** large JSONB fetched and dropped every navigation; `onePagePublished` is true when a OnePage merely exists (logic bug).
 - **Root cause:** carried-over columns. **Severity:** MEDIUM. **User impact:** slower navigation; wrong notification state. **Financial impact:** egress and CPU.
 - **Solution:** select `id, published, status`; real published flag; products `.limit(1)`; sale probe by `creator_id`.
@@ -498,7 +498,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 
 #### DB-7. Products page selects `*` with no limit
 - **System:** `/app/products`.
-- **Evidence:** `app/app/products/page.tsx:33, 52-56`; client uses 13 fields (`products-client.tsx:37-51`).
+- **Evidence:** `app/(storelib)/app/products/page.tsx:33, 52-56`; client uses 13 fields (`products-client.tsx:37-51`).
 - **Problem/Risk:** whole rows in the RSC payload; silent cut at 1,000; `community_id` filtered in JS.
 - **Root cause:** convenience select. **Severity:** MEDIUM. **User impact:** slow page on phones; missing products. **Financial impact:** egress.
 - **Solution:** named columns; `community_id is null` in SQL; keyset paging to a cap.
@@ -506,7 +506,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 
 #### DB-8. Every Orders visit checks up to 60 Stripe PaymentIntents and writes orders, unthrottled
 - **System:** `/app/orders/sales` `after()` sweep.
-- **Evidence:** `app/app/orders/sales/page.tsx:43-46, 77-127, 184`.
+- **Evidence:** `app/(storelib)/app/orders/sales/page.tsx:43-46, 77-127, 184`.
 - **Problem/Risk:** platform-key Stripe volume competes with checkout (UNPROVEN at current traffic); refunded status written in two updates with no ledger event, diverging from `lib/stripe/refund-sync.ts`.
 - **Root cause:** safety net on a page view instead of a schedule. **Severity:** MEDIUM. **User impact:** possible checkout 429s; refunds without ledger lines. **Financial impact:** possible ledger mismatch (UNPROVEN).
 - **Solution:** throttle per creator (6-24h); later move to a cron calling refund-sync; merge the two updates.
@@ -560,13 +560,13 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 ### LOW
 
 #### SEC-8. `/auth/continue` does not use the claims fallback
-- **System:** `app/auth/continue/route.ts`. **Evidence:** :63-79; compare `lib/auth/request-scope.ts:37`. **Problem/Risk:** during an Auth outage, post-login landings end on the login form. **Root cause:** route calls the primitive directly. **Severity:** LOW-MEDIUM. **User impact:** "it logged me out" reports. **Financial impact:** lost conversions in incidents. **Solution:** pass `fallbackClaims`. **Complexity:** S. **Verification:** timed-out `getUser` with valid claims redirects to the destination.
+- **System:** `app/(storelib)/auth/continue/route.ts`. **Evidence:** :63-79; compare `lib/auth/request-scope.ts:37`. **Problem/Risk:** during an Auth outage, post-login landings end on the login form. **Root cause:** route calls the primitive directly. **Severity:** LOW-MEDIUM. **User impact:** "it logged me out" reports. **Financial impact:** lost conversions in incidents. **Solution:** pass `fallbackClaims`. **Complexity:** S. **Verification:** timed-out `getUser` with valid claims redirects to the destination.
 
 #### SEC-9. Recovery tokens sent to a `storelib://` custom-scheme link
-- **System:** reset-password legacy flow, `/auth/app-callback`. **Evidence:** `app/(auth)/reset-password/page.tsx:26-80, 276-280`; `app/auth/app-callback/page.tsx:46-85`; `android/app/src/main/AndroidManifest.xml:74,85`. **Problem/Risk:** any Android app can claim the scheme; app-callback has no caller but puts tokens in the URL. **Root cause:** legacy flows. **Severity:** LOW-MEDIUM. **User impact:** possible takeover with a malicious app installed. **Financial impact:** low. **Solution:** delete app-callback after zero log hits; use bridge codes or App Links only. **Complexity:** S. **Verification:** no code builds `storelib://` with tokens; app-callback 404.
+- **System:** reset-password legacy flow, `/auth/app-callback`. **Evidence:** `app/(storelib)/(auth)/reset-password/page.tsx:26-80, 276-280`; `app/(storelib)/auth/app-callback/page.tsx:46-85`; `android/app/src/main/AndroidManifest.xml:74,85`. **Problem/Risk:** any Android app can claim the scheme; app-callback has no caller but puts tokens in the URL. **Root cause:** legacy flows. **Severity:** LOW-MEDIUM. **User impact:** possible takeover with a malicious app installed. **Financial impact:** low. **Solution:** delete app-callback after zero log hits; use bridge codes or App Links only. **Complexity:** S. **Verification:** no code builds `storelib://` with tokens; app-callback 404.
 
 #### SEC-10. Dead App Link bridge with a non-atomic single-use check
-- **System:** `app/app/auth/callback/route.ts`. **Evidence:** :49-91; no writer of `oauth_bridge_tokens`. **Problem/Risk:** SELECT then DELETE lets two requests use one token; no `no-store`. **Root cause:** dead feature. **Severity:** LOW. **User impact:** none known. **Financial impact:** none. **Solution:** remove the bridge branch or `delete … returning`. **Complexity:** S. **Verification:** two concurrent GETs, one success.
+- **System:** `app/(storelib)/app/auth/callback/route.ts`. **Evidence:** :49-91; no writer of `oauth_bridge_tokens`. **Problem/Risk:** SELECT then DELETE lets two requests use one token; no `no-store`. **Root cause:** dead feature. **Severity:** LOW. **User impact:** none known. **Financial impact:** none. **Solution:** remove the bridge branch or `delete … returning`. **Complexity:** S. **Verification:** two concurrent GETs, one success.
 
 #### SEC-11. Personal data in logs and URLs
 - **System:** email capture, verify-email, exchange-reset-code. **Evidence:** `app/api/onepage/email-capture/route.ts:208`; verify-email route.ts:91, 113; `signup/page.tsx:378`. **Problem/Risk:** emails and codes in logs and request URLs. **Root cause:** hygiene. **Severity:** LOW (GDPR). **User impact:** privacy. **Financial impact:** regulatory exposure. **Solution:** `maskEmail()`; drop email and code from the verify URL. **Complexity:** S. **Verification:** grep test.
@@ -590,7 +590,7 @@ User impact; Financial impact; Solution; Complexity (S/M/L); Verification.
 - **System:** `payment_intent.succeeded`, `fulfil-payment.ts:370-445, 631`; route has no `maxDuration`. **Problem/Risk:** slow answers raise endpoint failure rates; Stripe disables endpoints that keep failing. **Severity:** LOW. **Solution:** 5s and 1 retry on the two Stripe reads; emails and notify into `after()` (journal keeps them safe). **Complexity:** S. **Verification:** webhook answers in under 2s with delayed fakes; follow-ups later done. **User impact / Financial impact:** low.
 
 #### SITE-10. Creator lookup uses `ilike` without escaping wildcards
-- **System:** `lib/profile/profile-by-name.ts:30`; `app/(marketing)/u/[username]/page.tsx:419`. **Problem/Risk:** `/a_b` can resolve to `axb`. **Severity:** LOW (reachability UNPROVEN). **Solution:** `exactIlike`. **Complexity:** S. **Verification:** escaped pattern `a\_b` sent. **User impact / Financial impact:** wrong storefront at a crafted URL; low.
+- **System:** `lib/profile/profile-by-name.ts:30`; `app/(storelib)/(marketing)/u/[username]/page.tsx:419`. **Problem/Risk:** `/a_b` can resolve to `axb`. **Severity:** LOW (reachability UNPROVEN). **Solution:** `exactIlike`. **Complexity:** S. **Verification:** escaped pattern `a\_b` sent. **User impact / Financial impact:** wrong storefront at a crafted URL; low.
 
 #### SITE-11. A GitHub push marked delivered before it is applied is lost if the apply fails
 - **System:** `app/api/github/webhook/route.ts:43-45, 87-104`; `lib/github-sync/deliveries.ts`. **Problem/Risk:** redelivery dropped as duplicate. **Severity:** LOW. **Solution:** delete the delivery row on failure. **Complexity:** S. **Verification:** rejected apply leaves no row. **User impact:** a push silently not synced. **Financial impact:** none.
@@ -628,7 +628,7 @@ private.
 - **System:** `app/api/dashboard/route.ts:95-110`. **Severity:** LOW. **Solution:** 410 or delete after confirming the native shells do not call it. **Complexity:** S. **Verification:** grep and logs. **User impact / Financial impact:** heavy reachable endpoint; low.
 
 #### EVD-5. The `/500` error page is missing from the build output
-- **System:** Next.js error page. **Evidence:** "Failed to load static file for page: /500 ENOENT", 30 since 09-12, still on 10-31. **Problem/Risk:** when a page fails, the visitor gets a raw failure instead of the error page. **Root cause:** UNPROVEN (likely the custom error page not emitted by the current build setup). **Severity:** LOW. **Solution:** reproduce with a production build; make sure `app/error.tsx` / `global-error.tsx` cover it or the pages-router `/500` is emitted. Not assigned. **Complexity:** S-M. **Verification:** smoke test that a forced server error renders the error page. **User impact:** ugly failure page. **Financial impact:** low.
+- **System:** Next.js error page. **Evidence:** "Failed to load static file for page: /500 ENOENT", 30 since 09-12, still on 10-31. **Problem/Risk:** when a page fails, the visitor gets a raw failure instead of the error page. **Root cause:** UNPROVEN (likely the custom error page not emitted by the current build setup). **Severity:** LOW. **Solution:** reproduce with a production build; make sure `app/(storelib)/error.tsx` / `global-error.tsx` cover it or the pages-router `/500` is emitted. Not assigned. **Complexity:** S-M. **Verification:** smoke test that a forced server error renders the error page. **User impact:** ugly failure page. **Financial impact:** low.
 
 ## 5. Index candidates (prepared, not run)
 

@@ -189,7 +189,7 @@ async function main() {
   check("what a client is told it may do includes them", /allowedActions\(v\.role, v\.perms\)/.test(ctx))
   const creator = code("lib/communities/server/creator.ts")
   check("the /app pages decide with them", /can\(ctx\.role, action, ctx\.viewer\.perms\)/.test(creator) && /allowedActions\(ctx\.role, ctx\.viewer\.perms\)/.test(creator))
-  for (const f of ["app/app/community/[id]/moderation/page.tsx", "app/app/community/[id]/members/page.tsx", "app/app/community/[id]/feed/page.tsx"]) check(`${f}: every can() has the choices`, !/can\(ctx\.role, "[a-z_]+"\)/.test(code(f)))
+  for (const f of ["app/(storelib)/app/community/[id]/moderation/page.tsx", "app/(storelib)/app/community/[id]/members/page.tsx", "app/(storelib)/app/community/[id]/feed/page.tsx"]) check(`${f}: every can() has the choices`, !/can\(ctx\.role, "[a-z_]+"\)/.test(code(f)))
   const mod = code("lib/communities/server/moderation.ts")
   check("moderation never decides on the role alone", !/[^.]can\(a\.actor\.role/.test(mod) && /actorMay\(/.test(mod))
 
@@ -316,14 +316,14 @@ async function main() {
   /* Changed on purpose (round 33): New community is a five step wizard; the step's card is held to 760px beside the 340px preview, in the product editor's frame (phone bar, foot bar from 1024px). */
   /* Round 27 (tests/wizard27.test.ts): one column of 680px, the preview beside it gone, because it squeezed the step. */
   check("New community is the product editor: phone bar, one column, foot bar from 1024px", /data-create-bar/.test(create) && /lg:hidden/.test(create) && /max-w-\[680px\]/.test(create) && /data-create-foot/.test(create) && /sticky bottom-0/.test(create) && /barButton/.test(create) && /primaryDepth/.test(create))
-  check("and is a page layer on a phone, as New product", /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/community/new/layout.tsx")))
+  check("and is a page layer on a phone, as New product", /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/(storelib)/app/community/new/layout.tsx")))
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")
   /* Changed on purpose (round 31): the foot sat in the form and rode over it mid page on a phone; it is the /app Settings save bar now, fixed above the navigation pill and up only while there is something to save. */
   check("Settings forms have a save bar: Cancel and Save, up while there is a change", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings) && /fixed inset-x-0 bottom-\[max\(calc\(var\(--app-nav-top,0px\)\+10px\),calc\(env\(safe-area-inset-bottom\)\+10px\)\)\]/.test(parts))
   /* Changed on purpose (round 26): the settings column takes 196px beside the panel, so the Page tab's two columns start at 1280px. */
   /* Changed on purpose (round 32): "too shrunk on a computer". The Page tab's 300px side column squeezed the domain and the address; every panel is now one column of the editor's cards at the panel's full width, and the address is a panel of its own. */
-  /* Changed on purpose (round 33): the community's page left Settings for a Page section of its own (app/app/community/[id]/page); the address keeps its panel. */
+  /* Changed on purpose (round 33): the community's page left Settings for a Page section of its own (app/(storelib)/app/community/[id]/page); the address keeps its panel. */
   check("Settings has no Page panel any more, the address in its own panel", !/xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && !/<EditorCard title="About"/.test(settings) && !/value: "page"/.test(settings) && /<EditorCard title="Storelib address"/.test(settings))
   /* Changed on purpose (round 33): Roles is named Roles and permissions, for what it holds; ?tab=page opens the Page section (pageTabAsked). */
   check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles and permissions", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))

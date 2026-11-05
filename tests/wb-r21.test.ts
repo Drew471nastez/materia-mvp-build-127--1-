@@ -29,7 +29,7 @@ function check(label: string, ok: boolean) {
 
 const guard = readCode("lib/website-builder/ask-sheet-guard.ts")
 const chat = readCode("components/website-builder/theme-chat.tsx")
-const page = readCode("app/app/website-builder/website-builder-client.tsx")
+const page = readCode("app/(storelib)/app/website-builder/website-builder-client.tsx")
 const css = readCode("app/globals.css")
 const probe = readCode("scripts/check-ask-sheet-r18.mjs")
 

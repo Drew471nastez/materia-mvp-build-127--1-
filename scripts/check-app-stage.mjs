@@ -68,7 +68,7 @@
  * none jumping), slower but still turning under reduced motion.
  *
  * The real NavigationLoadingBar and AppStage, over a shell shaped like
- * app/app/layout.tsx (scripts/render-app-stage.tsx), served over http so the
+ * app/(storelib)/app/layout.tsx (scripts/render-app-stage.tsx), served over http so the
  * history is the browser's own.
  *
  *   node scripts/check-app-stage.mjs

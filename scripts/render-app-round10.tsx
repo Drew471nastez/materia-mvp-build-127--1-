@@ -21,9 +21,9 @@ import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-breadcrumb"
 import { DiscoverStickyWrapper } from "@/components/store-builder/discover-sticky-wrapper"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
-import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
+import { ReceiptView } from "@/app/(storelib)/receipt/[token]/receipt-view"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
-import NativeStartPage from "@/app/native-start/page"
+import NativeStartPage from "@/app/(storelib)/native-start/page"
 import { receiptCases } from "./receipt-cases"
 
 const params = new URLSearchParams(location.hash.slice(1))

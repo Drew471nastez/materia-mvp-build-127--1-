@@ -91,7 +91,7 @@ async function main() {
     check("nor an ordinary rate limit", !isBillingRefusal(new OpenAI.RateLimitError(429, { message: "Rate limit reached for requests", type: "requests", code: "rate_limit_exceeded" }, undefined, new Headers())))
     const src = read("lib/products/category-suggest-ai.ts")
     check("it pauses asking and says so once", /pausedUntil = Date\.now\(\) \+ BILLING_PAUSE_MS/.test(src) && /if \(!saidBilling\) console\.warn/.test(src) && /if \(Date\.now\(\) < pausedUntil\) return null/.test(src))
-    const client = read("app/app/products/new/category-suggestion.ts")
+    const client = read("app/(storelib)/app/products/new/category-suggestion.ts")
     check("the editor shows nothing for a failed answer", /if \(!res\.ok\) return/.test(client) && !/toast/i.test(client))
   }
 

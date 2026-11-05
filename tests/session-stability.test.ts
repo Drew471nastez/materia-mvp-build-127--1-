@@ -151,14 +151,14 @@ async function main() {
     }
     check("nothing that can send to /login reads getUser() and drops its error", direct.length === 0, direct.join(", "))
 
-    for (const layout of ["app/app/layout.tsx", "app/account/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx", "app/website-builder/layout.tsx"]) {
+    for (const layout of ["app/(storelib)/app/layout.tsx", "app/(storelib)/account/library/layout.tsx", "app/(storelib)/dashboard/layout.tsx", "app/(storelib)/creator-page/layout.tsx", "app/(storelib)/website-builder/layout.tsx"]) {
       const code = readCode(layout)
       check(`${layout} recovers an undetermined session instead of redirecting`, /current\.state === "indeterminate"/.test(code))
     }
-    const sites = readCode("app/sites/[siteId]/page.tsx")
+    const sites = readCode("app/(storelib)/sites/[siteId]/page.tsx")
     check("a page with no gate of its own renders the recovery itself", /if \(!user\) return <SessionRecovery \/>/.test(sites))
     /* The settings route and the sheet over the page both render the form from _view.tsx. */
-    const settings = readCode("app/app/settings/_view.tsx")
+    const settings = readCode("app/(storelib)/app/settings/_view.tsx")
     check("the settings page renders nothing, not a crash, while the layout recovers", /if \(!data\) return null/.test(settings))
   }
 
@@ -180,7 +180,7 @@ async function main() {
     const bare = calls.filter((c) => c.scope === "")
     check(`every signOut() names its scope (${calls.length} calls)`, calls.length > 0 && bare.length === 0, bare.map((c) => c.file).join(", "))
     const global = calls.filter((c) => /global/.test(c.scope)).map((c) => c.file)
-    const allowed = ["components/app/settings-form-new.tsx", "app/(auth)/reset-password/page.tsx"]
+    const allowed = ["components/app/settings-form-new.tsx", "app/(storelib)/(auth)/reset-password/page.tsx"]
     check(
       "only 'Sign out of all devices' and a password reset reach every device",
       global.every((f) => allowed.includes(f)),
@@ -269,7 +269,7 @@ async function main() {
     /* The email editor is the composer now (components/email/compose). It
        never sends anybody to /login itself: with no user it waits, and the
        app's own gate decides what a sign-out is. */
-    const editor = readCode("app/app/emails/new/page.tsx")
+    const editor = readCode("app/(storelib)/app/emails/new/page.tsx")
     const composer = readCode("components/email/compose/composer.tsx") + readCode("components/email/compose/compose-page.tsx")
     /* Changed on purpose (round 40 team permissions): the composer asks the server who is sending (app/api/email/area?part=sender, which signs the caller in and finds the store), and with no answer it waits the same way it waited with no user. */
     check("the email editor only leaves for /login on a real sign-out",

@@ -37,7 +37,7 @@ for (const type of ["hero_product", "product_spotlight"]) {
 
 console.log("\nEverywhere else\n")
 {
-  const page = read("app/checkout/page.tsx")
+  const page = read("app/(storelib)/checkout/page.tsx")
   check("a buyer who owns it opens it in their library", /const OWNED = `\/account\/library\/products\/\$\{encodeURIComponent\(product\.id\)\}`/.test(page) && (page.match(/redirect\(OWNED\)/g) ?? []).length === 1 && /if \(rowsOwn\(existingEntitlements/.test(page))
   /*
     Round 10: the OnePage's product block is its own component (components/onepage/product-block) and where it points

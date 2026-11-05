@@ -4,7 +4,7 @@
  * ===========================================================================
  * Two accuracy faults left from the analytics audit:
  *
- *   Home read its orders (app/app/page.tsx) and the period's views and link
+ *   Home read its orders (app/(storelib)/app/page.tsx) and the period's views and link
  *   taps (components/app/dashboard-client.tsx) in single reads, and a read
  *   stops at 1,000 rows. A busy store's figures stopped counting without a
  *   word. Home now draws the Analytics answer (app/api/analytics/reports),

@@ -114,7 +114,7 @@ for (const rel of files) {
       if (!dotKeys.has(f.text)) dotKeys.set(f.text, `${rel}:${f.line}`)
       continue
     }
-    /* A server page's thrown error goes to the log and to app/app/error.tsx, which says its own words. */
+    /* A server page's thrown error goes to the log and to app/(storelib)/app/error.tsx, which says its own words. */
     if (f.kind === "error" && server && /^app\/.*\/(page|layout)\.tsx$/.test(rel)) continue
     if (!f.translated) untranslated.push({ where: `${rel}:${f.line}`, kind: f.kind, text: f.text })
   }

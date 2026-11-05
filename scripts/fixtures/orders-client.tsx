@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react"
 import { useSearchParams } from "next/navigation"
-import { OrdersClient as LiveOrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient as LiveOrdersClient } from "@/app/(storelib)/app/orders/orders-client"
 import { filterOrders, groupOrders, inView, pageOf, queryFromParams, VIEWS, type OrderRow } from "@/lib/orders/order-view"
 import { listingKey } from "@/lib/orders/listing-params"
 import { firstDayOf, rangeWindow, readOrdersPeriod } from "@/lib/orders/range"

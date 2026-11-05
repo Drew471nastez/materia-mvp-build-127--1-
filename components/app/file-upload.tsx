@@ -24,7 +24,7 @@ import {
 } from "@/lib/storage/chunked-upload"
 import { precheckUpload, userMessage } from "@/lib/security/uploads"
 import { uploadRowState, uploadStatusLabel, useUploadChecking } from "@/lib/storage/upload-state"
-import { plainError } from "@/app/app/products/new/file-uploads"
+import { plainError } from "@/app/(storelib)/app/products/new/file-uploads"
 import { tt } from "@/lib/i18n/text"
 
 interface UploadedFile {

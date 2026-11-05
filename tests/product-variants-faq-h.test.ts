@@ -80,7 +80,7 @@ console.log("\nThe chosen variant's photo on the storefront")
   check("  and /products.json each picture's variant_ids", (productFeedJson(p) as O).images[1].variant_ids[0] === "v1")
   const gallery = read("components/product/product-gallery.tsx")
   const box = read("components/physical/buy-box.tsx")
-  check("storelib.com's product page: the buy box tells the gallery, which moves to the photo", /announceVariantPhoto\(data\.product\.id, chosenImage\)/.test(box) && /onVariantPhoto\(followVariantsOf/.test(gallery) && /followVariantsOf=\{product\.type === "physical" \? product\.id : undefined\}/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+  check("storelib.com's product page: the buy box tells the gallery, which moves to the photo", /announceVariantPhoto\(data\.product\.id, chosenImage\)/.test(box) && /onVariantPhoto\(followVariantsOf/.test(gallery) && /followVariantsOf=\{product\.type === "physical" \? product\.id : undefined\}/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
   check("  only after the buyer picks, and the small photo only where no gallery follows", /picked\.current = true/.test(box) && /!galleryFollows \?/.test(box))
 }
 
@@ -95,7 +95,7 @@ console.log("\nThe product's FAQ on every product page")
   const ctx = dynamicContext({ theme: {}, product: facts })
   check("  in a rich text setting: the questions", fillSources("{{ product.faqs }}", "richtext", ctx) === facts.faqs_html, fillSources("{{ product.faqs }}", "richtext", ctx))
   check("  in a text setting: words only", !/</.test(String(fillSources("{{ product.faqs }}", "text", ctx))) && /Fit\?/.test(String(fillSources("{{ product.faqs }}", "text", ctx))))
-  check("the builder's canvas reads them too", /faqs: p\.faqs \}\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /\$\{LIST_COLUMNS\}, faqs/.test(read("app/api/website-builder/products/route.ts")))
+  check("the builder's canvas reads them too", /faqs: p\.faqs \}\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /\$\{LIST_COLUMNS\}, faqs/.test(read("app/api/website-builder/products/route.ts")))
 
   /* Not an FAQ section option: Accordion FAQ is the reference section every AI prompt quotes, and its size is budgeted (tests/ai-reference.test.ts). */
   check("the reference FAQ section is left as it was", !/product\.faqs/.test(DEFAULT_THEME_SOURCES["sections/faq_accordion.storelib"]))
@@ -134,7 +134,7 @@ console.log("\nThe product's FAQ on every product page")
   check("  wired into the section drawing, once a page", /withFaqTab\(instance\.blocks, faqs\)/.test(read("lib/storelib-theme/compat/theme.ts")) && /FAQ_SHOWN\.add\(/.test(read("lib/storelib-theme/compat/theme.ts")))
   check("no FAQ structured data is added (Google keeps FAQ rich results to government and health sites)", !/FAQPage/.test(read("lib/storelib-theme/compat/product-faq.ts").replace(/\/\*[\s\S]*?\*\//g, "")) && /No FAQ structured data/.test(read("lib/storelib-theme/compat/product-faq.ts")))
 
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("the editor says where they show, with a link to see it", /data-faq-where=""/.test(editor) && /Shows on your product page under the description\./.test(editor) && /onClick=\{handleRedirectToProduct\}[^>]*>\s*See it/.test(editor))
 }
 

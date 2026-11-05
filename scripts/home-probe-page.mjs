@@ -151,7 +151,7 @@ export function isNativePlatform() { return false }
   const script = readFileSync(join(dir, "probe.js"), "utf8")
   rmSync(dir, { recursive: true, force: true })
 
-  /* The frame the app draws around a page: app/app/layout.tsx. */
+  /* The frame the app draws around a page: app/(storelib)/app/layout.tsx. */
   const shell = `
     html,body{margin:0;height:100%;font-family:Inter,system-ui,sans-serif;background:#111111}
     .probe-top{position:fixed;left:0;right:0;top:0;height:68px;background:#111111}

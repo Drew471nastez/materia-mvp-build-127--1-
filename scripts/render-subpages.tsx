@@ -16,15 +16,15 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { OfferEditor } from "@/app/app/offers/offer-editor"
-import { SizeChartPage } from "@/app/app/products/size-charts/size-chart-page"
-import { CouponEditor } from "@/app/app/coupons/coupon-editor"
-import { CollectionPage } from "@/app/app/products/collections/collection-editor"
-import type { Collection, CollectionProduct } from "@/app/app/products/collections/collection-parts"
+import { OfferEditor } from "@/app/(storelib)/app/offers/offer-editor"
+import { SizeChartPage } from "@/app/(storelib)/app/products/size-charts/size-chart-page"
+import { CouponEditor } from "@/app/(storelib)/app/coupons/coupon-editor"
+import { CollectionPage } from "@/app/(storelib)/app/products/collections/collection-editor"
+import type { Collection, CollectionProduct } from "@/app/(storelib)/app/products/collections/collection-parts"
 import type { Offer } from "@/lib/offers/offers"
-import type { OfferProduct } from "@/app/app/offers/offer-parts"
+import type { OfferProduct } from "@/app/(storelib)/app/offers/offer-parts"
 import type { SavedSizeChart } from "@/components/physical/size-chart-editor"
-import type { CouponRecord } from "@/app/app/coupons/coupon-form"
+import type { CouponRecord } from "@/app/(storelib)/app/coupons/coupon-form"
 
 type W = Window & { __panel?: string; __sent?: { method: string; path: string; body: unknown }[] }
 const w = window as W

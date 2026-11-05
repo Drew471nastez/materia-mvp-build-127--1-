@@ -46,12 +46,12 @@ async function membershipPrices() {
   const wired: Array<[string, RegExp]> = [
     /* Changed on purpose: with its store's currency. */
     ["components/explore/product-card.tsx", /listPrice\(\{ \.\.\.product, currency: /],
-    ["app/(marketing)/explore/page.tsx", /planIntervals\(supabase/],
-    ["app/(marketing)/explore/[category]/page.tsx", /planIntervals\(supabase/],
-    ["app/(marketing)/u/[username]/page.tsx", /price_interval: intervals\.get\(p\.id\)/],
+    ["app/(storelib)/(marketing)/explore/page.tsx", /planIntervals\(supabase/],
+    ["app/(storelib)/(marketing)/explore/[category]/page.tsx", /planIntervals\(supabase/],
+    ["app/(storelib)/(marketing)/u/[username]/page.tsx", /price_interval: intervals\.get\(p\.id\)/],
     ["components/storefront/storefront-product-card.tsx", /price_interval: product\.price_interval/],
     ["components/store-builder/unified-section-renderer.tsx", /priced\(productPrice\)/],
-    ["app/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
+    ["app/(storelib)/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
     ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product, pageCurrency\)/],
     ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
     /* The header's results draw the price quick-search already worked out (listPrice, above); the drawing moved out of the header itself. */
@@ -61,9 +61,9 @@ async function membershipPrices() {
     /* Round 10: the OnePage's product block is drawn by components/onepage/product-block.tsx now. */
     ["components/onepage/product-block.tsx", /perInterval\(/],
     ["lib/onepage/live-products.ts", /product_price_interval/],
-    ["app/checkout/membership-checkout.tsx", /data-summary-price/],
+    ["app/(storelib)/checkout/membership-checkout.tsx", /data-summary-price/],
     ["lib/receipts/load.ts", /priceInterval: type === "membership"/],
-    ["app/receipt/[token]/receipt-view.tsx", /item\.priceInterval/],
+    ["app/(storelib)/receipt/[token]/receipt-view.tsx", /item\.priceInterval/],
     ["components/library/library-receipts.tsx", /r\.priceInterval/],
     ["lib/email.tsx", /i\.priceInterval/],
     /* The wishlist's price is listPrice's, handed the type and the plan's interval (components/wishlist/wishlist-entry.ts). */
@@ -82,7 +82,7 @@ console.log("\nA half set up seller opens /sell where they left it (scripts/chec
   check("a buyer who never started has nothing to resume", onboardingResume({ creator: null, profile: { display_name: "Ana", is_creator: false } }) === null)
   const old = onboardingResume({ creator: null, profile: { display_name: "Ana Ruiz", is_creator: true } })
   check("the old creator choice with no row opens on step one with the name", old?.step === 1 && old.displayName === "Ana Ruiz", old)
-  const sell = code("app/(auth)/sell/page.tsx")
+  const sell = code("app/(storelib)/(auth)/sell/page.tsx")
   check("/sell reads it back only for a setup that was started", /if \(access\.state === "started"\)/.test(sell) && /resume=\{resume\}/.test(sell))
   const modal = code("components/app/creator-onboarding-modal.tsx")
   /* Changed on purpose: d5b64308 (Name your store starts from the current name) starts from the profile's name, then the sign in's; neither replaces a store name read back. */
@@ -93,10 +93,10 @@ console.log("\nOne heading on every library tab (scripts/check-course-player.mjs
 {
   const courses = code("components/courses/courses-index.tsx")
   check("the courses list draws no heading of its own under Library", !/<h1\b|<h2\b/.test(courses))
-  check("and its skeleton draws no heading block either", !/h-7 w-32/.test(code("app/account/library/courses/loading.tsx")))
+  check("and its skeleton draws no heading block either", !/h-7 w-32/.test(code("app/(storelib)/account/library/courses/loading.tsx")))
   const wishlist = code("components/wishlist/wishlist-content.tsx")
   check("the library's wishlist has no heading of its own either", !/<h1\b/.test(wishlist) && !/Nothing saved yet<\/h2>/.test(wishlist))
-  check("and waits in its own shape, not a spinner or a header card", /<WishlistSkeleton \/>/.test(wishlist) && !/animate-spin/.test(wishlist) && !/Header card skeleton/.test(read("app/account/library/wishlist/loading.tsx")))
+  check("and waits in its own shape, not a spinner or a header card", /<WishlistSkeleton \/>/.test(wishlist) && !/animate-spin/.test(wishlist) && !/Header card skeleton/.test(read("app/(storelib)/account/library/wishlist/loading.tsx")))
 }
 
 console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it)")
@@ -112,7 +112,7 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
     "components/library/library-product.tsx",
     "components/library/library-reviews.tsx",
     "components/courses/courses-index.tsx",
-    "app/receipt/[token]/receipt-view.tsx",
+    "app/(storelib)/receipt/[token]/receipt-view.tsx",
   ]
   const concatenated = files.filter((f) => /\$\{(PRIMARY|SECONDARY|VIOLET)\}[^`]*\$\{SMALL\}|\$\{[^}]*\}\s+\$\{SMALL\}/.test(read(f)))
   check("no screen concatenates SMALL after a button any more; every one goes through cn()", concatenated.length === 0, concatenated)

@@ -5,7 +5,7 @@
  * whole set back), for scripts/check-customer-emails.mjs to drive in
  * Chromium on a computer and a phone. Every request is written to
  * window.__requests; the saved words are window.__saved. At /app/emails it
- * is the Emails page's list (app/app/emails/emails-home.tsx) on its
+ * is the Emails page's list (app/(storelib)/app/emails/emails-home.tsx) on its
  * Customer emails tab instead, the same panel inside it.
  */
 import React from "react"
@@ -13,7 +13,7 @@ import { createRoot } from "react-dom/client"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { readCopy, readSavedCopy, type CustomerEmailsCopy } from "@/lib/emails/customer-custom"
-import { EmailsHome, type EmailsHomeProps } from "@/app/app/emails/emails-home"
+import { EmailsHome, type EmailsHomeProps } from "@/app/(storelib)/app/emails/emails-home"
 
 type W = { __requests: { method: string; url: string; body?: unknown }[]; __saved: CustomerEmailsCopy }
 const w = window as unknown as W

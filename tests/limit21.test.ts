@@ -29,7 +29,7 @@ import { copiesSold, salesStandings } from "../lib/products/sales-standings"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, SALE_HOLD_SECONDS, claimSale, holdBasket, holdSale, limitOf, readLimits, releaseHeldCopies, saleHolderForEmail } from "../lib/checkout/sales-limit"
 import { priceCart } from "../lib/checkout/pricing"
 import { productSectionData } from "../lib/products/product-section-data"
-import { initialForm, snapshotOf, snapshotOfForm, type LoadedProduct } from "../app/app/products/new/editor-form"
+import { initialForm, snapshotOf, snapshotOfForm, type LoadedProduct } from "../app/(storelib)/app/products/new/editor-form"
 import { packItems } from "../lib/checkout/cart-items"
 import { untt } from "./i18n-source"
 
@@ -200,8 +200,8 @@ async function main() {
     check("and changing the number is a change", snapshotOf({ ...on, salesLimit: "50" }) !== snapshotOfForm(on))
     check("a new product opens with the toggle off", initialForm(null).limitSalesEnabled === false && initialForm(null).salesLimit === "")
 
-    const editor = read("app/app/products/new/product-editor.tsx")
-    const loader = read("app/app/products/load-editor.ts")
+    const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
+    const loader = read("app/(storelib)/app/products/load-editor.ts")
     check("the limit is saved in a request of its own, so the product saves before part 150", /update\(\{ sales_limit: limit \}\)/.test(editor) && editor.indexOf("sales_limit: limit") > editor.indexOf("custom_fields: storedCustomFields"))
     check("only for something that does not ship, and only when it changed", /productType !== "physical"\) \{\s*const limit = limitSalesEnabled \? readSalesLimit\(salesLimit\) : null\s*if \(limit !== savedSalesLimit\.current\)/.test(editor))
     check("a database without the column says which part to run, and everything else is saved", editor.includes("Limit sales needs its database update: run SQL part 150 in Supabase."))
@@ -251,13 +251,13 @@ async function main() {
     check("the product page's buy box: Sold out in place of the buy button, a few left said under it", /sales\?\.soldOut \? \([\s\S]{0,300}disabled[\s\S]{0,400}Sold out[\s\S]{0,100}\) : \([\s\S]{0,40}<BuyButton/.test(wrapper) && wrapper.includes("{sales.fewLeft}"))
     const sticky = read("components/store-builder/sticky-add-to-cart.tsx")
     check("the sticky bar says Sold out and does not buy", sticky.includes('closed ? "Sold out"') && sticky.includes("if (closed) return") && (sticky.match(/disabled=\{closed\}/g) ?? []).length === 2)
-    const page = read("app/(marketing)/p/[slug]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("the product page counts on the server and hands both", page.includes("salesStanding(createAdminClient(), productId)") && (page.match(/sales=\{salesView\}/g) ?? []).length === 2 && (page.match(/soldOut=\{salesView\?\.soldOut \?\? false\}/g) ?? []).length === 2)
     check("and tells search engines it is out of stock", page.includes("soldOut(product) || salesView?.soldOut"))
     const shop = read("lib/website-builder/shop-products.ts")
     check("the website's cards: Sold out, no checkout, every option off", /* Changed on purpose (round 36): the standings are read beside the card's other reads, then laid over the stocked cards. */ shop.includes("salesStandingsOf(db, rows)") && shop.includes("standings ? withStandings(stocked, standings) : stocked") &&/tag: "Sold out", checkout_url: ""/.test(shop))
-    check("the creator page's cards", read("app/(marketing)/u/[username]/page.tsx").includes("salesSoldOut(standings.get(p.id)) ? { sold_out: true }"))
-    check("Explore and its category pages", read("app/(marketing)/explore/page.tsx").includes("salesSoldOut(standings.get(product.id))") && read("app/(marketing)/explore/[category]/page.tsx").includes("salesSoldOut(standings.get(product.id))"))
+    check("the creator page's cards", read("app/(storelib)/(marketing)/u/[username]/page.tsx").includes("salesSoldOut(standings.get(p.id)) ? { sold_out: true }"))
+    check("Explore and its category pages", read("app/(storelib)/(marketing)/explore/page.tsx").includes("salesSoldOut(standings.get(product.id))") && read("app/(storelib)/(marketing)/explore/[category]/page.tsx").includes("salesSoldOut(standings.get(product.id))"))
     check("the card says Sold out", read("components/explore/product-card.tsx").includes("{product.sold_out && (") && read("components/storefront/storefront-product-card.tsx").includes("sold_out: product.sold_out ?? null"))
     check("what the shop's client code imports carries no server only module", !read("lib/products/sales-standings.ts").includes("server-only") && !read("lib/website-builder/shop-products.ts").includes("checkout/sales-limit") && !read("lib/checkout/pricing.ts").includes('from "./sales-limit"'))
   }

@@ -337,13 +337,13 @@ async function main() {
 
   console.log("\nThe page")
   {
-    const client = read("app/checkout/checkout-client.tsx")
+    const client = read("app/(storelib)/checkout/checkout-client.tsx")
     /* Changed on purpose: the box is the store's choice now (Settings › Checkout › Company invoices, off by default), so it is sent only while ticked on a checkout that offers it. */
     check("the company is sent only while the box is ticked, on a checkout that offers it", /business: businessOn && checkoutConfig\.businessInvoice \? business : null/.test(client))
     check("  and a free order sends none", /delete body\.business/.test(client))
     check("the server checks it with the same rules", /checkBusiness\(body\.business\)/.test(read("app/api/checkout/stripe-session/route.ts")))
     check("the checkout's history entry is not scrolled back part way down", /history\.scrollRestoration = "manual"/.test(client) && /window\.scrollTo\(0, 0\)/.test(client) && /history\.scrollRestoration = "auto"/.test(client))
-    const fields = read("app/checkout/parts/business-fields.tsx")
+    const fields = read("app/(storelib)/checkout/parts/business-fields.tsx")
     /* Asked for since: ticking it opens the fields and nothing more. Focusing Company name raised a phone's keyboard and scrolled the page mid-opening. */
     check("ticking the box opens the fields and takes no focus", /const toggle = \(next: boolean\) => onToggle\(next\)/.test(fields) && !/\.focus\(/.test(fields) && !/flushSync/.test(fields))
     check("every box has a placeholder", (fields.match(/placeholder=\{/g) ?? []).length === 7 && /Select a country/.test(fields))

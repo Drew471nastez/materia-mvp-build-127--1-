@@ -75,7 +75,7 @@ console.log("\nThe directory\n")
 
 console.log("\nHow it works\n")
 {
-  const page = read("app/app/integrations/integrations-client.tsx")
+  const page = read("app/(storelib)/app/integrations/integrations-client.tsx")
   /* Changed on purpose (round K4, Andrew: remove "Storelib apps and the services you already use."): with the line under the title gone, How it works sits in the bar at every width. */
   check("in the page's bar, across from the title, at every width", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>\s*<h1[^>]*>[^<]*<\/h1>\s*<HowItWorks id="integrations" className="-mr-2" \/>/.test(page))
   check("no line under the title", !/Storelib apps and the services you already use/.test(page) && !/data-integrations-lede/.test(page))

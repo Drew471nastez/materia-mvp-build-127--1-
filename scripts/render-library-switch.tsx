@@ -1,6 +1,6 @@
 /**
- * The library inside the profile, as app/account/layout.tsx and
- * app/account/library/layout.tsx draw it, for scripts/check-library-switch.mjs:
+ * The library inside the profile, as app/(storelib)/account/layout.tsx and
+ * app/(storelib)/account/library/layout.tsx draw it, for scripts/check-library-switch.mjs:
  * the account's wrapper (components/account/account-nav-fade.tsx) and column,
  * then the library's stage (components/library/library-panel.tsx) with its
  * head (components/library/library-tabs.tsx) over the real screens filled

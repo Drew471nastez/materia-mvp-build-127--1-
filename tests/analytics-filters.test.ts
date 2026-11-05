@@ -106,12 +106,12 @@ async function main() {
     check("  and no comparison is said to both", none.get("compare") === "none" && new URLSearchParams(reportKey({ ...q, compare: null })).get("compare") === "none")
     check("the minute's refresh is the same question to the sales reports' memory", commerceQuestionOf(commerceKey(q)) === commerceQuestionOf(commerceKey({ ...q, end: q.end + 60_000, compare: { ...q.compare, end: q.compare.end + 60_000 } })))
 
-    const client = code("app/app/analytics/analytics-client.tsx")
+    const client = code("app/(storelib)/app/analytics/analytics-client.tsx")
     check("the page asks the chart with the comparison it shows", /useAnalyticsReports\(\{[\s\S]*?compare: against,[\s\S]*?product: selectedProduct,[\s\S]*?property: propertyKey,/.test(client))
     check("  the sales reports with the same period, comparison, zone, product and place", /<CommerceReports[\s\S]*?span=\{safeSpan\}[\s\S]*?compare=\{against\}[\s\S]*?timeZone=\{timeZone\}[\s\S]*?product=\{selectedProduct\}[\s\S]*?property=\{propertyKey\}/.test(client))
     check("  the communities with the same period, comparison and zone", /<CommunityReports[^>]*span=\{safeSpan\}[^>]*compare=\{against\}[^>]*timeZone=\{timeZone\}/.test(client))
     check("  always the period just before (no comparison control, on the owner's word), and nothing for All time", /const compare = PREVIOUS_PERIOD/.test(client) && /isAllTime \? null : compareBounds\(period, compare, timeZone, reportNow\(\)\)/.test(client) && !/ComparePicker/.test(client))
-    const cards = code("app/app/analytics/analytics-reports.tsx")
+    const cards = code("app/(storelib)/app/analytics/analytics-reports.tsx")
     check("the added reports are drawn from the chart's own answer, never asked for apart", /* Changed on purpose (round 41): it also takes the card's way into its report, onAll. */ /function AddedBody\(\{ id, r(, onAll)? \}: \{ id: ReportId; r: Reports(; onAll\?: \(\) => void)? \}\)/.test(cards) && !/fetch\(/.test(cards.slice(cards.indexOf("function AddedBody"), cards.indexOf("function AddedCards"))))
     const route = code("app/api/analytics/commerce/route.ts")
     check("the sales route reads the comparison's instants, the zone and no comparison", /searchParams\.get\("cstart"\)/.test(route) && /searchParams\.get\("tz"\)/.test(route) && /searchParams\.get\("compare"\) === "none"/.test(route))
@@ -135,7 +135,7 @@ async function main() {
     const viewRows: ViewRow[] = []
     const chart = buildReports({ wire: { cur: {}, prev: {} }, views: viewRows, orders: [], window: week, previous: null, timeZone: TZ, mainDomain: "storelib.com", productTitles: {} })
     check("a week: the sales chart has the main chart's very buckets and labels", seriesOf(rows, week, TZ).map((p) => bucketLabel(p.t, grainFor(week), TZ)).join() === chart.visitors.series.labels.join(), chart.visitors.series.labels)
-    const view = code("app/app/analytics/commerce-reports.tsx")
+    const view = code("app/(storelib)/app/analytics/commerce-reports.tsx")
     check("  its dates are written in the seller's zone, not UTC", /* the chart's own labels, each bucket in the seller's zone (round AC2: the shared hover reads them) */ /series\.map\(\(p\) => bucketLabel\(p\.t, grain, timeZone\)\)/.test(view) && !/timeZone: "UTC"/.test(view))
     check("  and with no comparison, no change and no dashed line", /function Delta\(\{ now, before, invert = false, compared \}[\s\S]*?if \(!compared\) return null/.test(view) && /previous=\{compared \? data\.previousSeries : \[\]\}/.test(view))
     check("a sale counts the same in both: the chart's revenue is the breakdown's total", breakdownOf(rows).total === 3500 && breakdownOf(rows).orders === 2)
@@ -174,7 +174,7 @@ async function main() {
     check("  every report can be added once, no more", normalizeReports([...REPORT_IDS, ...REPORT_IDS]).length === REPORT_IDS.length)
     check("moving: up, down, and nothing past an end", moveReport(["a", "b", "c"] as never, "c" as never, -1).join() === "a,c,b" && moveReport(["a", "b"] as never, "a" as never, -1).join() === "a,b")
     check("the picker's Save: kept ones stay where they were, new ones at the end", applyPicked(["clicks", "pageviews"], new Set(["pageviews", "clicks", "sessions"] as const)).join() === "clicks,pageviews,sessions" && applyPicked(["clicks", "pageviews"], new Set(["pageviews"] as const)).join() === "pageviews")
-    const page = code("app/app/analytics/page.tsx")
+    const page = code("app/(storelib)/app/analytics/page.tsx")
     /* Changed on purpose (round 48): one read round for the owner and a team member alike, by the store's owner account (the owner's own id for an owner). */
     check("the added reports are read on the server with the page, so they are on the first paint", /readReportLayout\(adminSupabase, ownerUserId\)/.test(page) && /const ownerUserId = access\.ownerUserId/.test(page) && /savedReports=\{savedReports\}/.test(page))
     check("  draft communities are no place, as draft websites are not", /\.in\("status", \["published", "archived"\]\)/.test(page))

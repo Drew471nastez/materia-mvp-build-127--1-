@@ -212,7 +212,7 @@ async function creatorPages() {
     check("a name nobody has passes the gate untouched (the page's own 404)", (await thrown(() => ensureStorefrontOrRedirectToMember("juliet"))) === null)
   }
 
-  const page = read("app/(marketing)/u/[username]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("the creator page's own profile and creator reads are the strict ones", /const profile = await loadProfileByUsernameStrict\(username\)/.test(page) && /const creator = await loadCreatorForUserStrict\(profile\.id\)/.test(page))
   check("  and a failed username-history read is not a 404", /if \(historyError\) throw new SiteReadError/.test(page))
 }
@@ -256,7 +256,7 @@ async function onePages() {
     const took = Date.now() - started
     check("a lookup that hangs ends within its budget and throws", isSiteReadError(e) && took < 9000, [String(e), took])
   }
-  const routes = ["app/(marketing)/[sellername]/links/share.png/route.tsx", "app/(marketing)/[sellername]/links/photo.jpg/route.ts"].map(read)
+  const routes = ["app/(storelib)/(marketing)/[sellername]/links/share.png/route.tsx", "app/(storelib)/(marketing)/[sellername]/links/photo.jpg/route.ts"].map(read)
   check("the share image and photo answer 503 for a failed lookup, not a held 404", routes.every((r) => /findPublishedOnePage\(slug\)\.catch\(\(\) => undefined\)/.test(r) && /status: 503/.test(r)))
 }
 
@@ -587,7 +587,7 @@ async function literalNames() {
   await publicProfileByName(client as never, "a_b")
   await publicProfileByNameStrict(client as never, "50%")
   check("the any-case read sends the name escaped (a\\_b, 50\\%), so /a_b is never axb and /% never anybody", JSON.stringify(patterns) === JSON.stringify(["a\\_b", "50\\%"]), patterns)
-  check("  and a renamed name's history is read literally too", /\.ilike\("old_username", exactIlike\(username\)\)/.test(read("app/(marketing)/u/[username]/page.tsx")))
+  check("  and a renamed name's history is read literally too", /\.ilike\("old_username", exactIlike\(username\)\)/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")))
 }
 
 async function run() {

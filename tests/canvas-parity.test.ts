@@ -28,7 +28,7 @@ check("the section under the header does not fade in on load; the ones after it 
   !/\{animation:storelibSectionIn/.test(css) && /\[data-reveal="pending"\]\{opacity:0;\}/.test(css) &&
     revealPlan([{ type: "header", chrome: true }, { type: "hero", chrome: false }, { type: "text", chrome: false }], { animations_enabled: true }).join(",") === ",,fade_up")
 
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 check("the canvas puts no box of its own around a section, so the section gap applies as it does live",
   /wrapperId=\{`wb-section-\$\{section\.id\}`\}\s*boxClassName=/.test(editor) && !/<div\s*key=\{section\.id\}\s*id=\{`wb-section-\$\{section\.id\}`\}\s*className=\{section\.id === arrivedId/.test(editor))
 check("and names the page's template the way the live site does", /pageTemplate=\{templateForPage\(currentPage\)\}/.test(editor))

@@ -223,7 +223,7 @@ async function main() {
     check("  said in French", tierNameIn("Buy 2 get 1 free", sayFr) === "2 achetés, 1 offert" && tierNameIn("Buy 3, save 15%", sayFr) === "3 achetés, -15 %")
     check("  an amount saved as dollars in a lei store reads in lei when the tier is known", tierNameIn("Buy 2, save $5.00", sayFr, { discountType: "amount", discountValue: 500 }, (m) => `${(m / 100).toFixed(2)} lei`) === "2 achetés, -5.00 lei")
     check("the patterns are Shop words and checkout sentences", (UI_WORDS as Record<string, string>).offer_tier_free === TIER_WORDS.free && Object.values(TIER_WORDS).every((t) => (CHECKOUT_SENTENCES as readonly string[]).includes(t)))
-    check("the product block, the cart rows and the website checkout's rows say them so", /name=\{\(t\) => tierNameIn\(t\.label/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")) && /tierNameIn\(o\.title/.test(read("components/offers/cart-offers.tsx")) && /\{offerTitle\(o\.title\)\}/.test(read("app/checkout/site/site-checkout.tsx")))
+    check("the product block, the cart rows and the website checkout's rows say them so", /name=\{\(t\) => tierNameIn\(t\.label/.test(read("components/website-builder/sections/renderers/product/offers-block.tsx")) && /tierNameIn\(o\.title/.test(read("components/offers/cart-offers.tsx")) && /\{offerTitle\(o\.title\)\}/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
   }
 
   console.log("\nIMPORTED THEMES: the Bundles and upsells app block, on a main product and a Featured product")

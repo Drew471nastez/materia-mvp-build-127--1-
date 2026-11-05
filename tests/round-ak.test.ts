@@ -104,7 +104,7 @@ async function main() {
     check("opening asks nothing heavy of the entrance", /startTransition\(\(\) => setBuilt\(true\)\)/.test(lib) && /OPEN_SETTLE_MS/.test(lib))
     const scheme = code("components/website-builder/editor/controls/color-scheme-control.tsx")
     check("the closed scheme field is a plain selector, Edit only in the open list", /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0/.test(scheme) && /onEdit\(s\.id\)/.test(scheme) && !/absolute right-1\.5 top-1\/2/.test(scheme))
-    check("going into a section on a computer reads as going in", /className="h-full wb-desk-panel"/.test(code("app/website-builder/editor/[installId]/page.tsx")) && /@keyframes wb-desk-in/.test(src("app/globals.css")))
+    check("going into a section on a computer reads as going in", /className="h-full wb-desk-panel"/.test(code("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /@keyframes wb-desk-in/.test(src("app/globals.css")))
     const rail = code("components/website-builder/editor/slim-scroll-rail.tsx")
     check("the sidebar's bar stays while the pointer is in it and glides out after", /let inside = false/.test(rail) && /fadeLater\(OUT_MS\)/.test(rail) && /* Round Z1: 7px, one width at rest and under the pointer (the owner: "too slim"). */ /export const THUMB_PX = 7/.test(rail) && /width: THUMB_PX/.test(rail))
   }

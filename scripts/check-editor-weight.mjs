@@ -19,8 +19,8 @@ import { join } from "node:path"
 const root = process.cwd()
 const top = Number(process.argv[2] ?? 14)
 const stubs = mkdtempSync(join(tmpdir(), "storelib-editor-weight-"))
-writeFileSync(join(stubs, "entry.tsx"), `export { ProductEditor } from "@/app/app/products/new/product-editor"\n`)
-writeFileSync(join(stubs, "list.tsx"), `export { ProductsClient } from "@/app/app/products/products-client"\n`)
+writeFileSync(join(stubs, "entry.tsx"), `export { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"\n`)
+writeFileSync(join(stubs, "list.tsx"), `export { ProductsClient } from "@/app/(storelib)/app/products/products-client"\n`)
 
 const { build } = await import("esbuild")
 const external = ["react", "react-dom", "react/jsx-runtime", "next/navigation", "next/link", "next/image", "server-only"]

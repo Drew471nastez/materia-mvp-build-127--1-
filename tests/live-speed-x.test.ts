@@ -237,7 +237,7 @@ function prerender() {
   check("added once, just before the body ends", /<script data-storelib-prerender>[\s\S]*<\/script><\/body><\/html>$/.test(withDesktopPrerender(page("", "<p>x</p>"))))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   const block = route.slice(route.indexOf("if (openedAsDocument(req.headers)) {"), route.indexOf("const body = html ??"))
-  check("the live route defers scripts and adds prerender only on a page opened as a document", /calmerScripts\(html\)/.test(block) && /if \(!runsThirdPartyScripts\(html\)\) html = withDesktopPrerender\(html\)/.test(block), block.slice(0, 300))
+  check("the live route defers scripts and adds prerender only on a page opened as a document", /calmerScripts\(html\)/.test(block) && /const ownScriptsOnly = !runsThirdPartyScripts\(html\)\n\s+if \(ownScriptsOnly\) html = withDesktopPrerender\(html\)/.test(block) /* Changed on purpose (r52): the same answer also tells the phone's starter (tests/site-root-r52.test.ts). */, block.slice(0, 300))
   check("after the store's analytics and pixels are on the page, so they count", route.indexOf("compatPageTags(") < route.indexOf("runsThirdPartyScripts(html)"))
   check("Storelib's page view waits until a prerendered page is shown", /d\.prerendering/.test(read("lib/storelib-theme/compat/track-script.ts")))
   check("its speed measurements too: a prerendered page is not a hidden one, and one never shown sends nothing", /hid=D\.visibilityState==="hidden"&&!D\.prerendering\?0:1\/0/.test(SITE_VITALS_JS) && /function send\(\)\{if\(D\.prerendering\)return;/.test(SITE_VITALS_JS))
@@ -294,7 +294,7 @@ function fonts() {
   check("a theme set to Inter asks Google for nothing", fontStylesheetHref({ font_heading: "Inter", font_body: "Inter" }) === null)
   check("one with Lora and Inter asks for Lora alone", fontStylesheetHref({ font_heading: "Lora", font_body: "Inter" }) === "https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap")
   check("a section that picks Inter adds nothing either", fontStylesheetHref({}, ["Inter"]) === null)
-  const layout = code("app/layout.tsx")
+  const layout = code("app/(storelib)/layout.tsx")
   check("because the app's own Inter is on every page: next/font, preloaded, swap", /const inter = Inter\(\{[^}]*subsets: \["latin"\][^}]*display: "swap"[^}]*preload: true/.test(layout) && SELF_HOSTED_FAMILIES.has("Inter"))
   check("every other offered family is still loaded from Google with swap", (fontStylesheetHref({ font_body: "Playfair Display" }) ?? "").endsWith("&display=swap"))
 }

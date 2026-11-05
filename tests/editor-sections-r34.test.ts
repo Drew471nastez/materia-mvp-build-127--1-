@@ -143,7 +143,7 @@ console.log("\nUNDO: one step per thing edited, and a step of its own ends the r
 
 console.log("\nWIRED: the editor's saves")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const save = editor.slice(editor.indexOf("const saveDraft = async"), editor.indexOf("const publishChanges = async"))
   const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))
   check("every edit is counted", /const setIsDirty = useCallback\(\(dirty: boolean\) => \{\s*if \(dirty\) editRev\.current\+\+/.test(editor))
@@ -163,7 +163,7 @@ console.log("\nWIRED: the editor's saves")
 
 console.log("\nWIRED: undo by reference, keyed by what is edited")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("a step holds the page itself, not a JSON copy", /sections: sectionsRef\.current,\s*\n\s*settings: settingsRef\.current,/.test(editor) && !/JSON\.parse\(JSON\.stringify\(sectionsRef\.current\)\)/.test(editor))
   check("a step of its own cuts the run", /const pushUndo = useCallback\(\(\) => \{[\s\S]{0,500}cutUndoRun\.current\(\)/.test(editor) && /cutUndoRun\.current = undoRun\.cut/.test(editor))
   check("theme, section and block settings name what they edit", /debouncedPushUndo\(`theme:\$\{key\}`\)/.test(editor) && /debouncedPushUndo\(`section:\$\{sectionId\}:\$\{key\}`\)/.test(editor) && (editor.match(/debouncedPushUndo\(`block:\$\{sectionId\}:\$\{blockKey\}:\$\{key\}`\)/g) ?? []).length === 2)
@@ -172,7 +172,7 @@ console.log("\nWIRED: undo by reference, keyed by what is edited")
 console.log("\nSTABLE: what draws again when one section changes")
 {
   const list = read("components/website-builder/editor/sections-list.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const reorder = read("components/website-builder/editor/controls/use-reorder.ts")
   check("a sidebar row is memoised on what it shows", /const ListRow = React\.memo\(/.test(list) && /a\.section === b\.section &&\s*\n\s*a\.displayName === b\.displayName &&\s*\n\s*a\.isSelected === b\.isSelected/.test(list) && /a\.index === b\.index/.test(list))
   check("with handlers made once, reading the latest props", /const handlers = React\.useMemo<RowHandlers>\(/.test(list) && /select: \(id\) => latest\.current\.onSelect\(id\)/.test(list) && /\n\s*\[\],\n\s*\)/.test(list))

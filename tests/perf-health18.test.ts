@@ -9,7 +9,7 @@
  *   components/perf/perf-beacon.tsx the dice, before anything loads
  *   lib/perf/server-timing.ts      the API timing wrapper
  *   supabase/sql/run-now/126_perf_health.sql  storage, cap, retention
- *   app/admin/performance/**, app/api/perf/admin  the page, admin only
+ *   app/(storelib)/admin/performance/**, app/api/perf/admin  the page, admin only
  *
  * The rule through all of it: a number on the page is measured, and a
  * number that is not there says "insufficient data".
@@ -19,7 +19,7 @@ import { readFileSync } from "node:fs"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
-import { PerformanceAdmin } from "@/app/admin/performance/performance-admin"
+import { PerformanceAdmin } from "@/app/(storelib)/admin/performance/performance-admin"
 import { CLIENT_SAMPLE_RATE, DAILY_CAP, FULL_VIEWS_PER_PAGE_LOAD, MAX_BATCH, MAX_ERRORS_PER_PAGE, MAX_ITEMS_PER_PAGE_LOAD, MIN_RATE_BASE, MIN_SAMPLES, RAW_RETENTION_DAYS, ROLLUP_RETENTION_DAYS, SERVER_ROUTE_PER_MINUTE, SERVER_SAMPLE_RATE } from "@/lib/perf/config"
 import { allowedBeacon, type HitStore } from "@/lib/perf/limit"
 import { OPTIMIZATIONS, type Optimization } from "@/lib/perf/optimizations"
@@ -214,7 +214,7 @@ async function main() {
     check("no cookie, no storage, no address sent", !/document\.cookie|localStorage|sessionStorage|location\.href|location\.search/.test(client))
     check("nothing runs per frame", !/setInterval/.test(client) && (client.match(/requestAnimationFrame/g) ?? []).length === 2)
     check("never in a frame or a scripted browser", /window\.self !== window\.top/.test(client) && /navigator\.webdriver/.test(client))
-    const layout = read("app/layout.tsx")
+    const layout = read("app/(storelib)/layout.tsx")
     check("mounted once, in the root layout", /<PerfBeacon \/>/.test(layout))
 
     const realRandom = Math.random
@@ -308,20 +308,20 @@ async function main() {
     check("one figure does not make an index", full.includes("data-health-score-empty"))
 
     check("the window is 24h, 7d or 30d, nothing else", windowOf("24h") === "24h" && windowOf("30d") === "30d" && windowOf("x") === "7d" && windowOf(null) === "7d")
-    const page = read("app/admin/performance/page.tsx")
+    const page = read("app/(storelib)/admin/performance/page.tsx")
     check("the page checks the admin cookie before it reads anything", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>[\s\S]*readPerfReport\(/.test(page))
     const api = read("app/api/perf/admin/route.ts")
     check("the refresh route asks for the admin first", /const denied = await requireAdmin\(\)\s*if \(denied\) return denied[\s\S]*readPerfReport\(/.test(api))
     check("the readers are server only", /^import "server-only"/.test(read("lib/perf/read.ts")) && /^import "server-only"/.test(read("lib/perf/daily.ts")) && /^import "server-only"/.test(read("lib/perf/infra.ts")))
     const beacon = read("app/api/perf/beacon/route.ts")
     check("the public beacon answers 204 and nothing else", !/NextResponse\.json/.test(beacon) && /status: 204/.test(beacon))
-    check("the client page imports no server code", !/lib\/perf\/(read|daily|infra|server-timing)"|next\/headers|server-only/.test(read("app/admin/performance/performance-admin.tsx")))
-    check("the console's nav has it, under System", /\{ id: "system", label: "Health" \},\n\s*\{ href: "\/admin\/performance", label: "Performance" \}/.test(read("app/admin/_console/shell.tsx")))
+    check("the client page imports no server code", !/lib\/perf\/(read|daily|infra|server-timing)"|next\/headers|server-only/.test(read("app/(storelib)/admin/performance/performance-admin.tsx")))
+    check("the console's nav has it, under System", /\{ id: "system", label: "Health" \},\n\s*\{ href: "\/admin\/performance", label: "Performance" \}/.test(read("app/(storelib)/admin/_console/shell.tsx")))
   }
 
   console.log("\nCopy")
   {
-    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "lib/perf/mark.ts", "lib/perf/site-vitals-inline.ts", "components/perf/perf-beacon.tsx", "app/admin/performance/page.tsx", "app/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/public/m/route.ts", "app/api/public/sv/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql", "supabase/sql/run-now/133_perf_collect_everywhere.sql"]
+    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "lib/perf/mark.ts", "lib/perf/site-vitals-inline.ts", "components/perf/perf-beacon.tsx", "app/(storelib)/admin/performance/page.tsx", "app/(storelib)/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/public/m/route.ts", "app/api/public/sv/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql", "supabase/sql/run-now/133_perf_collect_everywhere.sql"]
     const bad = files.filter((f) => /—|\b(unlock|elevate|seamless|powerful|effortless|effortlessly|supercharge|transform)/i.test(read(f)))
     check("no em dashes and none of the banned words", bad.length === 0, bad.join(", "))
   }

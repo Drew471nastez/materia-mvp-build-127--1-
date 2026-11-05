@@ -25,7 +25,7 @@ function MiniCartLine({ title, src }: { title: string; src: string | null }) {
   )
 }
 
-/* Checkout's line (app/checkout/site/site-checkout.tsx LineImage): 48px, white, hairline. */
+/* Checkout's line (app/(storelib)/checkout/site/site-checkout.tsx LineImage): 48px, white, hairline. */
 function CheckoutLine({ title, src }: { title: string; src: string | null }) {
   return (
     <div className="flex items-start gap-3.5 py-2" data-row="checkout">

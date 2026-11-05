@@ -478,8 +478,8 @@ async function main() {
     check("the OnePage host lets the marker route through, and only a GET", /\{ path: \/\^\\\/api\\\/analytics\\\/own\\\/\?\$\/, methods: \["GET"\] \}/.test(read("lib/onepage/host-route.ts")))
 
     const wired: Array<[string, string]> = [
-      /* Round AC3: through liveSiteLink, so the phone app opens the phone's browser. */ ["app/app/website-builder/website-builder-client.tsx", "liveSiteLink(ownOpen(siteUrl))"],
-      ["app/website-builder/editor/[installId]/page.tsx", "liveSiteLink(ownOpen(websiteUrl))"],
+      /* Round AC3: through liveSiteLink, so the phone app opens the phone's browser. */ ["app/(storelib)/app/website-builder/website-builder-client.tsx", "liveSiteLink(ownOpen(siteUrl))"],
+      ["app/(storelib)/website-builder/editor/[installId]/page.tsx", "liveSiteLink(ownOpen(websiteUrl))"],
       ["components/website-builder/publish-panel.tsx", "liveSiteLink(ownOpen(websiteUrl))"],
       ["components/store-builder/editor-topbar.tsx", "openExternal(ownOpen(getLiveStoreUrl()))"],
       ["components/onepage/onepage-editor.tsx", "openExternal(ownOpen(pageUrl))"],
@@ -491,7 +491,7 @@ async function main() {
       wired.filter(([f]) => !f.includes("publish-panel")).every(([f]) => /useOwnMarker\(\)/.test(read(f))))
     check("what is copied stays the plain address",
       /navigator\.clipboard\.writeText\(pageUrl\)/.test(read("components/onepage/onepage-editor.tsx"))
-        && /await navigator\.clipboard\.writeText\(url\)/.test(read("app/app/website-builder/website-builder-client.tsx")))
+        && /await navigator\.clipboard\.writeText\(url\)/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx")))
   }
 
   console.log("\nForged or foreign: dropped")
@@ -578,7 +578,7 @@ async function main() {
         route.indexOf("await recordLinkClick(request, body)") < route.indexOf('await supabase.from("onepage_clicks").insert(') &&
         /legacyClickAllowed\(outcome\)/.test(route))
     check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, seller_id, creator_id, owner_id"\)\.eq\("id", body\.onepage_id\)/.test(route))
-    const onePageRoute = read("app/(marketing)/l/[slug]/page.tsx")
+    const onePageRoute = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
     /* Changed on purpose (rel-public): the render no longer writes onepage_views. That table is read only before a
        OnePage's first view event (the check below), and the tracker records that event for every visit. */
     check("the OnePage's render writes no view row of its own",

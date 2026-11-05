@@ -105,7 +105,7 @@ async function verifyLinksCarryNoAddress() {
     .filter((f) => /signup\/verify\?[^`"'\n]*email=/.test(read(f)))
   check("no redirect or link outside lib/auth puts email= on /signup/verify", writers.length === 0, writers)
 
-  const page = read("app/(auth)/signup/verify/page.tsx")
+  const page = read("app/(storelib)/(auth)/signup/verify/page.tsx")
   check("the page asks for a code by account id only (the server mails the account's own address)",
     (page.match(/JSON\.stringify\(\{ userId \}\)/g) ?? []).length === 2 && !/JSON\.stringify\(\{ userId, email \}\)/.test(page))
   check("  opens without an address in its URL (only the account id is required)", /if \(!userId\) \{/.test(page) && !/!userId \|\| !email/.test(page))
@@ -114,7 +114,7 @@ async function verifyLinksCarryNoAddress() {
   check("  shows the session's address only when the session is this account", /user\?\.id === userId && user\.email/.test(page))
   check("  logs nothing about it", !/console\.(log|warn|error|info)\([^)]*email/.test(page))
   check("signup and login remember the typed address before opening the page",
-    /rememberVerifyAddress\(data\.user\.id, trimmedEmail\)/.test(read("app/(auth)/signup/page.tsx")) && /rememberVerifyAddress\(userData\.id, trimmedEmail\)/.test(read("app/(auth)/login/page.tsx")))
+    /rememberVerifyAddress\(data\.user\.id, trimmedEmail\)/.test(read("app/(storelib)/(auth)/signup/page.tsx")) && /rememberVerifyAddress\(userData\.id, trimmedEmail\)/.test(read("app/(storelib)/(auth)/login/page.tsx")))
 }
 
 /* ── SHOP-EMPTY ─────────────────────────────────────────────────────────── */

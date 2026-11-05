@@ -1,12 +1,12 @@
 /**
- * The checkout page (app/checkout/checkout-client.tsx) for scripts/check-checkout-page.mjs:
+ * The checkout page (app/(storelib)/checkout/checkout-client.tsx) for scripts/check-checkout-page.mjs:
  * the real component with a fixture product and creator, Next's router and
  * links stood in for. Served by the probe at a storelib.com address so the
  * live Stripe.js draws its real fields into it.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 
 createRoot(document.getElementById("app")!).render(

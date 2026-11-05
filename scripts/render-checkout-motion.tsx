@@ -1,5 +1,5 @@
 /**
- * The checkout (app/checkout/checkout-client.tsx) between two pages, for
+ * The checkout (app/(storelib)/checkout/checkout-client.tsx) between two pages, for
  * scripts/check-checkout-motion.mjs: the real component with a fixture
  * product, and around it a stand-in for Next's router that really changes
  * the page. Its replace() and the browser's Back draw the page behind (a
@@ -17,8 +17,8 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
-import { CheckoutSkeleton } from "@/app/checkout/checkout-skeleton"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
+import { CheckoutSkeleton } from "@/app/(storelib)/checkout/checkout-skeleton"
 import { noteClientNavigation, notePopNavigation } from "@/lib/navigation/in-app-history"
 
 const q = new URLSearchParams(location.search)

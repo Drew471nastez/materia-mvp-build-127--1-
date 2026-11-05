@@ -66,7 +66,7 @@ async function main() {
   const variantId = j.rows("product_variants").find((v) => v.product_id === mug.id)?.id as string
   check("the mug saves with one option and stock", save.status === 200 && !!variantId, save.json)
 
-  /* What the product editor's Personalization card saves (app/app/products/new/personalization-card.tsx through storedPersonalization). */
+  /* What the product editor's Personalization card saves (app/(storelib)/app/products/new/personalization-card.tsx through storedPersonalization). */
   const P = await import("@/lib/products/personalization")
   const fields = P.storedPersonalization([
     { ...P.blankField("text"), label: "Name to engrave", required: true, maxLength: 12, placeholder: "Up to 12 letters" },

@@ -180,7 +180,7 @@ async function main() {
       ["app/api/stripe/webhook/route.ts", /logEvent\("info", "stripe_payment_failed"/],
       ["app/api/stripe/webhook/route.ts", /logEvent\("warn", "stripe_invoice_payment_failed"/],
       ["lib/api/rate-limit.ts", /logEvent\("warn", "rate_limit_count_failed"/],
-      ["app/(marketing)/explore/page.tsx", /logEvent\("warn", "explore_creators_embed_refused"/],
+      ["app/(storelib)/(marketing)/explore/page.tsx", /logEvent\("warn", "explore_creators_embed_refused"/],
       ["lib/physical/unconfirmed-delivery-server.ts", /logEvent\("error", "physical_unconfirmed_unread", \{[^\n]*reason:/],
       ["lib/markets/auto-translate.ts", /logEvent\("error", "auto_translate_list_failed", \{[^\n]*reason:/],
       ["app/api/cron/process-scheduled-emails/route.ts", /logEvent\("info", "cron_scheduled_emails_done"/],

@@ -47,11 +47,11 @@ check("the page unknown: the visitor's own choice on the website", pickCheckoutL
 
 console.log("\nEvery surface asks the one rule\n")
 const pages = {
-  receipt: read("app/receipt/[token]/page.tsx"),
-  order: read("app/checkout/physical/order/[token]/page.tsx"),
-  help: read("app/order-help/[id]/page.tsx"),
-  thanks: read("app/checkout/site/thanks/[token]/page.tsx"),
-  review: read("app/review/[token]/page.tsx"),
+  receipt: read("app/(storelib)/receipt/[token]/page.tsx"),
+  order: read("app/(storelib)/checkout/physical/order/[token]/page.tsx"),
+  help: read("app/(storelib)/order-help/[id]/page.tsx"),
+  thanks: read("app/(storelib)/checkout/site/thanks/[token]/page.tsx"),
+  review: read("app/(storelib)/review/[token]/page.tsx"),
 }
 for (const [name, src] of Object.entries(pages)) {
   check(`${name}: reads buyerPageLanguage`, /buyerPageLanguage\(/.test(src))

@@ -108,7 +108,8 @@ async function main() {
     check("a file, two slashes, a dot segment, an encoded oddity, a relative path refused", ["/blog/feed.xml", "//evil.com", "/blog//x", "/blog/../admin", "/blog/%3Cscript%3E", "pricing", "", " "].every((p) => aiVisitPath(p) === null))
     check("not a string is nothing", aiVisitPath(42) === null && aiVisitPath(null) === null && aiVisitPath({ path: "/" }) === null)
     check("at most 200 characters", aiVisitPath(`/blog/${"a".repeat(194)}`)?.length === 200 && aiVisitPath(`/blog/${"a".repeat(195)}`) === null)
-    const appDirs = [...readdirSync(join(process.cwd(), "app")), ...readdirSync(join(process.cwd(), "app/(marketing)")), ...readdirSync(join(process.cwd(), "app/(auth)"))]
+    /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+    const appDirs = [...readdirSync(join(process.cwd(), "app/(storelib)")), ...readdirSync(join(process.cwd(), "app/(storelib)/(marketing)")), ...readdirSync(join(process.cwd(), "app/(storelib)/(auth)"))]
     const missing = MARKETING_SECTIONS.filter((s) => s && !appDirs.includes(s))
     check("every counted section is a real route under app/", missing.length === 0, missing)
   }
@@ -310,7 +311,7 @@ async function main() {
 
     const view = code("lib/admin/views/platform.ts")
     check("read from platform_ai_visits for the same 30 days, quiet when the table is missing", /from\("platform_ai_visits"\)/.test(view) && /\.gte\("day", since\.slice\(0, 10\)\)/.test(view) && /if \(missingTable\(error\)\) return null/.test(view))
-    const panel = read("app/admin/_console/view-platform.tsx")
+    const panel = read("app/(storelib)/admin/_console/view-platform.tsx")
     check("the panel names where the numbers come from", AI_VISITS_LABEL === "Counted by Storelib, visitors who accepted analytics, where the assistant is known." && /\{AI_VISITS_LABEL\}/.test(panel))
     check("  says what to run before part 350", /Run SQL part 350 to count visits to storelib\.com\./.test(panel))
     check("  storelib.com visits, then sign ups, then paid", /storelib\.com visits, then `/.test(panel) && /Storelib sign ups, then \{num\(ai\.paidPlan\)\} on a paid plan/.test(panel))
@@ -321,7 +322,7 @@ async function main() {
   /* ── Copy ──────────────────────────────────────────────────────────── */
   console.log("\nThe words\n")
   {
-    const files = ["app/admin/_console/view-platform.tsx", "lib/attribution/ai-visits.ts", "lib/attribution/ai-visit-browser.ts", "app/api/track/ai-visit/route.ts", "components/attribution/capture-platform-touch.tsx", "supabase/sql/run-now/350_platform_ai_visits.sql"]
+    const files = ["app/(storelib)/admin/_console/view-platform.tsx", "lib/attribution/ai-visits.ts", "lib/attribution/ai-visit-browser.ts", "app/api/track/ai-visit/route.ts", "components/attribution/capture-platform-touch.tsx", "supabase/sql/run-now/350_platform_ai_visits.sql"]
     const text = files.map(read).join("\n")
     check("no em dash", !text.includes("—"))
     check("none of the banned words", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income)\b/i.test(text))

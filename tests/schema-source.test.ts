@@ -64,7 +64,7 @@ console.log("\nThe database's own record of what ran")
   check("the record is the server's and the editor's only", read(`${RN}/67_applied_parts.sql`).includes("REVOKE ALL ON public.storelib_applied_parts FROM anon, authenticated;"))
   const system = read("lib/admin/views/system.ts")
   check("the admin compares the record with the parts", system.includes('"storelib_applied_parts"') && system.includes("row.sha256 === p.sha256 ? \"applied\" : \"changed\""))
-  check("  and says so on the Health view", read("app/admin/_console/view-platform.tsx").includes("<SqlPartsPanel parts={data.sqlParts} />"))
+  check("  and says so on the Health view", read("app/(storelib)/admin/_console/view-platform.tsx").includes("<SqlPartsPanel parts={data.sqlParts} />"))
 }
 
 console.log("\nA new column on creators or profiles is decided, not left open")

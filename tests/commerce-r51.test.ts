@@ -28,13 +28,13 @@ import { readCode } from "./_source"
 import { formatMessage } from "@/lib/i18n/text"
 import { DEFAULT_CHECKOUT, checkoutConfig, mergeCheckout } from "@/lib/store/checkout-config"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
-import { ShopBar } from "@/app/checkout/parts/shop-bar"
+import { ShopBar } from "@/app/(storelib)/checkout/parts/shop-bar"
 import { MODEL_METHOD, storeFulfilment } from "@/lib/physical/fulfilment-default"
 import { followNewDefault } from "@/lib/physical/fulfilment-default-server"
 import { packingSlipHtml, slipContact, slipLines, type SlipOrder } from "@/lib/physical/packing-slip"
 import { renderPackingSlipPdf } from "@/lib/physical/packing-slip-pdf"
 import { paidWithOf } from "@/lib/physical/orders-server"
-import { paidWithText } from "@/app/checkout/physical/order/[token]/order-status-view"
+import { paidWithText } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
 import { trackingTags } from "@/lib/store/tracking"
 
 let passed = 0
@@ -97,7 +97,7 @@ async function main() {
   check("  a brand with no choice on it: both", /data-shows="both"/.test(old) && /data-shop-name/.test(old))
   const panel = readCode("components/app/settings/checkout-panel.tsx")
   check("Settings › Checkout › Top of checkout saves it as the other checkout settings are", /data-brand-shows-setting/.test(panel) && /change\(\{ brandShows: v \}\)/.test(panel) && /options=\{BRAND_OPTIONS\}/.test(panel))
-  check("every website checkout draws its bar from the server's brand (one ShopBar)", ["app/checkout/site/site-checkout.tsx", "app/checkout/physical/physical-checkout.tsx", "app/checkout/physical/page.tsx"].every((f) => /<ShopBar brand=\{/.test(readCode(f))))
+  check("every website checkout draws its bar from the server's brand (one ShopBar)", ["app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/physical/physical-checkout.tsx", "app/(storelib)/checkout/physical/page.tsx"].every((f) => /<ShopBar brand=\{/.test(readCode(f))))
 
   section("2. Fulfilment: own warehouse, a mix")
   const locs = [
@@ -153,7 +153,7 @@ async function main() {
   check("one slip reads the store's whole identity (its email and website, not the logo alone)", /storeIdentity\(c\.db, c\.creatorId\)\.catch/.test(one) && (one.match(/contact: slipContact\(store\)/g) ?? []).length === 2)
   check("  the pile of slips has the same details and the return address", /storeIdentity\(c\.db, c\.creatorId\)\.catch/.test(pile) && /returnAddressOf\(c\.db, c\.creatorId\)/.test(pile) && /returnAddress, contact: slipContact\(store\)/.test(pile))
   const panelCode = readCode("components/physical/order-panel.tsx")
-  const bulk = readCode("app/app/orders/bulk-actions.tsx")
+  const bulk = readCode("app/(storelib)/app/orders/bulk-actions.tsx")
   const share = readCode("components/physical/slip-share.tsx")
   check("on a computer the icon shows the phone's notice: ring while made, check once in, gone after the print", /const progress = printProgress\(\)/.test(panelCode) && /progress\.made\(\)/.test(panelCode) && /progress\.done\(\)/.test(panelCode) && /export function printProgress/.test(share))
   check("  and the list's Packing slips too", /printProgress\(slipsWords\(\)\)/.test(bulk) && /progress\.made\(\)/.test(bulk))
@@ -163,8 +163,8 @@ async function main() {
   section("4. Receipts: what it was paid with")
   check("Visa ending 4242, PayPal, Link, as the download receipt says it", paidWithText({ method: "card", brand: "visa", last4: "4242" }, tt) === "Visa ending 4242" && paidWithText({ method: "paypal", brand: null, last4: null }, tt) === "PayPal" && paidWithText({ method: "card", brand: "amex", last4: "0005" }, tt) === "American Express ending 0005" && paidWithText(null, tt) === null)
   check("  read from the order's lines, a bad last four dropped", JSON.stringify(paidWithOf([{ payment_method: null }, { payment_method: "card", card_brand: "mastercard", card_last4: "5555" }])) === JSON.stringify({ method: "card", brand: "mastercard", last4: "5555" }) && paidWithOf([{ payment_method: "card", card_last4: "12ab" }])?.last4 === null && paidWithOf([]) === null)
-  const page = readCode("app/checkout/physical/order/[token]/page.tsx")
-  const view = readCode("app/checkout/physical/order/[token]/order-status-view.tsx")
+  const page = readCode("app/(storelib)/checkout/physical/order/[token]/page.tsx")
+  const view = readCode("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
   check("  the buyer's order page shows it under the totals for a card order", /paidWith: order\.payment === "card" && order\.totalCents > 0/.test(page) && /ct\("Paid with \{method\}"/.test(view) && /data-order-paid-with/.test(view))
 
   section("5. Pixels: each service's own snippet, told the visitor's answer")

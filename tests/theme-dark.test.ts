@@ -75,7 +75,7 @@ async function main() {
   const root = read("components/platform/site-appearance.tsx")
   check("once per tab, the account's choice is read and taken when it differs", /sessionStorage\.getItem\(SYNCED\)/.test(root) && /adoptAccountAppearance\(d\?\.appearance\)/.test(root))
   check("the look is put on <html> in a layout effect on every move, so the dashboard is light on its first frame", /useLayoutEffect\(\(\) => paintAppearance\(pathname, choice, pageDefault\), \[pathname, choice, pageDefault\]\)/.test(root))
-  const layout = read("app/layout.tsx")
+  const layout = read("app/(storelib)/layout.tsx")
   check("the root prints the boot in <head> and mounts the painter", /<script dangerouslySetInnerHTML=\{\{ __html: APPEARANCE_BOOT \}\} \/>/.test(layout) && /<SiteAppearance \/>/.test(layout) && /import "\.\/theme-dark\.css"/.test(layout))
 
   section("Where the switch is")
@@ -119,7 +119,7 @@ async function main() {
     ["components/search/search-screen.tsx", /var\(--sl-ink-strong, #1a1a2e\)/],
     ["components/community/member/arrive.ts", /var\(--sl-arrive, #fdf8ec\)/],
   ] as const) check(`${f}: an inline colour keeps its light value and has a dark one`, re.test(read(f)))
-  const product = read("app/(marketing)/p/[slug]/page.tsx")
+  const product = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   /* Changed on purpose (round 31): both roots say whose look it is (the arranged one said data-own-look always), and no boot takes the dark look off the document any more: the dark sheet leaves the creator's look out instead. */
   check("round 30: a product page with the creator's own look keeps it, the platform's default page follows the person's", (product.match(/data-own-look=\{ownLook \? "" : undefined\}/g) || []).length === 2 && (product.match(/data-product-look=\{ownLook \? undefined : "site"\}/g) || []).length === 2 && /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(product) && !/OWN_LOOK_BOOT/.test(product))
   const tone = await import("../lib/store-builder/product-page-tone")
@@ -178,7 +178,7 @@ async function main() {
   }
   check("only on /app, and only after a dark page in this tab", veil("/app", "dark") && veil("/app/orders", "dark") && !veil("/app", "light") && !veil("/app", null) && !veil("/explore", "dark"))
 
-  check("a creator's page under /u/ keeps its own look", /data-own-look=""/.test(read("app/(marketing)/u/[username]/page.tsx")) && site.themedPath("/member/maya"))
+  check("a creator's page under /u/ keeps its own look", /data-own-look=""/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")) && site.themedPath("/member/maya"))
   const sw = read("components/platform/appearance-switch.tsx")
   /* Changed on purpose: the knob no longer squeezes when pressed. A scale on top of the slide, inside a page that is
      fading, read as the circle glitching; the knob now slides on translate alone, drawn by the shared switch. */

@@ -234,9 +234,9 @@ async function main() {
     const icon = readCode("app/api/onepage/seller-avatar/route.ts")
     check("the tab icon reads the profile before the creator page header", icon.indexOf('from("profiles")') < icon.indexOf('from("store_builder_configs")'))
 
-    const creatorPage = readCode("app/(marketing)/u/[username]/page.tsx")
+    const creatorPage = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
     /* Round 12: the drawn card's fingerprint, and the share route, take the profile photo before the header's copy. */
-    check("the creator page's share card takes the profile photo before the header's copy", creatorPage.includes("profile.avatar_url || avatarFromHeader") && readCode("app/(marketing)/member/[username]/share.png/route.tsx").includes("profile.avatarUrl || creatorFace?.avatar"))
+    check("the creator page's share card takes the profile photo before the header's copy", creatorPage.includes("profile.avatar_url || avatarFromHeader") && readCode("app/(storelib)/(marketing)/member/[username]/share.png/route.tsx").includes("profile.avatarUrl || creatorFace?.avatar"))
 
     const preview = readCode("components/onepage/live-preview.tsx")
     check("the editor's preview hears a photo change at once", preview.includes("useShellAvatar("))

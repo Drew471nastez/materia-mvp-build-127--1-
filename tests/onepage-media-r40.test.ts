@@ -126,7 +126,7 @@ function run() {
 
   console.log("\na return never flashes (components/onepage/page-arrival)")
   {
-    const route = read("app/(marketing)/l/[slug]/page.tsx")
+    const route = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
     check("the route places the check before the page", route.indexOf("<OnePageArrival />") > 0 && route.indexOf("<OnePageArrival />") < route.indexOf("<PublicOnePage"))
     const runScript = (o: { type: string; seen?: boolean; referrer?: string }) => {
       const added: { text: string }[] = []

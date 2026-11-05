@@ -213,9 +213,9 @@ function main() {
    * new one is added and it pipes upstream's words into the URL, this fails.
    */
   const AUTH_REDIRECTORS = [
-    "app/auth/callback/route.ts",
-    "app/auth/start/route.ts",
-    "app/auth/sync-session/route.ts",
+    "app/(storelib)/auth/callback/route.ts",
+    "app/(storelib)/auth/start/route.ts",
+    "app/(storelib)/auth/sync-session/route.ts",
     "lib/native-oauth.ts",
     "components/native-auth-handler.tsx",
     "lib/native-bridge.ts",
@@ -246,7 +246,7 @@ function main() {
   }
 
   /** And the ones that should be using the classifier are using it. */
-  for (const file of ["app/auth/callback/route.ts", "lib/native-oauth.ts", "app/auth/sync-session/route.ts"]) {
+  for (const file of ["app/(storelib)/auth/callback/route.ts", "lib/native-oauth.ts", "app/(storelib)/auth/sync-session/route.ts"]) {
     const code = readFileSync(join(root, file), "utf8")
     check(`${file} classifies before it redirects`, code.includes("classifyOAuthError"))
   }
@@ -270,7 +270,7 @@ function main() {
 
   // ── The login page: one retry, and only one ────────────────────────────
   {
-    const page = readFileSync(join(root, "app/(auth)/login/page.tsx"), "utf8")
+    const page = readFileSync(join(root, "app/(storelib)/(auth)/login/page.tsx"), "utf8")
     check("the login page reads the code, not a sentence", page.includes('searchParams.get("authError")'))
     check("it still understands the old shape", page.includes('searchParams.get("error")'))
     check("a retry is claimed from storage before it runs", /claimRetry/.test(page) && /sessionStorage.setItem\(key, "1"\)/.test(page))

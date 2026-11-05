@@ -30,7 +30,7 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s
 
 const panel = strip(read("components/website-builder/publish-panel.tsx"))
 const sheet = strip(read("components/website-builder/mobile-editor-sheet.tsx"))
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nOn a phone, the sheet's backdrop closes it")
 check("Publish is a MobileEditorSheet on a phone, handed the same onOpenChange",

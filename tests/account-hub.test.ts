@@ -50,30 +50,31 @@ console.log("\nEvery page under /account sends signed out people to sign in with
       else if (name === "page.tsx") pages.push(rel)
     }
   }
-  walk("app/account")
-  check("Activity, Communities and Settings are routes of their own", pages.includes("app/account/page.tsx") && pages.includes("app/account/communities/page.tsx") && pages.includes("app/account/settings/page.tsx"), pages)
+  walk("app/(storelib)/account")
+  check("Activity, Communities and Settings are routes of their own", pages.includes("app/(storelib)/account/page.tsx") && pages.includes("app/(storelib)/account/communities/page.tsx") && pages.includes("app/(storelib)/account/settings/page.tsx"), pages)
   /* The library's pages moved in whole; its own layout sends signed out people to sign in with the library's address. */
-  check("the library's layout sends signed out people to sign in and back to the library", /redirect\(accountLoginPath\(LIBRARY_HOME\)\)/.test(code("app/account/library/layout.tsx")))
-  for (const page of pages.filter((p) => !p.startsWith("app/account/library/"))) {
-    const href = page.replace(/^app/, "").replace(/\/page\.tsx$/, "") || "/account"
+  check("the library's layout sends signed out people to sign in and back to the library", /redirect\(accountLoginPath\(LIBRARY_HOME\)\)/.test(code("app/(storelib)/account/library/layout.tsx")))
+  for (const page of pages.filter((p) => !p.startsWith("app/(storelib)/account/library/"))) {
+    /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+    const href = page.replace(/^app\/\(storelib\)/, "").replace(/\/page\.tsx$/, "") || "/account"
     const escaped = href.replace(/\//g, "\\/")
     /* Changed on purpose: 84d43680 made /account/preferences an old address that only redirects to Settings' Preferences section, so it asks through the page it sends to, which must ask with its own next. */
     const moved = /^\s*redirect\("(\/account\/[a-z/-]+)\?section=[a-z]+"\)/m.exec(code(page))
-    const asking = moved && !/pageUser\(|currentUser/.test(code(page)) ? `app${moved[1]}/page.tsx` : page
-    const askingHref = asking.replace(/^app/, "").replace(/\/page\.tsx$/, "") || "/account"
+    const asking = moved && !/pageUser\(|currentUser/.test(code(page)) ? `app/(storelib)${moved[1]}/page.tsx` : page
+    const askingHref = asking.replace(/^app\/\(storelib\)/, "").replace(/\/page\.tsx$/, "") || "/account"
     check(`${page} asks with next=${askingHref}`, existsSync(join(process.cwd(), asking)) && new RegExp(`pageUser\\(accountLoginPath\\("${askingHref.replace(/\//g, "\\/")}"\\)\\)`).test(code(asking)))
   }
-  check("no loading.tsx above the pages, so that redirect is a real one and not a hop after a skeleton", !existsSync(join(process.cwd(), "app/account/loading.tsx")))
-  check("and the layout does not redirect for them (it cannot know which page it is)", !/redirect\(/.test(code("app/account/layout.tsx")))
+  check("no loading.tsx above the pages, so that redirect is a real one and not a hop after a skeleton", !existsSync(join(process.cwd(), "app/(storelib)/account/loading.tsx")))
+  check("and the layout does not redirect for them (it cannot know which page it is)", !/redirect\(/.test(code("app/(storelib)/account/layout.tsx")))
 }
 
 console.log("\nThe header, as on the library, at every width")
 {
-  const layout = code("app/account/layout.tsx")
+  const layout = code("app/(storelib)/account/layout.tsx")
   /* Changed on purpose: 84d43680 mounts the platform header through AccountHeaderSwitch, which stands it aside only while a community's own bar is drawn on the profile. */
   const mount = /<AccountHeaderSwitch initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/
   const headerSwitch = code("components/account/account-header-switch.tsx")
-  check("the layout mounts the platform header, and the library inside it draws none of its own", mount.test(layout) && /return <ConditionalHeader \{\.\.\.props\} \/>/.test(headerSwitch) && !/ConditionalHeader|BuyerTabBar|ConditionalFooter/.test(code("app/account/library/layout.tsx")))
+  check("the layout mounts the platform header, and the library inside it draws none of its own", mount.test(layout) && /return <ConditionalHeader \{\.\.\.props\} \/>/.test(headerSwitch) && !/ConditionalHeader|BuyerTabBar|ConditionalFooter/.test(code("app/(storelib)/account/library/layout.tsx")))
   check("with the footer and the phone's tab bar", /<ConditionalFooter \/>/.test(layout) && /<BuyerTabBar \/>/.test(layout))
   const header = code("components/marketing/conditional-header.tsx")
   const footer = code("components/marketing/conditional-footer.tsx")
@@ -90,7 +91,7 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
 {
   const hub = code("components/account/account-hub.tsx")
   const hero = code("components/profile/profile-hero.tsx")
-  const layout = code("app/account/layout.tsx")
+  const layout = code("app/(storelib)/account/layout.tsx")
   check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(layout))
   /* "it is MY profile page, exactly the same page others see (same header, cover, avatar ...)" */
   /* Round 12: /@handle draws the creator page's header (ShopHeaderRenderer); /account keeps ProfileHero. */
@@ -166,7 +167,7 @@ console.log("\nOne face per screen")
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))
   check("the camera only fades and grows, on the compositor", /transition-\[opacity,scale\]/.test(photo) && /editable \? "scale-100 opacity-100" : "scale-75 opacity-0"/.test(photo))
   /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
-  check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(code("app/account/settings/page.tsx")) && /avatarUrl: profile\?\.avatar_url \|\| null/.test(code("lib/account/load-account-settings.ts")))
+  check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/(storelib)/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(code("app/(storelib)/account/settings/page.tsx")) && /avatarUrl: profile\?\.avatar_url \|\| null/.test(code("lib/account/load-account-settings.ts")))
 }
 
 console.log("\nSettings: the Skool shape, in Storelib's own parts")
@@ -185,7 +186,7 @@ console.log("\nSettings: the Skool shape, in Storelib's own parts")
   check("no bio field where profiles.bio has not been added yet", /\{bioSupported \? \(/.test(settings) && /if \(bioSupported\) patch\.bio = nextBio \|\| null/.test(settings))
   /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts. */
   const settingsLoad = code("lib/account/load-account-settings.ts")
-  check("the settings route says whether the column is there, from PostgREST's own answer", /loadAccountSettingsForUser/.test(code("app/account/settings/page.tsx")) && /PGRST204/.test(settingsLoad) && /42703/.test(settingsLoad))
+  check("the settings route says whether the column is there, from PostgREST's own answer", /loadAccountSettingsForUser/.test(code("app/(storelib)/account/settings/page.tsx")) && /PGRST204/.test(settingsLoad) && /42703/.test(settingsLoad))
   /* Every flow that was on the page before is still on it, and still the shared one. */
   check("the email change, the password card and the preference switches are /app Settings' own", /EmailChangeFlow,/.test(settings) && /PasswordCard,/.test(settings) && /useSavedSwitch,/.test(settings) && /from "@\/components\/app\/settings\/account-panels"/.test(settings))
   check("log out here, log out everywhere, and deleting behind a 6 digit code", /signOut\(\{ scope \}\)/.test(settings) && /logOut\("global"\)/.test(settings) && /"\/api\/auth\/delete-account"/.test(settings) && /action: "send-code"/.test(settings) && /action: "verify", code/.test(settings))
@@ -202,7 +203,7 @@ console.log("\nSeller access is still one rule")
 
 console.log("\nActivity: what /account opens on")
 {
-  const route = code("app/account/page.tsx")
+  const route = code("app/(storelib)/account/page.tsx")
   check("the profile's own Activity, read through the one gate that reads the privacy switch, you as the viewer", /activityFor\(db, \{ userId: user\.id, viewerId: user\.id \}\)/.test(route) && /<ProfileActivity\b/.test(route))
   check("a hidden list says only you can see it", /privacy\.showActivity \? undefined/.test(route) && /Only you can see your activity\./.test(route))
   check("it streams in under the header, behind a deferred skeleton", /<Suspense fallback=\{<OverviewSkeleton \/>\}>/.test(route) && /skeleton-deferred/.test(read("components/account/account-skeleton.tsx")))
@@ -211,7 +212,7 @@ console.log("\nActivity: what /account opens on")
 
 console.log("\nThe copy")
 {
-  const files = ["components/account/account-hub.tsx", "components/account/account-photo.tsx", "components/account/account-settings.tsx", "components/account/account-skeleton.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "lib/account/account-tabs.ts", "app/account/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "app/account/settings/page.tsx"]
+  const files = ["components/account/account-hub.tsx", "components/account/account-photo.tsx", "components/account/account-settings.tsx", "components/account/account-skeleton.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "lib/account/account-tabs.ts", "app/(storelib)/account/layout.tsx", "app/(storelib)/account/page.tsx", "app/(storelib)/account/communities/page.tsx", "app/(storelib)/account/settings/page.tsx"]
   const banned = /—|\bunlock|\belevate|\bseamless|\bpowerful|\beffortless|\bsupercharge|\btransform/i
   for (const f of files) check(`${f}: no em dashes, none of the banned words`, !banned.test(read(f)), (read(f).match(banned) || [])[0])
 }

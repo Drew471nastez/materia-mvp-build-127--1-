@@ -1,5 +1,5 @@
 /**
- * The /app shell as app/app/layout.tsx mounts it (components/app/sidebar:
+ * The /app shell as app/(storelib)/app/layout.tsx mounts it (components/app/sidebar:
  * the black header, the desktop sidebar, the account menu and the phone's
  * account sheet, both headed by the two businesses of one login) with
  * the real Settings page in it, both drawn from one "server" answer the
@@ -58,7 +58,7 @@ function App({ first }: { first: State }) {
         onePagePublished
         setupProgress={{ completed: 6, total: 6 }}
         businesses={[
-          /* As app/app/layout.tsx has them (lib/businesses/server): the one you are in is your profile's photo. */
+          /* As app/(storelib)/app/layout.tsx has them (lib/businesses/server): the one you are in is your profile's photo. */
           { userId: "user-1", name: "Mara Lind", handle: "maralind", avatarUrl: server.avatar, ready: true, current: true, role: "owner" },
           { userId: "user-2", name: "Lind Studio", handle: "lindstudio", avatarUrl: null, ready: true, current: false, role: "member" },
         ]}
@@ -73,7 +73,7 @@ function App({ first }: { first: State }) {
 }
 
 void load().then((first) => {
-  /* The providers app/layout.tsx and components/app/app-layout-wrapper.tsx put around every /app page. */
+  /* The providers app/(storelib)/layout.tsx and components/app/app-layout-wrapper.tsx put around every /app page. */
   createRoot(document.getElementById("app")!).render(
     <SWRProvider>
       <LocaleProvider>

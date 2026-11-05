@@ -132,7 +132,7 @@ async function main() {
     check("a signed in member is still refused before paying", /code: "already_member"/.test(route) && /const hadTrial = rows\.some/.test(route))
     const confirm = code("app/api/memberships/confirm/route.ts")
     check("a duplicate is answered as any member is, pointing at the membership they have", /if \(duplicateOf\) return NextResponse\.json\(\{ membershipId: duplicateOf, status: "active", access: true \}\)/.test(confirm))
-    const client = code("app/checkout/membership-checkout.tsx")
+    const client = code("app/(storelib)/checkout/membership-checkout.tsx")
     check("the page names its own last try", /previousMembershipId: started\.current\?\.membershipId \|\| undefined/.test(client))
     const sync = code("lib/memberships/sync.ts")
     check("every path that syncs settles a duplicate, before any welcome", sync.indexOf("originalOf(row, await otherMemberships(admin, row), now)") > 0 && sync.indexOf("originalOf(row, await otherMemberships(admin, row), now)") < sync.indexOf("await applyEffects(admin, before, row, changed"))

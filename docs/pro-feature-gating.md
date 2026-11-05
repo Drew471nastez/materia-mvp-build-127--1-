@@ -216,8 +216,8 @@ This lets you distinguish "user hasn't touched it" (default `true`) from "user e
 |------|------|
 | `components/onepage/onepage-editor.tsx` | Save gate logic, ProUpgradeDialog, upgrade navigation |
 | `components/onepage/tabs/design-tab.tsx` | Badge UI, feature toggle, `group/row` + `group/badge` |
-| `app/(marketing)/pricing/pricing-client.tsx` | Upgrade checkout flow from pricing page |
-| `app/(marketing)/pricing/page.tsx` | Auth-aware: logged-in → checkout, not logged-in → signup |
-| `app/app/settings/billing/upgrade/page.tsx` | Upgrade page shown from `/app` |
+| `app/(storelib)/(marketing)/pricing/pricing-client.tsx` | Upgrade checkout flow from pricing page |
+| `app/(storelib)/(marketing)/pricing/page.tsx` | Auth-aware: logged-in → checkout, not logged-in → signup |
+| `app/(storelib)/app/settings/billing/upgrade/page.tsx` | Upgrade page shown from `/app` |
 | `components/app/billing/upgrade-page-client.tsx` | Plan selection UI with Stripe checkout |
 | `api/billing/subscription/create/route.ts` | Creates Stripe Checkout Session with custom success/cancel URLs |

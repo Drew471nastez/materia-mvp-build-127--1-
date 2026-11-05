@@ -9,7 +9,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "@/app/(storelib)/app/orders/orders-client"
 import { PhysicalFulfillment, usePhysicalOrder } from "@/components/physical/order-panel"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import type { OrdersListing } from "@/lib/orders/paged"

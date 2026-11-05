@@ -263,14 +263,14 @@ async function run() {
   check("the proxy's session client fetches with a deadline", /watchRenewals\(deadlineFetch\)/.test(proxy) && /createServerClient\(supabaseUrl, supabaseAnonKey, \{[\s\S]{0,700}global: \{ fetch: renewalWatch\.fetch \}/.test(proxy))
   check("  and every other client in the proxy ends in 5s", (proxy.match(/createClient\(/g) ?? []).length === (proxy.match(/createClient\([^)]*PROXY_DB/g) ?? []).length && /PROXY_READ_MS = 5_000/.test(proxy))
   check("  the proxy sends the request id on and back", /request\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy) && /res\.headers\.set\(REQUEST_ID_HEADER, rid\)/.test(proxy))
-  const layout = read("app/app/layout.tsx")
+  const layout = read("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 merge fixes): the batch is inline in the layout again, keyed by user.id. */
   check("the /app shell decides its gates from reads that throw on failure", /profileOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /creatorOrThrowForRequest\((userId|user\.id)\)/.test(layout) && /if \(!isServiceUnavailable\(e\)\) throw e/.test(layout) && /<ServiceUnavailable \/>/.test(layout))
-  const settings = read("app/app/settings/_server.ts")
-  check("Settings never sends a seller to /onboarding for a read that failed", /dataOrThrow\("settings creator", creatorRead\)/.test(settings) && /dataOrThrow\("settings profile", profileRead\)/.test(settings) && /<ServiceUnavailable inline \/>/.test(read("app/app/settings/_view.tsx")))
+  const settings = read("app/(storelib)/app/settings/_server.ts")
+  check("Settings never sends a seller to /onboarding for a read that failed", /dataOrThrow\("settings creator", creatorRead\)/.test(settings) && /dataOrThrow\("settings profile", profileRead\)/.test(settings) && /<ServiceUnavailable inline \/>/.test(read("app/(storelib)/app/settings/_view.tsx")))
   const gate = read("components/native-auth-gate.tsx")
   check("recovery posts the tokens, never puts them in an address", /postSessionSync\(session, currentPath\)/.test(gate) && !/access_token=\$\{/.test(gate))
-  const sync = read("app/auth/sync-session/route.ts")
+  const sync = read("app/(storelib)/auth/sync-session/route.ts")
   check("sync-session takes a same origin POST", /export async function POST/.test(sync) && /from !== origin/.test(sync))
   check("  and a Supabase that did not answer goes back, not to /login", /if \(!classifyAuthError\(error\)\.signedOut\) \{[\s\S]{0,300}NextResponse\.redirect\(`\$\{origin\}\$\{next\}`, status\)/.test(sync))
   console.log("\n8. Every native sign in posts its tokens, none puts them in an address")
@@ -283,8 +283,8 @@ async function run() {
     ["lib/native-oauth.ts", /goToAuthHref\(nextUrl\)/],
     ["lib/auth/continue-client.ts", /goToAuthHref\(afterAuthUrl\(carry, session, native\), \{ replace: true \}\)/],
     ["components/auth/viewer-sync.tsx", /goToAuthHref\(syncSessionHref\(/],
-    ["app/(auth)/login/page.tsx", /goToAuthHref\(sheet\.href\)/],
-    ["app/(auth)/signup/page.tsx", /goToAuthHref\(sheet\.href\)/],
+    ["app/(storelib)/(auth)/login/page.tsx", /goToAuthHref\(sheet\.href\)/],
+    ["app/(storelib)/(auth)/signup/page.tsx", /goToAuthHref\(sheet\.href\)/],
   ] as const) {
     const src = read(f)
     check(`${f} goes through goToAuthHref, never location.assign of a sync address`, re.test(src) && !/location\.(assign|replace)\((nextUrl|sheet\.href|syncSessionHref|afterAuthUrl)/.test(src))

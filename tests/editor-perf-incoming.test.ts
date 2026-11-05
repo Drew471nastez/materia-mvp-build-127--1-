@@ -57,7 +57,7 @@ console.log("\nA page read back whole keeps the sections that did not change")
 
 console.log("\nThe editor reads a push back through that")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const quiet = editor.slice(editor.indexOf("if (quiet) {\n      startTransition(() => {"), editor.indexOf("} catch (err) {\n      console.error(\"[editor] loadData failed:\""))
   check("a quiet read lays the sections and the settings over what is on screen", /setSections\(\(prev\) => shareUnchanged\(prev, loaded\)\)/.test(quiet) && /setSettingsDraft\(\(prev\) => shareSettings\(prev, loadedSettings\)\)/.test(quiet))
 }
@@ -99,7 +99,7 @@ console.log("\nThe activity poll")
 
 console.log("\nA render of the editor does not draw what did not change")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const wrapper = editor.slice(editor.indexOf("function FieldEditor(props"), editor.indexOf("/** One function per section or block"))
   check("a field's body is memoized and handed one stable onChange that calls the newest", /const latest = useRef\(props\.onChange\)/.test(wrapper) && /latest\.current = props\.onChange/.test(wrapper) && /useCallback\(\(v: unknown\) => latest\.current\(v\), \[\]\)/.test(wrapper) && /<FieldEditorBody label=\{props\.label\} field=\{props\.field\} value=\{props\.value\} onChange=\{onChange\} \/>/.test(wrapper))
   check("the body is the memo", /const FieldEditorBody = memo\(function FieldEditorBody\(/.test(editor))
@@ -132,7 +132,7 @@ console.log("\nWhat is kept hidden stays still, and drawing ahead steps aside")
   const lib = read("components/website-builder/editor/section-library.tsx")
   /* Changed on purpose (round 44): an open one waits out a press or a scroll (pressQuietFor), a third of a second. */
   check("a closed library puts its cards in only once the editor is quiet", /const wait = open \? pressQuietFor\(\) : busyFor\(\)/.test(lib) && /later = window\.setTimeout\(step, wait\)/.test(lib) && /window\.clearTimeout\(later\)/.test(lib))
-  check("and steps aside while a change from outside lands", /export function deferPreviewsForChange\(\)/.test(lib) && /if \(events\.length > 0\) deferPreviewsForChange\(\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("and steps aside while a change from outside lands", /export function deferPreviewsForChange\(\)/.test(lib) && /if \(events\.length > 0\) deferPreviewsForChange\(\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 }
 
 console.log("\nNo repeated asks on a slow or signed out network")

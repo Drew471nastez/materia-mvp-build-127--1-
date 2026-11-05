@@ -54,14 +54,14 @@ check("odd characters and non strings are refused", folderOf("a b") === null && 
 check("leading and doubled slashes collapse to plain segments", folderOf("/a//b/") === "a/b")
 check("an extension is only letters and digits", safeExtension("clip.MP4", "mp4") === "mp4" && safeExtension("x.m/../p4", "mp4") === "p4" && safeExtension("noext", "mp4") === "noext" && safeExtension("a.%%%", "mp4") === "mp4")
 
-const incoming = read("app/app/website-builder/incoming.tsx")
+const incoming = read("app/(storelib)/app/website-builder/incoming.tsx")
 check("an import tries storage first", /themes\/import\/upload/.test(incoming) && /sendWithProgress\("PUT", url, file/.test(incoming))
 check("a full library is an answer, not a reason to try the other way", /place\.data\.code === LIBRARY_FULL_CODE\) return place/.test(incoming))
 check("a package a function can take falls back to the form route", /form\.append\("file", file\)/.test(incoming) && /sendWithProgress\("POST", "\/api\/website-builder\/themes\/import", form/.test(incoming))
 check("the fallback stays under the function's body limit", /FORM_IMPORT_MAX_BYTES = 4 \* 1024 \* 1024/.test(incoming))
 check("a larger package that storage refused says so instead", /file\.size > FORM_IMPORT_MAX_BYTES\) return said/.test(incoming))
 
-const editor = read("app/app/products/new/product-editor.tsx")
+const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
 check("publishing an archived product clears the old flag, in its own request", /if \(publish && updatedProduct\.archived === true\)/.test(editor) && /update\(\{ archived: false \}\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

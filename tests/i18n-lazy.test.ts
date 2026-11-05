@@ -33,7 +33,7 @@ async function main() {
   /* Changed on purpose (round 12, PLATPERF): the provider is in the root layout, on every page (published websites and the dashboard too), so it imports no dictionary at all; the words module does, imported by what calls t(). */
   check("the client provider imports no dictionary, only types and sizes", !/from "@\/lib\/i18n\/dictionaries(-core)?"/.test(provider.replace(/import type [^\n]*\n/g, "")) && /from "@\/lib\/i18n\/words-registry"/.test(provider))
   check("  the words module imports the core only", /from "\.\/dictionaries-core"/.test(words) && !/from "\.\/dictionaries"/.test(words))
-  const users = ["app/(auth)/signup/page.tsx", "components/platform/language-currency-modal.tsx", "components/platform/language-modal.tsx"]
+  const users = ["app/(storelib)/(auth)/signup/page.tsx", "components/platform/language-currency-modal.tsx", "components/platform/language-modal.tsx"]
   check("  and every component that translates with t() imports the words", users.every((f) => /import "@\/lib\/i18n\/locale-words"/.test(readFileSync(join(process.cwd(), f), "utf8"))))
   /* Changed on purpose (round 46): the platform header says only base words, so it imports those (lib/i18n/locale-words-shell.ts), and a word it lacks fetches the rest (tests/shell-weight-r46.test.ts). */
   check("  the platform header imports the base words", /import "@\/lib\/i18n\/locale-words-shell"/.test(readFileSync(join(process.cwd(), "components/platform/platform-header-client.tsx"), "utf8")))

@@ -93,7 +93,7 @@ const embedded = code("components/app/settings/stripe-connect-embedded.tsx")
 check("overlays, if set, is a value Stripe takes", !/overlays:/.test(embedded) || /overlays: "(dialog|drawer)"/.test(embedded))
 
 console.log("\nPayouts keeps Cash out")
-const payouts = code("app/app/payouts/payouts-client.tsx")
+const payouts = code("app/(storelib)/app/payouts/payouts-client.tsx")
 check("no simple view in place of the dashboard", !/PayoutsSimpleView|NEXT_PUBLIC_PAYOUTS_LEGACY/.test(payouts))
 check("until setup is finished, the page is setup alone: no Export, stats or sales", /if \(!paymentsReady\) \{\s*return \(\s*<div aria-label="Set up payouts"/.test(payouts) && !/const hasMoney =/.test(payouts))
 /* Changed on purpose: the panel is told whether it opens as setup, so a notice of what Stripe still needs opens setup and Update bank does not (d5b643082). */

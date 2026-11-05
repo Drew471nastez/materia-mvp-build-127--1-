@@ -108,7 +108,7 @@ async function main() {
     const browser = code("lib/attribution/browser.ts")
     check("Storelib's scope is kept apart, only on storelib.com, with its own arrival", /PLATFORM_SCOPE = "s:storelib"/.test(browser) && /platformHost\(window\.location\.hostname\)\) return/.test(browser) && /platformArrived/.test(browser))
     check("  stored only with analytics consent, like every touch", /if \(!hasConsent\("analytics"\)\) return(?: touch)?\s*const kept = readStore\(now\)\s*kept\[PLATFORM_SCOPE\]/.test(browser))
-    check("the capture is mounted once, in the root layout, and never in /admin or a frame", /<CapturePlatformTouch \/>/.test(read("app/layout.tsx")) && /window\.self !== window\.top/.test(read("components/attribution/capture-platform-touch.tsx")) && /startsWith\("\/admin\/"\)/.test(read("components/attribution/capture-platform-touch.tsx")))
+    check("the capture is mounted once, in the root layout, and never in /admin or a frame", /<CapturePlatformTouch \/>/.test(read("app/(storelib)/layout.tsx")) && /window\.self !== window\.top/.test(read("components/attribution/capture-platform-touch.tsx")) && /startsWith\("\/admin\/"\)/.test(read("components/attribution/capture-platform-touch.tsx")))
     check("no new third party script", !/<script[^>]*src=/.test(read("components/attribution/capture-platform-touch.tsx")) && !/https?:\/\//.test(code("lib/attribution/signup-browser.ts")))
   }
 
@@ -137,7 +137,7 @@ async function main() {
     check("views and visitors per assistant; Google and direct are not in it", chat?.views === 2 && chat?.visitors === 1 && perp?.views === 1 && f.views === 3)
     check("a sign up is credited to its last touch's assistant, else its first's", signupAiSource({ first_ai_source: "perplexity", last_ai_source: "chatgpt" }) === "chatgpt" && chat?.signups === 2 && perp?.signups === 1)
     check("paid plan and a sale counted per assistant", chat?.paidPlan === 1 && chat?.hasSale === 1 && perp?.hasSale === 1 && f.signupsAll === 40)
-    const panel = read("app/admin/_console/view-platform.tsx")
+    const panel = read("app/(storelib)/admin/_console/view-platform.tsx")
     check("the Audience view has the AI assistants group, labelled where the source is known", /title="AI assistants" meta="AI-referred \(where the source is known\)"/.test(panel) && /count as Direct/.test(panel))
     const view = code("lib/admin/views/platform.ts")
     check("  read from the existing views and part 346, never a parallel dashboard", /referrer_domain, utm_source/.test(view) && /from\("account_attribution"\)/.test(view) && /346_account_attribution\.sql/.test(view))
@@ -233,9 +233,9 @@ async function main() {
     check("the database's groups are read back the same way, dropping anything else", coverageFromRpc([{ google_status: "indexed", coverage_state: "Submitted and indexed", addresses: 3 }, { google_status: "error", coverage_state: "x", addresses: 9 }, { google_status: null, addresses: 1 }]).length === 1)
     const sql = read("supabase/sql/run-now/346_account_attribution.sql")
     check("seo_coverage_groups counts only indexed and not_indexed rows with a time", /WHERE s\.in_sitemap AND s\.inspected_at IS NOT NULL AND s\.google_status IN \('indexed', 'not_indexed'\)/.test(sql))
-    const panels = read("app/admin/seo/seo-panels.tsx")
+    const panels = read("app/(storelib)/admin/seo/seo-panels.tsx")
     check("the coverage panel's green dot is Google's indexed verdict only", /value=\{g\.googleStatus === "indexed" \? "ok" : "failed"\}/.test(panels))
-    const admin = read("app/admin/seo/seo-admin.tsx")
+    const admin = read("app/(storelib)/admin/seo/seo-admin.tsx")
     check("the existing rule stands: On Google only for google_status indexed", /case "indexed":\s*return \{ tone: "ok", label: "On Google" \}/.test(admin) && (() => { const fn = admin.slice(admin.indexOf("export function googleWord"), admin.indexOf("const scoreTone")); return (fn.match(/tone: "ok"/g) ?? []).length === 1 && (fn.match(/On Google/g) ?? []).length === 1 })())
     check("the conflicts come from Storelib's own fetch, never called Google's", /fromOwnCheck/.test(panels) && /Sitemap conflicts/.test(panels))
     const c404 = conflictOf({ url: "https://storelib.com/x", http_status: 404, checks: [{ id: "http", state: "fail", found: "HTTP 404" }], scored_at: "t" })
@@ -257,7 +257,7 @@ async function main() {
     check("the property is escaped into the address", SEARCH_ANALYTICS_URL("sc-domain:storelib.com") === "https://searchconsole.googleapis.com/webmasters/v3/sites/sc-domain%3Astorelib.com/searchAnalytics/query")
     check("rows read as Google gives them", JSON.stringify(parseSearchRows({ rows: [{ keys: ["storelib"], clicks: 3, impressions: 40, ctr: 0.075, position: 2.5 }] })) === JSON.stringify([{ key: "storelib", clicks: 3, impressions: 40, ctr: 0.075, position: 2.5 }]))
     check("the same read only scope as the inspections (no new scope asked)", !/auth\/webmasters"/.test(read("lib/admin/seo/search-analytics.ts")) && /from "\.\/google"/.test(read("lib/admin/seo/search-analytics.ts")))
-    const panels = read("app/admin/seo/seo-panels.tsx")
+    const panels = read("app/(storelib)/admin/seo/seo-panels.tsx")
     check("the page says AI Overviews and AI Mode are inside Web, and the API has no AI type", /AI Overviews and AI Mode are counted inside the Web search type/.test(panels) && /no generative AI type or dimension/.test(panels))
     check("  and links Google's Generative AI performance report as interface only", /gen-ai-performance-reports/.test(panels) && /Search Console interface/.test(panels))
     check("Copilot citations: Bing's AI Performance report linked, no API claimed", /bing\.com\/webmasters\/aiperformance/.test(panels) && /no API for it/.test(panels))
@@ -269,7 +269,7 @@ async function main() {
     check("only the last 28 days are added", sum.clicks === 5 && sum.impressions === 100 && sum.days === 1)
     check("no key is not connected; a key uses storelib.com by default", bingFromEnv({}) === null && bingFromEnv({ BING_WEBMASTER_API_KEY: "k" })?.siteUrl === "https://storelib.com/")
     check("the key is never shown: the page gets only whether it is set", !/BING_WEBMASTER_API_KEY/.test(code("lib/admin/seo/console-data.ts").replace(/bingFromEnv\(\)/g, "")) && /connected: !!bingFromEnv\(\)/.test(code("lib/admin/seo/console-data.ts")))
-    check("the client imports no server module", !/from "@\/lib\/admin\/seo\/(google|run|live|inventory|console-data|store|crawl|insights|bing|search-analytics)"/.test(read("app/admin/seo/seo-panels.tsx").replace(/import type[^\n]*\n/g, "")))
+    check("the client imports no server module", !/from "@\/lib\/admin\/seo\/(google|run|live|inventory|console-data|store|crawl|insights|bing|search-analytics)"/.test(read("app/(storelib)/admin/seo/seo-panels.tsx").replace(/import type[^\n]*\n/g, "")))
   }
 
   /* ── Verification meta ───────────────────────────────────────────────── */
@@ -287,28 +287,28 @@ async function main() {
     check("Bing set: msvalidate.01", /<meta name="msvalidate\.01" content="0123456789ABCDEF0123456789ABCDEF"\/>/.test(both), both)
     check("Bing alone: no Google tag", !/google-site-verification/.test(html({ BING_SITE_VERIFICATION: "0123456789ABCDEF" })) && /msvalidate/.test(html({ BING_SITE_VERIFICATION: "0123456789ABCDEF" })))
     check("a value that is not a token is never written", siteVerification({ BING_SITE_VERIFICATION: '"><script>x</script>' }) === undefined && siteVerification({ GOOGLE_SITE_VERIFICATION: "   " }) === undefined)
-    check("the root layout's metadata uses it", /verification: siteVerification\(\),/.test(code("app/layout.tsx")))
+    check("the root layout's metadata uses it", /verification: siteVerification\(\),/.test(code("app/(storelib)/layout.tsx")))
   }
 
   /* ── Agent and screen reader usability ───────────────────────────────── */
   console.log("\nThe public journeys, by role and label\n")
   {
-    for (const f of ["app/(auth)/signup/page.tsx", "app/(auth)/login/page.tsx"]) {
+    for (const f of ["app/(storelib)/(auth)/signup/page.tsx", "app/(storelib)/(auth)/login/page.tsx"]) {
       const s = read(f)
       check(`${f}: the email field has a label`, /<label htmlFor="email" className="sr-only">/.test(s) && /id="email"/.test(s))
       check(`${f}: the password field has a label`, /<label htmlFor="password" className="sr-only">/.test(s))
       check(`${f}: the error is announced and tied to the fields`, /id="auth-error" role="alert"/.test(s) && (s.match(/aria-describedby=\{error \? "auth-error" : undefined\}/g) ?? []).length === 2)
       check(`${f}: the show password button is named`, /aria-label="Show password"\s*aria-pressed=\{showPassword\}/.test(s))
     }
-    check("signup: email and new-password autocomplete", /autoComplete="email"/.test(read("app/(auth)/signup/page.tsx")) && /autoComplete="new-password"/.test(read("app/(auth)/signup/page.tsx")))
-    check("login: current-password autocomplete", /autoComplete="current-password"/.test(read("app/(auth)/login/page.tsx")))
-    check("the sign in steps have a main landmark", /<main className="min-h-svh bg-white/.test(read("app/(auth)/layout.tsx")))
-    check("/pricing has an h1: the plans' heading", /headingLevel=\{1\}/.test(read("app/(marketing)/pricing/pricing-client.tsx")) && /const Heading = headingLevel === 1 \? "h1" : "h2"/.test(read("components/marketing/pricing-section.tsx")))
+    check("signup: email and new-password autocomplete", /autoComplete="email"/.test(read("app/(storelib)/(auth)/signup/page.tsx")) && /autoComplete="new-password"/.test(read("app/(storelib)/(auth)/signup/page.tsx")))
+    check("login: current-password autocomplete", /autoComplete="current-password"/.test(read("app/(storelib)/(auth)/login/page.tsx")))
+    check("the sign in steps have a main landmark", /<main className="min-h-svh bg-white/.test(read("app/(storelib)/(auth)/layout.tsx")))
+    check("/pricing has an h1: the plans' heading", /headingLevel=\{1\}/.test(read("app/(storelib)/(marketing)/pricing/pricing-client.tsx")) && /const Heading = headingLevel === 1 \? "h1" : "h2"/.test(read("components/marketing/pricing-section.tsx")))
     check("the marketing footer's headings follow the page's (h2, not h4)", !/<h4/.test(read("components/marketing/footer.tsx")))
-    for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx", "app/(marketing)/explore/loading.tsx", "app/(marketing)/explore/[category]/loading.tsx"]) {
+    for (const f of ["app/(storelib)/(marketing)/explore/page.tsx", "app/(storelib)/(marketing)/explore/[category]/page.tsx", "app/(storelib)/(marketing)/explore/loading.tsx", "app/(storelib)/(marketing)/explore/[category]/loading.tsx"]) {
       check(`${f}: no second main inside the layout's`, !/<main\b/.test(code(f)))
     }
-    check("explore has one h1, the hero's", !/<h1/.test(code("app/(marketing)/explore/page.tsx")) && /<h1 className="sr-only">/.test(read("components/explore/explore-hero.tsx")))
+    check("explore has one h1, the hero's", !/<h1/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && /<h1 className="sr-only">/.test(read("components/explore/explore-hero.tsx")))
     const usr = read("components/store-builder/unified-section-renderer.tsx")
     check("the product page's What's included is an h2 under the h1, payment and returns h3", !/<h3[^>]*>\s*What&apos;s included/.test(usr) && !/<h4/.test(usr.slice(usr.indexOf("Accepted payment methods") - 400, usr.lastIndexOf("Returns & exchanges") + 40)))
     for (const f of ["components/store-builder/subscribe-bar.tsx", "components/store-builder/product-creator-bar.tsx"]) {
@@ -344,7 +344,7 @@ async function main() {
   /* ── Copy ────────────────────────────────────────────────────────────── */
   console.log("\nThe words\n")
   {
-    const files = ["app/admin/seo/seo-panels.tsx", "app/admin/seo/seo-admin.tsx", "app/admin/_console/view-platform.tsx", "lib/admin/seo/crawl.ts", "lib/attribution/ai-sources.ts", "components/attribution/capture-platform-touch.tsx"]
+    const files = ["app/(storelib)/admin/seo/seo-panels.tsx", "app/(storelib)/admin/seo/seo-admin.tsx", "app/(storelib)/admin/_console/view-platform.tsx", "lib/admin/seo/crawl.ts", "lib/attribution/ai-sources.ts", "components/attribution/capture-platform-touch.tsx"]
     const text = files.map(read).join("\n")
     check("no em dash", !text.includes("—"))
     check("none of the banned words", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(text))

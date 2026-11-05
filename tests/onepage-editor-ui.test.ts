@@ -215,7 +215,7 @@ function main() {
     /*
       Changed on purpose (round 11): "I don't like the fade." The crossfade is gone: on a phone the panel rises over
       the list and drops back off it, as the app's page layer and an order do (components/app/page-layer,
-      app/app/orders/order-motion), on transform; on a computer the panel is there at once and only its content lands
+      app/(storelib)/app/orders/order-motion), on transform; on a computer the panel is there at once and only its content lands
       (lib/ui/pill-switch). scripts/check-onepage-motion-r11.mjs (push) reads every frame: a whole page always over the
       column, never two half drawn, nothing sideways.
     */

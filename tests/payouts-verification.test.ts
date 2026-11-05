@@ -105,7 +105,7 @@ console.log("\n3. The return from Stripe, and a session picked up later")
   check("  and ?setup=1 reopens setup on the step that is left", /url\.searchParams\.get\("setup"\) !== "1"/.test(settings) && /setPanel\(\{ open: true, mode: modeFor\(view\?\.action\) \}\)/.test(settings))
   check("  a link that expired lands on Storelib too, never on a Stripe error", /refreshUrl: `\$\{origin\}\/app\/payouts\?setup=1`/.test(route))
   /* Changed on purpose: the page it comes back to is /stripe-done, outside /app, since the sheet has no sign in (38ec02f56). */
-  check("the phone app runs it in its own sheet and comes back to the page it closes", /if \(isNativeApp\(\)\) return openSheet\(url\)/.test(client) && /`\$\{origin\}\/stripe-done`/.test(route) && /data-stripe-done=""/.test(readCode("app/stripe-done/page.tsx")))
+  check("the phone app runs it in its own sheet and comes back to the page it closes", /if \(isNativeApp\(\)\) return openSheet\(url\)/.test(client) && /`\$\{origin\}\/stripe-done`/.test(route) && /data-stripe-done=""/.test(readCode("app/(storelib)/stripe-done/page.tsx")))
   check("  a browser goes there in this same tab, not a second window a blocker eats", /window\.location\.assign\(url\)/.test(client) && !/window\.open\(url/.test(client))
   check("how far the check has got is read from the account when Identity is off", /verificationStatus/.test(route) && /pending\.has\("individual\.verification\.document"\)/.test(readCode("lib/payments/stripe/hosted-verification.ts")))
 }

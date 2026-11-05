@@ -79,7 +79,7 @@ check("reduced motion: both short", completeMs(300, 0, true) === 140 && cancelMs
 
 console.log("\nThe component")
 const comp = read("components/platform/edge-swipe-back.tsx")
-const layout = read("app/layout.tsx")
+const layout = read("app/(storelib)/layout.tsx")
 const lib = read("lib/navigation/edge-swipe.ts")
 /* Changed on purpose (the owner: no edge swipe navigation inside the iOS and Android app; the browser keeps its own). */
 check("not mounted: the app has no edge swipe of its own", !/<EdgeSwipeBack \/>/.test(layout) && !/from "@\/components\/platform\/edge-swipe-back"/.test(layout))

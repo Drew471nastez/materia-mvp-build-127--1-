@@ -1,5 +1,5 @@
 /**
- * The top of a creator page, the way app/(marketing)/u/[username]/page.tsx
+ * The top of a creator page, the way app/(storelib)/(marketing)/u/[username]/page.tsx
  * puts it together: the page root in the scheme's colours, the top bar the
  * rule picks (lib/storefront/subscribe-bar-visibility.ts), then the real
  * header with its cover, then the tabs. Driven by scripts/check-topbar25.mjs.

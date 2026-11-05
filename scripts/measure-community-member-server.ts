@@ -4,7 +4,7 @@
  * ===========================================================================
  * The owner: "make sure it improves the community pages to load fast,
  * smooth, clean, not so much loading". A first visit to a community page is
- * the server's: the community's layout (app/(marketing)/community/[slug]/
+ * the server's: the community's layout (app/(storelib)/(marketing)/community/[slug]/
  * layout.tsx: who is looking, then the frame's facts, components/community/
  * member/shell.tsx) is the first byte and the frame, and the place's page
  * (the feed, Chat, Learn...) streams into the middle after it, the two
@@ -167,7 +167,7 @@ async function request(p: (typeof PLACES)[number]) {
   /* The place's page, rendered beside the layout (and, off the home address, the (member) layout's own checks). */
   const pageRun = (async () => {
     if (p.home) {
-      /* app/(marketing)/community/[slug]/page.tsx: BEFORE=1 is the page before round 39 (the sales page's load first). */
+      /* app/(storelib)/(marketing)/community/[slug]/page.tsx: BEFORE=1 is the page before round 39 (the sales page's load first). */
       const { user } = await currentUserForRequest()
       if (process.env.BEFORE) {
         const load = await loadSalesPage("makers", user?.id ?? null)

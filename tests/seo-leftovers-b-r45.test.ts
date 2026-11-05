@@ -27,8 +27,8 @@ import { stripComments } from "./_source"
 import type { Block } from "@/lib/blog/blocks"
 import { BLOG_PAGE_SIZE, blogAuthorPath, blogAuthorSitemapEntries, blogSitemapEntries } from "@/lib/blog/listing"
 import { authorSameAs, blogAuthorJsonLd, blogPostingJsonLd } from "@/lib/blog/structured-data"
-import { BlogAuthorView, BlogAuthorsIndexView, authorDescription, blogAuthorMetadataFor, blogAuthorsIndexMetadata } from "@/app/(marketing)/blog/_blog-author"
-import { ArticleView } from "@/app/(marketing)/blog/_components/article-view"
+import { BlogAuthorView, BlogAuthorsIndexView, authorDescription, blogAuthorMetadataFor, blogAuthorsIndexMetadata } from "@/app/(storelib)/(marketing)/blog/_blog-author"
+import { ArticleView } from "@/app/(storelib)/(marketing)/blog/_components/article-view"
 import { helpArticleJsonLd } from "@/lib/help/structured-data"
 import { HELP_CATEGORIES, helpArticle, helpArticlesIn, articleText } from "@/lib/help/articles"
 import { MAX_UPLOAD_BYTES, formatLimit } from "@/lib/security/uploads/policy"
@@ -99,7 +99,7 @@ async function main() {
     check("a team byline's page is about Storelib the Organization", (team.mainEntity as Any)["@type"] === "Organization" && (team.mainEntity as Any).name === "Storelib")
     check("authorSameAs: https, each once, nothing else", JSON.stringify(authorSameAs([{ url: "https://x.com/a" }, { url: "https://x.com/a" }, { url: "http://y.com" }, { url: "ftp://z.com" }, { url: "https://" }])) === '["https://x.com/a"]')
 
-    const layout = code("app/(marketing)/blog/author/[slug]/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/blog/author/[slug]/layout.tsx")
     check("an unknown slug or a missing table is a 404 before anything streams", /readBlogAuthorBySlug\(/.test(layout) && /notFound\(\)/.test(layout))
     const postTs = code("lib/blog/post.ts")
     const bySlug = postTs.slice(postTs.indexOf("export const readBlogAuthorBySlug"), postTs.indexOf("export const readBlogAuthorPosts"))
@@ -108,9 +108,9 @@ async function main() {
     check("  the posts are LIVE: published and liveDateFilter", /\.eq\("is_published", true\)/.test(authorPosts) && /\.or\(liveDateFilter\(\)\)/.test(authorPosts) && /\.eq\("author_id", authorId\)/.test(authorPosts))
     const withPosts = postTs.slice(postTs.indexOf("export async function readBlogAuthorsWithPosts"))
     check("  the sitemap's authors read live posts only, and are null with no table", /\.or\(liveDateFilter\(\)\)/.test(withPosts) && /return null/.test(withPosts))
-    const older = code("app/(marketing)/blog/author/[slug]/page/[page]/layout.tsx")
+    const older = code("app/(storelib)/(marketing)/blog/author/[slug]/page/[page]/layout.tsx")
     check("page 1 of the older pages is a 308 to the author's address, past the last a 404", /permanentRedirect\(`\/blog\/author\/\$\{slug\}`\)/.test(older) && /notFound\(\)/.test(older))
-    const index = code("app/(marketing)/blog/author/page.tsx")
+    const index = code("app/(storelib)/(marketing)/blog/author/page.tsx")
     check("/blog/author is a 404 when there is no table", /if \(!authors\) notFound\(\)/.test(index))
     const indexHtml = renderToStaticMarkup(createElement(BlogAuthorsIndexView, { authors: [{ ...author, count: 3 }] }))
     check("  and lists each author with a real link and a count", indexHtml.includes('href="/blog/author/anisia"') && /3 articles/.test(indexHtml))
@@ -121,7 +121,7 @@ async function main() {
     check("the author box links it too, and its links are rel=\"me noopener\"", /All articles by Anisia/.test(article) && (article.match(/rel="me noopener"/g) ?? []).length >= 1)
     const noProfile = renderToStaticMarkup(createElement(ArticleView, { data: { slug: "x", url: "u", title: "T", excerpt: "", category: "", published_at: null, updated_at: null, cover: null, byline: "Storelib Team", blocks: [] as Block[], cta: "digital", related: [], previous: null, next: null } }))
     check("  a post with no profile keeps #author and links no author page", /href="#author"/.test(noProfile) && !/\/blog\/author\//.test(noProfile))
-    const slugPage = code("app/(marketing)/blog/[slug]/page.tsx")
+    const slugPage = code("app/(storelib)/(marketing)/blog/[slug]/page.tsx")
     check("the article page hands the author page to the byline and the BlogPosting", /authorUrl: profile\?\.slug \? blogAuthorPath\(profile\.slug\) : null/.test(slugPage) && /authorHref: profile\?\.slug \? blogAuthorPath\(profile\.slug\) : null/.test(slugPage))
     const sd = blogPostingJsonLd({ url: "https://storelib.com/blog/x", title: "T", description: "D", images: [], fallbackImage: "/og.png", published: "2026-01-01", modified: null, byline: null, profile: author, authorUrl: "/blog/author/anisia" }) as Any
     check("  the BlogPosting author Person has the author page as url", sd.author["@type"] === "Person" && sd.author.url === "https://storelib.com/blog/author/anisia")
@@ -148,7 +148,7 @@ async function main() {
     for (const cat of HELP_CATEGORIES) for (const a of helpArticlesIn(cat.slug)) for (const g of (helpArticleJsonLd(a, cat) as Any)["@graph"]) types.add(g["@type"])
     check("every help article prints TechArticle and BreadcrumbList, nothing else", [...types].sort().join(",") === "BreadcrumbList,TechArticle", [...types])
     check("lib/help/structured-data.ts builds no FAQPage or HowTo", !/FAQPage|HowTo|helpFaq|helpHowTo/.test(code("lib/help/structured-data.ts")))
-    check("the order problems page prints breadcrumbs, not an FAQPage", !/FAQPage/.test(code("app/help/questions/page.tsx")) && /helpBreadcrumbs\(/.test(code("app/help/questions/page.tsx")))
+    check("the order problems page prints breadcrumbs, not an FAQPage", !/FAQPage/.test(code("app/(storelib)/help/questions/page.tsx")) && /helpBreadcrumbs\(/.test(code("app/(storelib)/help/questions/page.tsx")))
     check("no article still asks for the old markup", !/\bfaq: true|howTo:/.test(code("lib/help/articles.ts") + code("lib/help/physical-articles.ts") + code("lib/help/offer-articles.ts")))
   }
 
@@ -173,7 +173,7 @@ async function main() {
     check("  its icons come from STORELIB_SOCIAL, rel=\"me noopener\", a new tab, a label", /STORELIB_SOCIAL\.filter/.test(footer) && /rel="me noopener"/.test(footer) && /target="_blank"/.test(footer) && /aria-label=\{label\}/.test(footer))
     check("  and the row is not drawn with none", /\{SOCIAL\.length \? \(/.test(footer))
     check("how to add a profile is written beside the list", /TO ADD A PROFILE/.test(read("lib/seo/storelib-social.ts")))
-    const blog = ["app/(marketing)/blog/_components/article-view.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/_blog-author.tsx"].map(read).join("\n")
+    const blog = ["app/(storelib)/(marketing)/blog/_components/article-view.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/_blog-author.tsx"].map(read).join("\n")
     check("the blog names no unverified Storelib profile", !/twitter\.com\/storelib|linkedin\.com\/company\/storelib|x\.com\/storelib/.test(blog))
   }
 
@@ -346,9 +346,9 @@ async function main() {
     check("the copy route checks the admin first, as the upload route does", /if \(!\(await isAdminAuthenticated\(\)\)\) \{\s*return blogJson\(\{ error: "Unauthorized" \}, 401\)/.test(route) && route.indexOf("isAdminAuthenticated()") < route.indexOf("req.json()") && /isAdminAuthenticated\(\)/.test(upload))
     check("  one picture, or a few posts a request, each in turn", /copyExternalImage\(body\.url\)/.test(route) && /\.slice\(0, 10\)/.test(route) && /for \(const id of ids\)/.test(route) && /await copyPostImages\(supabase, id\)/.test(route))
     check("  both store where the editor's uploads go", /storeBlogPicture\(picture\)/.test(upload) && /store: storeBlogPicture/.test(code("lib/blog/copy-image.ts")) && /preparePublicImage\(bytes, COPY_IMAGE_MAX_BYTES\)/.test(code("lib/blog/copy-image.ts")))
-    const editor = code("app/admin/blog/posts/_editor-client.tsx")
+    const editor = code("app/(storelib)/admin/blog/posts/_editor-client.tsx")
     check("the editor shows the notice for the cover, the share image and picture blocks, and copies one at a time", /externalImagesOf\(meta, (calmBlocks|blocks)\)/.test(editor) && /<ExternalImagesNotice/.test(editor) && /for \(const \[i, img\] of list\.entries\(\)\)/.test(editor) && /Copy to Storelib/.test(editor))
-    const list = code("app/admin/blog/_list-client.tsx")
+    const list = code("app/(storelib)/admin/blog/_list-client.tsx")
     check("the list's bulk action sends one post a request, in turn, and lists what happened to each", /Copy external images/.test(list) && /for \(const \[i, id\] of ids\.entries\(\)\)/.test(list) && /body: JSON\.stringify\(\{ ids: \[id\] \}\)/.test(list) && /data-copy-report/.test(list))
   }
 

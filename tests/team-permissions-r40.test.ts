@@ -252,21 +252,21 @@ async function main() {
     check("no analytics route finds the store by the session's user_id any more", ["reports", "commerce", "summary", "layout"].every((r) => !/\.eq\("user_id", user\.id\)/.test(read(`app/api/analytics/${r}/route.ts`))))
     check("coupon routes all go through signedInCreator", /signedInCreator\(\)/.test(read("app/api/coupons/route.ts")) && (read("app/api/coupons/[id]/route.ts").match(/signedInCreator\(\)/g) ?? []).length >= 2)
     const pages: [string, string][] = [
-      ["app/app/customers/page.tsx", "customers"],
-      ["app/app/analytics/page.tsx", "analytics"],
-      ["app/app/offers/page.tsx", "marketing"],
-      ["app/app/coupons/load-coupons.ts", "marketing"],
+      ["app/(storelib)/app/customers/page.tsx", "customers"],
+      ["app/(storelib)/app/analytics/page.tsx", "analytics"],
+      ["app/(storelib)/app/offers/page.tsx", "marketing"],
+      ["app/(storelib)/app/coupons/load-coupons.ts", "marketing"],
     ]
     for (const [p, area] of pages) check(`${p} asks teamPageStore("${area}")`, read(p).includes(`teamPageStore("${area}")`))
-    for (const p of ["app/app/customers/page.tsx", "app/app/analytics/page.tsx", "app/app/offers/page.tsx", "app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx", "app/app/orders/sales/page.tsx"]) {
+    for (const p of ["app/(storelib)/app/customers/page.tsx", "app/(storelib)/app/analytics/page.tsx", "app/(storelib)/app/offers/page.tsx", "app/(storelib)/app/coupons/page.tsx", "app/(storelib)/app/coupons/new/page.tsx", "app/(storelib)/app/coupons/[id]/page.tsx", "app/(storelib)/app/orders/sales/page.tsx"]) {
       check(`${p} draws "You don't have access" when refused, not the page`, /<TeamAreaClosed area="[a-z_]+" store=\{[a-z.]+acting\.name\} permissions=\{[a-z.]+acting\.permissions\} \/>/.test(read(p)))
     }
     const server = read("lib/team/server.ts")
     check("the helper answers 401 signed out and 403 without the permission", /export async function requireTeamPermission\(area: TeamArea(?:, opts: \{ read\?: boolean \} = \{\})?\)/.test(server) && /status: 401/.test(server) && /error: NO_ACCESS \}, \{ status: 403/.test(server))
     check("  and the permission is read from the database on each request (actingStoreIn)", /\.from\("store_team_members"\)\.select\(cols\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
-    check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(read("app/app/orders/sales/page.tsx")) && !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
+    check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(read("app/(storelib)/app/orders/sales/page.tsx")) && !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
     /* Changed on purpose (round 42 team): Payouts reads the store for a member with Payouts (tests/team-areas-r42.test.ts); the old Billing address only redirects. */
-    check("the payouts page is taught about the team, the old billing address only redirects", /teamPageStore\("payouts"\)/.test(read("app/app/payouts/page.tsx")) && !/lib\/team/.test(read("app/app/settings/billing/page.tsx")))
+    check("the payouts page is taught about the team, the old billing address only redirects", /teamPageStore\("payouts"\)/.test(read("app/(storelib)/app/payouts/page.tsx")) && !/lib\/team/.test(read("app/(storelib)/app/settings/billing/page.tsx")))
   }
 
   console.log("\nThe screens follow")
@@ -282,8 +282,8 @@ async function main() {
     check("an existing member's access is changed in the same picker", /method: "PATCH", body: \{ permissions: next \}/.test(panel) && /<PermissionPicker key=\{editing\.id\} value=\{editAccess\}/.test(panel))
     const picker = read("components/app/settings/team-permissions.tsx")
     check("the picker has the presets, the groups, and says what is not open or not theirs to give", /TEAM_PRESETS\.map/.test(picker) && /permissionGroups\(\)\.map/.test(picker) && /Not open to the team yet/.test(picker) && /Only the owner can give this/.test(picker))
-    check("the layout hands the shell the member's permissions", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(read("app/app/layout.tsx")) && /permissions=\{acting\.permissions\}/.test(read("app/app/layout.tsx")))
-    check("Home sends a member to the first page they may use", /redirect\(homeFor\(acting\.permissions\)\)/.test(read("app/app/page.tsx")))
+    check("the layout hands the shell the member's permissions", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(read("app/(storelib)/app/layout.tsx")) && /permissions=\{acting\.permissions\}/.test(read("app/(storelib)/app/layout.tsx")))
+    check("Home sends a member to the first page they may use", /redirect\(homeFor\(acting\.permissions\)\)/.test(read("app/(storelib)/app/page.tsx")))
     /* Changed on purpose (round 42 search): the group's area is read once into `area` (null is the Help Center's, everyone's), then asked of permits. */
     check("search shows a member only the groups they may open", /const area = GROUP_AREA\[g\]\s*\n\s*return g !== "communities" && \(area === null \|\| permits\(acting\.permissions, area\)\)/.test(read("app/api/app/search/route.ts")))
   }

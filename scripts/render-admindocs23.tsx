@@ -11,7 +11,7 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
-import { CommerceDocsAdmin } from "@/app/admin/physical-commerce/commerce-docs-admin"
+import { CommerceDocsAdmin } from "@/app/(storelib)/admin/physical-commerce/commerce-docs-admin"
 import { COMMERCE_DOCS, type FactKey } from "@/lib/admin/commerce-docs"
 import { factsFor } from "@/lib/admin/commerce-docs-facts"
 import type { CommerceStatus } from "@/lib/admin/commerce-status"

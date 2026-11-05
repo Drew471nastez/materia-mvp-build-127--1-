@@ -184,9 +184,9 @@ async function main() {
   }
 
   console.log("\nEvery way in keeps the name")
-  const callback = readCode("app/auth/callback/route.ts")
-  const cont = readCode("app/auth/continue/route.ts")
-  const sync = readCode("app/auth/sync-session/route.ts")
+  const callback = readCode("app/(storelib)/auth/callback/route.ts")
+  const cont = readCode("app/(storelib)/auth/continue/route.ts")
+  const sync = readCode("app/(storelib)/auth/sync-session/route.ts")
   check("the web callback writes the provider's name on a new profile, never \"User\"", /display_name: initialName/.test(callback) && !/\|\| "User"/.test(callback))
   check("  and keeps it on every sign in, after the answer", /after\(\(\) => keepProfileName\(/.test(callback))
   check("/auth/continue (a password, the email code, the app) keeps it too", /after\(\(\) => keepProfileName\(/.test(cont))
@@ -206,7 +206,7 @@ async function main() {
   check("the join branch ends in the community, joined by its own ?join=1", welcomeDone("/community/clay?join=1") === "/community/clay?join=1")
   check("  an invite they followed is accepted on arrival", welcomeDone("/community/clay/join?invite=abcdefghijklmnop") === "/community/clay/join?invite=abcdefghijklmnop&accept=1")
   check("  and with nowhere to go, Discover, never their profile", welcomeDone(null) === "/explore" && welcomeDone("//evil.com") === "/explore")
-  const startPage = readCode("app/(auth)/onboarding/start/page.tsx")
+  const startPage = readCode("app/(storelib)/(auth)/onboarding/start/page.tsx")
   check("the start page sends a seller to /app and an answered account on its way", /hasSellerAccess\(access\)\) redirect/.test(startPage) && /WELCOMED_KEY\] === true\) redirect\(welcomeDone/.test(startPage))
   check("a short bio is one line, and empty is nothing", cleanBio("  hi   there  ") === "hi there" && cleanBio("   ") === null && cleanBio(4) === null && (cleanBio("x".repeat(200)) || "").length === 160)
   const modal = readCode("components/app/creator-onboarding-modal.tsx")
@@ -271,7 +271,7 @@ async function main() {
   check("  another site never", openTarget("https://storelib.com.evil.com/x") === null && openTarget("https://evil.com/community/x") === null)
   const opener = readCode("components/platform/app-link-opener.tsx")
   check("the app follows the launch link once per run, not on every page load", /sessionStorage\.getItem\(LAUNCH_KEY\)/.test(opener) && /if \(seen !== launch\) go\(launch\)/.test(opener))
-  check("the root layout mounts it", /<AppLinkOpener \/>/.test(readCode("app/layout.tsx")))
+  check("the root layout mounts it", /<AppLinkOpener \/>/.test(readCode("app/(storelib)/layout.tsx")))
   const manifest = readCode("android/app/src/main/AndroidManifest.xml")
   check("Android declares the shared pages as verified App Links", /android:autoVerify="true"[\s\S]*?android:pathPrefix="\/community\/"[\s\S]*?android:pathPrefix="\/@"/.test(manifest))
 
@@ -281,7 +281,7 @@ async function main() {
     const fb = decodeURIComponent((pageAppLink("android", "/community/clay").split("S.browser_fallback_url=")[1] || "").replace(/;end$/, ""))
     check("  and Play carries the page, so a later install can open it", fb.startsWith("https://play.google.com/store/apps/details") && fb.includes("referrer=utm_content%3D%2Fcommunity%2Fclay"))
   }
-  check("a free join from sign-up is finished on the server, then the feed", /load\.data\.join\.kind === "join_free"/.test(readCode("app/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\?welcome=1`\)/.test(readCode("app/(marketing)/community/[slug]/page.tsx")))
+  check("a free join from sign-up is finished on the server, then the feed", /load\.data\.join\.kind === "join_free"/.test(readCode("app/(storelib)/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\?welcome=1`\)/.test(readCode("app/(storelib)/(marketing)/community/[slug]/page.tsx")))
   check("an iPhone opens the app's scheme with the page", pageAppLink("ios", "/community/clay") === "com.storelib.app://open?path=%2Fcommunity%2Fclay")
   const ua = { safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1", chrome: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/129.0 Mobile/15E148", android: "Mozilla/5.0 (Linux; Android 14) Chrome/129.0 Mobile Safari/537.36", app: "Mozilla/5.0 (iPhone) Capacitor", mac: "Mozilla/5.0 (Macintosh) Safari/605" }
   check("Safari with the Smart App Banner gets no pill; without one it does", pillPhone(ua.safari, true) === null && pillPhone(ua.safari, false) === "ios")

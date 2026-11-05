@@ -49,7 +49,7 @@ function main() {
 
   console.log("\nThe route and the links read the same list")
 
-  const route = read("app/(marketing)/explore/[category]/page.tsx")
+  const route = read("app/(storelib)/(marketing)/explore/[category]/page.tsx")
   check(
     "the route imports it",
     /import \{ CATEGORY_PAGES \} from "@\/lib\/explore\/category-pages"/.test(route),

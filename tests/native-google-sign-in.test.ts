@@ -22,8 +22,8 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 const oauthQueryForApple = () => oauthQueryFor("apple")
 const sign = read("lib/auth/native-sign-in.ts")
-const login = read("app/(auth)/login/page.tsx")
-const signup = read("app/(auth)/signup/page.tsx")
+const login = read("app/(storelib)/(auth)/login/page.tsx")
+const signup = read("app/(storelib)/(auth)/signup/page.tsx")
 
 console.log("\nThe browser opens as a sheet, never a takeover\n")
 {
@@ -57,8 +57,8 @@ console.log("\nGoogle is not asked to forget the person every time\n")
 {
   const params = read("lib/auth/google-oauth-params.ts")
   check("nothing extra is asked for, so Google continues with the account it has", /export const GOOGLE_OAUTH_QUERY: Record<string, string> = \{\}/.test(params))
-  check("  no sign in anywhere still forces the consent screen", !/access_type: "offline"/.test(login + signup + read("app/auth/start/route.ts") + read("lib/native-bridge.ts")))
-  check("  on the web too, through the same one decision", /oauthQueryFor\(provider\)/.test(read("app/auth/start/route.ts")))
+  check("  no sign in anywhere still forces the consent screen", !/access_type: "offline"/.test(login + signup + read("app/(storelib)/auth/start/route.ts") + read("lib/native-bridge.ts")))
+  check("  on the web too, through the same one decision", /oauthQueryFor\(provider\)/.test(read("app/(storelib)/auth/start/route.ts")))
   check("  and Apple is still asked for nothing", oauthQueryForApple() === undefined)
 }
 

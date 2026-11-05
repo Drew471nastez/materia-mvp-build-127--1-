@@ -156,7 +156,7 @@ async function main() {
   section("Clicking the canvas does not move the canvas")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const fn = editor.slice(editor.indexOf("const selectSectionFromCanvas"), editor.indexOf("const selectSectionFromCanvas") + 400)
     check("selecting from the canvas scrolls nothing", !/scrollToSection|revealSection|scrollWithin/.test(fn))
     /**
@@ -198,7 +198,7 @@ async function main() {
     check("a blank name in the schema does not win", sectionDisplayName({ type: "waves", name: "Waves" }, { waves: { name: "   " } }) === "Waves")
     check("no schemas at all still names something", sectionDisplayName({ type: "hero", name: "Hero" }, null) === "Hero")
 
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the sidebar list reads the schema", /\{sectionDisplayName\(section, librarySchemas\)\}/.test(editor))
     /* The rows are components/website-builder/editor/sections-list.tsx, handed the resolver by the editor. */
     const list = read("components/website-builder/editor/sections-list.tsx")
@@ -233,7 +233,7 @@ async function main() {
   section("Naming a new file is asked where the files are")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const code = read("app/website-builder/code/[installId]/page.tsx")
+    const code = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
     /**
      * IT WAS A CENTRED DIALOG, and before that a one-row form in the
      * explorer that did not fit 240px. The dialog fixed the fit by taking

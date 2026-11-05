@@ -181,7 +181,7 @@ function main() {
 
     const panel = readFileSync(join(process.cwd(), "components/website-builder/editor/design-panels.tsx"), "utf8")
     const chip = readFileSync(join(process.cwd(), "components/website-builder/editor/color-chip.tsx"), "utf8")
-    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
     check("the design panels do not measure a scheme at all",
       !/storelib-theme\/contrast/.test(panel) && !/schemeContrast|sayRatio|contrastRatio/.test(code(panel)))

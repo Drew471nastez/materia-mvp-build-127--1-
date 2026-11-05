@@ -109,7 +109,7 @@ async function main() {
     check("switch on: the address beats the cookie", discoverModeFor({ communitiesOn: true, type: "products", cookie: "communities" }) === "products")
     check("switch on: the cookie when the address says nothing, else products", discoverModeFor({ communitiesOn: true, cookie: "communities" }) === "communities" && discoverModeFor({ communitiesOn: true }) === "products")
     check("the admin's headline flag adds the gray control only while communities are on", showsHeadlineSwitch({ communitiesOn: true, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: false, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: true, headlineFlag: false }))
-    const page = code("app/(marketing)/explore/page.tsx")
+    const page = code("app/(storelib)/(marketing)/explore/page.tsx")
     check("the page decides the mode by that rule, products unless the address asks (round AG: no lasting cookie)", /discoverModeFor\(\{ communitiesOn, type: params\?\.type \?\? null, cookie: null \}\)/.test(page))
     check("and draws the first page of real communities in communities mode, with the subcategory from the address", /initialDiscoverMode === "communities"\s*\? exploreCommunities\(\{ q: searchQuery, category, sub, sort: communityServerSort\(params\?\.srt\) \}\)/.test(page) && /query: communitiesQuery\(\{ q: searchQuery, category, sub, srt: params\?\.srt \?\? null \}\)/.test(page) && /broadened: p\.broadened === true/.test(page) && /const sub = category !== "all" && params\?\.sub && VALID_SUBCATEGORY_IDS\.includes\(params\.sub\) \? params\.sub : null/.test(page) && /initialCommunities=\{await firstCommunitiesPromise\}/.test(page))
     const client = code("components/explore/explore-page-client.tsx")
@@ -337,9 +337,9 @@ async function main() {
     */
     check("the route's visit is the database's once a day rule, after the owner and the browser are checked", /if \(!isPersonBrowser\(ua\)\) return "not_a_person"/.test(record) && /if \(v \? v\.isOwner \|\| v\.isCreatorAccount : await isOwnerOf\(db, community, req\.userId\)\) return "owner"/.test(record) /* Changed on purpose (round 33 merge): the route's viewerContext answers it when there is one */ && /recordCommunityView\(db, community\.id, key,/.test(record))
     check("owners and unpublished communities are not counted", /if \(community\.status !== "published"\) return "not_published"/.test(record) && /community\.owner_user_id === userId/.test(record))
-    const feed = code("app/(marketing)/community/[slug]/page.tsx")
-    const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    const feed = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
+    const about = code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")
+    const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
     check("no page counts a view while it renders", !/scheduleCommunityView\(/.test(feed) && !/scheduleCommunityView\(/.test(about))
     check("the community's layout carries the visit beacon in both frames", /<CommunityVisitBeacon communityId=\{c\.id\} referer=\{referer\} \/>/.test(layout) && (layout.match(/\{visit\}/g) ?? []).length === 2)
     check("the server modules say server-only", ["views", "record-view"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
@@ -371,8 +371,8 @@ async function main() {
     check("nothing links to /explore/communities any more", old.length === 0, old)
     check("the navigator's Discover communities", /label: "Discover communities", href: "\/explore\?type=communities"/.test(read("lib/nav/places-shared.ts")))
     check("the library's empty state", /ctaHref="\/explore\?type=communities"/.test(read("components/community/public/library-list.tsx")))
-    check("/community on its own", /redirect\("\/explore\?type=communities"\)/.test(read("app/(marketing)/community/page.tsx")))
-    const legacy = code("app/(marketing)/explore/communities/route.ts")
+    check("/community on its own", /redirect\("\/explore\?type=communities"\)/.test(read("app/(storelib)/(marketing)/community/page.tsx")))
+    const legacy = code("app/(storelib)/(marketing)/explore/communities/route.ts")
     check("/explore/communities: a 404 while off, else a permanent redirect keeping q and the order", /if \(!\(await communitiesEnabled\(\)\)\) return new NextResponse\("Not found", \{ status: 404 \}\)[\s\S]*legacyCommunitiesTarget\(\{ q: params\.get\("q"\), sort: params\.get\("sort"\) \}\)[\s\S]*, 308\)/.test(legacy))
     check("the old page's component is gone", !existsSync("components/community/public/explore-communities.tsx"))
   }
@@ -439,7 +439,7 @@ async function main() {
       "pull at the top refreshes Explore like the community feed",
       /RouterPullToRefresh scope=\{EXPLORE_REFRESH_SCOPE\}/.test(read("components/explore/explore-pull-refresh.tsx")) &&
         /ExplorePullSync/.test(read("components/explore/explore-pull-refresh.tsx")) &&
-        /<ExplorePullRefresh>/.test(read("app/(marketing)/explore/page.tsx")),
+        /<ExplorePullRefresh>/.test(read("app/(storelib)/(marketing)/explore/page.tsx")),
     )
     const grid = code("components/explore/explore-communities-results.tsx")
     check(
@@ -459,7 +459,7 @@ async function main() {
       "components/explore/search-categories-button.tsx",
       "lib/explore/search-categories.ts",
       "lib/explore/search-field-look.ts",
-      "app/(marketing)/explore/communities/route.ts",
+      "app/(storelib)/(marketing)/explore/communities/route.ts",
       "supabase/sql/run-now/87_community_views.sql",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))

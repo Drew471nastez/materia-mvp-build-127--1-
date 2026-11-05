@@ -121,7 +121,8 @@ async function main() {
     check("  every rule is under the light look (and the dark one only names its colour scheme)", sheet.split("\n").filter((l) => /\{ [a-z-]+:/.test(l)).every((l) => /\[data-ws-look="light"\]/.test(l) || l === '[data-ws-look="dark"] { color-scheme: dark; }'))
     check("  white words become /app's ink, the dark page /app's #f8f9fa, a card white", /\.text-white:is\(\[data-ws-look="light"\][^{]*\{ color: #1a1a2e; \}/.test(sheet) && /\.bg-\\\[\\#0f0f0f\\\]:is[^{]*\{ background-color: #f8f9fa; \}/.test(sheet) && /\.bg-white\\\/\\\[0\\\.03\\\]:is[^{]*\{ background-color: #ffffff; \}/.test(sheet))
     check("  white words on a red button stay white", /\.text-white:is[^{]*:not\([^)]*bg-red-500/.test(sheet))
-    check("  loaded with the app, after the dark sheet", /import "\.\/theme-dark\.css"\nimport "\.\/website-settings-light\.css"/.test(read("app/layout.tsx")))
+    /* Changed on purpose (r52): Storelib's root layout is app/(storelib)/layout.tsx, one folder down from the sheets. */
+    check("  loaded with the app, after the dark sheet", /import "\.\.\/theme-dark\.css"\nimport "\.\.\/website-settings-light\.css"/.test(read("app/(storelib)/layout.tsx")))
   }
 
   console.log("\nThe language and currency selector")
@@ -169,7 +170,7 @@ async function main() {
 
   console.log("\nA product's translations, one language at a time")
   {
-    const card = await import("@/app/app/products/new/product-translations-card")
+    const card = await import("@/app/(storelib)/app/products/new/product-translations-card")
     const fields = [{ field: "title" as const }, { field: "description" as const }, { field: "seo_title" as const }, { field: "seo_description" as const }]
     const done = { value: "x", status: "done" as const, ai: false }
     check("all four written: Translated", card.progressLabel(card.languageProgress(fields, { title: done, description: done, seo_title: done, seo_description: done })).text === "Translated")
@@ -178,7 +179,7 @@ async function main() {
     const old = card.progressLabel(card.languageProgress(fields, { title: { value: "x", status: "outdated", ai: false }, description: done, seo_title: done, seo_description: done }))
     check("one the original changed under: Outdated, first, in amber", old.text === "Outdated" && old.tone === "warn")
     check("a title left to the glossary is not counted against it", card.languageProgress(fields, { description: done, seo_title: done, seo_description: done }, true).total === 3)
-    const src = read("app/app/products/new/product-translations-card.tsx")
+    const src = read("app/(storelib)/app/products/new/product-translations-card.tsx")
     const list = src.slice(src.indexOf("<div className={SWITCH_GROUP}>"), src.indexOf("<SheetDialog"))
     check("the card is a list: a row per language, and no field in it", /data-product-translation-language=\{l\.code\}/.test(list) && !/<Input|<textarea|<RichTextEditor/.test(list))
     check("  the list folds away while every language shows the original", /view\.showOriginal\s*\?\s*null/.test(list))
@@ -195,7 +196,7 @@ async function main() {
       "components/website-builder/project-settings.tsx",
       "components/website-builder/preview-locale-switch.tsx",
       "components/website-builder/ask-activity.tsx",
-      "app/app/products/new/product-translations-card.tsx",
+      "app/(storelib)/app/products/new/product-translations-card.tsx",
       "scripts/gen-website-settings-light.mjs",
       "scripts/check-ui-polish-x.mjs",
       "scripts/render-ui-polish-x-probe.tsx",

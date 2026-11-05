@@ -45,7 +45,7 @@ const renderer = read("app/(site)/w/[username]/render-site.tsx")
 const home = read("app/(site)/w/[username]/page.tsx")
 const sub = read("app/(site)/w/[username]/[page]/page.tsx")
 const sectionsApi = read("app/api/website-builder/themes/[installId]/sections/route.ts")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const switcher = read("components/website-builder/page-switcher.tsx")
 const proxy = read("proxy.ts")
 
@@ -218,7 +218,7 @@ function main() {
       "a product belonging to somebody else is not at this creator's address",
       /* Changed on purpose (round AB): the website in another language. */ /if \(owner && found\.creator_id !== owner\.creatorId\) notFound\(\)/.test(productRenderer),
     )
-    check("and the platform's own address draws the same page", /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")))
+    check("and the platform's own address draws the same page", /renderProduct\(slug\)/.test(read("app/(storelib)/products/[slug]/page.tsx")))
 
     check("the Shop link the themes ship points at /products", /url: "\/products"/.test(registry))
     /* Changed on purpose (round X1): the page's body is shop-page.tsx, drawn by the held page.tsx and its per request twin ~list/page.tsx. */
@@ -285,7 +285,7 @@ function main() {
   section("A page that is not there does not send the visitor to Storelib")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const nf = read("app/not-found.tsx")
+    const nf = read("app/(storelib)/not-found.tsx")
     const body = read("components/platform/not-found-body.tsx")
     const home = read("app/(site)/w/[username]/page.tsx")
 
@@ -303,10 +303,12 @@ function main() {
      * showed.
      */
     check("the platform's 404 has a second body for a creator's own address", /<NotFoundBody platform=\{<PlatformNotFound \/>\} site=\{<SiteNotFound fallback=\{<PlainSiteNotFound \/>\} \/>\} \/>/.test(nf))
-    check("which says the page is not here", /That page is not here/.test(nf))
-    check("and offers the site's own front page, not Storelib", /href="\/"[\s\S]{0,200}Back to the home page/.test(nf))
+    /* Changed on purpose (r52): the plain site body is its own component, so the websites' root (app/(site)/not-found.tsx) draws the same one. */
+    const plain = read("components/website-builder/plain-site-not-found.tsx")
+    check("which says the page is not here", /That page is not here/.test(plain) && /import \{ PlainSiteNotFound \} from "@\/components\/website-builder\/plain-site-not-found"/.test(nf))
+    check("and offers the site's own front page, not Storelib", /href="\/"[\s\S]{0,200}Back to the home page/.test(plain))
     check("the site body mentions neither Storelib nor Explore", (() => {
-      const siteBody = nf.slice(nf.indexOf("function PlainSiteNotFound"), nf.indexOf("function PlatformNotFound"))
+      const siteBody = plain.slice(plain.indexOf("function PlainSiteNotFound"))
       return !/Storelib/.test(siteBody) && !/Explore/.test(siteBody)
     })())
 
@@ -345,7 +347,7 @@ function main() {
     const code = header.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
     const headerSchema = read("themes/default/sections/header.json")
     const themeSettings = read("lib/website-builder/theme-settings-schema.ts")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
     /**
      * FOUR ICONS, AND THREE OF THEM DID NOTHING. Search, Account and
@@ -449,13 +451,13 @@ function main() {
     check(
       "the platform checks a return target before following it",
       /* Changed on purpose: the login page reads `next` with readCarry (lib/auth/continue.ts), which checks it with safeReturnTarget. */
-      /readCarry\(searchParams, getMainDomain\(\)\)/.test(read("app/(auth)/login/page.tsx")) && /safeReturnTarget\(raw, \{ mainDomain \}\)/.test(read("lib/auth/continue.ts")) &&
-        /safeReturnTarget/.test(read("app/account/continue/route.ts")),
+      /readCarry\(searchParams, getMainDomain\(\)\)/.test(read("app/(storelib)/(auth)/login/page.tsx")) && /safeReturnTarget\(raw, \{ mainDomain \}\)/.test(read("lib/auth/continue.ts")) &&
+        /safeReturnTarget/.test(read("app/(storelib)/account/continue/route.ts")),
       "an unchecked one turns sign-in into an open redirect",
     )
     check(
       "and nothing follows a raw redirect parameter any more",
-      !/const redirectUrl = searchParams\.get\("redirect"\)/.test(read("app/(auth)/login/page.tsx")),
+      !/const redirectUrl = searchParams\.get\("redirect"\)/.test(read("app/(storelib)/(auth)/login/page.tsx")),
     )
 
     check(
@@ -514,7 +516,7 @@ function main() {
     check(
       "and a public request still gets the published version",
       /* Changed on purpose (round AC): the market (currency) rides beside the language. */ /export async function renderProduct\(\s*slug: string,\s*(?:\/\*\*[^*]*\*\/\s*)?owner\?: \{ creatorId: string; locale\?: string \| null; market\?: string \| null \},/.test(renderer) &&
-        /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")),
+        /renderProduct\(slug\)/.test(read("app/(storelib)/products/[slug]/page.tsx")),
     )
   }
 

@@ -1126,6 +1126,8 @@ const SUITES = [
   "tests/checkout-r49.test.ts",
   /* Round 51 (commerce): the shop's name beside its logo at checkout (Settings › Checkout › Top of checkout), "From my own warehouse" shipped by the seller and a mix that moves no product, the packing slip's store details and the computer's notice, the order page's payment method, Clarity, Klaviyo, Omnisend and Tag Manager told the visitor's consent; scripts/check-commerce-r51.mjs measures the bar and the notice. */
   "tests/commerce-r51.test.ts",
+  /* Round 52 (websites): a published website has a root layout and a stylesheet of its own (app/(site)/layout.tsx, app/site.css by scripts/site-css.cjs), Storelib's pages theirs (app/(storelib)/layout.tsx), and an imported theme's next page is drawn ahead on a capable phone; scripts/check-site-speed-r52.mjs and scripts/check-site-css-r52.mjs measure it in a browser. */
+  "tests/site-root-r52.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */

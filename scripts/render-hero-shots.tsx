@@ -255,7 +255,7 @@ function Course() {
 /* ── Theo Lindqvist's creator page ──────────────────────────────────────── */
 
 /*
-  Storelib's creator page as app/(marketing)/u/[username]/page.tsx composes
+  Storelib's creator page as app/(storelib)/(marketing)/u/[username]/page.tsx composes
   it: the cover and profile (UnifiedShopHeader) with Follow, the tabs with the
   catalogue as real product cards, and About under them. Theo is the
   photographer behind Halcyon; his picture is one of his own landscapes.
@@ -308,7 +308,7 @@ function CreatorPage() {
 /* ── Kiln Club: Wheel & Kiln's community, from inside ───────────────────── */
 
 /*
-  The member's feed as app/(marketing)/community/[slug]/(member) draws it:
+  The member's feed as app/(storelib)/(marketing)/community/[slug]/(member) draws it:
   the community's own bar, the spaces, the composer and the posts, and the
   left column a real community has: its card with a cover, the faces of who
   was here last, the next event and the top contributors. Invented members

@@ -100,8 +100,8 @@ async function main() {
     })
     check("no other component draws a community card by hand", ownCards.length === 0, ownCards)
     /* The creator page's Communities panel is built by components/profile/creator-communities-tab.tsx (round 5: only the communities they made, or No communities yet). */
-    check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\}( \/)?>/.test(code("components/profile/creator-communities-tab.tsx")) && /creatorCommunitiesPanel\(communityCards\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
-    check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/route.ts")))
+    check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\}( \/)?>/.test(code("components/profile/creator-communities-tab.tsx")) && /creatorCommunitiesPanel\(communityCards\)/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
+    check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(storelib)/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(storelib)/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(storelib)/(marketing)/explore/communities/route.ts")))
     const card = code(SHARED)
     /* Changed on purpose: the row can leave out the public view count, for lists such as /account/communities (hideViews, components/community/public/library-list.tsx, ddcbaf919); the grid's foot row is unchanged. */
     check("one card, two shapes: the grid and the compact row, with the same title, sneak peek, foot row and creator line", /layout === "row"/.test(card) && (card.match(/<Facts card=\{card\} storefront=\{storefront\} \/>/g) ?? []).length === 1 && (card.match(/<Facts card=\{card\} storefront=\{storefront\} hideViews=\{hideViews\} \/>/g) ?? []).length === 1 && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2 && /<Creator card=\{card\} eager=\{priority\} wide=\{wide\} \/>/.test(card) && /<Creator card=\{card\} standing=\{standing\} eager=\{priority\} wide=\{wide\} \/>/.test(card) && (card.match(/, titleClass\)/g) ?? []).length === 2 && /const titleClass = cn\(COMMUNITY_TITLE, wide && COMMUNITY_TITLE_WIDE\)/.test(card))
@@ -140,7 +140,7 @@ async function main() {
 
   console.log("\nThe title")
   {
-    const layout = code("app/layout.tsx")
+    const layout = code("app/(storelib)/layout.tsx")
     const calls = layout.match(/\bRoboto\(\{[\s\S]*?\}\)/g) ?? []
     check("Roboto comes through next/font/google, once", /import \{ Inter, Roboto \} from "next\/font\/google"/.test(layout) && calls.length === 1)
     const call = calls[0] ?? ""
@@ -148,9 +148,12 @@ async function main() {
     check("Latin and Latin Extended", /subsets: \["latin", "latin-ext"\]/.test(call))
     check("display swap, a CSS variable, no preload on pages without a card", /display: "swap"/.test(call) && /variable: "--font-community-title"/.test(call) && /preload: false/.test(call))
     check("the variable is set on the body, beside Inter's", /<body className=\{`\$\{inter\.variable\} \$\{communityTitle\.variable\}/.test(layout))
-    const others = [...walk("app"), ...walk("components"), ...walk("lib")].filter((f) => f !== "app/layout.tsx" && /next\/font|Roboto\(/.test(code(f)))
+    /* Changed on purpose (r52): a published website has a root layout of its own, app/(site)/layout.tsx, which loads Inter (the face themes draw with) and nothing else. */
+    const siteRoot = code("app/(site)/layout.tsx")
+    check("the websites' root loads Inter only", /Inter\(\{/.test(siteRoot) && !/Roboto\(/.test(siteRoot))
+    const others = [...walk("app"), ...walk("components"), ...walk("lib")].filter((f) => f !== "app/(storelib)/layout.tsx" && f !== "app/(site)/layout.tsx" && /next\/font|Roboto\(/.test(code(f)))
     check("no other file loads a font through next/font", others.length === 0, others)
-    const users = [...walk("app"), ...walk("components"), ...walk("lib")].filter((f) => f !== "app/layout.tsx" && /--font-community-title/.test(code(f)))
+    const users = [...walk("app"), ...walk("components"), ...walk("lib")].filter((f) => f !== "app/(storelib)/layout.tsx" && /--font-community-title/.test(code(f)))
     check("the variable is used by the community card title and nothing else", users.join() === SHARED, users)
     const card = code(SHARED)
     const title = /COMMUNITY_TITLE = "([^"]*)"/.exec(card)?.[1] ?? ""

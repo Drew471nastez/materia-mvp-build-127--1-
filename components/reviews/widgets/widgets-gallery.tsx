@@ -23,8 +23,8 @@ import { WIDGET_INFO, WIDGET_TYPES, isWidgetType, resolveWidgetSettings, type Wi
 import { renderReviewWidget, type WidgetReviews } from "@/lib/reviews/widgets/render"
 import { previewReviews } from "@/lib/reviews/widgets/preview-data"
 import { defaultPlacement, type WidgetPage, type WidgetPlacement } from "@/lib/reviews/widgets/placement"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
-import { Pill, usePill } from "@/app/app/coupons/coupon-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, buttonPrimary, buttonSecondary, card } from "@/app/(storelib)/app/orders/order-parts"
+import { Pill, usePill } from "@/app/(storelib)/app/coupons/coupon-parts"
 import { WidgetPreview } from "./widget-preview"
 import { WidgetCustomizer } from "./widget-customizer"
 

@@ -104,9 +104,9 @@ async function roundTrips() {
   const strangerName1 = await visit(() => heldShopLayout("nobody-by-this-name"))
   const strangerName2 = await visit(() => heldShopLayout("nobody-by-this-name"))
   check("  a name that is nobody's is not held, and gets the plain skeleton", strangerName1.value?.creatorId === null && strangerName1.value.themePreset === "default" && strangerName2.trips.length > 0)
-  const layout = readCode("app/(marketing)/u/[username]/layout.tsx")
+  const layout = readCode("app/(storelib)/(marketing)/u/[username]/layout.tsx")
   check("  the layout asks only the held facts, and the currency through its own tagged cache", /await heldShopLayout\(username\)/.test(layout) && /cachedStoreCurrency\(facts\.creatorId\)/.test(layout) && !/loadProfileByUsername|loadCreatorForUser/.test(layout))
-  check("  the creator page itself still reads its profile per request (a renamed account never shows somebody else's page)", /const profile = await loadProfileByUsername\(username\)/.test(readCode("app/(marketing)/u/[username]/page.tsx")))
+  check("  the creator page itself still reads its profile per request (a renamed account never shows somebody else's page)", /const profile = await loadProfileByUsername\(username\)/.test(readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")))
 
   section("Every answer a name gives is held, and none outlives what the name leads to")
   const nobody1 = await visit(() => resolveOnePage("nobody-has-this-name"))
@@ -135,8 +135,8 @@ async function roundTrips() {
   /* Changed on purpose (round rel-sites): a failed lookup is thrown (the page's error screen with Try again), never "missing" (the page's 404); tests/rel-sites.test.ts covers the held last answer. */
   check("a lookup that failed is not held: the next visitor asks again", broken.value === undefined && (broken.error as Error | undefined)?.name === "SiteReadError" && recovered.trips.length > 0, [recovered.trips.length, String(broken.error)])
 
-  section("The page itself: no cookie, no header, no write (app/(marketing)/l/[slug]/page.tsx)")
-  const route = readCode("app/(marketing)/l/[slug]/page.tsx")
+  section("The page itself: no cookie, no header, no write (app/(storelib)/(marketing)/l/[slug]/page.tsx)")
+  const route = readCode("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   check("the render reads no cookie and writes no view row", !/cookies\(\)/.test(route) && !/onepage_views/.test(route) && !/\bafter\(/.test(route) && !/\.insert\(/.test(route))
   check("  the only header it reads is the host, and only to redirect a renamed address", (route.match(/headers\(\)/g) ?? []).length === 1 && /isOnePageHost\(\(await headers\(\)\)\.get\("host"\)\)/.test(route))
   check("  still drawn per request: a block's schedule is decided at each draw", /export const dynamic = "force-dynamic"/.test(route) && /private, no-cache, must-revalidate/.test((raw("next.config.mjs").split("source: '/l/:slug*'")[1] ?? "").split("source:")[0]))
@@ -228,25 +228,25 @@ async function privatePages() {
     "app/(site)/w/[username]/wishlist/page.tsx",
     "app/(site)/w/[username]/search/page.tsx",
     "app/(site)/cover-render/[pass]/page.tsx",
-    "app/receipt/[token]/page.tsx",
-    "app/receipt/cart/[sessionId]/page.tsx",
-    "app/order-help/[id]/page.tsx",
-    "app/purchase/success/page.tsx",
-    "app/downloads/page.tsx",
-    "app/checkout/receipt/page.tsx",
-    "app/checkout/physical/order/[token]/page.tsx",
-    "app/checkout/site/thanks/[token]/page.tsx",
-    "app/checkout/site/track/page.tsx",
-    "app/(marketing)/p/[slug]/page.tsx",
-    "app/(marketing)/u/[username]/page.tsx",
-    "app/(marketing)/[sellername]/page.tsx",
-    "app/(marketing)/[sellername]/[productSlug]/page.tsx",
+    "app/(storelib)/receipt/[token]/page.tsx",
+    "app/(storelib)/receipt/cart/[sessionId]/page.tsx",
+    "app/(storelib)/order-help/[id]/page.tsx",
+    "app/(storelib)/purchase/success/page.tsx",
+    "app/(storelib)/downloads/page.tsx",
+    "app/(storelib)/checkout/receipt/page.tsx",
+    "app/(storelib)/checkout/physical/order/[token]/page.tsx",
+    "app/(storelib)/checkout/site/thanks/[token]/page.tsx",
+    "app/(storelib)/checkout/site/track/page.tsx",
+    "app/(storelib)/(marketing)/p/[slug]/page.tsx",
+    "app/(storelib)/(marketing)/u/[username]/page.tsx",
+    "app/(storelib)/(marketing)/[sellername]/page.tsx",
+    "app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx",
   ]
   for (const p of PRIVATE_ROUTES) {
     const code = readCode(p)
     check(`drawn per request, never held as a page: ${p}`, /export const dynamic = "force-dynamic"/.test(code) && !/export const revalidate = [1-9]/.test(code))
   }
-  const community = readCode("app/(marketing)/community/[slug]/layout.tsx")
+  const community = readCode("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
   check("every page of a community (members' posts, courses, drafts) is drawn per request", /await connection\(\)/.test(community) && !/export const revalidate/.test(community))
   check("  and a draft or suspended one is a real 404 for anybody but its staff, before anything streams", /if \(!communityOpen\(community\) && !viewer\?\.isOwner\) return false/.test(community) && /notFound\(\)/.test(community))
 
@@ -271,7 +271,7 @@ async function privatePages() {
   process.env.NEXT_PUBLIC_SUPABASE_URL = before
   const exploreRules = (await nextConfig.headers()).filter((r) => r.source === "/explore/:path*")
   const shared = exploreRules.filter((r) => r.headers.some((h) => /public|s-maxage/.test(h.value)))
-  const explorePage = readCode("app/(marketing)/explore/page.tsx")
+  const explorePage = readCode("app/(storelib)/(marketing)/explore/page.tsx")
   const interestsRoute = readCode("app/api/explore/interests/route.ts")
   const exploreClient = readCode("components/explore/explore-page-client.tsx")
   check("Explore is held at the edge the same for every request: no cookie decides it, and the page reads none",

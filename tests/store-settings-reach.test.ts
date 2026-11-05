@@ -28,10 +28,10 @@ console.log("\nStore details' store name is the website's shop.name\n")
   check("a native site's prerendered shop.name too", (published.match(/shop: \{ name: site\.profile\?\.storeName \|\| site\.displayName \}/g) ?? []).length === 2)
   const compat = read("lib/website-builder/compat-site.ts")
   check("an imported theme's shop.name and shop.email on the live site", /shop: \{ name: brandOf\(settings\) \|\| store\.name \|\| creator\.displayName, email: store\.email \?\? undefined,/.test(compat) && /\["compat-store", creatorId\]/.test(compat))
-  check("and in the editor's canvas, where it said My store", /creatorFacts\?\.storeName \|\| creatorFacts\?\.name \|\| "My store"/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("and in the editor's canvas, where it said My store", /creatorFacts\?\.storeName \|\| creatorFacts\?\.name \|\| "My store"/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   const route = read("app/api/store/settings/route.ts")
   check("saving the name or the contact clears the site's caches", /if \("storeName" in body \|\| "supportEmail" in body\)/.test(route) && /revalidateTag\(creatorShopTag\(c\.creatorId\), \{ expire: 0 \}\)/.test(route) && /await revalidatePublishedSite\(c\.creatorId\)/.test(route))
-  check("the digital checkout names the store, as its hint says", /* Changed on purpose (track X2): asked with the store's other reads, by the product's store. */ /storeId \? loadStoreName\(checkoutAdmin\(\), storeId\)/.test(read("app/checkout/page.tsx")) && /name: storeName \|\| personName\(/.test(read("app/checkout/page.tsx")))
+  check("the digital checkout names the store, as its hint says", /* Changed on purpose (track X2): asked with the store's other reads, by the product's store. */ /storeId \? loadStoreName\(checkoutAdmin\(\), storeId\)/.test(read("app/(storelib)/checkout/page.tsx")) && /name: storeName \|\| personName\(/.test(read("app/(storelib)/checkout/page.tsx")))
 }
 
 console.log("\nStore details' country: new locations and tax start there\n")

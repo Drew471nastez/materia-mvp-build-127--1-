@@ -182,7 +182,7 @@ async function main() {
     const missing = curatedLanguages().flatMap((lang) => sentences.filter((s) => !curatedWords(lang)[s]).map((s) => `${lang}: ${s}`))
     check(`each has a checked translation in all ${curatedLanguages().length} curated languages`, missing.length === 0, missing)
     check("a regional browser language reads its base language", curatedWords("es-MX")[RATES_PAUSED_MESSAGE] === curatedWords("es")[RATES_PAUSED_MESSAGE])
-    const page = code("app/checkout/page.tsx")
+    const page = code("app/(storelib)/checkout/page.tsx")
     check("the paused page reads the buyer's browser language", /language=\{\(await headers\(\)\)\.get\("accept-language"\)\}/.test(page) && /curatedWords\(lang\)/.test(page))
   }
 

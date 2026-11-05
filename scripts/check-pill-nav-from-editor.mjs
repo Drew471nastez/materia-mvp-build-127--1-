@@ -255,7 +255,7 @@ async function oneTap(p, { tab, after, isNew, type, focus, answer }) {
 
   /*
     NEW PRODUCT ASKS WHAT YOU ARE SELLING FIRST. The button opens a sheet
-    (app/app/products/new/kind-chooser), and only the answer opens the
+    (app/(storelib)/app/products/new/kind-chooser), and only the answer opens the
     editor — so a probe that tapped the button and then the pill was tapping
     over a sheet, not over the editor the reader is talking about. "Digital"
     needs nothing from the server, so it is the one this picks.

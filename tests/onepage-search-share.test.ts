@@ -312,7 +312,7 @@ function rules() {
   check("settings that are not an object are refused", !checkSettingsPatch("x").ok && !checkSettingsPatch([1]).ok)
   check("a page address follows the username rules", checkPageSlug("Satori-Prints").ok && (checkPageSlug("Satori-Prints") as any).value === "satori-prints")
   check("a short, reserved or broken address is refused, with a sentence saying what to do",
-    ["ab", "app", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && (checkPageSlug("ab") as any).error === "Use at least 3 characters")
+    ["ab", "app", "(storelib)", "checkout", "-x-", "a--b", "x".repeat(31)].every((s) => !checkPageSlug(s).ok) && (checkPageSlug("ab") as any).error === "Use at least 3 characters")
 }
 
 /* ─── The real route and page, with the database swapped ─────────────────── */
@@ -454,9 +454,9 @@ function previewOf(draft: Record<string, any>) {
 }
 
 async function metadataAndRoutes() {
-  const page = (await import(await bundle("app/(marketing)/l/[slug]/page.tsx"))) as any
+  const page = (await import(await bundle("app/(storelib)/(marketing)/l/[slug]/page.tsx"))) as any
   const route = (await import(await bundle("app/api/onepage/route.ts"))) as any
-  const image = (await import(await bundle("app/(marketing)/[sellername]/links/share.png/route.tsx"))) as any
+  const image = (await import(await bundle("app/(storelib)/(marketing)/[sellername]/links/share.png/route.tsx"))) as any
 
   console.log("\nThe public page says what the editor previewed")
   const cases: Array<[string, Record<string, any>]> = [

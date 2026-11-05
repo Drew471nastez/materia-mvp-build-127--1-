@@ -27,7 +27,7 @@ check("a stale seller flag without a session is still signed out", heroCtaState(
 const cta = readCode("components/marketing/hero-cta.tsx")
 check("it reads the header's verified snapshot and follows it when corrected", /readAuthSnapshot\(\)/.test(cta) && /subscribeAuthSnapshot\(read\)/.test(cta) && /useLayoutEffect/.test(cta))
 check("every label sits in one grid cell, so a late label moves nothing", /col-start-1 row-start-1/.test(cta) && /"invisible"/.test(cta))
-check("the page reads no cookies, so it stays a CDN page", !/cookies\(|headers\(|createClient/.test(readCode("app/(marketing)/page.tsx") + readCode("components/marketing/hero.tsx")))
+check("the page reads no cookies, so it stays a CDN page", !/cookies\(|headers\(|createClient/.test(readCode("app/(storelib)/(marketing)/page.tsx") + readCode("components/marketing/hero.tsx")))
 
 const slider = readCode("components/marketing/hero-carousel.tsx")
 console.log("\nThe slider's geometry")

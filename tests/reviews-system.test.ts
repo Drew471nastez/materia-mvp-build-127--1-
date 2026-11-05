@@ -590,7 +590,7 @@ function faces() {
   const panel = source("components/storefront/reviews-panel.tsx")
   check("the creator page's review drew `(buyerName || \"?\")[0]`: it is the shared avatar now",
     !/\|\| "\?"/.test(code("components/storefront/reviews-panel.tsx")) && /<AppAvatar/.test(panel) && /tone="theme"/.test(panel) && /markWhileLoading/.test(panel) && /UNNAMED_REVIEWER/.test(panel))
-  const creatorPage = source("app/(marketing)/u/[username]/page.tsx")
+  const creatorPage = source("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("  and it asks for the guest's name, which is why those reviews had none to draw",
     /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /missingColumn\(res\.error\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
 

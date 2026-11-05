@@ -111,7 +111,7 @@ async function main() {
     check("limited per visitor and per address emailed", /bucket: "order-lookup-visitor", subjects: \[addressSubject\(request\)\]/.test(route) && /bucket: "order-lookup-email", subjects: \[emailSubject\(email\)\]/.test(route))
     check("looked up and emailed after the answer, which is the same either way", /after\(async \(\) => \{[\s\S]*findOrderFor[\s\S]*\}\)\s*return back\(site\.origin, \{ sent: "1", lang \}\)/.test(route) /* Changed on purpose (round BC): the page's language rides back too. */ && (route.match(/sent: "1"/g) ?? []).length === 1)
     check("  sent transactional, to the order's own address only", /sendMailgunEmail\(\{ to: email,[\s\S]*transactional: true/.test(route))
-    const page = read("app/checkout/site/track/page.tsx")
+    const page = read("app/(storelib)/checkout/site/track/page.tsx")
     check("the page says the same words whether anything matched, and prints nothing from the address", /If that order number and email match an order, we sent a link to it/.test(page) && /* Changed on purpose (round BC): fixed sentences in the page's language, by a switch on the code. */ /function errorOf\(ct: CheckoutT, why: string \| undefined\)/.test(page) && /default:\s*return null/.test(page))
     const mail = orderLinkEmail({ shopName: "Ana's <Shop>", orders: [{ number: "#3F2A9C1B", date: "Sep 20, 2026", url: "https://ana.storelib.com/checkout/physical/order/tok", status: "Shipped" }], brand: { logoUrl: null, email: "hi@ana.test", phone: null, websiteUrl: "https://ana.storelib.com" } })
     check("the email: the order, its link on the store's site, the store escaped", mail.subject === "Your order #3F2A9C1B from Ana's <Shop>" && mail.html.includes('href="https://ana.storelib.com/checkout/physical/order/tok"') && mail.html.includes("Ana's &lt;Shop&gt;") && !mail.html.includes("<Shop>"), mail.subject)
@@ -128,7 +128,7 @@ async function main() {
     check("the order page and the checkout keep their routes", r("/checkout/physical/order/tok")?.kind === "pass" && r("/checkout")?.kind === "rewrite")
     check("a website's subdomain is registered for wallets, exactly", siteSubdomainForWallets("Andrews.storelib.com:443", "storelib.com") === "andrews.storelib.com")
     check("  never storelib.com, www, a deeper name or another domain", siteSubdomainForWallets("storelib.com", "storelib.com") === null && siteSubdomainForWallets("www.storelib.com", "storelib.com") === null && siteSubdomainForWallets("a.b.storelib.com", "storelib.com") === null && siteSubdomainForWallets("shop.example.com", "storelib.com") === null)
-    const page = read("app/checkout/site/page.tsx")
+    const page = read("app/(storelib)/checkout/site/page.tsx")
     check("  when its checkout opens, after the page is sent", /if \(site\.kind === "subdomain"\) after\(\(\) => ensureSiteWalletDomain\(admin, site\.host\)\)/.test(page))
     const pmd = read("lib/custom-domains/stripe-pmd.ts")
     check("  once active never again, else once a day per host", /apple_pay_status === "active" && row\.google_pay_status === "active"\) return/.test(pmd) && /now - at < 24 \* 3600_000/.test(pmd))
@@ -147,7 +147,7 @@ async function main() {
     check("  it holds while the location sends to the same email", partnerLinkHolds(link, { ...place, email: " Orders@Print.test " }))
     check("  changing the supplier's email, or how it forwards, closes every link sent before", !partnerLinkHolds(link, { ...place, email: "new@print.test" }) && !partnerLinkHolds(link, { ...place, forwarding: "none" }) && !partnerLinkHolds(link, { ...place, id: "22222222-0000-4000-8000-000000000002" }))
     const routeSrc = read("app/api/physical/partner-tracking/route.ts")
-    const pageSrc = read("app/checkout/physical/partner/[token]/page.tsx")
+    const pageSrc = read("app/(storelib)/checkout/physical/partner/[token]/page.tsx")
     check("  the page and the route both check it", /!partnerLinkHolds\(link, loc\)\) return back\("error=link"\)/.test(routeSrc) && /partnerLinkHolds\(link, found\)/.test(pageSrc))
     /* The first letter of the signature: the last one also carries padding bits, so "A" for "B" there can decode to the same bytes and the check passed by luck. */
     const [body, sig] = token.split(".")
@@ -201,7 +201,7 @@ async function main() {
     check("Mailgun clears a bounce only for a transactional send that does not keep it", /if \(options\.transactional && !options\.keepBounce\) await clearBounce\(options\.to\)/.test(mailgun) && /keepBounce: options\.keepBounce/.test(read("lib/mail.ts")))
     const g = googleSignInEmail({ loginUrl: "https://storelib.com/login" })
     check("the Google email says there is no password and links to sign in", /no password/.test(g.text) && g.html.includes('href="https://storelib.com/login"') && g.subject === "You sign in to Storelib with Google")
-    const page = read("app/(auth)/request/page.tsx")
+    const page = read("app/(storelib)/(auth)/request/page.tsx")
     check("the page no longer tells Google accounts apart", !/google_only|googleOnly/.test(page) && /If there&apos;s an account for/.test(page))
   }
 

@@ -49,7 +49,7 @@ import {
 import { STORELIB_CATEGORIES, categoryToSlug, CATEGORY_SUBTITLES } from "@/lib/blog-categories"
 import { LEGAL_DOCS } from "@/components/legal/legal-parts"
 import { llmsTxt } from "@/lib/developers/llms"
-import BlogListing from "@/app/(marketing)/blog/_blog-listing"
+import BlogListing from "@/app/(storelib)/(marketing)/blog/_blog-listing"
 
 let passed = 0
 let failed = 0
@@ -86,17 +86,17 @@ console.log("\nOne writer for a page's metadata (lib/seo/page-metadata)")
 console.log("\nEach page in scope sets its own")
 {
   const uses = (p: string, re: RegExp) => re.test(code(p))
-  check("/pricing", uses("app/(marketing)/pricing/page.tsx", /export const metadata: Metadata = pageMetadata\(\{\s*path: "\/pricing"/))
+  check("/pricing", uses("app/(storelib)/(marketing)/pricing/page.tsx", /export const metadata: Metadata = pageMetadata\(\{\s*path: "\/pricing"/))
   /* Round 45: /features is a server page now (Storelib in one page, lib/marketing/features-seo); its metadata stays in its layout. */
-  check("/features, from a layout of its own", existsSync(join(process.cwd(), "app/(marketing)/features/layout.tsx")) && uses("app/(marketing)/features/layout.tsx", /path: FEATURES_PATH/) && /FEATURES_PATH = "\/features"/.test(read("lib/marketing/features-seo.ts")))
-  check("/faq", uses("app/(marketing)/faq/page.tsx", /pageMetadata\(\{\s*path: "\/faq"/))
-  check("/themes and a theme", uses("app/(marketing)/themes/page.tsx", /path: "\/themes"/) && uses("app/(marketing)/themes/[slug]/page.tsx", /return pageMetadata\(\{\s*path: listingPath\(listing\.slug\)/))
-  check("/terms and /privacy", uses("app/terms/page.tsx", /legalMetadata\("terms"\)/) && uses("app/privacy/page.tsx", /legalMetadata\("privacy"\)/))
-  check("the home page's canonical is on the page", uses("app/(marketing)/page.tsx", /alternates: \{ canonical: "https:\/\/storelib\.com" \}/))
-  check("  and not in the root layout, where every page without one would inherit it", !/canonical/.test(code("app/layout.tsx")))
+  check("/features, from a layout of its own", existsSync(join(process.cwd(), "app/(storelib)/(marketing)/features/layout.tsx")) && uses("app/(storelib)/(marketing)/features/layout.tsx", /path: FEATURES_PATH/) && /FEATURES_PATH = "\/features"/.test(read("lib/marketing/features-seo.ts")))
+  check("/faq", uses("app/(storelib)/(marketing)/faq/page.tsx", /pageMetadata\(\{\s*path: "\/faq"/))
+  check("/themes and a theme", uses("app/(storelib)/(marketing)/themes/page.tsx", /path: "\/themes"/) && uses("app/(storelib)/(marketing)/themes/[slug]/page.tsx", /return pageMetadata\(\{\s*path: listingPath\(listing\.slug\)/))
+  check("/terms and /privacy", uses("app/(storelib)/terms/page.tsx", /legalMetadata\("terms"\)/) && uses("app/(storelib)/privacy/page.tsx", /legalMetadata\("privacy"\)/))
+  check("the home page's canonical is on the page", uses("app/(storelib)/(marketing)/page.tsx", /alternates: \{ canonical: "https:\/\/storelib\.com" \}/))
+  check("  and not in the root layout, where every page without one would inherit it", !/canonical/.test(code("app/(storelib)/layout.tsx")))
   const pricingDesc = (pageMetadata({ path: "/pricing", title: "Pricing", description: "x" }) as Any).description
   check("  (a description is the one given)", pricingDesc === "x")
-  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(marketing)/pricing/page.tsx")) && /Pro is \$29 a month and lowers the fee on every sale from 5% to 3%/.test(read("components/marketing/pricing-section.tsx")))
+  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /Pro is \$29 a month and lowers the fee on every sale from 5% to 3%/.test(read("components/marketing/pricing-section.tsx")))
 }
 
 console.log("\nLegal documents")
@@ -111,18 +111,18 @@ console.log("\nLegal documents")
   check("a WebPage with the date the page prints", page.dateModified === LEGAL_DOCS.privacy.updated && page.url === "https://storelib.com/privacy")
   check("and breadcrumbs: Storelib, then the document", crumbs.itemListElement.length === 2 && crumbs.itemListElement[1].item === "https://storelib.com/privacy")
   check("the legal layout prints it, through jsonLdScript", /jsonLdScript\(legalJsonLd\(kind\)\)/.test(code("components/legal/legal-page.tsx")))
-  check("/legal/terms and /legal/privacy are still a server 308 to the one document", /permanentRedirect\("\/terms"\)/.test(code("app/(marketing)/legal/terms/page.tsx")) && /permanentRedirect\("\/privacy"\)/.test(code("app/(marketing)/legal/privacy/page.tsx")))
+  check("/legal/terms and /legal/privacy are still a server 308 to the one document", /permanentRedirect\("\/terms"\)/.test(code("app/(storelib)/(marketing)/legal/terms/page.tsx")) && /permanentRedirect\("\/privacy"\)/.test(code("app/(storelib)/(marketing)/legal/privacy/page.tsx")))
 }
 
 console.log("\nAuth pages")
 {
-  const auth = code("app/(auth)/layout.tsx")
+  const auth = code("app/(storelib)/(auth)/layout.tsx")
   check("the auth layout says noindex, links followed", /robots: \{ index: false, follow: true \}/.test(auth))
-  check("  and still carries the card the share test counts", (read("app/(auth)/layout.tsx").match(/storelibAssetUrl\(STORELIB_OG_IMAGE\)/g) ?? []).length === 2)
-  const signup = code("app/(auth)/signup/layout.tsx")
+  check("  and still carries the card the share test counts", (read("app/(storelib)/(auth)/layout.tsx").match(/storelibAssetUrl\(STORELIB_OG_IMAGE\)/g) ?? []).length === 2)
+  const signup = code("app/(storelib)/(auth)/signup/layout.tsx")
   check("/signup is indexed, under its own title and canonical", /path: "\/signup"/.test(signup) && /title: "Sign up"/.test(signup) && /robots: \{ index: true, follow: true \}/.test(signup))
-  check("  and the step after it says noindex again", /robots: \{ index: false, follow: true \}/.test(code("app/(auth)/signup/verify/layout.tsx")))
-  check("seller onboarding already says noindex", /robots: \{ index: false, follow: false \}/.test(code("app/(auth)/sell/page.tsx")))
+  check("  and the step after it says noindex again", /robots: \{ index: false, follow: true \}/.test(code("app/(storelib)/(auth)/signup/verify/layout.tsx")))
+  check("seller onboarding already says noindex", /robots: \{ index: false, follow: false \}/.test(code("app/(storelib)/(auth)/sell/page.tsx")))
 }
 
 console.log("\nExplore")
@@ -133,10 +133,10 @@ console.log("\nExplore")
   check("/explore?type=communities names itself, so the sitemap row is not a page that points elsewhere", comm.canonical === EXPLORE_COMMUNITIES_URL && comm.index)
   check("  while communities are off, it is /explore (the page shows the products)", exploreIndexing({ type: "communities", communitiesOn: false }).canonical === EXPLORE_URL)
   check("a search is noindex", !exploreIndexing({ q: "fonts", communitiesOn: true }).index && exploreIndexing({ q: "  ", communitiesOn: true }).index)
-  const page = code("app/(marketing)/explore/page.tsx")
+  const page = code("app/(storelib)/(marketing)/explore/page.tsx")
   check("the page reads it in generateMetadata", /export async function generateMetadata\(\{ searchParams \}/.test(page) && /exploreIndexing\(/.test(page) && !/export const metadata/.test(page))
   check("  its og:url is absolute", /url: "https:\/\/storelib\.com\/explore"/.test(page))
-  check("  and the share test's count is unchanged", (read("app/(marketing)/explore/page.tsx").match(/storelibAssetUrl\(STORELIB_OG_IMAGE\)/g) ?? []).length === 2)
+  check("  and the share test's count is unchanged", (read("app/(storelib)/(marketing)/explore/page.tsx").match(/storelibAssetUrl\(STORELIB_OG_IMAGE\)/g) ?? []).length === 2)
 }
 
 console.log("\nThe blog's list, pages and feed (lib/blog/listing)")
@@ -193,24 +193,24 @@ console.log("\nThe blog's pages")
   /* Changed on purpose (round 45): the card's title is its link, so the picture beside it is decorative (alt="") rather than the title read twice; it goes through next/image. */
   check("a cover is drawn, decorative beside its titled link", /<img[^>]*alt=""[^>]*c\.jpg|<img[^>]*c\.jpg[^>]*alt=""/.test(withCover) && /<a[^>]*href="\/blog\/post-1"/.test(withCover))
 
-  const index = code("app/(marketing)/blog/_blog-index.tsx")
+  const index = code("app/(storelib)/(marketing)/blog/_blog-index.tsx")
   check("the index's title has no em dash and no second | Storelib", /title: first \? "Storelib Blog: guides for selling digital products"/.test(index) && /absolute: true/.test(index) && !/—/.test(index))
   check("  and links the feed", /types: BLOG_FEED_ALTERNATE/.test(index))
-  const older = code("app/(marketing)/blog/page/[page]/page.tsx")
+  const older = code("app/(storelib)/(marketing)/blog/page/[page]/page.tsx")
   /* Measured on the built site (round 44): inside loading.tsx's boundary these answered 200, so they are decided in a layout, before anything streams. */
-  const olderLayout = code("app/(marketing)/blog/page/[page]/layout.tsx")
+  const olderLayout = code("app/(storelib)/(marketing)/blog/page/[page]/layout.tsx")
   check("/blog/page/N decides its 308 and 404 in its layout, before the stream", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(olderLayout) && /if \(!n \|\| !\(await blogIndexPage\(n\)\)\) notFound\(\)/.test(olderLayout))
-  check("no loading.tsx under /blog: a skeleton there sends the 200 before notFound() or a redirect", !existsSync(join(process.cwd(), "app/(marketing)/blog/loading.tsx")) && !existsSync(join(process.cwd(), "app/(marketing)/blog/[slug]/loading.tsx")))
-  check("a missing post is a 404 from its layout, before the stream", /if \(!\(await blogPostExists\(slug\)\)\) notFound\(\)/.test(code("app/(marketing)/blog/[slug]/layout.tsx")) && /STATIC_BLOG_SLUGS\.includes\(slug\)/.test(code("lib/blog/post.ts")))
-  check("/blog/page/N past the last page is noindex in its own metadata too", /n && n > 1 && \(await blogIndexPage\(n\)\) \? blogIndexMetadata\(n\)/.test(code("app/(marketing)/blog/page/[page]/page.tsx")))
+  check("no loading.tsx under /blog: a skeleton there sends the 200 before notFound() or a redirect", !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/loading.tsx")) && !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/[slug]/loading.tsx")))
+  check("a missing post is a 404 from its layout, before the stream", /if \(!\(await blogPostExists\(slug\)\)\) notFound\(\)/.test(code("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")) && /STATIC_BLOG_SLUGS\.includes\(slug\)/.test(code("lib/blog/post.ts")))
+  check("/blog/page/N past the last page is noindex in its own metadata too", /n && n > 1 && \(await blogIndexPage\(n\)\) \? blogIndexMetadata\(n\)/.test(code("app/(storelib)/(marketing)/blog/page/[page]/page.tsx")))
   check("/blog/page/N: page 1 is a 308 to /blog, a page that does not exist a 404", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(older) && /if \(!page\) notFound\(\)/.test(older) && /export const revalidate = 60/.test(older))
-  check("the feed route exists and is rebuilt once a minute", /blogRssXml\(await readBlogPosts\(\)\)/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /application\/rss\+xml/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /export const revalidate = 60/.test(code("app/(marketing)/blog/rss.xml/route.ts")))
+  check("the feed route exists and is rebuilt once a minute", /blogRssXml\(await readBlogPosts\(\)\)/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /application\/rss\+xml/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /export const revalidate = 60/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")))
   /* Moved (round 45): /blog/category/<slug>, written in _blog-category.tsx; the old address is a 308 (tests/blog-public-r45.test.ts). */
-  const cat = code("app/(marketing)/blog/_blog-category.tsx")
+  const cat = code("app/(storelib)/(marketing)/blog/_blog-category.tsx")
   check("a category's title names it once and the blog once", /`\$\{category\.name\} \| Storelib Blog`/.test(cat) && /absolute: true/.test(cat) && !/—/.test(cat))
   check("  an empty category is noindex", /robots: posts\.length > 0 \? \{ index: true/.test(cat) && /: \{ index: false, follow: true \}/.test(cat))
   check("  its description has no em dash", Object.values(CATEGORY_SUBTITLES).every((s) => !s.includes("—")))
-  const post = code("app/(marketing)/blog/[slug]/page.tsx")
+  const post = code("app/(storelib)/(marketing)/blog/[slug]/page.tsx")
   /* Changed on purpose (round 45): the BlogPosting is written by lib/blog/structured-data blogPostingJsonLd, tested in tests/blog-public-r45.test.ts. */
   check("a post: dateModified from the row's last save", /modified: post\.updated_at/.test(post) && /updated_at: \(dbPost\?\.updated_at \|\| dbPost\?\.published_at \|\| staticData\?\.published_at/.test(post))
   check("  an image always, a full address", /images: \[absoluteBlogImage\(post\.cover_image_url\)\]/.test(post) && /fallbackImage: STORELIB_OG_IMAGE/.test(post) && /images: \[\{ url: cover, width: 1200, height: 630/.test(post))
@@ -229,20 +229,20 @@ console.log("\nThe sitemap's own pages (pagesSitemap)")
   check("Explore only while it is open", /const exploreOpen = await isExploreMarketplaceEnabled\(\)/.test(sm) && /\.\.\.\(exploreOpen \? \[\{ url: `\$\{BASE\}\/explore` \}\] : \[\]\)/.test(sm) && /for \(const category of CATEGORIES\) \{\s*if \(category\.id === "all" \|\| !exploreOpen\) continue/.test(sm))
   check("the blog from the one rule", /* round 45: wrapped by withBlogCategoryPages (categories at /blog/category) */ /routes\.push\(\.\.\.withBlogCategoryPages\(blogSitemapEntries\(posts, blogCategories\.map/.test(sm) && !/STATIC_BLOG_SLUGS/.test(sm))
   check("no row for a noindexed page: help search, the auth steps, the account deletion page", !/help\/search|\/login|reset-password|account-deletion/.test(sm))
-  check("the account deletion page is noindex on purpose and stays so", /robots: \{ index: false, follow: false \}/.test(code("app/(marketing)/account-deletion/page.tsx")))
+  check("the account deletion page is noindex on purpose and stays so", /robots: \{ index: false, follow: false \}/.test(code("app/(storelib)/(marketing)/account-deletion/page.tsx")))
 }
 
 console.log("\nThe Help Center at its own host")
 {
   check("og:url at help.storelib.com on its home, topics, articles and questions",
-    /url: publicHelpUrl\("\/"\)/.test(code("app/help/page.tsx")) &&
-    /url: publicHelpUrl\(`\/\$\{category\.slug\}`\)/.test(code("app/help/[category]/page.tsx")) &&
-    /url: publicHelpUrl\(path\.replace\(\/\^\\\/help\/, ""\)\)/.test(code("app/help/[category]/[article]/page.tsx")) &&
-    /url: publicHelpUrl\("\/questions"\)/.test(code("app/help/questions/page.tsx")))
-  check("the contact page has a card of its own", /openGraph: \{ title: "Contact support"[^}]*url: publicHelpUrl\("\/contact"\)/.test(code("app/help/contact/page.tsx")))
-  check("no help page writes a bare /help og:url any more", ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/questions/page.tsx", "app/help/contact/page.tsx"].every((p) => !/url: "\/help|url: `\/help|url: path,/.test(code(p))))
+    /url: publicHelpUrl\("\/"\)/.test(code("app/(storelib)/help/page.tsx")) &&
+    /url: publicHelpUrl\(`\/\$\{category\.slug\}`\)/.test(code("app/(storelib)/help/[category]/page.tsx")) &&
+    /url: publicHelpUrl\(path\.replace\(\/\^\\\/help\/, ""\)\)/.test(code("app/(storelib)/help/[category]/[article]/page.tsx")) &&
+    /url: publicHelpUrl\("\/questions"\)/.test(code("app/(storelib)/help/questions/page.tsx")))
+  check("the contact page has a card of its own", /openGraph: \{ title: "Contact support"[^}]*url: publicHelpUrl\("\/contact"\)/.test(code("app/(storelib)/help/contact/page.tsx")))
+  check("no help page writes a bare /help og:url any more", ["app/(storelib)/help/page.tsx", "app/(storelib)/help/[category]/page.tsx", "app/(storelib)/help/[category]/[article]/page.tsx", "app/(storelib)/help/questions/page.tsx", "app/(storelib)/help/contact/page.tsx"].every((p) => !/url: "\/help|url: `\/help|url: path,/.test(code(p))))
   check("the footers' Help link is the Help Center's address, not a 308", /\{ label: "Help", href: publicHelpUrl\(\) \}/.test(code("components/marketing/footer.tsx")) && /\{ label: "Help", href: publicHelpUrl\(\) \}/.test(code("components/marketing/shop-compact-footer.tsx")))
-  check("search results stay noindex", /robots: \{ index: false, follow: true \}/.test(code("app/help/search/page.tsx")))
+  check("search results stay noindex", /robots: \{ index: false, follow: true \}/.test(code("app/(storelib)/help/search/page.tsx")))
 }
 
 console.log("\nllms.txt")

@@ -280,7 +280,7 @@ html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
 }
 /*
   THE GREY FILL (round 38, the owner: "that light gray gradient, not the purple one"): a share bar behind a list row
-  in Analytics (app/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
+  in Analytics (app/(storelib)/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
   lit top edge, never violet and never a white wash.
 */
 :is(html[data-sl-dark], [data-community-theme="dark"]) [data-fill="grey"]:not([data-own-look], [data-own-look] *) {

@@ -81,11 +81,11 @@ check("the press does not scroll; the arrival puts it back before the paint",
   /router\.push\(href, \{ scroll: false \}\)/.test(tabBar) && /noteTabScroll\(pathname\)/.test(tabBar) && /useLayoutEffect\(\(\) => \{\s*const a = arrival\.current/.test(tabBar) && /return restoreTabScroll\(a\.y\)/.test(tabBar))
 
 console.log("\n1. The app's start")
-check("a start lands in the same document: a client navigation, not location.replace", /landInPlace\(target, router\)/.test(code("app/native-start/page.tsx")) && !/window\.location\.replace\(target\)/.test(code("app/native-start/page.tsx")))
+check("a start lands in the same document: a client navigation, not location.replace", /landInPlace\(target, router\)/.test(code("app/(storelib)/native-start/page.tsx")) && !/window\.location\.replace\(target\)/.test(code("app/(storelib)/native-start/page.tsx")))
 check("only route handlers and odd addresses load a document", landsAsDocument("/auth/sync-session?x") && landsAsDocument("//evil.example") && !landsAsDocument("/explore") && !landsAsDocument("/app") && !landsAsDocument("/community/x"))
 check("and a stall loads it as a document after all", /window\.location\.pathname === "\/native-start"\) window\.location\.replace\(target\)/.test(code("lib/native-start-landing.ts")))
-check("a later visit to the gate in the same document is not a start", /let startUsed = false/.test(code("app/native-start/page.tsx")))
-check("the gate's spinner only shows when a start is slow", /ns-show 160ms ease-out 700ms both/.test(read("app/native-start/page.tsx")))
+check("a later visit to the gate in the same document is not a start", /let startUsed = false/.test(code("app/(storelib)/native-start/page.tsx")))
+check("the gate's spinner only shows when a start is slow", /ns-show 160ms ease-out 700ms both/.test(read("app/(storelib)/native-start/page.tsx")))
 /* Changed on purpose (round rel-auth): after the gate, a request with no session cookie is answered anonymous, and only /app, /dashboard and /sell verify (the rest only renew, readSessionPresence). */
 check("the proxy asks Supabase nothing for the gate, and still sets the app's frame policy on it",
   /request\.nextUrl\.pathname === "\/native-start" \? \{ user: null, state: "indeterminate", reason: "start gate" \} : (!signedIn \? \{ user: null, state: "anonymous" \} : decidesHere \? )?await readVerifiedSession\(supabase, supabaseUrl\)/.test(code("proxy.ts")) && /"Content-Security-Policy"/.test(code("proxy.ts")))
@@ -103,13 +103,13 @@ check("the header has no library in the app (by the capacitor class, so the firs
 check("and no heart anywhere, on the web or in the app", !/data-header-wishlist=""/.test(header) && !/showWishlistIcon/.test(header))
 
 console.log("\n5. A receipt has Storelib around it")
-const receiptLayout = code("app/receipt/layout.tsx")
+const receiptLayout = code("app/(storelib)/receipt/layout.tsx")
 check("the header and the tab bar, neither printed", /<ConditionalHeader/.test(receiptLayout) && /<BuyerTabBar \/>/.test(receiptLayout) && (receiptLayout.match(/print:hidden/g) ?? []).length === 2)
 check("the header draws there", /p\.startsWith\("\/receipt\/"\)/.test(code("components/marketing/conditional-header.tsx")))
 check("the tab bar is on a receipt, with Library lit", buyerTabsBelongOn("/receipt/abc") && buyerTabFor("/receipt/abc") === 2)
-const receiptView = code("app/receipt/[token]/receipt-view.tsx")
+const receiptView = code("app/(storelib)/receipt/[token]/receipt-view.tsx")
 check("a back that returns where they came from, never into the checkout, else the library", /* Changed on purpose: in the buyer's language (ct). */ /<BackControl fallback="\/account\/library" label=\{ct\("Back"\)\} skipBack=\{\(path\) => path\.startsWith\("\/checkout"\)\}/.test(receiptView))
-check("the page no longer pads under the clock itself (the header does)", !/safe-area-inset-top/.test(receiptView) && !/safe-area-inset-top/.test(read("app/receipt/[token]/loading.tsx")))
+check("the page no longer pads under the clock itself (the header does)", !/safe-area-inset-top/.test(receiptView) && !/safe-area-inset-top/.test(read("app/(storelib)/receipt/[token]/loading.tsx")))
 
 console.log("\n6. The navigator opens a library product on the client")
 check("the library is not a document load any more; /app and the builders still are", !needsDocumentLoad("/account/library/products/x") && !needsDocumentLoad("/account/library/courses/x") && needsDocumentLoad("/app") && needsDocumentLoad("/website-builder/x"))
@@ -138,8 +138,8 @@ check("the blocking listener is still only on while the top is on screen", /targ
 check("nothing at rest: the page is not moved once home", /el\.style\.transform = y === 0 \? "" :/.test(hook))
 /* Round 12, ask 37: "the pull to refresh indicator sits BELOW the purple announcement bar, like the /app home dashboard". */
 check("used on /app analytics (refreshing its figures in place), around the page under its purple bar, not around the bar",
-  /<TryProStrip \/>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?<PullToRefreshEvent scope="app-analytics">/.test(code("app/app/analytics/analytics-client.tsx")) && !/RouterPullToRefresh/.test(code("app/app/analytics/page.tsx"))
-    && /detail\?\.scope !== "app-analytics"/.test(code("app/app/analytics/analytics-client.tsx")) && /setTick\(\(n\) => n \+ 1\)/.test(code("app/app/analytics/analytics-client.tsx")))
+  /<TryProStrip \/>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?<PullToRefreshEvent scope="app-analytics">/.test(code("app/(storelib)/app/analytics/analytics-client.tsx")) && !/RouterPullToRefresh/.test(code("app/(storelib)/app/analytics/page.tsx"))
+    && /detail\?\.scope !== "app-analytics"/.test(code("app/(storelib)/app/analytics/analytics-client.tsx")) && /setTick\(\(n\) => n \+ 1\)/.test(code("app/(storelib)/app/analytics/analytics-client.tsx")))
 check("and the pull finds the page's scroll box around it", /const own = root\.closest<HTMLElement>\("\[data-pull-scroller\], \.page-scroll"\)/.test(ptr))
 check("the /app home has had it all along, on the same engine", /usePullToRefresh\(scrollRef, handlePullRefresh/.test(code("components/app/dashboard-client.tsx")))
 /* Round 15: the frame's one pull covers the feed on All, a space and Saved alike (one slot), and asks the navigator to patch it (place-host.tsx: the feed's own scope). */
@@ -159,8 +159,8 @@ check("press feedback writes the DOM, not state", /setAttribute\("data-pressed",
 console.log("\nCopy")
 const files = [
   "lib/nav/prefetch-policy.ts", "lib/navigation/tab-scroll.ts", "lib/navigation/press-feedback.ts", "lib/navigation/cross-section.ts", "lib/native-start-landing.ts",
-  "components/ui/pull-to-refresh.tsx", "components/navigation/back-control.tsx", "app/receipt/layout.tsx", "components/product/discover-back-breadcrumb.tsx",
-  "components/store-builder/discover-sticky-wrapper.tsx", "app/native-start/page.tsx",
+  "components/ui/pull-to-refresh.tsx", "components/navigation/back-control.tsx", "app/(storelib)/receipt/layout.tsx", "components/product/discover-back-breadcrumb.tsx",
+  "components/store-builder/discover-sticky-wrapper.tsx", "app/(storelib)/native-start/page.tsx",
 ]
 const dash = String.fromCharCode(0x2014)
 const banned = new RegExp("\\b(" + ["unlock", "elevate", "seamless", "powerful", "effortless", "supercharge"].join("|") + ")", "i")

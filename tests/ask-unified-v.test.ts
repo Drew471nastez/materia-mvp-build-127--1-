@@ -300,7 +300,7 @@ async function main() {
     const chat = read("components/website-builder/theme-chat.tsx")
     check("it is drawn whenever a section is selected, with nothing to press first", /\{selectedSection && \(\s*\n\s*<div data-ask-scope-row=""/.test(chat) && /const \[lockOn, setLockOn\] = React\.useState\(true\)/.test(chat) && /setLockOn\(true\)\n  \}, \[selectedSectionId\]\)/.test(chat))
     check("its x clears it, and the box sends the cleared scope", /onUnlock=\{\(\) => setLockOn\(false\)\}/.test(chat) && /const locked = !!selectedSection && lockOn/.test(chat) && /scoped: now\.locked/.test(chat))
-    check("the editor hands the chat the selected block", (read("app/website-builder/editor/[installId]/page.tsx").match(/selectedBlockId=\{aiSelectedBlock\}/g) ?? []).length === 2)
+    check("the editor hands the chat the selected block", (read("app/(storelib)/website-builder/editor/[installId]/page.tsx").match(/selectedBlockId=\{aiSelectedBlock\}/g) ?? []).length === 2)
     const hero = { name: "Hero", type: "hero", blocks: [{ id: "b1", type: "rich_text", blocks: [{ id: "b2", type: "button" }] }] }
     check("with a block selected it says which, inside which section", scopeName(hero, "b1") === "Rich text in Hero" && scopeName(hero, "b1/b2") === "Button in Hero" && scopeName(hero, null) === "Hero" && scopeName(hero, "gone") === "Hero")
     check("a block is found by its path key", blockAtKey(hero.blocks, "b1/b2")?.type === "button" && blockAtKey(hero.blocks, "b2") === null)
@@ -340,7 +340,7 @@ async function main() {
     check("computed, never a model call", !/fetch\(|provider|anthropic|openai|await /i.test(source))
     const chat = read("components/website-builder/theme-chat.tsx")
     check("shown only while the box is empty, and a tap fills the box", (chat.match(/items=\{composerEmpty \? suggestions : \[\]\}/g) ?? []).length === 2 && /setDraft\(text\)/.test(chat.slice(chat.indexOf("const pickSuggestion = React.useCallback"), chat.indexOf("viewingRef.current = !!viewing"))))
-    check("the editor hands it products without photos and the site's pages", /productsWithoutImages: productsLoading \? null : products\.filter/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /pages: customPages\.flatMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("the editor hands it products without photos and the site's pages", /productsWithoutImages: productsLoading \? null : products\.filter/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /pages: customPages\.flatMap/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   }
 
   // ═════════════════════════════════════════════════════════════════════════

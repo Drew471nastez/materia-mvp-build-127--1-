@@ -187,13 +187,13 @@ async function main() {
   check("  \"unexpected state\" over a succeeded intent reads as paid", paidIntentInError({ payment_intent: { id: "pi_1", status: "succeeded" } })?.id === "pi_1" && paidIntentInError({ payment_intent: { id: "pi_1", status: "requires_payment_method" } }) === null)
   check("the second look is bounded: a read that never answers is null", (await rereadIntent(() => new Promise(() => {}), 30)) === null)
   check("  only paid, the bank's page and cancelled are sure; anything else is unknown", settledFrom({ status: "requires_payment_method" }).kind === "unknown" && settledFrom({ status: "processing" }).kind === "paid" && settledFrom({ status: "canceled" }).kind === "canceled" && settledFrom(null).kind === "unknown")
-  const client = code("app/checkout/checkout-client.tsx")
+  const client = code("app/(storelib)/checkout/checkout-client.tsx")
   const native = client.slice(client.indexOf("const payNative"), client.indexOf("const takeFree"))
   check("the app's Pay confirms a held intent again rather than making a new one", /nextPress\(heldIntent\.current/.test(native) && /press === "reuse" && heldIntent\.current \? heldIntent\.current\.intent : await createIntent\(\)/.test(native), native.slice(0, 300))
   check("  and a 5xx or \"unknown\" keeps the intent (not only a thrown request)", /confirmOutcomeUnknown\(confirmed\)/.test(native) && /heldIntent\.current = \{ intent, key \}/.test(native))
-  const pay = code("app/checkout/parts/stripe-pay.tsx")
+  const pay = code("app/(storelib)/checkout/parts/stripe-pay.tsx")
   check("the web card form and wallets confirm a held intent again", (pay.match(/await intentFor\(/g) ?? []).length === 2 && /settle\(intent, /.test(pay) && /stripeJsOutcomeUnknown\(error\)\) return checkoutMsg\(CHECKING_MESSAGE\)/.test(pay))
-  const member = code("app/checkout/membership-checkout.tsx")
+  const member = code("app/(storelib)/checkout/membership-checkout.tsx")
   check("the membership's Join in the app confirms a held subscription again", /held && held\.key === key/.test(member) && /unknown\?: boolean \}\)\.unknown\) heldJoin\.current = null/.test(member))
   for (const route of ["app/api/checkout/confirm-with-pm/route.ts", "app/api/memberships/confirm/route.ts"]) {
     const src = code(route)
@@ -427,7 +427,7 @@ async function main() {
   s.payouts.list = realPayoutsList
   forgetPayoutsRead(creatorId)
 
-  const payoutsPage = code("app/app/payouts/payouts-client.tsx")
+  const payoutsPage = code("app/(storelib)/app/payouts/payouts-client.tsx")
   const list = payoutsPage.slice(payoutsPage.indexOf("function PayoutsHistoryList"), payoutsPage.indexOf("export function PayoutsClient"))
   check("the payouts list no longer fetches on its own (one read for the page)", !/fetch\(/.test(list) && /payouts: StripePayout\[\] \| null/.test(list))
   check("  and no background tick bumps a key that makes it fetch again", !/refreshKey/.test(payoutsPage))
@@ -503,7 +503,7 @@ async function main() {
     check("  a refresh a minute later does not (no 60 PaymentIntent reads per visit)", refundCheckDue("creator-r1", t + 60_000) === false)
     check("  another creator's visit is their own", refundCheckDue("creator-r2", t + 60_000) === true)
     check("  six hours later it runs again", refundCheckDue("creator-r1", t + REFUND_CHECK_EVERY_MS) === true)
-    const page = code("app/app/orders/sales/page.tsx")
+    const page = code("app/(storelib)/app/orders/sales/page.tsx")
     const sweep = page.slice(page.indexOf("async function catchMissedRefunds"))
     check("a refund found is applied by refund-sync (ledger line, each refund once), never by raw order updates", /if \(!refundCheckDue\(creatorId\)\) return/.test(sweep) && /await syncChargeRefund\(admin, stripe, charge\)/.test(sweep) && !/from\("orders"\)\s*\.update/.test(sweep))
   }
@@ -539,7 +539,7 @@ async function main() {
     const pr = await j.call("GET /api/stripe/payouts?fresh=1", { as: seller })
     j.db.maxRows = null
     check("/api/stripe/payouts: last year's 1099-K count is every order (1,005), not 1,000", pr.status === 200 && (pr.json?.taxData?.previousYear?.transactionCount ?? 0) >= 1_005, { status: pr.status, prev: pr.json?.taxData?.previousYear })
-    const page = code("app/app/payouts/page.tsx")
+    const page = code("app/(storelib)/app/payouts/page.tsx")
     /* Changed on purpose (merge with round rel-db): the page reads by creator a page at a time (readCreatorOrders), never by a product id list; the list keeps the newest PAYOUT_LIST_LIMIT. */
     check("the payouts page reads its tax year and disputes a page at a time, by creator", (page.match(/readCreatorOrders</g) ?? []).length === 2 && /latestCreatorOrders</.test(page) && !/\.in\("product_id"/.test(page))
   }

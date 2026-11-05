@@ -312,7 +312,7 @@ check("and a refusal is a refusal, not a guess: the card is given nothing for th
    ───────────────────────────────────────────────────────────────────────── */
 console.log("\n5. The wiring")
 const card = code("components/platform/open-in-app-card.tsx")
-check("the root layout mounts the card on every page", /<OpenInAppCard \/>/.test(code("app/layout.tsx")))
+check("the root layout mounts the card on every page", /<OpenInAppCard \/>/.test(code("app/(storelib)/layout.tsx")))
 check("the card asks about the web view only when the user agent already looks like one, so a page in Safari makes no request",
   /if \(!inAppBrowser\(ua, null\)\) return/.test(card) && /\/api\/app-links\/in-app-browser\?path=/.test(card))
 check("the server answers from both signals and both cookies", (() => {
@@ -365,7 +365,7 @@ check("nothing in the product shares the app's scheme or a tracking wrapper",
   ))
 check("a shared community page has its Open Graph title, description and picture (round 12 and 13 built them)", (() => {
   const seo = read("components/community/public/seo.ts")
-  return /openGraph/.test(seo) && /description/.test(seo) && /images/.test(seo) && existsSync(join(process.cwd(), "app/(marketing)/community/[slug]/share.png/route.tsx"))
+  return /openGraph/.test(seo) && /description/.test(seo) && /images/.test(seo) && existsSync(join(process.cwd(), "app/(storelib)/(marketing)/community/[slug]/share.png/route.tsx"))
 })())
 
 /* ─────────────────────────────────────────────────────────────────────────

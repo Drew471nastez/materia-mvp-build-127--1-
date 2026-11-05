@@ -305,7 +305,7 @@ async function main() {
       why it may not, and how many such reads the file has.
     */
     const ROOTS = [
-      "app/(marketing)", "app/(site)", "app/(sites)", "app/checkout", "app/api/v2/search", "app/api/website-builder/search",
+      "app/(storelib)/(marketing)", "app/(site)", "app/(sites)", "app/(storelib)/checkout", "app/api/v2/search", "app/api/website-builder/search",
       "app/api/checkout", "app/api/onepage", "app/api/wishlist", "app/api/reviews", "app/api/store-builder", "app/sitemap", "app/sitemap.xml",
       "lib/website-builder", "lib/seo", "lib/commerce", "lib/explore", "lib/checkout", "lib/site-accounts", "lib/onepage",
       "components/website-builder", "components/platform", "components/storefront", "components/product", "hooks",
@@ -349,7 +349,7 @@ async function main() {
     check("no public read of products shows a product that is not published", unfiltered.length === 0, unfiltered)
     check("the list of exceptions says why for each", Object.values(ALLOWED).every((a) => a.why.length > 20))
     check("and every exception is still there, so the list does not rot", Object.entries(ALLOWED).every(([f, a]) => (reads.get(f) ?? 0) === a.count), [...reads])
-    check("the guard really reads the public pages", ["app/(marketing)/u/[username]/page.tsx", "lib/commerce/product-page-cache.ts", "app/checkout/page.tsx"].every((f) => existsSync(f)))
+    check("the guard really reads the public pages", ["app/(storelib)/(marketing)/u/[username]/page.tsx", "lib/commerce/product-page-cache.ts", "app/(storelib)/checkout/page.tsx"].every((f) => existsSync(f)))
   }
 
   console.log("\n  the surfaces that were wrong, and are not any more")
@@ -362,24 +362,24 @@ async function main() {
 
     const wishlist = strip(read("app/api/wishlist/route.ts"))
     check("the storelib.com wishlist lists only what is still on sale", /!isPubliclyVisible\(item\.products/.test(wishlist) && /\n\s*status,\n/.test(wishlist))
-    check("and the library's wishlist count agrees with it", /products!inner\(status\)/.test(read("app/account/library/page.tsx")) && /\.eq\("products\.status", "published"\)/.test(read("app/account/library/page.tsx")))
+    check("and the library's wishlist count agrees with it", /products!inner\(status\)/.test(read("app/(storelib)/account/library/page.tsx")) && /\.eq\("products\.status", "published"\)/.test(read("app/(storelib)/account/library/page.tsx")))
 
     const lib = strip(read("lib/library/get-library-downloads.ts"))
     check("My Library fills in a product its buyer's session cannot see", /await fillOwnedProducts\(admin, entitlements/.test(lib))
-    for (const page of ["app/dashboard/page.tsx", "app/dashboard/products/page.tsx"]) {
+    for (const page of ["app/(storelib)/dashboard/page.tsx", "app/(storelib)/dashboard/products/page.tsx"]) {
       check(`${page}: an archived purchase still listed`, /fillOwnedProducts\(createAdminClient\(\), entitlements\)/.test(strip(read(page))))
     }
     /* Courses moved to the library (lib/courses/load.ts): the buyer's own purchases are read by their id, the products with the server's client whatever their status. */
     const courses = strip(read("lib/courses/load.ts"))
     check("the courses list: an archived course still listed", /\.from\("entitlements"\)\.select\("product_id, created_at"\)\.eq\("buyer_id", userId\)/.test(courses) && !/\.eq\("status", "published"\)/.test(courses))
-    check("the old course list sends people to it", /redirect\("\/account\/library\/courses"\)/.test(read("app/dashboard/courses/page.tsx")))
-    check("the library's product page", /fillOwnedProduct\(admin, entitlement\)/.test(strip(read("app/account/library/products/[id]/page.tsx"))))
-    check("the dashboard's product page", /fillOwnedProduct\(createAdminClient\(\), read\)/.test(strip(read("app/dashboard/products/[id]/page.tsx"))))
+    check("the old course list sends people to it", /redirect\("\/account\/library\/courses"\)/.test(read("app/(storelib)/dashboard/courses/page.tsx")))
+    check("the library's product page", /fillOwnedProduct\(admin, entitlement\)/.test(strip(read("app/(storelib)/account/library/products/[id]/page.tsx"))))
+    check("the dashboard's product page", /fillOwnedProduct\(createAdminClient\(\), read\)/.test(strip(read("app/(storelib)/dashboard/products/[id]/page.tsx"))))
     const player = strip(read("lib/courses/load.ts"))
     check("the course player, after deciding what the buyer owns",
       player.indexOf("productAccess(db, userId, productId)") > 0 && player.indexOf("productAccess(db, userId, productId)") < player.indexOf("readCourseTree(db, productId)") &&
         /level === "none"\) return \{ state: "not-found" \}/.test(player))
-    check("course progress is only ever the buyer's own", /\.eq\("buyer_id", userId\)/.test(strip(read("lib/courses/server.ts"))) && /redirect\(`\/account\/library\/courses\//.test(read("app/dashboard/courses/[id]/page.tsx")))
+    check("course progress is only ever the buyer's own", /\.eq\("buyer_id", userId\)/.test(strip(read("lib/courses/server.ts"))) && /redirect\(`\/account\/library\/courses\//.test(read("app/(storelib)/dashboard/courses/[id]/page.tsx")))
 
     const preview = strip(read("components/onepage/preview-document.tsx"))
     check("the OnePage preview draws what the live page draws", /answersForBlocks\(db, sellerId, blocks\)/.test(preview) && /resolveProductBlocks\(sent\.blocks, answers\)/.test(preview))

@@ -319,7 +319,7 @@ async function main() {
     )
     check("a basket's session carries the detail", /\[ORIGIN_METADATA_KEY\]: origin/.test(read("app/api/checkout/cart/route.ts")) && /origin: orderOriginFrom\(metadata\)/.test(read("lib/checkout/fulfil-cart-session.ts")))
     check("the checkout page, the OnePage form and the cart send where they began",
-      /origin: checkoutOrigin\(creator\.id\)/.test(read("app/checkout/checkout-client.tsx")) &&
+      /origin: checkoutOrigin\(creator\.id\)/.test(read("app/(storelib)/checkout/checkout-client.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/onepage/public-onepage.tsx")) &&
         /origin: pageOrigin\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
     /* The product section's Buy now builds its address with buyNowHref (lib/products/product-page-model.ts), product first. */
@@ -422,7 +422,7 @@ async function main() {
   {
     /* Changed on purpose: the page reads one page of orders (lib/orders/paged.ts), which the
        export reads through too, and both number them over every order (tests/orders-paging.test.ts). */
-    const page = read("app/app/orders/sales/page.tsx")
+    const page = read("app/(storelib)/app/orders/sales/page.tsx")
     const loader = read("lib/orders/load-rows.ts")
     check("the page reads its orders through the shared reader, a page at a time", /await readOrdersListing\(admin, creator\.id, /.test(page) && !/readCreatorOrders/.test(page))
     /* Changed on purpose (round r48-db): five named columns a page at a time, and every column again when the database refuses one, so a missing one still never empties the list (tests/db-r48.test.ts drives it). */
@@ -439,23 +439,23 @@ async function main() {
         && /byCreator\(/.test(loader) && /scopedOrders\(admin, "\*", scope, creatorId, null\)/.test(loader) && !/\.in\(\s*"product_id",/.test(loader)
         && !/products\.length === 0\) return/.test(loader))
     check("no Stripe call stands between the creator and the page", /after\(\(\) => catchMissedRefunds/.test(page) && !/await stripe\./.test(page.split("export default")[1]))
-    const client = read("app/app/orders/orders-client.tsx")
+    const client = read("app/(storelib)/app/orders/orders-client.tsx")
     check("the list stays mounted under an open order", /inert=\{listCovered\}/.test(client) && !/listCovered \?\s*null/.test(client))
     check("opening an order does not ask the server", !/router\.push\(/.test(client))
-    const list = read("app/app/orders/orders-list.tsx")
+    const list = read("app/(storelib)/app/orders/orders-list.tsx")
     check("the checkbox and Order columns are frozen, and the Order column is the edge that casts the shadow", (list.match(/orders-sticky left-0/g) ?? []).length >= 2 && (list.match(/data-scroll-edge="" className=[^>]*orders-sticky left-10/g) ?? []).length >= 2)
-    const parts = read("app/app/orders/order-parts.tsx")
+    const parts = read("app/(storelib)/app/orders/order-parts.tsx")
     check("the metric lines are Storelib violet, the comparison grey and dashed",
       /stroke="#8b5cf6"/.test(parts) && !/#2a78d6/i.test(parts) && /stroke="#b6bcc6"[\s\S]{0,80}strokeDasharray="3 3"/.test(parts))
     check("the list and an order share one top bar, sticky across the pane, with a hairline and a soft shadow once scrolled under",
       /export function PaneBar/.test(parts) && /className="orders-bar sticky top-0/.test(parts)
-        && /<PaneBar width=\{LIST_WIDTH\}/.test(list) && /<PaneBar width=\{ORDER_WIDTH\}/.test(parts) && /<OrderBarFrame/.test(read("app/app/orders/order-detail.tsx"))
+        && /<PaneBar width=\{LIST_WIDTH\}/.test(list) && /<PaneBar width=\{ORDER_WIDTH\}/.test(parts) && /<OrderBarFrame/.test(read("app/(storelib)/app/orders/order-detail.tsx"))
         && /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(read("app/globals.css")))
     check("no comparison control; the changes are always against the period before",
       !/ComparePicker/.test(list) && /const compare = PREVIOUS_PERIOD/.test(client))
     /* Changed on purpose (round AE4): the one guard every export shares (lib/csv/formula-guard), which also looks past a leading space, tab or line break; tests/ae4-leftovers.test.ts runs it. */
     check("the export does not let a cell run as a formula", /s = guardFormula\(s\)/.test(read("lib/orders/export-csv.ts")) && /import \{ guardFormula \} from "@\/lib\/csv\/formula-guard"/.test(read("lib/orders/export-csv.ts")))
-    check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/app/orders/export-dialog.tsx")))
+    check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/(storelib)/app/orders/export-dialog.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -311,11 +311,11 @@ async function main() {
     const bar = code("components/profile/profile-top-bar.tsx")
     check("the arrow: history back when a page of ours is behind, straight to the fallback when not (goBackOr)", /goBackOr\(fallback, \(href\) => router\.push\(href\)\)/.test(bar) && !/backThen\(/.test(bar))
     check("the top bar stays at the top as the page scrolls, padded under the clock in the app", /native-top-surface sticky top-0 z-30/.test(bar))
-    for (const f of ["app/(marketing)/u/[username]/page.tsx", "components/profile/member-profile-page.tsx"]) {
+    for (const f of ["app/(storelib)/(marketing)/u/[username]/page.tsx", "components/profile/member-profile-page.tsx"]) {
       check(`  ${f}: no wrapper that would make the bar stick to anything but the window`, !/className="min-h-screen overflow-x-hidden"\s*\n?\s*(\/\*[^]*?\*\/\s*)?(data-storefront-root|style=\{storefrontRootStyle)/.test(read(f)) && /overflow-x-clip/.test(read(f)))
     }
-    const creator = code("app/(marketing)/u/[username]/page.tsx")
-    const person = code("app/(marketing)/member/[username]/page.tsx")
+    const creator = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
+    const person = code("app/(storelib)/(marketing)/member/[username]/page.tsx")
     check("both full pages read ?back= through communityBackTarget and hand it to the bar", /communityBackTarget\(back\)/.test(creator) && /fallback=\{backTarget \?\? undefined\}/.test(creator) && /communityBackTarget\(back\)/.test(person) && /backTarget,/.test(person) && /fallback=\{extras\.backTarget \?\? undefined\}/.test(read("components/profile/member-profile-page.tsx")))
     /* Round 25: a creator page opened on its own has its newsletter bar again (the owner: "the top bars of the creator pages are missing"); from a community it is still the slim bar alone, so nothing sits above it under the clock (lib/storefront/subscribe-bar-visibility.ts). */
     check("from a community the subscribe bar stays off the page, so nothing sits above the bar under the clock", /showsSubscribeBar\(\{ creatorPage: true, fromCommunity: cameFromCommunity\(/.test(creator) && /\{newsletterBar && \(/.test(creator) && /\{!embedded && !newsletterBar \? \(/.test(creator))

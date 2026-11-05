@@ -10,15 +10,19 @@ const { readFileSync } = require("node:fs")
 const { join, resolve } = require("node:path")
 
 const root = process.cwd()
-const SOURCE = resolve(root, "app", "globals.css")
-const COMPILED = join(root, ".next-css", "globals.css")
+/* Each source and what scripts/build-css.mjs compiled it to: Storelib's stylesheet, and a published website's (scripts/site-css.cjs). */
+const COMPILED = new Map([
+  [resolve(root, "app", "globals.css"), join(root, ".next-css", "globals.css")],
+  [resolve(root, "app", "site.css"), join(root, ".next-css", "site.css")],
+])
 
 module.exports = () => ({
   postcssPlugin: "storelib-precompiled-css",
   Once(css, { result, postcss }) {
     const from = result.opts.from ? resolve(result.opts.from) : ""
-    if (from !== SOURCE) return
-    const compiled = postcss.parse(readFileSync(COMPILED, "utf8"), { from })
+    const file = COMPILED.get(from)
+    if (!file) return
+    const compiled = postcss.parse(readFileSync(file, "utf8"), { from })
     css.removeAll()
     css.append(compiled.nodes)
   },

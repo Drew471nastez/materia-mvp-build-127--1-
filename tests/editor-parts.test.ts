@@ -6,7 +6,7 @@
  *
  *   FILES. "I don't like that loading purple thing. The success should not
  *   be that green bar. The animation should not disrupt everything."
- *   app/app/products/new/file-uploads.tsx: one row per file, uploading or
+ *   app/(storelib)/app/products/new/file-uploads.tsx: one row per file, uploading or
  *   not; progress is a grey wash behind the row on scaleX; done is a check
  *   that fades; a failure stays in its row with Retry; several at once, each
  *   keeping its place.
@@ -14,12 +14,12 @@
  *   PRICING. "I should feel the UI switch when I click it." A segmented
  *   control whose white slides on transform, a haptic tick, and the fields
  *   under it swapped in place in a box that eases to its new height
- *   (app/app/products/new/editor-controls.tsx). Nothing new is saved.
+ *   (app/(storelib)/app/products/new/editor-controls.tsx). Nothing new is saved.
  *
  *   CATEGORY. "I don't like those dots. I don't like the X button in the
  *   mobile bottom sheet." Then: "exactly like Shopify's product category
  *   field", in the main column above the description.
- *   app/app/products/new/category-picker.tsx: a "Search categories" field
+ *   app/(storelib)/app/products/new/category-picker.tsx: a "Search categories" field
  *   whose list opens under it on a computer (not a window in the middle),
  *   the shared sheet on a phone, groups that slide open into their
  *   categories with Back to All, a search across every group, the
@@ -49,12 +49,12 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => untt(readFileSync(p, "utf8"), p)
 const code = (p: string) => stripComments(read(p))
 
-const editor = code("app/app/products/new/product-editor.tsx")
-const uploads = code("app/app/products/new/file-uploads.tsx")
-const controls = code("app/app/products/new/editor-controls.tsx")
-const picker = code("app/app/products/new/category-picker.tsx")
+const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
+const uploads = code("app/(storelib)/app/products/new/file-uploads.tsx")
+const controls = code("app/(storelib)/app/products/new/editor-controls.tsx")
+const picker = code("app/(storelib)/app/products/new/category-picker.tsx")
 
-console.log("\nThe files (app/app/products/new/file-uploads.tsx)")
+console.log("\nThe files (app/(storelib)/app/products/new/file-uploads.tsx)")
 check("the editor draws its files and their uploads as one list", /<DigitalFiles\s+files=\{digitalFiles\}\s+uploads=\{fileUploads\}/.test(editor) && /const fileUploads = useFileUploads\(setDigitalFiles\)/.test(editor))
 check("the old upload box is gone: no active map, no violet spinner, no green or violet bar",
   !/activeFileUploads|uploadingFiles|fileUploadProgress|getUploadStatusLabel/.test(editor) && !/bg-green-500|bg-violet-500|text-violet-500 animate-spin/.test(editor.slice(editor.indexOf("sectionRefs.current.files = el"), editor.indexOf("sectionRefs.current.variants = el"))))
@@ -77,7 +77,7 @@ check("drag and drop onto the list, and a drop zone when there are no files", /o
 check("the file check is the server's, when the upload completes: the editor asks no scan route afterwards", !/fetch\("\/api\/v2\/upload\/scan"/.test(uploads))
 check("reduced motion drops every movement", /motion-reduce:transition-none/.test(uploads) && /if \(reducedMotion\(\)\)/.test(uploads))
 
-console.log("\nPricing (app/app/products/new/editor-controls.tsx)")
+console.log("\nPricing (app/(storelib)/app/products/new/editor-controls.tsx)")
 /* Changed on purpose: the three tabs took a row of their own, so how it is sold is a menu at the end of the card's title row. */
 check("fixed price, pay what you want and free, as one menu in the title row", /<ResponsiveActionMenu\s+title="How it is sold"/.test(editor) && /onClick: \(\) => choosePriceMode\(m\.value\)/.test(editor) && /\{ value: "fixed", label: "Fixed price" \},\s*\{ value: "pwyw", label: "Pay what you want" \},\s*\{ value: "free", label: "Free" \}/.test(editor) && !/<Segmented/.test(editor))
 check("every included line can be reworded or removed, the defaults too", !/isDefaultItem/.test(editor) && /aria-label=\{`Included item \$\{index \+ 1\}`\}/.test(editor))
@@ -92,7 +92,7 @@ check("nothing new is saved: pay what you want is the flag it was, free is a pri
 check("choosing fixed again gives back the price free cleared", /priceBeforeFree\.current = \{ price, compareAt: compareAtPrice \}/.test(editor) && /setPrice\(priceBeforeFree\.current\.price\)/.test(editor))
 check("a saved product with no price and no variants opens on Free", /initial\.productId && initial\.variants\.length === 0 && !Number\.parseFloat\(initial\.price \|\| "0"\) \? "free" : "fixed"/.test(editor))
 
-console.log("\nThe category (app/app/products/new/category-picker.tsx)")
+console.log("\nThe category (app/(storelib)/app/products/new/category-picker.tsx)")
 const groups = code("lib/products/category-groups.ts")
 /* Changed on purpose: the field takes onClear (its x) and the choice goes through chooseCategory, which ends the preselected suggestion. */
 /* Changed on purpose: a physical product is offered its own list, so the field is told which (kind). */
@@ -122,7 +122,7 @@ check("Up, Down, Enter, Right and Left from the field; Escape and a click outsid
 check("the suggestion pinned at the bottom with a grey Suggested tag, never violet", /data-category-suggested=\{suggested\}/.test(picker) && /<SuggestedTag \/>/.test(picker) && /border-\[#e3e5e8\] bg-white[^"]*text-\[#4b5563\]/.test(picker) && !/violet|purple|#8b5cf6|#7c3aed/.test(picker))
 check("under the field, the choice, the tag when it is the suggestion, and an x to clear it", /data-category-chosen=""/.test(picker) && /\{value === suggested \? <SuggestedTag \/> : null\}/.test(picker) && /data-category-clear=""/.test(picker) && /onClick=\{onClear\}/.test(picker))
 check("the suggestion is preselected until the creator chooses or clears", /if \(suggestedCategory && !categoryTouched\.current\) setSelectedCategory\(suggestedCategory\)/.test(editor) && /const categoryTouched = useRef\(!!initial\.selectedCategory\)/.test(editor))
-check("the suggestion is asked for once the fields settle, cached by content, never on a keystroke", /const SETTLE_MS = 1200/.test(code("app/app/products/new/category-suggestion.ts")) && /answers\.has\(key\)/.test(code("app/app/products/new/category-suggestion.ts")) && /ctrl\.abort\(\)/.test(code("app/app/products/new/category-suggestion.ts")))
+check("the suggestion is asked for once the fields settle, cached by content, never on a keystroke", /const SETTLE_MS = 1200/.test(code("app/(storelib)/app/products/new/category-suggestion.ts")) && /answers\.has\(key\)/.test(code("app/(storelib)/app/products/new/category-suggestion.ts")) && /ctrl\.abort\(\)/.test(code("app/(storelib)/app/products/new/category-suggestion.ts")))
 /* Changed on purpose: the list moved to lib/products/category-groups.ts so the suggestion route can check answers against it. */
 check("every category the editor offered is still offered", (read("lib/products/category-groups.ts").match(/^      "/gm) ?? []).length >= 80 && /"Lightroom Presets"/.test(groups) && /"Video LUTs"/.test(groups))
 
@@ -132,7 +132,7 @@ check("every category the editor offered is still offered", (read("lib/products/
   each one was loading the original upload, so a product with six camera photos
   fetched twenty megabytes before anything could be read.
 */
-const media = code("app/app/products/new/media-grid.tsx")
+const media = code("app/(storelib)/app/products/new/media-grid.tsx")
 console.log("\nThe media tiles are thumbnails, not the photos")
 check("each tile asks the optimizer for the file it needs, with an honest sizes and its box declared",
   /const TILE_FILES = \[256, 384, 640, 750\]/.test(media) && /const srcSet = (src \? )?optimizedSrcSet\(src, TILE_FILES, PORTRAIT_QUALITY\)/.test(media)

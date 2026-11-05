@@ -1,6 +1,6 @@
 /**
  * The page scripts/check-commerce-r51.mjs measures: the website checkout's
- * shop bar (app/checkout/parts/shop-bar.tsx) in each of Settings › Checkout ›
+ * shop bar (app/(storelib)/checkout/parts/shop-bar.tsx) in each of Settings › Checkout ›
  * Top of checkout's choices, with a wide wordmark, a long name and no logo;
  * and the Orders page's packing slip button on a computer (components/
  * physical/order-panel printSlip) with the notice it now shows
@@ -8,7 +8,7 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { ShopBar, type ShopBrand } from "@/app/checkout/parts/shop-bar"
+import { ShopBar, type ShopBrand } from "@/app/(storelib)/checkout/parts/shop-bar"
 import { SlipNotice } from "@/components/physical/slip-share"
 import { printSlip } from "@/components/physical/order-panel"
 

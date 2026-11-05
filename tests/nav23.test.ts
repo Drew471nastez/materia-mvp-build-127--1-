@@ -7,7 +7,7 @@
  * or reloads, and this sometimes happens randomly across Storelib"; "back and
  * entering pages" should have no slide delay. Each cause was found in a real
  * Next 16 build of the real components (scripts/nav23-real-router: the /app
- * shell, the sheet over a page through app/app/@sheet, the real editor page,
+ * shell, the sheet over a page through app/(storelib)/app/@sheet, the real editor page,
  * the real product layer), counted there before and after, and fixed:
  *
  *   SHEET     Escape never closed it (the rail's hidden menus were taken for
@@ -87,7 +87,7 @@ console.log("\nRELOADS: a whole page load only when nothing else can work, never
   const deploy = code("lib/ui/new-deploy.ts")
   check("the router's start reads the mark, and never loads in place", /inBack: backJustStarted\(\)/.test(deploy) && !/window\.location\.replace\(href\)/.test(deploy))
 
-  const editor = code("app/website-builder/editor/[installId]/page.tsx")
+  const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const watch = editor.match(/useEffect\(\(\) => \{\s*\n\s*if \(!leaving\) return[\s\S]*?\}, \[leaving\]\)/)?.[0] ?? ""
   check("the editor's leave watchdog no longer loads the address itself (it fired as its own push started)", watch.length > 0 && !/location\.assign/.test(watch) && /window\.setTimeout\(revive, exitWatchdogMs\(NAVIGATE_CEILING_MS\)\)/.test(watch) && exitWatchdogMs(NAVIGATE_CEILING_MS) === EXIT_MIN_MS + NAVIGATE_CEILING_MS + 2000)
   /* Y1: the builder's own way out pushes once Going back has been up EXIT_MIN_MS (the editor stays around it until then); the page editors still push on the press. */
@@ -133,7 +133,7 @@ console.log("\nCOPY")
     "lib/ui/app-navigation.ts",
     "components/app/app-stage.tsx",
     "components/app/page-layer.tsx",
-    "app/website-builder/editor/[installId]/page.tsx",
+    "app/(storelib)/website-builder/editor/[installId]/page.tsx",
     "app/globals.css",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */

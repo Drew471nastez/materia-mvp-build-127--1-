@@ -156,7 +156,7 @@ async function guest() {
   check("  and asks only when the hint says there is something", /sl_signed_in\|sl_owned_hint/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
   check("an imported theme's product page reads the grant", /guestOwns\(createAdminClient\(\), guestAccessFromCookieHeader/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
   /* Round 49: the product page is one HTML for everybody (a CDN holds it); the grant is read after load, by the purchase check and the guest row's own route, from the same cookie. */
-  check("/p reads it after load, from the same signed cookie", /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/guest-owned/route.ts")) && /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/verify/route.ts")) && !/heldGrants|cookies\(\)/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+  check("/p reads it after load, from the same signed cookie", /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/guest-owned/route.ts")) && /heldGrants\(admin, guestAccessFromCookieHeader\(request\.headers\.get\("cookie"\)\), \{ productId \}\)/.test(read("app/api/purchases/verify/route.ts")) && !/heldGrants|cookies\(\)/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
   const helper = read("lib/receipts/guest-access-server.ts") + read("lib/receipts/guest-access.ts")
   check("no IP and no device fingerprint is ever proof", !/x-forwarded-for|x-real-ip|user-agent|materia_session/i.test(helper))
 }
@@ -242,7 +242,7 @@ function profiles() {
   const hero = read("components/profile/profile-hero.tsx")
   check("the profile header takes showCounts and hands it to the follow row", /showCounts = true,/.test(hero) && /showCounts=\{showCounts\}/.test(hero))
   check("a seller's own account hub shows none", /showCounts=\{!identity\.creator\}/.test(read("components/account/account-hub.tsx")))
-  check("the creator page shows none", /showCounts=\{false\}/.test(read("app/(marketing)/u/[username]/page.tsx")))
+  check("the creator page shows none", /showCounts=\{false\}/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")))
   check("a person's profile still shows them", /followers=\{profile\.followers\}/.test(read("components/profile/member-profile-page.tsx")) && !/showCounts=\{false\}/.test(read("components/profile/member-profile-page.tsx")))
 }
 
@@ -273,10 +273,10 @@ function currency() {
 
   section("CURRENCY: no surface writes an order's money with Intl alone any more")
   check("  lib/orders/money.ts formatOrderMoney", /return formatMinor\(Number\.isFinite\(minor\) \? minor : 0, orderCurrency\(currency\), appLocale\(\)\)/.test(read("lib/orders/money.ts")))
-  for (const f of ["lib/receipts/rules.ts", "lib/notifications/format.ts", "lib/push/notifications.ts", "app/api/invoice/route.ts", "app/api/stripe/order-timeline/route.ts", "lib/emails/notices.ts", "app/app/customers/page.tsx"]) {
+  for (const f of ["lib/receipts/rules.ts", "lib/notifications/format.ts", "lib/push/notifications.ts", "app/api/invoice/route.ts", "app/api/stripe/order-timeline/route.ts", "lib/emails/notices.ts", "app/(storelib)/app/customers/page.tsx"]) {
     check(`  ${f}`, !/style: "currency"/.test(read(f).replace(/new Intl\.NumberFormat\("en(?:-US)?", \{ style: "currency", currency: code \}\)(?!\.format)/g, "")), f)
   }
-  check("Analytics revenue in the store's own decimals", /formatMinor\(cents, storeCurrency, appLocale\(\)\)/.test(read("app/app/analytics/analytics-client.tsx")))
+  check("Analytics revenue in the store's own decimals", /formatMinor\(cents, storeCurrency, appLocale\(\)\)/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
 }
 
 async function main() {

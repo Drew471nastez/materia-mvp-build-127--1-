@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { Stars } from "@/components/reviews/stars"
-import { buttonPrimary, buttonSecondary } from "@/app/app/orders/order-parts"
+import { buttonPrimary, buttonSecondary } from "@/app/(storelib)/app/orders/order-parts"
 import { Sheet } from "./parts"
 import {
   FIELDS,

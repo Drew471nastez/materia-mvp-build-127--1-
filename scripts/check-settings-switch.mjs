@@ -23,7 +23,7 @@
  * Then a tab from before a deploy: the sections' code split into files the
  * way the app's is, those files answered 404 after the page has loaded, and
  * Taxes pressed. The whole page must not load again (it did: the section
- * threw into app/app/error.tsx, whose error screen reloads for stale code);
+ * threw into app/(storelib)/app/error.tsx, whose error screen reloads for stale code);
  * the column stays and Taxes says, in its own place, that Storelib updated.
  *
  * Then every section is opened once more in a development build of React,

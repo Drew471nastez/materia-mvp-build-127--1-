@@ -239,7 +239,7 @@ async function main() {
 
   section("The buyer's page: one panel with every way to reach the shop")
   {
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     const help = read("components/support/order-help.tsx")
     check("Contact the shop, the topics and photos", /Contact the shop/.test(help) && /reasonsFor\(kind\)/.test(help) && /<CasePhotoPicker/.test(help) && /name="website"/.test(help))
     /* Changed on purpose: in the buyer's language (ct). */
@@ -247,11 +247,11 @@ async function main() {
     check("  choosing Cancel or Return as the topic points to that flow", /reason === "cancel" \? cancel : reason === "return" \? returns/.test(help))
     /* Changed on purpose (round 27, B27): the email opens a letter already started (lib/physical/seller-mailto.ts). */
     check("the shop's email and phone are in it", /contact=\{\{ email: shop\.email, phone: shop\.phone \?\? null, emailHref: mailHref \}\}/.test(view) && /mailto:\$\{contact\.email\}/.test(help) && /tel:\$\{contact\.phone/.test(help))
-    check("the receipt (downloads) has it too, with the shop's email", /<OrderHelp kind="digital"[^>]*contact=\{\{ email: receipt\.seller\.supportEmail/.test(read("app/receipt/[token]/receipt-view.tsx")))
-    const caseView = read("app/order-help/[id]/case-view.tsx")
+    check("the receipt (downloads) has it too, with the shop's email", /<OrderHelp kind="digital"[^>]*contact=\{\{ email: receipt\.seller\.supportEmail/.test(read("app/(storelib)/receipt/[token]/receipt-view.tsx")))
+    const caseView = read("app/(storelib)/order-help/[id]/case-view.tsx")
     check("the conversation page: photos, and Ask Storelib for help only when the rule allows", /CasePhotoStrip/.test(caseView) && /escalation\.can \?/.test(caseView) && /Ask Storelib for help/.test(caseView))
-    check("the seller sees the messages on the order, with the reply box", /<OrderMessagesCard checkoutId=\{parcel\?\.id \?\? null\}/.test(read("app/app/orders/order-detail.tsx")) && /<BuyerCaseThread key=\{openId\} id=\{openId\} embedded/.test(read("components/support/order-messages-card.tsx")))
-    check("Storelib sees the photos in Resolution center", /<CasePhotoStrip photos=\{m\.photos\} dark \/>/.test(read("app/admin/resolution/buyer-cases.tsx")))
+    check("the seller sees the messages on the order, with the reply box", /<OrderMessagesCard checkoutId=\{parcel\?\.id \?\? null\}/.test(read("app/(storelib)/app/orders/order-detail.tsx")) && /<BuyerCaseThread key=\{openId\} id=\{openId\} embedded/.test(read("components/support/order-messages-card.tsx")))
+    check("Storelib sees the photos in Resolution center", /<CasePhotoStrip photos=\{m\.photos\} dark \/>/.test(read("app/(storelib)/admin/resolution/buyer-cases.tsx")))
     check("no inbound email parsing exists, so replies thread by links (said in the seller's email)", !/inbound/i.test(read("lib/mailgun.ts")) && /A reply to this email reaches the buyer but is not kept on the case/.test(read("lib/support/cases-server.ts")))
   }
 
@@ -305,7 +305,7 @@ async function main() {
     const cs = read("lib/physical/checkout-server.ts")
     check("checkout keeps them on the order: attributes on the checkout, properties on its lines", /cart_attributes: attributes/.test(cs) && /* Changed on purpose (round AF): each priced line carries its own properties; the cart's first for its option is the fallback. Round 13: a line of a product with personalization fields keeps its answers as the server checked and cleaned them (lib/products/personalization-server). */ /snapshotLine\(l, personalized\.answers\.has\(answersKey\(l\)\) \? personalized\.answers\.get\(answersKey\(l\)\) : l\.properties \?\? propertiesFor\(input\.items, l\)\)/.test(cs) && /properties: l\.properties/.test(cs))
     check("  a database without part 164 loses only the attributes, never the checkout", /cart attributes not kept/.test(cs))
-    check("  the website's checkout sends them, and shows them under the note", /cartAttributes,\n\s+wholeCart/.test(read("app/checkout/site/site-checkout.tsx")) && /data-cart-attributes/.test(read("app/checkout/site/site-checkout.tsx")) && (read("app/api/checkout/site/route.ts").match(/cartAttributes: body\.cartAttributes/g) ?? []).length === 3) /* card, free and cash on delivery */
+    check("  the website's checkout sends them, and shows them under the note", /cartAttributes,\n\s+wholeCart/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && /data-cart-attributes/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && (read("app/api/checkout/site/route.ts").match(/cartAttributes: body\.cartAttributes/g) ?? []).length === 3) /* card, free and cash on delivery */
     check("the seller's order shows them in Notes", /data-order-attributes/.test(read("components/physical/order-panel.tsx")) && /data-order-line-properties/.test(read("components/physical/order-panel.tsx")) && /cartAttributes: cartAttributes\(co\.cart_attributes\)/.test(read("lib/physical/orders-server.ts")))
     const facts = physicalSaleFacts({ delivery_method: "ship", shipping_rate: { name: "Standard" }, lines: [{ title: "Mug", type: "physical", requires_shipping: true, quantity: 1, unit_cents: 1000, properties: { Engraving: "Ana" } }], cart_attributes: { "Gift message": "Love you" }, total_cents: 1000, items_subtotal_cents: 1000 })
     check("the seller's new order email carries them, one row each", facts?.details.join("|") === "Gift message: Love you|Mug: Engraving: Ana" && (withPhysicalSale({}, facts).fulfil as { details: string[] }).details.length === 2, facts?.details)
@@ -332,7 +332,7 @@ async function main() {
     check("a section with every block deleted stays empty", withDeliveryBlock({ ...old, blocks: [] } as never).blocks!.length === 0)
     check("a legacy section gets it with its blocks", withDeliveryBlock(withProductBlocks({ id: "m", type: "product", name: "P", settings: { show_wishlist: true }, blocks: [] } as never)).blocks!.some((x) => x.type === "delivery"))
     check("not a product section: untouched", withDeliveryBlock({ id: "h", type: "hero", settings: {}, blocks: [b("text")] } as never).blocks!.length === 1)
-    check("the live page, the canvas and the builder's sidebar all call it", /withDeliveryBlock\(withProductBlocks\(s\)\)/.test(read("components/website-builder/theme/render-product.tsx")) && /withDeliveryBlock\(withProductBlocks\(raw\)\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /loaded = loaded\.map\(\(s\) => withDeliveryBlock\(s\)\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("the live page, the canvas and the builder's sidebar all call it", /withDeliveryBlock\(withProductBlocks\(s\)\)/.test(read("components/website-builder/theme/render-product.tsx")) && /withDeliveryBlock\(withProductBlocks\(raw\)\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /loaded = loaded\.map\(\(s\) => withDeliveryBlock\(s\)\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   }
 
   /* ───────────────────────────── 4. never delivered ──────────────────────── */
@@ -348,7 +348,7 @@ async function main() {
     check("the carrier's estimate counts when it comes first", c.endsAt === new Date(now - 27 * day + 30 * day).toISOString())
     check("no promise from the zone: assumed transit days", w([{ status: "shipped", trackingNumber: "1Z", shippedAt: at(0), deliveredAt: null }], null).endsAt === new Date(now + (ASSUMED_TRANSIT_DAYS + DELIVERY_GRACE_DAYS + 30) * day).toISOString())
     check("delivered: from delivery, as before", w([{ status: "delivered", trackingNumber: "1Z", shippedAt: at(15), deliveredAt: at(10) }]).assumed === false)
-    check("the order page says the date when it hasn't arrived", /data-return-assumed/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /started: window\.started, assumed: window\.assumed/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    check("the order page says the date when it hasn't arrived", /data-return-assumed/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")) && /started: window\.started, assumed: window\.assumed/.test(read("app/(storelib)/checkout/physical/order/[token]/page.tsx")))
 
     check("60 days, tracked, still in transit: to close", isUnconfirmed({ status: "in_transit", tracking_number: "1Z", shipped_at: at(61), delivered_at: null }, now))
     check("  not before 60 days, not delivered, not untracked, not already closed", !isUnconfirmed({ status: "in_transit", tracking_number: "1Z", shipped_at: at(59), delivered_at: null }, now) && !isUnconfirmed({ status: "delivered", tracking_number: "1Z", shipped_at: at(90), delivered_at: at(80) }, now) && !isUnconfirmed({ status: "shipped", tracking_number: null, shipped_at: at(90), delivered_at: null }, now) && !isUnconfirmed({ status: "shipped", tracking_number: "1Z", shipped_at: at(90), delivered_at: null, delivery_unconfirmed_at: at(1) }, now))
@@ -379,7 +379,7 @@ async function main() {
     check("a seller email: the Orders number in the subject, the buyer's reference beside it, the reply to the buyer in their reference", /order #1003/.test(mail.subject) && /85737C57/.test(mail.html) && /Your%20order%20%2385737C57|Your order #85737C57/.test(mail.html), mail.subject)
     check("the order emails, activity, messages and export all ask for the seller's number", /sellerOrderNumber\(db, co\.creator_id, \{ checkoutId: co\.id \}\)/.test(read("lib/physical/jobs-server.ts")) && /sellerNumberAndRef/.test(read("app/api/receipt/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/courses/contact/route.ts")) && /sellerNumberAndRef/.test(read("app/api/memberships/[id]/contact/route.ts")) && /sellerOrderNumber/.test(read("app/api/physical/order-status/[token]/cancel/route.ts")) && /sellerOrderNumbers/.test(read("app/api/physical/orders/export/route.ts")))
     /* Changed on purpose: in the buyer's language (ct). */
-    check("the buyer's own pages and emails keep the reference", /ct\("Order \{number\}", \{ number: orderNumber\(order\.id\) \}\)/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /const number = orderNumber\(co\.id\)/.test(read("lib/physical/jobs-server.ts")))
+    check("the buyer's own pages and emails keep the reference", /ct\("Order \{number\}", \{ number: orderNumber\(order\.id\) \}\)/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")) && /const number = orderNumber\(co\.id\)/.test(read("lib/physical/jobs-server.ts")))
     check("the scheme is in the admin guide", /id: "order-numbers"/.test(read("lib/admin/commerce-docs.ts")))
   }
 
@@ -402,7 +402,7 @@ async function main() {
 
   section("Words")
   {
-    const files = ["components/support/order-help.tsx", "components/support/case-photos.tsx", "components/support/order-messages-card.tsx", "app/order-help/[id]/case-view.tsx", "lib/support/cases.ts", "lib/support/case-photos-server.ts", "lib/physical/unconfirmed-delivery-server.ts", "supabase/sql/run-now/164_buyer_contact_and_cart_attributes.sql"]
+    const files = ["components/support/order-help.tsx", "components/support/case-photos.tsx", "components/support/order-messages-card.tsx", "app/(storelib)/order-help/[id]/case-view.tsx", "lib/support/cases.ts", "lib/support/case-photos-server.ts", "lib/physical/unconfirmed-delivery-server.ts", "supabase/sql/run-now/164_buyer_contact_and_cart_attributes.sql"]
     const all = files.map(read).join("\n")
     check("no em dashes or filler words", !/—|\bunlock|\belevate|seamless|effortless|supercharge|\btransform|\bpowerful/i.test(all))
   }

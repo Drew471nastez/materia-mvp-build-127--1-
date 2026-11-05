@@ -36,8 +36,8 @@ export const stanStore: Competitor = {
   ],
   whyStorelib: [
     { text: `You can start for nothing. Storelib Free has no monthly fee and takes ${STORELIB.freeFee} a sale, so a store that sells a few times a month costs far less than $29.`, code: "lib/billing/plans.ts" },
-    { text: "Email campaigns and automations on every plan. On Stan, email broadcasts and flows are part of Creator Pro at $99 a month.", code: "app/app/emails" },
-    { text: "Discount codes, bundles and upsells on every plan, where Stan keeps order bumps and discount codes for Creator Pro.", code: "app/app/offers" },
+    { text: "Email campaigns and automations on every plan. On Stan, email broadcasts and flows are part of Creator Pro at $99 a month.", code: "app/(storelib)/app/emails" },
+    { text: "Discount codes, bundles and upsells on every plan, where Stan keeps order bumps and discount codes for Creator Pro.", code: "app/(storelib)/app/offers" },
     { text: `A full website as well as the bio link: ${STORELIB.freeSites} sites on Free, ${STORELIB.proSites} on Pro${STORELIB.proCustomDomain ? ", with your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
   ],
   whenToStay: [
@@ -57,7 +57,7 @@ export const stanStore: Competitor = {
   ],
   storelibStrengths: [
     { text: `A free plan with no monthly fee, and Pro at ${STORELIB.proPrice} when the lower rate pays for itself.`, code: "lib/billing/plans.ts" },
-    { text: "Email campaigns, automations, discount codes and bundles on every plan.", code: "app/app/emails" },
+    { text: "Email campaigns, automations, discount codes and bundles on every plan.", code: "app/(storelib)/app/emails" },
     { text: "A OnePage for your bio link, a creator page and a website builder, selling the same products.", code: "lib/onepage/address.ts" },
     { text: "Courses with lessons and progress, and paid communities.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and progress." },
   ],

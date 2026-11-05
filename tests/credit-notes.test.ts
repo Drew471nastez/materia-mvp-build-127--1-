@@ -192,9 +192,9 @@ console.log("\n6. Linked from the email, the receipt, the order page and the sel
   check("the webhook's refund step issues it once per refund, keyed by the refund", /issueCreditNote\(db, \{ creatorId: await creatorOf\(db, rows\[0\]\.product_id\), orderId: rows\[0\]\.id, refundKey: refund\.id/.test(sync) && /emailRefund\(db, touched, refund, currency, note \?/.test(sync))
   const route = read("app/api/stripe/refund/route.ts")
   check("the Orders page refund (card or cash) has it and links it in its email", /creditNoteForRefund\(admin, \{ orderId, creatorId: creator\.id, refundKey: refund\.id/.test(route) && /creditNote,\n\s*\}\)/.test(route))
-  check("the receipt page lists each note", /creditNotesForReceipt\(admin, token\)/.test(read("app/receipt/[token]/page.tsx")) && /data-credit-notes/.test(read("app/receipt/[token]/receipt-view.tsx")))
-  check("the physical order page too", /creditNotesForReceipt\(db, noteToken\)/.test(read("app/checkout/physical/order/[token]/page.tsx")) && /data-order-credit-notes/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")))
-  check("the seller's order menu downloads it", /Download credit note/.test(read("app/app/orders/order-detail.tsx")) && /creditNote=latest/.test(read("app/app/orders/orders-client.tsx")) && /creditNoteAsked\(searchParams\.get\("creditNote"\)\)/.test(read("app/api/invoice/route.ts")))
+  check("the receipt page lists each note", /creditNotesForReceipt\(admin, token\)/.test(read("app/(storelib)/receipt/[token]/page.tsx")) && /data-credit-notes/.test(read("app/(storelib)/receipt/[token]/receipt-view.tsx")))
+  check("the physical order page too", /creditNotesForReceipt\(db, noteToken\)/.test(read("app/(storelib)/checkout/physical/order/[token]/page.tsx")) && /data-order-credit-notes/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")))
+  check("the seller's order menu downloads it", /Download credit note/.test(read("app/(storelib)/app/orders/order-detail.tsx")) && /creditNote=latest/.test(read("app/(storelib)/app/orders/orders-client.tsx")) && /creditNoteAsked\(searchParams\.get\("creditNote"\)\)/.test(read("app/api/invoice/route.ts")))
   const buyer = read("app/api/checkout/credit-note/route.ts")
   check("the buyer's PDF needs the receipt token, and the note must be that purchase's", /creditNotesForReceipt\(db, token\)/.test(buyer) && /notes\.find\(\(n\) => n\.id === id\)/.test(buyer) && /rateLimit/.test(buyer))
 }

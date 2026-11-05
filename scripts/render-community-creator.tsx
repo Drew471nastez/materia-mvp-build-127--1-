@@ -330,7 +330,7 @@ function App() {
           <AnalyticsSection head={head} initial={analytics} />
         </Shell>
       )
-    /* Round 12: the overview with the card of why people left under it, as app/app/community/[id]/page.tsx draws it for an admin. */
+    /* Round 12: the overview with the card of why people left under it, as app/(storelib)/app/community/[id]/page.tsx draws it for an admin. */
     case "overview-left":
       return (
         <Shell section="">

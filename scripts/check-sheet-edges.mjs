@@ -54,7 +54,7 @@ if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first
 const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
 
 /* The fixture's sheets have to be the builder's sheets. */
-const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
 const publishPanel = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
 const fixture = readFileSync(join(root, "scripts/render-sheet-edges.tsx"), "utf8")
 const drift = []

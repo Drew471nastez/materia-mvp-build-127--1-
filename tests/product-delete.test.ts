@@ -415,7 +415,7 @@ async function main() {
 
   console.log("\n  the screens")
   {
-    const list = strip(read("app/app/products/products-client.tsx"))
+    const list = strip(read("app/(storelib)/app/products/products-client.tsx"))
     check("the list deletes through the server", /await deleteProduct\(product\.id\)/.test(list))
     check("and no longer deletes in the browser", !/\.from\("products"\)\s*\.delete\(\)/.test(list))
     check("the list is drawn with this tab's changes applied", /useState<Product\[\]>\(\(\) => withChanges\(initialProducts\)\)/.test(list))
@@ -428,7 +428,7 @@ async function main() {
       /const kind = await previewProductDelete\(product\.id\)/.test(list) && /deleteQuestion\(productToDelete\.title, deleteKind\)\.title/.test(list) && /deleteQuestion\(productToDelete\.title, deleteKind\)\.body/.test(list))
     check("a refusal is said in the question, which stays open", /setDeleteError\(/.test(confirm) && confirm.indexOf("closeDelete()") < confirm.indexOf("catch (error)") && /role="alert"[^>]*>\s*\{deleteError\}/.test(list))
 
-    const editor = strip(read("app/app/products/new/product-editor.tsx"))
+    const editor = strip(read("app/(storelib)/app/products/new/product-editor.tsx"))
     check("the editor's more menu has Delete, last and apart, in red", /\{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: \(\) => void handleDeleteProduct\(\) \}/.test(editor))
     const del = editor.slice(editor.indexOf("const handleDeleteProduct"), editor.indexOf("const handleRedirectToProduct"))
     check("it asks first, in words that say which it will be",

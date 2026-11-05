@@ -25,8 +25,8 @@ export const whop: Competitor = {
   whyStorelib: [
     { text: "Payouts from Storelib go to your bank through Stripe, and Cash out is free. On Whop each payout method has its own fee.", code: "lib/payments/stripe/payout-regions.ts" },
     { text: `A store, a website and a bio link that are yours to design: ${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Pro${STORELIB.proCustomDomain ? ", your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
-    { text: "Email campaigns and automations to your buyers and subscribers, built into the same dashboard as your orders.", code: "app/app/emails" },
-    { text: "Digital products, courses and paid communities sit side by side, so a community is one of the things you sell rather than the whole business.", code: "app/app/courses" },
+    { text: "Email campaigns and automations to your buyers and subscribers, built into the same dashboard as your orders.", code: "app/(storelib)/app/emails" },
+    { text: "Digital products, courses and paid communities sit side by side, so a community is one of the things you sell rather than the whole business.", code: "app/(storelib)/app/courses" },
   ],
   whenToStay: [
     { text: "Your product is access to a Discord or Telegram server. Whop gives buyers their role in your server automatically, and Storelib does not connect to Discord.", sources: ["whop-discord"], status: "verified" },
@@ -47,7 +47,7 @@ export const whop: Competitor = {
   storelibStrengths: [
     { text: "Cashing out from Payouts to your bank has no Storelib fee: the per sale fee and Stripe's processing are all there is.", code: "lib/billing/plans.ts" },
     { text: "A website builder, a creator page and a OnePage that you design.", code: "lib/sites/plan.ts" },
-    { text: "Email campaigns, automations, discount codes, bundles and upsells.", code: "app/app/offers" },
+    { text: "Email campaigns, automations, discount codes, bundles and upsells.", code: "app/(storelib)/app/offers" },
   ],
   storelibLimits: [
     { text: `Storelib's ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro comes before Stripe's processing, so per payment it costs more than Whop's 2.7% + 30¢.`, code: "lib/payments/fees/defaults.ts" },

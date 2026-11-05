@@ -36,7 +36,7 @@
  *   PROBE_CSS=source node scripts/check-community-cards.mjs
  *
  * Roboto 500 is fetched once (Latin and Latin Extended, the two subsets
- * app/layout.tsx asks next/font for) into a temporary folder and declared
+ * app/(storelib)/layout.tsx asks next/font for) into a temporary folder and declared
  * under the same family and variable next/font gives the page; without the
  * network the probe says so and measures the declared family only.
  * Screenshots go to SHOTS_DIR (a temporary folder by default).
@@ -121,7 +121,7 @@ execFileSync("npx", [
   `--outfile=${join(stubs, "app.js")}`, "--log-level=error",
 ], { cwd: root, stdio: "inherit", env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
 const js = readFileSync(join(stubs, "app.js"), "utf8")
-/* The body's classes as app/layout.tsx sets them: Inter's variable and the community title's, which next/font writes as the family and its fallback. */
+/* The body's classes as app/(storelib)/layout.tsx sets them: Inter's variable and the community title's, which next/font writes as the family and its fallback. */
 writeFileSync(join(stubs, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${faces}</style><style>${roboto}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f8f9fa;--font-community-title:'Roboto','Roboto Fallback'}</style></head>
 <body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`)

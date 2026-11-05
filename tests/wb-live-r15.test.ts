@@ -48,7 +48,7 @@ const chat = readCode("components/website-builder/theme-chat.tsx")
 const panel = readCode("components/website-builder/anchored-panel.tsx")
 const overlay = readCode("components/website-builder/editor/ai-working-overlay.tsx")
 const library = readCode("components/website-builder/editor/section-library.tsx")
-const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nAsk pill")
 check("the pill only watches scrolls while a section (and so its toolbar) is selected", /if \(!dock \|\| expanded \|\| hidden \|\| suspended \|\| !selectedSectionId\) \{\s*setYielding\(false\)\s*return/.test(chat))

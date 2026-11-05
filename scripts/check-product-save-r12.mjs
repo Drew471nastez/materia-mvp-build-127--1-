@@ -5,7 +5,7 @@
  * The owner: "if I go to app > products > edit product page and I uncheck a
  * sales channel there, it doesn't trigger the Save button."
  *
- * The real product editor (app/app/products/new/product-editor.tsx, drawn by
+ * The real product editor (app/(storelib)/app/products/new/product-editor.tsx, drawn by
  * scripts/render-product-save-r12.tsx) in headless Chromium, at 1440x900 and
  * at 390x844 touch with the CPU slowed four times. Behind it a stand-in for
  * the database and the routes it calls (Supabase's REST, the sales channels,

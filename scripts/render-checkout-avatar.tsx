@@ -17,7 +17,7 @@
 import * as React from "react"
 import { createRoot, hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server.browser"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
 
 const q = new URLSearchParams(location.search)
 const SUPABASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/avatars/probe"

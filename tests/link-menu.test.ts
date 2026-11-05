@@ -28,7 +28,7 @@ type T = { href: string; label: string; kind: "page" | "product"; image?: string
 const page = (href: string, label: string): T => ({ href, label, kind: "page" })
 const product = (slug: string, label: string): T => ({ href: `/products/${slug}`, label, kind: "product" })
 
-/* The editor's own list, in the order it builds it (app/website-builder/editor/[installId]/page.tsx). */
+/* The editor's own list, in the order it builds it (app/(storelib)/website-builder/editor/[installId]/page.tsx). */
 const TARGETS: T[] = [
   page("/", "Home"),
   page("/products", "Shop"),
@@ -91,7 +91,7 @@ function main() {
   check("it comes and goes by opacity and transform, and not at all under reduced motion",
     /opacity: 0, transform: `translate3d\(0, \$\{dy\}px, 0\) scale\(0\.985\)`/.test(popover) && /prefers-reduced-motion: reduce/.test(popover) && /\.wb-link-level\[data-dir\] \{ animation: none; \}/.test(css))
   check("the editor gives it the account pages and the products' pictures",
-    /href: "\/account\/login", label: "Sign in", kind: "page"/.test(read("lib/website-builder/link-targets.ts")) && /image: p\.thumbnail_url \|\| undefined/.test(read("lib/website-builder/link-targets.ts")) && /storeLinkTargets\(\{/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    /href: "\/account\/login", label: "Sign in", kind: "page"/.test(read("lib/website-builder/link-targets.ts")) && /image: p\.thumbnail_url \|\| undefined/.test(read("lib/website-builder/link-targets.ts")) && /storeLinkTargets\(\{/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

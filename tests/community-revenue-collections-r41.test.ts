@@ -125,7 +125,7 @@ async function communityMoney() {
   check("All communities is the sum of each, MRR and payments apart", all?.revenue.value === 2400 && all?.mrr.value === mrrByHand + 900 && all?.paying === 3 && all?.bySource.length === 2, all)
   check("  and communities in two currencies are never added together", moneyTotal([one, { ...two, currency: "eur" }]) === null)
 
-  const reports = read("app/app/analytics/community-reports.tsx")
+  const reports = read("app/(storelib)/app/analytics/community-reports.tsx")
   const creator = read("lib/communities/server/creator.ts")
   const stats = read("lib/communities/server/stats.ts")
   const ar = read("lib/communities/server/analytics-report.ts")
@@ -136,7 +136,7 @@ async function communityMoney() {
 
 function collectionsArePages() {
   console.log("\n2. Collections are pages\n")
-  const DIR = "app/app/products/collections"
+  const DIR = "app/(storelib)/app/products/collections"
   check("/new and /<id> are routes with a layer each, and no loading boundary", ["new/page.tsx", "new/layout.tsx", "[id]/page.tsx", "[id]/layout.tsx"].every((f) => existsSync(`${DIR}/${f}`)) && !existsSync(`${DIR}/new/loading.tsx`) && !existsSync(`${DIR}/[id]/loading.tsx`) && !existsSync(`${DIR}/loading.tsx`))
   const editor = read(`${DIR}/collection-editor.tsx`)
   check("the editor is a page, not a sheet or a dialog", !/SheetDialog/.test(editor.replace(/\/\*[\s\S]*?\*\//g, "")) && /export function CollectionPage/.test(editor) && /collectionsReturn\.useOrigin\(\)/.test(editor))
@@ -227,7 +227,7 @@ function lowStock() {
   check("Low: at or under the line, 0 and oversold included, as the email lists them", inInventoryView(row, at(0), "low") && inInventoryView(row, at(3), "low") && inInventoryView(row, at(-2), "low") && !inInventoryView(row, at(6), "low"))
   check("Out stays its own view: zero or less only", inInventoryView(row, at(0), "out") && inInventoryView(row, at(-1), "out") && !inInventoryView(row, at(3), "out"))
   check("an untracked item is never low or out", !inInventoryView({ trackInventory: false, lowStockThreshold: 5 }, at(0), "low") && !inInventoryView({ trackInventory: false, lowStockThreshold: 5 }, at(0), "out"))
-  check("the Inventory page uses the shared rule, and the email still links to ?filter=low", /inInventoryView\(r, l, v\)/.test(read("app/app/inventory/inventory-client.tsx")) && /\/app\/inventory\?filter=low/.test(read("lib/physical/jobs-server.ts")))
+  check("the Inventory page uses the shared rule, and the email still links to ?filter=low", /inInventoryView\(r, l, v\)/.test(read("app/(storelib)/app/inventory/inventory-client.tsx")) && /\/app\/inventory\?filter=low/.test(read("lib/physical/jobs-server.ts")))
 }
 
 async function main() {

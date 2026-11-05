@@ -225,7 +225,7 @@ async function main() {
   check("a new page is added to the list", pageEventPlan(ev({ action: "page_created", path: "pages/size-guide", detail: { page: "size-guide", ops: [] } }), "home").newPage === "size-guide")
   check("a file event plans nothing", pageEventPlan(ev({ action: "created", path: "sections/x.storelib" }), "home").pageOps.length === 0)
   check("the notice names the page", describeChange(ev({ detail: { ops } }), () => undefined) === "About changed, 2 edits" && describeChange(ev({ action: "page_created", path: "pages/size-guide" }), () => undefined) === "New page: Size guide")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the builder replays through the assistant's applier", /const plan = pageEventPlan\(ev, currentPageRef\.current\)/.test(editor) && /applyAiOp\(op\)/.test(editor))
   check("and does not place a file the agent already placed", /!ev\.detail\?\.placed/.test(editor))
 

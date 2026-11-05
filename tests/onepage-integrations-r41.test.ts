@@ -345,7 +345,7 @@ async function main() {
 
   section("/app/integrations: the order is there on the first paint")
   {
-    const page = read("app/app/integrations/page.tsx")
+    const page = read("app/(storelib)/app/integrations/page.tsx")
     check("the page reads the order, the overrides and what is connected with the page", /integrationPopularity\(c\.db\)/.test(page) && /cachedCatalogOverrides\(\)/.test(page) && /loadTracking\(c\.db, c\.creatorId\)/.test(page) && /loadMarketing\(c\.db, c\.creatorId\)/.test(page) && /<IntegrationsClient initial=\{await initialFor\(\)\} \/>/.test(page))
     check("  never waits long for it", /const WAIT_MS = 1200/.test(page))
     const dir = read("components/app/settings/integrations-directory.tsx")

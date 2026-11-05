@@ -27,7 +27,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { NextRequest } from "next/server"
 
-import { PerformanceAdmin } from "@/app/admin/performance/performance-admin"
+import { PerformanceAdmin } from "@/app/(storelib)/admin/performance/performance-admin"
 import { POST as beaconPOST } from "@/app/api/public/m/route"
 import { POST as siteVitalsPOST } from "@/app/api/public/sv/route"
 import { BEACON_PATH, MIN_RATE_BASE, MIN_SAMPLES, SITE_BEACON_PATH, STEPS, STEP_ROUTES } from "@/lib/perf/config"
@@ -139,9 +139,9 @@ async function main() {
     check("a step keeps its time, rounded", rows[0]?.m === "step" && rows[0]?.v === 412 && rows[0]?.r === "/step/editor/save" && rows[0]?.a === "builder")
     check("a failure keeps a short code and nothing of a message", rows[1]?.m === "fail" && rows[1]?.v === 1 && /^[a-z0-9_]{0,32}$/.test(String(rows[1]?.x)))
     check("every step names a known area and its own lines", STEP_ROUTES.every((r) => r.startsWith("/step/") && STEPS[r].good < STEPS[r].poor))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor times its opening, its canvas and its saves", /perfStep\("\/step\/editor\/open", sinceScreenStart\(\)\)/.test(editor) && /perfStep\("\/step\/editor\/canvas"/.test(editor) && /perfStep\("\/step\/editor\/save"/.test(editor) && /perfFail\("\/step\/editor\/save"/.test(editor))
-    const pay = read("app/checkout/parts/stripe-pay.tsx")
+    const pay = read("app/(storelib)/checkout/parts/stripe-pay.tsx")
     check("checkout times the form, the intent and the confirm, wallets included", /perfStep\("\/step\/checkout\/ready"/.test(pay) && /* Changed on purpose (rel-commerce): one timed intent step inside intentFor, used by the card and the wallets. */ (pay.match(/timedStep\("\/step\/checkout\/intent"/g) ?? []).length === 1 && (pay.match(/await intentFor\(/g) ?? []).length === 2 && (pay.match(/noteConfirm\(t0, /g) ?? []).length === 3)
     check("a declined card is not counted as a failure", /error\.type !== "card_error" && error\.type !== "validation_error"/.test(pay))
   }

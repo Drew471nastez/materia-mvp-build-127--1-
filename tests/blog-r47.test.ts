@@ -22,9 +22,9 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { stripComments } from "./_source"
 import type { Block } from "@/lib/blog/blocks"
 import { BLOG_CTA, blogRailCta } from "@/lib/blog/article"
-import { ArticleView } from "@/app/(marketing)/blog/_components/article-view"
-import { PostCard } from "@/app/(marketing)/blog/_components/post-card"
-import BlogListing from "@/app/(marketing)/blog/_blog-listing"
+import { ArticleView } from "@/app/(storelib)/(marketing)/blog/_components/article-view"
+import { PostCard } from "@/app/(storelib)/(marketing)/blog/_components/post-card"
+import BlogListing from "@/app/(storelib)/(marketing)/blog/_blog-listing"
 import { withPublishedAsModified } from "@/lib/blog/trusted-modified"
 
 let passed = 0
@@ -65,26 +65,26 @@ function main() {
   console.log("\nThe article")
   {
     const html = article(true)
-    const view = code("app/(marketing)/blog/_components/article-view.tsx")
+    const view = code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")
     /* Changed on purpose (round 49): no empty right column; the 260px rail and a 760px column, the pair centred (tests/blog-r49.test.ts). */
     check("one grid from 1200px: the rail and the reading column, the pair centred", /min-\[1200px\]:grid-cols-\[260px_minmax\(0,760px\)\] min-\[1200px\]:justify-center/.test(view))
     check("  header, cover and body all in the reading column", (view.match(/\$\{COLUMN\}/g) ?? []).length === 3 && /const COLUMN = "mx-auto w-full max-w-\[720px\]/.test(view))
     check("  no right rail and no newsletter box", !/xl:block/.test(view) && !/Newsletter|newsletter/.test(html) && !/New guides for creators/.test(html))
     check("the byline is one row under the dek, with the dates and Updated on one line", /<header[\s\S]*Dek[\s\S]*data-blog-byline=""[\s\S]*<\/header>/.test(html) && /data-blog-byline-dates=""[\s\S]*min read[\s\S]*Updated <time/.test(html))
-    const body = code("app/(marketing)/blog/_components/article-blocks.tsx")
+    const body = code("app/(storelib)/(marketing)/blog/_components/article-blocks.tsx")
     /* Changed on purpose (round 49): 19px from 1200px, the 640px step written min-[640px] so it sorts before min-[1200px]. */
     check("body 17px, 18px from 640px, line height 1.7, near black links underlined", /const BODY = `text-\[17px\] leading-\[1\.7\] text-\[#374151\] min-\[640px\]:text-\[18px\]/.test(body) && /\[&_a\]:underline/.test(body) && /\[&_a\]:text-\[#1a1a2e\]/.test(body))
-    check("  nothing under 14px in the article's own text", !/text-\[1[0-3](\.\d)?px\]/.test(body) && !/text-\[1[0-3](\.\d)?px\]/.test(code("app/(marketing)/blog/_components/toc.tsx")) && !/text-\[1[0-2]px\]/.test(view))
+    check("  nothing under 14px in the article's own text", !/text-\[1[0-3](\.\d)?px\]/.test(body) && !/text-\[1[0-3](\.\d)?px\]/.test(code("app/(storelib)/(marketing)/blog/_components/toc.tsx")) && !/text-\[1[0-2]px\]/.test(view))
     /* Changed on purpose (round 49): the card is one short line, a subline and a button on a light surface, and names no kind of product (tests/blog-r49.test.ts). */
     check("the rail's card: one line, to /signup tagged src and ref", /data-blog-cta-card="digital"/.test(html) && /Sell anything from one place/.test(html) && /href="\/signup\?intent=sell&amp;src=blog-digital&amp;ref=blog-digital"/.test(html))
     check("  the same with physical commerce on or off", article(false).includes(blogRailCta().body) && article(true).includes(blogRailCta().body))
     check("  no gradient", !/gradient/.test(view))
     /* Changed on purpose (round 49): the box names the whole of Storelib in one short line. */
     check("the box in the article names the whole of Storelib", /data-blog-cta="digital"/.test(html) && /Products, courses, communities and your website/.test(BLOG_CTA.digital.body))
-    const copy = [...Object.values(BLOG_CTA).flatMap((c) => [c.title, c.body]), blogRailCta().title, blogRailCta().body, read("app/(marketing)/blog/layout.tsx")].join("\n")
+    const copy = [...Object.values(BLOG_CTA).flatMap((c) => [c.title, c.body]), blogRailCta().title, blogRailCta().body, read("app/(storelib)/(marketing)/blog/layout.tsx")].join("\n")
     check("  no banned words, no em dash", !BANNED.test(copy), copy.match(BANNED))
     check("the contents fold above the body below 1200px, the rail from 1200px", /min-\[1200px\]:hidden/.test(view) && /data-blog-toc-inline=""/.test(html) && /aria-label="Contents and sign up"/.test(html))
-    const spy = code("app/(marketing)/blog/_components/toc-spy.tsx")
+    const spy = code("app/(storelib)/(marketing)/blog/_components/toc-spy.tsx")
     check("the spy follows only headings the list links to (the sign up box's h2 has an id)", /\.filter\(\(h\) => listed\.has\(h\.id\)\)/.test(spy) && /new IntersectionObserver\(pick/.test(spy) && /"scrollend"/.test(spy))
   }
 
@@ -103,11 +103,11 @@ function main() {
 
   console.log("\nThe pills, kept in the layout")
   {
-    const layout = code("app/(marketing)/blog/layout.tsx")
-    const nav = code("app/(marketing)/blog/_components/blog-nav.tsx")
+    const layout = code("app/(storelib)/(marketing)/blog/layout.tsx")
+    const nav = code("app/(storelib)/(marketing)/blog/_components/blog-nav.tsx")
     check("the layout reads the categories and which have live posts", /readBlogCategories\(\), readBlogPosts\(\)/.test(layout) && /hasPosts: live\.has\(c\.name\)/.test(layout))
     check("  and asks nothing about the reader (the blog stays held at the edge)", !/cookies\(|headers\(|searchParams/.test(layout))
-    check("  no loading.tsx beside it (404s and 308s stay decided before the stream)", !existsSync(join(process.cwd(), "app/(marketing)/blog/loading.tsx")))
+    check("  no loading.tsx beside it (404s and 308s stay decided before the stream)", !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/loading.tsx")))
     check("empty categories are left out, the one being read always shown", /categories\.filter\(\(c\) => c\.hasPosts \|\| c\.slug === slug\)/.test(nav))
     /* Changed on purpose (round 49): the stuck place is measured from the new page, after it is in. */
     check("pills are next/link, the pressed one current at once, the place kept", /scroll=\{false\}/.test(nav) && /setPressed\(\{ from: pathname, slug: to \}\)/.test(nav) && /window\.scrollTo\(0, Math\.ceil\(window\.scrollY \+ mark\.getBoundingClientRect\(\)\.top - headerHeight\(\)\)\)/.test(nav))

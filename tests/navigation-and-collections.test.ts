@@ -30,14 +30,14 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 console.log("\nNavigation lives in the builder\n")
 {
   /* Menus are edited where they are seen, in the builder: the old dashboard address only opens it there. */
-  const page = read("app/app/website-builder/navigation/page.tsx")
-  check("/app/website-builder/navigation opens the builder's Navigation, on the live site", /\?panel=navigation/.test(page) && /status === "published"/.test(page) && !existsSync("app/app/website-builder/navigation/navigation-client.tsx"))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/navigation/page.tsx")
+  check("/app/website-builder/navigation opens the builder's Navigation, on the live site", /\?panel=navigation/.test(page) && /status === "published"/.test(page) && !existsSync("app/(storelib)/app/website-builder/navigation/navigation-client.tsx"))
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("  the builder lands on the menus from that address, once loaded, and forgets it", /searchParams\.get\("panel"\) !== "navigation"/.test(editor) && /url\.searchParams\.delete\("panel"\)/.test(editor) && /\[loading, openMenus\]/.test(editor))
-  check("the Website page no longer carries a Navigation card", !/data-website-navigation/.test(read("app/app/website-builder/website-builder-client.tsx")))
+  check("the Website page no longer carries a Navigation card", !/data-website-navigation/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx")))
   const nav = read("components/website-builder/website-settings/navigation.tsx")
   check("Website Settings › Navigation lists menus, never edits their links inline", !/<MenusEditor/.test(nav) && /data-nav-menu-row/.test(nav))
-  check("General settings has no Menus group", /themeGroups\.filter\(group => group\.id !== "colors" && group\.id !== "menus"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("General settings has no Menus group", /themeGroups\.filter\(group => group\.id !== "colors" && group\.id !== "menus"\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 }
 
 console.log("\nThe header and the Main menu\n")
@@ -80,12 +80,12 @@ console.log("\nCollections, every shop's\n")
   check("Product grid shows a collection", /"value": "collection"/.test(grid2) && /"type": "collection_picker",\s*"id": "collection"/.test(grid2) && /\{% elsif settings\.source == 'collection' %\}/.test(grid2))
   check("  its button goes to the whole collection", /\{% if settings\.source == 'collection' and settings\.collection\.title %\}\s*<div class="s__btns more"><a class="s__btn s__btn--secondary" href="\{\{ settings\.collection \| url \}\}">/.test(grid2))
   check("  the generated sources carry it", /A collection/.test(read("themes/default/sources.generated.ts")))
-  /* Collections live under Products now (app/app/products/collections); tests/collections-ui.test.ts checks the screens themselves. */
-  const parts = read("app/app/products/collections/collection-parts.tsx")
-  const editor = read("app/app/products/collections/collection-editor.tsx")
+  /* Collections live under Products now (app/(storelib)/app/products/collections); tests/collections-ui.test.ts checks the screens themselves. */
+  const parts = read("app/(storelib)/app/products/collections/collection-parts.tsx")
+  const editor = read("app/(storelib)/app/products/collections/collection-editor.tsx")
   check("the collection editor speaks every kind: a product type to pick, a kind under each product", /export const PRODUCT_KINDS = \[/.test(parts) && /KIND_LABEL\[p\.type\]/.test(editor) && /PRODUCT_KINDS\.filter/.test(editor))
   check("  stock and weight rules only where there is stock", /PHYSICAL_RULES/.test(editor) && /usePhysicalCommerceEnabled\(\)/.test(editor))
-  check("Products has a way to Collections", /href="\/app\/products\/collections" data-products-collections/.test(read("app/app/products/products-client.tsx")))
+  check("Products has a way to Collections", /href="\/app\/products\/collections" data-products-collections/.test(read("app/(storelib)/app/products/products-client.tsx")))
 }
 
 console.log("\nOne grid down the sidebar\n")

@@ -151,9 +151,9 @@ source last (`mergeTouches`).
 
 | Page | Property | Mounted in |
 | --- | --- | --- |
-| The creator page, `storelib.com/<handle>` and `/u/<handle>` | `creator_page` | `app/(marketing)/u/[username]/page.tsx` |
-| A product page, `/p/<slug>` and `/<handle>/<product>` | `creator_page` | `app/(marketing)/p/[slug]/page.tsx` |
-| The OnePage, `/<handle>/links`, `/l/<slug>`, `<domain>/links` | `onepage` | `app/(marketing)/l/[slug]/page.tsx` |
+| The creator page, `storelib.com/<handle>` and `/u/<handle>` | `creator_page` | `app/(storelib)/(marketing)/u/[username]/page.tsx` |
+| A product page, `/p/<slug>` and `/<handle>/<product>` | `creator_page` | `app/(storelib)/(marketing)/p/[slug]/page.tsx` |
+| The OnePage, `/<handle>/links`, `/l/<slug>`, `<domain>/links` | `onepage` | `app/(storelib)/(marketing)/l/[slug]/page.tsx` |
 | Every page of a website (`<name>.storelib.com`, a custom domain, its product pages, cart, account, contact) | `website` | `app/(site)/layout.tsx` |
 
 It does nothing inside a frame (the editor's canvas shows real pages), on a

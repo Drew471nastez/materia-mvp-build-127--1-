@@ -9,7 +9,7 @@
  * the one page that cannot show the fault: no nested scroller, no artwork, no
  * announcement bar, and every layer in it the same colour. So this mounts the
  * page somebody is really looking at — the DashboardClient the route renders,
- * inside the nesting app/app/layout.tsx builds — and asks two questions that
+ * inside the nesting app/(storelib)/app/layout.tsx builds — and asks two questions that
  * a plain page cannot answer.
  *
  *   IS ANY LAYER A DIFFERENT COLOUR FROM THE PAGE. A column of pixels is read

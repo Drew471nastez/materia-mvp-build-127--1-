@@ -178,7 +178,7 @@ async function main() {
     check("the checkout refuses a line missing a required answer, and takes it with one", refused.ok === false && /Mug: /.test(refused.ok === false ? refused.error : "") && taken.ok === true, { refused, taken })
     const start = read("lib/physical/checkout-server.ts")
     check("  every checkout of things that ship holds its lines to that before payment", /const personalized = await personalizedLines\(db, priced\.lines\)\s*\n\s*if \(personalized\.ok === false\) return \{ ok: false, status: 400/.test(start) && /startCheckout\(admin, \{/.test(read("app/api/checkout/site/route.ts")))
-    check("  and only a product that ships can ask for one", /personalization: productType === "physical" \? storedPersonalization\(personalization\) : \[\]/.test(read("app/app/products/new/product-editor.tsx")))
+    check("  and only a product that ships can ask for one", /personalization: productType === "physical" \? storedPersonalization\(personalization\) : \[\]/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
   }
 
   console.log("\nMONEY: card prices follow Show currency codes, as the product page block's")

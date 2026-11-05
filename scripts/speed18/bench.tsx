@@ -261,7 +261,7 @@ const scenarios: Scenario[] = [
     name: "explore",
     held: "route",
     run: async () => {
-      const m = await import("@/app/(marketing)/explore/page")
+      const m = await import("@/app/(storelib)/(marketing)/explore/page")
       return (m.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) })
     },
   },
@@ -269,8 +269,8 @@ const scenarios: Scenario[] = [
     name: "creator-page",
     held: "route",
     run: async () => {
-      const layout = await import("@/app/(marketing)/u/[username]/layout")
-      const page = await import("@/app/(marketing)/[sellername]/page")
+      const layout = await import("@/app/(storelib)/(marketing)/u/[username]/layout")
+      const page = await import("@/app/(storelib)/(marketing)/[sellername]/page")
       const params = Promise.resolve({ sellername: SITE.username })
       const searchParams = Promise.resolve({})
       const [, , body] = await Promise.all([
@@ -285,7 +285,7 @@ const scenarios: Scenario[] = [
     name: "marketplace-product",
     held: "route",
     run: async () => {
-      const page = await import("@/app/(marketing)/p/[slug]/page")
+      const page = await import("@/app/(storelib)/(marketing)/p/[slug]/page")
       const params = Promise.resolve({ slug: SITE.productSlug })
       const searchParams = Promise.resolve({})
       const [, body] = await Promise.all([page.generateMetadata({ params } as never), (page.default as (p: unknown) => Promise<unknown>)({ params, searchParams })])
@@ -298,8 +298,8 @@ const scenarios: Scenario[] = [
     cookies: signedInCookies(SITE.userId),
     headers: { host: "storelib.com", "user-agent": "Mozilla/5.0 (iPhone)" },
     run: async () => {
-      const layout = await import("@/app/app/layout")
-      const page = await import("@/app/app/page")
+      const layout = await import("@/app/(storelib)/app/layout")
+      const page = await import("@/app/(storelib)/app/page")
       const [, body] = await Promise.all([
         (layout.default as (p: unknown) => Promise<unknown>)({ children: null }),
         (page.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) }),
@@ -311,7 +311,7 @@ const scenarios: Scenario[] = [
     name: "explore-category",
     held: "route",
     run: async () => {
-      const m = await import("@/app/(marketing)/explore/[category]/page")
+      const m = await import("@/app/(storelib)/(marketing)/explore/[category]/page")
       return (m.default as (p: unknown) => Promise<unknown>)({ params: Promise.resolve({ category: "design" }), searchParams: Promise.resolve({}) })
     },
   },
@@ -319,8 +319,8 @@ const scenarios: Scenario[] = [
     name: "community-landing",
     held: "route",
     run: async () => {
-      const layout = await import("@/app/(marketing)/community/[slug]/layout")
-      const page = await import("@/app/(marketing)/community/[slug]/page")
+      const layout = await import("@/app/(storelib)/(marketing)/community/[slug]/layout")
+      const page = await import("@/app/(storelib)/(marketing)/community/[slug]/page")
       const params = Promise.resolve({ slug: "maya-club" })
       const [, , body] = await Promise.all([
         (layout.default as (p: unknown) => Promise<unknown>)({ children: null, params }),
@@ -337,9 +337,9 @@ const scenarios: Scenario[] = [
     headers: { host: "storelib.com", "user-agent": "Mozilla/5.0 (iPhone)" },
     run: async () => {
       const pages = {
-        products: () => import("@/app/app/products/page"),
-        orders: () => import("@/app/app/orders/page"),
-        customers: () => import("@/app/app/customers/page"),
+        products: () => import("@/app/(storelib)/app/products/page"),
+        orders: () => import("@/app/(storelib)/app/orders/page"),
+        customers: () => import("@/app/(storelib)/app/customers/page"),
       }
       const page = await pages[name]()
       return (page.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}), params: Promise.resolve({}) })
@@ -366,7 +366,7 @@ const scenarios: Scenario[] = [
     held: "route",
     headers: { host: "storelib.me", "x-forwarded-for": "203.0.113.9", "user-agent": "Mozilla/5.0 (iPhone)" },
     run: async () => {
-      const m = await import("@/app/(marketing)/l/[slug]/page")
+      const m = await import("@/app/(storelib)/(marketing)/l/[slug]/page")
       const params = Promise.resolve({ slug: ONEPAGE.slug })
       await m.generateMetadata({ params })
       return m.default({ params, searchParams: Promise.resolve({}) })
@@ -410,12 +410,12 @@ async function heldBy(name: string): Promise<string> {
     "site-product": () => import("@/app/(site)/w/[username]/products/[slug]/page"),
     "site-products": () => import("@/app/(site)/w/[username]/products/page"),
     "site-collection": () => import("@/app/(site)/w/[username]/collections/[handle]/page"),
-    explore: () => import("@/app/(marketing)/explore/page"),
-    onepage: () => import("@/app/(marketing)/l/[slug]/page"),
-    "creator-page": () => import("@/app/(marketing)/[sellername]/page"),
-    "marketplace-product": () => import("@/app/(marketing)/p/[slug]/page"),
-    "community-landing": () => import("@/app/(marketing)/community/[slug]/page"),
-    "explore-category": () => import("@/app/(marketing)/explore/[category]/page"),
+    explore: () => import("@/app/(storelib)/(marketing)/explore/page"),
+    onepage: () => import("@/app/(storelib)/(marketing)/l/[slug]/page"),
+    "creator-page": () => import("@/app/(storelib)/(marketing)/[sellername]/page"),
+    "marketplace-product": () => import("@/app/(storelib)/(marketing)/p/[slug]/page"),
+    "community-landing": () => import("@/app/(storelib)/(marketing)/community/[slug]/page"),
+    "explore-category": () => import("@/app/(storelib)/(marketing)/explore/[category]/page"),
   }
   const m = await mods[name]?.()
   if (!m) return scenarios.find((s) => s.name === name)?.held ?? "?"

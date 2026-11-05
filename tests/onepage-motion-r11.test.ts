@@ -63,7 +63,7 @@ console.log("\nWhat is under the pills switches as Storelib's settings do")
 console.log("\nSettings has room, and Billing is /app's")
 {
   const settings = code("components/onepage/tabs/settings-tab.tsx")
-  check("each section is /app's card, with its room", /className=\{cn\(APP_CARD, "p-5 sm:p-6"\)\}/.test(settings) && /import \{ StatusBadge, card as APP_CARD \} from "@\/app\/app\/orders\/order-parts"/.test(settings))
+  check("each section is /app's card, with its room", /className=\{cn\(APP_CARD, "p-5 sm:p-6"\)\}/.test(settings) && /import \{ StatusBadge, card as APP_CARD \} from "@\/app\/\(storelib\)\/app\/orders\/order-parts"/.test(settings))
   check("the plan reads as Billing's plan card: current plan, price, fee per sale", /data-settings-plan=""/.test(settings) && /tt\("Current plan"\)/.test(settings) && /tt\("Fee per sale"\)/.test(settings) && /text-\[34px\] font-bold/.test(settings))
   /* Changed on purpose (round 42): "make them one horizontal row that scrolls, with small arrow buttons". The row no longer wraps from 768px; it scrolls at every width, with fades and arrows (PillTabs scroll). */
   check("the pill row is one row at every width: it scrolls with an end piece, no bar (app-no-scrollbar), fades and arrows",

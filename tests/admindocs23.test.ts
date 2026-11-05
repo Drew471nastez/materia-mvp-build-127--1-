@@ -5,7 +5,7 @@
  *   lib/admin/commerce-docs.ts        the words, one section per area
  *   lib/admin/commerce-docs-facts.ts  the lists printed from the code
  *   lib/admin/commerce-status.ts      the live status, from real data
- *   app/admin/physical-commerce/**    the page, admin only
+ *   app/(storelib)/admin/physical-commerce/**    the page, admin only
  *   app/api/admin/commerce-status     the status for Refresh, admin only
  *
  * What this proves: every address the page links to exists, every file it
@@ -20,7 +20,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
-import { CommerceDocsAdmin } from "@/app/admin/physical-commerce/commerce-docs-admin"
+import { CommerceDocsAdmin } from "@/app/(storelib)/admin/physical-commerce/commerce-docs-admin"
 import { COMMERCE_DOCS, matchesQuery, searchTextOf, type FactKey } from "@/lib/admin/commerce-docs"
 import { FULFILMENT_MODEL_LABELS, LOCATION_KIND_LABELS, RATE_KINDS, STRIPE_COMMERCE_EVENTS, factFor, factsFor } from "@/lib/admin/commerce-docs-facts"
 import { COMMERCE_PARTS, COMMERCE_TABLES, WATCHED_JOBS, jobHealth, keyMode, lateAfterHours, readCommerceStatus } from "@/lib/admin/commerce-status"
@@ -72,8 +72,8 @@ const OWN_FILES = [
   "lib/admin/commerce-docs.ts",
   "lib/admin/commerce-docs-facts.ts",
   "lib/admin/commerce-status.ts",
-  "app/admin/physical-commerce/page.tsx",
-  "app/admin/physical-commerce/commerce-docs-admin.tsx",
+  "app/(storelib)/admin/physical-commerce/page.tsx",
+  "app/(storelib)/admin/physical-commerce/commerce-docs-admin.tsx",
   "app/api/admin/commerce-status/route.ts",
   "tests/admindocs23.test.ts",
 ]
@@ -93,7 +93,8 @@ console.log("\nThe links")
 const settingsTabs = new Set([...read("components/app/settings-form-new.tsx").matchAll(/\{ id: "([a-z_]+)", label: "[^"]+", icon:/g)].map((m) => m[1]))
 const pageExists = (path: string): boolean => {
   const clean = path.split(/[?#]/)[0].replace(/\/$/, "")
-  const candidates = [`app${clean}/page.tsx`, `app/(marketing)${clean}/page.tsx`, `app${clean}/[[...path]]/page.tsx`]
+  /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+  const candidates = [`app/(storelib)${clean}/page.tsx`, `app/(storelib)/(marketing)${clean}/page.tsx`, `app/(storelib)${clean}/[[...path]]/page.tsx`]
   return candidates.some((c) => existsSync(c))
 }
 const hrefs = COMMERCE_DOCS.flatMap((s) => [s.where?.href, ...s.topics.flatMap((t) => [...(t.buyers ?? []), ...(t.creators ?? [])].map((p) => p.href))]).filter((h): h is string => !!h)
@@ -226,12 +227,12 @@ check("the search box is there", html.includes('type="search"'))
 check("the code lists are drawn", keys.every((k) => html.includes(`data-fact="${k}"`)))
 check("help links are drawn", html.includes('href="/help/physical-products/'))
 
-const page = read("app/admin/physical-commerce/page.tsx")
+const page = read("app/(storelib)/admin/physical-commerce/page.tsx")
 check("the page checks the admin cookie before anything else", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && page.indexOf("isAdminAuthenticated()") < page.indexOf("factsFor("))
 check("the page is never indexed", /index: false/.test(page))
 const route = read("app/api/admin/commerce-status/route.ts")
 check("the status route asks for the admin first", /const denied = await requireAdmin\(\)\s*\n\s*if \(denied\) return denied/.test(route) && route.indexOf("requireAdmin()") < route.indexOf("readCommerceStatus()"))
-check("the console's navigation has Physical commerce", /\{ href: "\/admin\/physical-commerce", label: "Physical commerce" \}/.test(read("app/admin/_console/shell.tsx")))
+check("the console's navigation has Physical commerce", /\{ href: "\/admin\/physical-commerce", label: "Physical commerce" \}/.test(read("app/(storelib)/admin/_console/shell.tsx")))
 {
   /* Secrets planted in the environment never come back in the status: only their mode and whether they are set. */
   const keep = { ...process.env }

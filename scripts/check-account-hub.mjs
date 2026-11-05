@@ -49,8 +49,8 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const URL_BASE = "https://storelib.com/__account_hub_probe"
 
-/** The library's room under the header (app/library/layout.tsx py-6). */
-/* The profile center's room under the header (app/account/layout.tsx pt-4 sm:pt-6). */
+/** The library's room under the header (app/(storelib)/library/layout.tsx py-6). */
+/* The profile center's room under the header (app/(storelib)/account/layout.tsx pt-4 sm:pt-6). */
 const HEADER_GAP = 24
 const PHONE_GAP = 16
 

@@ -132,7 +132,7 @@ async function main() {
     check("blogs and article are reserved, generated and built in", BLOG_PAGE_KEYS.every((k) => RESERVED_PAGE_KEYS.has(k) && GENERATED_PAGE_KEYS.has(k) && BUILT_IN_PAGE_KEYS.has(k)))
     check("  never an address of their own: /blogs and /article are not creator pages", pageKeyFromSegment("blogs") === null && pageKeyFromSegment("article") === null)
     check("a creator's own page called blog is still theirs", pageKeyFromSegment("blog") === "blog" && !RESERVED_PAGE_KEYS.has("blog") && !BUILT_IN_PAGE_KEYS.has("blog") && isPageKey("blog"))
-    check("  and is still listed by the builder as one of the creator's", /!BUILT_IN_PAGE_KEYS\.has\(key\)/.test(code("app/website-builder/editor/[installId]/page.tsx")))
+    check("  and is still listed by the builder as one of the creator's", /!BUILT_IN_PAGE_KEYS\.has\(key\)/.test(code("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
     check("named Blog and Blog post, at /blogs", pageTitleFromKey("blogs") === "Blog" && pageTitleFromKey("article") === "Blog post" && pagePath("blogs") === "/blogs" && pagePath("article") === "/blogs" && PAGE_META.blogs.label === "Blog" && PAGE_META.article.label === "Blog post")
     check("drawn as an imported theme's blog and article templates", templateForPage("blogs") === "blog" && templateForPage("article") === "article")
     const groups = groupPages([...BUILT_IN_PAGE_KEYS].map((k) => ({ key: k, name: k, path: pagePath(k) })))
@@ -286,7 +286,7 @@ async function main() {
 
   section("EDITOR: the canvas, its links and the link picker")
   {
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the canvas reads the blog for the two templates and a page with a Blog posts section", /useCanvasBlog\(installId, !compatInstall && \(currentPage === "blogs" \|\| currentPage === "article" \|\| pageWantsBlog\(canvasSections\)\), currentPage\)/.test(editor) && /blog: canvasBlog\?\.blog, article: canvasBlog\?\.article/.test(editor))
     check("  from GET blog/canvas", /\/blog\/canvas`/.test(code("components/website-builder/use-canvas-blog.ts")))
     const ctx = { currentPage: "home", inspectorEnabled: false, fromNav: true, shopPath: "/products", customPageKeys: ["blog"] }

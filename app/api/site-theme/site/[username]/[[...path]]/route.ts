@@ -465,9 +465,10 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       html = scripts.html
       if (scripts.deferred || scripts.queued || scripts.later || scripts.dropped || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}; once=${scripts.dropped}`)
       /* On a desktop, a page that runs nobody else's scripts is prerendered when its link is rested on (lib/storelib-theme/compat/prerender.ts). */
-      if (!runsThirdPartyScripts(html)) html = withDesktopPrerender(html)
-      /* On a phone, the pages behind the links in view are fetched before the tap (lib/storelib-theme/compat/touch-prefetch.ts). Prefetch runs nothing, so any page may. */
-      html = withTouchPrefetch(html)
+      const ownScriptsOnly = !runsThirdPartyScripts(html)
+      if (ownScriptsOnly) html = withDesktopPrerender(html)
+      /* On a phone, the pages behind the links in view are fetched before the tap, and on such a page the first one looked at and the one touched are drawn ahead (lib/storelib-theme/compat/touch-prefetch.ts). */
+      html = withTouchPrefetch(html, { prerender: ownScriptsOnly })
     }
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))

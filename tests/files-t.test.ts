@@ -177,7 +177,7 @@ async function main() {
   /* Changed on purpose (round 39): the answer is typed (RemoveAnswer), it says which files were kept where they show. */
   check("Delete goes through the API, which checks the file is the caller's", /api<RemoveAnswer>\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
   check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? \(multiple \? "Choose videos" : "Choose a video"\) : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
-  check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" kind="media" openId=\{openId\} \/>/.test(read("app/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
+  check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" kind="media" openId=\{openId\} \/>/.test(read("app/(storelib)/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("every image field offers Choose from your files", /Choose from your files/.test(picker) && /<FilesLibraryChooser/.test(picker))
   check("  inside the field: Upload and Your files in an empty one, a Change menu on a filled one, no text link under it", /data-wb-image-library=""/.test(picker) && /Your files/.test(picker) && /data-wb-image-change=""/.test(picker) && !/underline-offset-2[^"]*"\s*\n\s*data-wb-image-library/.test(picker))

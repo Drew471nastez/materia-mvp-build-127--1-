@@ -3,7 +3,7 @@
  * with its place host (scripts/render-community-shell15.tsx, the same
  * fixtures and the same JSON place route), the real buyer tab bar mounted
  * after it as the marketing layout mounts it, and the root layout's pieces
- * that answer every change of address (app/layout.tsx: the dark look, the
+ * that answer every change of address (app/(storelib)/layout.tsx: the dark look, the
  * landing fade, the bounce's ground, the band under the clock, the scroll
  * lock repair, the viewport's numbers, the bounce guard) and the marketing
  * layout's loading line. One bundle, so all of them meet through the same

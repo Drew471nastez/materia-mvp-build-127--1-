@@ -22,7 +22,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { originFrom, originFromKey, sourceDetailText, sourceText } from "@/lib/orders/order-source"
-import { kindFromParam, kindHref, kindOptions } from "@/app/app/products/new/product-kinds"
+import { kindFromParam, kindHref, kindOptions } from "@/app/(storelib)/app/products/new/product-kinds"
 import { THUMB_MAX, THUMB_MIN, TRACK_INSET, thumbGeometry } from "@/components/app/sidebar-scroll-thumb"
 
 let passed = 0
@@ -39,7 +39,7 @@ check("a website order from a direct visit reads Website", sourceText("website",
 check("one from Instagram keeps it", sourceText("website", { surface: "website", from: "instagram" }) === "Website · from Instagram")
 check("the export's detail column has no Direct", sourceDetailText("website", { surface: "website", site: "a.storelib.com", from: "direct" }) === "a.storelib.com")
 check("originFrom and its key skip direct", originFrom({ from: "direct" }) === null && originFromKey({ from: "direct" }) === null && originFromKey({ from: "google" }) === "google")
-const list = read("app/app/orders/orders-list.tsx")
+const list = read("app/(storelib)/app/orders/orders-list.tsx")
 check("the list's Source cell reads the same key", /originFromKey\(order\.sourceDetail\)/.test(list) && !/order\.sourceDetail\?\.from \?/.test(list))
 
 console.log("\nNew product")

@@ -12,11 +12,11 @@ import { createRoot } from "react-dom/client"
 
 import { ASSOCIATION_BYTES, ASSOCIATION_PATH, associationNote, associationOk, buildReport } from "@/lib/checkout/wallet-domains"
 
-import { ActionDialog } from "@/app/admin/_console/actions"
-import { renderView } from "@/app/admin/_console/console"
-import { AdminLogin } from "@/app/admin/_console/login"
-import { parseRoute } from "@/app/admin/_console/nav-state"
-import { Shell } from "@/app/admin/_console/shell"
+import { ActionDialog } from "@/app/(storelib)/admin/_console/actions"
+import { renderView } from "@/app/(storelib)/admin/_console/console"
+import { AdminLogin } from "@/app/(storelib)/admin/_console/login"
+import { parseRoute } from "@/app/(storelib)/admin/_console/nav-state"
+import { Shell } from "@/app/(storelib)/admin/_console/shell"
 import type {
   AudiencePayload,
   AuditPayload,

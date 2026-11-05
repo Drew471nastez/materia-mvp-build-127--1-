@@ -131,8 +131,8 @@ export const handleNativeOAuthCallback = async () => ({ ok: false })
   the fix touched.
 */
 const BEFORE_MODULES = [
-  ["app/app/products/list-return.ts", /app\/app\/products\/list-return$/],
-  ["app/app/coupons/list-return.ts", /app\/app\/coupons\/list-return$/],
+  ["app/(storelib)/app/products/list-return.ts", /app\/app\/products\/list-return$/],
+  ["app/(storelib)/app/coupons/list-return.ts", /app\/app\/coupons\/list-return$/],
   ["components/app/native-back-handler.tsx", /components\/app\/native-back-handler$/],
 ]
 const beforeFiles = []

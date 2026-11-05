@@ -56,8 +56,8 @@ check("more currencies are an optional card without the home market, under the o
 
 console.log("\nThe checkout's own selector")
 check("a language picked at checkout wins over the page the visitor came from", /p && langs\.others\.find/.test(code("lib/markets/checkout-language.ts")))
-check("the page passes the choice and the website's languages", /q\.get\("lang"\)\)/.test(code("app/checkout/site/page.tsx")) && /languages=\{language\.available/.test(code("app/checkout/site/page.tsx")))
-const site = code("app/checkout/site/site-checkout.tsx")
+check("the page passes the choice and the website's languages", /q\.get\("lang"\)\)/.test(code("app/(storelib)/checkout/site/page.tsx")) && /languages=\{language\.available/.test(code("app/(storelib)/checkout/site/page.tsx")))
+const site = code("app/(storelib)/checkout/site/site-checkout.tsx")
 check("drawn under the payment, each language in its own words", /<CheckoutLanguageSelect current=\{pageLang\} languages=\{languages\} \/>/.test(site) && /languageName\(c\)/.test(site))
 check("a choice is kept as the website's (sl_lang) and the page drawn again in it", /sl_lang=\$\{encodeURIComponent\(code\)\}/.test(site) && /searchParams\.set\("lang", code\)/.test(site))
 check("the back address still decides when nothing was picked", pickCheckoutLanguage(["fr", "de"], "/fr/cart", "de") === "fr" && pickCheckoutLanguage(["fr"], null, "fr") === "fr" && pickCheckoutLanguage(["fr"], null, "es") === null)

@@ -75,7 +75,7 @@ console.log("\nThe groups")
     check(`"${gone}" is not a group of its own any more`, !group(gone))
   }
   check("the general page colours are three", (group("colors")?.fields ?? []).map((f) => f.id).join(",") === "background_color,text_color,primary_color")
-  check("the editor opens the breadcrumb bar's settings in Layout", /setExpandedSettings\("layout"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("the editor opens the breadcrumb bar's settings in Layout", /setExpandedSettings\("layout"\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 }
 
 console.log("\nTaken out of the panel")
@@ -102,7 +102,7 @@ console.log("\nTaken out of the panel")
   check("which says where the bar went", /Announcement bar section in the Header group/.test(old?.fields[0]?.info ?? ""))
   /* Changed on purpose (round 35): in the editor the bar is drawn with the live theme (chromeTheme), the theme otherwise. */
   check("the page still draws it while it is on, so no live bar vanishes", /t\.announcement_bar_enabled === true/.test(page) && /<AnnouncementBar theme=\{chromeTheme \?\? theme\} \/>/.test(page))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("General Settings leaves out a group whose switch is off", /\.filter\(group => !group\.shownWhen \|\| settingsDraft\[group\.shownWhen as keyof ThemeSettingsValues\] === true\)/.test(editor))
 
   for (const id of ["primary_hover_color", "secondary_color", "accent_color", "surface_color", "link_color", "success_color", "error_color", "button_size", "button_font_weight", "brand_image_width", "container_radius", "container_shadow"]) {

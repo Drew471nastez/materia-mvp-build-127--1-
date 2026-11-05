@@ -352,7 +352,7 @@ async function main() {
 
   console.log("\nA section an agent writes appears on the open page")
 
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const follow = read("components/website-builder/site-connections.tsx")
   check("the builder follows activity while visible, including writers connected after opening",
     /useSiteActivity\(\{/.test(editor) && /agent-activity\?after=\$\{after\}/.test(follow) &&

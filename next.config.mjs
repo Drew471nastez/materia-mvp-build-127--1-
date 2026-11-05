@@ -234,6 +234,12 @@ const nextConfig = {
      * peak and 20 s off the compile. Nothing it writes changes.
      */
     turbopackInputSourceMaps: false,
+    /**
+     * AN ADDRESS NO ROUTE MATCHES (round 52): Storelib's pages and the
+     * published websites each have a root layout (app/(storelib)/layout.tsx,
+     * app/(site)/layout.tsx), so that 404 is app/global-not-found.tsx.
+     */
+    globalNotFound: true,
     serverActions: {
       bodySizeLimit: '10mb',
     },

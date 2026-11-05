@@ -257,7 +257,7 @@ async function main() {
   /* ── Guards ──────────────────────────────────────────────────────────── */
   console.log("\nAdmin only, the cron by its secret\n")
   {
-    const page = code("app/admin/seo/page.tsx")
+    const page = code("app/(storelib)/admin/seo/page.tsx")
     check("the page asks for the admin session on the server before reading", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>[\s\S]*readSeoConsole/.test(page) && !/^\s*["']use client/.test(page))
     check("the page is never indexed", /robots: \{ index: false, follow: false, nocache: true \}/.test(page))
     const route = code("app/api/admin/seo/check/route.ts")
@@ -267,10 +267,10 @@ async function main() {
     check("  and only for an address the inventory lists", /if \(!row\) return null/.test(code("lib/admin/seo/run.ts")))
     const cron = code("app/api/cron/seo-index/route.ts")
     check("the cron is opened by CRON_SECRET and recorded like the other jobs", /requireBearerSecret\(request, "CRON_SECRET"\)\s*if \(denied\) return denied/.test(cron) && cron.includes('recordCronRun("/api/cron/seo-index", request, () =>'))
-    const client = read("app/admin/seo/seo-admin.tsx")
+    const client = read("app/(storelib)/admin/seo/seo-admin.tsx")
     check("the client imports nothing that holds a secret", !/from "@\/lib\/admin\/seo\/(google|run|live|inventory|console-data|store)"/.test(client.replace(/import type[^\n]*\n/g, "")) && !/process\.env/.test(client))
-    check("the console lists it", read("app/admin/_console/shell.tsx").includes('{ href: "/admin/seo", label: "SEO status" }'))
-    const shared = ["lib/seo/indexing.ts", "lib/seo/sitemaps.ts", "app/layout.tsx", "app/admin/_console/console.tsx"]
+    check("the console lists it", read("app/(storelib)/admin/_console/shell.tsx").includes('{ href: "/admin/seo", label: "SEO status" }'))
+    const shared = ["lib/seo/indexing.ts", "lib/seo/sitemaps.ts", "app/(storelib)/layout.tsx", "app/(storelib)/admin/_console/console.tsx"]
     check("nothing shared imports it (build memory)", shared.every((f) => !existsSync(f) || !/lib\/admin\/seo/.test(read(f))))
   }
 
@@ -326,7 +326,7 @@ async function main() {
       const outside = await checkNow("https://storelib.com/not-listed")
       check("an address the inventory does not list is not checked", outside === null && !calls.slice(before).some((c) => !c.includes("db.test")))
 
-      const copy = read("app/admin/seo/seo-admin.tsx")
+      const copy = read("app/(storelib)/admin/seo/seo-admin.tsx")
       check("the page says plainly it is not connected, and how to connect", copy.includes("Google Search Console is not connected") && copy.includes("GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL") && copy.includes("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY") && /add the service account&apos;s email as a user/.test(copy))
       check("  and never promises indexing", copy.includes("Google decides what it indexes") && !/(get|will be|guarantee[ds]?) indexed/i.test(copy))
       check("a custom domain reads as outside Storelib's Search Console", copy.includes("Not in Storelib&apos;s Search Console") || copy.includes("Not in Storelib's Search Console"))
@@ -339,7 +339,7 @@ async function main() {
   /* ── Copy ────────────────────────────────────────────────────────────── */
   console.log("\nThe words on the page\n")
   {
-    const files = ["app/admin/seo/seo-admin.tsx", "app/admin/seo/page.tsx", "app/api/admin/seo/check/route.ts", "lib/admin/seo/run.ts", "lib/admin/seo/google.ts", "lib/admin/seo/score.ts"]
+    const files = ["app/(storelib)/admin/seo/seo-admin.tsx", "app/(storelib)/admin/seo/page.tsx", "app/api/admin/seo/check/route.ts", "lib/admin/seo/run.ts", "lib/admin/seo/google.ts", "lib/admin/seo/score.ts"]
     const text = files.map(read).join("\n")
     check("no em dash", !text.includes("—"))
     check("none of the banned words", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(text))

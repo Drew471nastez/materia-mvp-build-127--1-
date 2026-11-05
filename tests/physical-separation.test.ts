@@ -23,8 +23,8 @@ function check(name: string, ok: boolean, detail?: string) {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 const surfaces: [string, string, number][] = [
-  ["Explore", "app/(marketing)/explore/page.tsx", 1],
-  ["an Explore category", "app/(marketing)/explore/[category]/page.tsx", 1],
+  ["Explore", "app/(storelib)/(marketing)/explore/page.tsx", 1],
+  ["an Explore category", "app/(storelib)/(marketing)/explore/[category]/page.tsx", 1],
   ["a creator's profile", "lib/profile/member-profile-data.ts", 1],
   ["Storelib's search", "app/api/v2/search/route.ts", 1],
   ["the header's quick search, by title and by creator", "lib/nav/quick-search.ts", 2],

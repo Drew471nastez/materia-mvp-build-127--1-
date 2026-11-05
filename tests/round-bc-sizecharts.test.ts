@@ -251,7 +251,7 @@ function allowServerOnly() {
       check(`${route}: every handler starts with the physical commerce owner check`, handlers > 0 && (src.match(/await physicalCaller\("products"(?:, \{ read: true \})?\)/g) ?? []).length === handlers && !/shopCaller/.test(src))
     }
     check("a changed chart or choice reaches the website at the next visit", /revalidateTag\(creatorShopTag\(creatorId\), "max"\)/.test(code("app/api/size-charts/changed.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/product/route.ts")) && /sizeChartsChanged/.test(code("app/api/size-charts/[id]/route.ts")))
-    const page = code("app/app/products/size-charts/page.tsx")
+    const page = code("app/(storelib)/app/products/size-charts/page.tsx")
     /* Changed on purpose (round 41 team): the store comes from teamPageStore("products"): the owner's own, or the store a team member with Products works in */
     check("Products › Size charts is behind the physical commerce switch and the owner", /await requirePhysicalPage\(\)/.test(page) && /listSizeCharts\(createAdminClient\(\), access\.creatorId\)/.test(page) && /teamPageStore\("products"\)/.test(page))
   }
@@ -414,7 +414,7 @@ function allowServerOnly() {
     check("  the words on the buttons are the buttons' words", ["Create size chart", "Create chart", "Add size", "Measured in", "New chart", "Edit chart", "No size chart", "Size guide"].every((w) => text.includes(w)))
     check("  with the diagram of one chart for many products", text.includes('"figure":"size-chart-shared"') && /"size-chart-shared": \(label\)/.test(code("components/help/help-figures.tsx")))
     check("  no em dashes, none of the banned words", !/[—–]/.test(text) && !/\b(unlock|elevate|seamless|powerful|effortless|supercharge)/i.test(text))
-    check("the Size charts page links to it", /\/help\/physical-products\/set-up-size-charts/.test(code("app/app/products/size-charts/size-charts-client.tsx")))
+    check("the Size charts page links to it", /\/help\/physical-products\/set-up-size-charts/.test(code("app/(storelib)/app/products/size-charts/size-charts-client.tsx")))
     const dev = code("content/developers/imported-shopify-themes.md")
     check("the developer docs document the metafield, its keys, the snippet, the filter and the app block", ["product.metafields.storelib.size_chart", "rows_cm", "rows_in", "{% render 'storelib-size-chart' %}", "storelib_size_chart", "Size chart"].every((w) => dev.includes(w)))
     check("  and the docs the site serves are generated from it", /metafields\.storelib\.size_chart/.test(code("lib/developers/content.generated.ts")))

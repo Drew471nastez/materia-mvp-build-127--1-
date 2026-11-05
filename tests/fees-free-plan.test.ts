@@ -93,9 +93,9 @@ check("the check after confirms the active rates", /as p80_free_plan_fee_5pct/.t
 
 console.log("\nNo copy still says 6%")
 const copy = [
-  "lib/billing/overview.ts", "app/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts", "lib/billing/fee-calculator.ts",
+  "lib/billing/overview.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts", "lib/billing/fee-calculator.ts",
   "lib/help/articles.ts", "lib/home/announcements.ts", "components/marketing/pricing-section.tsx", "components/marketing/faq-page-client.tsx",
-  "app/(marketing)/blog/[slug]/page.tsx", /* r40: the terms text */ "components/legal/terms-body.tsx", "lib/billing/plans.ts",
+  "app/(storelib)/(marketing)/blog/[slug]/page.tsx", /* r40: the terms text */ "components/legal/terms-body.tsx", "lib/billing/plans.ts",
   "lib/i18n/dict/settings.ts", "lib/i18n/dict/dashboard.ts", "lib/i18n/dict/de.ts", "lib/i18n/dict/es.ts", "lib/i18n/dict/fr.ts",
   /* Round 12: the Romanian halves moved to their own files. */
   "lib/i18n/dict/ro/settings.ts", "lib/i18n/dict/ro/dashboard.ts",

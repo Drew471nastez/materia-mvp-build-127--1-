@@ -186,7 +186,7 @@ async function main() {
     const noFile = addable.filter((t) => !ex.paths.has(`sections/${t}.storelib`) && !ex.paths.has(`sections/${t}.json`))
     check(`every section Add section can offer (${addable.length}) is in sections/, as a file or a schema to read`, noFile.length === 0, noFile)
 
-    /* Add block: the catalog the editor builds (app/website-builder/editor/[installId]/page.tsx blockCatalog). */
+    /* Add block: the catalog the editor builds (app/(storelib)/website-builder/editor/[installId]/page.tsx blockCatalog). */
     const sources = { ...DEFAULT, ...files }
     const catalog = themeBlockCatalog(sources, { builtIn: !isCompatSource(sources["layout/theme.storelib"]) })
     const noBlock = Object.keys(catalog).filter((t) => !ex.paths.has(`blocks/${t}.storelib`))

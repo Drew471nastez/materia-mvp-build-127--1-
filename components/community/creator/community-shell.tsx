@@ -69,7 +69,7 @@ import { isPlainClick, prefetchAppPage, sameStageFrame, useShownPath, useShownSe
 import { connectionFacts, readAheadAllowed } from "@/lib/communities/client/place-cache"
 import { ArrowLeft, ExternalLink, MoreHorizontal, Share } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { iconButton } from "@/app/app/orders/order-parts"
+import { iconButton } from "@/app/(storelib)/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, SectionId } from "./view-types"
 import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, shortDate, useFootsUp, useToast } from "./parts"

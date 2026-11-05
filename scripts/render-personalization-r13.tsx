@@ -2,7 +2,7 @@
  * The real components a buyer and a seller meet with personalization, for
  * scripts/check-personalization-r13.mjs (?view=):
  *
- *   editor    the product editor (app/app/products/new/product-editor.tsx)
+ *   editor    the product editor (app/(storelib)/app/products/new/product-editor.tsx)
  *             on a physical product with personalization and custom fields
  *   product   a Storelib theme's product section (ProductSection), its
  *             default blocks, the product's fields above the buy buttons
@@ -13,8 +13,8 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { ProductSection } from "@/components/website-builder/sections/renderers/ProductSection"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"

@@ -1,6 +1,6 @@
 /**
  * A new account's onboarding (components/app/creator-onboarding-modal with
- * `start`, as app/(auth)/onboarding/start opens it), for
+ * `start`, as app/(storelib)/(auth)/onboarding/start opens it), for
  * scripts/check-onboarding-branch.mjs. `?native=1` is the phone app: a
  * stubbed Capacitor bridge, so the join branch has its notifications step
  * and "Allow notifications" asks the stub (window.__pushAsked).

@@ -202,13 +202,13 @@ function main() {
 
   console.log("\nthe pages read it from there")
   {
-    const page = read("app/app/page.tsx")
+    const page = read("app/(storelib)/app/page.tsx")
     /* Changed on purpose: the sales are counted over every order (creatorSalesTotals), not from one read of the rows, which stopped at 1,000. */
     check("Home builds its facts with factsFromRows, sales and counts included", /factsFromRows\(\{[\s\S]*sales(: salesTotals)?,[\s\S]*counts: challengeCounts[\s\S]*\}\)/.test(page) && /initialProgress=\{progressFacts\}/.test(page))
     check("Home reads a website that is published now, by its status", /\.from\("store_theme_installs"\)[\s\S]{0,120}\.eq\("status", WEBSITE_LIVE_STATUS\)/.test(page))
     check("Home reads every domain, so a verified one waiting on its certificate counts", /\.from\("custom_domains"\)[\s\S]{0,400}\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)\s*\.order/.test(page) && !/\.from\("custom_domains"\)[\s\S]{0,400}\.eq\("status", "active"\)/.test(page))
     check("and the challenge counts in the same batch", /readChallengeCounts\(adminSupabase, creator\.id\)/.test(page))
-    const layout = read("app/app/layout.tsx")
+    const layout = read("app/(storelib)/app/layout.tsx")
     check("the sidebar's ring counts the same steps", /homeProgress\(\{[\s\S]*factsFromRows\(/.test(layout) && /const completedSteps = setup\.completed/.test(layout) && /const totalSteps = setup\.total/.test(layout))
     /* Changed on purpose (round r48-db): the first sale is one lookup by the order's own creator on the server's client (storeHasSale), as Home counts it; on the caller's client it went through an orders policy that reads auth.users and failed. The rest stays on the caller's client. */
     check("the layout reads them on the caller's own client, the first sale by the store's own orders on the server", (layout.match(/createAdminClient\(\)/g) ?? []).length === 1 && /async function storeHasSale\(creatorId: string\)[\s\S]{0,200}const admin = createAdminClient\(\)/.test(layout) && /\.from\("custom_domains"\)\.select\("\*"\)\.eq\("creator_id", creator\.id\)/.test(layout))

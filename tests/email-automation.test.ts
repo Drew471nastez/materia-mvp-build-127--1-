@@ -205,17 +205,17 @@ async function main() {
   console.log("\nSetting one up on the Emails page")
 
   /* The flow editor left page.tsx for its own pages: the chooser at
-     app/app/emails/flow/new and the builder at app/app/emails/flow/[id], both
+     app/(storelib)/app/emails/flow/new and the builder at app/(storelib)/app/emails/flow/[id], both
      writing through app/api/automations. The same promises, pinned there. */
-  const page = read("app/app/emails/emails-client.tsx")
+  const page = read("app/(storelib)/app/emails/emails-client.tsx")
   const createRoute = read("app/api/automations/flows/route.ts")
-  const chooser = read("app/app/emails/flow/new/chooser.tsx")
+  const chooser = read("app/(storelib)/app/emails/flow/new/chooser.tsx")
   check("choosing an automation you have opens it, rather than making a second that would also send",
     /if \(same\) return NextResponse\.json\(\{ id: same\.id, existing: true \}\)/.test(createRoute)
       && /const mine = existing\[body\.template\][\s\S]{0,120}router\.push\(`\/app\/emails\/flow\/\$\{mine\}`\)/.test(chooser))
   check("and a welcome made before templates had names counts as the welcome",
-    /f\.trigger_type === "new_subscriber" \? "welcome"/.test(read("app/app/emails/flow/new/page.tsx")))
-  const home = read("app/app/emails/emails-home.tsx")
+    /f\.trigger_type === "new_subscriber" \? "welcome"/.test(read("app/(storelib)/app/emails/flow/new/page.tsx")))
+  const home = read("app/(storelib)/app/emails/emails-home.tsx")
   check("the list says what starts each automation, in words",
     /Starts when/.test(home) && /TRIGGERS\[f\.trigger_type\]\.sentence/.test(home))
   check("and no preset signs off as \\[Your name\\]",
@@ -230,7 +230,7 @@ async function main() {
 
   const patchRoute = read("app/api/automations/flows/[id]/route.ts")
   const patch = patchRoute.slice(patchRoute.indexOf("const patch = {"), patchRoute.indexOf("updated_at: new Date().toISOString(),", patchRoute.indexOf("const patch = {")))
-  const builder = read("app/app/emails/flow/[id]/builder.tsx")
+  const builder = read("app/(storelib)/app/emails/flow/[id]/builder.tsx")
   const statusRoute = read("app/api/automations/flows/[id]/status/route.ts")
   check("a new automation starts off", /status: "draft",\s*steps: serializeSteps/.test(createRoute))
   check("saving it does not turn it on or off", patch.length > 100 && !/status/.test(patch))
@@ -251,10 +251,10 @@ async function main() {
   console.log("\nThe automation pages wear the product editor's frame")
 
   /* Measured at 360, 390, 430, 1440 and 1920 by scripts/check-automations.mjs. */
-  const flowLayout = read("app/app/emails/flow/layout.tsx")
-  const parts = read("app/app/emails/flow/flow-parts.tsx")
+  const flowLayout = read("app/(storelib)/app/emails/flow/layout.tsx")
+  const parts = read("app/(storelib)/app/emails/flow/flow-parts.tsx")
   check("on a phone both pages are a full screen layer, the product editor's, with no nav pill over them",
-    /<PageLayer inset="bar" phoneOnly>/.test(flowLayout) && !/\bpill\b/.test(flowLayout.replace(/\/\*[\s\S]*?\*\//g, "")) /* Changed on purpose (round 41): the product editor's layer also asks to move. */ && /<PageLayer pill inset="bar" phoneOnly moves>/.test(read("app/app/products/new/layout.tsx")))
+    /<PageLayer inset="bar" phoneOnly>/.test(flowLayout) && !/\bpill\b/.test(flowLayout.replace(/\/\*[\s\S]*?\*\//g, "")) /* Changed on purpose (round 41): the product editor's layer also asks to move. */ && /<PageLayer pill inset="bar" phoneOnly moves>/.test(read("app/(storelib)/app/products/new/layout.tsx")))
   check("their bar clears the status bar itself and sticks only on a phone; from 768px it is a header in the page",
     /max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(parts) && /"md:static md:bg-transparent"/.test(parts)
       && /<FlowTopBar width=\{FLOW_WIDTH\}[^>]*md:pt-6/.test(builder) && /<FlowTopBar width=\{WIDTH\}[^>]*md:pt-6/.test(chooser))

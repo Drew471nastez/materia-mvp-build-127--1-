@@ -253,15 +253,15 @@ async function main() {
   {
     const server = code("lib/checkout/site-checkout-server.ts")
     check("the signed in buyer comes with their default address, from their own row", /const book = await addressBookOf\(db, customer\)/.test(server) && /book\.find\(\(a\) => a\.default\)/.test(server))
-    const client = code("app/checkout/site/site-checkout.tsx")
+    const client = code("app/(storelib)/checkout/site/site-checkout.tsx")
     check("the checkout's address starts as that address", /buyer\?\.address\?\.line1 \? \{ \.\.\.EMPTY_ADDRESS, \.\.\.buyer\.address/.test(client))
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("and is priced for its country from the first frame", /const countryOf = \(b: Awaited<typeof buyerRead>\) => countryCode\(b\?\.address\?\.country\) \?\? initialCountry/.test(page) && /initialCountry=\{countryOf\(buyer\)\}/.test(page))
   }
 
   console.log("\nThe order lookup, in the website's language, on the seller's host\n")
   {
-    const page = code("app/checkout/site/track/page.tsx")
+    const page = code("app/(storelib)/checkout/site/track/page.tsx")
     check("its words go through the checkout's translations", /const ct = checkoutT\(language\.lang, language\.words\)/.test(page) && /ct\("Track your order"\)/.test(page) && !/>Track your order</.test(page))
     check("  which list them in Translate", CHECKOUT_SENTENCES.includes("Look up another order") && CHECKOUT_SENTENCES.includes("Email me the link"))
     const route = code("app/api/checkout/site/track/route.ts")

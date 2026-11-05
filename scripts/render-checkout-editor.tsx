@@ -2,7 +2,7 @@
  * Settings › Checkout › Checkout text, for scripts/check-checkout-editor.mjs:
  * the real editor (components/app/settings/checkout-text-editor.tsx) with
  * its two reads answered from a fixture store, the real preview frame
- * (app/checkout/preview/preview-document.tsx) at /checkout/preview, and at
+ * (app/(storelib)/checkout/preview/preview-document.tsx) at /checkout/preview, and at
  * /real the website's checkout and thank you page drawn on their own with
  * the same store, so the probe can hold the frame's markup against the
  * real thing.
@@ -12,12 +12,12 @@
  */
 import * as React from "react"
 import { CheckoutTextEditor } from "@/components/app/settings/checkout-text-editor"
-import { CheckoutPreviewDocument } from "@/app/checkout/preview/preview-document"
-import { SiteCheckout } from "@/app/checkout/site/site-checkout"
-import { ThanksView } from "@/app/checkout/site/thanks/[token]/thanks-view"
-import { ShopBar } from "@/app/checkout/parts/shop-bar"
-import { CheckoutWords } from "@/app/checkout/parts/words"
-import { CheckoutCurrency } from "@/app/checkout/parts/ui"
+import { CheckoutPreviewDocument } from "@/app/(storelib)/checkout/preview/preview-document"
+import { SiteCheckout } from "@/app/(storelib)/checkout/site/site-checkout"
+import { ThanksView } from "@/app/(storelib)/checkout/site/thanks/[token]/thanks-view"
+import { ShopBar } from "@/app/(storelib)/checkout/parts/shop-bar"
+import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutCurrency } from "@/app/(storelib)/checkout/parts/ui"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { checkoutWordsIn } from "@/lib/markets/checkout-words"
 import { EDITABLE_TEXTS, PROTECTED_TEXTS, TEXT_GROUPS, placeholdersOf } from "@/lib/checkout-text/registry"
@@ -116,7 +116,7 @@ function stubEditorApi() {
   }) as typeof fetch
 }
 
-/** The website's checkout on its own, as app/checkout/site/page.tsx draws it, in the words asked for. */
+/** The website's checkout on its own, as app/(storelib)/checkout/site/page.tsx draws it, in the words asked for. */
 function RealCheckout() {
   const lang = params.get("lang") || "en"
   const shipped = params.get("mode") === "shipped"

@@ -41,7 +41,7 @@ import { GripVertical, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isColorOption, swatchColor, valueSwatchColor } from "@/lib/products/product-page-model"
 import { MAX_OPTIONS, MAX_VALUES } from "@/lib/physical/variants"
-import { AUTO_SCROLL, GRIP_TOUCH, liftTick, useGripDragSensors } from "@/app/app/products/new/hold-to-drag"
+import { AUTO_SCROLL, GRIP_TOUCH, liftTick, useGripDragSensors } from "@/app/(storelib)/app/products/new/hold-to-drag"
 import { BTN_GHOST, BTN_SECONDARY, FIELD_COMPACT, Reveal } from "./ui"
 import { tt } from "@/lib/i18n/text"
 

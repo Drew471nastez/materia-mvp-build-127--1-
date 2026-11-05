@@ -70,14 +70,14 @@ function main() {
 
   // ── 1. Its own screen, and the toolbar is nearly empty ─────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/(storelib)/creator-page/page.tsx")))
     /**
      * ITS OWN SCREEN. This has moved four times on the owner's instruction
      * and it is their product. Being a route OUTSIDE /app is the whole of how
      * it gets the screen: the layout beside it gates on the session and
      * renders the children bare.
      */
-    const layout = read("app/creator-page/layout.tsx")
+    const layout = read("app/(storelib)/creator-page/layout.tsx")
     check("its layout renders no app chrome", !/<AppSidebar|DesktopSidebarContent/.test(layout))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
     check("and the workspace does not rebuild one", !/AppSidebar|DesktopSidebarContent/.test(workspace))
@@ -88,7 +88,7 @@ function main() {
       "the setup widget is not shown over the creator page",
       sidebar2.includes('!pathname.startsWith("/creator-page")') && sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
-    check("the address it had under /app still answers", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
+    check("the address it had under /app still answers", read("app/(storelib)/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     /**
      * THE CANVAS. Inset and bordered on a desktop so the page has edges of
@@ -453,7 +453,7 @@ function main() {
       /*
         And /cover-render/<pass>: the page a website's cover is photographed
         from, shown small on the owner's Website page while the photograph is
-        on its way (app/app/website-builder, LiveMiniature). A two-minute pass
+        on its way (app/(storelib)/app/website-builder, LiveMiniature). A two-minute pass
         for one install, nothing on it that sends anything.
       */
       check("and the page a website's cover is taken of, with its pass", asks("/cover-render/pass"))
@@ -485,7 +485,7 @@ function main() {
 
   // ── 4. Embedded mode offers no door into itself ────────────────────────
   {
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the page is told when it is embedded", /const embedded = embeddedParam === "1"/.test(page))
     check("and passes it to the owner controls", /embedded=\{embedded\}/.test(page))
 
@@ -528,11 +528,11 @@ function main() {
      * bookmarks and in links people have sent each other; /creator-page is the
      * section editor and is linked from the workspace itself.
      */
-    check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
-    check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
-    check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
-    check("and it lands on the workspace too", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
+    check("the old /store-builder address still answers", existsSync(join(root, "app/(storelib)/store-builder/page.tsx")))
+    check("and it lands on the workspace", read("app/(storelib)/store-builder/page.tsx").includes('redirect("/creator-page")'))
+    check("the section editor is still a real route", existsSync(join(root, "app/(storelib)/creator-page/sections/page.tsx")))
+    check("and the address the workspace used to have still answers", existsSync(join(root, "app/(storelib)/app/creator-page/page.tsx")))
+    check("and it lands on the workspace too", read("app/(storelib)/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar no longer says Store Builder", !/label: "Store Builder"/.test(sidebar))
@@ -567,7 +567,7 @@ function main() {
       check(`${name} only shows it once something is published`, /websitePublished/.test(code))
     }
 
-    for (const server of ["app/app/page.tsx", "app/app/settings/_server.ts"]) {
+    for (const server of ["app/(storelib)/app/page.tsx", "app/(storelib)/app/settings/_server.ts"]) {
       const code = read(server)
       check(`${server} asks for a published install`, code.includes("store_theme_installs"))
       /* Home asks for one published RIGHT NOW, by the status the builder sets on
@@ -595,7 +595,7 @@ function main() {
   // ── 7. Editing in place: the CTA bar and a way to be contacted ─────────
   {
     const cta = read("components/storefront/edit-cta-button.tsx")
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const api = read("app/api/creator-profile/route.ts")
 
     check("the CTA bar has an editor", existsSync(join(root, "components/storefront/edit-cta-button.tsx")))
@@ -717,21 +717,21 @@ function main() {
   // ── 9. Product URLs ────────────────────────────────────────────────────
   {
     const helpers = read("lib/url-helpers.ts")
-    const nested = "app/(marketing)/[sellername]/[productSlug]/page.tsx"
+    const nested = "app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx"
 
     check("a product has an address under its creator", existsSync(join(root, nested)))
-    check("the old address is still a real route", existsSync(join(root, "app/(marketing)/p/[slug]/page.tsx")))
+    check("the old address is still a real route", existsSync(join(root, "app/(storelib)/(marketing)/p/[slug]/page.tsx")))
 
     /**
      * THE COLLISION THAT DECIDED THE SHAPE. storelib.com/<slug> is already the
-     * creator page — app/(marketing)/[sellername]/page.tsx exists to make it
+     * creator page — app/(storelib)/(marketing)/[sellername]/page.tsx exists to make it
      * so. One slot cannot mean both a handle and a product slug: a creator
      * called `ebook` and a product slugged `ebook` are both legitimate, and
      * whichever lost would stop resolving with no error and no redirect.
      */
     check(
       "the root slot still belongs to the creator page",
-      existsSync(join(root, "app/(marketing)/[sellername]/page.tsx")),
+      existsSync(join(root, "app/(storelib)/(marketing)/[sellername]/page.tsx")),
     )
 
     check(
@@ -780,7 +780,7 @@ function main() {
      *
      * So the rule is checked rather than remembered.
      */
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const bar = read("components/store-builder/subscribe-bar.tsx")
     const lib = read("lib/store-builder/subscribe-text.ts")
 
@@ -896,7 +896,7 @@ function main() {
     const renderer = read("components/store-builder/unified-section-renderer.tsx")
     const card = read("components/explore/product-card.tsx")
     const storefrontCard = read("components/storefront/storefront-product-card.tsx")
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
 
     check("the live grid passes the card colours it computes", /surface=\{\{\s*backgroundColor: cardBgColor/.test(renderer))
     check("StorefrontProductCard threads them through", storefrontCard.includes("surface={surface}"))
@@ -1020,9 +1020,9 @@ function main() {
       astridOnWhite.isDarkTheme && astridOnWhite.pageBackgroundColor?.toLowerCase() === "#111113" && astridChosen.pageBackgroundColor === "#111113"
         && astridOnWhite.ratingStarColor === "#fafafa" && astridOnWhite.categoryBadgeStyle?.backgroundColor === "#2a2a2a", astridOnWhite.pageBackgroundColor)
     const decided = [
-      "app/(marketing)/p/[slug]/page.tsx",
-      "app/(marketing)/p/[slug]/layout.tsx",
-      "app/(marketing)/u/[username]/layout.tsx",
+      "app/(storelib)/(marketing)/p/[slug]/page.tsx",
+      "app/(storelib)/(marketing)/p/[slug]/layout.tsx",
+      "app/(storelib)/(marketing)/u/[username]/layout.tsx",
       "components/store-builder/public-page-skeleton.tsx",
       "components/store-builder/preview-canvas.tsx",
       "components/store-builder/unified-section-renderer.tsx",
@@ -1035,10 +1035,10 @@ function main() {
     /* Changed on purpose (round 30): the call also says whether the page is the creator's look or Storelib's
        ({ site: !ownLook }, lib/store-builder/product-page-tone productHasOwnLook); a scheme's dark is still decided there. */
     check("the product page's dark is the scheme's, from the one function the chrome probe measures",
-      /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(read("app/(marketing)/p/[slug]/page.tsx"))
+      /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx"))
         && /const isDarkTheme = isDarkScheme\(themePreset\)/.test(read("lib/store-builder/product-page-tone.ts")))
     check("and on a dark scheme its own colour is the scheme's unless one was chosen, not the builder's inherited white",
-      /const pageBackgroundColor = tonePageBackground/.test(read("app/(marketing)/p/[slug]/page.tsx"))
+      /const pageBackgroundColor = tonePageBackground/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx"))
         && /isDarkTheme\s*\?\s*resolveStorefrontChrome\(themePreset, \{ pageBackground: stored \}\)\.pageBackground\s*:\s*stored/.test(read("lib/store-builder/product-page-tone.ts")))
   }
 
@@ -1046,7 +1046,7 @@ function main() {
   {
     const renderer = read("components/store-builder/unified-section-renderer.tsx")
     const button = read("components/storefront/edit-profile-button.tsx")
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
 
     check("the share panel is inline, not centred", renderer.includes("wb-settings-in absolute bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4"))
     check("and nothing is dimmed behind it", !/fixed inset-0 z-\[999999\] flex items-center justify-center/.test(renderer))
@@ -1209,7 +1209,7 @@ function main() {
      */
     const live = read("components/store-builder/live-subscribe-bar.tsx")
     const workspace = code("components/app/creator-page-workspace.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const text = read("lib/store-builder/subscribe-text.ts")
 
     const bar = read("components/storefront/edit-cta-button.tsx")
@@ -1263,7 +1263,7 @@ function main() {
      * scripts/check-contact-line.mjs.
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     /**
      * IN THE ABOUT BLOCK, AND NOWHERE ELSE.
      *
@@ -1386,7 +1386,7 @@ function main() {
       live.indexOf("<BackControl") < live.indexOf("<Input") && live.indexOf("<SmartLink") < live.indexOf("<Input"),
     )
     /** One bar, two pages: the product page resolves it from the shop's. */
-    const productPage = code("app/(marketing)/p/[slug]/page.tsx")
+    const productPage = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("the product page resolves the bar from the creator's", productPage.includes("resolveStorefrontChrome("))
     check("colours and all", productPage.includes("buttonColor: shopChrome.bar.buttonColor"))
     check("and the label the creator typed", productPage.includes("creatorBarLabel") && /buttonLabel\?\.trim\(\)/.test(bar))
@@ -1765,11 +1765,11 @@ function main() {
     )
     check(
       "which is the product page's own column",
-      /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+      /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")),
     )
     check(
       "and the page does not change width halfway down",
-      !/max-w-\[1100px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+      !/max-w-\[1100px\] px-3 sm:px-4 lg:px-6/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")),
       "the lower block was 1100 while the upper one was 1200",
     )
   }
@@ -1801,7 +1801,7 @@ function main() {
      * Explore, which is a far worse outcome than the pill ever was.
      */
     check("the niche is still editable", /storeNicheTags/.test(sidebar))
-    check("and Explore still reads it", read("app/(marketing)/explore/page.tsx").includes("niche_tags"))
+    check("and Explore still reads it", read("app/(storelib)/(marketing)/explore/page.tsx").includes("niche_tags"))
     /** Saying it is shown on the profile would now be untrue. */
     check(
       "the picker no longer claims the niche is shown on the page",
@@ -2094,7 +2094,7 @@ function main() {
      * measures all of it; this guards the pieces that measurement needs.
      */
     const bar = code("components/store-builder/product-creator-bar.tsx")
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
 
     check("the phone bar is a single row", /data-product-bar="phone" className="flex w-full items-center gap-2\.5 px-3 py-2 sm:hidden"/.test(bar))
     check("and the form is not a second line under it", !/className="mt-2 flex w-full items-center gap-2"/.test(bar))
@@ -2211,7 +2211,7 @@ function main() {
      * FOUR THINGS THAT WERE TAKING UP ROOM OR PRINTING A NUMBER.
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     const subscribe = code("components/store-builder/subscribe-bar.tsx")
     const sheet = code("components/website-builder/mobile-editor-sheet.tsx")
 
@@ -2319,7 +2319,7 @@ function main() {
      */
     const workspace = code("components/app/creator-page-workspace.tsx")
     const ceiling = code("lib/website-builder/navigate-ceiling.ts")
-    const builder = code("app/website-builder/editor/[installId]/page.tsx")
+    const builder = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const link = code("components/smart-link.tsx")
 
     /**
@@ -2379,7 +2379,7 @@ function main() {
     */
     check(
       "and the product page has no boundary to swap that grid out for",
-      !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")),
+      !existsSync(join(root, "app/(storelib)/(marketing)/p/[slug]/loading.tsx")),
       "a boundary throws away the page somebody is reading the moment they press something on it",
     )
     /*
@@ -2398,7 +2398,7 @@ function main() {
       !/NavPending/.test(code("components/explore/product-card.tsx")),
       "a bar on the pressed card keeps animating on a card that is about to be replaced",
     )
-    check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
+    check("and so does the creator page", existsSync(join(root, "app/(storelib)/(marketing)/u/[username]/loading.tsx")))
 
     /**
      * Home is the creator's arrangement; the Products tab is newest first.
@@ -2436,7 +2436,7 @@ function main() {
      * A weight list on next/font would give static faces, and 450 would
      * round to 400 with nothing to show for it.
      */
-    check("Inter is still loaded as the variable face", !/Inter\(\{[^}]*weight:/.test(code("app/layout.tsx")))
+    check("Inter is still loaded as the variable face", !/Inter\(\{[^}]*weight:/.test(code("app/(storelib)/layout.tsx")))
 
     /**
      * AND HALF A STEP ON THE TAB ROW, for the same reason: at 400 next to a

@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE COUPON EDITOR: ITS FORM, AND ITS FRAME
  * ===========================================================================
- * 1. The form, run as it is (app/app/coupons/coupon-form.ts): a saved code
+ * 1. The form, run as it is (app/(storelib)/app/coupons/coupon-form.ts): a saved code
  *    read into it, what typing may put in a field, the generated code, the
  *    first thing wrong and which field it is, the body sent, which the
  *    server's own check (readCouponInput) takes, and the summary.
@@ -27,7 +27,7 @@ import {
   withReturn,
   type CouponForm,
   type CouponRecord,
-} from "@/app/app/coupons/coupon-form"
+} from "@/app/(storelib)/app/coupons/coupon-form"
 import { readCouponInput } from "@/lib/checkout/coupons"
 import { stripComments } from "./_source"
 import { untt } from "./i18n-source"
@@ -158,11 +158,11 @@ console.log("\nBack on the list")
 
 console.log("\nThe frame: the product editor's")
 {
-  const editor = code("app/app/coupons/coupon-editor.tsx")
-  const layouts = [code("app/app/coupons/new/layout.tsx"), code("app/app/coupons/[id]/layout.tsx")]
+  const editor = code("app/(storelib)/app/coupons/coupon-editor.tsx")
+  const layouts = [code("app/(storelib)/app/coupons/new/layout.tsx"), code("app/(storelib)/app/coupons/[id]/layout.tsx")]
   check("both pages are a layer on a phone and a page in the shell from md, with the pill kept",
     layouts.every((l) => /<PageLayer pill inset="bar" phoneOnly>\{children\}<\/PageLayer>/.test(l)))
-  check("both pages draw the one editor", /<CouponEditor products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{null\} \/>/.test(code("app/app/coupons/new/page.tsx")) && /<CouponEditor key=\{id\} products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{coupon\} \/>/.test(code("app/app/coupons/[id]/page.tsx")))
+  check("both pages draw the one editor", /<CouponEditor products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{null\} \/>/.test(code("app/(storelib)/app/coupons/new/page.tsx")) && /<CouponEditor key=\{id\} products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{coupon\} \/>/.test(code("app/(storelib)/app/coupons/[id]/page.tsx")))
   check("it scrolls in its own pane, with room for the pill at its foot on a phone",
     /className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-\[#f8f9fa\] max-md:\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\] lg:flex lg:flex-col"/.test(editor))
   check("below lg one bar at the top, under the status bar on a phone: the way out and Save",
@@ -179,7 +179,7 @@ console.log("\nThe frame: the product editor's")
   check("a problem is said under its field, not in a box at the top", /<FieldError id="coupon-value" problem=\{problem\} \/>/.test(editor) && /aria-invalid=\{wrong\("value"\)/.test(editor))
   check("a code already taken is the code field's problem", /res\.status === 409[^\n]*point\(\{ field: "code"/.test(editor))
 
-  const list = code("app/app/coupons/coupons-client.tsx")
+  const list = code("app/(storelib)/app/coupons/coupons-client.tsx")
   check("the list opens a coupon with the layer's move", (list.match(/openFromLink\(`\/app\/coupons\/\$\{coupon\.id\}`\)/g) ?? []).length >= 3 && /openCoupon\(router, `\/app\/coupons\/\$\{coupon\.id\}`\)/.test(list) && /onClick=\{openFromLink\("\/app\/coupons\/new"\)\}/.test(list))
   check("it lays the editor's change over the rows the router kept, then refreshes", /useState<Coupon\[\]>\(\(\) => withReturn\(initialCoupons, peekReturn\(\)\)\)/.test(list) && /const back = takeReturn\(\)/.test(list) && /router\.refresh\(\)/.test(list))
   /* Whether it is a return is read once, on the first render: the same answer takes up the view and holds the stage's landing (tests/return-navigation). */
@@ -187,9 +187,9 @@ console.log("\nThe frame: the product editor's")
 
   /* Changed on purpose: Coupons takes the one round trip every commerce list shares (components/app/list-return.ts). */
   const ret = code("components/app/list-return.ts")
-  check("back in history when the list opened it, a replace marked as a return otherwise", /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/app/coupons/list-return.ts")) && /if \(!back\) return replaceWithList\(\)|if \(back\) backThen\(replaceWithList\)/.test(ret) && /backThen\(/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(listHref\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
+  check("back in history when the list opened it, a replace marked as a return otherwise", /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/(storelib)/app/coupons/list-return.ts")) && /if \(!back\) return replaceWithList\(\)|if \(back\) backThen\(replaceWithList\)/.test(ret) && /backThen\(/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(listHref\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
 
-  const files = ["app/app/coupons/coupon-editor.tsx", "app/app/coupons/coupon-parts.tsx", "app/app/coupons/coupons-client.tsx"].map(read).join("\n")
+  const files = ["app/(storelib)/app/coupons/coupon-editor.tsx", "app/(storelib)/app/coupons/coupon-parts.tsx", "app/(storelib)/app/coupons/coupons-client.tsx"].map(read).join("\n")
   check("no violet anywhere in the coupon pages", !/#8b5cf6|#7c3aed|#6d28d9|#f5f3ff|violet-|buttonAccent|primaryDepth/i.test(files))
   check("no em dash in what they say", !/—/.test(files.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "")))
 }

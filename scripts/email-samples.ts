@@ -82,7 +82,7 @@ function campaign(file: string, b: Brand) {
 campaign("campaign", brand)
 campaign("campaign-pale", { ...brand, name: "Sunny Paper Co", logoUrl: null, accent: "#fde047", address: null })
 
-/* An automation's body as the shared editor writes it (app/app/emails/flow/body-editor.tsx), button and fields included. */
+/* An automation's body as the shared editor writes it (app/(storelib)/app/emails/flow/body-editor.tsx), button and fields included. */
 const automationBody =
   "<p>Hi {{first_name}},</p><p>Thank you for buying the <strong>{{product_name}}</strong>. Your download link is in your receipt, and here is the fastest way to start:</p><ol><li>Open Lightroom and import the presets</li><li>Try <em>Harbour Warm</em> on a photo taken near sunset</li></ol><p><a href=\"https://storelib.com/anapop/guide\" style=\"display:inline-block;padding:10px 18px;border-radius:8px;background-color:#1a1a2e;color:#ffffff;text-decoration:none;font-weight:600;\">Read the quick guide</a></p><p>Reply to this email if anything does not work.</p><p>{{store_name}}</p>"
 

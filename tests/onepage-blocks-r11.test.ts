@@ -167,7 +167,7 @@ async function main() {
 /useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(mod))
     check("and only reads them: nothing here writes a setting", !/method: "(PUT|POST|PATCH|DELETE)"/.test(mod))
     check("each row opens that integration's own page, with its own logo", /href=\{`\/app\/integrations\?integration=\$\{i\.id\}`\}/.test(mod) && /logo=\{i\.logo\}/.test(mod))
-    check("the tags it lists are the ones the live page loads", /<StoreTracking creatorId=\{resolvedCreatorId\} \/>/.test(read("app/(marketing)/l/[slug]/page.tsx")))
+    check("the tags it lists are the ones the live page loads", /<StoreTracking creatorId=\{resolvedCreatorId\} \/>/.test(read("app/(storelib)/(marketing)/l/[slug]/page.tsx")))
     check("Subscribe says where signups go; Basic info has the page's own domain", /\{kind === "subscribe" \? <SignupDestination \/> : null\}/.test(settings) && /<OnePageDomainRow \/>/.test(settings))
     check("none of it is a call the live page makes (storelib.me answers guests only)", !ONEPAGE_HOST_API.some((a) => a.path.test("/api/store/integrations") || a.path.test("/api/domains")))
   }

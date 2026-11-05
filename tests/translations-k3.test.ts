@@ -140,7 +140,7 @@ async function main() {
   check("saved with an update, never an insert that could change the store's default language", calls.some((c) => c.startsWith("store_localization.update(")) && !calls.some((c) => /upsert|insert/.test(c)) && (saved === null || saved.ok))
 
   console.log("\nThe theme editor's sidebar")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("every setting goes through FieldEditor, which writes the translation in another language", /const translating = useTranslationEditing\(\)\s*const keyFor = useTranslationScope\(\)\s*if \(translating\) \{\s*return <TranslatedFieldEditor/.test(editor))
   /* Changed on purpose (round perf2-1028): one key function per section and per block (stableTextKey), so the fields' context is the same object across renders and a memoized field does not draw again (tests/editor-perf-incoming.test.ts). */
   check("a section's texts by the key the website lays over", /<TranslationScope keyFor=\{stableTextKey\(`section\\u0000\$\{section\.id\}`, \(\) => \(id\) => translationSectionKey\(section\.id, id\)\)\}>/.test(editor))

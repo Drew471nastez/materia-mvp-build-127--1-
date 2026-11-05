@@ -33,10 +33,10 @@ import { mailAddress, sellerMailto } from "../lib/physical/seller-mailto"
 import { checkoutSentences, checkoutT, checkoutWordsIn, emailSentences } from "../lib/markets/checkout-words"
 import ro from "../lib/checkout-text/dict/ro"
 import { CORE_DICTIONARIES } from "../lib/checkout-text/dict/core"
-import { CheckoutWords, estimateText } from "../app/checkout/parts/words"
-import { OrderStatusView } from "../app/checkout/physical/order/[token]/order-status-view"
+import { CheckoutWords, estimateText } from "../app/(storelib)/checkout/parts/words"
+import { OrderStatusView } from "../app/(storelib)/checkout/physical/order/[token]/order-status-view"
 import { CarrierLogo } from "../components/physical/carrier-logo"
-import { ThanksView } from "../app/checkout/site/thanks/[token]/thanks-view"
+import { ThanksView } from "../app/(storelib)/checkout/site/thanks/[token]/thanks-view"
 import { returnWindow } from "../lib/physical/status"
 
 let passed = 0
@@ -205,9 +205,9 @@ async function main() {
     db.tables.orders[0].refund_amount_cents = 100
     check("a refund: it moves", (await orderStamp(db as never, TOKEN)) !== e)
     check("another token: none", (await orderStamp(db as never, "tok_nothinghere0000000000")) === null)
-    const live = read("app/checkout/physical/order/[token]/live-status.tsx")
+    const live = read("app/(storelib)/checkout/physical/order/[token]/live-status.tsx")
     check("the page asks while in view, backs off up to two minutes, at once on return, and redraws from the server", /document\.visibilityState !== "visible"/.test(live) && /MAX_MS = 120_000/.test(live) && /visibilitychange/.test(live) && /router\.refresh\(\)/.test(live))
-    check("  and is on the page", /<LiveStatus token=\{token\}/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")))
+    check("  and is on the page", /<LiveStatus token=\{token\}/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")))
   }
 
   /* ── 3. Words ────────────────────────────────────────────────────────── */
@@ -222,13 +222,13 @@ async function main() {
     const all = [...checkoutSentences(), ...emailSentences()]
     check("every sentence the pages say has its Romanian", all.every((s) => !!ro[s]), all.filter((s) => !ro[s]).slice(0, 6))
     const words = Object.values(ro).join("\n")
-    check("a return's Other is Alt motiv (another reason), never the tip's Altă sumă (another amount)", t("Other reason") === "Alt motiv" && /ct\("Other reason"\)/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && !/\["other", checkoutMsg\("Other"\)\]/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")))
+    check("a return's Other is Alt motiv (another reason), never the tip's Altă sumă (another amount)", t("Other reason") === "Alt motiv" && /ct\("Other reason"\)/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")) && !/\["other", checkoutMsg\("Other"\)\]/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")))
     check("never elaborare, never glued", !/elaborare/i.test(words) && !/Deobicei/.test(words))
     const ourLangs = Object.keys(CORE_DICTIONARIES)
     const order = ["Being prepared", "Usually arrives {estimate} after it ships.", "Cancel order", "Return items", "Track package", "Your order is on the way", "Question about order {number}"]
     const gaps = ourLangs.flatMap((l) => order.filter((s) => !CORE_DICTIONARIES[l][s]).map((s) => `${l}: ${s}`))
     check(`the order page's own words are curated in ${ourLangs.join(", ")} too`, gaps.length === 0, gaps.slice(0, 8))
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     check("the method on its own line, the estimate on the next (never one run of text)", /<p className="font-medium text-\[#1a1a2e\]">\{ct\(order\.delivery\.name\)\}<\/p>\s*\{estimate \? <p/.test(view) && !/\{method\}, usually \{estimate\}/.test(view))
   }
 
@@ -239,7 +239,7 @@ async function main() {
     check("a mailto to the shop with the subject and the letter, encoded for every mail app", href.startsWith("mailto:shop@andrewrullz.ro?subject=") && decodeURIComponent(href.split("subject=")[1].split("&")[0]) === "Întrebare despre comanda #27272727" && decodeURIComponent(href.split("body=")[1]).split("\r\n").length === 3)
     check("  never for something that is not an address", sellerMailto("not an address", { subject: "x", lines: [] }) === null && mailAddress("a@b.co?cc=x@y.z") === null)
 
-    const page = read("app/checkout/physical/order/[token]/page.tsx")
+    const page = read("app/(storelib)/checkout/physical/order/[token]/page.tsx")
     check("Visit store is the live website the order came from (lib/physical/store-link.ts), never the creator page", /orderStoreUrl\(\{ creator_id: order\.creatorId, origin \}, \{ db \}\)/.test(page) && /websiteUrl: storeUrl \|\| null/.test(page) && !/websiteUrl: store\.websiteUrl/.test(page))
     check("the shop's logo as its website draws it (checkoutBrand), its photo otherwise", /checkoutBrand\(db, order\.creatorId\)/.test(page) && /avatarKind: brand\.imageUrl \? brand\.kind/.test(page))
 
@@ -294,21 +294,21 @@ async function main() {
     const unknown = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "Curier Local SRL", size: 40 }))
     check("a carrier as the seller wrote it is still its mark; one we don't know gets a plain parcel mark, never a remote image", /data-carrier-logo="fan-courier"/.test(known) && /url\(\/carriers\/fan-courier\.webp\)/.test(known) /* pin moved on purpose: the tile is a background over its letters (carrier picker), still the local file */ && /data-carrier-logo="other"/.test(unknown) && !/<img/.test(unknown) && !/src="https?:/.test(known + unknown))
 
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     check("the return stepper: minus, the number, plus, never past what can go back, big enough to press", /function Stepper/.test(view) && /disabled=\{value >= max\}/.test(view) && /disabled=\{value <= 0\}/.test(view) && /h-10 w-10/.test(view) && !/<select value=\{qty/.test(view))
     check("cancel: right away with its amount, or asked of the shop; the page redraws itself cancelled", /It's cancelled right away and \{amount\} goes back/.test(view) && /data\.done === "cancelled"/.test(view))
-    check("no em dashes and none of the banned words in what changed", [view, read("lib/physical/buyer-cancel-server.ts"), read("app/checkout/physical/order/[token]/live-status.tsx"), read("lib/physical/seller-mailto.ts"), read("components/physical/carrier-logo.tsx")].every((s) => !/—/.test(s) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(s)))
+    check("no em dashes and none of the banned words in what changed", [view, read("lib/physical/buyer-cancel-server.ts"), read("app/(storelib)/checkout/physical/order/[token]/live-status.tsx"), read("lib/physical/seller-mailto.ts"), read("components/physical/carrier-logo.tsx")].every((s) => !/—/.test(s) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(s)))
   }
 
   /* ── 5. Thanks page ──────────────────────────────────────────────────── */
   section("5. The thank you page after a physical order")
   {
-    const page = read("app/checkout/site/thanks/[token]/page.tsx")
-    const thanks = read("app/checkout/site/thanks/[token]/thanks-view.tsx")
+    const page = read("app/(storelib)/checkout/site/thanks/[token]/page.tsx")
+    const thanks = read("app/(storelib)/checkout/site/thanks/[token]/thanks-view.tsx")
     check("the page reads, ThanksView draws", /<ThanksView order=\{order\} shopUrl=\{onePage \?\? shopUrl\} lang=\{language\.lang\}/.test(page) && /number: orderNumber\(String\(co\.id\)\)/.test(page) && /coupon: typeof co\.coupon_code === "string"/.test(page))
     check("order number and day, subtotal, discount with its code, the full address, the method and its estimate apart", /ct\("Order \{number\}", \{ number: order\.shipped\.number \}\)/.test(thanks) && /ct\("Subtotal"\)/.test(thanks) && /ct\("Discount \(\{code\}\)", \{ code: order\.shipped\.coupon \}\)/.test(thanks) && /addressLines\(order\.shipped\.address/.test(thanks) && /ct\("Usually arrives \{estimate\} after it ships\."/.test(thanks))
     check("  money in the page's language, as the checkout wrote it", /formatMinor\(cents, orderCurrency \?\? PLATFORM_CURRENCY\.toUpperCase\(\), locale\)/.test(thanks))
-    check("  never a client module's helper called on the server (estimateText from lib/checkout, not the client words module)", /from "@\/lib\/checkout\/estimate-text"/.test(thanks) && !/from "\.\.\/\.\.\/\.\.\/parts\/(words|ui)"/.test(thanks) && /export \{ estimateText \} from "@\/lib\/checkout\/estimate-text"/.test(read("app/checkout/parts/words.tsx")))
+    check("  never a client module's helper called on the server (estimateText from lib/checkout, not the client words module)", /from "@\/lib\/checkout\/estimate-text"/.test(thanks) && !/from "\.\.\/\.\.\/\.\.\/parts\/(words|ui)"/.test(thanks) && /export \{ estimateText \} from "@\/lib\/checkout\/estimate-text"/.test(read("app/(storelib)/checkout/parts/words.tsx")))
     const html = renderToStaticMarkup(React.createElement(ThanksView, { shopUrl: "https://andrewrullz.storelib.com/", lang: "ro", words: checkoutWordsIn("ro", null), map: null, order: { email: "andrei@example.com", firstName: "Andrei", totalCents: 12000, shippingCents: 1000, taxCents: 0, shipTo: null, receipt: `/checkout/physical/order/${TOKEN}`, ga: { id: CO, items: [], currency: "RON" }, lines: [{ title: "T-shirt", variantName: "S", imageUrl: null, quantity: 2, unitCents: 4000, cents: 8000 }, { title: "Mug", variantName: "Blue", imageUrl: null, quantity: 1, unitCents: 4000, cents: 3000 }], shipped: { number: "#27272727", placedAt: "2026-10-17T09:00:00Z", subtotalCents: 12000, discountCents: 1000, coupon: "TOAMNA", address: { name: "Andrei Radu", line1: "Str. Exemplu 6", city: "București", postalCode: "010101", country: "RO" }, method: { name: "Standard", minDays: 3, maxDays: 5, local: false, note: null } } } })).replace(/\u00a0/g, " ")
     check("drawn in Romanian: the number and day, two of the T-shirt at what each, the code, the address, Standard then its estimate", /Comanda #27272727 · 17 oct\. 2026/.test(html) && /2 × 40,00 lei/.test(html) && /Reducere \(TOAMNA\)/.test(html) && /Str\. Exemplu 6/.test(html) && /<p class="mt-1 text-\[#4b5563\]">Standard<\/p><p[^>]*>Ajunge de obicei în 3–5 zile lucrătoare de la expediere\.<\/p>/.test(html), html.slice(html.indexOf("data-thanks-delivery"), html.indexOf("data-thanks-delivery") + 600))
   }

@@ -163,7 +163,7 @@ console.log("\nHome: the page reads it this way")
   check("the live pill waits as itself, its number fading in on opacity, with no shimmer bar in it",
     !/ShimmerBlock/.test(dash) && (dash.match(/<LivePill count=\{liveVisitors\}/g) ?? []).length === 2
       && /count == null \? "opacity-0" : "opacity-100"/.test(dash) && /\{count \?\? 0\}<\/span> \{label\}/.test(dash))
-  const home = code("app/app/page.tsx")
+  const home = code("app/(storelib)/app/page.tsx")
   /* Changed on purpose: the page reads no order rows now (a read stops at 1,000). The first sale and the sales challenges
      are counted over every order by the same rule (homeTotals, or analytics_all_time which counts the same), still through lib/home/progress. */
   check("the page reads no order rows, and counts the sales over every order, the same way",

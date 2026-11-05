@@ -1,12 +1,12 @@
 /**
- * The real Orders page (app/app/orders/orders-client.tsx) with physical
+ * The real Orders page (app/(storelib)/app/orders/orders-client.tsx) with physical
  * commerce on, for scripts/check-orders27.mjs. The page of orders it starts
  * on is the probe's (window.__listing), the same one its stand-in for
  * /api/app/orders/list answers with, so the list never waits on a server.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "@/app/(storelib)/app/orders/orders-client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import type { OrdersListing } from "@/lib/orders/paged"
 

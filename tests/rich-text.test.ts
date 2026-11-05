@@ -207,8 +207,8 @@ section("Pictures: only from this project's own storage")
   check("the picker opens from the tap itself, offering the library and the camera", /fileRef\.current\.click\(\)/.test(rte) && /accept="image\/\*"/.test(rte) && !/capture=/.test(rte))
   check("and is not display:none, which some WebViews will not open", /className="sr-only"/.test(rte))
   check("the Picture control only exists where a field can upload", /t !== "image" \|\| !!uploadImage/.test(rte))
-  check("the Emails body cannot upload pictures", !/uploadImage/.test(read("app/app/emails/flow/body-editor.tsx")))
-  check("the product description can", /uploadImage=\{\(file\) => uploadDescriptionImage\(file, \{ creatorId, productId \}\)\}/.test(read("app/app/products/new/product-editor.tsx")))
+  check("the Emails body cannot upload pictures", !/uploadImage/.test(read("app/(storelib)/app/emails/flow/body-editor.tsx")))
+  check("the product description can", /uploadImage=\{\(file\) => uploadDescriptionImage\(file, \{ creatorId, productId \}\)\}/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
 }
 
 // ===========================================================================
@@ -222,17 +222,17 @@ section("A save is capped, and only for somebody signed in")
   const inline = descriptionTooLong(`<div data-embed-type="image"><img src="data:image/png;base64,${"A".repeat(MAX_DESCRIPTION_BYTES)}"></div>`)
   check("and when old inline pictures are why, it says so and what to do", !!inline && /photo button/.test(inline), inline ?? "")
   check("the limit counts bytes, not characters", descriptionTooLong(`<p>${"\u00e9".repeat(MAX_DESCRIPTION_BYTES / 2)}</p>`) !== null)
-  const action = read("app/app/products/new/description-action.ts")
+  const action = read("app/(storelib)/app/products/new/description-action.ts")
   const body = action.slice(action.indexOf("export async function cleanDescription"))
   check("the server action refuses too much before it parses anything",
     /const tooLong = descriptionTooLong\(html(, tt)?\)\s*\n\s*if \(tooLong\) return \{ ok: false, error: tooLong \}/.test(body) && body.indexOf("descriptionTooLong(") < body.indexOf("sanitizeDescription("))
   check("and refuses anybody not signed in",
     /auth\.getUser\(\)/.test(body) && /if \(!user\) return \{ ok: false/.test(body) && body.indexOf("!user") < body.indexOf("sanitizeDescription("))
   check("it answers rather than throws, so the editor can show why", /Promise<CleanedDescription>/.test(action))
-  const save = read("app/app/products/new/description-save.ts")
+  const save = read("app/(storelib)/app/products/new/description-save.ts")
   check("the save shows a refusal's own words", /if \(!result\.ok\) throw new Error\(result\.error\)/.test(save))
   check("and an unchanged description is not sent again, so an old long one never blocks a save", /if \(stored !== null && current === stored\) return current/.test(save))
-  check("the field shows the same limit while typing", /checkSize=\{descriptionTooLong\}/.test(read("app/app/products/new/product-editor.tsx")))
+  check("the field shows the same limit while typing", /checkSize=\{descriptionTooLong\}/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
   check("the creator page's inline editor saves nothing it was refused", /if \(!cleaned\.ok\)/.test(read("components/store-builder/preview-canvas.tsx")))
 }
 
@@ -329,12 +329,12 @@ section("Old plain text descriptions load and render as they were")
 section("The wiring")
 // ===========================================================================
 {
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("the product editor writes the description in the shared editor",
     /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(editor) && /<RichTextEditor[\s\S]{0,200}value=\{description\}/.test(editor))
   check("and saves it through the server",
     /const savedDescription = await descriptionForSave\(description, storedDescriptionRef\.current\)/.test(editor) && /description: savedDescription,/.test(editor))
-  const action = read("app/app/products/new/description-action.ts")
+  const action = read("app/(storelib)/app/products/new/description-action.ts")
   check("which is a server action that runs the allow list", /^"use server"/.test(action) && /sanitizeDescription\(/.test(action))
   check("the creator page's inline editor saves through it too",
     /cleanDescription\(newDescription\)/.test(read("components/store-builder/preview-canvas.tsx")))
@@ -344,7 +344,7 @@ section("The wiring")
   check("the renderer draws through the cleaner", /cleanStoredHtml\(html\)/.test(renderer) && /__html: clean/.test(renderer))
   check("and in the same prose styles as the editor",
     /storelib-prose/.test(renderer) && /storelib-prose/.test(read("components/app/rich-text-editor.tsx")))
-  check("the Emails automation body uses the same editor", /<RichTextEditor/.test(read("app/app/emails/flow/body-editor.tsx")))
+  check("the Emails automation body uses the same editor", /<RichTextEditor/.test(read("app/(storelib)/app/emails/flow/body-editor.tsx")))
   check("the server sanitiser is never bundled to a browser", /^import "server-only"/.test(read("lib/rich-text/sanitize.ts")))
   check("the browser side does not pull in sanitize-html",
     !/from "sanitize-html"/.test(read("lib/rich-text/html.ts")) && !/from "sanitize-html"|from "@\/lib\/rich-text\/sanitize"/.test(read("components/app/rich-text-editor.tsx")))

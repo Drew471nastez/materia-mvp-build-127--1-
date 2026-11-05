@@ -2,7 +2,7 @@
  * The account, round 11, for scripts/check-account-round11.mjs: the real
  * profile center (components/account/account-hub.tsx) with the real
  * Settings (components/account/account-settings.tsx) under it, in a shell
- * shaped like app/account/layout.tsx: Storelib's real header, the page, a
+ * shaped like app/(storelib)/account/layout.tsx: Storelib's real header, the page, a
  * footer, and the phone's real tab bar (components/nav/buyer-tab-bar.tsx)
  * unless `?tabs=no`. The router is the probe's stub: a push changes the
  * path a moment later, the way a page the router already has arrives, and
@@ -88,7 +88,7 @@ function Shell() {
       <main className="flex-1 overflow-x-clip">
         <Account />
       </main>
-      {/* The site footer's place (app/account/layout.tsx draws ConditionalFooter here, in a relative isolate). */}
+      {/* The site footer's place (app/(storelib)/account/layout.tsx draws ConditionalFooter here, in a relative isolate). */}
       <div className="relative isolate">
         <footer className="bg-[#111111] px-4 pb-8 pt-10 text-[13px] text-white/70" data-probe-footer="">
           <p>Storelib</p>

@@ -44,11 +44,11 @@ export const skool: Competitor = {
     { text: "Sell more than a membership. Downloads, courses and a website with a store sit next to your community, with your own domain on Pro.", code: "lib/sites/plan.ts" },
     {
       text: "Your community, your store, email campaigns and a link in bio page in one dashboard, with one set of orders and buyers.",
-      code: "app/app/community",
+      code: "app/(storelib)/app/community",
       flag: "communities",
       textOff: "Your courses, downloads, email campaigns and a link in bio page in one dashboard, with one set of orders and buyers.",
     },
-    { text: "Email your buyers and members with campaigns and automations.", code: "app/app/emails" },
+    { text: "Email your buyers and members with campaigns and automations.", code: "app/(storelib)/app/emails" },
   ],
   whenToStay: [
     { text: "The community is the product and you want members to keep coming back. Skool's points, levels and leaderboards are at the centre of it, and courses can open only to members who reach a level.", sources: ["skool-levels"], status: "verified" },
@@ -72,7 +72,7 @@ export const skool: Competitor = {
   storelibStrengths: [
     { text: "A website builder with a store, and your own domain on Pro.", code: "lib/sites/plan.ts" },
     { text: "Digital downloads and physical products beside the community.", code: "lib/platform/physical-commerce.ts", flag: "physical", textOff: "Digital downloads and courses sold on their own, outside any membership." },
-    { text: "Discount codes, bundles and upsells.", code: "app/app/offers" },
+    { text: "Discount codes, bundles and upsells.", code: "app/(storelib)/app/offers" },
   ],
   storelibLimits: [
     { text: "Storelib is not a merchant of record. You set the tax your store charges and you file it.", code: "lib/tax/rules.ts" },

@@ -53,7 +53,7 @@ console.log("\nSettings as a sheet, in groups\n")
   /* Round V, the owner: below 1024px "like it was before, with those pill shapes", in the groups' order. */
   check("a grouped column from 1024px, a grouped row of pills below it", /data-settings-groups="" className="sticky top-6 hidden lg:block"/.test(settings) && /data-settings-tabs=""/.test(settings) && /lg:hidden \[-ms-overflow-style:none\]/.test(settings) && /shownTabs\.map\(\(tab\) =>/.test(settings))
   const sheet = read("components/app/settings-sheet.tsx")
-  check("the page is drawn in the sheet", /<SettingsSheet>/.test(read("app/app/settings/page.tsx")))
+  check("the page is drawn in the sheet", /<SettingsSheet>/.test(read("app/(storelib)/app/settings/page.tsx")))
   check("dragged with a finger or a mouse (pointer events), closing past a quarter or on a flick", /onPointerDown=\{onPointerDown\}/.test(sheet) && /setPointerCapture/.test(sheet) && /d\.dy > d\.h \* 0\.25 \|\| v > FLICK/.test(sheet))
   check("Escape, the close button and the dimmed page close it", /e\.key !== "Escape"/.test(sheet) && /aria-label="Close settings"/.test(sheet) && /data-settings-sheet-scrim="" \/>/.test(sheet.replace(/onClick=\{\(\) => close\(\)\} /, "")))
   check("its own contained scroll, and no transform at rest", /overflow-y-auto overflow-x-clip overscroll-contain/.test(sheet) && /el\.style\.transform = ""/.test(sheet))

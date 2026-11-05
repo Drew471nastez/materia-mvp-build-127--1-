@@ -181,8 +181,8 @@ async function main() {
     const all = [...src.matchAll(/export async function (GET|POST|PUT|PATCH|DELETE)\b/g)]
     check(`${file}: every handler checks the admin cookie first (${all.length})`, all.length > 0 && handlers.length === all.length)
   }
-  check("/admin/themes checks the cookie on the server before drawing", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(code("app/admin/themes/page.tsx")))
-  check("the console links to it", /\{ href: "\/admin\/themes", label: "Themes" \}/.test(read("app/admin/_console/shell.tsx")))
+  check("/admin/themes checks the cookie on the server before drawing", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(code("app/(storelib)/admin/themes/page.tsx")))
+  check("the console links to it", /\{ href: "\/admin\/themes", label: "Themes" \}/.test(read("app/(storelib)/admin/_console/shell.tsx")))
   const input = parseListingInput({ name: "  Studio  Noir ", tier: "paid", price_cents: 4900, demo_url: "https://demo.storelib.com", published: true, extra: "ignored" })
   check("a listing's fields are trimmed and bounded", input.ok === true && (input as { value: { slug: string; name: string; price_cents: number } }).value.slug === "studio-noir" && (input as { value: { name: string } }).value.name === "Studio Noir")
   check("  a paid theme needs a price, a demo needs https", parseListingInput({ name: "x", tier: "paid", price_cents: 0 }).ok === false && parseListingInput({ name: "x", demo_url: "http://a.b" }).ok === false && safeHttpsUrl("javascript:alert(1)") === null)
@@ -210,7 +210,7 @@ async function main() {
   check("  one statement a line, the migration the same text", sql.split("\n").filter(Boolean).every((l) => l.startsWith("/*") || /;$/.test(l)) && read("supabase/migrations/20270201_z5_theme_marketplace_and_plan_overrides.sql") === sql)
   check("  listed in the README and the check after", /252_theme_marketplace_and_plan_overrides\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p252_theme_marketplace_and_plan_overrides/.test(read("supabase/sql/run-now/99_check_after.sql")))
   check("  nothing in it touches Stripe", !/stripe_subscription_id|stripe_customer_id/.test(sql))
-  for (const f of ["lib/billing/overview.ts", "app/api/billing/subscription/route.ts", "app/app/settings/billing/upgrade/page.tsx"]) {
+  for (const f of ["lib/billing/overview.ts", "app/api/billing/subscription/route.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx"]) {
     /* Changed on purpose: the overview reads the override through the per request read (lib/billing/request-reads billingPlanOverrideFor), which calls readPlanOverride. */
     const asks = /readPlanOverride\(/.test(code(f)) || (/billingPlanOverrideFor\(/.test(code(f)) && /readPlanOverride\(/.test(code("lib/billing/request-reads.ts")))
     check(`the reader that asks Stripe asks for the override too: ${f}`, asks)
@@ -218,28 +218,28 @@ async function main() {
   const planRoute = code("app/api/admin/creators/plan/route.ts")
   check("each change is written to the audit log with the plan before and after", /recordAdminAction\(admin, \{\s*action: plan === null \? "plan_override_cleared" : "plan_override_set"/.test(planRoute) && /detail: \{ from: result\.from, to:/.test(planRoute))
   check("  and the admin route never calls Stripe", !/stripe/i.test(planRoute.replace(/Stripe subscription is unchanged/g, "")))
-  check("the open app redraws when its plan changes", /<PlanWatch creatorId=/.test(read("app/app/layout.tsx")) && /table: "creator_plan_overrides", filter: `creator_id=eq\.\$\{creatorId\}`/.test(read("components/app/plan-watch.tsx")) && /router\.refresh\(\)/.test(read("components/app/plan-watch.tsx")))
+  check("the open app redraws when its plan changes", /<PlanWatch creatorId=/.test(read("app/(storelib)/app/layout.tsx")) && /table: "creator_plan_overrides", filter: `creator_id=eq\.\$\{creatorId\}`/.test(read("components/app/plan-watch.tsx")) && /router\.refresh\(\)/.test(read("components/app/plan-watch.tsx")))
   check("  and Settings reads the plan again", /addEventListener\("storelib:plan-changed", again\)/.test(read("components/app/settings-form-new.tsx")))
-  check("the creator's admin page has the control", /<PlanPanel creatorId=\{c\.id\} \/>/.test(read("app/admin/_console/view-commerce.tsx")) && existsSync(join(root, "app/admin/_console/panel-plan.tsx")))
+  check("the creator's admin page has the control", /<PlanPanel creatorId=\{c\.id\} \/>/.test(read("app/(storelib)/admin/_console/view-commerce.tsx")) && existsSync(join(root, "app/(storelib)/admin/_console/panel-plan.tsx")))
 
   /* ── 1 and 2: the pages ──────────────────────────────────────────────── */
   console.log("\nThe pages\n")
-  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   check("Browse themes is a grid of cards, eight and the marketplace card", /listings\.slice\(0, LIBRARY_THEME_CARDS\)/.test(client) && LIBRARY_THEME_CARDS === 8 && /<ThemeCard\b/.test(client) && /<ExploreThemesCard href=\{MARKETPLACE_PATH\} \/>/.test(client) && /lg:grid-cols-3/.test(client))
   check("  with a Theme marketplace link beside the heading, in a new tab", /href=\{MARKETPLACE_PATH\}\s*target="_blank"[\s\S]{0,400}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client))
   const card = read("components/themes/theme-card.tsx")
   check("the card: picture, bold name, by author, action at the row's end", /aspect-\[4\/3\]/.test(card) && /font-semibold/.test(card) && /tt\("by \{author\}"/.test(card) && /\{action \? <div className="shrink-0">\{action\}<\/div> : null\}/.test(card))
   check("  scrolls the full page on a mouse's hover, by transform, and a tap is the preview", /e\.pointerType === "mouse" && pan\(true\)/.test(card) && /translate3d\(0, \$\{-distance\}px, 0\)/.test(card) && /<a\s+ref=\{frame\}\s+href=\{href\}/.test(card) && /prefers-reduced-motion: reduce/.test(card))
   check("  the hover label follows the mouse that slides the picture", /f\.dataset\.hover = on \? "on" : "off"/.test(card) && /group-data-\[hover=on\]\/frame:opacity-100/.test(card))
-  const market = read("app/(marketing)/themes/themes-marketplace.tsx")
+  const market = read("app/(storelib)/(marketing)/themes/themes-marketplace.tsx")
   check("the marketplace has search, Free Paid Pro, categories and sort", /placeholder="Search themes"/.test(market) && /\{ id: "paid", label: "Paid" \}/.test(market) && /aria-label="Categories"/.test(market) && /THEME_SORTS\.map/.test(market))
-  const detail = read("app/(marketing)/themes/[slug]/theme-detail.tsx")
+  const detail = read("app/(storelib)/(marketing)/themes/[slug]/theme-detail.tsx")
   check("a theme's page: live preview in a frame, desktop and phone, screenshots, Add, no description", /<iframe/.test(detail) && /"desktop" \? "Desktop" : "Phone"/.test(detail) && /listing\.screenshots\.map/.test(detail) && /Add to my library/.test(detail) && !/description/i.test(stripComments(detail)))
   check("  signed out goes to sign in and back", /\/login\?next=\$\{encodeURIComponent\(`\$\{listingPath\(slug\)\}\?add=1`\)\}/.test(read("components/themes/use-add-theme.ts")) && /p\.get\("add"\) !== "1"/.test(detail))
   check("the preview page has no creator and is never indexed", /const NOBODY = "00000000-0000-0000-0000-000000000000"/.test(read("app/(site)/theme-preview/[slug]/page.tsx")) && /robots: \{ index: false/.test(read("app/(site)/theme-preview/[slug]/page.tsx")))
   check("  framed by storelib.com only, with ?embedded=1", /url\.pathname\.startsWith\("\/theme-preview\/"\) \|\|/.test(read("proxy.ts")))
   check("no creator can take /themes or /theme-preview as a handle", isReservedRootSegment("themes") && isReservedRootSegment("theme-preview") && /"theme-preview", "themes",/.test(read("proxy.ts")))
-  for (const f of ["components/themes/theme-card.tsx", "app/(marketing)/themes/themes-marketplace.tsx", "app/(marketing)/themes/[slug]/theme-detail.tsx", "app/admin/themes/themes-admin.tsx", "app/admin/_console/panel-plan.tsx", "components/themes/add-status.tsx"]) {
+  for (const f of ["components/themes/theme-card.tsx", "app/(storelib)/(marketing)/themes/themes-marketplace.tsx", "app/(storelib)/(marketing)/themes/[slug]/theme-detail.tsx", "app/(storelib)/admin/themes/themes-admin.tsx", "app/(storelib)/admin/_console/panel-plan.tsx", "components/themes/add-status.tsx"]) {
     const words = stripComments(read(f))
     check(`no AI words or em dashes in ${f}`, !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform your)\b/i.test(words) && !/—/.test(words))
   }

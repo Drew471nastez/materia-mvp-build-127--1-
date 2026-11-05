@@ -54,7 +54,7 @@ function walk(dir: string, out: string[] = []): string[] {
   }
   return out
 }
-const code = ["lib/automations", "lib/email-campaigns", "lib/contacts", "app/api/automations", "app/api/email", "app/app/emails", "components/email", "app/api/cron/process-scheduled-emails"]
+const code = ["lib/automations", "lib/email-campaigns", "lib/contacts", "app/api/automations", "app/api/email", "app/(storelib)/app/emails", "components/email", "app/api/cron/process-scheduled-emails"]
   .flatMap((d) => walk(join(root, d)))
   .map((f) => readFileSync(f, "utf8"))
   .join("\n")

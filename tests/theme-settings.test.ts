@@ -76,7 +76,7 @@ const CONSUMERS = [
   "components/website-builder/sections/renderers/HeaderSection.tsx",
   "components/website-builder/sections/renderers/FooterSection.tsx",
   "app/(site)/w/[username]/render-site.tsx",
-  "app/(marketing)/[sellername]/page.tsx",
+  "app/(storelib)/(marketing)/[sellername]/page.tsx",
   "components/website-builder/theme/render-product.tsx",
   /* The announcement bar's messages and timing, read for ThemePage. */
   "lib/website-builder/announcement.ts",
@@ -282,7 +282,7 @@ section("One page, four surfaces")
   // Not the apex route: `storelib.com/<name>` is the creator's page and
   // draws no theme. The website is `<name>.storelib.com`, served by /w.
   const surfaces = [
-    "app/website-builder/editor/[installId]/page.tsx",
+    "app/(storelib)/website-builder/editor/[installId]/page.tsx",
     "app/(site)/w/[username]/render-site.tsx",
     "components/website-builder/theme/render-product.tsx",
   ]

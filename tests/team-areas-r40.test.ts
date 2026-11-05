@@ -101,7 +101,7 @@ async function main() {
     check("  Pro settings are checked against the owner's plan, and the photo is the owner's", /paidPlan\(ownerId\)/.test(main) && /db\.from\("profiles"\)\.select\("avatar_url"\)\.eq\("id", ownerId\)/.test(main) && /db\.from\("profiles"\)\.select\("avatar_url"\)\.eq\("id", ownerId\)/.test(publish))
     check("signups (people's emails) need Customers as well as OnePage", /permits\(actor\.acting\.permissions, "customers"\)/.test(read("app/api/onepage/leads/route.ts")))
 
-    const page = read("app/app/onepage/page.tsx")
+    const page = read("app/(storelib)/app/onepage/page.tsx")
     check("the editor page asks teamPageStore(\"onepage\") and draws the access card when refused", page.includes('teamPageStore("onepage")') && /<TeamAreaClosed area="onepage" store=\{access\.acting\.name\} permissions=\{access\.acting\.permissions\} \/>/.test(page))
     check("  a member gets the owner's page, read by the owner's account with the service role", /if \(access\.kind === "store" && !access\.isOwner && access\.acting\)/.test(page) && /admin\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", ownerUserId\)/.test(page) && /\.eq\("id", creatorId\)\.eq\("user_id", ownerUserId\)/.test(page))
     check("  and the editor is told whose store (team prop)", /<OnePageEditor initialOnePage=\{onepage as OnePage\} team=\{team\} \/>/.test(page))
@@ -177,8 +177,8 @@ async function main() {
     check("the page gate asks the team first, and the owner's path is unchanged", /const team = await teamStoreForRequest\(user\.id\)\.catch\(\(\) => null\)/.test(creator) && /if \(team\) return permits\(team\.acting\.permissions, "community"\) \? teamStaffContext\(/.test(creator) && /return staffContext\(admin\(\), key, user\.id, creatorForRequest\(user\.id\)\)/.test(creator))
     const list = read("app/api/app/community/route.ts")
     check("a member lists the store's communities, and cannot make a new one", /loadCreatorCommunities\(ctx\.admin, ctx\.creatorId, ctx\.userId, \{ team: ctx\.isOwner === false \}\)/.test(list) && /if \(ctx\.isOwner === false\) return NextResponse\.json\(\{ error: "Only the store's owner can make a new community\." \}, \{ status: 403/.test(list))
-    check("the list page and the new page ask teamPageStore(\"community\")", read("app/app/community/page.tsx").includes('teamPageStore("community")') && read("app/app/community/new/page.tsx").includes('teamPageStore("community")') && /redirect\("\/app\/community"\)/.test(read("app/app/community/new/page.tsx")))
-    check("  the list hides New community for them", /canCreate=\{false\}/.test(read("app/app/community/page.tsx")) && /rows\.length > 0 && canCreate \?/.test(read("components/community/creator/community-list.tsx")))
+    check("the list page and the new page ask teamPageStore(\"community\")", read("app/(storelib)/app/community/page.tsx").includes('teamPageStore("community")') && read("app/(storelib)/app/community/new/page.tsx").includes('teamPageStore("community")') && /redirect\("\/app\/community"\)/.test(read("app/(storelib)/app/community/new/page.tsx")))
+    check("  the list hides New community for them", /canCreate=\{false\}/.test(read("app/(storelib)/app/community/page.tsx")) && /rows\.length > 0 && canCreate \?/.test(read("components/community/creator/community-list.tsx")))
     check("permits is what decides, as everywhere", permits(["community"], "community") && !permits(["onepage"], "community"))
   }
 

@@ -165,36 +165,36 @@ async function main() {
   console.log("\n4. The frames\n")
   {
     /* Offers */
-    for (const f of ["app/app/offers/new/page.tsx", "app/app/offers/[id]/page.tsx", "app/app/offers/new/layout.tsx", "app/app/offers/[id]/layout.tsx"]) check(`offers: ${f} exists`, has(f))
-    check("offers: a layer of its own on a phone, a page in the shell from md, as a coupon", ["app/app/offers/new/layout.tsx", "app/app/offers/[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(code(f))))
-    check("offers: no route loading boundary, as every /app page", !has("app/app/offers/loading.tsx") && !has("app/app/offers/new/loading.tsx") && !has("app/app/offers/[id]/loading.tsx"))
-    const newPage = code("app/app/offers/new/page.tsx")
+    for (const f of ["app/(storelib)/app/offers/new/page.tsx", "app/(storelib)/app/offers/[id]/page.tsx", "app/(storelib)/app/offers/new/layout.tsx", "app/(storelib)/app/offers/[id]/layout.tsx"]) check(`offers: ${f} exists`, has(f))
+    check("offers: a layer of its own on a phone, a page in the shell from md, as a coupon", ["app/(storelib)/app/offers/new/layout.tsx", "app/(storelib)/app/offers/[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(code(f))))
+    check("offers: no route loading boundary, as every /app page", !has("app/(storelib)/app/offers/loading.tsx") && !has("app/(storelib)/app/offers/new/loading.tsx") && !has("app/(storelib)/app/offers/[id]/loading.tsx"))
+    const newPage = code("app/(storelib)/app/offers/new/page.tsx")
     check("offers: ?kind= starts a bundle, an upsell or a quantity break; anything else a bundle", /const KINDS: readonly OfferKind\[\] = \["bundle", "checkout", "quantity_break"\]/.test(newPage) && /: "bundle"/.test(newPage))
-    const idPage = code("app/app/offers/[id]/page.tsx")
+    const idPage = code("app/(storelib)/app/offers/[id]/page.tsx")
     check("offers: an id that is not one of this store's goes back to the list", /if \(!UUID\.test\(id\)\) redirect\("\/app\/offers"\)/.test(idPage) && /a\.offers\.find\(\(o\) => o\.id === id\)/.test(idPage) && /if \(!offer\) redirect\("\/app\/offers"\)/.test(idPage))
-    check("offers: every read is this creator's", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(code("app/app/offers/load-offers.ts")))
-    const editor = code("app/app/offers/offer-editor.tsx")
+    check("offers: every read is this creator's", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(code("app/(storelib)/app/offers/load-offers.ts")))
+    const editor = code("app/(storelib)/app/offers/offer-editor.tsx")
     check("offers: the editor is not a dialog or a sheet", !/SheetDialog|BottomSheet|<Dialog|Modal/.test(editor))
     check("offers: a bar with Cancel or Back and Save under lg, a header and a foot bar from lg", /data-editor-bar=""/.test(editor) && /data-editor-head=""/.test(editor) && /data-editor-foot=""/.test(editor) && /<LeaveButton mode=\{leaveMode\}/.test(editor))
     check("offers: leaving with changes asks, a new one too", /Discard changes\?/.test(editor) && /Discard this offer\?/.test(editor))
     check("offers: a save and a delete go back to the list with what they did", /offersReturn\.leave\(router, \{ id: saved\?\.id \?\? offer\?\.id \?\? null, saved,/.test(editor) && /offersReturn\.leave\(router, \{ id: offer\.id, deleted: true,/.test(editor))
     check("offers: the kind is kept in the address while it changes", /window\.history\.replaceState\(window\.history\.state, "", newOfferHref\(k\)\)/.test(editor))
-    const list = code("app/app/offers/offers-client.tsx")
+    const list = code("app/(storelib)/app/offers/offers-client.tsx")
     check("offers: the list opens a page, not an editor over itself", /offersReturn\.open\(router, offer \? offerHref\(offer\.id\) : newOfferHref\(kind\)\)/.test(list) && !/<OfferEditor/.test(list))
     check("offers: and lays the page's change over its rows, then reads them again", /rowsWithReturn\(initialOffers, offersReturn\.peek\(\)\)/.test(list) && /const back = offersReturn\.take\(\)/.test(list) && /router\.refresh\(\)/.test(list))
     check("offers: a slow navigation to it keeps the page you are on", /\^\\\/app\\\/offers\\\/\[\^\/\]\+\(\\\/\|\$\)/.test(read("lib/ui/app-navigation.ts")))
 
     /* Coupons: already sub pages; their physical options now look like the rest of the form. */
-    check("coupons: new and saved are pages of their own", has("app/app/coupons/new/page.tsx") && has("app/app/coupons/[id]/page.tsx") && !has("app/app/coupons/loading.tsx"))
+    check("coupons: new and saved are pages of their own", has("app/(storelib)/app/coupons/new/page.tsx") && has("app/(storelib)/app/coupons/[id]/page.tsx") && !has("app/(storelib)/app/coupons/loading.tsx"))
     const options = code("components/physical/coupon-options.tsx")
     check("coupons: the shipping options are the form's grouped switches", /<div className=\{SWITCH_GROUP\}>/.test(options) && (options.match(/<SwitchRow /g) ?? []).length === 3 && !/<Toggle /.test(options))
 
     /* Size charts */
-    for (const f of ["app/app/products/size-charts/new/page.tsx", "app/app/products/size-charts/[id]/page.tsx"]) check(`size charts: ${f} exists`, has(f))
-    check("size charts: the same frame, and physical commerce only", ["app/app/products/size-charts/new/layout.tsx", "app/app/products/size-charts/[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(code(f))) && /await requirePhysicalPage\(\)/.test(code("app/app/products/size-charts/load-size-charts.ts")))
-    const chartList = code("app/app/products/size-charts/size-charts-client.tsx")
+    for (const f of ["app/(storelib)/app/products/size-charts/new/page.tsx", "app/(storelib)/app/products/size-charts/[id]/page.tsx"]) check(`size charts: ${f} exists`, has(f))
+    check("size charts: the same frame, and physical commerce only", ["app/(storelib)/app/products/size-charts/new/layout.tsx", "app/(storelib)/app/products/size-charts/[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(code(f))) && /await requirePhysicalPage\(\)/.test(code("app/(storelib)/app/products/size-charts/load-size-charts.ts")))
+    const chartList = code("app/(storelib)/app/products/size-charts/size-charts-client.tsx")
     check("size charts: the list opens a page", /sizeChartsReturn\.open\(router, chart \? sizeChartHref\(chart\.id\) : newSizeChartHref\(\)\)/.test(chartList) && !/<SizeChartEditor/.test(chartList))
-    const chartPage = code("app/app/products/size-charts/size-chart-page.tsx")
+    const chartPage = code("app/(storelib)/app/products/size-charts/size-chart-page.tsx")
     check("size charts: the page draws the shared fields as cards, saves and deletes through the API", /<SizeChartFields state=\{state\} uploadImage=\{upload\} targets=\{targets\} rules=\{rules\} card=\{CARD\}/.test(chartPage) && /\/api\/size-charts\/\$\{chart\.id\}/.test(chartPage) && /method: "DELETE"/.test(chartPage))
     const form = code("components/physical/size-chart-form.tsx")
     check("size charts: the table's keys and paste are wired", /onKeyDown=\{\(e\) => onCellKey\(e, r, c\)\}/.test(form) && /onPaste=\{\(e\) => onCellPaste\(e, r, c\)\}/.test(form) && /data-size-chart-row-up=/.test(form) && /data-size-chart-row-down=/.test(form))
@@ -204,17 +204,17 @@ async function main() {
     /* Buttons with depth */
     const ui = code("components/physical/ui.tsx")
     check("the physical pages' buttons wear the app's depth", /export const BTN_PRIMARY = cn\(primaryDepth,/.test(ui) && /export const BTN_SECONDARY = cn\(secondaryDepth,/.test(ui) && /export const BTN_DANGER = cn\(secondaryDepth,/.test(ui))
-    const pages = ["app/app/offers/offer-editor.tsx", "app/app/offers/offer-fields.tsx", "app/app/products/size-charts/size-chart-page.tsx", "components/physical/size-chart-form.tsx"].map(code).join("\n")
+    const pages = ["app/(storelib)/app/offers/offer-editor.tsx", "app/(storelib)/app/offers/offer-fields.tsx", "app/(storelib)/app/products/size-charts/size-chart-page.tsx", "components/physical/size-chart-form.tsx"].map(code).join("\n")
     /* The keyboard ring is the app's own violet (components/ui/depth-button.ts, Segmented): only what is drawn at rest counts. */
     check("no violet, no gradient, no glass on the new pages", !/#8b5cf6|#7c3aed|gradient|backdrop-blur/i.test(pages.replace(/focus-visible:[^\s"]+/g, "")))
-    const said = ["app/app/offers/offer-editor.tsx", "app/app/products/size-charts/size-chart-page.tsx", "components/physical/size-chart-form.tsx", "lib/checkout/coupon-scope.ts"].map(read).join("\n")
+    const said = ["app/(storelib)/app/offers/offer-editor.tsx", "app/(storelib)/app/products/size-charts/size-chart-page.tsx", "components/physical/size-chart-form.tsx", "lib/checkout/coupon-scope.ts"].map(read).join("\n")
     check("no em dash and none of the banned words", !/—/.test(said) && !/\b(unlock|elevate|seamless|powerful|effortless|supercharge|transform)/i.test(said))
 
     /* Inventory */
     const inv = code("lib/physical/inventory-server.ts")
     check("inventory: variants read in batches, so a large shop's ids fit the address", /for \(let i = 0; i < productIds\.length; i \+= VARIANT_BATCH\)/.test(inv) && /export const VARIANT_BATCH = 200/.test(inv))
-    check("inventory: ?filter= is read by the server, so both sides draw the same first frame", /<InventoryClient initialView=/.test(code("app/app/inventory/page.tsx")) && !/window\.location\.search/.test(code("app/app/inventory/inventory-client.tsx")))
-    check("inventory: what saved before a later failure is shown at once", /if \(settingsChanged\) onDone\(\)/.test(code("app/app/inventory/inventory-client.tsx")))
+    check("inventory: ?filter= is read by the server, so both sides draw the same first frame", /<InventoryClient initialView=/.test(code("app/(storelib)/app/inventory/page.tsx")) && !/window\.location\.search/.test(code("app/(storelib)/app/inventory/inventory-client.tsx")))
+    check("inventory: what saved before a later failure is shown at once", /if \(settingsChanged\) onDone\(\)/.test(code("app/(storelib)/app/inventory/inventory-client.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

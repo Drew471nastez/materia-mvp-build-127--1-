@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE /sell PAGES' SCREENSHOTS, TAKEN FROM THE REAL PRODUCT EDITOR
  * ===========================================================================
- * The product editor (app/app/products/new/product-editor.tsx), mounted by
+ * The product editor (app/(storelib)/app/products/new/product-editor.tsx), mounted by
  * scripts/render-product-editor.tsx from the demo product it holds (a preset
  * pack by a made up photographer), bundled the way
  * scripts/check-product-editor.mjs bundles it, with every network request

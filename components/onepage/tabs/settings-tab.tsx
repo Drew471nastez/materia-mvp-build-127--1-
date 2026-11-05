@@ -17,7 +17,7 @@ import { BADGE_TYPES, checkPageSlug } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { getFeeDescription } from "@/lib/billing/fee-calculator"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { StatusBadge, card as APP_CARD } from "@/app/app/orders/order-parts"
+import { StatusBadge, card as APP_CARD } from "@/app/(storelib)/app/orders/order-parts"
 import { tt } from "@/lib/i18n/text"
 import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 

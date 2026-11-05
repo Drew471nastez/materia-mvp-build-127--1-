@@ -123,7 +123,7 @@ export function AccountDemo() {
   const avatarUrl = flag("__photo") ? PHOTO : null
   const coverUrl = flag("__cover") ? COVER : null
   return (
-    /* The layout's main column: the hub draws the profile's 960px column itself now, under a cover that runs edge to edge (app/account/layout.tsx). */
+    /* The layout's main column: the hub draws the profile's 960px column itself now, under a cover that runs edge to edge (app/(storelib)/account/layout.tsx). */
     <div className="min-w-0" data-probe-account-column="">
       <AccountHub identity={{ userId: "u1", name, username, avatarUrl, bio, coverUrl, followers: 12, following: 30, creator: !!flag("__creator") }} communities={flag("__communities") !== false}>
         {path.startsWith("/account/settings") ? (

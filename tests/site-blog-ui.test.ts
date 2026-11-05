@@ -149,7 +149,7 @@ async function main() {
 
     const sidebar = ["components/app/sidebar.tsx", "components/app/sidebar-desktop-nav.tsx", "components/app/sidebar-mobile-nav.tsx"].map(code).join("\n")
     check("nothing added to the app's sidebar", !/\bblog\b/i.test(sidebar) && !/settings=blog/.test(sidebar))
-    const websitePage = readdirSync(join(root, "app/app/website-builder")).filter((f) => /\.tsx?$/.test(f)).map((f) => code(`app/app/website-builder/${f}`)).join("\n")
+    const websitePage = readdirSync(join(root, "app/(storelib)/app/website-builder")).filter((f) => /\.tsx?$/.test(f)).map((f) => code(`app/(storelib)/app/website-builder/${f}`)).join("\n")
     check("no tab for it on the Website page", !/settings=blog\b/.test(websitePage) && !/\bBlogSettings\b/.test(websitePage) && !/\btt\("Blog"\)/.test(websitePage))
     const walk = (dir: string): string[] =>
       readdirSync(join(root, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? (d.name === "node_modules" ? [] : walk(`${dir}/${d.name}`)) : /\.tsx?$/.test(d.name) ? [`${dir}/${d.name}`] : []))
@@ -377,7 +377,7 @@ async function main() {
     ]
     check("the admin's menu is word for word what it was, in its order", ed.includes(`const MENU: { type: BlockType; label: string; hint: string; keys: string }[] = [\n${ORIGINAL_MENU.join("\n")}\n]`))
     check("the old props are as they were, the new ones optional", /onUpload: \(file: File\) => Promise<string>/.test(ed) && /onImport\?: \(url: string\) => Promise<string>/.test(ed) && /snippetsNote\?: string \| null/.test(ed) && /types\?: readonly BlockType\[\]/.test(ed) && /label\?: \(english: string\) => string/.test(ed))
-    const admin = code("app/admin/blog/posts/_editor-client.tsx")
+    const admin = code("app/(storelib)/admin/blog/posts/_editor-client.tsx")
     check("storelib.com's admin passes none of them", /<BlogEditor/.test(admin) && !/\btypes=\{/.test(admin) && !/\blabel=\{/.test(admin.slice(admin.indexOf("<BlogEditor"), admin.indexOf("/>", admin.indexOf("<BlogEditor")))))
     const plain = menuSetup()
     check("  so its menu has every block it had, and no gallery or button", plain.menu.length === 16 && !plain.menu.some((m) => m.type === "gallery" || m.type === "button") && plain.allows("snippet") && plain.label("Text") === "Text")

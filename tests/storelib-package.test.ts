@@ -218,7 +218,7 @@ async function main() {
   {
     const exportRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/export/route.ts"), "utf8")
     const importRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/import/route.ts"), "utf8")
-    const client = readFileSync(join(process.cwd(), "app/app/website-builder/website-builder-client.tsx"), "utf8")
+    const client = readFileSync(join(process.cwd(), "app/(storelib)/app/website-builder/website-builder-client.tsx"), "utf8")
 
     /* Its templates and its header and footer group files come from lib/website-builder/theme-pages.ts, which writes them with templateFromSections. */
     check("export builds a package through the engine, not a zip of its own", /buildPackage\(\{/.test(exportRoute) && /packageFilesFromPages\(/.test(exportRoute) && /templateFromSections\(/.test(readFileSync(join(process.cwd(), "lib/website-builder/theme-pages.ts"), "utf8")))

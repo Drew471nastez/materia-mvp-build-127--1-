@@ -6,10 +6,10 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { FlowChooser } from "@/app/app/emails/flow/new/chooser"
-import { FlowBuilder, type BuilderData } from "@/app/app/emails/flow/[id]/builder"
-import { EmailsHome, type EmailsTab, type SubscriberRow } from "@/app/app/emails/emails-home"
-import { ContactPage } from "@/app/app/emails/contact-detail"
+import { FlowChooser } from "@/app/(storelib)/app/emails/flow/new/chooser"
+import { FlowBuilder, type BuilderData } from "@/app/(storelib)/app/emails/flow/[id]/builder"
+import { EmailsHome, type EmailsTab, type SubscriberRow } from "@/app/(storelib)/app/emails/emails-home"
+import { ContactPage } from "@/app/(storelib)/app/emails/contact-detail"
 import { PageLayer } from "@/components/app/page-layer"
 import { Toaster } from "@/components/ui/toaster"
 import { resolveValue, todayIn } from "@/lib/date-range/range"
@@ -177,11 +177,11 @@ function Subscribers() {
 }
 
 /**
- * The shell as app/app/layout.tsx draws it, reduced to what the pages sit
+ * The shell as app/(storelib)/app/layout.tsx draws it, reduced to what the pages sit
  * in: the black bar (68px on a phone, 58px from 768px, marked as the shell's
  * chrome so the real stylesheet hides it under a phone layer) and the
  * content area under it. The flow pages are inside their real layout
- * (app/app/emails/flow/layout.tsx: PageLayer), the way the router puts them.
+ * (app/(storelib)/app/emails/flow/layout.tsx: PageLayer), the way the router puts them.
  */
 function Shell({ layer, children }: { layer: boolean; children: React.ReactNode }) {
   return (

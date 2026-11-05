@@ -121,7 +121,7 @@ async function main() {
     check("the shop says its page", /pageNumber: pageNumberOf\(asked\.page\)/.test(read(`${routes}/products/shop-page.tsx`)))
     check("a product page", /siteTabTitle\(\{ page: \{ kind: "product", name \}, storeName: site\.brand, ownTitle \}\)/.test(read("components/website-builder/theme/render-product.tsx")))
     check("the 404", /siteTabTitle\(\{ page: \{ kind: "not-found" \}/.test(read("lib/website-builder/published-site.ts")))
-    check("the checkout", /tabTitleTemplate\(brand\.name\)/.test(read("app/checkout/site/layout.tsx")) && !/·/.test(read("app/checkout/site/layout.tsx").replace(/\/\*[\s\S]*?\*\//g, "")))
+    check("the checkout", /tabTitleTemplate\(brand\.name\)/.test(read("app/(storelib)/checkout/site/layout.tsx")) && !/·/.test(read("app/(storelib)/checkout/site/layout.tsx").replace(/\/\*[\s\S]*?\*\//g, "")))
     check("an imported theme's live page", /withTabTitle\(out, tabTitleOf\(site, route\.page, route\.ownTitle\)\)/.test(read("lib/storelib-theme/compat/site.ts")))
     const seo = read("components/website-builder/website-settings/seo.tsx")
     check("SEO & Social previews with it", /siteTabTitle\(\{ page: \{ kind: "home" \}, storeName: store, siteTitle:/.test(seo) && /<BrowserTabPreview/.test(seo))
@@ -129,7 +129,7 @@ async function main() {
     check("Pages previews each page with it", /siteTabTitle\(\{ page: key === "404"/.test(read("components/website-builder/website-settings/pages.tsx")))
     /* Changed on purpose (round V): the owner did not want a browser tab drawn beside the favicon tile; SEO & Social keeps its tab preview. */
     check("General's favicon row is the tile and its actions, no tab drawn beside it", !/BrowserTabPreview/.test(read("components/website-builder/website-settings/general.tsx")) && /layout="icon"/.test(read("components/website-builder/website-settings/general.tsx")))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("an empty site title is no longer filled with '{username} | Storelib'", !/const canonical = `\$\{handle\} \| Storelib`/.test(editor) && /NO MADE UP SITE TITLE/.test(editor))
     /* Changed on purpose (round I): "{username} | Storelib", the one the editor wrote most, is cleared as an old default too. */
     check("only the titles the editor wrote itself are cleared", /current === "My Store \| Storelib" \|\| madeUp\.includes\(current\.toLowerCase\(\)\)/.test(editor) && /\[inst\.name, data\.username, data\.siteHandle\]/.test(editor))

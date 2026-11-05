@@ -80,7 +80,7 @@ console.log("\nTHE CONTROL")
 
 console.log("\nEVERY SELECT SETTING THE SIDEBAR DRAWS")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("a schema's select (Storelib themes, imported themes' settings_schema and sections)", /if \(kind === "select"\) \{\s*return <EchoSelect [^\n]*label=\{field\.label\} \/>/.test(editor))
   check("a schema's radio, by the same rule", /if \(kind === "radio"\) \{\s*return <EchoSelect [^\n]*label=\{field\.label\} \/>/.test(editor) && !/if \(opts\.length > 3\)/.test(editor))
   check("alignment (and text_alignment): three buttons", /if \(kind === "alignment"\) \{[\s\S]{0,400}return <EchoSelect value=\{current\}/.test(editor))

@@ -9,14 +9,14 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
+import { PhysicalCheckout } from "@/app/(storelib)/checkout/physical/physical-checkout"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
-import { InventoryClient } from "@/app/app/inventory/inventory-client"
+import { InventoryClient } from "@/app/(storelib)/app/inventory/inventory-client"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
-import { CollectionPage } from "@/app/app/products/collections/collection-editor"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
+import { CollectionPage } from "@/app/(storelib)/app/products/collections/collection-editor"
 import { ArticleBody } from "@/components/help/help-parts"
 import { helpArticle } from "@/lib/help/articles"
 
@@ -61,7 +61,7 @@ function App() {
     case "collections":
       return (
         <div className="h-screen">
-          {/* A collection's own page (app/app/products/collections/[id]), handed what its server page reads. */}
+          {/* A collection's own page (app/(storelib)/app/products/collections/[id]), handed what its server page reads. */}
           <CollectionPage
             collection={{ id: "c1", title: "Summer", slug: "summer", description: null, imageUrl: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }}
             products={[{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500, tags: ["summer"] }]}

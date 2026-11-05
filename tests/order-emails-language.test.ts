@@ -75,7 +75,7 @@ const origin = cleanOrigin({ surface: "website", site: "bread.studio", lang: "fr
 check("the origin keeps the language", origin?.lang === "fr")
 check("  through the payment's metadata and back", decodeOrigin(encodeOrigin(origin))?.lang === "fr")
 check("  never anything that is not a language", cleanOrigin({ surface: "website", lang: "<script>" })?.lang === undefined)
-check("the checkout sends it with the order", /origin: pageLang \? \{ \.\.\.\(checkoutOrigin\(shopId\) \?\? \{\}\), lang: pageLang \}/.test(read("app/checkout/site/site-checkout.tsx")))
+check("the checkout sends it with the order", /origin: pageLang \? \{ \.\.\.\(checkoutOrigin\(shopId\) \?\? \{\}\), lang: pageLang \}/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
 const jobs = read("lib/physical/jobs-server.ts")
 /* Changed on purpose: by where it was bought (lib/emails/buyer-channel.ts): the website's language for an order on the website, English for one on Storelib (tests/emails-language.test.ts). */
 check("every order email is built in it", /buyerEmailLanguage\(co\.creator_id, buyerChannel\(\{ family: "physical", surface: co\.origin\?\.surface, lang: co\.origin\?\.lang \}\), co\.origin\?\.lang\)/.test(jobs) && (jobs.match(/mail = say\(\(\) =>/g) ?? []).length === 8)

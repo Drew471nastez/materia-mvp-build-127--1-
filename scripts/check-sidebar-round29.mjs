@@ -110,14 +110,14 @@ export const isNativePlatform = () => false
   /* The harness draws the shell with the layout's own classes. */
   console.log("\nThe harness is the layout\n")
   {
-    const layout = readFileSync(join(root, "app/app/layout.tsx"), "utf8")
+    const layout = readFileSync(join(root, "app/(storelib)/app/layout.tsx"), "utf8")
     const harness = readFileSync(join(root, "scripts/render-sidebar-round29.tsx"), "utf8")
     const cls = (src, re) => re.exec(src)?.[1]
     const mainL = cls(layout, /<main className="([^"]+)"/)
     const mainH = cls(harness, /MAIN_CLASS =\s*"([^"]+)"/)
     const rootL = cls(layout, /<div className="([^"]+)" data-app-rail=\{rail\}/)
     const rootH = cls(harness, /ROOT_CLASS = "([^"]+)"/)
-    expect(!!mainL && mainL === mainH, "the page's <main> has app/app/layout.tsx's classes", mainL === mainH ? undefined : { mainL, mainH })
+    expect(!!mainL && mainL === mainH, "the page's <main> has app/(storelib)/app/layout.tsx's classes", mainL === mainH ? undefined : { mainL, mainH })
     expect(!!rootL && rootL === rootH, "and so has the shell's root", rootL === rootH ? undefined : { rootL, rootH })
   }
 

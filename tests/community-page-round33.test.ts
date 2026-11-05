@@ -103,7 +103,7 @@ console.log("\nDRAFT: the preview and Save")
 console.log("\nSOURCE: the route, the description, Membership, the signed out menu")
 {
   check("/app/community/<slug>/page is the Page section", adminSectionOf("/app/community/clay/page") === "page" && adminSectionOf("/app/community/clay/settings") === "settings")
-  const route = code("app/app/community/[id]/page/page.tsx")
+  const route = code("app/(storelib)/app/community/[id]/page/page.tsx")
   check("the route gates on manage_settings and hands its section to the shell", /sectionPage\(id, "manage_settings"\)/.test(route) && /<SectionSeed id="page">/.test(route) && /* Changed on purpose (round 37): the frame names the community in the editor's own bar. */ /<SectionFrame id="page" facts=\{\{ title: ctx\.community\.name \}\} \/>/.test(route))
   const panels = code("components/community/creator/page-editor/panels.tsx")
   check("the description is the product editor's rich text field, with pictures and its size check", /<RichTextEditor/.test(panels) && /uploadImage=\{\(file\) => uploadDescriptionImage\(file,/.test(panels) && /checkSize=\{descriptionTooLong\}/.test(panels))

@@ -208,7 +208,7 @@ async function main() {
   console.log("\nThe first page, drawn once (round G)\n")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("not drawn before the install's .storelib files are in (drawn without its layout it was a white page, then the real page loaded over it)", /const rows = useMemo\(\(\) => \(compatFiles && sourcesReady \?/.test(canvas) && /sourcesReady=\{storelibSourcesRead\}/.test(editor) && /finally \{\s*setStorelibSourcesRead\(true\)/.test(editor))
     check("the first page waits for the shop's cards, DATA_WAIT_MS at most, rather than being drawn again when they come", /const holdForData = props\.dataReady === false && !dataWaitOver && slots\.length === 0/.test(canvas) && /setTimeout\(\(\) => setDataWaitOver\(true\), DATA_WAIT_MS\)/.test(canvas) && /if \(!compatTheme \|\| holdForData\) return/.test(canvas) && /dataReady=\{liveCardsRead\}/.test(editor) && /finally \{\s*setLiveCardsRead\(true\)/.test(editor))
     check("a change to the same page while it loads is sent to it when it is ready, never a second copy loaded behind it", /if \(plan && !now\.ready\) \{\s*stale\.current = true\s*return\s*\}/.test(canvas) && /if \(isFront && stale\.current\) drawAndPatchRef\.current\(\)/.test(canvas))
@@ -227,7 +227,7 @@ async function main() {
 
   console.log("\nThe editor (editor/[installId]/page.tsx)\n")
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     /* Since the cut between pages (canvas-still.ts swapCanvasPage), no page on the canvas is faded at all, and an imported theme's canvas is not even held: its frames hand over on their own. */
     check("an imported theme's canvas is not dimmed when the page changes", !/getElementById\("wb-preview-root"\)\?\.firstElementChild[\s\S]{0,400}\.animate\(\[\{ opacity/.test(editor) && (editor.match(/if \(!importedTheme\.current\) swapCanvasPage\(show\)\s*\n\s*else show\(\)/g) ?? []).length === 2 && !/opacity/.test(read("lib/website-builder/canvas-still.ts")))
     /* Round 16, the owner: no skeleton while the editor opens. The list's place is empty on the first load, and a page switch keeps its list. */

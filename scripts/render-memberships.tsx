@@ -20,7 +20,7 @@ import { createRoot } from "react-dom/client"
 import { MembershipsList } from "@/components/memberships/library-list"
 import { MemberPage } from "@/components/memberships/member-page"
 import { CreatorMembershipScreenView } from "@/components/memberships/creator-screen"
-import MembershipCheckout from "@/app/checkout/membership-checkout"
+import MembershipCheckout from "@/app/(storelib)/checkout/membership-checkout"
 import { describeStatus } from "@/lib/memberships/state"
 import type { CreatorMembershipScreen, MembershipCard, MembershipPage } from "@/lib/memberships/view-types"
 

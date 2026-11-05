@@ -156,11 +156,11 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     for (const f of [
-      "app/admin/blog/page.tsx",
-      "app/admin/blog/dashboard/page.tsx",
-      "app/admin/blog/seo/page.tsx",
-      "app/admin/blog/posts/new/page.tsx",
-      "app/admin/blog/posts/[id]/page.tsx",
+      "app/(storelib)/admin/blog/page.tsx",
+      "app/(storelib)/admin/blog/dashboard/page.tsx",
+      "app/(storelib)/admin/blog/seo/page.tsx",
+      "app/(storelib)/admin/blog/posts/new/page.tsx",
+      "app/(storelib)/admin/blog/posts/[id]/page.tsx",
       "app/api/admin/blog/posts/route.ts",
       "app/api/admin/blog/posts/[id]/route.ts",
       "app/api/admin/spam-purge/route.ts",

@@ -121,8 +121,8 @@ connection.
 ## 5. New surface
 
 ```
-app/app/sites/                    dashboard, new-site flow, settings
-app/sites/[siteId]/               the editor (its own route, outside /app's chrome)
+app/(storelib)/app/sites/                    dashboard, new-site flow, settings
+app/(storelib)/sites/[siteId]/               the editor (its own route, outside /app's chrome)
 app/api/sites/…                   projects, files, build, publish, agent
 lib/sites/                        types, plan gates (exists), project ops, starter templates
 components/sites/                 dashboard cards, editor shell, chat, file tree
@@ -184,7 +184,7 @@ Merged last turn under the section-JSON design:
   hostname rules are the same either way.
 - `lib/sites/types.ts`, `lib/sites/queries.ts` — **replaced**. They describe
   sections.
-- `app/(marketing)/s/[slug]/[[...page]]` — **repointed**, not deleted. Same URL
+- `app/(storelib)/(marketing)/s/[slug]/[[...page]]` — **repointed**, not deleted. Same URL
   shape; it serves built static output instead of rendering sections.
 
 ---

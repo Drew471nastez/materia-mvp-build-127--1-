@@ -7,7 +7,7 @@ import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { keyboardInsetOrFloor, writeRootLater } from "@/lib/ui/keyboard-safe-sheet"
-import AppColdStart from "@/app/app/cold-start"
+import AppColdStart from "@/app/(storelib)/app/cold-start"
 import { revealAppFromDark } from "@/lib/appearance/client"
 import { revealIntoApp } from "@/lib/navigation/into-app-still"
 

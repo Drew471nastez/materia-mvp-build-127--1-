@@ -45,7 +45,7 @@ function taggedIn(src: string): string[] {
 function main() {
   const hook = read("components/app/use-tab-strip.ts")
   const home = read("components/app/dashboard-client.tsx")
-  const analytics = read("app/app/analytics/analytics-client.tsx")
+  const analytics = read("app/(storelib)/app/analytics/analytics-client.tsx")
   const tabSrc = read("components/app/metric-tab.tsx")
   const probe = read("scripts/check-tab-strip.mjs")
 

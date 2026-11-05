@@ -6,7 +6,7 @@
 import { createElement } from "react"
 import { createRoot } from "react-dom/client"
 
-import { ThemesMarketplace } from "@/app/(marketing)/themes/themes-marketplace"
+import { ThemesMarketplace } from "@/app/(storelib)/(marketing)/themes/themes-marketplace"
 import { probeListings } from "./theme-marketplace-fixtures"
 
 const cover = (window as unknown as { __COVER__?: string }).__COVER__ ?? ""

@@ -9,7 +9,7 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
-import { CommunitiesAdmin, type AdminCommunity, type AdminReport, type OverviewAnswer } from "@/app/admin/communities/communities-admin"
+import { CommunitiesAdmin, type AdminCommunity, type AdminReport, type OverviewAnswer } from "@/app/(storelib)/admin/communities/communities-admin"
 
 const NOW = Date.now()
 const iso = (hoursAgo: number) => new Date(NOW - hoursAgo * 3_600_000).toISOString()

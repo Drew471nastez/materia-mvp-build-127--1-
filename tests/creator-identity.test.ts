@@ -233,7 +233,7 @@ async function main() {
   console.log("\nEvery public surface reads the one resolver")
   {
     /* The page, and the loader its metadata and share image read (lib/onepage/published-page), as one. */
-    const onepage = readCode("app/(marketing)/l/[slug]/page.tsx") + readCode("lib/onepage/published-page.ts")
+    const onepage = readCode("app/(storelib)/(marketing)/l/[slug]/page.tsx") + readCode("lib/onepage/published-page.ts")
     const seoLib = readCode("lib/onepage/seo.ts")
     check("the OnePage metadata builds its title and icon from the shape the body is drawn from", onepage.includes("const drawn = publishedShape(onepage, owner)") && onepage.includes("icon: drawn.avatar_url") && onepage.includes("name: drawn.title"))
     check("and the body is drawn from that same shape", onepage.includes("const transformedOnepage = publishedShape(onepage, owner"))
@@ -247,10 +247,10 @@ async function main() {
     check("the page body reads the same resolver", shape.includes("creatorName({") && shape.includes("creatorPhoto({"))
     check("and is given the live photo to fall back on", shape.includes("liveAvatarUrl"))
 
-    const product = readCode("app/(marketing)/p/[slug]/page.tsx")
+    const product = readCode("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("the product page prefers the live profile name", /sellerName = profile\?\.display_name \|\| profile\?\.full_name \|\| creator\.display_name/.test(product))
 
-    const creatorPage = readCode("app/(marketing)/u/[username]/page.tsx")
+    const creatorPage = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the creator page's share card passes over a provider's picture in the header", creatorPage.includes("keptPhoto(headerSettings?.avatarUrl)"))
     /* Round 12: the share card is drawn (/member/<handle>/share.png) from the profile's own photo, whatever it is. */
     check("but keeps the profile's own photo, whatever it is", creatorPage.includes("profile.avatar_url || avatarFromHeader"))

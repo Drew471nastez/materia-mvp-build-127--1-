@@ -9,7 +9,7 @@
  *
  * A production build (`next start`) reading the Supabase stub
  * (scripts/supabase-stub-server.mjs), signed in as one creator, in a real
- * Chromium, so the real App Router (app/app/@sheet/(.)settings over the page
+ * Chromium, so the real App Router (app/(storelib)/app/@sheet/(.)settings over the page
  * it was opened from) does what it does for the owner. On a computer
  * (1440x900): Products opened, the page under it marked, Settings opened from
  * the sidebar, every section pressed in the column in turn, the sheet closed,

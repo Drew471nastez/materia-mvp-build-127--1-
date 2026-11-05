@@ -125,14 +125,14 @@ async function main() {
       `${race.tables.store_theme_installs.length} installs`)
     check("  and both answer with the same one", !!a.installId && a.installId === b.installId && [a.created, b.created].filter(Boolean).length === 1)
 
-    const page = code("app/app/website-builder/page.tsx")
+    const page = code("app/(storelib)/app/website-builder/page.tsx")
     check("the website page seeds through the starter, not the old function that published",
       /ensureStarterWebsite\(createAdminClient\(\), creator\.id\)/.test(page) && !/initialize_creator_themes/.test(page))
     check("  only for a library read that came back empty", /if \(rows && rows\.length === 0\)/.test(page))
     check("the initialize route uses it too", /ensureStarterWebsite\(admin, creator\.id\)/.test(code("app/api/website-builder/initialize/route.ts")) &&
       !/initialize_creator_themes/.test(code("app/api/website-builder/initialize/route.ts")))
 
-    const client = code("app/app/website-builder/website-builder-client.tsx")
+    const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
     check("with nothing live and nothing that was, the first draft takes the big card",
       /const starter = live \|\| offline \? null : \(installs\.find\(\(i\) => i\.status === "draft"\) \?\? null\)/.test(client) && /data-starter-card=""/.test(client))
     check("  and is not listed again in the library", /i\.status !== "published" && i\.id !== starter\?\.id/.test(client))
@@ -167,7 +167,7 @@ async function main() {
     check("an anchor, an email, a script are not", ["#faq", "mailto:a@b.c", "javascript:void(0)", "tel:123"].every((h) => fileLinkHref(anchor({ href: h })) === null))
     check("nothing pressed, nothing to open", fileLinkHref(null) === null)
     check("a file link is still a link the canvas stops from leaving", leavesThePage(anchor({ href: "/x.pdf" })))
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the canvas opens it in a tab of its own, with the inspector off only",
       /const file = inspectorRef\.current \? null : fileLinkHref\(/.test(editor) && /window\.open\(new URL\(file, window\.location\.href\)\.href, "_blank", "noopener,noreferrer"\)/.test(editor))
     check("  after the rule that blocks every link has kept the builder where it is",

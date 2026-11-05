@@ -114,7 +114,7 @@ const courses: MyCourse[] = [
 ]
 
 function Shell({ children }: { children: React.ReactNode }) {
-  /* The library layout's container (app/library/layout.tsx). */
+  /* The library layout's container (app/(storelib)/library/layout.tsx). */
   return (
     <div className="min-h-svh bg-[#fafafa]">
       <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>

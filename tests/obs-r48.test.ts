@@ -22,14 +22,14 @@ import { guardLine, installConsoleGuard, isNextUncaughtPrint, NEXT_PRINT_HOLD_MS
 import { markLogged, wasLogged } from "@/lib/net/logged-once"
 import { heldByEarlierRun, recordCronRun, reportError } from "@/lib/observability/report"
 import { stripComments } from "./_source"
-import RootError from "@/app/error"
+import RootError from "@/app/(storelib)/error"
 import GlobalError from "@/app/global-error"
-import MarketingError from "@/app/(marketing)/error"
-import ShopError from "@/app/(marketing)/[sellername]/error"
+import MarketingError from "@/app/(storelib)/(marketing)/error"
+import ShopError from "@/app/(storelib)/(marketing)/[sellername]/error"
 import WebsiteError from "@/app/(site)/w/[username]/error"
-import CheckoutError from "@/app/checkout/error"
-import AuthError from "@/app/(auth)/error"
-import AdminError from "@/app/admin/error"
+import CheckoutError from "@/app/(storelib)/checkout/error"
+import AuthError from "@/app/(storelib)/(auth)/error"
+import AdminError from "@/app/(storelib)/admin/error"
 
 let passed = 0
 let failed = 0
@@ -180,20 +180,20 @@ async function main() {
   console.log("\nError boundaries: one per major segment, keeping its layout")
   {
     const SEGMENTS: [string, string][] = [
-      ["app/error.tsx", "everything without its own"],
+      ["app/(storelib)/error.tsx", "everything without its own"],
       ["app/global-error.tsx", "the root layout itself"],
-      ["app/app/error.tsx", "the dashboard (every /app screen, inside its shell)"],
-      ["app/(marketing)/error.tsx", "home, pricing, features, blog, explore, /p, community index"],
-      ["app/(marketing)/[sellername]/error.tsx", "a creator page and product page"],
-      ["app/(marketing)/community/[slug]/error.tsx", "a community"],
-      ["app/(marketing)/explore/error.tsx", "explore"],
+      ["app/(storelib)/app/error.tsx", "the dashboard (every /app screen, inside its shell)"],
+      ["app/(storelib)/(marketing)/error.tsx", "home, pricing, features, blog, explore, /p, community index"],
+      ["app/(storelib)/(marketing)/[sellername]/error.tsx", "a creator page and product page"],
+      ["app/(storelib)/(marketing)/community/[slug]/error.tsx", "a community"],
+      ["app/(storelib)/(marketing)/explore/error.tsx", "explore"],
       ["app/(site)/w/[username]/error.tsx", "a creator's website"],
-      ["app/checkout/error.tsx", "checkout"],
-      ["app/(auth)/error.tsx", "sign in and sign up"],
-      ["app/account/error.tsx", "a buyer's account"],
-      ["app/admin/error.tsx", "the admin"],
-      ["app/website-builder/error.tsx", "the website builder"],
-      ["app/sites/[siteId]/error.tsx", "the AI website editor"],
+      ["app/(storelib)/checkout/error.tsx", "checkout"],
+      ["app/(storelib)/(auth)/error.tsx", "sign in and sign up"],
+      ["app/(storelib)/account/error.tsx", "a buyer's account"],
+      ["app/(storelib)/admin/error.tsx", "the admin"],
+      ["app/(storelib)/website-builder/error.tsx", "the website builder"],
+      ["app/(storelib)/sites/[siteId]/error.tsx", "the AI website editor"],
     ]
     for (const [p, what] of SEGMENTS) {
       const ok = existsSync(join(root, p))
@@ -201,20 +201,21 @@ async function main() {
       check(`${p} (${what})`, ok && src.trimStart().startsWith('"use client"') && /export default function/.test(src) && /reset/.test(src) && (/ErrorScreen/.test(src) || /\/api\/client-errors/.test(src)), { exists: ok })
     }
     /* Every top level segment with pages a person opens has a boundary of its own or sits under one above. */
-    const APP = join(root, "app")
+    /* Changed on purpose (r52): Storelib's pages have a root of their own (app/(storelib)), and its boundary covers them; a website's pages have theirs (app/(site)/w/[username]/error.tsx). */
+    const APP = join(root, "app", "(storelib)")
     const tops = readdirSync(APP, { withFileTypes: true }).filter((d) => d.isDirectory() && !["api", "@sheet"].includes(d.name)).map((d) => d.name)
-    check("the root boundary covers every other top level segment", existsSync(join(APP, "error.tsx")) && tops.length > 10, tops.length)
+    check("the root boundary covers every other top level segment", existsSync(join(APP, "error.tsx")) && tops.length > 10 && existsSync(join(root, "app/(site)/w/[username]/error.tsx")), tops.length)
 
     /* Rendered: each says what happened, offers Try again, and the digest to quote. */
     const err = Object.assign(new Error("boom"), { digest: "4242" })
     const RENDERED: [string, (p: { error: Error & { digest?: string }; reset: () => void }) => unknown, string][] = [
-      ["app/error.tsx", RootError, 'href="/"'],
-      ["app/(marketing)/error.tsx", MarketingError, 'href="/"'],
-      ["app/(marketing)/[sellername]/error.tsx", ShopError, 'href="/"'],
+      ["app/(storelib)/error.tsx", RootError, 'href="/"'],
+      ["app/(storelib)/(marketing)/error.tsx", MarketingError, 'href="/"'],
+      ["app/(storelib)/(marketing)/[sellername]/error.tsx", ShopError, 'href="/"'],
       ["app/(site)/w/[username]/error.tsx", WebsiteError, 'href="/"'],
-      ["app/checkout/error.tsx", CheckoutError, 'href="/"'],
-      ["app/(auth)/error.tsx", AuthError, 'href="/login"'],
-      ["app/admin/error.tsx", AdminError, 'href="/admin"'],
+      ["app/(storelib)/checkout/error.tsx", CheckoutError, 'href="/"'],
+      ["app/(storelib)/(auth)/error.tsx", AuthError, 'href="/login"'],
+      ["app/(storelib)/admin/error.tsx", AdminError, 'href="/admin"'],
     ]
     for (const [p, C, home] of RENDERED) {
       let html = ""

@@ -270,7 +270,7 @@ async function main() {
       check("/api/health uses the same rule", read("app/api/health/route.ts").includes('import { lateAfterMinutes } from "@/lib/perf/cron-health"') && !read("app/api/health/route.ts").includes("function lateAfterMinutes"))
       const r = read("lib/perf/read.ts")
       check("the performance report reads two days of cron_runs, three columns, capped", r.includes('"cron_runs", "job, started_at, ok"') && r.includes(".limit(6000)") && r.includes("cronRuns,"))
-      const page = read("app/admin/performance/performance-admin.tsx")
+      const page = read("app/(storelib)/admin/performance/performance-admin.tsx")
       check("/admin/performance shows each job", page.includes("<JobsPanel report={report} />") && page.includes('title="Scheduled jobs"'))
       check("  and says where cache hits and function memory are, rather than inventing them", page.includes("Vercel, Observability, Edge Requests") && page.includes("Vercel, Observability, Vercel Functions"))
     }

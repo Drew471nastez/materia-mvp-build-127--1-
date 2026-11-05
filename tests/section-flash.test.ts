@@ -39,7 +39,7 @@ console.log("\nA setting set to what it is")
   check("the same value, number, string or nothing", sameSettingValue(4, 4) && sameSettingValue("a", "a") && sameSettingValue(undefined, undefined) && sameSettingValue(NaN, NaN))
   check("an object or list with the same contents", sameSettingValue({ url: "/shop", label: "Shop" }, { url: "/shop", label: "Shop" }) && sameSettingValue([1, 2], [1, 2]))
   check("but not a different one, or 0 against an empty string", !sameSettingValue(4, 5) && !sameSettingValue(0, "") && !sameSettingValue(null, undefined) && !sameSettingValue({ a: 1 }, { a: 2 }) && !sameSettingValue([1], [1, 2]))
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   /* Round 25: after the branch that draws a setting under a finger live and commits it once (lib/website-builder/live-settings.ts). */
   /* Changed on purpose (round 34): the step names what it edits (undo-run.ts step(key)), so another field is a step of its own. */
   check("the theme's own settings drop it before an undo step or a redraw", /const updateSetting = \(key: string, value: unknown\) => \{\s*(?:\/\*[\s\S]*?\*\/\s*)?(?:if \(isLive\(\)\) \{[\s\S]*?return\s*\}\s*)?(?:\/\*[^*]*\*\/\s*const follows = faviconFollows\([^)]*\)\s*)?if \(sameSettingValue\(settingsRef\.current\[key\], value\)(?: && !follows)?\) return\s*(?:\/\*[^*]*\*\/\s*if \(!compatInstall\) echoThemeSetting\(key, value\)\s*)?debouncedPushUndo\((?:`[^`]*`)?\)/.test(page) /* Changed on purpose (round ed-1022): a real change is echoed to the canvas first (live-settings.ts echoThemeSetting), still after the same-value check. */)

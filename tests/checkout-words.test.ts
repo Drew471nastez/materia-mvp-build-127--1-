@@ -75,17 +75,17 @@ check("  and the stock notes", q.stockIssues[0].title === "T-shirt")
 check("no map: the order as it was", localizeQuote(quote, null) === quote)
 
 console.log("\nWired through the checkout")
-const page = read("app/checkout/site/page.tsx")
+const page = read("app/(storelib)/checkout/site/page.tsx")
 /* Changed on purpose (round BC): the page it came from is Back as worked out once (siteCheckoutBack, with the Referer). */
 check("the page reads the language from the page the visitor came from, or their choice", /checkoutLanguage\(site\.creatorId, back \?\? q\.get\("return"\)/.test(page) && /const back = siteCheckoutBack\(q, site\.host, h\.get\("referer"\)\)/.test(page) && /jar\.get\("sl_lang"\)/.test(page))
 check("  and hands the words to the checkout and its problems", (page.match(/<CheckoutWords lang=\{language\.lang\} words=\{language\.words\}>/g) ?? []).length === 2)
 check("  the first frame's order translated", /initialQuote=\{answer\?\.ok \? localizeQuote\(answer\.quote, language\.map\) : null\}/.test(page))
-check("the route translates every quote after it", /localizeQuote\(answer\.quote, language\.map\)/.test(read("app/api/checkout/site/route.ts")) && /lang: pageLang \?\? null/.test(read("app/checkout/site/site-checkout.tsx")))
+check("the route translates every quote after it", /localizeQuote\(answer\.quote, language\.map\)/.test(read("app/api/checkout/site/route.ts")) && /lang: pageLang \?\? null/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
 /* Changed on purpose (the buyer language rule, lib/markets/buyer-language.ts): after paying, the thank you page asks the one rule, ?lang the checkout names, else the order's checkout language while still published, else the store's default; never the sl_lang cookie. */
-check("the thank you page follows in the same language", /lang=\$\{encodeURIComponent\(pageLang\)\}/.test(read("app/checkout/site/site-checkout.tsx")) && /buyerPageLanguage\(site\.creatorId, \{ channel: "website", named: sp\.lang, order \}\)/.test(read("app/checkout/site/thanks/[token]/page.tsx")) && !/sl_lang/.test(read("app/checkout/site/thanks/[token]/page.tsx")))
-check("the card form in it too, where Stripe has it", /locale,\n\s*\}\),/.test(read("app/checkout/parts/stripe-pay.tsx")))
-check("the page's lang and direction are set", /html\.dir = isRtl\(lang\) \? "rtl" : "ltr"/.test(read("app/checkout/parts/words.tsx")))
-check("no checkout part still says a bare English sentence the scanner cannot see", !/>\s*Shipping method\s*</.test(read("app/checkout/site/site-checkout.tsx")) && !/"The smallest card payment is \$0\.50\."/.test(read("app/checkout/site/site-checkout.tsx")))
+check("the thank you page follows in the same language", /lang=\$\{encodeURIComponent\(pageLang\)\}/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && /buyerPageLanguage\(site\.creatorId, \{ channel: "website", named: sp\.lang, order \}\)/.test(read("app/(storelib)/checkout/site/thanks/[token]/page.tsx")) && !/sl_lang/.test(read("app/(storelib)/checkout/site/thanks/[token]/page.tsx")))
+check("the card form in it too, where Stripe has it", /locale,\n\s*\}\),/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")))
+check("the page's lang and direction are set", /html\.dir = isRtl\(lang\) \? "rtl" : "ltr"/.test(read("app/(storelib)/checkout/parts/words.tsx")))
+check("no checkout part still says a bare English sentence the scanner cannot see", !/>\s*Shipping method\s*</.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && !/"The smallest card payment is \$0\.50\."/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
 
 console.log("\nA website written in another language")
 check("English is told apart", isEnglish("en") && isEnglish("en-GB") && !isEnglish("fr") && !isEnglish("es"))

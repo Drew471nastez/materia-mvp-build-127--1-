@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE PRODUCTS LIST IN ORDERS' STYLE, ON A FINGER AND ON LANDING
  * ===========================================================================
- * Renders the Products list (app/app/products/products-client.tsx) as it is
+ * Renders the Products list (app/(storelib)/app/products/products-client.tsx) as it is
  * now and as it was before this round (the commit given by BASE, default
  * d98efc5^), each in the app's own scroller, at 390 (a phone: touch, no
  * hover, a coarse pointer) and 1280 (a mouse), and measures:
@@ -52,9 +52,9 @@ const expect = (ok, what, got) => {
 const show = (path) => execFileSync("git", ["show", `${BASE}:${path}`], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26 })
 writeFileSync(
   join(dir, "old-client.tsx"),
-  show("app/app/products/products-client.tsx")
-    .replace(/from "\.\/(?!\.)/g, 'from "@/app/app/products/')
-    .replace(/from "\.\.\/orders\//g, 'from "@/app/app/orders/')
+  show("app/(storelib)/app/products/products-client.tsx")
+    .replace(/from "\.\/(?!\.)/g, 'from "@/app/(storelib)/app/products/')
+    .replace(/from "\.\.\/orders\//g, 'from "@/app/(storelib)/app/orders/')
     .replace(/"@\/lib\/press-mark"/g, '"@/.products-r40/old-press-mark"'),
 )
 writeFileSync(join(dir, "old-press-mark.ts"), show("lib/press-mark.ts"))
@@ -97,7 +97,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 const css = await appCss(root)
 const pages = {}
 try {
-  for (const [name, client] of [["new", "@/app/app/products/products-client"], ["old", "@/.products-r40/old-client"]]) {
+  for (const [name, client] of [["new", "@/app/(storelib)/app/products/products-client"], ["old", "@/.products-r40/old-client"]]) {
     writeFileSync(join(dir, `entry-${name}.tsx`), entry(client))
     execFileSync("npx", [
       "esbuild", join(dir, `entry-${name}.tsx`), "--bundle", "--format=iife", "--jsx=automatic",

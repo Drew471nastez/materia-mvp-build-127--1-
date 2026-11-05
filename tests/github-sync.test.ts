@@ -206,7 +206,7 @@ function main() {
   check("Pull fetches only what differs, by Git's own file ids", /known\[path\] === entry\.sha/.test(sync) && /currentShas\(snap, link\)/.test(sync))
   check("an open builder hears about it through the same activity log agents write, a page as a page",
     /from\("theme_agent_activity"\)\.insert\(/.test(sync) && /token_id: null/.test(sync) && /path: `pages\/\$\{page\.page_key\}`/.test(sync) && /replaced: true/.test(sync))
-  check("and reads a replaced page or the settings again, keeping an edit not saved yet", /if \(replacedHere\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /Your unsaved edit is kept/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("and reads a replaced page or the settings again, keeping an edit not saved yet", /if \(replacedHere\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /Your unsaved edit is kept/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   check(`at most ${MAX_FILES_PER_PUSH} files from one push`, /changed\.length > MAX_FILES_PER_PUSH/.test(sync))
   check("the commit gets a Storelib status either way", /setStatus\(token, repo, after/.test(sync) && /context: "Storelib"/.test(gh))
   check("a deleted branch is not a push to sync", /payload\.deleted/.test(sync))
@@ -289,7 +289,7 @@ function main() {
         said({ configured: false, ready: false, link: null }) === "Not switched on for this Storelib yet" &&
         githubStatus(null, false).loading === true && said(null, true) === "Could not check GitHub | Open")
   }
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const button = read("components/website-builder/site-connections.tsx")
   const marks = read("components/website-builder/connection-marks.tsx")
   const rules = read("lib/agent-access/connection-mark.ts")

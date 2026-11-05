@@ -1,6 +1,6 @@
 /**
  * Writes lib/markets/checkout-words.generated.ts: every sentence the website
- * checkout draws through ct("…") (app/checkout/parts/words.tsx) or marks with
+ * checkout draws through ct("…") (app/(storelib)/checkout/parts/words.tsx) or marks with
  * checkoutMsg("…"), in the order they are met. Those are the texts listed in
  * Translate › Checkout, translated like the rest of the website.
  *
@@ -14,7 +14,7 @@ import { join, relative } from "node:path"
 
 const ROOT = join(new URL(".", import.meta.url).pathname, "..", "..")
 /* Folders, and single files the checkout's pages draw from elsewhere. */
-const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "app/review", "app/order-help", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx", "components/offers/checkout-suggestions.tsx"]
+const DIRS = ["app/(storelib)/checkout", "lib/checkout", "app/(storelib)/receipt", "app/(storelib)/review", "app/(storelib)/order-help", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx", "components/offers/checkout-suggestions.tsx"]
 const OUT = join(ROOT, "lib/markets/checkout-words.generated.ts")
 
 const walk = (dir) =>

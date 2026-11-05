@@ -282,12 +282,12 @@ function wiring() {
   check("the old /l/ and subdomain /links rules are gone from the proxy, not doubled", !/to\.pathname = `\/\$\{slug\.replace/.test(proxy) && !/to\.pathname = `\/\$\{subdomain\}\/links`/.test(proxy))
 
   console.log("\nThe page")
-  const page = code("app/(marketing)/l/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   check("a name that cannot be one is a 404 before the database", /if \(!isResolvableOnePageName\(slug\)\) notFound\(\)/.test(page))
   check("its metadata says not found and noindex", /MISSING: Metadata = \{ title: "Page not found", robots: \{ index: false, follow: false \} \}/.test(page))
-  const nf = code("app/(marketing)/l/[slug]/not-found.tsx")
+  const nf = code("app/(storelib)/(marketing)/l/[slug]/not-found.tsx")
   check("the not found page is small and on brand, with no relative link", /bg-\[#f8f9fa\]/.test(nf) && /text-\[#1a1a2e\]/.test(nf) && !/href="\//.test(nf) && !/\u2014/.test(nf))
-  check("storelib.me's route has the same not found", /* Changed on purpose (round 45 leftovers): its one-noindex metadata comes along (lib/seo/not-found-metadata.ts). */ /export \{ default, metadata \} from "..\/..\/l\/\[slug\]\/not-found"/.test(code("app/(marketing)/[sellername]/links/not-found.tsx")))
+  check("storelib.me's route has the same not found", /* Changed on purpose (round 45 leftovers): its one-noindex metadata comes along (lib/seo/not-found-metadata.ts). */ /export \{ default, metadata \} from "..\/..\/l\/\[slug\]\/not-found"/.test(code("app/(storelib)/(marketing)/[sellername]/links/not-found.tsx")))
   const seo = code("lib/onepage/seo.ts")
   check("the metadata carries the page's own origin as its base", /metadataBase: new URL\(originOf\(seo\.url\)/.test(seo))
   /*

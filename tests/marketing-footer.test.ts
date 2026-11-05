@@ -31,7 +31,8 @@ const internal = [...footer.matchAll(/href: "(\/[a-z/-]*)"/g)].map((m) => m[1])
 const pageExists = (href: string) => {
   if (href === "/") return true
   const seg = href.slice(1)
-  return [`app/${seg}/page.tsx`, `app/(marketing)/${seg}/page.tsx`, `app/(auth)/${seg}/page.tsx`, `app/(platform)/${seg}/page.tsx`].some((p) => existsSync(join(process.cwd(), p)))
+  /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+  return [`app/(storelib)/${seg}/page.tsx`, `app/(storelib)/(marketing)/${seg}/page.tsx`, `app/(storelib)/(auth)/${seg}/page.tsx`, `app/(platform)/${seg}/page.tsx`].some((p) => existsSync(join(process.cwd(), p)))
 }
 const missing = internal.filter((h) => !pageExists(h))
 check("every internal link is a page that exists", internal.length >= 9 && missing.length === 0, missing.join(", "))

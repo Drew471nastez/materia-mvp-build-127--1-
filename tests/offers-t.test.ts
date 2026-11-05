@@ -88,7 +88,7 @@ const store = read("app/api/store/offers/route.ts")
 check("a store edits its own, and it's in the activity log", /shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(store) /* Round 40: a team member reaches offers with Marketing. */ && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))
 check("every product an offer names must be the store's", /One of those products isn't in your store any more/.test(read("lib/offers/offers-server.ts")))
 check("the product page and website product section show bundles", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
-check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
+check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")))
 /* Changed on purpose (round V): for every store. */
 check("Products has Upsells and bundles beside Coupons", /mainNavItems\.find\([\s\S]{0,200}\{ href: "\/app\/offers", label: "Upsells and bundles" \}/.test(read("components/app/sidebar.tsx")))
 const sql = read("supabase/sql/run-now/116_store_offers.sql")

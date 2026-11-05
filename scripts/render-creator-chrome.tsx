@@ -141,7 +141,7 @@ const parts = SCHEMES.map((preset) => {
 
   /*
     THE PRODUCT PAGE THE CREATOR PAGE OPENS ONTO, on the same scheme. The
-    parts of app/(marketing)/p/[slug]/page.tsx a scheme paints, with the same
+    parts of app/(storelib)/(marketing)/p/[slug]/page.tsx a scheme paints, with the same
     markup and the colours from the same function the page calls
     (productPageTone). The stored page colour is the builder's untouched
     white, which is what a scheme picked in Edit profile leaves behind.

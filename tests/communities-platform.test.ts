@@ -189,9 +189,9 @@ async function main() {
   /* ── ADMIN ──────────────────────────────────────────────────────────── */
   section("The admin page: the switch first, then figures from rows")
   {
-    const page = code("app/admin/communities/page.tsx")
-    const client = read("app/admin/communities/communities-admin.tsx")
-    const shell = read("app/admin/_console/shell.tsx")
+    const page = code("app/(storelib)/admin/communities/page.tsx")
+    const client = read("app/(storelib)/admin/communities/communities-admin.tsx")
+    const shell = read("app/(storelib)/admin/_console/shell.tsx")
     check("the page asks for the admin session on the server before anything", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && !/^"use client"/.test(page))
     check("it is never indexed", /robots: \{ index: false, follow: false/.test(page))
     check("the shell's navigation links to it", /\{ href: "\/admin\/communities", label: "Communities" \}/.test(shell))
@@ -456,7 +456,7 @@ async function main() {
     check("the renderer draws it from the page's own data", /section\.type === "community" && \(\s*<UnifiedCommunitySection/.test(unified) && /data=\{communityBlocks\?\.\[/.test(unified))
     const wrapper = code("components/store-builder/section-renderer.tsx")
     check("the live wrapper passes the data on", /communityBlocks=\{communityBlocks\}/.test(wrapper))
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the creator page reads it on the server, only when it has the section", /themedSections\.some\(\(s\) => s\.type === "community"\) \? await loadCommunityBlocks\(createAdminClient\(\), creator\.id, themedSections\) : \{\}/.test(page) && /communityBlocks=\{communityBlocks\}/.test(page))
     const comp = read("components/store-builder/community-section.tsx")
     const imports = (src: string) => (stripComments(src).match(/from "[^"]+"/g) ?? []).join("\n")
@@ -540,7 +540,7 @@ async function main() {
     check("the control says what it carries", /members_label/.test(CONTROLS.community_picker.description) && /published and public/.test(CONTROLS.community_picker.description))
     const controls = code("components/website-builder/editor/controls/index.tsx")
     check("the editor draws it as a picker of the creator's communities", /case "community_picker":\s*\n\s*return <CommunityPickerControl/.test(controls) && /"community_picker",[\s\S]*?\] as const/.test(controls))
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("not as a text box any more", !/kind === "community_picker"\) \{/.test(editor) && !/Paste a community/i.test(editor))
     check("the canvas hands the communities to the engine and the picker", /communities: builderCommunities\?\.cards/.test(editor) && /communities: builderCommunities\?\.choices \?\? null/.test(editor))
     check("and offers the card only while communities are on", /t !== "community_card" \|\| builderCommunities !== null/.test(editor))
@@ -576,8 +576,8 @@ async function main() {
   section("Copy rules in everything new here")
   {
     const files = [
-      "app/admin/communities/page.tsx",
-      "app/admin/communities/communities-admin.tsx",
+      "app/(storelib)/admin/communities/page.tsx",
+      "app/(storelib)/admin/communities/communities-admin.tsx",
       "app/api/admin/communities/route.ts",
       "app/api/store-builder/communities/route.ts",
       "lib/communities/server/admin.ts",

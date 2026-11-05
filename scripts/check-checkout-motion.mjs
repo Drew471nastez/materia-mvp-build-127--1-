@@ -47,7 +47,7 @@ mkdirSync(stubs, { recursive: true })
 const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-checkout-motion-")), "shots")
 mkdirSync(shots, { recursive: true })
 const BEFORE = process.env.BEFORE || ""
-const beforeFile = join(root, "app/checkout/.probe-before-client.tsx")
+const beforeFile = join(root, "app/(storelib)/checkout/.probe-before-client.tsx")
 let broken = 0
 const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${JSON.stringify(got)})`}`)
@@ -77,7 +77,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
 `)
-  if (BEFORE) writeFileSync(beforeFile, execFileSync("git", ["show", `${BEFORE}:app/checkout/checkout-client.tsx`], { cwd: root, encoding: "utf8" }))
+  if (BEFORE) writeFileSync(beforeFile, execFileSync("git", ["show", `${BEFORE}:app/(storelib)/checkout/checkout-client.tsx`], { cwd: root, encoding: "utf8" }))
   const { build } = await import("esbuild")
   await build({
     entryPoints: [join(root, "scripts/render-checkout-motion.tsx")],

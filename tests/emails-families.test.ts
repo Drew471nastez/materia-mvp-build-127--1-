@@ -78,7 +78,7 @@ async function main() {
   console.log("\nCommunity emails are managed in Emails\n")
   check("the community's settings no longer have a Member emails panel", !(SETTINGS_TABS as readonly string[]).includes("emails") && !/MemberEmailsPanel|value: "emails"/.test(read("components/community/creator/settings-section.tsx")))
   check("an old link (?tab=emails, email, broadcast, templates) is sent to Emails on that community", ["emails", "email", "broadcast", "templates"].every(emailsTabAsked) && !emailsTabAsked("access") && communityEmailsHref("c1") === "/app/emails?tab=customer&kind=communities&community=c1")
-  check("  by the settings page, before it draws anything", /if \(emailsTabAsked\(query\.tab\)\) redirect\(communityEmailsHref\(ctx\.community\.id\)\)/.test(read("app/app/community/[id]/settings/page.tsx")))
+  check("  by the settings page, before it draws anything", /if \(emailsTabAsked\(query\.tab\)\) redirect\(communityEmailsHref\(ctx\.community\.id\)\)/.test(read("app/(storelib)/app/community/[id]/settings/page.tsx")))
   check("  and an unknown tab still lands on the first panel", settingsTabOf("emails") === "access")
   const panel = read("components/app/settings/customer-emails-panel.tsx")
   const community = read("components/app/emails/community-emails.tsx")

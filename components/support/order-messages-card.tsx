@@ -13,8 +13,8 @@ import { MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { api, Pill } from "@/components/physical/ui"
 import { CASE_REASON_LABELS, STATUS_FOR_STORE, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
-import { BuyerCaseThread } from "@/app/app/support/buyer-cases"
-import { card } from "@/app/app/orders/order-parts"
+import { BuyerCaseThread } from "@/app/(storelib)/app/support/buyer-cases"
+import { card } from "@/app/(storelib)/app/orders/order-parts"
 import { tt } from "@/lib/i18n/text"
 
 const TONE: Record<CaseStatus, "blue" | "amber" | "gray" | "red"> = { store: "amber", buyer: "blue", storelib: "red", resolved: "gray" }

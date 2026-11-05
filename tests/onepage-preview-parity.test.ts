@@ -7,7 +7,7 @@
  * frame (components/onepage/preview-document.tsx), so the drawing cannot
  * differ. What can differ is WHICH BLOCKS each side hands that component:
  *
- *   live      app/(marketing)/l/[slug]/page.tsx: the published shape
+ *   live      app/(storelib)/(marketing)/l/[slug]/page.tsx: the published shape
  *             (lib/onepage/public-shape, a block outside its schedule left
  *             out), then every product read from the catalogue
  *             (withLiveProducts: gone, archived or unpublished leaves)
@@ -132,7 +132,7 @@ const row = (over: Partial<OnePageRowLike> = {}): OnePageRowLike => ({
   ...over,
 })
 
-/** What app/(marketing)/l/[slug]/page.tsx hands PublicOnePage (its steps are pinned below). */
+/** What app/(storelib)/(marketing)/l/[slug]/page.tsx hands PublicOnePage (its steps are pinned below). */
 async function livePage(r: OnePageRowLike, db: ProductsDb) {
   const resolvedCreatorId = r.seller_id || r.creator_id || null
   const shape = publicOnePage(r, { source: "published", displayName: null, liveAvatarUrl: null, customDomain: null, sellerId: resolvedCreatorId })
@@ -210,7 +210,7 @@ async function main() {
 
   console.log("\n  the steps above are the steps the two files run")
 
-  const route = strip(read("app/(marketing)/l/[slug]/page.tsx"))
+  const route = strip(read("app/(storelib)/(marketing)/l/[slug]/page.tsx"))
   check("the route builds the published shape with the seller it resolved", /publishedShape\(onepage, owner, \{[\s\S]*?sellerId: resolvedCreatorId,?\s*\}\)/.test(route))
   check("publishedShape is the published shape of lib/onepage/public-shape", /return publicOnePage\(onepage, \{\s*source: "published"/.test(strip(read("lib/onepage/published-page.ts"))))
   check("then reads its products by the seller the shape names",

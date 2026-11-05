@@ -2,9 +2,9 @@
  * The real ScrollEdge (components/app/scroll-edge.tsx) around the two table
  * shapes it carries in /app, with the classes those tables use:
  *
- *   emails   app/app/emails/emails-home.tsx: border-collapse, rows divided by
+ *   emails   app/(storelib)/app/emails/emails-home.tsx: border-collapse, rows divided by
  *            the tbody, one frozen column, the Status badge going under it
- *   orders   app/app/orders/orders-list.tsx: border-separate, a checkbox
+ *   orders   app/(storelib)/app/orders/orders-list.tsx: border-separate, a checkbox
  *            column and the Order column frozen, one row selected
  *
  * Measured by scripts/check-scroll-edge.mjs.
@@ -13,7 +13,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 
 import { ScrollEdge } from "@/components/app/scroll-edge"
-import { StatusBadge } from "@/app/app/orders/order-parts"
+import { StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
 import { cn } from "@/lib/utils"
 
 const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#4b5563]"

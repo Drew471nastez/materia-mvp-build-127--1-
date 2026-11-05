@@ -183,9 +183,9 @@ async function main() {
     check("the row keeps null where the column is, and nothing where it is not", "seller_seen_at" in withCol && withCol.seller_seen_at === null && !("seller_seen_at" in without))
     const route = read("app/api/app/orders/seen/route.ts")
     check("opening marks it: the store's own lines, only the first time", /shopCaller\("orders"\)/.test(route) && /\.eq\("creator_id", c\.creatorId\)/.test(route) && /\.is\("seller_seen_at", null\)/.test(route))
-    const client = read("app/app/orders/orders-client.tsx")
+    const client = read("app/(storelib)/app/orders/orders-client.tsx")
     check("the client tells the server as the order opens, and clears the dot once the list is back", /api\/app\/orders\/seen/.test(client) && /SEEN_AFTER_BACK_MS/.test(client) && /startTransition/.test(client))
-    const list = read("app/app/orders/orders-list.tsx")
+    const list = read("app/(storelib)/app/orders/orders-list.tsx")
     check("the dot: small, in the cell's padding (the number never moves), named for a screen reader", /order\.unseen \? <span aria-hidden data-unseen=""[^>]*-ml-\[9px\] mr-\[3px\][^>]*h-1\.5 w-1\.5/.test(list) && /sr-only/.test(list))
     const sql = read("supabase/sql/run-now/224_orders_seller_seen.sql").split("\n").filter(Boolean)
     check("SQL part 224: one statement a line, the old orders seen without a rewrite, idempotent, pgrst last", sql.length === 3 && /^DO \$\$ BEGIN IF .*NOT EXISTS .*seller_seen_at.* THEN ALTER TABLE public\.orders ADD COLUMN seller_seen_at timestamptz DEFAULT now\(\); ALTER TABLE public\.orders ALTER COLUMN seller_seen_at DROP DEFAULT; END IF; END \$\$;$/.test(sql[1]) && sql[2] === "notify pgrst, 'reload schema';")
@@ -194,7 +194,7 @@ async function main() {
 
   section("Carrier logos instead of the truck")
   {
-    const list = read("app/app/orders/orders-list.tsx")
+    const list = read("app/(storelib)/app/orders/orders-list.tsx")
     check("the list: the parcel's carrier logo beside its badge once it is out", /<CarrierLogo carrier=\{order\.shipping\.carrier\} size=\{18\} \/>/.test(list))
     const rows = read("lib/orders/load-rows.ts")
     check("the list reads each order's latest carrier with the parcels it already read", /select\("checkout_id, status, carrier"\)/.test(rows) && /r\.physical_carrier = carriers\.get\(c\.id\)/.test(rows))
@@ -203,7 +203,7 @@ async function main() {
     const panel = read("components/physical/order-panel.tsx")
     check("a shipment's tracking row: the carrier's logo, not the truck", /<CarrierLogo carrier=\{s\.carrier\} size=\{28\}/.test(panel) && !/<Truck className="h-3\.5 w-3\.5 shrink-0/.test(panel))
     const ev = physicalEvents({ pickup: false, shipments: [{ id: "f", status: "shipped", carrier: "Sameday", trackingNumber: "1ONB1", trackingUrl: null, shippedAt: "t", deliveredAt: null, createdAt: "t", items: [{ orderId: "a", quantity: 1 }] }] as never, events: [] })
-    check("the timeline's shipped entry carries its carrier, drawn as its logo", ev[0].carrier === "Sameday" && /data-timeline-carrier/.test(read("app/app/orders/order-detail.tsx")))
+    check("the timeline's shipped entry carries its carrier, drawn as its logo", ev[0].carrier === "Sameday" && /data-timeline-carrier/.test(read("app/(storelib)/app/orders/order-detail.tsx")))
   }
 
   section("Fulfill items")

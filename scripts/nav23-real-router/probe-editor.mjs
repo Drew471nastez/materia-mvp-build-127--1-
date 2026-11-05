@@ -2,7 +2,7 @@
  * ===========================================================================
  *  ROUND 23: LEAVING THE WEBSITE BUILDER EDITOR, COUNTED
  * ===========================================================================
- * The real editor page (app/website-builder/editor/[installId]) in this
+ * The real editor page (app/(storelib)/website-builder/editor/[installId]) in this
  * harness, opened from the Website page by its link, then left:
  *
  *   node probe-editor.mjs <port> <outdir> how=bar|back|link [website=<server ms>] [w=1440|390] [cpu=4] [n=3] [film=1]

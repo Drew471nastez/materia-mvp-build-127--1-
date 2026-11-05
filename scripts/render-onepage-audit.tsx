@@ -3,10 +3,10 @@
  * scripts/check-onepage-audit.mjs.
  *
  *   /app/onepage        the real editor, opened on the row the stub server holds
- *                       (as app/app/onepage/page.tsx hands it the row it read)
+ *                       (as app/(storelib)/app/onepage/page.tsx hands it the row it read)
  *   /onepage-preview    the preview's frame (components/onepage/preview-document)
  *   /live               the published page, built from the same row the way
- *                       app/(marketing)/l/[slug]/page.tsx builds it: the published
+ *                       app/(storelib)/(marketing)/l/[slug]/page.tsx builds it: the published
  *                       shape with the owner's live name and photo, products read
  *                       from the catalogue, prices in the store's currency
  *

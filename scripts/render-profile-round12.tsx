@@ -8,7 +8,7 @@
  *                       without products), under the real ConditionalHeader
  *                       at /@maya, which must draw nothing
  *   ?case=creator       a creator page with no products in the default
- *                       scheme, as app/(marketing)/u/[username] builds it
+ *                       scheme, as app/(storelib)/(marketing)/u/[username] builds it
  *                       (the newsletter bar, the header, the tabs, About and
  *                       the footer, through components/storefront/
  *                       storefront-template), to be measured against the

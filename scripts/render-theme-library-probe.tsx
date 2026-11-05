@@ -11,7 +11,7 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { probeListings } from "./theme-marketplace-fixtures"
 
 const OUT = process.env.OUT_DIR!

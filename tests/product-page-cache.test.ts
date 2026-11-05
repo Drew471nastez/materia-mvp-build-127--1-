@@ -52,7 +52,7 @@ const cacheLayer = read("lib/commerce/product-page-cache.ts")
 const cacheCode = stripComments(cacheLayer)
 const publicClient = read("lib/supabase/public-read.ts")
 const loaders = read("lib/commerce/product-page-data.ts")
-const page = read("app/(marketing)/p/[slug]/page.tsx")
+const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
 const publishRoute = read("app/api/store-builder/route.ts")
 
 function main() {

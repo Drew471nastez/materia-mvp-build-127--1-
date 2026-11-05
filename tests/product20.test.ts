@@ -28,7 +28,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 300)}`}`)
 }
 const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
-const ed = read("app/app/products/new/product-editor.tsx")
+const ed = read("app/(storelib)/app/products/new/product-editor.tsx")
 const cards = read("components/physical/product-cards.tsx")
 const options = read("components/physical/variant-options.tsx")
 const table = read("components/physical/variant-table.tsx")
@@ -90,7 +90,7 @@ console.log("\n2. Sensible values in every field")
 
 console.log("\n2. Variants that move smoothly")
 {
-  const drag = read("app/app/products/new/hold-to-drag.ts")
+  const drag = read("app/(storelib)/app/products/new/hold-to-drag.ts")
   check("a grip follows the finger after a few pixels, with no hold", /useSensor\(TouchSensor, \{ activationConstraint: \{ distance: GRIP_DISTANCE_PX \} \}\)/.test(drag) && /GRIP_TOUCH = "[^"]*touch-none/.test(drag))
   check("options and values use the grip, and the keyboard still moves them", /useGripDragSensors\(\)/.test(options) && /KeyboardSensor/.test(drag) && /data-grip=""/.test(options))
   check("the rows around make room on a short curve", /SORT_TRANSITION = \{ duration: 180/.test(options) && (options.match(/transition: SORT_TRANSITION/g) ?? []).length === 2)
@@ -111,8 +111,8 @@ console.log("\n3. Save and go, without a title or photo")
   check("a new one moves to its own address, so Back from Settings finds it", /window\.history\.replaceState\(\{\}, "", `\/app\/products\/\$\{result\.productId\}`\)/.test(draft) && /rememberCreated\(result\.productId\)/.test(draft))
   check("then it goes in the app, never a reload", /router\.push\(href\)/.test(ed) && !/window\.location\.(href|assign)\s*=?\s*\(?href/.test(ed))
   check("the products list reads again when it lacks the new draft", (() => { rememberCreated("new-1"); const stale = isStale([{ id: "old", status: "draft" }]); const fresh = !isStale([{ id: "new-1", status: "draft" }]); rememberDeleted("new-1"); return stale && fresh && !isStale([{ id: "old", status: "draft" }]) })())
-  check("a draft with no title reads Untitled draft in the list", (read("app/app/products/products-client.tsx").match(/product\.title \|\| "Untitled draft"/g) ?? []).length === 3 /* Round 40: the phone row's link is named by it too. */)
-  check("the question's third button stays on one line on a computer", /mr-auto h-8 whitespace-nowrap/.test(read("app/app/products/new/confirm-sheet.tsx")))
+  check("a draft with no title reads Untitled draft in the list", (read("app/(storelib)/app/products/products-client.tsx").match(/product\.title \|\| "Untitled draft"/g) ?? []).length === 3 /* Round 40: the phone row's link is named by it too. */)
+  check("the question's third button stays on one line on a computer", /mr-auto h-8 whitespace-nowrap/.test(read("app/(storelib)/app/products/new/confirm-sheet.tsx")))
 }
 
 console.log("\nCopy")

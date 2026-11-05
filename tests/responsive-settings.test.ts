@@ -113,7 +113,7 @@ function main() {
   section("And the editor can set it")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const types = read("lib/website-builder/types.ts")
     const conv = read("lib/website-builder/storelib-schemas.ts")
 

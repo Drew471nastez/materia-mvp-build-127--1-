@@ -4,7 +4,7 @@
  *
  *   the feed      a list with a person's name to press (stands for the
  *                 community feed the profile is opened from)
- *   the skeleton  app/(marketing)/member/[username]/loading.tsx, for as long
+ *   the skeleton  app/(storelib)/(marketing)/member/[username]/loading.tsx, for as long
  *                 as ?wait=<ms> says the server takes
  *   the profile   MemberProfilePage (round 12: the creator page template, no shell), reached from the
  *                 feed (backShown), its cover and photo from a host the probe
@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
-import MemberProfileSkeleton from "@/app/(marketing)/member/[username]/loading"
+import MemberProfileSkeleton from "@/app/(storelib)/(marketing)/member/[username]/loading"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 

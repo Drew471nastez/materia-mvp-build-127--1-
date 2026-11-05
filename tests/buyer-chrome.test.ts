@@ -89,7 +89,7 @@ check("the header is returned plainly, whatever the width", /if \(!showPlatformH
 check("and the profile draws no bar of its own, so there is never a second one", !/data-account-bar/.test(code("components/account/account-hub.tsx")))
 check("decided from the path the server renders with, not after hydration", !/matchMedia/.test(cond))
 /* Changed on purpose: 158acdef added the light header's prop, and 84d43680 mounts the header through AccountHeaderSwitch, which draws it unless a community's own bar is on the profile. */
-check("and the account layout mounts it, as the library's does", /<AccountHeaderSwitch initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/.test(read("app/account/layout.tsx")) && /return <ConditionalHeader \{\.\.\.props\} \/>/.test(code("components/account/account-header-switch.tsx")))
+check("and the account layout mounts it, as the library's does", /<AccountHeaderSwitch initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/.test(read("app/(storelib)/account/layout.tsx")) && /return <ConditionalHeader \{\.\.\.props\} \/>/.test(code("components/account/account-header-switch.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

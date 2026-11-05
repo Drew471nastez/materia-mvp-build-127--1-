@@ -269,7 +269,7 @@ check(
   "        lib/seo/sitemaps.ts, lib/seo/indexing.ts",
 )
 
-const storefront = stripComments(read("app/(marketing)/u/[username]/page.tsx"))
+const storefront = stripComments(read("app/(storelib)/(marketing)/u/[username]/page.tsx"))
 check(
   "the storefront's robots tag follows the same rule",
   /* Changed on purpose (round 41): the storefront reads creatorIndexable, which reads deservesIndexing. */
@@ -279,7 +279,7 @@ check(
     // The unconditional `robots: { index: true ... }` is what a link farm was
     // buying. It must never be reachable without the indexable check.
     !/robots:\s*\{\s*index:\s*true/.test(storefront),
-  "        app/(marketing)/u/[username]/page.tsx",
+  "        app/(storelib)/(marketing)/u/[username]/page.tsx",
 )
 
 check(
@@ -300,13 +300,13 @@ check(
  * is what collects them, and a honeypot that is visible or tabbable is worse
  * than none — it blocks real people.
  */
-const signup = stripComments(read("app/(auth)/signup/page.tsx"))
+const signup = stripComments(read("app/(storelib)/(auth)/signup/page.tsx"))
 check(
   "the signup form carries a honeypot and a fill timer",
   signup.includes('name="website"') &&
     signup.includes("elapsedMs") &&
     signup.includes("/api/auth/signup-guard"),
-  "        app/(auth)/signup/page.tsx",
+  "        app/(storelib)/(auth)/signup/page.tsx",
 )
 
 check(
@@ -323,7 +323,7 @@ check(
       field.includes("-9999px")
     )
   })(),
-  "        app/(auth)/signup/page.tsx",
+  "        app/(storelib)/(auth)/signup/page.tsx",
 )
 
 const guard = stripComments(read("app/api/auth/signup-guard/route.ts"))
@@ -441,7 +441,7 @@ check(
  */
 const provider = stripComments(read("components/locale-provider.tsx"))
 const serverLocale = stripComments(read("lib/i18n/server.ts"))
-const rootLayout = stripComments(read("app/layout.tsx"))
+const rootLayout = stripComments(read("app/(storelib)/layout.tsx"))
 
 check(
   "client, server and <html lang> all default to English",
@@ -450,7 +450,7 @@ check(
     /* Changed on purpose (round 45 leftovers): the layout prints STORELIB_PAGE_LANG, which a product's JSON-LD reads too (lib/seo/page-language.ts). */
     /<html lang=\{STORELIB_PAGE_LANG\}/.test(rootLayout) &&
     /export const STORELIB_PAGE_LANG = "en"/.test(read("lib/seo/page-language.ts")),
-  "        locale-provider.tsx, lib/i18n/server.ts, app/layout.tsx",
+  "        locale-provider.tsx, lib/i18n/server.ts, app/(storelib)/layout.tsx",
 )
 
 check(
@@ -727,7 +727,7 @@ check(
      * produces a different count and the echo refuses it. Trusting the client's
      * list would let a stale page act on a set nobody reviewed.
      */
-    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    const client = read("app/(storelib)/admin/blog/seo/_seo-client.tsx")
     return (
       /async function resolve\(selection: Selection\)/.test(moderate) &&
       (moderate.match(/await resolve\(/g) ?? []).length >= 2 &&
@@ -793,7 +793,7 @@ check(
 check(
   "the admin UI selects by id, not by username",
   (() => {
-    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    const client = read("app/(storelib)/admin/blog/seo/_seo-client.tsx")
     /**
      * A username can be changed. An action that resolves by name would act on
      * whoever holds it when the request lands, rather than on whoever was
@@ -810,7 +810,7 @@ check(
 check(
   "and it asks before it acts, naming what happens",
   (() => {
-    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    const client = read("app/(storelib)/admin/blog/seo/_seo-client.tsx")
     return (
       /window\.confirm\(/.test(client) &&
       /cannot be undone/.test(client) &&
@@ -826,7 +826,7 @@ const hook = read("app/api/auth/hooks/before-user-created/route.ts")
 check(
   "the page guard was only ever enforced by the page",
   (() => {
-    const page = read("app/(auth)/signup/page.tsx")
+    const page = read("app/(storelib)/(auth)/signup/page.tsx")
     /**
      * The browser asks signup-guard, and if the answer is no the BROWSER
      * stops — then it calls supabase.auth.signUp() directly. A script that

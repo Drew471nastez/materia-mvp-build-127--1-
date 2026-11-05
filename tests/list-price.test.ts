@@ -45,15 +45,15 @@ function main() {
   console.log("\nWhere it is used")
   const card = read("components/explore/product-card.tsx")
   check("the card draws the rule's words, the struck price and the badge", /* Changed on purpose: with its store's currency. */ /const priceLabel = listPrice\(\{ \.\.\.product, currency: product\.currency \?\? pageCurrency \}\)/.test(card) && /\{priceLabel\.main\}/.test(card) && /\{priceLabel\.was\}/.test(card) && /\{priceLabel\.off\}% OFF/.test(card) && !/product\.price_cents === 0 \? "Free"/.test(card))
-  const page = read("app/(marketing)/p/[slug]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("the product page's header too, in both layouts", (page.match(/\{headerPrice\.main\}/g) ?? []).length === 2 && !/product\.price_cents === 0 \? "Free"/.test(page))
-  for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+  for (const f of ["app/(storelib)/(marketing)/explore/page.tsx", "app/(storelib)/(marketing)/explore/[category]/page.tsx"]) {
     check(`${f} reads what the rule needs`, /price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents,/.test(read(f)))
   }
-  check("the creator page hands it to its cards", /pay_what_you_want: p\.pay_what_you_want \?\? null,/.test(read("app/(marketing)/u/[username]/page.tsx")) && /pay_what_you_want: product\.pay_what_you_want \?\? null,/.test(read("components/storefront/storefront-product-card.tsx")))
+  check("the creator page hands it to its cards", /pay_what_you_want: p\.pay_what_you_want \?\? null,/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")) && /pay_what_you_want: product\.pay_what_you_want \?\? null,/.test(read("components/storefront/storefront-product-card.tsx")))
 
   console.log("\nThe editor saves what can be shown")
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("free saves 0, pay what you want its minimum, a fixed price the price",
     /price_cents: priceMode === "free" \? 0 : priceMode === "pwyw" \? Math\.round\(Number\.parseFloat\(pwywMinPrice \|\| "0"\) \* 100\) : Math\.round\(Number\.parseFloat\(price \|\| "0"\) \* 100\)/.test(editor))
   check("a compare-at price only on a fixed price, and only above it", /if \(priceMode !== "fixed" \|\| !compareAtPrice\) return null/.test(editor) && /return Number\.isFinite\(compare\) && compare > now \? compare : null/.test(editor))

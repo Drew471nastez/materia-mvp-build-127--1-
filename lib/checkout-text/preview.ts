@@ -41,8 +41,8 @@
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
-import type { Summary } from "@/app/checkout/site/thanks/[token]/thanks-view"
-import type { ShopBrand } from "@/app/checkout/parts/shop-bar"
+import type { Summary } from "@/app/(storelib)/checkout/site/thanks/[token]/thanks-view"
+import type { ShopBrand } from "@/app/(storelib)/checkout/parts/shop-bar"
 import { EDITABLE_TEXTS, editableById, placeholdersOf, validateOverride } from "./registry"
 
 export const CHECKOUT_PREVIEW_CHANNEL = "storelib-checkout-preview"

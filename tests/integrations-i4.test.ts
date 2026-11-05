@@ -32,7 +32,8 @@ console.log("\nStorelib's own apps are real features\n")
   const broken = STORELIB_APPS.filter((a) => {
     const tab = a.href.match(/^\/app\/settings\?tab=([a-z_]+)$/)
     if (tab) return !tabs.has(tab[1])
-    return !existsSync(join(process.cwd(), "app", a.href.replace(/^\//, ""), "page.tsx"))
+    /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+    return !existsSync(join(process.cwd(), "app", "(storelib)", a.href.replace(/^\//, ""), "page.tsx"))
   }).map((a) => a.href)
   check("every app goes to a page that exists (a Settings section or an /app page)", broken.length === 0, broken)
   check("every app has its own id, none the same as a catalog integration's", new Set(STORELIB_APPS.map((a) => a.id)).size === STORELIB_APPS.length && !STORELIB_APPS.some((a) => INTEGRATIONS.some((i) => i.id === a.id)))

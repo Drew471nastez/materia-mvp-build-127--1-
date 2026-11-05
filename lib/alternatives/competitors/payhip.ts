@@ -26,7 +26,7 @@ export const payhip: Competitor = {
   whyStorelib: [
     {
       text: "Run a paid community beside your shop: posts, chat, events and monthly plans, in the same dashboard as your products and orders.",
-      code: "app/app/community",
+      code: "app/(storelib)/app/community",
       flag: "communities",
       textOff: "Sell from a link in bio page, a creator page and multi page websites at once, all drawing on the same products and orders.",
     },
@@ -51,9 +51,9 @@ export const payhip: Competitor = {
     { text: "Its features page lists no community or forum to sell access to.", sources: ["payhip-features"], status: "verified" },
   ],
   storelibStrengths: [
-    { text: "Paid communities with posts, chat and events.", code: "app/app/community", flag: "communities", textOff: "A creator page and websites that share the same products." },
+    { text: "Paid communities with posts, chat and events.", code: "app/(storelib)/app/community", flag: "communities", textOff: "A creator page and websites that share the same products." },
     { text: "A OnePage for your bio link, on the free plan.", code: "lib/onepage/address.ts" },
-    { text: "Email to your list with automations, from the dashboard your orders are in.", code: "app/app/emails" },
+    { text: "Email to your list with automations, from the dashboard your orders are in.", code: "app/(storelib)/app/emails" },
   ],
   storelibLimits: [
     { text: "Storelib is not a merchant of record. You set the tax your store charges and you file it; Storelib does not collect or pay VAT or sales tax for you.", code: "lib/tax/rules.ts" },

@@ -38,12 +38,12 @@ check("it says what the buyer sees", /Adds “Buying for a business” to checko
 check("the admin's docs name it", /businessInvoice: "Company invoices"/.test(read("lib/admin/commerce-docs-facts.ts")))
 
 console.log("\nEvery checkout draws it from the setting")
-const client = read("app/checkout/checkout-client.tsx")
-const site = read("app/checkout/site/site-checkout.tsx")
+const client = read("app/(storelib)/checkout/checkout-client.tsx")
+const site = read("app/(storelib)/checkout/site/site-checkout.tsx")
 check("the product checkout (storelib.com, a creator's page, a OnePage)", /!isFree && checkoutConfig\.businessInvoice \? \(\s*<section aria-label="Invoice">/.test(client) && /business: businessOn && checkoutConfig\.businessInvoice \? business : null/.test(client) && /if \(!businessOn \|\| !checkoutConfig\.businessInvoice\) return null/.test(client))
 check("the website's checkout, built or imported theme, digital or shipped", /!isFree && config\.businessInvoice \? \(\s*<section aria-label=\{ct\("Invoice"\)\}>/.test(site) && /business: businessOn && config\.businessInvoice \? business : null/.test(site) && /if \(!businessOn \|\| !config\.businessInvoice\) return null/.test(site))
-check("the website's page hands it the store's settings", /config=\{checkoutConfigInMarket\(config, market\.charge\)\}/.test(read("app/checkout/site/page.tsx")) && /checkoutConfigInMarket<C extends \{ codFeeCents: number \}>\(config: C/.test(read("lib/markets/checkout-charge.ts")))
-check("the editor's preview draws the website's checkout with the store's settings", /config=\{data\.config\}/.test(read("app/checkout/preview/preview-document.tsx")) && /loadCheckoutConfig\(db, creatorId\)/.test(read("lib/checkout-text/preview-server.ts")))
+check("the website's page hands it the store's settings", /config=\{checkoutConfigInMarket\(config, market\.charge\)\}/.test(read("app/(storelib)/checkout/site/page.tsx")) && /checkoutConfigInMarket<C extends \{ codFeeCents: number \}>\(config: C/.test(read("lib/markets/checkout-charge.ts")))
+check("the editor's preview draws the website's checkout with the store's settings", /config=\{data\.config\}/.test(read("app/(storelib)/checkout/preview/preview-document.tsx")) && /loadCheckoutConfig\(db, creatorId\)/.test(read("lib/checkout-text/preview-server.ts")))
 
 console.log("\nEvery route that takes the payment ignores it while it is off")
 const siteRoute = read("app/api/checkout/site/route.ts")

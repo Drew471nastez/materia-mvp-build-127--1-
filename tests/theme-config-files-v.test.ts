@@ -208,7 +208,7 @@ async function main() {
     check("  Storelib's own default unchanged by the file is not written in", !("page_width" in drawn))
     check("  no defaults to add: the same object, so the canvas does not redraw", withThemeDefaults(values, THEME_SETTINGS_GROUPS) === values && Object.keys(schemaDefaults(THEME_SETTINGS_GROUPS, values)).length === 0)
     check("Storelib AI's update_theme takes the theme's own ids, and lists them", themeFieldsFor(groups).some((f) => f.id === "promo_show") && /promo_show/.test(describeThemeSettings(groups)) && !themeFieldsFor().some((f) => f.id === "promo_show"))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor draws Theme settings from the theme's file, read with its sources", /const themeGroups = useMemo\(\(\) => themeSettingsGroupsFor\(themeSchemaText\), \[themeSchemaText\]\)/.test(editor) && /const schema = typeof d\.settings_schema === "string" \? d\.settings_schema : null/.test(editor) && /setThemeSchemaText\(\(prev\) => \(prev === schema \? prev : schema\)\)/.test(editor))
     check("  both panels, Colors' page colours too", /const generalGroups = themeGroups\.filter/.test(editor) && /const panelGroups = themeGroups\.filter/.test(editor) && /advanced=\{themeGroups\.find\(g => g\.id === "colors"\)/.test(editor))
     /* Changed on purpose (round 34): one writer of the draft (sendDraft), sending the settings of the save's own snapshot. */
@@ -247,7 +247,7 @@ async function main() {
     const resolved = resolveSettings(after as never, stored)
     check("  and the canvas draws it there too, while what is stored is untouched", resolved.padding_top === 80 && stored.padding_top === 120)
     check("values are kept by id: the heading, and one no setting reads any more", resolved.heading === "Keep me" && resolved.old_only === "still here")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the sliders show a value inside their range", /const num = clampTo\(typeof value === "number" \? value : defaultValue, min, max\)/.test(editor) && /const num = clampTo\(typeof raw === "number" \? raw : Number\(field\.default \?\? 0\), field\.min \?\? 0, field\.max \?\? 100\)/.test(editor))
   }
 

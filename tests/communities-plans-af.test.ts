@@ -77,7 +77,7 @@ async function main() {
   check("paid: Join $24/month", joinButtonLabel({ isMember: false, priceLine: "$24/month" }) === "Join $24/month")
   check("a trial: Start free trial", joinButtonLabel({ isMember: false, priceLine: "$24/month", trialDays: 7 }) === "Start free trial")
   check("several plans with a free one: Join free; all paid: Choose plan", joinButtonLabel({ isMember: false, plans: 3, anyFree: true }) === "Join free" && joinButtonLabel({ isMember: false, plans: 2, anyFree: false }) === "Choose plan")
-  const words = ["lib/communities/format.ts", "components/community/public/join-controls.tsx", "components/community/public/join-flow.tsx", "app/checkout/membership-checkout.tsx"].map(code).join("\n")
+  const words = ["lib/communities/format.ts", "components/community/public/join-controls.tsx", "components/community/public/join-flow.tsx", "app/(storelib)/checkout/membership-checkout.tsx"].map(code).join("\n")
   check("no button says Join for, anywhere the join is drawn", !/["`]Join for /.test(words))
 
   console.log("\nWhich plans the picker shows")
@@ -274,7 +274,7 @@ async function main() {
     const gate = code("lib/communities/server/join.ts")
     check("a free member may buy a paid plan (an upgrade); somebody paying or running the community may not", /const paying = \(PAID_SOURCES as readonly string\[\]\)\.includes/.test(gate) && /if \(paying \|\| staff\)/.test(gate))
     /* Changed on purpose (round 39): a member's home address is drawn by memberHome, whichever way the member was found. */
-    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")))
     const jc = code("components/community/public/join-controls.tsx")
     check("inside, a free member's Upgrade opens the paid plans or the one checkout", /export function UpgradeButton/.test(jc) && /<UpgradeButton \/>/.test(code("components/community/member/membership.tsx")) && /o\.kind === "paid" && !!o\.checkout/.test(jc))
     check("an upgrade the bank checks is confirmed in Stripe's own window, then finished by the server", /confirmCardPayment\(r\.data\.needsAction\.clientSecret\)/.test(code("components/community/membership/change-plan.tsx")) && /finish: true/.test(code("components/community/membership/change-plan.tsx")))
@@ -317,7 +317,7 @@ async function main() {
     const taxMod = code("lib/tax/membership.ts")
     check("Stripe Tax only when Storelib turns it on, and the subscription then carries automatic tax", /STRIPE_TAX/.test(taxMod) && /automaticTax: true/.test(taxMod) && /params\.automatic_tax = \{ enabled: true \}/.test(code("lib/memberships/billing.ts")))
     check("the creator's rate rides every renewal as a Stripe tax rate", /stripe\.taxRates\.create/.test(taxMod) && /params\.default_tax_rates = p\.taxRateIds/.test(code("lib/memberships/billing.ts")))
-    check("the checkout shows the same tax it charges", /membershipTaxQuote/.test(code("app/api/community/[communityId]/checkout/route.ts")) && /membershipTaxForSubscription/.test(code("app/api/memberships/checkout/route.ts")) && /tax-quote/.test(code("app/checkout/membership-checkout.tsx")))
+    check("the checkout shows the same tax it charges", /membershipTaxQuote/.test(code("app/api/community/[communityId]/checkout/route.ts")) && /membershipTaxForSubscription/.test(code("app/api/memberships/checkout/route.ts")) && /tax-quote/.test(code("app/(storelib)/checkout/membership-checkout.tsx")))
     check("never claims to file or pay tax", !/(we|Storelib) (file|files|remit|remits|pay|pays) (your|the) tax/i.test(read("lib/tax/membership.ts")))
   }
 

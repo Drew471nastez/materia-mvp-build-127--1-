@@ -134,7 +134,7 @@ check("reading time is a whole number of minutes, at least one", P.every((a) => 
 /* ── 3. The words match the product ───────────────────────────────────── */
 console.log("\n3. What the articles say is what the product does")
 const orderPanel = read("components/physical/order-panel.tsx")
-const orderDetail = read("app/app/orders/order-detail.tsx")
+const orderDetail = read("app/(storelib)/app/orders/order-detail.tsx")
 const guideText = P.map((a) => articleText(a)).join(" ")
 for (const words of ["Fulfill items", "Send shipment details to the buyer", "Mark as delivered", "Mark ready for pickup", "Mark picked up", "Not ready after all", "Cancel fulfillment", "Edit tracking", "Email the buyer the new number", "Mark as in progress", "Packing slip", "Start return", "Mark as in transit", "Cancel order", "Tell the buyer it's ready"]) {
   check(`order page: "${words}" is on the screen and in the guide`, orderPanel.includes(words) && guideText.includes(words))
@@ -198,9 +198,9 @@ check("  and shows screens as real screenshots, drawings only for ideas", qs.fil
 
 /* ── 5. SEO ───────────────────────────────────────────────────────────── */
 console.log("\n5. SEO")
-const page = read("app/help/[category]/[article]/page.tsx")
-const catPage = read("app/help/[category]/page.tsx")
-const home = read("app/help/page.tsx")
+const page = read("app/(storelib)/help/[category]/[article]/page.tsx")
+const catPage = read("app/(storelib)/help/[category]/page.tsx")
+const home = read("app/(storelib)/help/page.tsx")
 /* Changed on purpose (round AS): the Help Center lives at help.storelib.com, so canonicals are that address (lib/help/paths.ts publicHelpUrl). */
 check("article pages: own title, description, canonical, Open Graph and Twitter", /title: \{ absolute: `\$\{article\.title\} \| Storelib Help Center` \}/.test(page) && /alternates: \{ canonical: publicHelpUrl\(path\.replace\(/.test(page) && /openGraph:/.test(page) && /twitter:/.test(page))
 check("  the social card is the article's first screenshot", /helpImages\(article\)\[0\]/.test(page))
@@ -238,12 +238,12 @@ check("pages are built ahead (static) and revalidate", /export const revalidate 
 console.log("\n6. The Help Center's pages")
 check("no \"What happens if\" highlight on the Help Center home", !/What happens if/.test(home) && !/data-help-questions-link/.test(home))
 check("  order problems are a topic card of their own", /* Changed on purpose (round AE): the Linktree-like home. */ /href=\{helpHref\("\/help\/questions"\)\} slug="questions" title="Order problems"/.test(home))
-check("the questions page is named plainly", /Order problems, answered/.test(read("app/help/questions/page.tsx")) && !/What happens if\.\.\./.test(read("app/help/questions/page.tsx")))
+check("the questions page is named plainly", /Order problems, answered/.test(read("app/(storelib)/help/questions/page.tsx")) && !/What happens if\.\.\./.test(read("app/(storelib)/help/questions/page.tsx")))
 check("the home leads with search, then the topics as cards, then popular articles", /* Changed on purpose (round AE). */ home.indexOf("<HelpHero home") < home.indexOf("<TopicCard") && home.indexOf("<TopicCard") < home.indexOf("Popular articles"))
 check("every popular article exists", POPULAR_HELP.every((p) => { const [c, s] = p.split("/"); return !!helpArticle(c, s) }))
 check("an article page has its contents, beside it and folded on a phone", /<OnThisPage items=\{toc\} variant="side" \/>/.test(page) && /<OnThisPage items=\{toc\} variant="inline" \/>/.test(page))
 check("  previous and next, related articles, and the date it was checked", /data-help-prevnext/.test(page) && /data-help-related/.test(page) && /Updated <time dateTime/.test(page))
-check("the contents beside an article stay in view: no overflow-x-hidden scroll box around the page", /overflow-x-clip/.test(read("app/help/layout.tsx")) && !/overflow-x-hidden/.test(read("app/help/layout.tsx")) && /sticky top-24/.test(page))
+check("the contents beside an article stay in view: no overflow-x-hidden scroll box around the page", /overflow-x-clip/.test(read("app/(storelib)/help/layout.tsx")) && !/overflow-x-hidden/.test(read("app/(storelib)/help/layout.tsx")) && /sticky top-24/.test(page))
 const parts = read("components/help/help-parts.tsx")
 check("a heading carries the id its contents link to, clear of the sticky header", /id=\{idOf\(b\.text\)\}/.test(parts) && /scroll-mt-24/.test(parts))
 check("a screenshot shows its phone picture on a phone", /<source media="\(max-width: 639px\)" srcSet=\{b\.phone\.src\}/.test(parts))
@@ -281,8 +281,8 @@ check("the article path helper", helpArticlePath({ category: "physical-products"
 /* Round AE: the Help Center redone, like Linktree's, in Storelib's colours. */
 {
   const hero = read("components/help/help-hero.tsx")
-  const article = read("app/help/[category]/[article]/page.tsx")
-  check("one band on every page: Help Center, the mark, a search on ink", /bg-\[#1a1a2e\]/.test(hero) && /tone="dark"/.test(hero) && ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx", "app/help/questions/page.tsx"].every((f) => /<HelpHero/.test(read(f))))
+  const article = read("app/(storelib)/help/[category]/[article]/page.tsx")
+  check("one band on every page: Help Center, the mark, a search on ink", /bg-\[#1a1a2e\]/.test(hero) && /tone="dark"/.test(hero) && ["app/(storelib)/help/page.tsx", "app/(storelib)/help/[category]/page.tsx", "app/(storelib)/help/[category]/[article]/page.tsx", "app/(storelib)/help/search/page.tsx", "app/(storelib)/help/questions/page.tsx"].every((f) => /<HelpHero/.test(read(f))))
   /* Changed on purpose (round AT): plain ink line icons on a white tile, no lavender. */
   check("each topic has its own mark on a plain white tile", /export function TopicIcon/.test(hero) && /bg-white text-\[#1a1a2e\]/.test(hero) && !/f1ecff|6d28d9/.test(hero))
   check("an article's side column is the contents only, never a box that scrolls or clips", !/overflow-y-auto/.test(article) && !/-mx-2\.5/.test(article) && /<div className="sticky top-24">\s*<OnThisPage items=\{toc\} variant="side" \/>/.test(article))

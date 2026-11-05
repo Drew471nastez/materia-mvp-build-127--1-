@@ -155,7 +155,7 @@ async function run() {
   check("no products read with * in lib/orders/load-rows except the fallback", !/from\("products"\)\.select\("\*"\)/.test(loadRows) && /answer = await read\("\*"\)/.test(loadRows) && /const productsRead = readCreatorProducts\(admin, creatorId\)/.test(loadRows))
 
   console.log("\n4. The /app shell's first sale: one lookup by the order's creator")
-  const layout = readCode("app/app/layout.tsx")
+  const layout = readCode("app/(storelib)/app/layout.tsx")
   check("no orders read through products on the caller's client", !/from\("orders"\)/.test(layout) && !/products!inner\(creator_id\)/.test(layout))
   check("  the store's own orders, one id, failed, pending and disputed left out", /scopedOrders\(admin, "id", scope, creatorId, null\)\.not\("status", "in", "\(failed,pending,disputed\)"\)\.limit\(1\)/.test(layout) && /storeHasSale\(creator\.id\)/.test(layout))
   check("  by orders.creator_id, through the product before part 32 (byCreator)", /await byCreator\(async \(scope\) =>/.test(layout) && /from "@\/lib\/analytics\/creator-orders"/.test(layout))

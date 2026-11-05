@@ -467,7 +467,7 @@ async function main() {
     check("integrations and collections", first("integrations") === "/app/integrations" && first("collections") === "/app/products/collections")
     check("every place says where it is, or is a page of its own", APP_PAGES.every((p) => !/[#]|[?&](tab|report|category)=/.test(p.href) || p.group === "Settings" || !!p.under), APP_PAGES.filter((p) => /[#]|[?&](tab|report|category)=/.test(p.href) && p.group !== "Settings" && !p.under).map((p) => p.href))
     check("no two places share an address and a name", new Set(APP_PAGES.map((p) => `${p.href}|${p.label}`)).size === APP_PAGES.length)
-    const reports = readCode("app/app/analytics/analytics-reports.tsx")
+    const reports = readCode("app/(storelib)/app/analytics/analytics-reports.tsx")
     check("analytics opens the report the address names", /params\?\.get\("report"\)/.test(reports) && /openDetail\(askedReport\)/.test(reports))
   }
 

@@ -1,7 +1,7 @@
 /**
  * The Products list, the product editor (new and saved), the Orders page
  * and the email composer (in its real route layout, left through the real
- * app/app/emails/layer-nav.ts) as the app draws them, with the shell pieces that decide how a page
+ * app/(storelib)/app/emails/layer-nav.ts) as the app draws them, with the shell pieces that decide how a page
  * arrives (AppStage, the navigation bar's listeners) and a router of a few
  * addresses in place of Next's. Bundled by scripts/check-layer-motion.mjs
  * against the React the app router runs (Next's own build, which has
@@ -23,18 +23,18 @@ import { createRoot } from "react-dom/client"
 import * as probeNavigation from "next/navigation"
 // The probe bundler supplies this context in its navigation stand-in, not Next's production module.
 const { __RouteContext } = probeNavigation as typeof probeNavigation & { __RouteContext: React.Context<{ path: string; search: string }> }
-import { ProductsClient } from "@/app/app/products/products-client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { OrdersClient } from "./fixtures/orders-client"
 import { PageLayer } from "@/components/app/page-layer"
 import { AppStage } from "@/components/app/app-stage"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
 import { fixtureRows } from "./render-orders-probe"
-import NewEmailLayout from "@/app/app/emails/new/layout"
+import NewEmailLayout from "@/app/(storelib)/app/emails/new/layout"
 import { ComposePage } from "@/components/email/compose/compose-page"
-import { layerLinkClick } from "@/app/app/emails/layer-nav"
+import { layerLinkClick } from "@/app/(storelib)/app/emails/layer-nav"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -191,7 +191,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 /*
   The Emails page, stood in for by its bar and a list of rows (the real one
   reads its lists from the server): New email is the real link, opened
-  through app/app/emails/layer-nav.ts as emails-home.tsx opens it.
+  through app/(storelib)/app/emails/layer-nav.ts as emails-home.tsx opens it.
 */
 function EmailsStandIn() {
   const router = useRouter()

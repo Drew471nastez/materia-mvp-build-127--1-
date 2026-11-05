@@ -38,7 +38,7 @@ const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
     const src = read(route)
     check(`${route.split("/").slice(-2).join("/")} keeps the Overlay group and a theme's group file`, src.includes('group: z.enum(["header", "footer", "overlay"])') && src.includes("slot: z.string().regex("))
   }
-  check("the header and footer sync copies the Overlay group to every page", read("app/api/website-builder/themes/[installId]/sections/sync-global/route.ts").includes("overlay_group") && read("app/website-builder/editor/[installId]/page.tsx").includes("overlay_group: overlayGroup"))
+  check("the header and footer sync copies the Overlay group to every page", read("app/api/website-builder/themes/[installId]/sections/sync-global/route.ts").includes("overlay_group") && read("app/(storelib)/website-builder/editor/[installId]/page.tsx").includes("overlay_group: overlayGroup"))
 
   console.log("\nThe Overlay group\n")
   check("it is a group, after the footer, called Overlay", GROUP_ORDER[GROUP_ORDER.length - 1] === "overlay" && GROUP_LABELS.overlay === "Overlay")

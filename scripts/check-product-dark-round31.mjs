@@ -7,7 +7,7 @@
  * wishlist button and the select an option selector are not adapted at all".
  *
  * The page is the real route (/<handle>/<slug>?layout=discover&recommended=1,
- * app/(marketing)/p/[slug]/page.tsx through its layout) with each store config
+ * app/(storelib)/(marketing)/p/[slug]/page.tsx through its layout) with each store config
  * a creator really has (scripts/render-product-page-ssr31.tsx CASES):
  *
  *   SSR   rendered to HTML on the server, with the <head> boot as the root

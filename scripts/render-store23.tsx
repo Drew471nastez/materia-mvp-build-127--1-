@@ -19,12 +19,12 @@
  *   receipt-fr      the receipt page in French
  */
 import * as React from "react"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
-import { SiteCheckout } from "@/app/checkout/site/site-checkout"
-import { CheckoutWords } from "@/app/checkout/parts/words"
-import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
-import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
+import { SiteCheckout } from "@/app/(storelib)/checkout/site/site-checkout"
+import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { PhysicalCheckout } from "@/app/(storelib)/checkout/physical/physical-checkout"
+import { ReceiptView } from "@/app/(storelib)/receipt/[token]/receipt-view"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { encodeItems } from "@/lib/physical/cart-link"
@@ -124,7 +124,7 @@ const FRENCH: Record<string, string> = {
   "Pay {amount} in cash when it's delivered.": "Payez {amount} en espèces à la livraison.",
   "Place order": "Passer la commande",
   "Enter a valid email address.": "Saisissez une adresse e-mail valide.",
-  /* The order page and the receipt (app/checkout/physical/order, app/receipt). */
+  /* The order page and the receipt (app/(storelib)/checkout/physical/order, app/(storelib)/receipt). */
   "Order {number}": "Commande {number}",
   "Your order is confirmed": "Votre commande est confirmée",
   "Confirmed": "Confirmée",

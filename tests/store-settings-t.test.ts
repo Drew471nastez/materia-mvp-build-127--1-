@@ -70,9 +70,9 @@ console.log("\nBoth checkouts read the settings, and the routes check them\n")
   check("  and writes no started checkout when reminders are off", /if \(checkoutConfig\.abandonedRecovery\) await recordCheckoutStart/.test(session))
   const process = read("app/api/checkout/process/route.ts")
   check("the free checkout route asks the same", /config\.requireAccount && !user/.test(process))
-  const page = read("app/checkout/checkout-client.tsx")
+  const page = read("app/(storelib)/checkout/checkout-client.tsx")
   check("the digital page hides the news box when the store turns it off and asks for a last name, in a field of its own, when told to", /checkoutConfig\.marketingOptIn \? \(/.test(page) && /const splitName = checkoutConfig\.nameFields === "first_and_last"/.test(page) && /splitName && !lastName\.trim\(\)/.test(page) && /id="checkout-last"/.test(page))
-  const physPage = read("app/checkout/physical/physical-checkout.tsx")
+  const physPage = read("app/(storelib)/checkout/physical/physical-checkout.tsx")
   check("the physical page draws first and last apart, company, phone and the second line by the rules", /config\.nameFields === "first_and_last" \? \(/.test(physPage) && /config\.company !== "off"/.test(physPage) && /config\.address2 !== "off"/.test(physPage) && /config\.phone !== "off"/.test(physPage))
   check("  and a sign in card when an account comes first", /data-checkout-account="sign-in"/.test(physPage) && /\/login\?next=\$\{encodeURIComponent\(here\)\}/.test(physPage))
 }
@@ -80,7 +80,7 @@ console.log("\nBoth checkouts read the settings, and the routes check them\n")
 console.log("\nThe store's name is what orders are from\n")
 {
   check("the sender name prefers Settings › Store details", /from\("store_settings"\)\.select\("store_name"\)/.test(read("lib/email.tsx")))
-  check("the physical checkout's header too", /checkoutBrand\(db, shop\)/.test(read("app/checkout/physical/page.tsx")) && /* Changed on purpose (round AE4): the name is lib/store/logo-server chooseStoreName, the one receipts use too: store name, website brand, then the profile's display name. */ /chooseStoreName\(\{ store: settings\?\.store_name, theme, profile, creator \}/.test(read("lib/checkout/brand-server.ts")) && /return str\(c\.store\) \|\| brand \|\| str\(c\.profile\?\.display_name\)/.test(read("lib/store/logo-server.ts")))
+  check("the physical checkout's header too", /checkoutBrand\(db, shop\)/.test(read("app/(storelib)/checkout/physical/page.tsx")) && /* Changed on purpose (round AE4): the name is lib/store/logo-server chooseStoreName, the one receipts use too: store name, website brand, then the profile's display name. */ /chooseStoreName\(\{ store: settings\?\.store_name, theme, profile, creator \}/.test(read("lib/checkout/brand-server.ts")) && /return str\(c\.store\) \|\| brand \|\| str\(c\.profile\?\.display_name\)/.test(read("lib/store/logo-server.ts")))
 }
 
 console.log("\nSettings has both sections, for every store\n")

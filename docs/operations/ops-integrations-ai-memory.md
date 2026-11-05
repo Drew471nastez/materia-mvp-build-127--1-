@@ -7,7 +7,7 @@ gaps are named at the end rather than hidden behind a button.
 ## Operations view (/admin?view=ops)
 
 `lib/admin/views/ops.ts` reads every part of Storelib once and the page
-(`app/admin/_console/view-ops.tsx`) refreshes it every 30 seconds.
+(`app/(storelib)/admin/_console/view-ops.tsx`) refreshes it every 30 seconds.
 
 | Module | Measured from |
 | --- | --- |

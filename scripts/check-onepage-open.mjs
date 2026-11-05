@@ -98,7 +98,7 @@ fonts = fonts.replace(/url\(file:\/\/([^)]*)\/([^/)]+)\)/g, (_, dir, file) => {
 })
 put("public/app.css", `${fonts}\n${await appCss(root)}\nhtml,body{font-family:Inter,system-ui,sans-serif}`)
 
-put("app/layout.tsx", `import type React from "react"
+put("app/(storelib)/layout.tsx", `import type React from "react"
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
@@ -131,15 +131,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 `)
-put("app/app/layout.tsx", `import type React from "react"
+put("app/(storelib)/app/layout.tsx", `import type React from "react"
 import { Shell } from "./shell"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <Shell>{children}</Shell>
 }
 `)
-/* app/app/layout.tsx as it ships, the server's reads left out: the real wrapper and the real sidebar around the page. */
-put("app/app/shell.tsx", `"use client"
+/* app/(storelib)/app/layout.tsx as it ships, the server's reads left out: the real wrapper and the real sidebar around the page. */
+put("app/(storelib)/app/shell.tsx", `"use client"
 import type React from "react"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { AppSidebar } from "@/components/app/sidebar"
@@ -178,7 +178,7 @@ export default async function Page() {
 }
 `
 /* Home, with its real quick actions: one of them is the OnePage card. */
-put("app/app/page.tsx", `import { QuickActions } from "@/components/app/home/quick-actions"
+put("app/(storelib)/app/page.tsx", `import { QuickActions } from "@/components/app/home/quick-actions"
 
 export const dynamic = "force-dynamic"
 
@@ -187,11 +187,11 @@ export default async function Page() {
   return <div data-page="dashboard" className="p-8"><div className="text-[24px] font-bold text-[#1a1a2e]">dashboard</div><QuickActions /></div>
 }
 `)
-put("app/app/products/page.tsx", stub("products"))
-put("app/app/website-builder/page.tsx", stub("website"))
-put("app/app/[...rest]/page.tsx", stub("other"))
-put("app/creator-page/page.tsx", stub("creator-page"))
-put("app/app/onepage/page.tsx", `import { existsSync, unlinkSync } from "node:fs"
+put("app/(storelib)/app/products/page.tsx", stub("products"))
+put("app/(storelib)/app/website-builder/page.tsx", stub("website"))
+put("app/(storelib)/app/[...rest]/page.tsx", stub("other"))
+put("app/(storelib)/creator-page/page.tsx", stub("creator-page"))
+put("app/(storelib)/app/onepage/page.tsx", `import { existsSync, unlinkSync } from "node:fs"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 
 export const dynamic = "force-dynamic"
@@ -234,7 +234,7 @@ export default async function Page() {
 }
 `)
 /* The editor preview's frame, the repo's own route (components/onepage/live-preview). */
-put("app/onepage-preview/page.tsx", `export { default, metadata } from "@/app/onepage-preview/page"\n`)
+put("app/(storelib)/onepage-preview/page.tsx", `export { default, metadata } from "@/app/(storelib)/onepage-preview/page"\n`)
 /* What the editor and the shell ask the server, answered. The saves are counted. */
 put("app/api/onepage/route.ts", `export async function PUT() {
   await new Promise((r) => setTimeout(r, 120))

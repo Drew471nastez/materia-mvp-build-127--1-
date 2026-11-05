@@ -149,7 +149,7 @@ async function main() {
     const post = code("lib/blog/post.ts")
     check("the post page's read asks it", /\.eq\("is_published", true\)\s*\.or\(liveDateFilter\(\)\)/.test(post))
     check("  and hands no draft column to the page", /for \(const c of DRAFT_COLUMNS\) delete/.test(post) && /"draft_content", "draft_meta", "draft_saved_at"/.test(post))
-    check("the lists and the feed ask it (lib/blog/read.ts, read by /blog/rss.xml)", /\.eq\("is_published", true\)\.or\(liveDateFilter\(\)\)/.test(code("lib/blog/read.ts")) && /readBlogPosts\(\)/.test(code("app/(marketing)/blog/rss.xml/route.ts")))
+    check("the lists and the feed ask it (lib/blog/read.ts, read by /blog/rss.xml)", /\.eq\("is_published", true\)\.or\(liveDateFilter\(\)\)/.test(code("lib/blog/read.ts")) && /readBlogPosts\(\)/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")))
     check("the sitemap asks it", /\.eq\("is_published", true\)\.or\(liveDateFilter\(\)\)\.order\("slug"\)/.test(code("lib/seo/sitemaps.ts")))
     check("  and leaves out noindex posts and posts canonical elsewhere", /blogSlugsNotInSitemap\(\)/.test(code("lib/seo/sitemaps.ts")) && /noindex\.eq\.true,canonical_url\.not\.is\.null/.test(code("lib/blog/read.ts")))
     check("the cron that runs every ten minutes rebuilds and announces a post whose hour came", /announceScheduledBlogPosts\(\)/.test(code("app/api/cron/seo-index/route.ts")) && /"\*\/10 \* \* \* \*"/.test(read("vercel.json")) && /\.lte\("published_at"/.test(code("lib/blog/went-live.ts")))
@@ -183,7 +183,7 @@ async function main() {
     check("a rename records old to new, repoints anything that pointed at old, and frees new", JSON.stringify(plan) === JSON.stringify({ upsert: { from_slug: "old", to_slug: "new" }, repointFrom: "old", deleteFrom: "new" }) && slugChangePlan("same", "same") === null && slugChangePlan("", "x") === null)
     const post = code("lib/blog/post.ts")
     check("blogRedirectFor is exported from lib/blog/post.ts and reads blog_redirects", /export const blogRedirectFor = cache\(async \(slug: string\)/.test(post) && /\.from\("blog_redirects"\)\.select\("to_slug"\)\.eq\("from_slug", from\)/.test(post) && /followBlogRedirect\(slug,/.test(post))
-    const layout = code("app/(marketing)/blog/[slug]/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")
     check("the post's layout asks it only for a slug that is not a post, and answers 308", /const movedTo = \(await blogPostExists\(slug\)\) \? null : await blogRedirectFor\(slug\)/.test(layout) && /if \(movedTo\) permanentRedirect\(`\/blog\/\$\{movedTo\}`\)/.test(layout))
     check("  before the 404 it gave before", layout.indexOf("permanentRedirect(") < layout.indexOf("notFound()") && /if \(!\(await blogPostExists\(slug\)\)\) notFound\(\)/.test(layout))
     check("a live post's slug change writes the redirect, a draft's does not", /if \(full && liveChanged && wasLive && row\.slug !== oldSlug\) await recordSlugChange/.test(code("lib/blog/admin-store.ts")))
@@ -243,8 +243,8 @@ async function main() {
     check("the editor opens the live post when there is no draft", draftSave.meta.title === "Live now" && !draftSave.hasDraft)
     const route = code("app/api/admin/blog/posts/[id]/route.ts")
     check("the route answers the 409 with its code and the current row", /if \(!saved\.ok\) return blogJson\(\{ error: saved\.error, code: saved\.code, current: saved\.current \}, saved\.status\)/.test(route))
-    check("the editor sends the version it was given and stops on a stale 409", /version: versionRef\.current/.test(code("app/admin/blog/posts/_editor-client.tsx")) && /res\.status === 409 && data\.code === "stale"/.test(code("app/admin/blog/posts/_editor-client.tsx")))
-    check("the editor saves 1.5 s after typing stops, and warns on leaving with something unsaved", /const AUTOSAVE_MS = 1500/.test(code("app/admin/blog/posts/_editor-client.tsx")) && /addEventListener\("beforeunload"/.test(code("app/admin/blog/posts/_editor-client.tsx")))
+    check("the editor sends the version it was given and stops on a stale 409", /version: versionRef\.current/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")) && /res\.status === 409 && data\.code === "stale"/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")))
+    check("the editor saves 1.5 s after typing stops, and warns on leaving with something unsaved", /const AUTOSAVE_MS = 1500/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")) && /addEventListener\("beforeunload"/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")))
     check("before 345, only the columns the table always had are written", Object.keys(liveColumns(normalizeMeta({ title: "t" }), [], false)).every((k) => ["title", "slug", "excerpt", "content", "category", "read_time", "author_name", "cover_image_url", "seo_title", "seo_description", "seo_keywords"].includes(k)))
   }
 
@@ -260,7 +260,7 @@ async function main() {
     }
     const http = code("lib/blog/admin-http.ts")
     check("blogJson says noindex and no-store on every answer", /"X-Robots-Tag": "noindex, nofollow"/.test(http) && /"Cache-Control": "no-store"/.test(http) && /headers: ADMIN_BLOG_HEADERS/.test(http))
-    const preview = code("app/admin/blog/preview/[token]/page.tsx")
+    const preview = code("app/(storelib)/admin/blog/preview/[token]/page.tsx")
     check("the preview page is noindex, nofollow, nocache", /robots: \{ index: false, follow: false, nocache: true/.test(preview))
     check("  is drawn per request", /export const dynamic = "force-dynamic"/.test(preview))
     check("  opens only for a token this server signed, else 404", /const postId = verifyPreviewToken\(decodeURIComponent\(token\)\)\s*if \(!postId\) notFound\(\)/.test(preview))
@@ -305,7 +305,7 @@ async function main() {
     check("listed in the README and checked after", /`345_blog_editor\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p345_blog_editor/.test(read("supabase/sql/run-now/99_check_after.sql")))
     const store = code("lib/blog/admin-store.ts")
     check("the admin looks for 345 and works without it", /export async function blogSchema/.test(store) && /isMissingSchema\(col\.error\)/.test(store) && /liveColumns\(meta, blocks, full\)/.test(store))
-    check("and says which part turns a feature on", /Run SQL part 345/.test(store) && /note345/.test(code("app/admin/blog/posts/_editor-client.tsx")))
+    check("and says which part turns a feature on", /Run SQL part 345/.test(store) && /note345/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")))
   }
 
   /* ── The editor ──────────────────────────────────────────────────────── */
@@ -318,8 +318,8 @@ async function main() {
     check("a paste is cleaned (lib/blog/paste.ts) and a lone address becomes a link or a block", /blocksFromHtmlDocument\(new DOMParser\(\)\.parseFromString\(html, "text\/html"\)/.test(ed) && /youtubeIdFrom\(url\)/.test(ed) && /createLink/.test(ed))
     check("Google Docs' outer bold is not bold", /font-weight/.test(code("lib/blog/paste.ts")) && /if \(w === "normal" \|\| w === "lighter"\) return false/.test(code("lib/blog/paste.ts")))
     check("alt text is asked for on every picture", /altMissing \? "Required" : null/.test(ed))
-    check("pictures go through the existing upload route", /fetch\("\/api\/admin\/blog\/upload"/.test(code("app/admin/blog/posts/_editor-client.tsx")))
-    check("no client file imports a server module", ["components/admin/blog-editor.tsx", "app/admin/blog/posts/_editor-client.tsx", "app/admin/blog/_list-client.tsx", "app/admin/blog/library/_library-client.tsx"].every((f) => !/^import (?!type)[^\n]*from "@\/lib\/(supabase|blog\/(admin-store|post|read|went-live|admin-http))"/m.test(read(f))))
+    check("pictures go through the existing upload route", /fetch\("\/api\/admin\/blog\/upload"/.test(code("app/(storelib)/admin/blog/posts/_editor-client.tsx")))
+    check("no client file imports a server module", ["components/admin/blog-editor.tsx", "app/(storelib)/admin/blog/posts/_editor-client.tsx", "app/(storelib)/admin/blog/_list-client.tsx", "app/(storelib)/admin/blog/library/_library-client.tsx"].every((f) => !/^import (?!type)[^\n]*from "@\/lib\/(supabase|blog\/(admin-store|post|read|went-live|admin-http))"/m.test(read(f))))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

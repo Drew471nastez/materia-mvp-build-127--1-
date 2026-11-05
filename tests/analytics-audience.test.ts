@@ -135,7 +135,7 @@ console.log("\nThe trackers")
   const box = read("components/physical/buy-box.tsx")
   check("the Storelib product page's Add to cart and Buy now too", (box.match(/trackFunnelStep\("buy_click", data\.product\.creatorId, data\.product\.id\)/g) ?? []).length === 2)
   check("the physical checkout and the website's checkout say a checkout started",
-    /trackFunnelStep\("checkout_start", quoteCreator, id\)/.test(read("app/checkout/physical/physical-checkout.tsx")) && /trackFunnelStep\("checkout_start", shopId, id\)/.test(read("app/checkout/site/site-checkout.tsx")))
+    /trackFunnelStep\("checkout_start", quoteCreator, id\)/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")) && /trackFunnelStep\("checkout_start", shopId, id\)/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
   check("a view carries its page's title, on every kind of page", /pageTitle: \(document\.title/.test(read("components/analytics/track-view.tsx")) && /pageTitle:\(d\.title/.test(read("lib/storelib-theme/compat/track-script.ts")))
   const collect = read("lib/analytics/collect.ts")
   check("the server keeps the title once part 253 is there, and the system from the platform hint", /row\.page_title = pageTitle/.test(collect) && /if \(col === "page_title"\) noTitleUntil/.test(collect) && /osFromPlatformHint\(req\.headers\.get\("sec-ch-ua-platform"\)\)/.test(collect))

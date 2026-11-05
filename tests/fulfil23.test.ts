@@ -257,7 +257,7 @@ async function main() {
     const site = read("lib/checkout/site-quote-server.ts")
     const physicalRoute = read("app/api/physical/checkout/quote/route.ts")
     check("both quote routes (Storelib checkout, website and imported theme checkout) pass the postal code to the same server quote", /postalCode/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode(, city)? \}/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode(, city)? \}/.test(physicalRoute))
-    check("both checkout pages send it", /postalCode: postalForQuote/.test(read("app/checkout/site/site-checkout.tsx")) && /postalCode: postalForQuote/.test(read("app/checkout/physical/physical-checkout.tsx")))
+    check("both checkout pages send it", /postalCode: postalForQuote/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && /postalCode: postalForQuote/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")))
     check("imported Shopify themes check out through the website checkout (lib/storelib-theme/compat/site.ts)", /siteCheckoutHref/.test(read("lib/storelib-theme/compat/site.ts")))
     check("the order keeps it: kind local and its note on the checkout", /local_location_id: option\.local\.locationId, local_note: option\.local\.note/.test(read("lib/physical/checkout-server.ts")))
   }
@@ -269,7 +269,7 @@ async function main() {
     check("the studio is offered for pickup with its ready time and hours", r.q.pickups.length === 1 && p.pickup?.name === "Studio" && p.pickup.ready === "2h" && p.pickup.hours === "Mon to Fri 9:00 to 17:00" && p.priceCents === 0, p)
     const pick = await quote(shop(), [{ productId: HOODIE, variantId: HOODIE_V, quantity: 1 }], null, `pickup:${STUDIO}`)
     check("picking it up is free and holds the stock there", pick.q.option?.kind === "pickup" && pick.q.totals.shippingCents === 0 && pick.q.lines.every((l) => l.locationId === STUDIO))
-    check("the order keeps the hours, the buyer's page and the pickup email show them", /hours: pickup\.hours \?\? null/.test(read("lib/physical/checkout-server.ts")) && /data-pickup-hours/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /Open \$\{co\.pickup\.hours\}|hours: typeof co\.pickup\.hours === "string"/.test(read("lib/physical/jobs-server.ts")))
+    check("the order keeps the hours, the buyer's page and the pickup email show them", /hours: pickup\.hours \?\? null/.test(read("lib/physical/checkout-server.ts")) && /data-pickup-hours/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")) && /Open \$\{co\.pickup\.hours\}|hours: typeof co\.pickup\.hours === "string"/.test(read("lib/physical/jobs-server.ts")))
   }
 
   section("Settings: Shipping and delivery, Locations")
@@ -311,7 +311,7 @@ async function main() {
   {
     check("the line is the product's own, else the shop's (Settings > Locations, Low stock)", lowStockLine(3, 8) === 3 && lowStockLine(null, 8) === 8)
     /* Changed on purpose (round 41): Low includes items at 0, as the low stock email lists them (lib/physical/inventory-rules inInventoryView). */
-    check("Inventory's Low filter reads the same line per product (the variant's own first since round V)", /lowStockThreshold: lowStockAt\(variantLowStock, productLowStock, lowStockDefault\)/.test(read("lib/physical/inventory-server.ts")) && /inInventoryView\(r, l, v\)/.test(read("app/app/inventory/inventory-client.tsx")) && /if \(view === "low"\) return lowForAlert\(level\.available, row\.lowStockThreshold, row\.trackInventory\)/.test(read("lib/physical/inventory-rules.ts")))
+    check("Inventory's Low filter reads the same line per product (the variant's own first since round V)", /lowStockThreshold: lowStockAt\(variantLowStock, productLowStock, lowStockDefault\)/.test(read("lib/physical/inventory-server.ts")) && /inInventoryView\(r, l, v\)/.test(read("app/(storelib)/app/inventory/inventory-client.tsx")) && /if \(view === "low"\) return lowForAlert\(level\.available, row\.lowStockThreshold, row\.trackInventory\)/.test(read("lib/physical/inventory-rules.ts")))
     check("Only N left on the product page comes from the same line (the variant's own first since round V)", /lowStockLine\(own\.get\(v\.id\) \?\? product\.low_stock_threshold, shopLine\)/.test(read("lib/physical/storefront-stock.ts")) && /Only \{variant\.left\} left/.test(read("components/physical/buy-box.tsx")))
     check("the checkout only sells a location's own stock, and holds it there", /levelOf\.get\(`\$\{v\.id\}:\$\{locationId\}`\)/.test(read("lib/physical/checkout-pricing-server.ts")) && /physical_reserve/.test(read("lib/physical/checkout-server.ts")))
   }
@@ -365,12 +365,12 @@ async function main() {
     check("no tracking: counted from shipping (shipped 31 days ago: closed)", !w([{ status: "shipped", trackingNumber: null, shippedAt: ago(31), deliveredAt: null }]).open && w([{ status: "shipped", trackingNumber: null, shippedAt: ago(29), deliveredAt: null }]).open)
     check("a cancelled shipment doesn't count", w([{ status: "cancelled", trackingNumber: null, shippedAt: ago(90), deliveredAt: null }, { status: "delivered", trackingNumber: "1Z", shippedAt: ago(5), deliveredAt: ago(2) }]).open)
     check("nothing to ship: from payment", !returnWindow({ lines: [{ requiresShipping: false }], shipments: [], paidAt: ago(31) }, 30, now).open)
-    const page = read("app/checkout/physical/order/[token]/page.tsx")
+    const page = read("app/(storelib)/checkout/physical/order/[token]/page.tsx")
     const route = read("app/api/physical/order-status/[token]/return/route.ts")
     check("the order page and the return route use the same window", /returnWindow\(/.test(page) && /returnWindow\(/.test(route) && !/fulfilled_at \?\? co\.paid_at/.test(route))
     check("Accept returns off: no return button, and the route refuses", /const windowOpen = settings\.returnsEnabled && window\.open/.test(page) && /if \(!settings\.returnsEnabled\) return physicalJson/.test(route))
     check("the refund policy page says the same window, from delivery", /within 30 days of delivery/.test(returnFactsHtml({ enabled: true, windowDays: 30 })) && /don't accept returns/.test(returnFactsHtml({ enabled: false, windowDays: 30 })))
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     /* Changed on purpose: in the buyer's language (ct). */
     /* Changed on purpose (round 27, B27): until when is the seller's own window (a date once delivered, the days before), and the reason is in the buyer's language. */
     check("the buyer sees until when, the reasons list labelled, and the reason on their return", /ct\("Until \{day\}", \{ day: day\(policy\.endsAt, lang\) \}\)/.test(view) && /until=\{returnHint\}/.test(view) && /Why are you returning this\?/.test(view) && !/className="sr-only">\s*Why are you returning/.test(view) && /ct\("Reason: \{reason\}", \{ reason: r\.reason === "Other" \? ct\("Other reason"\) : ct\(r\.reason\) \}\)/.test(view))
@@ -413,7 +413,7 @@ async function main() {
     check("each step has its customer email", emailIdForJob("return", null, "approved") === "return_approved" && emailIdForJob("return", null, "received") === "return_received" && emailIdForJob("return", null, "completed") === "return_completed")
     check("which return a refund is for: the received one, else the only one waiting", returnForRefund([{ id: "a", status: "completed" }, { id: "b", status: "received" }], null) === "b" && returnForRefund([{ id: "a", status: "approved" }, { id: "b", status: "approved" }], null) === null && returnForRefund([{ id: "a", status: "approved" }], "zzz") === null)
     const panel = read("components/physical/order-panel.tsx")
-    check("the seller's return card: Approve asks for instructions, Received offers Refund, then Close", /Instructions for the buyer/.test(panel) && /data-return-refund/.test(panel) && /Close without refund/.test(panel) && /<PhysicalFulfillment[^\n]*onRefund=\{canRefund && refundable\.length > 0 \? \(\) => setDialog\("refund"\) : null\}/.test(read("app/app/orders/order-detail.tsx")))
+    check("the seller's return card: Approve asks for instructions, Received offers Refund, then Close", /Instructions for the buyer/.test(panel) && /data-return-refund/.test(panel) && /Close without refund/.test(panel) && /<PhysicalFulfillment[^\n]*onRefund=\{canRefund && refundable\.length > 0 \? \(\) => setDialog\("refund"\) : null\}/.test(read("app/(storelib)/app/orders/order-detail.tsx")))
     check("refund reasons are kept on the refund and shown on the timeline", /refund_reason: reason \|\| "requested_by_customer"/.test(read("app/api/stripe/refund/route.ts")) && /detail: line\.refund_reason \? reasonLabel\(line\.refund_reason, "refund"\)/.test(read("lib/orders/timeline.ts")))
   }
 
@@ -446,7 +446,7 @@ async function main() {
     check("going back from delivered is refused", (await updateShipment(db as never, SHOP, F, { status: "in_transit" })).ok === false)
     const panel = read("components/physical/order-panel.tsx")
     check("the seller can set each status by hand (no carrier integration reports them yet)", /Mark as in transit/.test(panel) && /Mark as out for delivery/.test(panel) && /Report a delivery problem/.test(panel) && /Mark as delivered/.test(panel))
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     check("the buyer's page shows each package's updates with dates, the problem plainly, and Track package", /data-shipment-updates/.test(view) && /The carrier reported a problem delivering this package/.test(view) && /Track package/.test(view))
     check("partners report status through the signed webhook (the only carrier feed there is)", /"shipped" \| "in_transit" \| "out_for_delivery" \| "delivered" \| "failed"/.test(read("app/api/physical/partner-tracking/route.ts")))
   }

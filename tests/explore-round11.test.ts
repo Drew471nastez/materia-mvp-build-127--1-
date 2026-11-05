@@ -68,7 +68,7 @@ async function main() {
   {
     const land = code("lib/navigation/land-at-top.ts")
     const wrapper = code("components/store-builder/discover-sticky-wrapper.tsx")
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("every product page draws the bar that asks for it (both layouts)", (product.match(/<DiscoverStickyWrapper>/g) ?? []).length >= 2 && /useLandAtTop\(\)/.test(wrapper))
     check("put at 0 before the first paint", /useLayoutEffect\(\(\) => \{[\s\S]*if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(land))
     check("Back and Forward, a #, a reload are left to the browser", /if \(window\.location\.hash\) return/.test(land) && /if \(traversal\) return/.test(land) && /nav\?\.type === "reload" \|\| nav\?\.type === "back_forward"/.test(land))

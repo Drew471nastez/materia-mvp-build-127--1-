@@ -33,7 +33,7 @@ const form = read("components/help/contact-form.tsx")
 check("the form posts to its own origin, so it works on help.storelib.com", /fetch\("\/api\/help\/contact"/.test(form))
 check("  offers articles that might answer it while the message is written", /searchHelp\(query, 3/.test(form) && /data-contact-suggestions/.test(form))
 check("  fills the reply address for someone signed in", /mainSiteUrl\("\/api\/help\/me"\)/.test(form))
-check("the page is help.storelib.com/contact", /canonical: publicHelpUrl\("\/contact"\)/.test(read("app/help/contact/page.tsx")))
+check("the page is help.storelib.com/contact", /canonical: publicHelpUrl\("\/contact"\)/.test(read("app/(storelib)/help/contact/page.tsx")))
 check("the header and Still need help open it, not a mail app", /helpHref\("\/help\/contact"\)/.test(read("components/help/help-header.tsx")) && /publicHelpUrl\("\/contact"\)/.test(read("components/help/help-parts.tsx")) && !/mailto:/.test(read("components/help/help-header.tsx")))
 
 console.log("\nThe sidebar that went dead until a reload\n")
@@ -41,7 +41,7 @@ const stuck = read("lib/website-builder/stuck-layer.ts")
 check("a kept sheet at rest, an inert or closed layer is not an open modal", /const NOT_AT_REST = ':not\(\[data-app-sheet-rest\]\)/.test(stuck) && /:not\(\[inert\]\)/.test(stuck) && /`\[aria-modal="true"\]\$\{NOT_AT_REST\}`/.test(stuck))
 
 console.log("\nThe size switch\n")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 /* Changed on purpose (round AX, the owner: "it disappears, it fades"): no fade out any more, one view transition instead (editor-y1 pins it). */
 check("the page never fades out or sits out the glide", !/CANVAS_FADE_OUT_MS|content-visibility", "hidden"/.test(editor) && /holdOffscreenSections/.test(editor))
 

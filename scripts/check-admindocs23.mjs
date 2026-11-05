@@ -2,7 +2,7 @@
  * ===========================================================================
  *  /admin/physical-commerce, MEASURED AT A DESK AND ON A PHONE
  * ===========================================================================
- * Renders the real page (app/admin/physical-commerce/commerce-docs-admin.tsx)
+ * Renders the real page (app/(storelib)/admin/physical-commerce/commerce-docs-admin.tsx)
  * with its real content (scripts/render-admindocs23.tsx) at 1440x900 and at
  * 390x844 as a touch phone with a 4x slower CPU, with the status of a running
  * platform, with nothing configured, and with a failed read, then:

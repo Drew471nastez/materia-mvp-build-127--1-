@@ -103,7 +103,7 @@ console.log("\nWHILE A SCHEME COLOUR IS DRAGGED")
   const committed = { ...base, color_schemes: { white: { background: "#f0f0f0" } } }
   w.letGo(committed)
   check("once committed a root shows the committed colour until it is drawn with it, and nothing is written by hand", a.props.get("--scheme-background") === "#f0f0f0" && !w.has("a"))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the canvas keeps the committed theme for a section whose colours are written as its variables", /onScreen\(id\) && !patchCanvasThemeVars\.byVariables\(id\)\) \? theme : committedTheme/.test(editor))
   check("the patcher writes a scheme colour only onto the roots drawn with variables, on screen", /if \(schemeColoursOnly\(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>\)\) \{/.test(editor) && /querySelector<HTMLElement>\("\[data-scheme-vars\]"\)/.test(editor))
   const live2 = read("components/website-builder/sections/storelib-live.tsx")

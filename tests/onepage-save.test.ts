@@ -274,7 +274,7 @@ async function main() {
 
   console.log("\nA new page")
   {
-    const page = code("app/app/onepage/page.tsx")
+    const page = code("app/(storelib)/app/onepage/page.tsx")
     const helper = code("lib/onepage/ensure-onepage.ts")
     check("the editor page creates it with the shared function", /await ensureOnePage\(supabase, user\.id, creator\)/.test(page))
     check("and no longer carries its own copy of the defaults", !/const newOnepage = \{/.test(page) && !/const linkBlock1 = \{/.test(page))

@@ -1,9 +1,9 @@
 /**
- * The real product editor (app/app/products/new/product-editor.tsx) inside a
+ * The real product editor (app/(storelib)/app/products/new/product-editor.tsx) inside a
  * copy of the /app shell's frame: the 68px (58px from 768px) header space,
  * the .app-content-scroll pane and, on a phone, a stand-in for the navigation
  * pill with the same data attribute and the same place on the screen. From
- * 768px the pane sits beside a 240px rail, as app/app/layout.tsx has it
+ * 768px the pane sits beside a 240px rail, as app/(storelib)/app/layout.tsx has it
  * (`md:pl-[240px]`), and the editor is inside the real PageLayer its layouts
  * use (`phoneOnly`), so the columns and the foot bar are measured in the
  * content area a creator's computer actually gives them.
@@ -15,9 +15,9 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
-import { ProductsClient } from "@/app/app/products/products-client"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { PageLayer } from "@/components/app/page-layer"
 import { LanguageProvider } from "@/lib/i18n"
 import { markTraversal, takeTraversal } from "@/lib/ui/app-navigation"
@@ -65,9 +65,9 @@ const loaded: LoadedProduct = {
 
 const isNew = location.search.includes("new")
 /* `layer`: the editor as a full screen layer over the app's header, the way
-   the plans page is drawn (app/app/settings/billing/upgrade/layout.tsx). */
+   the plans page is drawn (app/(storelib)/app/settings/billing/upgrade/layout.tsx). */
 const isLayer = location.search.includes("layer")
-/* `?new&course`: a new product picked as a Video course (app/app/products/new/kind-chooser), as the server page hands it over. */
+/* `?new&course`: a new product picked as a Video course (app/(storelib)/app/products/new/kind-chooser), as the server page hands it over. */
 const editor = <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} startAs={location.search.includes("course") ? "course" : "digital"} />
 
 /*

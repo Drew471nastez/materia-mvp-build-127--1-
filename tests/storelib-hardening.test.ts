@@ -31,7 +31,7 @@ const read = (p: string) => untt(readFileSync(join(root, p), "utf8"), p)
 
 /** The starter, built the way the code editor builds it, for type "mine". */
 function starterSource(): string {
-  const page = read("app/website-builder/code/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
   const body = page.slice(page.indexOf("const starterFor"), page.indexOf('if (path.endsWith(".storelib")) return'))
   const arr = body.slice(body.indexOf("return ["), body.lastIndexOf('].join("\\n")') + 13)
   // eslint-disable-next-line no-eval

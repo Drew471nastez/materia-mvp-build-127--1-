@@ -161,16 +161,16 @@ async function main() {
   check("the route is gated, checks the token's shape, and is limited per address and per order", /physicalApiGate\(\)/.test(route) && /\^\[A-Za-z0-9_-\]\{20,64\}\$/.test(route) && /addressSubject\(request\), `order:\$\{token\}`/.test(route))
   const panel = read("components/physical/order-panel.tsx")
   check("the seller's order shows the request with Cancel and refund and Keep order", /data-cancel-request/.test(panel) && /Cancel and refund/.test(panel) && /Keep order/.test(panel) && /action: "cancel_decline"/.test(panel))
-  check("  saying yes uses the order's own Cancel order, then the Orders page's refund", /act\(\{ action: "cancel", reason: CANCELLED_AT_BUYERS_REQUEST \}\)/.test(panel) && /onRefundAll=\{canRefund && refundable\.length > 0 \? refundAll : null\}/.test(read("app/app/orders/order-detail.tsx")) && /kind: "refund", line, amountCents: cents, reason: "cancelled"/.test(read("app/app/orders/order-detail.tsx")))
+  check("  saying yes uses the order's own Cancel order, then the Orders page's refund", /act\(\{ action: "cancel", reason: CANCELLED_AT_BUYERS_REQUEST \}\)/.test(panel) && /onRefundAll=\{canRefund && refundable\.length > 0 \? refundAll : null\}/.test(read("app/(storelib)/app/orders/order-detail.tsx")) && /kind: "refund", line, amountCents: cents, reason: "cancelled"/.test(read("app/(storelib)/app/orders/order-detail.tsx")))
   check("  so the buyer gets the Order cancelled email from cancelOrder", /queueCancelledEmail\(db, checkoutId, creatorId\)/.test(read("lib/physical/orders-server.ts")))
-  const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+  const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
   check("the buyer's page has Cancel order, the waiting line and the no", /data-cancel-button/.test(view) && /data-cancel-state="requested"/.test(view) && /data-cancel-state="declined"/.test(view) && /order-status\/\$\{encodeURIComponent\(token\)\}\/cancel/.test(view))
 
   /* ── 5. Delivery problem, both sides ─────────────────────────────────── */
   console.log("\n5. A delivery problem reads the same to the seller")
   check("a parcel out with a problem shows it; delivered or cancelled does not", showsProblem("fulfilled", true) && showsProblem("partially_fulfilled", true) && !showsProblem("delivered", true) && !showsProblem("cancelled", true) && !showsProblem("fulfilled", false))
   check("the shipment card says Delivery problem in red with the next step", /<StatusBadge tone="critical">Delivery problem<\/StatusBadge>/.test(panel) && /data-delivery-problem/.test(panel))
-  check("the Orders list and the order's bar say it too", /ShipBadge stage=\{order\.shipping\.stage\} problem=\{order\.shipping\.problem\}/.test(read("app/app/orders/orders-list.tsx")) && /problem=\{parcel \? parcel\.shipments\.some\(\(s\) => s\.status === "failed"\)/.test(read("app/app/orders/order-detail.tsx")))
+  check("the Orders list and the order's bar say it too", /ShipBadge stage=\{order\.shipping\.stage\} problem=\{order\.shipping\.problem\}/.test(read("app/(storelib)/app/orders/orders-list.tsx")) && /problem=\{parcel \? parcel\.shipments\.some\(\(s\) => s\.status === "failed"\)/.test(read("app/(storelib)/app/orders/order-detail.tsx")))
   check("the buyer's page still says it in the same words", /There's a problem with your delivery/.test(view) && /The carrier reported a problem delivering this package/.test(view) && /The carrier reported a problem delivering this package/.test(panel))
 
   /* ── 8. Tax inside the prices ─────────────────────────────────────────── */

@@ -8,7 +8,7 @@
  * on its reads, one after another where one needs the answer of another.
  *
  * This runs the real server code of every section page (the gate of
- * lib/communities/server/creator.ts and the reads app/app/community/[id]/
+ * lib/communities/server/creator.ts and the reads app/(storelib)/app/community/[id]/
  * <section>/page.tsx makes) against the in-memory database of the suites
  * (tests/_fake-db.ts), with every read answered after LAT ms the way
  * Supabase answers one across the network. Per section it prints:

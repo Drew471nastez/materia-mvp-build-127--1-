@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE ADMIN CONSOLE, MEASURED AT A DESK AND ON A PHONE
  * ===========================================================================
- * Renders the real console (app/admin/_console) with fixture payloads shaped
+ * Renders the real console (app/(storelib)/admin/_console) with fixture payloads shaped
  * like the admin API's (scripts/render-admin.tsx) at 1440 and 390 wide, with
  * the app's own CSS, and measures rather than looks:
  *

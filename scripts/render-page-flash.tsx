@@ -5,7 +5,7 @@
  * records every frame from the commit on and looks for anything that changes
  * twice: a flash.
  *
- * `?page=` picks the page. The shell is app/app/layout.tsx's frame (the
+ * `?page=` picks the page. The shell is app/(storelib)/app/layout.tsx's frame (the
  * header, the rounded content area, its scroller), and the landing is the
  * stage's own (components/app/app-stage.tsx playEntrance), started in the
  * commit, as a navigation starts it.
@@ -21,14 +21,14 @@ import { LanguageProvider } from "@/lib/i18n"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { playEntrance } from "@/components/app/app-stage"
 import { DashboardClient } from "@/components/app/dashboard-client"
-import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
-import { EmailsHome, type EmailsTab } from "@/app/app/emails/emails-home"
-import { ProductsClient } from "@/app/app/products/products-client"
-import { PayoutsClient } from "@/app/app/payouts/payouts-client"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
+import { AnalyticsClient } from "@/app/(storelib)/app/analytics/analytics-client"
+import { EmailsHome, type EmailsTab } from "@/app/(storelib)/app/emails/emails-home"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
+import { PayoutsClient } from "@/app/(storelib)/app/payouts/payouts-client"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { SettingsFormNew } from "@/components/app/settings-form-new"
 import { OrdersClient } from "./fixtures/orders-client"
-import CustomersPage from "@/app/app/customers/page"
+import CustomersPage from "@/app/(storelib)/app/customers/page"
 import { buildReports, type ViewRow } from "@/lib/analytics/reports"
 import { resolveValue, todayIn } from "@/lib/date-range/range"
 import type { OrderRow } from "@/lib/orders/order-view"
@@ -106,7 +106,7 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 /* ── The pages ────────────────────────────────────────────────────────── */
 
 function Emails() {
-  /* The emails page reads its lists after it lands (app/app/emails/page.tsx
+  /* The emails page reads its lists after it lands (app/(storelib)/app/emails/page.tsx
      loadData): `loading` until they come. */
   const [loading, setLoading] = React.useState(true)
   const [tab, setTab] = React.useState<EmailsTab>("published")
@@ -153,7 +153,7 @@ function Page() {
       return (
         <DashboardClient {...({
           creatorId: "c1", displayName: "Ana", productIds: ["p1", "p2", "p3"],
-          /* What app/app/page.tsx hands Home since b920281e: the account's
+          /* What app/(storelib)/app/page.tsx hands Home since b920281e: the account's
              facts with the sales already counted on the server, so the steps
              are right on the first frame (the old checklist prop left the
              sales at 0 until Home's answer, and "2 of 8" became "3 of 8"). */

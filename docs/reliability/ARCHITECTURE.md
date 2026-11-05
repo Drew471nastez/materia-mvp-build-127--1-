@@ -41,14 +41,14 @@ flowchart LR
 
 | Product | Address | Entry in code | Data path | Caching |
 | --- | --- | --- | --- | --- |
-| OnePages (link in bio) | `storelib.me/<name>` (also old `/l/<slug>` addresses, 308 to storelib.me) | `proxy.ts` asks `onePageRoute` (`lib/onepage/host-route.ts`), rewrites to `app/(marketing)/l/[slug]` | `lib/onepage/published-page.ts` `resolveOnePage` → `lib/onepage/address-lookup.ts` | `heldRead` (`unstable_cache`, 60s, tagged) |
-| Creator Pages (storefront) | `storelib.com/<handle>` | `app/(marketing)/[sellername]` → `u/[username]` | `lib/commerce/creator-page-data.ts`, `lib/security/public-rows.ts` | dynamic |
+| OnePages (link in bio) | `storelib.me/<name>` (also old `/l/<slug>` addresses, 308 to storelib.me) | `proxy.ts` asks `onePageRoute` (`lib/onepage/host-route.ts`), rewrites to `app/(storelib)/(marketing)/l/[slug]` | `lib/onepage/published-page.ts` `resolveOnePage` → `lib/onepage/address-lookup.ts` | `heldRead` (`unstable_cache`, 60s, tagged) |
+| Creator Pages (storefront) | `storelib.com/<handle>` | `app/(storelib)/(marketing)/[sellername]` → `u/[username]` | `lib/commerce/creator-page-data.ts`, `lib/security/public-rows.ts` | dynamic |
 | Published Websites: theme sites | `<name>.storelib.com`, custom domains | `proxy.ts` host routing → `/w/<name>` (native theme, ISR 60s) or `/api/site-theme/site/<name>/…` (imported Shopify theme, dynamic) | `lib/website-builder/published-site.ts`, `compat-site.ts` through `siteRead` (4s attempt, 7s budget, then throw) | `unstable_cache` tags, per-instance last-good copy, compat stranger hold |
 | Published Websites: AI sites | `<slug>.storelib.com` | `proxy.ts` `hasLiveAiSite` → `app/(sites)/site/[slug]/[[...path]]` | `site_deployments.is_live` → Storage object | HTML `s-maxage=10, swr=30`; assets immutable |
 | AI Website Builder | `storelib.com/website-builder/editor/[installId]`, AI sites editor | `app/api/website-builder/themes/[installId]/*`, `app/api/sites/[siteId]/*` | Postgres `store_theme_*`, `sites`, `site_deployments`; AI providers; GitHub; Chromium covers | none (editor) |
 | Communities | `storelib.com/community/<slug>` | `app/api/community/[communityId]/**` (~100 routes), `app/api/app/community/[id]/**` | service-role client, access by `requireMember` in code | `no-store` for private content |
 | Commerce | checkout pages, `/api/checkout/*`, `/api/stripe/*` | `stripe-session`, `confirm-with-pm`, `confirm-payment`, cart, site basket, physical, memberships | Stripe PaymentIntents and Checkout Sessions; `lib/checkout/fulfil-payment.ts`; ledger RPCs | none |
-| Creator Dashboard | `storelib.com/app/*` | `app/app/layout.tsx` + pages | anon SSR client (layout, Products) and service-role client filtered by creator id (Home, Payouts, Customers, Orders) | per-request memo (`lib/auth/request-scope.ts`), some `unstable_cache` |
+| Creator Dashboard | `storelib.com/app/*` | `app/(storelib)/app/layout.tsx` + pages | anon SSR client (layout, Products) and service-role client filtered by creator id (Home, Payouts, Customers, Orders) | per-request memo (`lib/auth/request-scope.ts`), some `unstable_cache` |
 
 ## 3. Shared systems
 

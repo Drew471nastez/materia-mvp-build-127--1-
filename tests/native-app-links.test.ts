@@ -89,7 +89,7 @@ check("the OnePage's Made with Storelib mark navigates the app rather than openi
 const wish = code("components/wishlist/wishlist-content.tsx")
 check("the wishlist opens a product in this window in the app too", !/target: native \? "_blank"/.test(wish) && !/getProductShareUrl/.test(wish))
 const guard = code("components/platform/native-link-guard.tsx")
-check("the guard is installed in the app only, on every page", /if \(!isNativeApp\(\)\) return/.test(guard) && /<NativeLinkGuard \/>/.test(read("app/layout.tsx")))
+check("the guard is installed in the app only, on every page", /if \(!isNativeApp\(\)\) return/.test(guard) && /<NativeLinkGuard \/>/.test(read("app/(storelib)/layout.tsx")))
 check("  it reads clicks after React's handlers and leaves handled, modified and download clicks alone",
   /window\.addEventListener\("click", onClick\)/.test(guard) && /if \(e\.defaultPrevented \|\| e\.button !== 0/.test(guard) && /a\.hasAttribute\("download"\)/.test(guard))
 check("  somebody else's site is left to the browser, except a new window from a creator tool, which opens in the sheet", /if \(link\.kind === "none"\) return/.test(guard) && /if \(link\.kind === "external"\) \{\s*if \(newWindow && inCreatorTools\(\) && \/\^https:\\\/\\\/\/\.test\(a\.href\)\) \{\s*e\.preventDefault\(\)\s*openInApp\(a\.href\)/.test(guard))
@@ -135,7 +135,7 @@ check("a kept page that is not safe is ignored", startTarget({ last: "/checkout?
 check("Discover off: the library, and never a kept Discover page (it would loop through /native-start)",
   startTarget({ last: null, home: "/library", exploreOn: false }) === "/account/library" && startTarget({ last: "/explore?q=a", home: "/library", exploreOn: false }) === "/account/library" && startTarget({ last: "/community/x", home: "/library", exploreOn: false }) === "/community/x")
 
-const start = code("app/native-start/page.tsx")
+const start = code("app/(storelib)/native-start/page.tsx")
 check("the start asks startTarget with the kept place, at every layer that knows a home",
   (start.match(/safeRedirect\(go\(/g) ?? []).length === 3 && /safeRedirect\(cached \? go\(cached\) : "\/app"\)/.test(start) && /startTarget\(\{ last: kept \? readLastPlace\(\) : null, home, exploreOn \}\)/.test(start))
 check("the community start it replaces is gone", !/communityStart|\/api\/native\/start|isCommunityStart|isLibraryHome/.test(start))
@@ -143,7 +143,7 @@ check("a kept place passes the redirect's own check, anything else is a home or 
 check("only a start opens the kept page: the logo's '/' from inside the app goes home", /function documentOpenedHere\(\)/.test(start) && /new URL\(nav\.name\)\.pathname === "\/native-start"/.test(start) && /const kept = !startUsed && documentOpenedHere\(\) && !startedJustNow\(\)/.test(start) && /startUsed = true/.test(start))
 check("and a start that comes straight back is not tried twice", /const RETRY_MS = 8000/.test(start) && /startedAgain = Date\.now\(\) - at < RETRY_MS/.test(start))
 const keeper = code("components/platform/native-place-keeper.tsx")
-check("the place is kept on every navigation, in the app only", /if \(!pathname \|\| !isNativeApp\(\)\) return/.test(keeper) && /resumablePlace\(path, window\.location\.search\)/.test(keeper) && /\}, \[pathname\]\)/.test(keeper) && /<NativePlaceKeeper \/>/.test(read("app/layout.tsx")))
+check("the place is kept on every navigation, in the app only", /if \(!pathname \|\| !isNativeApp\(\)\) return/.test(keeper) && /resumablePlace\(path, window\.location\.search\)/.test(keeper) && /\}, \[pathname\]\)/.test(keeper) && /<NativePlaceKeeper \/>/.test(read("app/(storelib)/layout.tsx")))
 check("and forgotten on log out: /welcome, and both log out helpers", /if \(path === "\/welcome"\) \{\s*forgetLastPlace\(\)/.test(keeper) && (bridge.match(/forgetLastPlace\(\)/g) ?? []).length === 2)
 
 /* ── 4. The tab bar in a community ────────────────────────────────────── */

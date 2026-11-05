@@ -95,7 +95,7 @@ console.log("\nThe panels say what each colour is")
   /* The owner asked for the "Hover colors" toggle gone (3 October 2026): all four rows, in the open. */
   check("the hover colours are rows in the open, not behind a toggle", !/hoverOpen/.test(panels) && !/<span>Hover colors<\/span>/.test(panels) && /\{parts\.map\(row\)\}/.test(panels))
   check("a colour the section chose goes back to the scheme from its own row", /aria-label=\{`Put \$\{name\.toLowerCase\(\)\} back to the scheme`\}/.test(panels))
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the header's button panel has them, where the button is", /<ButtonColorGroup\s*group=\{BUTTON_COLOR_GROUPS\[0\]\}/.test(page))
   check("and no longer says the colours are inherited from the theme", !/Button style, radius and colors are inherited/.test(page))
 }

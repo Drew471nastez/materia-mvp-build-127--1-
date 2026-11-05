@@ -93,7 +93,7 @@ function main() {
   check("  anything that is not a gradient is refused, never written into the stylesheet", !injected.op && injected.failed === true, injected)
 
   console.log("\nIn the editor, an assistant's theme write does what the sidebar's does")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the logo goes into the header section too", /const logo = Object\.entries\(op\.settings\)\.filter\(\(\[key\]\) => key in LOGO_SYNC_THEME_TO_HEADER\)/.test(editor))
   check("and the favicon into an imported theme's own settings", /follows = \{ \.\.\.follows, \.\.\.faviconFollows\(/.test(editor))
 

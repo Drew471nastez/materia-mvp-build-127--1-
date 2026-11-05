@@ -206,7 +206,7 @@ async function main() {
   {
     const hook = strip(read("app/api/stripe/webhook/route.ts"))
     check("the Checkout Session path no longer writes order_count 1 over the customer", !/order_count: 1,/.test(hook) && /await recordCustomer\(supabaseAdmin, \{ creatorId, email: buyerEmail/.test(hook))
-    const customers = strip(read("app/app/customers/page.tsx"))
+    const customers = strip(read("app/(storelib)/app/customers/page.tsx"))
     check("Customers matches an order to its customer whatever the address's case", /* Changed on purpose (round rel-db): one map by lower case address */ /ordersByEmail\.get\(emailKey\(email\)\)/.test(customers) && /trim\(\)\.toLowerCase\(\)/.test(customers) && !/o\.buyer_email === email/.test(customers) && /toLowerCase\(\)/.test(customers))
   }
 
@@ -223,14 +223,14 @@ async function main() {
     check("a disputed, failed or free line cannot", !canRefundLine(line({ status: "disputed" })) && !canRefundLine(line({ status: "failed" })) && !canRefundLine(line({ amount_cents: 0 })))
     const [order] = groupOrders([part])
     check("the order still reads as part refunded", order.payment === "partially_refunded" && order.refundedCents === 300)
-    const detail = strip(read("app/app/orders/order-detail.tsx"))
+    const detail = strip(read("app/(storelib)/app/orders/order-detail.tsx"))
     check("the order page offers Refund on every line with money left", /const refundable = order\.lines\.filter\(canRefundLine\)/.test(detail))
     check("the dialog's amount is what is left, not the whole line", /const max = line \? refundableCents\(line\) \/ unit : 0/.test(detail))
     check("Cancel and refund sends back what is left of each line", /const cents = refundableCents\(line\)/.test(detail))
     check("a team member is not offered Refund on an order that ships", /<PhysicalFulfillment[^\n]*onRefund=\{canRefund && refundable\.length > 0/.test(detail))
     check("the list rows carry who took the payment", /provider: order\.provider \?\? null/.test(read("lib/orders/load-rows.ts")) && /provider_payment_id: order\.provider_payment_id \?\? null/.test(read("lib/orders/load-rows.ts")))
     const route = strip(read("app/api/stripe/refund/route.ts"))
-    const client = strip(read("app/app/orders/orders-client.tsx"))
+    const client = strip(read("app/(storelib)/app/orders/orders-client.tsx"))
     check("a refund answers the line's running total, and the list shows it", /refundedCents: refundedTotal/.test(route) && /refund_amount_cents: typeof data\?\.refundedCents === "number" \? data\.refundedCents/.test(client))
   }
 
@@ -239,7 +239,7 @@ async function main() {
     const { canEmailAccess } = await import("../lib/orders/owned")
     check("a mug's line is not sent a download email by Resend or an email change", !canEmailAccess({ status: "completed", receipt_token: "t", requires_shipping: true }))
     check("a download in the same order still is", canEmailAccess({ status: "completed", receipt_token: "t", requires_shipping: false }) && canEmailAccess({ status: "completed", receipt_token: "t" }))
-    check("the order page offers Resend receipt only for what downloads", /line\.product\?\.type !== "physical"/.test(strip(read("app/app/orders/order-detail.tsx"))))
+    check("the order page offers Resend receipt only for what downloads", /line\.product\?\.type !== "physical"/.test(strip(read("app/(storelib)/app/orders/order-detail.tsx"))))
   }
 
   console.log("\n9. The manual refund sync splits a basket's refund over its lines")
@@ -262,7 +262,7 @@ async function main() {
     const shipped = route.slice(route.indexOf("async function shippedIntent("))
     check("downloads: compared before any PaymentIntent is made, holds let go", /differsFromShown\(shownTotalOf\(body\.shownTotal\), chargeCents, chargeCurrencyUpper\)/.test(card) && card.indexOf("differsFromShown(") < card.indexOf("paymentIntents.create(") && /releaseCouponHold[\s\S]{0,120}releaseSales[\s\S]{0,200}TOTAL_CHANGED/.test(card))
     check("a cart that ships: a moved total cancels the held checkout before the card form can pay it", /differsFromShown\(shown, charged\.total_cents/.test(shipped) && /abandonCheckout\(admin, \{ shopId: site\.creatorId, clientKey: body\.clientKey \}\)[\s\S]{0,400}TOTAL_CHANGED/.test(shipped))
-    const page = strip(read("app/checkout/site/site-checkout.tsx"))
+    const page = strip(read("app/(storelib)/checkout/site/site-checkout.tsx"))
     check("the page sends the total it shows, and prices itself again when told it moved", /shownTotal = \{ cents: total, currency:/.test(page) && /action: "intent", \.\.\.body, shownTotal/.test(page) && /res\.data\.code === TOTAL_CHANGED\) setRequote/.test(page) && /byCash, requote\]\)/.test(page))
   }
 

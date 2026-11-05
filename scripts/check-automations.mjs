@@ -520,7 +520,7 @@ try {
     const sp2 = await open(vp, "subscribers")
     await sp2.click("section[aria-label=Subscribers] tbody tr td:nth-child(2)")
     await sleep(600)
-    /* A contact is a page of its own over the list now (app/app/emails/contact-detail.tsx, ContactPage), not a dialog. */
+    /* A contact is a page of its own over the list now (app/(storelib)/app/emails/contact-detail.tsx, ContactPage), not a dialog. */
     const detail = await sp2.evaluate(() => document.querySelector("[data-contact-page]")?.textContent ?? null)
     expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
     await sp2.close()

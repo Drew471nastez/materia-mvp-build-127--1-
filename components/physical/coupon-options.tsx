@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { Check } from "lucide-react"
 import { api } from "./ui"
-import { SWITCH_GROUP, SwitchRow } from "@/app/app/products/new/editor-controls"
+import { SWITCH_GROUP, SwitchRow } from "@/app/(storelib)/app/products/new/editor-controls"
 import { tt } from "@/lib/i18n/text"
 
 export interface CouponOptionsHandle {

@@ -1,12 +1,12 @@
 /**
- * The real Products list (app/app/products/products-client.tsx) with 120
+ * The real Products list (app/(storelib)/app/products/products-client.tsx) with 120
  * products: drafts, archived ones, free ones and ones with no picture, so
  * there is a second and third page. Bundled by
  * scripts/check-products-translate.mjs.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ProductsClient } from "@/app/app/products/products-client"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { LanguageProvider } from "@/lib/i18n"
 
 const cover = (hue: number) =>

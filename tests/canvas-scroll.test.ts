@@ -154,7 +154,7 @@ function main() {
   section("The editor uses both, and stops doing the thing that breaks WebKit")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     check("the wrapper around the scroller is not faded on a phone", /previewMode === "code" && !isMobileView && "opacity-0 pointer-events-none"/.test(editor))
     check("the scroller is revived when the code pane or settings closes", /const covered = previewMode === "code" \|\| projectSettingsOpen/.test(editor) && /reviveScroller\(el, \(cb\) => window\.requestAnimationFrame\(cb\)\)/.test(editor))
     check("twice, for a keyboard still on its way down", /window\.setTimeout\(back, 340\)/.test(editor) && /window\.setTimeout\(back, 900\)/.test(editor))
@@ -229,7 +229,7 @@ function main() {
      * the library — which is why the stale-lock guard, which clears exactly
      * that attribute, could never have helped.
      */
-    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     const menu = readFileSync(join(process.cwd(), "components/ui/responsive-action-menu.tsx"), "utf8")
     /** Every dropdown root in the editor and in the menu every row uses. */
     const roots = [
@@ -395,7 +395,7 @@ function main() {
     !isCanvasNavigationLink(noHref))
   check("and nothing is nothing here too", !isCanvasNavigationLink(null))
 
-  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     "the canvas applies that rule on the press, in both modes",
     /if \(isTypingTarget\(target\)\) return/.test(editor)
@@ -466,7 +466,7 @@ section("Selecting a section cannot move the canvas")
 }
 {
   check("half a second, which covers a tap and is never felt", PIN_AFTER_SELECT_MS === 500)
-  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     "selecting a section moves the canvas nowhere, on a phone as on a desktop",
     // It came to the top of the canvas on a phone for one deploy. Done
@@ -518,7 +518,7 @@ section("Leaving a page always ends, one way or the other")
   check("eight seconds, the app's own cap on a navigation: a slow server is not a reason for a whole page load", NAVIGATE_CEILING_MS === 8_000)
 }
 {
-  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     /* Changed on purpose (Y1): the builder's Going back is in its canvas now, so the editor must still be there for the owner's minimum; the push waits EXIT_MIN_MS, to a route warmed on the press. The page editors still push on the press (LEAVING_SEEN_MS). */
     "the push goes once Going back has been up EXIT_MIN_MS, through the one timer that can still be cancelled",
@@ -551,7 +551,7 @@ section("Leaving a page always ends, one way or the other")
     "and the way out is warmed while nothing else is happening",
     /router\.prefetch\("\/app\/website-builder"\)/.test(editor) && /router\.prefetch\("\/app"\)/.test(editor),
   )
-  const codeSrc = readFileSync(join(process.cwd(), "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codeSrc = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   check(
     "the code editor's Back has the same ceiling",
     /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(backHref\),\s*\n\s*\(\) => window\.location\.assign\(backHref\)/.test(codeSrc),
@@ -596,7 +596,7 @@ section("Leaving a page always ends, one way or the other")
 
 {
     console.log("\nTyping into a field in the canvas, with the inspector on")
-    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
     /* Pressing an email box selected the section, and on a phone the section
        sheet came up over the keyboard and took the focus: nothing could be
        typed. A press in a field, or on its label, is left to the field. */

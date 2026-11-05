@@ -22,8 +22,8 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { stripComments } from "./_source"
 import type { Block } from "@/lib/blog/blocks"
 import { BLOG_CTA, blogRailCta } from "@/lib/blog/article"
-import { ArticleView } from "@/app/(marketing)/blog/_components/article-view"
-import CtaBanner from "@/app/(marketing)/blog/[slug]/_cta-banner"
+import { ArticleView } from "@/app/(storelib)/(marketing)/blog/_components/article-view"
+import CtaBanner from "@/app/(storelib)/(marketing)/blog/[slug]/_cta-banner"
 
 let passed = 0
 let failed = 0
@@ -59,7 +59,7 @@ const article = (physical: boolean) =>
   )
 
 function main() {
-  const view = code("app/(marketing)/blog/_components/article-view.tsx")
+  const view = code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")
   const html = article(true)
 
   console.log("\nThe article's width")
@@ -68,7 +68,7 @@ function main() {
     check("  below 1200px one 720px column as before", /const COLUMN = "mx-auto w-full max-w-\[720px\] min-\[1200px\]:col-start-2 min-\[1200px\]:max-w-none"/.test(view))
     check("  the cover asks for 760px from 1200px", /sizes="\(min-width: 1200px\) 760px, \(min-width: 768px\) 720px, calc\(100vw - 32px\)"/.test(view))
     check("  the rail starts level with the header, not below the cover", /min-\[1200px\]:row-span-3 min-\[1200px\]:row-start-1/.test(view))
-    const body = code("app/(marketing)/blog/_components/article-blocks.tsx")
+    const body = code("app/(storelib)/(marketing)/blog/_components/article-blocks.tsx")
     check("body 17px, 18px from 640px, 19px from 1200px (both arbitrary, so they sort in order)", /const BODY = `text-\[17px\] leading-\[1\.7\] text-\[#374151\] min-\[640px\]:text-\[18px\] min-\[1200px\]:text-\[19px\]/.test(body) && !/sm:text-\[18px\] min-\[1200px\]/.test(body))
   }
 
@@ -80,7 +80,7 @@ function main() {
     check("  one button, Start free, to /signup tagged", /data-blog-cta-card="digital"[\s\S]*Sell anything from one place[\s\S]*href="\/signup\?intent=sell&amp;src=blog-digital&amp;ref=blog-digital"[^>]*>Start free/.test(html))
     check("  names no kind of product, so it reads the same with physical commerce on or off", article(false).includes(copy.body) && html.includes(copy.body) && !/physical/i.test(copy.body))
     check("the contents scroll inside the rail, the card stays under them", /min-h-0 shrink overflow-y-auto overscroll-contain/.test(view) && /data-blog-toc-scroll=""/.test(html) && /<div className="shrink-0">\s*<RailCta/.test(view) && /max-h-\[calc\(100vh-120px\)\] flex-col/.test(view))
-    const toc = code("app/(marketing)/blog/_components/toc.tsx")
+    const toc = code("app/(storelib)/(marketing)/blog/_components/toc.tsx")
     check("  the heading being read is drawn heavier without a wider weight (no rewrap, no shift)", /aria-\[current=true\]:\[-webkit-text-stroke:0\.4px_currentColor\]/.test(toc) && !/aria-\[current=true\]:font-semibold/.test(toc))
   }
 
@@ -100,7 +100,7 @@ function main() {
 
   console.log("\nSwitching categories")
   {
-    const nav = code("app/(marketing)/blog/_components/blog-nav.tsx")
+    const nav = code("app/(storelib)/(marketing)/blog/_components/blog-nav.tsx")
     check("one fill slides under the pills: caps and a middle, each moved by transform", /function Fill\(/.test(nav) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\)/.test(nav) && /scaleX\(\$\{Math\.max\(0, w - 2 \* r \+ 2\)\}\)/.test(nav) && /translate3d\(\$\{x \+ w - r\}px, \$\{y\}px, 0\)/.test(nav))
     check("  240ms ease out, off with reduced motion, only after the first placement", /transition-transform duration-\[240ms\] ease-\[cubic-bezier\(0\.22,1,0\.36,1\)\] motion-reduce:transition-none/.test(nav) && /animate: animate && was !== null/.test(nav))
     check("  out of the row's flow (as a flex item it pushed every pill 8px)", /<li aria-hidden className="pointer-events-none absolute left-0 top-0" data-blog-fill="">/.test(nav))

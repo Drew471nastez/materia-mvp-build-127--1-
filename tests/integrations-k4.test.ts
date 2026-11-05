@@ -79,7 +79,7 @@ console.log("\nSearch, pill and filters work together\n")
 console.log("\nThe marketplace\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
-  const page = read("app/app/integrations/integrations-client.tsx")
+  const page = read("app/(storelib)/app/integrations/integrations-client.tsx")
   check("no line under the title, no Connected list above the cards", !/Storelib apps and the services you already use/.test(page) && !/data-installed-integrations/.test(ui) && !/>Connected</.test(ui))
   check("a search by name, category or description, and Request integration beside it (the bulb alone on a phone)", /placeholder="Search by name, category or description"/.test(ui) && /data-request-integration=""/.test(ui) && /<Lightbulb /.test(ui) && /<span className="hidden sm:inline">Request integration<\/span>/.test(ui) && /aria-label="Request integration"/.test(ui))
   check("a Filter menu after the pills: Status and Made by, kept in the address, with Clear filters", /<FilterMenu status=\{statusFilter\} by=\{maker\} onChange=\{chooseFilters\} counts=\{filterCounts\} \/>/.test(ui) && /data-integration-filter-menu=""/.test(ui) && /data-integration-filter-clear=""/.test(ui) && /writeListState\(\{ category: filter, q: query, status, by \}\)/.test(ui))

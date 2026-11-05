@@ -110,10 +110,10 @@ async function main() {
 
   /* ── The layout, the proxy ───────────────────────────────────────────── */
   console.log("\nThe 308, above every page")
-  const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+  const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
   check("the community's layout answers a permanent redirect when the address is not the community's own", /if \(page\.community && page\.community\.slug !== slug && barVisible\(page\)\) \{\s*permanentRedirect\(movedCommunityPath\(slug, page\.community\.slug, \(await headers\(\)\)\.get\(COMMUNITY_PATH_HEADER\)\)\)/.test(layout))
   check("  before it draws anything (the bar, the member frame)", layout.indexOf("permanentRedirect(") < layout.indexOf("<CommunityShell") && layout.indexOf("permanentRedirect(") < layout.indexOf("<CommunityPublicShell"))
-  check("  so the member area, About, the invite landing and a post all sit under it", ["about/page.tsx", "join/page.tsx", "(member)/layout.tsx", "(member)/post/[postId]/page.tsx"].every((f) => existsSync(`app/(marketing)/community/[slug]/${f}`)))
+  check("  so the member area, About, the invite landing and a post all sit under it", ["about/page.tsx", "join/page.tsx", "(member)/layout.tsx", "(member)/post/[postId]/page.tsx"].every((f) => existsSync(`app/(storelib)/(marketing)/community/[slug]/${f}`)))
   const proxy = code("proxy.ts")
   /* Changed on purpose (round 26): /app/community/ requests too, so the owner's screens can send an old id on to the slug. */
   check("the proxy writes the asked for path and query for /community/ requests, before anything else", /if \(pathname\.startsWith\("\/community\/"\) \|\| pathname\.startsWith\("\/app\/community\/"\)\) request\.headers\.set\(COMMUNITY_PATH_HEADER, `\$\{pathname\}\$\{search\}`\)/.test(proxy) && proxy.indexOf("COMMUNITY_PATH_HEADER, `") < proxy.indexOf("mcpHostRoute(bareHost"))
@@ -165,11 +165,11 @@ async function main() {
   check("seoFacts hands the page a fingerprint", typeof seoFacts(row as never).shareVersion === "string" && seoFacts(row as never).shareVersion !== seoFacts({ ...row, member_count: 5000 } as never).shareVersion)
   check("a draft, a suspended or a deleted community previews as nothing", sharePreviewable(row as never) && !sharePreviewable({ ...row, status: "draft" } as never) && !sharePreviewable({ ...row, status: "suspended" } as never) && !sharePreviewable({ ...row, suspended_at: "x" } as never) && !sharePreviewable({ ...row, deleted_at: "x" } as never))
   for (const f of ["page.tsx", "about/page.tsx"]) {
-    check(`${f}: its metadata says nothing for a community nobody may see`, /if \(!community \|\| !sharePreviewable\(community\)\) return \{ robots: \{ index: false, follow: false \} \}/.test(code(`app/(marketing)/community/[slug]/${f}`)))
+    check(`${f}: its metadata says nothing for a community nobody may see`, /if \(!community \|\| !sharePreviewable\(community\)\) return \{ robots: \{ index: false, follow: false \} \}/.test(code(`app/(storelib)/(marketing)/community/[slug]/${f}`)))
   }
-  const join = code("app/(marketing)/community/[slug]/join/page.tsx")
+  const join = code("app/(storelib)/(marketing)/community/[slug]/join/page.tsx")
   check("the invite landing's metadata: the invite's preview when there is one, never reading it", /export async function generateMetadata/.test(join) && /const facts = \{ \.\.\.seoFacts\(community\), summary: await communitySummary\(community\.id\) \}/.test(join) && /typeof invite === "string" && invite \? inviteMetadata\(facts\)/.test(join) && !/redeem|token_hash|hashInviteToken/.test(join.slice(join.indexOf("generateMetadata"), join.indexOf("export default"))))
-  const route = code("app/(marketing)/community/[slug]/share.png/route.tsx")
+  const route = code("app/(storelib)/(marketing)/community/[slug]/share.png/route.tsx")
   check("share.png: next/og on node, drawn per request", /import \{ ImageResponse \} from "next\/og"/.test(route) && /export const runtime = "nodejs"/.test(route) && /export const dynamic = "force-dynamic"/.test(route))
   check("  the switch first, then 404 for nobody here, a draft or a suspended community", route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route))
   check("  kept briefly at the edge and in a browser", /const BRIEF = "public, max-age=300, s-maxage=600, stale-while-revalidate=86400"/.test(route) && /"cache-control": BRIEF/.test(route))
@@ -226,7 +226,7 @@ async function main() {
 
   /* ── Copy ────────────────────────────────────────────────────────────── */
   console.log("\nCopy rules")
-  const mine = ["lib/communities/slug-move.ts", "lib/communities/server/slug-history.ts", "lib/communities/server/share-image.ts", "components/community/public/share-card.tsx", "components/community/member/invite-sheet.tsx", "components/community/member/invite-glyph.tsx", "components/community/member/role-badge.tsx", "app/(marketing)/community/[slug]/share.png/route.tsx", "app/api/community/[communityId]/invites/route.ts", "supabase/sql/run-now/94_community_slug_history.sql"]
+  const mine = ["lib/communities/slug-move.ts", "lib/communities/server/slug-history.ts", "lib/communities/server/share-image.ts", "components/community/public/share-card.tsx", "components/community/member/invite-sheet.tsx", "components/community/member/invite-glyph.tsx", "components/community/member/role-badge.tsx", "app/(storelib)/(marketing)/community/[slug]/share.png/route.tsx", "app/api/community/[communityId]/invites/route.ts", "supabase/sql/run-now/94_community_slug_history.sql"]
   const banned = /—|\bunlock|\belevate|\bseamless|\bpowerful|\beffortless|\bsupercharge|\btransform/i
   check("no em dash and none of the banned words in anything new", mine.every((f) => !banned.test(read(f))), mine.filter((f) => banned.test(read(f))))
 

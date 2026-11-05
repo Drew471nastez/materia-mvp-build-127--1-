@@ -44,11 +44,11 @@ database egress).
 | --- | --- | --- |
 | `auth/v1/user` calls on public routes (robots.txt, site-theme assets and covers, analytics own token, builder polling) | 48 calls over 10s in 7 days; dozens of auth lines per day on paths that need no user | EVD-3 |
 | 14 Stripe calls per Payouts open, 8 per 2 minute tick while the tab is open | `payouts-client.tsx`, `/api/stripe/payouts` | PAY-4 |
-| Up to 60 Stripe PaymentIntent reads per Orders visit, the same intents re-checked every visit | `app/app/orders/sales/page.tsx:43-127` | DB-8 |
+| Up to 60 Stripe PaymentIntent reads per Orders visit, the same intents re-checked every visit | `app/(storelib)/app/orders/sales/page.tsx:43-127` | DB-8 |
 | Raw analytics scans: up to 200,000 rows per span when the RPC fails | `lib/analytics/report-read.ts` | DB-2 |
 | Analytics rollup failures unnoticed, so reports read raw events (19s against 0.7s per the code comment) | `rollup-daily` answers 200 on failure | SHR-6 |
-| `draft_blocks` and every product id fetched and discarded on every /app navigation | `app/app/layout.tsx:157-188` | DB-6 |
-| Full product rows (`select('*')`) serialised to the browser | `app/app/products/page.tsx` | DB-7 |
+| `draft_blocks` and every product id fetched and discarded on every /app navigation | `app/(storelib)/app/layout.tsx:157-188` | DB-6 |
+| Full product rows (`select('*')`) serialised to the browser | `app/(storelib)/app/products/page.tsx` | DB-7 |
 | About 6 duplicate reads per Home load | DB audit round-trip count | Home reuses layout reads |
 | Hung invocations held to 300s during database incidents | 41 timeouts in 7 days | DB-1, already reduced by `21c0882e5` |
 | Crons killed at their limit, then re-run from the start | seo-index, physical, warm-sites, community, notify in 48h | SHR-3, SHR-4, EVD-4 |

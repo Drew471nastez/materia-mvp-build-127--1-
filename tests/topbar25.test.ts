@@ -56,7 +56,7 @@ console.log("Which top bar")
 
 console.log("\nThe creator page draws it")
 {
-  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
   /* Changed on purpose (round 49): from the address only (?from=, ?back=); the page is one HTML for everybody and reads no Referer. */
   check("the page asks the rule, with the server's view of where the visit came from", /const newsletterBar = embedded \|\| showsSubscribeBar\(\{ creatorPage: true, fromCommunity: cameFromCommunity\(\{ from, backTarget, referer: null \}\) \}\)/.test(page))
   check("  both branches (configured page and defaults) draw the bar when it says so", (page.match(/\{newsletterBar && \(/g) ?? []).length === 2)
@@ -69,7 +69,7 @@ console.log("\nThe creator page draws it")
 
 console.log("\nThe creator page editor shows it")
 {
-  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("framed in the workspace (?embedded=1) the bar is drawn whatever the Referer", /newsletterBar = embedded \|\|/.test(page))
   const canvas = code("components/store-builder/preview-canvas.tsx")
   check("the sections editor's canvas draws the bar above the header", /<EditorSubscribeBar/.test(canvas) && canvas.indexOf("<EditorSubscribeBar") < canvas.indexOf("<UnifiedShopHeader"))

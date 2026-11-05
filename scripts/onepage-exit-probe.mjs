@@ -80,7 +80,7 @@ export default {
     return `url(/fonts/${file})`
   })
   put("public/app.css", `${fonts}\n${await appCss(root)}\nhtml,body{font-family:Inter,system-ui,sans-serif}`)
-  put("app/layout.tsx", `import type React from "react"
+  put("app/(storelib)/layout.tsx", `import type React from "react"
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
@@ -113,14 +113,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 `)
-  put("app/app/layout.tsx", `import type React from "react"
+  put("app/(storelib)/app/layout.tsx", `import type React from "react"
 import { Shell } from "./shell"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <Shell>{children}</Shell>
 }
 `)
-  put("app/app/shell.tsx", `"use client"
+  put("app/(storelib)/app/shell.tsx", `"use client"
 import type React from "react"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { AppSidebar } from "@/components/app/sidebar"
@@ -141,7 +141,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 }
 `)
   /* The dashboard: a tall page of cards, with its own link into the editor (a client move, as the app's are). */
-  put("app/app/page.tsx", `import Link from "next/link"
+  put("app/(storelib)/app/page.tsx", `import Link from "next/link"
 export const dynamic = "force-dynamic"
 export default async function Page() {
   await new Promise((r) => setTimeout(r, 200))
@@ -164,9 +164,9 @@ export default async function Page() {
   return <div data-page="${name}" className="p-8 text-[24px] font-bold text-[#1a1a2e]">${name}</div>
 }
 `
-  put("app/app/products/page.tsx", stub("products"))
-  put("app/app/[...rest]/page.tsx", stub("other"))
-  put("app/app/onepage/page.tsx", `import { OnePageEditor } from "@/components/onepage/onepage-editor"
+  put("app/(storelib)/app/products/page.tsx", stub("products"))
+  put("app/(storelib)/app/[...rest]/page.tsx", stub("other"))
+  put("app/(storelib)/app/onepage/page.tsx", `import { OnePageEditor } from "@/components/onepage/onepage-editor"
 export const dynamic = "force-dynamic"
 const theme = {
   template_id: "default", background_type: "solid", background_color: "#ffffff", background_gradient: null, background_image_url: null,
@@ -194,7 +194,7 @@ export default async function Page() {
   return <OnePageEditor initialOnePage={FIXTURE as never} />
 }
 `)
-  put("app/onepage-preview/page.tsx", `export { default, metadata } from "@/app/onepage-preview/page"\n`)
+  put("app/(storelib)/onepage-preview/page.tsx", `export { default, metadata } from "@/app/(storelib)/onepage-preview/page"\n`)
   put("app/api/onepage/route.ts", `export async function PUT() { return Response.json({ ok: true }) }\nexport async function GET() { return Response.json({}) }\n`)
   put("app/api/onepage/publish/route.ts", `export async function POST() { return Response.json({ published_at: new Date().toISOString() }) }\n`)
   put("app/api/purchases/claim/route.ts", `export async function POST() { return Response.json({ claimed: 0 }) }\n`)

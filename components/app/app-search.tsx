@@ -55,8 +55,8 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { onSearchStale, takeSearchStale, watchWrites } from "@/lib/search/search-freshness"
 import { readRecent, withRecent, writeRecent, type RecentItem } from "@/lib/search/recent-searches"
 import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search-groups"
-import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
-import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
+import { useNewProductChooser } from "@/app/(storelib)/app/products/new/kind-chooser"
+import { NEW_PRODUCT_HREF } from "@/app/(storelib)/app/products/new/product-kinds"
 import { tt } from "@/lib/i18n/text"
 
 const MAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"

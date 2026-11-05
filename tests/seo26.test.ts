@@ -26,8 +26,8 @@ import { canonicalUrl, communityJsonLd, communityMetadata, describeCommunity, in
 import { communityIndexable, loadSalesPage, seoFacts, sharePreviewable, sitemapCommunities } from "@/lib/communities/server/public"
 import { readCommunityDeleting, readCommunitySummary } from "@/lib/communities/server/community-summary"
 import { communitySitemap } from "@/lib/custom-domains/community"
-import { indexablePost, postArticleJsonLd, postMetadata, publicPost, type PostFacts } from "@/app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
-import { eventMetadata, indexableEvent, type EventFacts } from "@/app/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo"
+import { indexablePost, postArticleJsonLd, postMetadata, publicPost, type PostFacts } from "@/app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
+import { eventMetadata, indexableEvent, type EventFacts } from "@/app/(storelib)/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo"
 import { MEMBER_LINKS_SHOWN, memberLinkClickPath, memberLinkTarget, memberLinkViews } from "@/lib/communities/member-link-view"
 import { clickDay, memberLinkClicks, memberLinksForViewer, recordMemberLinkClick, seesMemberLinks } from "@/lib/communities/server/member-shortcuts"
 import { COMMUNITY_COLUMNS, PUBLIC_COMMUNITY_COLUMNS, type CommunityRow } from "@/lib/communities/types"
@@ -198,7 +198,7 @@ async function main() {
     check("no rating without published reviews", !("aggregateRating" in paid))
     const rated = communityJsonLd(view({ options: [paidOption as never], reviews: { average: 4.5, total: 2, items: [] } }), true) as Any
     check("a rating only from real published reviews", rated.aggregateRating?.reviewCount === 2 && rated.aggregateRating?.ratingValue === 4.5)
-    check("the community's page prints it only for an indexable community", /const jsonLd = communityJsonLd\(load\.data\.community, communityIndexable\(load\.community\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+    check("the community's page prints it only for an indexable community", /const jsonLd = communityJsonLd\(load\.data\.community, communityIndexable\(load\.community\)/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")))
   }
 
   /* ── Posts and events in an archived community ──────────────────────── */
@@ -268,22 +268,22 @@ async function main() {
   /* ── Pages, robots, slugs, freshness ─────────────────────────────────── */
   console.log("\nPages")
   {
-    const page = code("app/(marketing)/community/[slug]/page.tsx")
-    const about = code("app/(marketing)/community/[slug]/about/page.tsx")
+    const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
+    const about = code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")
     check("the page and About: the short description in their metadata, read per request", [page, about].every((s) => /* Changed on purpose (round AH: the reads start together). */ /(summary: await communitySummary\(community\.id\)|communitySummary\(community\.id\), communityDomainOrigin)/.test(s) && /await connection\(\)/.test(s)))
     check("and a community waiting to be deleted is never previewed, whatever its status", [page, about].every((s) => /* Changed on purpose (round AH: the reads start together). */ /(const deleting = await communityDeleting\(community\.id\)|const \[deleting, summary, origin\] = await Promise\.all\(\[communityDeleting\(community\.id\))/.test(s) && /\.\.\.\(deleting \? \{ indexable: false \} : \{\}\)/.test(s)))
-    const joinPage = code("app/(marketing)/community/[slug]/join/page.tsx")
+    const joinPage = code("app/(storelib)/(marketing)/community/[slug]/join/page.tsx")
     check("an invite's preview: never for an archived, deleting or hidden community", /if \(typeof invite === "string" && invite && \(community\.status === "archived" \|\| community\.platform_hidden \|\| deleting\)\) return plainJoin/.test(joinPage))
-    check("the post and event pictures follow the same rule as their metadata", /if \(indexablePost\(facts\)\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")) && /const open = indexableEvent\(facts\)/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/share.png/route.tsx")))
+    check("the post and event pictures follow the same rule as their metadata", /if \(indexablePost\(facts\)\)/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")) && /const open = indexableEvent\(facts\)/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/events/[eventId]/share.png/route.tsx")))
     check("a draft or a suspended community says nothing (noindex only)", [page, about].every((s) => /if \(!community \|\| !sharePreviewable\(community\)\) return \{ robots: \{ index: false, follow: false \} \}/.test(s)))
-    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
     check("every page inside a community: noindex from the layout; its tab icon is the community's", /const robots = \{ index: false, follow: false \}/.test(layout) && /icons: \{ icon: \[\{ url: icon/.test(layout))
     check("an old slug answers with a 308 to the current one, path and query kept", /permanentRedirect\(movedCommunityPath\(slug, page\.community\.slug/.test(layout))
     check("a suspended community draws no bar, name or title for anybody but its owner, signed out included", /if \(!communityOpen\(community\) && !viewer\?\.isOwner\) return false/.test(layout))
     check("nothing here, or a draft or suspended community this viewer may not see: a real 404 from the layout, before anything streams", /if \(page\.state === "off" \|\| page\.state === "missing" \|\| \(page\.community && page\.state !== "closed" && page\.state !== "unknown" && !barVisible\(page\)\)\) notFound\(\)/.test(layout) && layout.indexOf("notFound()") < layout.indexOf("const tracking = storeTracking(page)"))
-    const join = code("app/(marketing)/community/[slug]/join/page.tsx")
+    const join = code("app/(storelib)/(marketing)/community/[slug]/join/page.tsx")
     check("an invite landing never shows a draft or a suspended community's name or picture", /if \(page\.state === "member"\) redirect\(`\/community\/\$\{c\.slug\}`\)\s*if \(!sharePreviewable\(c\)\) notFound\(\)/.test(join))
-    const member = code("app/(marketing)/community/[slug]/(member)/layout.tsx")
+    const member = code("app/(storelib)/(marketing)/community/[slug]/(member)/layout.tsx")
     check("the member area's pages say noindex (a public post owns its own)", /return \{ robots: \{ index: false, follow: false \} \}/.test(member))
   }
 
@@ -395,7 +395,7 @@ async function main() {
     check("no public page, public API or shared read names member_links (only the member area's server read and the editor)", stray.length === 0, stray)
     const shell = code("components/community/member/shell.tsx")
     check("the member frame reads them; the visitor's frame never does", /memberLinksForViewer\(community, viewer\)/.test(shell.slice(shell.indexOf("async function CommunityShellAsync"), shell.indexOf("async function CommunityPublicShellAsync"))) && !/memberLinks/i.test(shell.slice(shell.indexOf("async function CommunityPublicShellAsync"))))
-    check("the member frame's shell is drawn for an active member only (the layout)", /if \(page\.state === "member" && page\.community && page\.viewer\) \{\s*return \(\s*<CommunityShell/.test(code("app/(marketing)/community/[slug]/layout.tsx")))
+    check("the member frame's shell is drawn for an active member only (the layout)", /if \(page\.state === "member" && page\.community && page\.viewer\) \{\s*return \(\s*<CommunityShell/.test(code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")))
     const frame = code("components/community/member/shell-frame.tsx")
     check("drawn under the card in the left column, and under the member's name in the account menu", /<WallCommunityCard[^>]*\/> : null\}[\s{}]*\{memberLinks\.length \? <MemberLinks communityId=\{community\.id\} links=\{memberLinks\} variant="column"/.test(frame) && /links \}/.test(frame.replace(/\s+/g, " ")))
     const menu = code("components/community/member/account-menu.tsx")

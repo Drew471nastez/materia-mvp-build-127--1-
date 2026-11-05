@@ -60,7 +60,7 @@ console.log("\nUNDO: one step for a run, and it is the page before the run")
 
 console.log("\nWIRED: the editor records its steps that way")
 {
-  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   check("the editor's run is the shared one", /createUndoRun\(\(\) => pushUndoLatest\.current\(\)\)/.test(editor) && /const debouncedPushUndo = undoRun\.step/.test(editor))
   check("and Undo, Redo and a page change end it", (editor.match(/endUndoRun\(\)/g) ?? []).length >= 3)
   check("the old half-second-late snapshot is gone", !/setTimeout\(\(\) => pushUndo\(\), 500\)/.test(editor))

@@ -267,14 +267,14 @@ async function main() {
     check("the section's panel knows it is an edited built-in, and not a section of the site's own or an untouched one",
       isEditedBuiltIn("hero", overrides, builtIns) && !isEditedBuiltIn("my_promo", overrides, builtIns) && !isEditedBuiltIn("faq_accordion", overrides, builtIns) && isEditedBuiltIn("slideshow", { "sections/slideshow.storelib": "x" }, builtIns))
     check("  and shows the note with Reset in the panel, for a Storelib theme only",
-      /!compatInstall && isEditedBuiltIn\(section\.type, storelibSources/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /Reset to Storelib&apos;s version/.test(read("components/website-builder/editor/edited-built-in-note.tsx")))
+      /!compatInstall && isEditedBuiltIn\(section\.type, storelibSources/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /Reset to Storelib&apos;s version/.test(read("components/website-builder/editor/edited-built-in-note.tsx")))
     check("a push note says it is now this site's copy", o.notes.some((n) => n.path === "sections/hero.storelib" && /own copy/.test(n.note)))
     check("a section Storelib draws itself can be replaced the same way", repoMayWrite("sections/slideshow.storelib", { compat: false }).ok && (repoMayWrite("sections/slideshow.storelib", { compat: false }) as { override: boolean }).override === true)
     check("  while an agent over MCP is still refused a built-in", agentMayWrite("sections/hero.storelib").ok === false)
     const route = read("app/api/website-builder/themes/[installId]/github/route.ts")
     check("Reset to Storelib's version deletes only an edited built-in, and gives GitHub Storelib's text back",
       /body\.action === "reset-override"/.test(route) && /if \(!edited\.some\(\(o\) => o\.path === path\)\)/.test(route) && /\.delete\(\)\.eq\("install_id", own\.installId\)\.eq\("path", path\)/.test(route) && /kind: "save", path, content: shipped/.test(route))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     // Changed on purpose (round G): read through refs, since the handler awaits before it asks, and an unsaved edit now waits for Keep mine or Use GitHub's (tests/github-publish-sync.test.ts).
     // Changed on purpose: W3's reload and round Z's did the same job; round Z's stayed (a page, home's header and footer, or the settings rewritten whole, read again; an unsaved edit kept, and said so).
     // Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar): read again in place (quiet), not the whole editor loaded again.

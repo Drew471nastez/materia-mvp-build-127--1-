@@ -38,7 +38,7 @@ function main() {
     check("but an asset request never pays that lookup", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)/.test(proxy))
     check("and a lookup that fails reads as the last answer, else no AI site, never an error page", /async function liveAiSiteAnswer[\s\S]*?return rememberedAnswer\(/.test(proxy) && /return \(await liveAiSiteAnswer\(slug\)\) === true/.test(proxy) && /ask\(\)\.catch\(\(\) => \(\{ value: false, failed: true \}\)\)/.test(proxy) && /if \(fresh\.failed\) return held \? held\.value : "unavailable"/.test(proxy) && /return \(await rememberedAnswer\(key, ask\)\) === true/.test(proxy)) /* rel3-leftovers SITE-8: nothing held is "unavailable" (a 503 on the subdomain); every boolean caller still reads it as no. */
 
-    const apex = read("app/(marketing)/[sellername]/page.tsx")
+    const apex = read("app/(storelib)/(marketing)/[sellername]/page.tsx")
     check("the apex path is the creator page", /from "\.\.\/u\/\[username\]\/page"/.test(apex) && /return await StorefrontPage\(/.test(apex))
     check("with the creator page's own metadata", /storefrontMetadata\(/.test(apex))
     check("and no website logic left in it", !/ThemePage|pageSections|store_theme_installs/.test(apex))
@@ -77,7 +77,7 @@ function main() {
     check("its metadata reads published settings only", /* Changed on purpose (round AB): every language of the website. */ /const settings: ThemeSettingsValues = localizer \? [^\n]*: \(found\.site\.themeSettings \?\? \{\}\)/.test(w) && !/settingsRow\.draft_settings/.test(w))
     check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w) || (/const \{ owner, products, productCount \} = await ownerOf\(creatorId, installId, themeSettings\)/.test(w) && /renderWithSources\(owner\.sources, dressed\.sections, themeSettings, template, products,/.test(w)))
 
-    for (const f of ["app/(site)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "components/website-builder/theme/render-product.tsx"]) {
+    for (const f of ["app/(site)/w/[username]/render-site.tsx", "app/(storelib)/(marketing)/[sellername]/page.tsx", "components/website-builder/theme/render-product.tsx"]) {
       check(`${f.split("/").slice(-2, -1)[0]}: no "Coming Soon"`, !/Coming Soon/.test(read(f)))
     }
   }
@@ -181,7 +181,7 @@ function main() {
   section("Create says that it is creating")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const code = read("app/website-builder/code/[installId]/page.tsx")
+    const code = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
     // The dialog it now lives in is roomier than the explorer column was, so
     // the spinner is drawn at the size the buttons around it are.
     check("the button carries a spinner and says so while the file is written", /\{creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" \/>\}/.test(code) && /\{creating \? "Creating" : "Create"\}/.test(code))
@@ -202,7 +202,7 @@ function main() {
    */
   {
     const css = read("app/globals.css")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
     // A tapped pill keeps :hover on a phone until something else is tapped,
     // so the row-flash suppressor landed on the one chip you had chosen.

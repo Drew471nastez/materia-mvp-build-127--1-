@@ -169,7 +169,7 @@ check(
 )
 check(
   "Home is handed the same arrangement the Products tab uses",
-  /productsOrder=\{headerSettings\?\.productsOrder\}/.test(read("app/(marketing)/u/[username]/page.tsx")),
+  /productsOrder=\{headerSettings\?\.productsOrder\}/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")),
 )
 
 console.log("\nThe bar that follows you down a product page\n")

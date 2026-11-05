@@ -85,8 +85,8 @@ function main() {
   check("saying no takes back what yes had stored", /for \(const name of OPTIONAL_COOKIES\[category\]\) expire\(name\)/.test(client) && /materia_attr_/.test(client))
   check("the layout choices are remembered only with Preferences on",
     /hasConsent\("preferences"\)\) document\.cookie = `storelib_wishlist_count/.test(read("components/platform/platform-header-client.tsx"))
-      && /hasConsent\("preferences"\)\) document\.cookie = `\$\{COLUMNS_COOKIE\}/.test(read("app/app/orders/orders-client.tsx"))
-      && /storelib_consent=2\\\\\.p1/.test(read("app/layout.tsx")))
+      && /hasConsent\("preferences"\)\) document\.cookie = `\$\{COLUMNS_COOKIE\}/.test(read("app/(storelib)/app/orders/orders-client.tsx"))
+      && /storelib_consent=2\\\\\.p1/.test(read("app/(storelib)/layout.tsx")))
   check("every optional cookie is one the list calls optional",
     Object.entries(OPTIONAL_COOKIES).every(([cat, names]) => names.every((n) => STORED.some((s) => s.name.split(", ").includes(n) && s.category === cat))))
 

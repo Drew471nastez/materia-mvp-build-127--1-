@@ -16,7 +16,7 @@
  *              frame's root has its transform, translate and opacity read.
  *              Light and dark, phone and computer, a member and a visitor.
  *   APP        A dark page left for an /app document (the head script of
- *              app/layout.tsx and the canvas rules of app/globals.css, as
+ *              app/(storelib)/layout.tsx and the canvas rules of app/globals.css, as
  *              printed in the real <head>), filmed from the press until the
  *              shell has been on screen for a while: no frame with a light
  *              field in it before the shell, and the dark attribute is never
@@ -345,11 +345,11 @@ export const isNativePlatform = () => false
   /* ── APP ───────────────────────────────────────────────────────────────── */
   if (want("APP")) {
     const http = await import("node:http")
-    /* The boots as the root layout prints them: the appearance's from its module, the /app canvas class from app/layout.tsx itself. */
+    /* The boots as the root layout prints them: the appearance's from its module, the /app canvas class from app/(storelib)/layout.tsx itself. */
     const boots = await import(join(stubs, "boots.mjs"))
-    const layoutSrc = readFileSync(join(root, "app/layout.tsx"), "utf8")
+    const layoutSrc = readFileSync(join(root, "app/(storelib)/layout.tsx"), "utf8")
     const canvasBoot = /try\{if\(\/\^\\\\\/app\(\\\\\/\|\$\)\/\.test\(location\.pathname\)\)\{document\.documentElement\.classList\.add\('app-layout','app-arriving'\)\}\}catch\(e\)\{\}/.exec(layoutSrc)?.[0]?.replace(/\\\\/g, "\\")
-    expect(!!canvasBoot, "app/layout.tsx still marks an arriving /app document in <head> (app-layout, app-arriving)")
+    expect(!!canvasBoot, "app/(storelib)/layout.tsx still marks an arriving /app document in <head> (app-layout, app-arriving)")
     const appJs = await bundle("scripts/render-app-from-dark.tsx", "app.js")
     const BODY_LATE_MS = 700
     /* The real order in <head>: the canvas class, the person's look, the veil. APP_BASELINE=1 leaves the veil out, to film what it was. */

@@ -39,12 +39,12 @@ console.log("\n1. A community's emails are edited and sent from Emails\n")
   check("saved, tested and sent through the community's own routes", /\/emails\/templates`, \{ method: "PUT"/.test(community) && /\/emails\/test`, \{ method: "POST"/.test(community) && /\/emails`, \{ method: "POST", body: \{ subject, message \}/.test(community))
   const panel = read("components/app/settings/customer-emails-panel.tsx")
   check("the Communities family draws them in the Emails list", /<CommunityEmails community=\{community\}/.test(panel))
-  check("a community's old Member emails link opens Emails at its community", /communityEmailsHref\(ctx\.community\.id\)/.test(read("app/app/community/[id]/settings/page.tsx")))
+  check("a community's old Member emails link opens Emails at its community", /communityEmailsHref\(ctx\.community\.id\)/.test(read("app/(storelib)/app/community/[id]/settings/page.tsx")))
 }
 
 console.log("\n2. Community automations are in Emails › Automations, and open there\n")
 {
-  const home = read("app/app/emails/emails-home.tsx")
+  const home = read("app/(storelib)/app/emails/emails-home.tsx")
   check("Automations lists each community's automated messages under the store's", /<CommunityAutomations communities=\{communities\} titled=\{communities\.length > 1\} \/>/.test(home) && /data-flow-communities/.test(home))
   check("the communities come from the Customer emails read, or are read once", /function useCommunities\(known: CustomerEmailsData \| null \| undefined\)/.test(home) && /storeApi<CustomerEmailsData>\(CUSTOMER_EMAILS_PATH\)/.test(home))
   const panel = read("components/app/settings/customer-emails-panel.tsx")

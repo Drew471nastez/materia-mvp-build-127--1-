@@ -1,5 +1,5 @@
 /**
- * The question before a new product (app/app/products/new/kind-chooser.tsx)
+ * The question before a new product (app/(storelib)/app/products/new/kind-chooser.tsx)
  * for scripts/check-new-product.mjs, in both its shapes:
  *
  *   #sheet   a Products bar with New product, which asks in place (the
@@ -13,7 +13,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { NewProductKindPage, useNewProductChooser } from "@/app/app/products/new/kind-chooser"
+import { NewProductKindPage, useNewProductChooser } from "@/app/(storelib)/app/products/new/kind-chooser"
 
 function Bar() {
   const newProduct = useNewProductChooser()

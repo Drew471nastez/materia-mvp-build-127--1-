@@ -65,7 +65,7 @@ function stripComments(src: string): string {
 
 const ANALYTICS = stripComments(untt(readFileSync(join(root, "components/app/analytics-chart.tsx"), "utf8"), "components/app/analytics-chart.tsx"))
 const DASHBOARD = stripComments(untt(readFileSync(join(root, "components/app/dashboard-client.tsx"), "utf8"), "components/app/dashboard-client.tsx"))
-const PAGE = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"), "app/app/analytics/analytics-client.tsx"))
+const PAGE = stripComments(untt(readFileSync(join(root, "app/(storelib)/app/analytics/analytics-client.tsx"), "utf8"), "app/(storelib)/app/analytics/analytics-client.tsx"))
 /** The one layer every trend chart is read through: the crosshair, the dots, the readout and the gesture. */
 const SCRUB = stripComments(untt(readFileSync(join(root, "components/app/chart-scrub.tsx"), "utf8"), "components/app/chart-scrub.tsx"))
 /** The lines of both trend charts, and how one becomes the next. */
@@ -88,7 +88,7 @@ const CHARTS: [string, string][] = [
  * and "Every chart reads one layer" holds that nothing reads a pointer any
  * other way.
  */
-const REPORTS = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-reports.tsx"), "utf8"), "app/app/analytics/analytics-reports.tsx"))
+const REPORTS = stripComments(untt(readFileSync(join(root, "app/(storelib)/app/analytics/analytics-reports.tsx"), "utf8"), "app/(storelib)/app/analytics/analytics-reports.tsx"))
 const FEEL_PROBE = untt(readFileSync(join(root, "scripts/check-chart-feel.mjs"), "utf8"), "scripts/check-chart-feel.mjs")
 
 // ===========================================================================
@@ -449,7 +449,7 @@ section("Every chart reads one layer")
     Analytics has the one hover, and none of the cards draws a line or reads a pointer of its own.
   */
   const MINI = stripComments(readFileSync(join(root, "components/analytics/trend-mini-chart.tsx"), "utf8"))
-  const SALES = stripComments(untt(readFileSync(join(root, "app/app/analytics/commerce-reports.tsx"), "utf8"), "app/app/analytics/commerce-reports.tsx"))
+  const SALES = stripComments(untt(readFileSync(join(root, "app/(storelib)/app/analytics/commerce-reports.tsx"), "utf8"), "app/(storelib)/app/analytics/commerce-reports.tsx"))
   check("the home page's chart, the Analytics chart and every report card's line draw <ChartScrub>; the cards through trend-mini-chart, never recharts",
     /<ChartScrub\b/.test(DASHBOARD) && /<ChartScrub\b/.test(ANALYTICS) && /<ChartScrub\b/.test(MINI) && /<MorphLines\b/.test(MINI) && /tone="light"/.test(MINI)
       && /<TrendMiniChart\b/.test(REPORTS) && /<TrendMiniChart\b/.test(SALES) && !/<ChartScrub\b|recharts|<svg/.test(REPORTS) && !/recharts|<svg/.test(SALES))
@@ -492,7 +492,7 @@ section("Switching the place redraws once, not twice")
  * answered; it is the chart that waits.
  */
 {
-  const page = stripComments(untt(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"), "app/app/analytics/analytics-client.tsx"))
+  const page = stripComments(untt(readFileSync(join(root, "app/(storelib)/app/analytics/analytics-client.tsx"), "utf8"), "app/(storelib)/app/analytics/analytics-client.tsx"))
   /*
     Changed on purpose: there is no Store and One page switch any more. Every
     place (All, the creator page, the OnePage, a website) is drawn with the

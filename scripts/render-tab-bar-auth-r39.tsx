@@ -7,7 +7,7 @@
  *
  * A page shaped like the buyer's side of storelib.com: the black header, a
  * light page with cards, the dark footer, and the real BuyerTabBar mounted
- * after it the way app/(marketing)/layout.tsx mounts it.
+ * after it the way app/(storelib)/(marketing)/layout.tsx mounts it.
  */
 import React from "react"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"

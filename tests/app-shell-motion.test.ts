@@ -160,7 +160,7 @@ section("A slow page: no outline, a spinner")
     !waitsWithSpinner("/app/settings/billing/upgrade") && !waitsWithSpinner("/explore") && !waitsWithSpinner("/application") && !waitsWithSpinner(null))
   check("no page draws an outline of itself on the way: the route outlines are gone",
     !existsSync(join(root, "components/app/route-skeletons.tsx"))
-      && ["app/app/analytics/skeleton.tsx", "app/app/payouts/skeleton.tsx", "app/app/settings/skeleton.tsx", "app/app/orders/sales/skeleton.tsx", "app/app/orders/order-skeleton.tsx", "app/app/emails/flow/flow-skeleton.tsx"]
+      && ["app/(storelib)/app/analytics/skeleton.tsx", "app/(storelib)/app/payouts/skeleton.tsx", "app/(storelib)/app/settings/skeleton.tsx", "app/(storelib)/app/orders/sales/skeleton.tsx", "app/(storelib)/app/orders/order-skeleton.tsx", "app/(storelib)/app/emails/flow/flow-skeleton.tsx"]
         .every((f) => !existsSync(join(root, f))))
   const stage = code("components/app/app-stage.tsx")
   check("the stage draws the spinner and nothing shaped like a page, asks for the wait by address, and fades in on opacity alone",
@@ -191,7 +191,7 @@ section("A slow page: no outline, a spinner")
       && /if \(current === nav && isCommittedAddress\(window\.location\.pathname, window\.location\.search\)\) endAppNavigation\(\)/.test(code("lib/ui/app-navigation.ts")))
   check("the error boundary and the not-found page end it too",
     /export function PageLanded\(\) \{\s*useLayoutEffect\(\(\) => \{ endAppNavigation\(\) \}, \[\]\)/.test(stage)
-      && /<PageLanded \/>/.test(code("app/app/error.tsx")) && /<PageLanded \/>/.test(code("app/app/not-found.tsx")))
+      && /<PageLanded \/>/.test(code("app/(storelib)/app/error.tsx")) && /<PageLanded \/>/.test(code("app/(storelib)/app/not-found.tsx")))
   const barCode = code("components/app/navigation-loading-bar.tsx")
   check("a link the page handles itself (its default prevented, the router started nothing) starts no record",
     /window\.addEventListener\("click", onClickStart, true\)/.test(barCode)
@@ -202,7 +202,7 @@ section("A slow page: no outline, a spinner")
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
     /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[var\(--app-rail-w,240px\)\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
       && /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[var\(--app-top-corner\)\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
-      && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[var\(--app-rail-w,240px\)\]/.test(read("app/app/layout.tsx")))
+      && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[var\(--app-rail-w,240px\)\]/.test(read("app/(storelib)/app/layout.tsx")))
   /* Regression: "the purple things in the corners". The rounded surface was
      the fixed box itself, so its corners showed the page under it, and Home's
      top is the violet announcement bar. scripts/check-app-stage.mjs reads the
@@ -244,13 +244,13 @@ section("No page draws a picture of itself while it loads, inside or out")
 {
   /* The owner still saw grey drawings of pages on a phone: the route outlines
      are gone, and these were the ones left inside the pages and the shell. */
-  const cold = code("app/app/cold-start.tsx")
+  const cold = code("app/(storelib)/app/cold-start.tsx")
   check("a native cold start is the shell's frame and the spinner: the header's colour, the content area with the header's own rounded corners, no violet bar, no drawing",
-    !existsSync(join(root, "app/app/dashboard-skeleton.tsx"))
+    !existsSync(join(root, "app/(storelib)/app/dashboard-skeleton.tsx"))
       && /fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]/.test(cold) && /top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#f8f9fa\]/.test(cold)
       && /<AppTopCorners \/>/.test(cold)
       && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
-  const layout = code("app/app/layout.tsx")
+  const layout = code("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 reliability): a third gate, over the screen that says the profile or the creator row could not be read; it uses it too. */
   check("and every one of the layout's gates uses it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 3 && (layout.match(/<NativeAuthGate/g) ?? []).length === 3)
   const dash = code("components/app/dashboard-client.tsx")
@@ -270,11 +270,11 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("and its four figures wait for the period's first answer (MetricTab `loading`), with No activity yet held back until it",
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
       && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
-  const reports = code("app/app/analytics/analytics-reports.tsx")
+  const reports = code("app/(storelib)/app/analytics/analytics-reports.tsx")
   /* Changed on purpose: one set of cards for every place (the OnePage's own set is gone), each a list, the funnel or a figure. */
   check("Analytics' cards draw their own shapes while they wait (rows, the funnel, a figure) and crossfade into the figures",
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
-      /* Changed on purpose: ten, with Referrers and Operating systems (round Z6); eleven with the added reports' own cards, which wait the same way (app/app/analytics/analytics-reports AddedCards). */
+      /* Changed on purpose: ten, with Referrers and Operating systems (round Z6); eleven with the added reports' own cards, which wait the same way (app/(storelib)/app/analytics/analytics-reports AddedCards). */
       /* Changed on purpose (round 42, clicks between pages): twelve, with the website's Clicks between pages card, which waits as rows the same way. */
       /* Changed on purpose (round 43): thirteen, with Digital's and Physical's own Downloads and Refunds cards (standing), which wait as a figure the same way. */
       && (reports.match(/<Body blank=\{/g) ?? []).length === 13
@@ -289,9 +289,9 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /\n\s*\{value\}\n/.test(tab) && /\n\s*\{foot\}\n/.test(tab) && /\{loading \? null : change\}/.test(tab)
       && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
       /* Changed on purpose: Analytics draws its tabs from one map over tabOrder now, so the one MetricTab there waits on figuresLoading for every tab. */
-      && /\{tabOrder\.map\(\(tab\) => \{[\s\S]*?return <MetricTab key=\{tab\}[^\n]*loading=\{figuresLoading\}/.test(code("app/app/analytics/analytics-client.tsx"))
-      && (code("app/app/analytics/analytics-client.tsx").match(/<MetricTab /g) ?? []).length === (code("app/app/analytics/analytics-client.tsx").match(/<MetricTab [^\n]*loading=\{figuresLoading\}/g) ?? []).length)
-  const payouts = code("app/app/payouts/payouts-client.tsx")
+      && /\{tabOrder\.map\(\(tab\) => \{[\s\S]*?return <MetricTab key=\{tab\}[^\n]*loading=\{figuresLoading\}/.test(code("app/(storelib)/app/analytics/analytics-client.tsx"))
+      && (code("app/(storelib)/app/analytics/analytics-client.tsx").match(/<MetricTab /g) ?? []).length === (code("app/(storelib)/app/analytics/analytics-client.tsx").match(/<MetricTab [^\n]*loading=\{figuresLoading\}/g) ?? []).length)
+  const payouts = code("app/(storelib)/app/payouts/payouts-client.tsx")
   /* The redone page (round 5): the balance and revenue figures wait soft, the
      way MetricTab's do, rather than as grey bars; the two balance panels are
      one Details panel, so its holds are drawn once, and its bank line too. */
@@ -301,7 +301,7 @@ section("No page draws a picture of itself while it loads, inside or out")
       && (payouts.match(/<Shimmer className=/g) ?? []).length === 2
       && (payouts.match(/loading \? "blur-\[2px\]" : "blur-0"/g) ?? []).length === 2)
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
-  const payoutsPage = code("app/app/payouts/page.tsx")
+  const payoutsPage = code("app/(storelib)/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
     /<Suspense fallback=\{<PayoutsWaiting( label="Loading payouts"| label=\{tt\("Loading payouts"\)\})? \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady(, canManage)? \}\)\}\s*<\/Suspense>/.test(payoutsPage) /* Changed on purpose (round 42 team): canManage, whether Cash out and the bank are drawn */
       && (/function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage) || /function PayoutsWaiting\(\{ label \}: \{ label: string \}\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label=\{label\}>/.test(payoutsPage) /* its words from the page, in the request's language */)
@@ -311,7 +311,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("and its bar is sent with the heading, with a box the client fills with Export and Cash out once Stripe answers",
     /<PaneBar width="max-w-\[1200px\]"/.test(payoutsPage) && /<div data-payouts-actions="" /.test(payoutsPage)
       && /usePageSlot\("\[data-payouts-actions\]"\)/.test(payouts) && /createPortal\(actions, slot\)/.test(payouts))
-  const emails = code("app/app/emails/emails-home.tsx")
+  const emails = code("app/(storelib)/app/emails/emails-home.tsx")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
       /* Four: subscribers, messages, automations and the emails. */
@@ -320,8 +320,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       /* The Sent tab's strip is there on every render, its figures shapes while they come, so the table under it never moves. */
       && /if \(p\.tab === "published"\) \{/.test(emails) && /value: o \? n\(o\.total_sent\) : "–"/.test(emails))
   check("the coupon pages draw nothing under the gate rather than an outline",
-    !existsSync(join(root, "app/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/app/coupons/new/skeleton.tsx"))
-      && ["app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx"].every((f) => /if \(load\.state === "signed-out"\) return null/.test(code(f))))
+    !existsSync(join(root, "app/(storelib)/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/(storelib)/app/coupons/new/skeleton.tsx"))
+      && ["app/(storelib)/app/coupons/page.tsx", "app/(storelib)/app/coupons/new/page.tsx", "app/(storelib)/app/coupons/[id]/page.tsx"].every((f) => /if \(load\.state === "signed-out"\) return null/.test(code(f))))
   check("the unused skeleton helpers and the old settings form are gone",
     !existsSync(join(root, "components/app/page-transition.tsx")) && !existsSync(join(root, "components/app/settings-form.tsx")))
   const spinner = code("components/ui/activity-spinner.tsx")
@@ -385,9 +385,9 @@ section("The press answers on the press")
 
 section("Pages drawn over the whole shell")
 {
-  const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
-  const newLayout = code("app/app/products/new/layout.tsx")
-  const idLayout = code("app/app/products/[id]/layout.tsx")
+  const upgrade = code("app/(storelib)/app/settings/billing/upgrade/layout.tsx")
+  const newLayout = code("app/(storelib)/app/products/new/layout.tsx")
+  const idLayout = code("app/(storelib)/app/products/[id]/layout.tsx")
   check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
     /<PageLayer inset="white">/.test(upgrade) && /* Changed on purpose (round 41): the product editor's layers ask to move. */ /<PageLayer pill inset="bar" phoneOnly moves>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
@@ -516,12 +516,12 @@ section("One scrollbar track on a computer, always there, never moving")
   {
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
-    const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx"]
+    const within = ["app/(storelib)/app/orders/orders-list.tsx", "app/(storelib)/app/emails/emails-home.tsx"]
     /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
     const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
     /* Round 40: the Products search is Orders' boxed field, with Orders' halo. */
-    const products = code("app/app/products/products-client.tsx")
+    const products = code("app/(storelib)/app/products/products-client.tsx")
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
         && !heavy.test(products) && HALO_WITHIN.test(products) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
@@ -640,7 +640,7 @@ section("Sheets")
 
 section("Navigation")
 {
-  const offenders = ["app/app/loading.tsx", "app/app/orders/loading.tsx", "app/app/orders/sales/loading.tsx", "app/app/orders/[id]/loading.tsx", "app/app/settings/loading.tsx", "app/app/customers/loading.tsx", "app/app/emails/loading.tsx", "app/app/analytics/loading.tsx", "app/app/payouts/loading.tsx", "app/app/coupons/loading.tsx", "app/app/coupons/new/loading.tsx", "app/app/onepage/loading.tsx", "app/app/website-builder/loading.tsx"].filter((f) => existsSync(join(root, f)))
+  const offenders = ["app/(storelib)/app/loading.tsx", "app/(storelib)/app/orders/loading.tsx", "app/(storelib)/app/orders/sales/loading.tsx", "app/(storelib)/app/orders/[id]/loading.tsx", "app/(storelib)/app/settings/loading.tsx", "app/(storelib)/app/customers/loading.tsx", "app/(storelib)/app/emails/loading.tsx", "app/(storelib)/app/analytics/loading.tsx", "app/(storelib)/app/payouts/loading.tsx", "app/(storelib)/app/coupons/loading.tsx", "app/(storelib)/app/coupons/new/loading.tsx", "app/(storelib)/app/onepage/loading.tsx", "app/(storelib)/app/website-builder/loading.tsx"].filter((f) => existsSync(join(root, f)))
   check("no /app page swaps itself for a loading boundary on the first frame of a navigation", offenders.length === 0, offenders.join(", "))
   const stage = code("components/app/app-stage.tsx")
   check("the landing starts before the new page is painted, and moves only transform and opacity",
@@ -665,7 +665,7 @@ section("Navigation")
   check("inside the shell a page does not fade a second time on its own class, from the document's first paint",
     /\n\s*\.app-content-scroll \.app-page-enter \{\s*animation: none;/.test(shellCss) && !/html\.app-layout \.app-content-scroll \.app-page-enter/.test(shellCss))
   check("  and the Website page, which arrives as a document most often, carries no fade of its own",
-    !/app-page-enter/.test(code("app/app/website-builder/website-builder-client.tsx")))
+    !/app-page-enter/.test(code("app/(storelib)/app/website-builder/website-builder-client.tsx")))
   /*
     THE WEBSITE ROW IS AN ORDINARY /app PAGE. It was marked forceNavigation
     when the page lived outside the /app tree, so on the web the sidebar and
@@ -707,7 +707,7 @@ section("Toasts on a phone")
   check("the website builder's toasts keep clear of the home indicator on a phone and keep to the same lines",
     /mobileOffset=\{\{ left: 16, right: 16, bottom: "calc\(16px \+ env\(safe-area-inset-bottom, 0px\)\)" \}\}/.test(sonner)
       && /title: "truncate text-\[14px\]"/.test(sonner) && /description: "line-clamp-2 text-\[13px\]"/.test(sonner) && /toast: "max-\[600px\]:py-3!"/.test(sonner)
-      && /<EditorToaster \/>/.test(code("app/website-builder/layout.tsx")) && !/from "sonner"/.test(code("app/website-builder/layout.tsx")))
+      && /<EditorToaster \/>/.test(code("app/(storelib)/website-builder/layout.tsx")) && !/from "sonner"/.test(code("app/(storelib)/website-builder/layout.tsx")))
 
   /*
     THE WORDS. Every toast written out in these files says one short thing:
@@ -716,18 +716,18 @@ section("Toasts on a phone")
     other work and is not read here.
   */
   const files = [
-    "app/app/payouts/payouts-client.tsx",
-    "app/app/products/products-client.tsx",
-    "app/app/products/new/product-editor.tsx",
-    "app/app/coupons/coupons-client.tsx",
-    "app/app/website-builder/themes/themes-client.tsx",
-    "app/app/website-builder/website-builder-client.tsx",
+    "app/(storelib)/app/payouts/payouts-client.tsx",
+    "app/(storelib)/app/products/products-client.tsx",
+    "app/(storelib)/app/products/new/product-editor.tsx",
+    "app/(storelib)/app/coupons/coupons-client.tsx",
+    "app/(storelib)/app/website-builder/themes/themes-client.tsx",
+    "app/(storelib)/app/website-builder/website-builder-client.tsx",
     "components/app/dashboard-client.tsx",
     "components/app/settings-form-new.tsx",
     "components/onepage/tabs/products-tab.tsx",
-    "app/website-builder/code/[installId]/page.tsx",
+    "app/(storelib)/website-builder/code/[installId]/page.tsx",
     "components/website-builder/editor/image-picker.tsx",
-    "app/website-builder/editor/[installId]/page.tsx",
+    "app/(storelib)/website-builder/editor/[installId]/page.tsx",
   ]
   const call = /\b(?:toast(?:\.(?:success|error|info|warning|message))?|showNotification|showToast|say)\(\s*(?:\{\s*title:\s*)?(["`])((?:(?!\1)[^\\]|\\.)*)\1/g
   const long: string[] = []
@@ -775,7 +775,7 @@ section("Avatars")
     refuses any host outside next.config's remotePatterns: a creator whose
     photo is Google's got the browser's broken picture icon there.
   */
-  const checkout = code("app/checkout/checkout-client.tsx")
+  const checkout = code("app/(storelib)/checkout/checkout-client.tsx")
   check("the checkout bar draws the creator with it, never through next/image",
     /<AppAvatar\s+src=\{creator\.avatar_url\}\s+name=\{creator\.name\}/.test(checkout) && !/<Image[^>]*avatar/.test(checkout))
 }

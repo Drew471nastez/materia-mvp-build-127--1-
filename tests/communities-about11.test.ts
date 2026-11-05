@@ -118,7 +118,7 @@ async function main() {
     check("a shared link of a YouTube cover is cut from the large still first, then the stored one", JSON.stringify(coverSources("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg")) === JSON.stringify(["https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"]) && JSON.stringify(coverSources("https://x.supabase.co/c.png")) === JSON.stringify(["https://x.supabase.co/c.png"]))
     const facts: SeoFacts = { slug: "clay", name: "Clay", tagline: null, description: null, seoTitle: null, seoDescription: null, coverUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", logoUrl: null, indexable: true, creatorName: null, shareVersion: "v2" }
     check("with a video cover the preview is still the cover.jpg still, never a player", (previewImages(facts, false)?.og as { url: string; type: string }[])[0].url === "https://storelib.com/community/clay/cover.jpg?v=v2")
-    const route = code("app/(marketing)/community/[slug]/cover.jpg/route.ts")
+    const route = code("app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts")
     check("cover.jpg tries each source until one draws", /for \(const source of coverSources\(community\.cover_url\)\) \{\s*picture = await sharePicture\(source, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg"\)\s*if \(picture\) break/.test(route))
   }
 
@@ -179,8 +179,8 @@ async function main() {
     check("the gallery takes a link, read with the composer's parser before anything is saved", /data-gallery-add-link=""/.test(editor) && /const embed = galleryEmbed\(text\.trim\(\)\)/.test(editor) && /That is not a YouTube or Vimeo video link\./.test(editor))
     check("the cover takes a link too: the video first in the gallery, marked as the cover", /export function CoverField/.test(editor) && /onChange\(\{ coverUrl: null, gallery: \[\{ \.\.\.embed, cover: true \}, \.\.\.rest\] \}\)/.test(editor))
     const settings = code("components/community/creator/settings-section.tsx")
-    /* Changed on purpose (round 33): the cover and the gallery are the community's page, edited in its Page section (app/app/community/[id]/page), not in Settings. */
-    check("Settings no longer draws the cover field or the gallery: they are the Page section's", !/<CoverField|<GalleryEditor/.test(settings) && /pageTabAsked/.test(code("app/app/community/[id]/settings/page.tsx")))
+    /* Changed on purpose (round 33): the cover and the gallery are the community's page, edited in its Page section (app/(storelib)/app/community/[id]/page), not in Settings. */
+    check("Settings no longer draws the cover field or the gallery: they are the Page section's", !/<CoverField|<GalleryEditor/.test(settings) && /pageTabAsked/.test(code("app/(storelib)/app/community/[id]/settings/page.tsx")))
   }
 
   /* ── Words ───────────────────────────────────────────────────────────── */
@@ -196,7 +196,7 @@ async function main() {
       "components/community/creator/gallery-editor.tsx",
       "lib/communities/server/gallery.ts",
       "lib/communities/server/about.ts",
-      "app/(marketing)/community/[slug]/cover.jpg/route.ts",
+      "app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts",
     ]
     const banned = /—|\bunlock|\belevate|\bseamless|\bpowerful|\beffortless|\bsupercharge|\btransform/i
     const offenders = mine.filter((f) => banned.test(readSource(f)))

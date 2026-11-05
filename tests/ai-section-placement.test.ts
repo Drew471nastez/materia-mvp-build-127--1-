@@ -169,7 +169,7 @@ function main() {
 
   console.log("\nThe editor draws the spot and places the section")
 
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("both chat panels, phone and desktop, are wired",
     (editor.match(/onWriteStart=\{handleWriteStart\}\s*onWriteDone=\{handleWriteDone\}\s*onWriteFailed=\{handleWriteFailed\}/g) ?? []).length === 2)
   check("the placeholder is added to the list the canvas draws",

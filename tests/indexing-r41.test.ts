@@ -109,7 +109,7 @@ async function main() {
     onePageRowListable({ published_blocks: sensitiveOff }) && !onePageRowListable({ published_blocks: sensitive }) && !onePageRowListable({ published_blocks: [shown("header")] }) &&
       onePageRowListable({ published_blocks: [], published_profile: { bio: "Hello there" } }) && onePageRowListable({ draft_blocks: [shown("link_button", { url: "https://y.com", label: "Shop" })] }))
 
-  const onepage = code("app/(marketing)/l/[slug]/page.tsx")
+  const onepage = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   check("the OnePage route asks no product count to index, and asks about sensitive links",
     /onePageIndexable\(\{ status: onepage\.status, handle: owner\.handle, spamState: owner\.spamState \}\)/.test(onepage) && !/onePageIndexable\(\{[^}]*publishedProducts/.test(onepage) && /!onePageSensitive\(\{ blocks: drawn\.blocks \}\)/.test(onepage))
   check("and its follow comes from pageRobots", /const \{ follow \} = pageRobots\(/.test(onepage) && /onePageMetadataFrom\(seo, \{ handle: owner\.handle, indexable, follow,/.test(onepage))
@@ -119,7 +119,7 @@ async function main() {
   check("no product: not indexed (an empty shop)", !creatorIndexable({ publishedProducts: 0, handle: "mariapopescu" }))
   check("one product: indexed", creatorIndexable({ publishedProducts: 1, handle: "mariapopescu" }))
   check("a farm with a decoy product: not", !creatorIndexable({ publishedProducts: 1, handle: FARM }))
-  const storefront = code("app/(marketing)/u/[username]/page.tsx")
+  const storefront = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
   const metaCount = storefront.slice(storefront.indexOf('.select("id", { count: "exact", head: true })'), storefront.indexOf(".then(({ count }) => count ?? 0)"))
   check("the storefront's metadata counts every product type", metaCount.length > 0 && !/neq\("type", "physical"\)/.test(metaCount))
   check("and its body counts them when none is drawn", /creatorIndexable\(\{ publishedProducts: listedCount,/.test(storefront))
@@ -132,7 +132,7 @@ async function main() {
   check("public pages, communities and handles that start like a route stay open", open.every((p) => allowedBy(PLATFORM_DISALLOW, p)), open.filter((p) => !allowedBy(PLATFORM_DISALLOW, p)).join(", "))
   const siteBlocked = ["/preview/tok", "/search?q=mug", "/cart", "/account", "/wishlist"]
   check("a website keeps out its previews, search results, cart and account", siteBlocked.every((p) => !allowedBy(SITE_DISALLOW, p)) && ["/", "/products/mug", "/about", "/search-tips"].every((p) => allowedBy(SITE_DISALLOW, p)))
-  const member = read("app/(marketing)/community/[slug]/(member)/layout.tsx")
+  const member = read("app/(storelib)/(marketing)/community/[slug]/(member)/layout.tsx")
   check("member only community areas say noindex", /return \{ robots: \{ index: false, follow: false \} \}/.test(member))
 
   section("Sitemaps, each type")

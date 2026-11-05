@@ -53,7 +53,7 @@ if (page === "site") {
   createRoot(document.getElementById("app")!).render(<><CaptureTouch property="website" /><CheckoutLinkOrigin /></>)
 }
 if (page === "checkout") {
-  /* What app/checkout/checkout-client.tsx does: read on mount, send with Pay. */
+  /* What app/(storelib)/checkout/checkout-client.tsx does: read on mount, send with Pay. */
   adoptCarriedTouches()
   ;(window as any).__addressAfterRead = location.href
   document.getElementById("pay")!.addEventListener("click", async () => {

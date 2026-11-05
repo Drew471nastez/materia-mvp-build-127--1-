@@ -140,8 +140,8 @@ function switchScreen() {
   check("making one never waits forever, and no answer in time says where to look rather than to press again",
     /post\("\/api\/businesses", \{\}, CREATE_TIMEOUT_MS\)/.test(created) && /CREATE_TIMEOUT_MS = 30_000/.test(created) && /CREATE_NO_ANSWER/.test(created) && /"\/signup\/success\?action=become-creator&business=new", steps\)/.test(created))
   /* Changed on purpose: the page is a server component now (the creator or buyer question is gone and every other arrival is redirected), and its New business screen is ./success-content.tsx. */
-  const successPage = read("app/(auth)/signup/success/page.tsx")
-  const success = read("app/(auth)/signup/success/success-content.tsx")
+  const successPage = read("app/(storelib)/(auth)/signup/success/page.tsx")
+  const success = read("app/(storelib)/(auth)/signup/success/success-content.tsx")
   check("the setup page's first HTML is that screen for a new business, read from the address on the server",
     /query\.get\("business"\) === "new"/.test(successPage) && /<Suspense fallback=\{<NewBusinessScreen \/>\}>/.test(successPage))
   check("  kept while the session is found, fading out under the setup's first step, never the welcome choice",
@@ -181,7 +181,7 @@ function switchScreen() {
       && /import "server-only"/.test(jar) && /sessionCookieChunks\(key, storedSessionJson\(session\), existing\)/.test(jar)
       && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(jar)
       && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(jar) && /cleanSwitchName\(arrival\.name\)/.test(jar))
-  const layout = read("app/app/layout.tsx")
+  const layout = read("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 reliability): the layout has a third path, Storelib could not read the profile or the creator row
      (components/app/service-unavailable.tsx), and it draws the screen before its gate too. Every gate, so the count is all of them. */
   check("the new /app's HTML draws the screen when the cookie came, before its session gate, on every one of the layout's paths",
@@ -224,17 +224,17 @@ function switchScreen() {
       && /<SwitchSurface header=\{<ShellHeaderStill name=\{name\} photo=\{photo\} \/>\}>\{middle\}<\/SwitchSurface>/.test(screen)
       && /data-switch-surface="" className="absolute inset-0">/.test(screen)
       && !/w-\[240px\]/.test(screen) && whiteWritten !== -1
-      && /data-cold-page="" className="absolute inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#f8f9fa\]/.test(read("app/app/cold-start.tsx")))
+      && /data-cold-page="" className="absolute inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#f8f9fa\]/.test(read("app/(storelib)/app/cold-start.tsx")))
   check("  the bar written before the white, and the white beginning under it, so no frame can have one without the other",
     barWritten !== -1 && whiteWritten > barWritten)
   check("  its bar is the shell's own height and colour at each width, with the one set of corners hung from it",
     /h-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#111111\] text-\[#111111\] md:h-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-\[#131316\] md:text-\[#131316\]/.test(screen)
       && /<AppTopCorners \/>/.test(screen) && !/rounded-t-/.test(screen))
   check("  with the spinner where every slow page has it, 40% down the white",
-    /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /<PageSpinner \/>/.test(read("app/app/cold-start.tsx")))
+    /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /<PageSpinner \/>/.test(read("app/(storelib)/app/cold-start.tsx")))
   check("  and the cold start keeps its own frame, for the cold start alone",
-    /<div data-app-cold-start="" className="fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]">/.test(read("app/app/cold-start.tsx"))
-      && /export default function AppColdStart\(\) \{/.test(read("app/app/cold-start.tsx")))
+    /<div data-app-cold-start="" className="fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]">/.test(read("app/(storelib)/app/cold-start.tsx"))
+      && /export default function AppColdStart\(\) \{/.test(read("app/(storelib)/app/cold-start.tsx")))
   /* "There's the black top bar there showing, which I don't understand why": the bar was an empty band. */
   const still = read("components/app/shell-header-still.tsx")
   check("  and its black bar is never empty: it draws the business you are going to, its photo and name, where the real header puts them",
@@ -267,7 +267,7 @@ function switchScreen() {
       && switchLib.includes('l.href="#${SWITCH_SCREEN_ID}"')
       && switchLib.includes("classList.add(${JSON.stringify(SWITCH_HTML_CLASS)})")
       && /SWITCH_HTML_CLASS = "switch-arriving"/.test(switchLib)
-      && /\$\{SWITCH_FIRST_PAINT_SCRIPT\}/.test(read("app/layout.tsx")))
+      && /\$\{SWITCH_FIRST_PAINT_SCRIPT\}/.test(read("app/(storelib)/layout.tsx")))
   check("  the mark it waits for is the LAST thing in the screen, not the screen's own box",
     /<span aria-hidden="true" id=\{SWITCH_SCREEN_ID\} \/>\s*<\/div>/.test(screen)
       && /SWITCH_SCREEN_ID = "business-switch-screen-ready"/.test(switchLib))
@@ -441,11 +441,11 @@ function main() {
 
   console.log("\nThe app")
   /* Changed on purpose (round rel-auth): the menu's businesses have their own ceiling (SHELL_EXTRA_MS); past it, or on an error, this business alone as before. */
-  check("the layout reads the businesses beside everything else", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/app/layout.tsx")))
+  check("the layout reads the businesses beside everything else", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/(storelib)/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/(storelib)/app/layout.tsx")))
   check("both account menus list them", /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="dropdown"/.test(read("components/app/sidebar.tsx")) && /<BusinessSwitcher businesses=\{businesses\}( teamStores=\{teamStores\})? variant="sheet"/.test(read("components/app/mobile-account-menu.tsx")))
   check("New business makes it right there and goes straight into the creator onboarding, no page in between",
     /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /* Changed on purpose: it now hands the screen its next step. */ /await createBusiness\(\{ onOpening:/.test(read("components/app/business-switcher.tsx")) &&
-      /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(auth)/onboarding/business/page.tsx")))
+      /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(storelib)/(auth)/onboarding/business/page.tsx")))
   const switcher = read("components/app/business-switcher.tsx")
   /*
     Changed on purpose. The owner: "the plus should NOT redirect me to a new
@@ -505,7 +505,7 @@ function main() {
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",
-    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: \{ name: firstBusiness\.name, photo: firstBusiness\.avatarUrl \}, business: firstBusiness \}\) \}/.test(read("app/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: one path now, the chooser's is gone. */ (read("app/(auth)/signup/success/success-content.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 1 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
+    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(storelib)/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: \{ name: firstBusiness\.name, photo: firstBusiness\.avatarUrl \}, business: firstBusiness \}\) \}/.test(read("app/(storelib)/(auth)/signup/success/success-content.tsx")) && /* Changed on purpose: one path now, the chooser's is gone. */ (read("app/(storelib)/(auth)/signup/success/success-content.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 1 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */
@@ -522,14 +522,14 @@ function main() {
       && /on delete cascade/.test(read("supabase/migrations/20261001_business_accounts.sql")))
   check("  the menu is right again with no reload asked for: the first business's session loads /app, which reads the list on the server",
     /applyBusinessSession\(data\.firstBusiness\.session, "\/app"\)/.test(read("components/app/settings-form-new.tsx")) && /window\.location\.replace\(next\)/.test(read("lib/businesses/switch-client.ts"))
-      && /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/app/layout.tsx")))
+      && /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(read("app/(storelib)/app/layout.tsx")))
   const settingsForm = read("components/app/settings-form-new.tsx")
   check("  deleting the login's first account is still one plain Delete account, with no section of its own",
     !/data-settings-card="businesses"/.test(read("components/app/settings/account-panels.tsx")) && /Removes your store, products, customers and sales history for good\./.test(read("components/app/settings/account-panels.tsx"))
       && /Your store, products, customers and details are removed\. People who bought from you keep what they bought, and your sales and payout records are kept\./.test(settingsForm))
   check("  but it does say what else it removes, because the other stores of the login go with it",
     /otherStores > 0 &&/.test(settingsForm) && /The other store on this login goes with it\./.test(settingsForm) && /The other \$\{countWord\(otherStores\)\} stores on this login go with it\./.test(settingsForm)
-      && /otherStores: group && group\.ownerId === user\.id \? groupIds\(group, user\.id\)\.length - 1 : 0/.test(read("app/app/settings/_server.ts")))
+      && /otherStores: group && group\.ownerId === user\.id \? groupIds\(group, user\.id\)\.length - 1 : 0/.test(read("app/(storelib)/app/settings/_server.ts")))
   check("the seller's mail reaches the owner", /ownerAddress\(sellerEmail\)/.test(read("lib/email.tsx")) && /ownerAddress\(replyTo\)/.test(read("lib/email.tsx")))
   /* Found in the audit: the payout, bank, verification, dispute and tax emails went to the tagged address. */
   /* Those emails are the notification engine's now (lib/notify): every creator email it sends goes to ownerAddress, a customer's to the address given. */

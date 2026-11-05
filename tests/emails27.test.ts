@@ -512,7 +512,7 @@ async function creatorPage() {
   console.log("\nThe creator page: no floating language card, the setting still works\n")
   const comp = read("components/storefront/creator-language.tsx")
   check("the creator page's language row draws no offer card", !/LanguageSuggest|__slLangSuggest|suggest/.test(comp.replace(/\/\*\*[\s\S]*?\*\//, "")))
-  const page = read("app/(marketing)/u/[username]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("  and the page passes it none", !/suggest=\{/.test(page) && /<CreatorLanguage code=\{pageLanguage\.code\}/.test(page))
   const cpl = read("lib/markets/creator-page-language.ts")
   /*

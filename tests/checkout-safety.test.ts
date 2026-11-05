@@ -164,7 +164,7 @@ async function main() {
   check("  refuses without consent", /agreedToTerms !== true/.test(session))
   check("  is rate limited", /bucket: "payment"/.test(session))
   check("  records the discount, the code and the business on the payment", /discount_cents:/.test(session) && /coupon_code:/.test(session) && /businessToMetadata/.test(session))
-  check("  no gift left anywhere in the checkout", !/is_gift|isGift/.test(session + read("app/checkout/checkout-client.tsx")))
+  check("  no gift left anywhere in the checkout", !/is_gift|isGift/.test(session + read("app/(storelib)/checkout/checkout-client.tsx")))
   const free = read("app/api/checkout/process/route.ts")
   check("the free route is priced the same way and refuses any price", /priceOrder\(/.test(free) && /totals\.totalCents !== 0/.test(free))
   check("  and writes the variant on the order", /variant_id: variant\.id/.test(free))
@@ -183,7 +183,7 @@ async function main() {
 
   console.log("\nThe page")
   {
-    const client = read("app/checkout/checkout-client.tsx")
+    const client = read("app/(storelib)/checkout/checkout-client.tsx")
     check("after paying, the payment goes in the address before the order is asked for", /url\.searchParams\.set\("payment_intent", paymentIntentId\)/.test(client))
     check("  and making the order is retried before giving up", /for \(const wait of \[0, 1500, 4000\]\)/.test(client))
     /* Changed on purpose: Stripe's smallest charge in the store's currency. */
@@ -191,21 +191,21 @@ async function main() {
     check("nothing is payable once paid", /busy=\{busy \|\| !!paid \|\| settled\}/.test(client) && /inert=\{!!paid\}/.test(client))
     check("Stripe.js waits until the app is known not to be the app", /useState<boolean \| null>\(null\)/.test(client))
   }
-  const page = read("app/checkout/checkout-client.tsx")
+  const page = read("app/(storelib)/checkout/checkout-client.tsx")
   check("no 'Secured checkout by Stripe' line", !/Secured checkout by Stripe/.test(page))
   /* The tip was redrawn as one folded "Add a tip" line (the owner found the
      old heading, row of four and field too much to read on the way to
      paying); the creator it is for is still named, to a screen reader and on
      its choices, and the same None/$1/$3/$5/own amount are sent. */
   {
-    const summary = read("app/checkout/parts/order-summary.tsx")
+    const summary = read("app/(storelib)/checkout/parts/order-summary.tsx")
     check(
       /* Changed on purpose: the tip is folded again by default ("Add a tip should be collapsed as default"); the line still names the creator and the same amounts are sent. */
       "the tip and the code are kept (the tip folded under its Add a tip line, which names the creator)",
       /* Changed on purpose: in the visitor's language (ct). */ /\{ct\("Add a tip"\)\}<\/span>/.test(summary) && /<span className="text-\[#6b7280\]"> \{ct\("for \{shop\}", \{ shop: creatorName \}\)\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
     )
   }
-  check("wallets come from Stripe's express element; Link is off", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /link: "never"/.test(read("app/checkout/parts/stripe-pay.tsx")) && !/LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))
+  check("wallets come from Stripe's express element; Link is off", /ExpressCheckoutElement/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")) && /link: "never"/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")) && !/LinkAuthenticationElement/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

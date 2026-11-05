@@ -69,7 +69,7 @@ const modal = read("components/website-builder/header-search-modal.tsx")
 const schema = JSON.parse(read("themes/default/sections/header.json")) as { fields: { id: string; default?: unknown; options?: { value: string }[] }[] }
 const field = (id: string) => schema.fields.find((f) => f.id === id)
 const values = (id: string) => (field(id)?.options ?? []).map((o) => o.value)
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 const theme = { brand_name: "Fern Studio" } as ThemeSettingsValues
 const links = [

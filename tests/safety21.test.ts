@@ -90,7 +90,7 @@ async function main() {
   const route = code("app/api/payouts-sheet/route.ts")
   check("a store closed since the link was made opens nothing (deleted_at)", /row\.deleted_at\)\s*return NextResponse\.json\(\{ error: EXPIRED \}/.test(route) && /select\("id, user_id, deleted_at"\)/.test(route))
   check("the owner is read again, never taken from the token alone", /row\.user_id !== link\.u/.test(route))
-  const page = readFileSync("app/payouts-sheet/page.tsx", "utf8") + readFileSync("app/payouts-sheet/payouts-sheet.tsx", "utf8")
+  const page = readFileSync("app/(storelib)/payouts-sheet/page.tsx", "utf8") + readFileSync("app/(storelib)/payouts-sheet/payouts-sheet.tsx", "utf8")
   check("the token rides in the fragment, leaves the address bar once read, and the page sends no Referer", /referrer: "no-referrer"/.test(page) && /history\.replaceState/.test(page) && /location\.hash/.test(page))
 
   /* ── An order line named twice ───────────────────────────────────────── */

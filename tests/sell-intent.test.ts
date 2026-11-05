@@ -196,7 +196,7 @@ function main() {
 
   console.log("\n  wiring (from source)")
 
-  const signup = code("app/(auth)/signup/page.tsx")
+  const signup = code("app/(storelib)/(auth)/signup/page.tsx")
   check("signup: Google and Apple carry it to /auth/start",
     /withCarry\("\/auth\/start\?provider=google", carry\)/.test(signup) && /withCarry\("\/auth\/start\?provider=apple", carry\)/.test(signup) && !/next=\/app/.test(signup))
   check("signup: the email code page and Log in carry it",
@@ -206,7 +206,7 @@ function main() {
   /* The browser sheet is opened through one helper now (lib/auth/native-sign-in.ts), not Browser.open on each page. */
   check("signup: the native Apple sheet remembers it", /rememberNativeCarry\(carry\)\s*await openAuthSheet\(data\.url\)/.test(signup))
 
-  const login = code("app/(auth)/login/page.tsx")
+  const login = code("app/(storelib)/(auth)/login/page.tsx")
   check("login: Sign up, Forgot password, Google and Apple all carry it",
     /withCarry\("\/signup", carry\)/.test(login) && /withCarry\("\/request", carry\)/.test(login)
       && /withCarry\("\/auth\/start\?provider=google", carry\)/.test(login) && /withCarry\("\/auth\/start\?provider=apple", carry\)/.test(login))
@@ -215,53 +215,53 @@ function main() {
     /goOnAfterAuth\(carry, gateSession\)/.test(login) && /goOnAfterAuth\(carry, data\.session\)/.test(login)
       && !/signup\/success/.test(login) && !/from\("creators"\)/.test(login) && !/next=\/app/.test(login))
 
-  const verify = code("app/(auth)/signup/verify/page.tsx")
+  const verify = code("app/(storelib)/(auth)/signup/verify/page.tsx")
   check("the email code page goes on with the carry", /readCarry\(searchParams, getMainDomain\(\)\)/.test(verify) && /goOnAfterAuth\(carry, data\.session\)/.test(verify) && !/signup\/success/.test(verify))
-  check("the other verify page too", /continueHref\(readCarry\(searchParams, getMainDomain\(\)\)\)/.test(code("app/(auth)/verify-email/verify-email-content.tsx")))
+  check("the other verify page too", /continueHref\(readCarry\(searchParams, getMainDomain\(\)\)\)/.test(code("app/(storelib)/(auth)/verify-email/verify-email-content.tsx")))
 
-  const start = code("app/auth/start/route.ts")
+  const start = code("app/(storelib)/auth/start/route.ts")
   check("/auth/start keeps the carry in a short lived httpOnly cookie",
     /response\.cookies\.set\(CARRY_COOKIE, carry, \{[\s\S]*httpOnly: true[\s\S]*maxAge: carry \? CARRY_MAX_AGE_SECONDS : 0/.test(start))
-  const callback = code("app/auth/callback/route.ts")
+  const callback = code("app/(storelib)/auth/callback/route.ts")
   check("/auth/callback reads it once and decides with the shared table",
     /decodeCarry\(jar\.get\(CARRY_COOKIE\)\?\.value/.test(callback) && /jar\.delete\(CARRY_COOKIE\)/.test(callback)
       && /destinationAfterAuth\(carry, access(, \{ teamMember \})?\)/.test(callback) && !/signup\/success/.test(callback) && /welcome_completed: true/.test(callback))
-  const cont = code("app/auth/continue/route.ts")
+  const cont = code("app/(storelib)/auth/continue/route.ts")
   check("/auth/continue: signed out to login, unverified to the code, else the table",
     /if \(!user\) return go\(withCarry\("\/login", carry\)\)/.test(cont) && /\/signup\/verify\?userId=/.test(cont) && /destinationAfterAuth\(carry, access(, \{ teamMember \})?\)/.test(cont))
   check("sync-session and the App Link follow a path only",
-    /sameOriginPath\(searchParams\.get\("next"\), CONTINUE_PATH\)/.test(code("app/auth/sync-session/route.ts"))
-      && /sameOriginPath\(searchParams\.get\("next"\), "\/app"\)/.test(code("app/app/auth/callback/route.ts"))
-      && /sameOriginPath\(searchParams\.get\("next"\), "\/app"\)/.test(code("app/auth/app-callback/page.tsx")))
+    /sameOriginPath\(searchParams\.get\("next"\), CONTINUE_PATH\)/.test(code("app/(storelib)/auth/sync-session/route.ts"))
+      && /sameOriginPath\(searchParams\.get\("next"\), "\/app"\)/.test(code("app/(storelib)/app/auth/callback/route.ts"))
+      && /sameOriginPath\(searchParams\.get\("next"\), "\/app"\)/.test(code("app/(storelib)/auth/app-callback/page.tsx")))
 
   const native = code("lib/native-oauth.ts")
   check("native OAuth hands the carry to /auth/continue through sync-session",
     /* Through the one place both native paths finish (lib/auth/native-session.ts). */
     /continueHref\(takeNativeCarry\(\)\)/.test(code("lib/auth/native-session.ts")) && /completeNativeSession\(supabase/.test(native) && !/signup\/success/.test(native))
   check("the app's cold start: seller to /app, anybody else to the library (a home the installed offline shell knows)",
-    /hasSellerAccess\(await readSellerAccess\(supabase, session\.user\.id\)\) \? "\/app" : "\/library"/.test(code("app/native-start/page.tsx"))
-      && !/safeRedirect\("\/signup\/success"\)/.test(code("app/native-start/page.tsx")))
+    /hasSellerAccess\(await readSellerAccess\(supabase, session\.user\.id\)\) \? "\/app" : "\/library"/.test(code("app/(storelib)/native-start/page.tsx"))
+      && !/safeRedirect\("\/signup\/success"\)/.test(code("app/(storelib)/native-start/page.tsx")))
 
-  const sell = code("app/(auth)/sell/page.tsx")
-  check("/sell decides on the server with sellDecision", !/^"use client"/.test(read("app/(auth)/sell/page.tsx")) && /sellDecision\(\{ user, emailVerified: !!profile\?\.email_verified, access, next \}\)/.test(sell) && /if \(decision\.kind === "redirect"\) redirect\(decision\.to\)/.test(sell))
+  const sell = code("app/(storelib)/(auth)/sell/page.tsx")
+  check("/sell decides on the server with sellDecision", !/^"use client"/.test(read("app/(storelib)/(auth)/sell/page.tsx")) && /sellDecision\(\{ user, emailVerified: !!profile\?\.email_verified, access, next \}\)/.test(sell) && /if \(decision\.kind === "redirect"\) redirect\(decision\.to\)/.test(sell))
   check("/sell: Not now never goes to /app", /find\(\(p\) => p && !isApp\(p\)\) \?\? BUYER_HOME/.test(sell))
   check("/sell opens the onboarding with no second check and the same first frame as its loading",
-    /<CreatorOnboardingModal[\s\S]*open=\{open\}[\s\S]*leave=\{\{ label: "Not now", href: leaveHref \}\}/.test(code("app/(auth)/sell/sell-onboarding.tsx"))
-      && !/auth\.get(User|Session)/.test(code("app/(auth)/sell/sell-onboarding.tsx"))
-      && /AuthResolvingScreen/.test(code("app/(auth)/sell/loading.tsx")))
+    /<CreatorOnboardingModal[\s\S]*open=\{open\}[\s\S]*leave=\{\{ label: "Not now", href: leaveHref \}\}/.test(code("app/(storelib)/(auth)/sell/sell-onboarding.tsx"))
+      && !/auth\.get(User|Session)/.test(code("app/(storelib)/(auth)/sell/sell-onboarding.tsx"))
+      && /AuthResolvingScreen/.test(code("app/(storelib)/(auth)/sell/loading.tsx")))
   check("a paid plan's checkout comes back to /sell",
     /successUrl: `\$\{origin\}\/sell\?stripe_success=1&tier=\$\{planId\}`/.test(code("components/app/creator-onboarding-modal.tsx")) && /cancelUrl: `\$\{origin\}\/sell`/.test(code("components/app/creator-onboarding-modal.tsx")))
 
-  const app = code("app/app/layout.tsx")
+  const app = code("app/(storelib)/app/layout.tsx")
   check("/app: no seller access goes to /sell, and the role gate is gone",
     /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access.
        Round Y2: the same answer through lib/team/landing appLanding, and a member with no cookie goes back into the store (tests/team-landing.test.ts). */
     /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(app) && /if \(!creator \|\| landing\.kind === "sell"\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
-  for (const layout of ["app/account/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx"]) {
+  for (const layout of ["app/(storelib)/account/library/layout.tsx", "app/(storelib)/dashboard/layout.tsx", "app/(storelib)/creator-page/layout.tsx"]) {
     check(`${layout}: a buyer is not sent to the creator or buyer question`, !/roleSelected/.test(code(layout)) && !/signup\/success/.test(code(layout)))
   }
   check("/app pages with no creator row go to /sell, not the old chooser",
-    ["app/app/reviews/page.tsx", "app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx", "app/app/settings/billing/upgrade/page.tsx"].every((f) => !/signup\/success/.test(code(f))))
+    ["app/(storelib)/app/reviews/page.tsx", "app/(storelib)/app/coupons/page.tsx", "app/(storelib)/app/coupons/new/page.tsx", "app/(storelib)/app/coupons/[id]/page.tsx", "app/(storelib)/app/settings/billing/upgrade/page.tsx"].every((f) => !/signup\/success/.test(code(f))))
   const proxy = code("proxy.ts")
   check("a signed out deep link into /app keeps its page as next",
     /url\.pathname = "\/login"\s*url\.search = ""\s*url\.searchParams\.set\("next", `\$\{request\.nextUrl\.pathname\}\$\{request\.nextUrl\.search\}`\)/.test(proxy))
@@ -271,15 +271,15 @@ function main() {
       && proxy.indexOf('request.nextUrl.pathname === "/sell"') < proxy.indexOf("const guarded ="))
   check("/sell is a platform route on every host", /"\/sell",/.test(proxy) && /"sell", "signup"/.test(proxy) && /"sell",/.test(code("lib/routes/reserved-segments.ts")))
 
-  check("/onboarding goes to /sell on the server", !/use client/.test(read("app/(auth)/onboarding/page.tsx")) && /redirect\(withCarry\(SELL_PATH/.test(code("app/(auth)/onboarding/page.tsx")))
-  const success = code("app/(auth)/signup/success/page.tsx")
+  check("/onboarding goes to /sell on the server", !/use client/.test(read("app/(storelib)/(auth)/onboarding/page.tsx")) && /redirect\(withCarry\(SELL_PATH/.test(code("app/(storelib)/(auth)/onboarding/page.tsx")))
+  const success = code("app/(storelib)/(auth)/signup/success/page.tsx")
   check("/signup/success asks nothing: New business draws the setup, everything else is sent on",
-    !/^"use client"/.test(read("app/(auth)/signup/success/page.tsx")) && /query\.get\("business"\) === "new"/.test(success)
+    !/^"use client"/.test(read("app/(storelib)/(auth)/signup/success/page.tsx")) && /query\.get\("business"\) === "new"/.test(success)
       && /redirect\(withCarry\(`\$\{SELL_PATH\}/.test(success) && /redirect\(continueHref\(readCarry\(query, getMainDomain\(\)\)\)\)/.test(success)
-      && !/I'm a buyer|I'm a creator|handleChoice/.test(code("app/(auth)/signup/success/success-content.tsx")))
+      && !/I'm a buyer|I'm a creator|handleChoice/.test(code("app/(storelib)/(auth)/signup/success/success-content.tsx")))
 
   check("the reset email's link carries it, checked", /encodeCarry\(\{ intent: readIntent\(body\.intent\), next: safeNext\(body\.next, getMainDomain\(\)\) \}\)/.test(code("app/api/auth/request-password-reset/route.ts")))
-  check("and the reset page ends on the login with it", /withCarry\("\/login", carry\)/.test(code("app/(auth)/reset-password/page.tsx")) && /withCarry\("\/welcome", carry\)/.test(code("app/(auth)/reset-password/page.tsx")))
+  check("and the reset page ends on the login with it", /withCarry\("\/login", carry\)/.test(code("app/(storelib)/(auth)/reset-password/page.tsx")) && /withCarry\("\/welcome", carry\)/.test(code("app/(storelib)/(auth)/reset-password/page.tsx")))
 
   check("seller-access and the carry are safe in a client component",
     !/next\/headers|server-only/.test(read("lib/account/seller-access.ts")) && !/next\/headers|server-only/.test(read("lib/auth/continue.ts")) && !/next\/headers|server-only/.test(read("lib/auth/continue-client.ts")))

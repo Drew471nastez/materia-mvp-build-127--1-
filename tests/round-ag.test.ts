@@ -51,7 +51,7 @@ async function main() {
     "lib/communities/server/public.ts",
     "lib/communities/server/tiers.ts",
     "lib/memberships/product-page.ts",
-    "app/checkout/page.tsx",
+    "app/(storelib)/checkout/page.tsx",
     "lib/memberships/creator.ts",
   ].every((f) => /trialDaysOf\(/.test(code(f))))
   check("no editor offers 3 days", ![("components/community/creator/settings-section.tsx"), "components/memberships/creator-screen.tsx"].some((f) => /\[0, 3, 7/.test(read(f))))
@@ -59,7 +59,7 @@ async function main() {
   check("the SQL moves old trials to 7 and checks 0 or 7 to 90", /SET trial_days = 7/.test(sql) && /CHECK \(trial_days = 0 OR trial_days BETWEEN 7 AND 90\)/.test(sql))
 
   console.log("\nPreview")
-  const page = code("app/(marketing)/community/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
   check("?preview=plans is for the community's staff, drawn as a visitor sees it", /query\.preview === "plans"/.test(page) && /meetsRole\(load\.viewer\.role, "moderator"\)/.test(page) && /asVisitor: true/.test(page))
   check("it comes before the member's own view of the address", page.indexOf('query.preview === "plans"') < page.indexOf("if (load.viewer.active) {"))
   const pub = code("lib/communities/server/public.ts")
@@ -75,8 +75,8 @@ async function main() {
   check("a new plan takes its trial, subheading and benefits", /data-new-tier/.test(settings) && /extra\.trialDays = trial/.test(settings) && /extra\.benefits = lines/.test(settings))
 
   console.log("\nAccounts")
-  const actions = code("app/admin/_console/actions.tsx")
-  check("admin delete needs no typed user id, just the dialog", !/confirmId/.test(actions) && /Are you sure\?/.test(read("app/admin/_console/actions.tsx")) && /confirm: action\.userId/.test(actions))
+  const actions = code("app/(storelib)/admin/_console/actions.tsx")
+  check("admin delete needs no typed user id, just the dialog", !/confirmId/.test(actions) && /Are you sure\?/.test(read("app/(storelib)/admin/_console/actions.tsx")) && /confirm: action\.userId/.test(actions))
   const del = code("lib/account/delete-account.ts")
   check("a closed account lets go of its other sign in methods", /rpc\("storelib_release_auth_identities"/.test(del))
   check("a full delete that fails still frees the address", /failures\.push\(`sign in account: \$\{error\.message\}`\)\s*const closed = await closeSignIn\(\)/.test(del))
@@ -92,7 +92,7 @@ async function main() {
   check("a community read gives up after a while and is tried again (no endless spinner after sleep)", /setTimeout\(\(\) => ctrl\?\.abort\(\), PLACE_READ_TIMEOUT_MS\)/.test(cache) && /name === "AbortError"/.test(cache))
   const { retryable, PLACE_READ_TIMEOUT_MS } = await import("@/lib/communities/client/place-cache")
   check("  an abort is retried; the wait is bounded", retryable({ name: "AbortError", message: "The operation was aborted." }) && PLACE_READ_TIMEOUT_MS > 0 && PLACE_READ_TIMEOUT_MS <= 15_000)
-  const explorePage = code("app/(marketing)/explore/page.tsx")
+  const explorePage = code("app/(storelib)/(marketing)/explore/page.tsx")
   check("Explore opens on products; no lasting cookie decides it", /cookie: null/.test(explorePage) && !/cookies\(\)/.test(explorePage))
   const modeLib = code("lib/explore/discover-mode-cookie.ts")
   check("  the choice lives in this tab only, and the old cookie is cleared", /sessionStorage\.setItem/.test(modeLib) && /max-age=0/.test(modeLib))
@@ -110,7 +110,7 @@ async function main() {
   check("More from: plain products without a community's plans, and each community once", /excludingCommunityProducts\(/.test(more) && /if \(exclude\) q = q\.is\("community_id", null\)/.test(more) && /from\("communities"\)/.test(more) && /title: c\.name \|\| pick\.title/.test(more))
   const { IMAGE_FALLBACK_SCRIPT } = await import("@/lib/media/image-fallback")
   check("a failed picture: the original, then this host's /media/, then hidden", /\/_next\/image\?/.test(IMAGE_FALLBACK_SCRIPT) && /location\.origin\+u\.pathname/.test(IMAGE_FALLBACK_SCRIPT) && /data-img-broken/.test(IMAGE_FALLBACK_SCRIPT) && /data-img-retry/.test(IMAGE_FALLBACK_SCRIPT))
-  check("  in <head> on every page, and hidden pictures leave no icon", /__html: IMAGE_FALLBACK_SCRIPT/.test(read("app/layout.tsx")) && /img\[data-img-broken\] \{\s*visibility: hidden !important;/.test(read("app/globals.css")))
+  check("  in <head> on every page, and hidden pictures leave no icon", /__html: IMAGE_FALLBACK_SCRIPT/.test(read("app/(storelib)/layout.tsx")) && /img\[data-img-broken\] \{\s*visibility: hidden !important;/.test(read("app/globals.css")))
   check("  the script parses", (() => { try { new Function(IMAGE_FALLBACK_SCRIPT); return true } catch { return false } })())
   check("the cleanup also looks for a name with spaces as %20", /replace\(o\.name, ' ', '%20'\)/.test(read("supabase/migrations/20270201_round_ag.sql")))
 
@@ -154,9 +154,9 @@ async function main() {
     check(`all ${all.length} are drawn with sample data`, broken.length === 0, broken)
     check("an id it does not know draws nothing", renderGalleryEmail("notify:NOPE") === null && renderGalleryEmail("nope") === null)
     const route = code("app/api/admin/emails/route.ts")
-    check("the admin cookie comes first; the page too", /const denied = await requireAdmin\(\)\s*if \(denied\) return denied/.test(route) && /isAdminAuthenticated\(\)/.test(code("app/admin/emails/page.tsx")))
-    check("the preview frame runs nothing", /sandbox=""/.test(read("app/admin/emails/emails-admin.tsx")))
-    check("the console links to it", /href: "\/admin\/emails"/.test(read("app/admin/_console/shell.tsx")))
+    check("the admin cookie comes first; the page too", /const denied = await requireAdmin\(\)\s*if \(denied\) return denied/.test(route) && /isAdminAuthenticated\(\)/.test(code("app/(storelib)/admin/emails/page.tsx")))
+    check("the preview frame runs nothing", /sandbox=""/.test(read("app/(storelib)/admin/emails/emails-admin.tsx")))
+    check("the console links to it", /href: "\/admin\/emails"/.test(read("app/(storelib)/admin/_console/shell.tsx")))
   }
 
   console.log("\nModule sales")
@@ -213,7 +213,7 @@ async function main() {
     check("sendCommunityEmail puts the community's words in the event", /wordsPayload\(await emailWordsFor\(db, input\.communityId, kind\)\)/.test(emailSrc))
     const panel = read("components/community/creator/settings-section.tsx")
     /* Changed on purpose: member emails are managed in Emails › Customer emails › Communities with the store's other emails; the community's old settings link opens them there (still the owner and admins: every route keeps the settings permission). */
-    check("Member emails are in Emails, and the old settings link goes there", !/value: "emails"/.test(panel) && /if \(emailsTabAsked\(query\.tab\)\) redirect\(communityEmailsHref\(ctx\.community\.id\)\)/.test(read("app/app/community/[id]/settings/page.tsx")) && /CommunityEmails/.test(read("components/app/settings/customer-emails-panel.tsx")))
+    check("Member emails are in Emails, and the old settings link goes there", !/value: "emails"/.test(panel) && /if \(emailsTabAsked\(query\.tab\)\) redirect\(communityEmailsHref\(ctx\.community\.id\)\)/.test(read("app/(storelib)/app/community/[id]/settings/page.tsx")) && /CommunityEmails/.test(read("components/app/settings/customer-emails-panel.tsx")))
     const routes = ["app/api/app/community/[id]/emails/route.ts", "app/api/app/community/[id]/emails/templates/route.ts", "app/api/app/community/[id]/emails/preview/route.ts"].map((f) => code(f))
     check("every member emails route needs the settings permission", routes.every((r) => /requireCreatorCommunity\(id, "manage_settings"\)/.test(r)))
     /* Changed on purpose: drawn in the shared preview frame (components/app/emails/email-parts.tsx), sandboxed, no scripts. */
@@ -223,7 +223,7 @@ async function main() {
   }
 
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts", "lib/communities/server/broadcasts.ts", "lib/communities/server/email-templates.ts", "components/app/emails/community-emails.tsx"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/(storelib)/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts", "lib/communities/server/broadcasts.ts", "lib/communities/server/email-templates.ts", "components/app/emails/community-emails.tsx"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

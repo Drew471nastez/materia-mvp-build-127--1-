@@ -16,7 +16,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
+import { AnalyticsClient } from "@/app/(storelib)/app/analytics/analytics-client"
 import { LanguageProvider } from "@/lib/i18n/context"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { REMOVED_PRODUCT, buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"

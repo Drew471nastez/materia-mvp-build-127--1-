@@ -50,7 +50,7 @@ check("the page's product is the resources' current", /current: page\.product \?
 const canvas = read("components/website-builder/compat/compat-canvas.tsx")
 check("the imported theme's canvas draws the picked product", /const picked = productId \?/.test(canvas) && /* Changed on purpose (round AE): the language previewed; (round K6) the store's reviews and saved widget looks once a Reviews widget is on the page. */ /\[pageKey, dataKey, productId(, stockKey)?(, i18n)?(, canvasReviews)?\]/.test(canvas))
 check("another product loads behind, never patched over the last", /pageKey === "product" \? productId/.test(canvas))
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 check("the editor hands the canvas the product picked", /productId=\{currentPage === "product" \? selectedProductId : null\}/.test(editor))
 check("product switches: the latest one wins", (editor.match(/if \(nav !== pageNav\.current\) return/g) ?? []).length === 2)
 check("a product link in the canvas opens that product", /selectProductRef\.current\(linked\.id, linked\.title\)/.test(editor))
@@ -87,11 +87,11 @@ check("the editor keeps to it (what loads, drags, AI edits)", /const homed = blo
 check("the sidebar doesn't offer dragging out of Details", /staysInDetails\(section\.type, section\.blocks/.test(editor))
 
 console.log("\nBuying never lands in the wrong checkout")
-const digital = read("app/checkout/page.tsx")
+const digital = read("app/(storelib)/checkout/page.tsx")
 /* Round 49 (tests/checkout-r49): the store website's cart checkout first, storelib.com's /checkout/physical only for a store with no website. */
 check("a product that ships, sent to the digital checkout, goes to the cart checkout", /\.type === "physical"\) \{[\s\S]{0,900}redirect\(website \?\? physicalCheckoutHref\(product\.creator_id/.test(digital))
-const physPage = read("app/checkout/physical/page.tsx")
-const physClient = read("app/checkout/physical/physical-checkout.tsx")
+const physPage = read("app/(storelib)/checkout/physical/page.tsx")
+const physClient = read("app/(storelib)/checkout/physical/physical-checkout.tsx")
 check("Back in the cart checkout is the store's own site, checked on the server", /checkoutReturns\(\{ creatorId: shop, cancel: asked \}\)/.test(physPage) && /backTo=\{backTo\}/.test(physPage))
 check("and any other address in ?return= is never a link", !/params\.get\("return"\)/.test(physClient))
 check("fields keep their names once filled (floating labels)", (physClient.match(/className=\{FLOAT_INPUT\}/g) ?? []).length >= 4 && (physClient.match(/className=\{FLOAT_SELECT\}/g) ?? []).length === 2)

@@ -190,13 +190,13 @@ async function main() {
     /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container,[\s\S]{0,300}?html\.app-layout \.app-content-scroll > \.orders-stage > \.orders-pane \{\s*\n\s*padding-bottom: var\(--app-nav-room\);/.test(css))
   /*
     ORDERS SCROLLS IN TWO PANES, the list and the order open over it
-    (app/app/orders/orders-client.tsx). Neither is the stage's direct child
+    (app/(storelib)/app/orders/orders-client.tsx). Neither is the stage's direct child
     scroller, so each carries the clearance itself; the stage, which does not
     scroll, carries none.
   */
   check("Orders' two panes each get the clearance, the stage none",
     (() => {
-      const client = read("app/app/orders/orders-client.tsx")
+      const client = read("app/(storelib)/app/orders/orders-client.tsx")
       const panes = client.match(/className="orders-pane [^"]*overflow-y-auto/g) ?? []
       return /className=(?:"|\{cn\(")orders-stage [^"]*h-full overflow-hidden/.test(client) && panes.length === 2
     })())
@@ -216,7 +216,7 @@ async function main() {
     (() => {
       const named = /\b(page-scroll|dashboard-scroll-container|sales-scroll-container)\b/
       /* It is centred, not scrolled: it has no last row to hold off the bar. */
-      const exempt = new Set(["app/app/not-found.tsx"])
+      const exempt = new Set(["app/(storelib)/app/not-found.tsx"])
       const missing: string[] = []
       const walk = (dir: string) => {
         for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -229,7 +229,7 @@ async function main() {
           }
         }
       }
-      walk("app/app")
+      walk("app/(storelib)/app")
       for (const f of ["components/app/dashboard-client.tsx"]) {
         if (!named.test(read(f))) missing.push(f)
       }
@@ -1212,7 +1212,7 @@ async function main() {
   */
   console.log("\n  and the page it is leaving is asked first")
 
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("the editor says it has something to lose while it is on the screen",
     /useEffect\(\(\) => askBeforeLeaving\(askToDiscard\), \[askToDiscard\]\)/.test(editor))
   check("and Cancel and the pill ask the same question, in one place",

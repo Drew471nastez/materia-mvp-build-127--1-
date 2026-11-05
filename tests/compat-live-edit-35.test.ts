@@ -122,7 +122,7 @@ console.log("\nTHE CANVAS")
   check("the frame asking again is answered with the section whole", /m\.type === "resend"/.test(canvas))
   check("a page drawn whole forgets what the frame was sent section by section", /now\.sent\?\.clear\(\)/.test(canvas) && /now\.realHtml\?\.clear\(\)/.test(canvas))
   check("the ghost box asks the toolbar to measure only when its place moved", /\}, \[ghostPlace\]\)/.test(canvas))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the section toolbar renders only when its place changed", /setBox\(\(was\) => \(was && was\.top === next\.top && was\.right === next\.right \? was : next\)\)/.test(editor))
 }
 

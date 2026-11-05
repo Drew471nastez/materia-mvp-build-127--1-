@@ -261,7 +261,7 @@ function wiring() {
   const stats = read("app/api/onepage/stats/route.ts")
   /* Round 40 (team areas): the page's owner is the signed in owner, or for a team member with OnePage the store owner (lib/team/onepage), so the check compares with actor.pageOwnerId. Pin changed on purpose. */
   check("the stats route checks the owner, then reads what Analytics reads", /* Round 49: the request's one read (lib/auth/request-scope readUserForRoute) */ /auth\.getUser\(\)|await readUserForRoute\(\)/.test(stats) && /onePageActor\(supabase, user\.id\)/.test(stats) && /onepage\.owner_id !== actor\.pageOwnerId/.test(stats) && /readBlockStats\(/.test(stats) && /readPageClicks\(/.test(stats) && /isTimeZone\(tz\)/.test(stats))
-  const page = read("app/(marketing)/l/[slug]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   /* Changed on purpose (rel-public): the render counts no view at all; Analytics' own view event (TrackView) is the count, by the same checks, and onepage_views was only read before the first of them. */
   check("the page's render writes no view of its own; Analytics' event is the count", !/onepage_views|viewCountable/.test(page.replace(/\/\*[\s\S]*?\*\//g, "")) && /<TrackView creatorId=\{resolvedCreatorId\}/.test(page))
   check("  a page that shows nothing is noindex, and has no structured data", (page.match(/onePageShowsSomething\(/g) ?? []).length === 2)

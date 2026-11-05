@@ -61,32 +61,32 @@ console.log("\nEvery old /library address, and where it goes now")
   ]
   for (const [from, to] of table) check(`${from} -> ${to}`, legacyLibraryTarget(from) === to, legacyLibraryTarget(from))
   check("an address that is not the library's is not answered", legacyLibraryTarget("/libraryx") === null && legacyLibraryTarget("/account/library") === null && legacyLibraryTarget("/explore") === null)
-  const route = code("app/library/[[...path]]/route.ts")
-  check("one route answers every old address, GET and HEAD", existsSync(join(root, "app/library/[[...path]]/route.ts")) && /export const GET = moved/.test(route) && /export const HEAD = moved/.test(route))
+  const route = code("app/(storelib)/library/[[...path]]/route.ts")
+  check("one route answers every old address, GET and HEAD", existsSync(join(root, "app/(storelib)/library/[[...path]]/route.ts")) && /export const GET = moved/.test(route) && /export const HEAD = moved/.test(route))
   /* nextUrl.clone() keeps ?purchase=success&highlight=<id>, ?product=<id>, ?welcome=1, ?lesson=<id>; only the path is changed. */
   check("the query string is kept: only the path of a clone of the URL is changed", /const url = request\.nextUrl\.clone\(\)/.test(route) && /url\.pathname = legacyLibraryTarget\(url\.pathname\)/.test(route) && !/url\.search\s*=/.test(route))
   check("a temporary redirect, so a browser asks again", /NextResponse\.redirect\(url, 307\)/.test(route))
-  const left = readdirSync(join(root, "app/library"))
-  check("nothing else is left under app/library", left.length === 1 && left[0] === "[[...path]]", left)
+  const left = readdirSync(join(root, "app/(storelib)/library"))
+  check("nothing else is left under app/(storelib)/library", left.length === 1 && left[0] === "[[...path]]", left)
 }
 
 console.log("\nThe new places")
 {
-  check("the library's pages live under app/account/library", ["page.tsx", "layout.tsx", "loading.tsx", "products/[id]/page.tsx", "courses/page.tsx", "courses/[id]/page.tsx", "memberships/page.tsx", "memberships/[id]/page.tsx", "wishlist/page.tsx", "reviews/page.tsx", "receipts/page.tsx"].every((f) => existsSync(join(root, "app/account/library", f))))
-  check("the communities a person is in are /account/communities", existsSync(join(root, "app/account/communities/page.tsx")) && ACCOUNT_COMMUNITIES === "/account/communities")
+  check("the library's pages live under app/(storelib)/account/library", ["page.tsx", "layout.tsx", "loading.tsx", "products/[id]/page.tsx", "courses/page.tsx", "courses/[id]/page.tsx", "memberships/page.tsx", "memberships/[id]/page.tsx", "wishlist/page.tsx", "reviews/page.tsx", "receipts/page.tsx"].every((f) => existsSync(join(root, "app/(storelib)/account/library", f))))
+  check("the communities a person is in are /account/communities", existsSync(join(root, "app/(storelib)/account/communities/page.tsx")) && ACCOUNT_COMMUNITIES === "/account/communities")
   check("the helpers spell them", libraryProductPath("p 1") === "/account/library/products/p%201" && libraryCoursePath("c1") === "/account/library/courses/c1" && libraryMembershipPath("m1") === "/account/library/memberships/m1" && ACCOUNT_SETTINGS === "/account/settings")
   /* Changed on purpose in round 5: memberships are communities, so Memberships is no longer a pill (its pages still answer; tests/memberships-folded.test.ts). */
   check("the library's sub pills: Products, Courses, Wishlist, Reviews, Receipts", LIBRARY_TABS.map((t) => `${t.label} ${t.href}`).join() === "Products /account/library,Courses /account/library/courses,Wishlist /account/library/wishlist,Reviews /account/library/reviews,Receipts /account/library/receipts", LIBRARY_TABS)
   check("the pills are drawn on the lists, not on a purchase", showsLibraryTabs("/account/library/") && showsLibraryTabs("/account/library/receipts") && !showsLibraryTabs("/account/library/products/p1") && isLibraryProduct("/account/library/products/p1?x=1") && !isLibraryProduct("/library/products/p1"))
   check("isLibraryPath knows the whole library and nothing else", isLibraryPath("/account/library") && isLibraryPath("/account/library/courses/c1") && !isLibraryPath("/account/libraryx") && !isLibraryPath("/account"))
-  const lib = code("app/account/library/layout.tsx")
+  const lib = code("app/(storelib)/account/library/layout.tsx")
   check("the library keeps its gates, its purchase sync, its stage with the sub pills and the app banner", /email_verified/.test(lib) && /<PurchaseSyncProvider \/>/.test(lib) && /<LibraryPullRefresh>/.test(lib) && /<LibraryPanel head=\{<LibraryTabs communities=\{communities\} \/>\}>/.test(lib) && /<OpenInApp phone=\{bannerFor\} \/>/.test(lib) && /NativeAuthGate requireAuth/.test(lib))
 }
 
 console.log("\nThe profile center's pills")
 {
   /* Round 5: Edit profile left the pills for a button on the cover. */
-  /* Round 16: Posts, your posts from every community (app/account/posts), after Activity (tests/account-pills16.test.ts). */
+  /* Round 16: Posts, your posts from every community (app/(storelib)/account/posts), after Activity (tests/account-pills16.test.ts). */
   check("Activity, Posts, Communities, Library, Settings (Edit profile is on the cover now)", ownerPillLinks(true).map((p) => `${p.label} ${p.href}`).join() === "Activity /account,Posts /account/posts,Communities /account/communities,Library /account/library,Settings /account/settings?section=profile")
   check("Posts and Communities only while the switch is on", ownerPillLinks(false).map((p) => p.key).join() === "activity,library,settings")
   check("every library address lights Library", ["/account/library", "/account/library/courses", "/account/library/products/x"].every((p) => ownerPillFor(p) === "library"))
@@ -107,7 +107,7 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
   check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className=\{cn\("relative w-full", cover\.url \? "bg-\[#eceef1\]" : ""\)\}/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[264px\]/.test(hero))
   /* Changed on purpose: 6abd50d2 pulls the photo over the band only when there is a cover to overlap. */
   check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative [^"]*", cover\.url \? "-mt-\[62\.5px\] sm:-mt-\[71px\]" : ""\)\}/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
-  check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn width=\{accountWidth\(pathname\)\}>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/account/layout.tsx")))
+  check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn width=\{accountWidth\(pathname\)\}>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/(storelib)/account/layout.tsx")))
   /* Round 12: /@handle draws the creator header edge to edge, then the creator page's column. */
   check("  and /@handle draws the creator header before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ShopHeaderRenderer") > 0 && m.indexOf("<ShopHeaderRenderer") < m.indexOf("<div data-profile-tabs") })())
   check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
@@ -126,7 +126,7 @@ console.log("\nThe library, a page of its own (round 5)")
   check("its own title over its sub pills", /<h1 className=\{`\$\{LIBRARY_TITLE\} \$\{LIBRARY_TITLE_GAP\}`\} data-library-title="">\s*Library\s*<\/h1>/.test(tabs) && /export const LIBRARY_TITLE = "[^"]*text-\[24px\] font-bold[^"]*sm:text-\[28px\]"/.test(ui))
   check("  drawn in the still copy a move back from a purchase shows, so nothing jumps", /<p className=\{`\$\{LIBRARY_TITLE\} \$\{LIBRARY_TITLE_GAP\}`\}>Library<\/p>/.test(code("components/library/library-skeletons.tsx")))
   check("  the constants live in a module the server can read (no \"use client\")", !/^"use client"/.test(read("components/library/library-ui.ts")))
-  check("  and the tab's title says Library", /title: "Library"/.test(code("app/account/library/layout.tsx")))
+  check("  and the tab's title says Library", /title: "Library"/.test(code("app/(storelib)/account/library/layout.tsx")))
   check("the profile's Library pill still leads there", ownerPillLinks(true).some((p) => p.key === "library" && p.href === LIBRARY_HOME))
 }
 
@@ -168,7 +168,7 @@ console.log("\nThe buyer tab bar and every internal link")
     cached home, which the installed apps' offline page (out/index.html)
     only knows as /library and which answers with the new place.
   */
-  const allowed = new Set(["app/library/[[...path]]/route.ts", "lib/library/paths.ts", "lib/video/bunny.ts", "lib/native-bridge.ts", "lib/auth/continue.ts", "app/native-start/page.tsx", "app/NativeOAuthBridge.tsx"])
+  const allowed = new Set(["app/(storelib)/library/[[...path]]/route.ts", "lib/library/paths.ts", "lib/video/bunny.ts", "lib/native-bridge.ts", "lib/auth/continue.ts", "app/(storelib)/native-start/page.tsx", "app/NativeOAuthBridge.tsx"])
   const offenders: string[] = []
   for (const f of [...walk("app"), ...walk("components"), ...walk("lib")]) {
     if (allowed.has(f)) continue
@@ -180,7 +180,7 @@ console.log("\nThe buyer tab bar and every internal link")
   check("no internal link points at an old /library address (header, tab bar, emails, receipts, course player, memberships, wishlist)", offenders.length === 0, offenders.slice(0, 10))
   check("emails link to the new place", /\/account\/library\/courses/.test(read("lib/courses/emails.ts")) && /\/account\/library/.test(read("lib/email-variables.ts")))
   check("the course player's way back is the library's courses", /\/account\/library\/courses/.test(read("components/courses/course-player.tsx")))
-  check("a receipt's way to the purchase is the new place", /\/account\/library/.test(read("app/receipt/[token]/receipt-view.tsx")))
+  check("a receipt's way to the purchase is the new place", /\/account\/library/.test(read("app/(storelib)/receipt/[token]/receipt-view.tsx")))
   check("the native shell keeps /library as a known home, and allows the new one", /"\/library", "\/account\/library"/.test(read("lib/native-bridge.ts")) && /NATIVE_BUYER_HOME = "\/library"/.test(read("lib/auth/continue.ts")))
 }
 
@@ -222,9 +222,9 @@ console.log("\nThe library's pills switch smoothly, and Communities is one of th
 {
   check("Communities after Courses, only while communities are on", libraryTabs(false).map((t) => t.label).join() === "Products,Courses,Wishlist,Reviews,Receipts" && libraryTabs(true).map((t) => `${t.label} ${t.href}`).join() === "Products /account/library,Courses /account/library/courses,Communities /account/library/communities,Wishlist /account/library/wishlist,Reviews /account/library/reviews,Receipts /account/library/receipts")
   check("  its screen is a pill screen", showsLibraryTabs("/account/library/communities") && !showsLibraryTabs("/account/communities"))
-  const page = code("app/account/library/communities/page.tsx")
-  check("  the same list as the profile's Communities, and a 404 while off", /accountCommunitiesBody\(user\.id\)/.test(page) && /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page) && existsSync(join(root, "app/account/library/communities/loading.tsx")))
-  check("  the layout reads the switch and hands it to the pills", /communitiesEnabled\(\)/.test(code("app/account/library/layout.tsx")) && /libraryTabs\(communities\)/.test(code("components/library/library-tabs.tsx")))
+  const page = code("app/(storelib)/account/library/communities/page.tsx")
+  check("  the same list as the profile's Communities, and a 404 while off", /accountCommunitiesBody\(user\.id\)/.test(page) && /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page) && existsSync(join(root, "app/(storelib)/account/library/communities/loading.tsx")))
+  check("  the layout reads the switch and hands it to the pills", /communitiesEnabled\(\)/.test(code("app/(storelib)/account/library/layout.tsx")) && /libraryTabs\(communities\)/.test(code("components/library/library-tabs.tsx")))
   check("the account no longer rebuilds the library on every pill: one key for all the pill screens", navFadeKey("/account/library") === navFadeKey("/account/library/reviews") && navFadeKey("/account/library/communities") === navFadeKey("/account/library") && navFadeKey("/account/library/products/p1") !== navFadeKey("/account/library") && navFadeKey("/account") !== navFadeKey("/account/settings") && /key=\{navFadeKey\(pathname\)\}/.test(code("components/account/account-nav-fade.tsx")))
   check("the library lands once on arrival, and its pills (one key) never get a second fade over the panel's cross fade", /data-account-nav-fade=\{onLibrary \? "library" : "profile"\}/.test(code("components/account/account-nav-fade.tsx")) && /const landing = landingOnMove/.test(code("components/account/account-nav-fade.tsx")) && /if \(showsLibraryTabs\(pathname\)\) return "library-tabs"/.test(code("components/account/account-nav-fade.tsx")) && /html\.with-page-library \[data-library-panel\] \{\s*animation: none !important/.test(read("app/globals.css")))
   const panel = code("components/library/library-panel.tsx")
@@ -238,7 +238,7 @@ console.log("\nThe library's pills switch smoothly, and Communities is one of th
 
 console.log("\nCopy")
 {
-  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/library/[[...path]]/route.ts", "app/account/library/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "components/library/library-tabs.tsx", "components/account/account-column.tsx", "lib/profile/share-profile.ts", "scripts/check-account-center.mjs", "scripts/render-account-center.tsx", "lib/profile/cover.ts", "app/api/profile/cover/route.ts", "app/account/library/communities/page.tsx", "components/account/account-nav-fade.tsx", "components/library/library-panel.tsx", "components/library/library-content-shell.tsx", "components/library/library-skeletons.tsx", "scripts/check-library-switch.mjs", "scripts/render-library-switch.tsx", "scripts/check-account-cover.mjs", "scripts/render-account-cover.tsx"].filter((f) => existsSync(join(root, f)))
+  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/(storelib)/library/[[...path]]/route.ts", "app/(storelib)/account/library/layout.tsx", "app/(storelib)/account/page.tsx", "app/(storelib)/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "components/library/library-tabs.tsx", "components/account/account-column.tsx", "lib/profile/share-profile.ts", "scripts/check-account-center.mjs", "scripts/render-account-center.tsx", "lib/profile/cover.ts", "app/api/profile/cover/route.ts", "app/(storelib)/account/library/communities/page.tsx", "components/account/account-nav-fade.tsx", "components/library/library-panel.tsx", "components/library/library-content-shell.tsx", "components/library/library-skeletons.tsx", "scripts/check-library-switch.mjs", "scripts/render-library-switch.tsx", "scripts/check-account-cover.mjs", "scripts/render-account-cover.tsx"].filter((f) => existsSync(join(root, f)))
   const banned = /—|\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
   for (const f of files) check(`${f}: no em dash, no banned word`, !banned.test(read(f)), read(f).match(banned)?.[0])
 }

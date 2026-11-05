@@ -29,7 +29,7 @@ function main() {
   console.log("\nThe Stripe guard is the app's alone")
   const guard = read("lib/stripe-nav-guard.ts")
   check("it is applied only inside the app's shell", /\nif \(isCapacitorShell\(\)\) applyStripeNavGuard\(\)\n/.test(guard) && !/\napplyStripeNavGuard\(\)\n/.test(guard))
-  const loader = read("app/checkout/parts/stripe-loader.ts")
+  const loader = read("app/(storelib)/checkout/parts/stripe-loader.ts")
   check("the checkout's loader no longer switches it on by importing it", !/import "@\/lib\/stripe-nav-guard"/.test(loader))
 
   console.log("\nThe ways to pay are named, the same on both sides")
@@ -37,7 +37,7 @@ function main() {
   check("a request names the card list, or gets card alone", JSON.stringify(methodsFrom(["card"])) === '["card"]' && JSON.stringify(methodsFrom(["card", "link"])) === '["card"]' && JSON.stringify(methodsFrom(["card", "klarna"])) === '["card"]' && JSON.stringify(methodsFrom(undefined)) === '["card"]' && JSON.stringify(methodsFrom(["link"])) === '["card"]')
   const route = read("app/api/checkout/stripe-session/route.ts")
   check("the PaymentIntent is made for the methods the form loaded with", /payment_method_types: methodsFrom\(body\.paymentMethods\)/.test(route) && !/automatic_payment_methods/.test(route))
-  const pay = read("app/checkout/parts/stripe-pay.tsx")
+  const pay = read("app/(storelib)/checkout/parts/stripe-pay.tsx")
   check("the form asks Stripe for them by name", /paymentMethodTypes: methods/.test(pay))
   check("and steps down to the next list when Stripe refuses one", /onLoadError=\{\(\) => \(onRefused \? onRefused\(\) : setFailed\(true\)\)\}/.test(pay) && /<Elements key=\{`\$\{attempt\}:\$\{setIndex\}`\}/.test(pay))
   /* Changed on purpose (rel-commerce): card and wallets both get their intent from intentFor, which keeps a payment still being checked (lib/checkout/pay-retry); it asks createIntent with the loaded list once. */
@@ -48,9 +48,9 @@ function main() {
   check("offline, Pay waits and says why", /function useOnline\(\)/.test(pay) && /You are offline\. Pay waits for the connection\./.test(pay) && /disabled=\{!stripe \|\| !elements \|\| !online\}/.test(pay))
 
   console.log("\nStripe Checkout's layout")
-  const client = read("app/checkout/checkout-client.tsx")
-  const summary = read("app/checkout/parts/order-summary.tsx")
-  const ui = read("app/checkout/parts/ui.tsx")
+  const client = read("app/(storelib)/checkout/checkout-client.tsx")
+  const summary = read("app/(storelib)/checkout/parts/order-summary.tsx")
+  const ui = read("app/(storelib)/checkout/parts/ui.tsx")
   check("the order on grey at the left, the form on a white half with a shadow", /lg:bg-\[#f8f9fa\]/.test(client) && /fixed inset-y-0 right-0 hidden w-1\/2 bg-white shadow-/.test(client))
   /*
     "Make sure the left side with gray background is just a little bit more
@@ -60,7 +60,7 @@ function main() {
     fainter, the same in the skeleton so nothing changes as the page lands.
   */
   {
-    const sk = read("app/checkout/checkout-skeleton.tsx")
+    const sk = read("app/(storelib)/checkout/checkout-skeleton.tsx")
     const split = "shadow-[-8px_0_24px_-14px_rgba(17,24,39,0.11)]"
     const barShadow = "shadow-[0_1px_0_rgba(17,17,19,0.055),0_4px_12px_-10px_rgba(17,17,19,0.09)]"
     check("the grey half a shade lighter, #f8f9fa, on the page and its skeleton", !/#f6f7f8/.test(client) && !/#f6f7f8/.test(sk) && /bg-\[#f8f9fa\] px-5/.test(client) && /bg-\[#f8f9fa\] px-5/.test(sk))
@@ -80,7 +80,7 @@ function main() {
     check("the tip starts folded: Add a tip is a line that opens to its choices, closed unless a tip is already on", /Add a tip/.test(tipPicker) && /data-tip-label=""/.test(tipPicker) && /role="radiogroup"\s*aria-labelledby=\{labelId\}/.test(tipPicker)
       && /const \[open, setOpen\] = React\.useState\(\(\) => tipCents > 0 \|\| usingCustom\)/.test(tipPicker) && /data-tip-toggle=""/.test(tipPicker) && /aria-expanded=\{open\}/.test(tipPicker) && /<Reveal open=\{open\} id=\{panelId\}/.test(tipPicker))
     check("its choices are 36px, on a track with a faint edge that holds on the grey", /relative h-9 min-w-0/.test(tipPicker) && /bg-\[#e8eaed\] p-\[3px\] shadow-\[inset_0_0_0_1px/.test(tipPicker))
-    const sk = read("app/checkout/checkout-skeleton.tsx")
+    const sk = read("app/(storelib)/checkout/checkout-skeleton.tsx")
     /* Changed on purpose with the fold: the skeleton draws the closed line, not the open track. */
     check("and the skeleton draws it folded too, one line at the real one's height", /data-skeleton-tip="" className="mt-5 flex h-9 items-center justify-between"/.test(sk) && !/mt-2\.5 h-\[42px\] rounded-\[10px\]/.test(sk))
   }
@@ -110,11 +110,11 @@ function main() {
   }
   console.log("\nThe skeleton and the way in")
   {
-    const page = read("app/checkout/page.tsx")
+    const page = read("app/(storelib)/checkout/page.tsx")
     check("the page's reads run together, not one after another", /await Promise\.all\(\[/.test(page) && (page.match(/await Promise\.all/g) ?? []).length >= 2)
-    const sk = read("app/checkout/checkout-skeleton.tsx")
+    const sk = read("app/(storelib)/checkout/checkout-skeleton.tsx")
     check("the skeleton draws the bar and both halves at once, and only its blocks wait", /data-checkout-skeleton/.test(sk) && /skeleton-deferred relative mx-auto grid/.test(sk) && /fallback=\{<CheckoutSkeleton \/>\}/.test(page))
-    const client = read("app/checkout/checkout-client.tsx")
+    const client = read("app/(storelib)/checkout/checkout-client.tsx")
     check("leaving the checkout cross-fades, and with no view transition anywhere near it", /holdLeavingStill/.test(client) && !/doc\.startViewTransition|document as Document & \{ startViewTransition/.test(client) && !/data-checkout-motion/.test(client))
     /*
       "I click back, nothing happens, and it takes me back abruptly after 5
@@ -142,20 +142,20 @@ function main() {
     const css = read("app/globals.css")
     check("nothing inside the copy can be reached or moves on its own", /\[data-leaving-still\],\n\[data-leaving-still\] \* \{\s*pointer-events: none !important;/.test(css) && !/data-checkout-motion/.test(css))
     /* The buyer's loading line was mounted on the marketing pages alone, so a slow way back off the checkout said nothing at all. */
-    check("and a back off the checkout that has to be fetched says so", /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")) && /<RouteLoadingBar \/>/.test(/* The library sits inside /account, whose layout carries the bar for every page under it. */ read("app/account/layout.tsx")))
+    check("and a back off the checkout that has to be fetched says so", /<RouteLoadingBar \/>/.test(read("app/(storelib)/checkout/page.tsx")) && /<RouteLoadingBar \/>/.test(/* The library sits inside /account, whose layout carries the bar for every page under it. */ read("app/(storelib)/account/layout.tsx")))
     check("Back is a quiet rounded square, not a raised circle", /data-back-face=""\s*className=\{cn\(\s*"relative grid h-9 w-9 place-items-center rounded-\[10px\]/.test(client))
     check("a Back through another document is the browser's own, watched the same way", /if \(cameFrom !== null && cameFrom === target && window\.history\.length > 1\) \{\s*leaveWithFade\(\(\) => backThen\(\(\) => window\.location\.replace\(productUrl\)\)\)/.test(client))
   }
 
   console.log("\nFinishing: one screen from paid to the receipt")
   {
-    const client = read("app/checkout/checkout-client.tsx")
-    const success = read("app/checkout/parts/success.tsx")
+    const client = read("app/(storelib)/checkout/checkout-client.tsx")
+    const success = read("app/(storelib)/checkout/parts/success.tsx")
     const css = read("app/globals.css")
     check("the receipt is asked for while the check draws", /router\.prefetch\(receiptHref\(receiptToken\), \{ kind: "full" \} as never\)/.test(client) && /window\.setTimeout\(\(\) => afterPaid\(receiptToken\), PAID_SCREEN_MS\)/.test(client))
     check("the paid screen is held over the change of page until the receipt is under it", /holdPaidScreen\(\)\s*router\.replace\(receiptHref/.test(client) && /document\.body\.appendChild\(held\)/.test(success) && /\[data-receipt\]/.test(success) && /HOLD_LIMIT_MS = 12_000/.test(success))
     check("held as it stood, and faded off, not cut", /\.checkout-paid-held \* \{ animation: none !important; \}/.test(css) && /\.checkout-paid-held\.checkout-paid-release \{ opacity: 0; \}/.test(css) && /held\.classList\.add\("checkout-paid-release"\)/.test(success))
-    check("the receipt, its not-found page and its loading page say which they are", /<main data-receipt=""/.test(read("app/receipt/[token]/receipt-view.tsx")) && /<main data-receipt=""/.test(read("app/receipt/[token]/not-found.tsx")) && /<main data-receipt-loading=""/.test(read("app/receipt/[token]/loading.tsx")))
+    check("the receipt, its not-found page and its loading page say which they are", /<main data-receipt=""/.test(read("app/(storelib)/receipt/[token]/receipt-view.tsx")) && /<main data-receipt=""/.test(read("app/(storelib)/receipt/[token]/not-found.tsx")) && /<main data-receipt-loading=""/.test(read("app/(storelib)/receipt/[token]/loading.tsx")))
     check("back from a bank's page, the first frame is Finishing your order, not the form", /const \[arriving, setArriving\] = React\.useState\(\(\) => \{/.test(client) && /state=\{paid \? "paid" : arriving \? "finishing" : null\}/.test(client) && /Finishing your order/.test(success) && !/createPortal/.test(success))
     check("and the overlay sits beside the inert page, so its status is still read out", /<\/div>\s*\{\/\* Beside the page, not in it/.test(client))
   }

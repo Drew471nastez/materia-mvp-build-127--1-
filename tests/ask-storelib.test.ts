@@ -29,7 +29,7 @@ function check(name: string, ok: boolean, detail = "") {
 const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 const section = (name: string) => console.log(`\n${name}`)
 
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const chat = read("components/website-builder/theme-chat.tsx")
 const voice = read("components/website-builder/ask-voice.ts")
 const history = read("components/website-builder/ask-history.tsx")

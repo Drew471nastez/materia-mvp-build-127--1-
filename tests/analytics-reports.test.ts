@@ -146,7 +146,7 @@ console.log("\nThe property filter: which place, and only the creator's own")
     (DEFAULT_PROPERTY) rather than what is left when every other branch of
     parseProperty fails, it is All pages, and it is the name at the top of the
     filter's list. The page reads it in propertyFromAddress
-    (app/app/analytics/analytics-client) and scripts/check-analytics-page
+    (app/(storelib)/app/analytics/analytics-client) and scripts/check-analytics-page
     loads the page with no property, an empty one, a word that is not a place
     and a website the creator does not have, and reads the button, the read
     and the address for each.
@@ -154,7 +154,7 @@ console.log("\nThe property filter: which place, and only the creator's own")
   check("the filter's default is a declared All pages, not a fall-through",
     DEFAULT_PROPERTY.type === "all" && DEFAULT_PROPERTY_LABEL === "All pages"
       && propertyOptions(PLACES)[0].label === DEFAULT_PROPERTY_LABEL
-      && /DEFAULT_PROPERTY/.test(read("app/app/analytics/analytics-client.tsx"))
+      && /DEFAULT_PROPERTY/.test(read("app/(storelib)/app/analytics/analytics-client.tsx"))
       && /default, nothing in the address|the filter reads/.test(read("scripts/check-analytics-page.mjs")))
   check("no parameter is All", parseProperty(null).type === "all" && propertyParam(ALL) === null)
   check("the creator page and the OnePage by name", parseProperty("creator_page").type === "creator_page" && parseProperty("onepage").type === "onepage")
@@ -478,7 +478,7 @@ console.log("\nThe summaries on the Website and OnePage screens")
     looked at on purpose, and the line this check covers still goes there.
   */
   check("  and on screen in the website builder",
-    /<AnalyticsSummaryFact property=\{`website:\$\{live\.id\}`\} account=\{account\} \/>/.test(read("app/app/website-builder/website-builder-client.tsx"))
+    /<AnalyticsSummaryFact property=\{`website:\$\{live\.id\}`\} account=\{account\} \/>/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
       && /summaryText\(/.test(line) && /data-analytics-summary-link/.test(line))
   check("  and nowhere over the OnePage editor's links", !/AnalyticsSummaryLine/.test(read("components/onepage/onepage-editor.tsx")))
 }
@@ -510,14 +510,14 @@ console.log("\nAnalytics: the pieces that feed it")
       && route.indexOf("reportQuestion(") < route.indexOf("countReportAnswer("))
   check("  the database is always asked for the creator's own id, the place only narrows it",
     /p_creator_id: q\.creatorId,/.test(reads) && /\.eq\("creator_id", q\.creatorId\)\.eq\("event_type", "view"\)/.test(reads))
-  const client = read("app/app/analytics/analytics-client.tsx")
+  const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
   check("no made-up device split", !/Math\.round\(totalViews \* 0\.55\)/.test(client))
   const utils = read("lib/analytics-utils.ts")
   check("the analytics session has its own cookie, not the checkout's", /const SESSION_COOKIE = "sl_asid"/.test(utils) && !/materia_session=/.test(utils))
   /* Changed on purpose: every tracking route is one pipeline now (lib/analytics/collect), so the rules are read there. */
   const event = read("lib/analytics/collect.ts")
   check("a funnel step is recorded once per visit", /\.eq\("event_type", kind\)\.eq\("session_id", sessionId\)/.test(event) && /reason: "duplicate"/.test(event))
-  check("the checkout reports its step with the visit", /trackFunnelStep\("checkout_start"/.test(read("app/checkout/checkout-client.tsx")))
+  check("the checkout reports its step with the visit", /trackFunnelStep\("checkout_start"/.test(read("app/(storelib)/checkout/checkout-client.tsx")))
   check("a website's pages are counted, each by its path", /<TrackView type="store" creatorId=\{site\.creatorId\}/.test(read("app/(site)/w/[username]/render-site.tsx")) && /\[creatorId, productId, pathname\]/.test(read("components/analytics/track-view.tsx")))
   check("  and its product pages, never a preview", /previewToken \? null : <TrackView type="product"/.test(read("components/website-builder/theme/render-product.tsx")))
   check("every country by name", /Intl\.DisplayNames\(\["en"\], \{ type: "region" \}\)/.test(read("lib/analytics/collect.ts")))
@@ -537,7 +537,7 @@ console.log("\nHome: the greeting")
   check("the first name, not the whole name", firstName("Andrew Nastase") === "Andrew" && firstName("") === "")
   const client = read("components/app/dashboard-client.tsx")
   check("the heading greets by time of day", /dashboard\.greeting\.\$\{greetingPart\}/.test(client) && !/\{t\("dashboard\.welcome"\)\}, \{displayName\}/.test(client))
-  check("  starting from the server's answer, so the first paint is right", /initialDayPart=\{dayPart\(Date\.now\(\), greetingTimeZone\)\}/.test(read("app/app/page.tsx")))
+  check("  starting from the server's answer, so the first paint is right", /initialDayPart=\{dayPart\(Date\.now\(\), greetingTimeZone\)\}/.test(read("app/(storelib)/app/page.tsx")))
   for (const lang of ["de", "es", "fr"]) check(`  in ${lang} too`, /"dashboard\.greeting\.night":/.test(read(`lib/i18n/dict/${lang}.ts`)))
 }
 
@@ -649,7 +649,7 @@ console.log("\nCharts: the scale")
 
 console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
 {
-  const reports = read("app/app/analytics/analytics-reports.tsx")
+  const reports = read("app/(storelib)/app/analytics/analytics-reports.tsx")
   const chart = read("components/app/analytics-chart.tsx")
   check("no report is drawn in the old blue", !/#2a78d6/i.test(reports) && !/#2a78d6/i.test(chart))
   check("the series is Storelib's violet and the comparison a grey dashed line",
@@ -661,7 +661,7 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
   check("in their own colours", /instagram: \{[^}]*fill: null/.test(marks) && /youtube: \{[^}]*fill: "#FF0000"/.test(marks) && /facebook: \{[^}]*fill: "#0866FF"/.test(marks))
   check("Google in four colours, TikTok in its offset, Instagram in its gradient",
     /#FBBC05[\s\S]*#EA4335[\s\S]*#34A853[\s\S]*#4285F4/.test(icons) && /#25F4EE/.test(icons) && /radialGradient/.test(icons))
-  const page = read("app/app/analytics/analytics-client.tsx")
+  const page = read("app/(storelib)/app/analytics/analytics-client.tsx")
   /*
     "The All products selector in analytics should be the same UI as the
     timeframe selector, and on mobile a smooth, clean bottom sheet." It is
@@ -697,7 +697,7 @@ console.log("\nAnalytics: from the review")
 {
   /* Changed on purpose: the span is checked in lib/analytics/report-answer.ts. */
   const route = read("lib/analytics/report-answer.ts")
-  const page = read("app/app/analytics/analytics-client.tsx")
+  const page = read("app/(storelib)/app/analytics/analytics-client.tsx")
   check("All time is answered, not refused: the span allows years past 2020", /export const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
   check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && !/<ComparePicker/.test(page))
   check("OnePage visits: the old table only before the first event, so never twice", /const before = \(at: number\) => legacy\.since === null \|\| at < legacy\.since/.test(read("lib/analytics/reports.ts")))
@@ -708,7 +708,7 @@ console.log("\nAnalytics: from the review")
       /collectFrom\(req, eventType as CollectKind, body, createAdminClient\(\)\)/.test(read("app/api/track-event/route.ts")))
   check("a step is sent once per page, with nothing stored", /const sentSteps = new Set<string>\(\)/.test(read("lib/analytics-utils.ts")) && /if \(sentSteps\.has\(key\)\) return Promise\.resolve\(\)/.test(read("lib/analytics-utils.ts")))
   check("a failed refresh keeps the figures; only a different question clears them",
-    /s\.data && questionOf\(s\.data\.key\) === question \? s\.data : null/.test(read("app/app/analytics/analytics-reports.tsx")))
+    /s\.data && questionOf\(s\.data\.key\) === question \? s\.data : null/.test(read("app/(storelib)/app/analytics/analytics-reports.tsx")))
 }
 
 console.log("\nAnalytics: disputes, products and countries, from the accuracy audit")
@@ -801,7 +801,7 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
   check("now is rounded up to ten seconds, never down", reportNow(T0 + 1) === T0 + 10_000 && reportNow(T0) === T0)
   const cache = read("lib/analytics/report-cache.ts")
   check("a kept answer is shown only to the person it was counted for",
-    /if \(!viewer \|\| k\.answer\.viewer !== viewer\) return null/.test(cache) && /viewer,\n\s+property: propertyParam/.test(route) && /viewer: userId,/.test(read("app/app/analytics/analytics-client.tsx")))
+    /if \(!viewer \|\| k\.answer\.viewer !== viewer\) return null/.test(cache) && /viewer,\n\s+property: propertyParam/.test(route) && /viewer: userId,/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
   check("hovering Analytics in the sidebar, or Home going idle, fetches its numbers ahead",
     /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(read("lib/ui/app-navigation.ts"))
       && /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(read("components/shared/prefetch-links.tsx")))
@@ -810,7 +810,7 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
 console.log("\nAnalytics: a wait that says so")
 {
   /* "It shows those numbers blurred, which is okay, but it takes too much to load the data ... without showing some feedback to the user." */
-  const client = read("app/app/analytics/analytics-client.tsx")
+  const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
   const line = read("components/app/loading-line.tsx")
   check("what is waited for: the figures of this question, or its lists; never the minute's silent refresh of the same one",
     /const waitingFigures = reportsState\.loading && \(!answer \|\| reportsState\.stale\)/.test(client)

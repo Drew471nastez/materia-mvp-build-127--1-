@@ -57,7 +57,7 @@ check("the Popup's sign ups are recorded as the popup's", /section\.type === "po
 console.log("\n3  where sign ups go")
 check("a website's popup is its own name in Subscribers", (FORMS as readonly string[]).includes("site_popup") && FORM_NAME.site_popup === "Popup" && /"popup" \? "site_popup"/.test(read("app/api/website-builder/subscribe/route.ts")))
 check("each section names the box it is listed under", signupFormOf("promo_newsletter", {}) === "newsletter" && signupFormOf("newsletter", {}) === "newsletter" && signupFormOf("storelib-newsletter", { look: "bar" }) === "bar" && signupFormOf("storelib-newsletter", { look: "popup" }) === "site_popup" && signupFormOf("storelib-newsletter", { look: "inline" }) === "newsletter" && signupFormOf("popup", { content: "email" }) === "site_popup" && signupFormOf("popup", { content: "button" }) === null && signupFormOf("hero", {}) === null)
-check("and links to Emails › Subscribers from its settings", SUBSCRIBERS_HREF === "/app/emails?tab=subscribers" && /<SignupDestinationNote type=\{section\.type\} settings=\{section\.settings\} \/>/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+check("and links to Emails › Subscribers from its settings", SUBSCRIBERS_HREF === "/app/emails?tab=subscribers" && /<SignupDestinationNote type=\{section\.type\} settings=\{section\.settings\} \/>/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

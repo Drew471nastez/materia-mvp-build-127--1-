@@ -54,15 +54,15 @@ import {
   isCurrentSnapshotUrl,
   mobilePartner,
 } from "@/lib/website-builder/snapshot"
-import { coverIsStale } from "@/app/app/website-builder/website-builder-client"
+import { coverIsStale } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { mintCoverPass, readCoverPass } from "@/lib/website-builder/cover-pass"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
-import { editorHref } from "@/app/app/website-builder/website-builder-client"
+import { editorHref } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
 import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIBRARY_FULL_CODE, isLibraryFullError, keptWithinLimit } from "@/lib/website-builder/library-limit"
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE, importPathFor, importSizeProblem, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
-import { STALL_MS, sendWithProgress } from "@/app/app/website-builder/incoming"
+import { STALL_MS, sendWithProgress } from "@/app/(storelib)/app/website-builder/incoming"
 import { connectedTools, toolNames } from "@/lib/agent-access/connection-mark"
 import { untt } from "./i18n-source"
 
@@ -159,7 +159,7 @@ check("the limit is five websites, as asked", THEME_INSTALL_LIMIT === 5)
 check(
   "the old non-UUID theme ids are gone from the app",
   !/ebook-author-theme-001|course-creator-theme-001|designer-portfolio-theme-001/.test(
-    [read("app/app/website-builder/website-builder-client.tsx"), read("app/app/website-builder/themes/themes-client.tsx"), read("app/api/website-builder/themes/add/route.ts")].join("\n"),
+    [read("app/(storelib)/app/website-builder/website-builder-client.tsx"), read("app/(storelib)/app/website-builder/themes/themes-client.tsx"), read("app/api/website-builder/themes/add/route.ts")].join("\n"),
   ),
 )
 
@@ -261,7 +261,7 @@ section("The cover")
     with no photograph yet shows its name on a plain surface.
   */
   const coverSrc = stripComments(read("components/website-builder/theme-cover.tsx"))
-  const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+  const client = stripComments(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
   check("no website is drawn from its settings: the drawing is a catalogue theme's alone",
     !/coverSpecFromSettings/.test(coverSrc) && !/coverSpecFromSettings/.test(client) && !/ThemeSettingsValues/.test(coverSrc))
   check("  a website with no photograph yet is its name on a plain surface, breathing while one is taken",
@@ -275,8 +275,8 @@ section("The cover")
 section("The page")
 
 {
-  const page = read("app/app/website-builder/page.tsx")
-  const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+  const page = read("app/(storelib)/app/website-builder/page.tsx")
+  const client = stripComments(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
   check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
   /* The seed is the default theme as a draft now (lib/website-builder/starter-website.ts), not the database function that published one. */
   check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /ensureStarterWebsite\(/.test(page) && !/initialize_creator_themes/.test(page))
@@ -313,7 +313,7 @@ section("The page")
     app stage's spinner, the same on every page.
   */
   check("no route skeleton is left for the page, rendered or not",
-    !existsSync(join(process.cwd(), "app/app/website-builder/skeleton.tsx")) && !existsSync(join(process.cwd(), "app/app/website-builder/loading.tsx")) &&
+    !existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/skeleton.tsx")) && !existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/loading.tsx")) &&
       !/skeleton|loading\.tsx/i.test(stripComments(page)))
   check("mutations refresh the server's view rather than patching a client copy", /router\.refresh\(\)/.test(client) && /useTransition/.test(client))
   check("the page uses the shared action menu, dialogs and buttons", /ResponsiveActionMenu/.test(client) && /AlertDialog/.test(client) && /from "@\/components\/ui\/button"/.test(client))
@@ -329,7 +329,7 @@ section("The page")
     */
     const live = client.slice(client.indexOf('<section aria-labelledby="live-heading"'), client.indexOf("{/* ── Library"))
     const header = client.slice(client.indexOf("data-title-row") - 80, client.indexOf('<section aria-labelledby="live-heading"'))
-    check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
+    check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
     /*
       THE TITLE ROW, SHOPIFY'S WAY. The owner asked for Settings to go down
       beside Edit website, and for the title's line to carry Public and View
@@ -337,9 +337,9 @@ section("The page")
       grey; they need some depth, more Polaris like", so they are the shared
       white secondary. On a phone the line holds View alone, with an eye.
     */
-    const src = read("app/app/website-builder/website-builder-client.tsx")
+    const src = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
     const depthSrc = read("components/ui/depth-button.ts")
-    check("the old header file is still gone", !existsSync(join(process.cwd(), "app/app/website-builder/site-controls.tsx")) && !/SiteControls/.test(client))
+    check("the old header file is still gone", !existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/site-controls.tsx")) && !/SiteControls/.test(client))
     check("the title row holds the heading, Public and View website, and not Settings",
       /<div className="flex items-center justify-between gap-3" data-title-row="">/.test(header) &&
         (header.match(/data-control=/g) ?? []).length === 3 && /data-control="public"/.test(header) &&
@@ -403,7 +403,7 @@ section("The page")
       /const MORE_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0/.test(src) && /export const iconDepth = cn\(/.test(depthSrc) &&
         /shadow-\[inset_0_-2px_0_rgba\(0,0,0,0\.07\),0_1px_2px_rgba\(15,23,42,0\.08\)\]/.test(depthSrc) &&
         /active:shadow-\[inset_0_1px_2px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc))
-    check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
+    check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/(storelib)/app/website-builder/page.tsx")))
     /*
       THE COVER IS THE SITE, WITH ITS OWN CORNERS. "Why is it windows in a
       window?" took the stage, the browser window and the phone away; then
@@ -451,7 +451,7 @@ section("The page")
     // thing rather than the container; the actions are the same ones.
     "Rename", "Duplicate", "Edit code", "Website settings", "Export theme", "Take offline", "Remove", "Import theme", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
     // The import itself lives beside the page now (incoming.tsx importThemeFile), which the page calls.
-  ].every((s) => (client + read("app/app/website-builder/incoming.tsx")).includes(s)) && /importThemeFile\(file, \{ progress, sent \}\)/.test(client))
+  ].every((s) => (client + read("app/(storelib)/app/website-builder/incoming.tsx")).includes(s)) && /importThemeFile\(file, \{ progress, sent \}\)/.test(client))
   {
     /*
       THE FULL LIBRARY. Import was disabled when the library was full, so a
@@ -460,7 +460,7 @@ section("The page")
       Now: the shared bottom sheet on a phone, a compact modal from 640px,
       the Polaris shape in both, and every number from the limit.
     */
-    const fullDialog = stripComments(read("app/app/website-builder/library-full-dialog.tsx"))
+    const fullDialog = stripComments(read("app/(storelib)/app/website-builder/library-full-dialog.tsx"))
     check("the library is capped at the limit and says so", /THEME_INSTALL_LIMIT/.test(client) && /"Your library is full"/.test(fullDialog) && /<LibraryFullDialog/.test(client))
     check("  a bottom sheet on a phone, the app's shared one, wrapped rather than edited",
       /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(fullDialog) && /const PHONE = "\(max-width: 639px\)"/.test(fullDialog) &&
@@ -474,12 +474,12 @@ section("The page")
     check("  a single Close, and no card inside the card",
       (fullDialog.match(/>\s*Close\s*</g) ?? []).length === 2 && !/rounded-xl border border-\[#e5e7eb\] bg-\[#fafbfb\]/.test(fullDialog))
     check("  Import is never dead: full, it opens the sheet before any file is picked", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
-    check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
+    check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
     check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
     check("  a refusal from the server opens it too, rather than a toast, and the placeholder goes",
       /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*if \(!mounted\.current\) return\s*setIncoming\(null\)\s*retryRef\.current = null\s*setFull\(kind\)/.test(client))
     check("  Browse themes opens the same sheet on the server's refusal, not a toast",
-      /if \(d\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("add"\)/.test(read("app/app/website-builder/themes/themes-client.tsx")))
+      /if \(d\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("add"\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
     check("  each website in it says Live, Offline or Draft", /live \? "Live" : offline \? "Offline" : "Draft"/.test(fullDialog) && /offline: i\.id === offline\?\.id/.test(client))
   }
   {
@@ -489,7 +489,7 @@ section("The page")
       once where it will land, the upload reports real progress, the real
       row replaces it in the same frame, and the page scrolls to it.
     */
-    const incoming = stripComments(read("app/app/website-builder/incoming.tsx"))
+    const incoming = stripComments(read("app/(storelib)/app/website-builder/incoming.tsx"))
     const css = read("app/globals.css")
     check("the upload goes by XMLHttpRequest and reports its progress", /new XMLHttpRequest\(\)/.test(incoming) && /xhr\.upload\.onprogress/.test(incoming) && /xhr\.upload\.onload/.test(incoming))
     check("  the button says Uploading with a percentage, then Importing", /`Uploading \$\{Math\.round\(incoming\.progress \* 100\)\}%`/.test(client) && /: "Importing"\) : "Import theme"/.test(client))
@@ -518,8 +518,8 @@ section("The page")
     check("  a failure stays on the row with Try again, and a toast", /Try again/.test(incoming) && /phase: "error", error: message/.test(client) && /toast\(\{ title: message, variant: "destructive" \}\)/.test(client))
     check("  Duplicate and Add theme take the same path", /make\(\s*"duplicate"/.test(client) && /make\(\s*"add"/.test(client) && /make\(\s*"import"/.test(client))
   }
-  check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/app/website-builder/themes/page.tsx")))
-  const market = stripComments(read("app/app/website-builder/themes/themes-client.tsx"))
+  check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/themes/page.tsx")))
+  const market = stripComments(read("app/(storelib)/app/website-builder/themes/themes-client.tsx"))
   check("Browse themes offers one theme, shown whole, and adds it", /BROWSABLE_THEMES\.map/.test(market) && /ThemeShowcase/.test(market) && /themes\/add/.test(market) && BROWSABLE_THEMES.length === 1)
   check("  the others stay defined for the websites made from them, and cannot be added", THEME_REGISTRY.length > BROWSABLE_THEMES.length && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(read("app/api/website-builder/themes/add/route.ts")))
   check("  nothing on either page rises under the pointer", !/hover:-translate-y/.test(market) && !/hover:-translate-y/.test(client) && !/active:scale-95/.test(market))
@@ -559,7 +559,7 @@ section("Choosing an icon, and choosing where a link goes")
   const shared = read("components/website-builder/sections/_shared.tsx")
   const picker = stripComments(read("components/website-builder/icon-picker.tsx"))
   const linkPicker = stripComments(read("components/website-builder/link-picker.tsx"))
-  const editorSrc = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+  const editorSrc = stripComments(read("app/(storelib)/website-builder/editor/[installId]/page.tsx"))
 
   /**
    * THE SET OFFERED AND THE SET DRAWN ARE THE SAME SET.
@@ -780,7 +780,7 @@ section("The cover")
     /export async function GET\(/.test(route) && /newestCover\(\{ installId, userId: who\.ownerUserId \}\)/.test(route) /* Changed on purpose (round 42 team): the store owner's folder */ && /"Cache-Control": "no-store"/.test(route))
   {
     const refresh = read("lib/website-builder/cover-refresh.ts")
-    const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+    const client = stripComments(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
     check("  the page keeps the answer's cover and decodes it before the refresh, so the new row's first frame is the picture",
       /seedCover\(id, cover\)\s*await decodedFirst\(cover\.url, 2500\)\s*setFresh/.test(client) &&
         client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
@@ -913,14 +913,14 @@ section("The cover")
     /export const QUIET_MS = \d+/.test(refresh) && /clearTimeout\(timer\)/.test(refresh))
   check("and a save still waiting asks on the way out rather than never",
     /export function flushCoverRefresh/.test(refresh) && /keepalive: true/.test(refresh))
-  const editor = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+  const editor = stripComments(read("app/(storelib)/website-builder/editor/[installId]/page.tsx"))
   check("a save schedules it, whichever page or device the editor is on",
     /const snapshotAfterSave = \(\) => \{\s*scheduleCoverRefresh\(installId\)\s*\}/.test(editor) &&
       (editor.match(/snapshotAfterSave\(\)/g) ?? []).length >= 2)
   check("and leaving the editor flushes it", /useEffect\(\(\) => \(\) => flushCoverRefresh\(\), \[\]\)/.test(editor))
   check("nothing of the in-browser capture is left in the editor",
     !/html-to-image|captureNode|snapshotStage|stageSnapshot|data-snapshot-stage/.test(editor))
-  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   check("the website page retakes a cover that is older than the site",
     /export function coverIsStale/.test(client) && /await requestCover\(i\.id\)/.test(client))
   /*
@@ -946,7 +946,7 @@ section("The cover")
     counting it as an edit would make every new cover look older than the
     site and ask for another, forever.
   */
-  const page = read("app/app/website-builder/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/page.tsx")
   check("'last edited' is the pages and the settings, never the row a cover is recorded on",
     /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
       !/saved_at: newest\(row\.updated_at/.test(page))
@@ -1011,7 +1011,7 @@ section("Add Section is derived from the files, one card per preset")
   /* "'Created by you' should be called 'Created' only." */
   check("a creator's own section is filed under its own heading, called Created", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created")
 
-  const editorSrc = untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+  const editorSrc = untt(readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   /* Add a section lives in its own module: components/website-builder/editor/section-library.tsx. */
   const librarySrc = untt(readFileSync(join(process.cwd(), "components/website-builder/editor/section-library.tsx"), "utf8"), "components/website-builder/editor/section-library.tsx")
   // The entries are built once, in a memo, rather than per render of the list.
@@ -1103,7 +1103,7 @@ section("Add Section is derived from the files, one card per preset")
    * that does not uses the second. A route that uses neither is the bug.
    */
   const drawsOnServer = (src: string) => /prerenderStorelibSections|renderWithSources/.test(src)
-  const routesDrawingSections = [...new Set(["app/(marketing)", "app/products"].flatMap(walk))]
+  const routesDrawingSections = [...new Set(["app/(storelib)/(marketing)", "app/(storelib)/products"].flatMap(walk))]
     .filter((f) => /<ThemePage/.test(read(f)))
   check(
     "and no other public route hands sections to ThemePage without it",
@@ -1144,7 +1144,7 @@ section("Undo cannot reach a page you are not on")
 // ===========================================================================
 
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
   /**
    * An undo snapshot is the whole page: `sections` plus the theme settings.
@@ -1229,7 +1229,7 @@ section("A form that says it worked, did")
       /* The canvas now names its install so the header's search field can
          ask on its behalf. It still says `inEditor` and still hands over no
          creator, which are the two things this guard reads. */
-      /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* Changed on purpose (the owner: currency in the builder like the live site): and the market previewed, and the theme switch as a preview. */ /* And the store's currency. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display(, currency)?, language, preview: languagePreview)? \}\), \[installId(, words)?(, display(, currency)?, language, languagePreview)?\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* Changed on purpose (the owner: currency in the builder like the live site): and the market previewed, and the theme switch as a preview. */ /* And the store's currency. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display(, currency)?, language, preview: languagePreview)? \}\), \[installId(, words)?(, display(, currency)?, language, languagePreview)?\]\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")),
   )
 
   check(
@@ -1322,8 +1322,8 @@ section("A form that says it worked, did")
   const state = read("lib/website-builder/setup-state.ts")
   const route = read("app/api/website-builder/setup/route.ts")
   const panel = read("components/website-builder/publish-panel.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  const code = read("app/website-builder/code/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
+  const code = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
   const backupsApi = read("app/api/website-builder/themes/[installId]/backups/route.ts")
 
   check("each of the three is probed", /store_theme_backups/.test(state) && /published_at/.test(state) && /store_theme_file_versions/.test(state))
@@ -1540,13 +1540,13 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a form from an older page is size checked by its declared length before it is read, and a bad form is a 400",
     /req\.headers\.get\("content-length"\)/.test(imp) && imp.indexOf('req.headers.get("content-length")') < imp.indexOf("req.formData()") && /try \{\s*form = await req\.formData\(\)\s*\} catch/.test(imp))
 
-  const incoming = stripComments(read("app/app/website-builder/incoming.tsx"))
+  const incoming = stripComments(read("app/(storelib)/app/website-builder/incoming.tsx"))
   check("the page: a place, the file straight to storage with its progress, then the import",
     /fetchAnswer\("\/api\/website-builder\/themes\/import\/upload"/.test(incoming) && /sendWithProgress\("PUT", url, file, on/.test(incoming) &&
       /fetchAnswer\("\/api\/website-builder\/themes\/import", \{ path \}, ANSWER_MS\)/.test(incoming) &&
       incoming.indexOf("importSizeProblem(file.size)") < incoming.indexOf('fetchAnswer("/api/website-builder/themes/import/upload"'))
   check("  every server request gives up in time rather than leaving the row spinning", /new AbortController\(\)/.test(incoming) && /setTimeout\(\(\) => ctl\.abort\(\), ms\)/.test(incoming))
-  const wb = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+  const wb = stripComments(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
   check("  one request at a time, held by a ref, so two taps in a frame make one website", /if \(inFlight\.current\) return\s*inFlight\.current = true/.test(wb) && /\} finally \{\s*inFlight\.current = false/.test(wb))
   check("  a page that was left does not refresh or open anything when the answer comes", /toast\(\{ title: done\(data\) \}\)\s*if \(!mounted\.current\) return/.test(wb))
   check("  the upload bar holds still under reduced motion", /transition-transform duration-200 ease-out motion-reduce:transition-none/.test(incoming))
@@ -1616,10 +1616,10 @@ section("Two at once still make five, and an import that says what went wrong")
  */
 {
   console.log("\nThe builder on a phone")
-  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const depth = read("components/ui/depth-button.ts")
   const menu = read("components/ui/responsive-action-menu.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const css = read("app/globals.css")
   const publish = read("components/website-builder/publish-panel.tsx")
   const back = read("components/website-builder/panel-back.tsx")
@@ -1628,8 +1628,8 @@ section("Two at once still make five, and an import that says what went wrong")
 
   check("the depth lives in components/ui and the product editor re-exports it",
     /export const secondaryDepth = cn\(/.test(depth) && /export const primaryDepth = cn\(/.test(depth) && /export const criticalDepth = cn\(/.test(depth) &&
-      /import \{ REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/app/products/new/editor-buttons.tsx")) &&
-      !/export const secondaryDepth = cn\(/.test(read("app/app/products/new/editor-buttons.tsx")))
+      /import \{ REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/(storelib)/app/products/new/editor-buttons.tsx")) &&
+      !/export const secondaryDepth = cn\(/.test(read("app/(storelib)/app/products/new/editor-buttons.tsx")))
   check("  the secondary depth is unchanged: a hairline, a 1px foot, flat when pressed",
     /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depth) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(depth))
   check("  the library's three dots wear the icon depth, the same as the live card's Settings and More",
@@ -1696,9 +1696,9 @@ section("Two at once still make five, and an import that says what went wrong")
 
 {
   /* "Back from the editor the cover is gray, then it shows, late, and glitches"; "clicking Website: the spinner freezes, white, then the page". scripts/check-website-arrival.mjs films both. */
-  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const memory = read("lib/website-builder/cover-memory.ts")
-  const page = read("app/app/website-builder/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/page.tsx")
   check("the Website page draws each website's last whole cover first (cover-memory), in the box it reserves",
     /function firstFace\(installId: string, current: string \| null\): Face/.test(client) && /const last = shownCover\(installId\)/.test(client)
       && /onLoad=\{\(e\) => \{\s*rememberCover\(installId, url\)/.test(client))
@@ -1721,10 +1721,10 @@ section("Two at once still make five, and an import that says what went wrong")
       && /requestAnimationFrame\(\(\) => exploreSection\.current\?\.setAttribute\("data-shown", ""\)\)/.test(client))
   check("an /app page's HTML is the shell's frame and spinner until its script has run, rail and all from md",
     /<LanguageProvider fallback=\{<AppColdStart \/>\}>/.test(read("components/app/app-layout-wrapper.tsx"))
-      && /hidden w-\[240px\] border-r border-neutral-200\/60 bg-white md:block/.test(read("app/app/cold-start.tsx"))
-      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\]"/.test(read("app/app/cold-start.tsx"))
+      && /hidden w-\[240px\] border-r border-neutral-200\/60 bg-white md:block/.test(read("app/(storelib)/app/cold-start.tsx"))
+      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\]"/.test(read("app/(storelib)/app/cold-start.tsx"))
       /* The top corners are the header's own now (components/app/app-top-corners), at every width. */
-      && /<AppTopCorners \/>/.test(read("app/app/cold-start.tsx")))
+      && /<AppTopCorners \/>/.test(read("app/(storelib)/app/cold-start.tsx")))
   const stage = read("components/app/app-stage.tsx")
   check("the stage measures nothing in React's commit that can wait: the landing starts on the frame that paints the page",
     /* Changed on purpose (round 26): a section of the same community skips the landing (sameStageFrame) before the frame is asked for. */ /const layered = !!document\.documentElement\.dataset\.layerMotion\s*(?:\/\*[^*]*\*\/\s*if \(sameStageFrame\(from, pathname\)\) return\s*)?requestAnimationFrame\(\(\) => \{/.test(stage)

@@ -7,7 +7,7 @@
  * and refresh tokens in request logs. Every caller posts, so the GET now only
  * goes on to its path. This runs the real handler.
  */
-import { GET } from "@/app/auth/sync-session/route"
+import { GET } from "@/app/(storelib)/auth/sync-session/route"
 import { readCode } from "./_source"
 
 let passed = 0
@@ -41,11 +41,11 @@ async function main() {
     const res = await GET(new Request("https://storelib.com/auth/sync-session?access_token=a&refresh_token=b&next=https%3A%2F%2Fevil.example%2F"))
     check("an address in next is not followed", res.headers.get("location") === "https://storelib.com/auth/continue", res.headers.get("location"))
   }
-  const route = readCode("app/auth/sync-session/route.ts")
+  const route = readCode("app/(storelib)/auth/sync-session/route.ts")
   const get = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function POST"))
   check("the GET never reaches setSession", !/syncSession\(|setSession\(/.test(get))
   check("the POST still does, behind its origin check", /export async function POST/.test(route) && /from !== origin/.test(route) && /return syncSession\(request, str\("access_token"\), str\("refresh_token"\), next, 303\)/.test(route))
-  for (const f of ["lib/native-oauth.ts", "components/auth/viewer-sync.tsx", "lib/auth/continue-client.ts", "app/(auth)/login/page.tsx", "app/(auth)/signup/page.tsx"]) {
+  for (const f of ["lib/native-oauth.ts", "components/auth/viewer-sync.tsx", "lib/auth/continue-client.ts", "app/(storelib)/(auth)/login/page.tsx", "app/(storelib)/(auth)/signup/page.tsx"]) {
     check(`${f}: no navigation to a sync-session address (posted through goToAuthHref)`, !/location\.(assign|replace|href)\s*[(=]\s*[`"']?\/auth\/sync-session/.test(readCode(f)))
   }
 

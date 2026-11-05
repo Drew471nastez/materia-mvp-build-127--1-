@@ -23,8 +23,8 @@
  */
 
 import { readFileSync } from "node:fs"
-import { KIND_OPTIONS, NEW_COMMUNITY_HREF, NEW_PRODUCT_HREF, editorHref, kindFromParam, kindHref, kindOptions } from "../app/app/products/new/product-kinds"
-import { COURSE_FAQS, COURSE_WHATS_INCLUDED, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, initialForm, snapshotOfForm, swapDefaults } from "../app/app/products/new/editor-form"
+import { KIND_OPTIONS, NEW_COMMUNITY_HREF, NEW_PRODUCT_HREF, editorHref, kindFromParam, kindHref, kindOptions } from "../app/(storelib)/app/products/new/product-kinds"
+import { COURSE_FAQS, COURSE_WHATS_INCLUDED, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, initialForm, snapshotOfForm, swapDefaults } from "../app/(storelib)/app/products/new/editor-form"
 import { countLine, courseSeconds, lengthLabel, lessonClock, lessonsIn, previewLessons, secondsIn } from "../lib/courses/outline"
 import { PUT_RETRY_DELAYS_MS, putFailure } from "../lib/courses/upload-client"
 import { stripComments } from "./_source"
@@ -55,14 +55,14 @@ check("?type= is read strictly: anything else, the old membership included, is n
 
 console.log("\nThe new product page")
 {
-  const page = code("app/app/products/new/page.tsx")
+  const page = code("app/(storelib)/app/products/new/page.tsx")
   check("no kind: the question as a page, before anything else is read", /if \(!kind\) return ask\(\)/.test(page) && /const ask = \(\) => <NewProductKindPage \/>/.test(page) && page.indexOf("<NewProductKindPage") < page.indexOf("loadProductEditor(null)"))
   check("?type=community goes to the community setup only while the switch is on, otherwise the question", /if \(kind === "community"\) \{\s*if \(await communitiesEnabled\(\)\.catch\(\(\) => false\)\) redirect\(NEW_COMMUNITY_HREF\)\s*return ask\(\)/.test(page))
   check("nothing about a membership is made by opening an address", !/api\/app\/memberships|createMembershipProduct/.test(page))
   check("a kind opens the editor as that kind on its first frame", /<ProductEditor key=\{kind\} creator=\{load\.creator\} loaded=\{null\} startAs=\{kind\} \/>/.test(page))
   check("the old ?edit= address still goes to the product", /if \(edit\) redirect\(`\/app\/products\/\$\{encodeURIComponent\(edit\)\}`\)/.test(page))
   check("a course's tab says New course", /kind === "course" \? "New course" : "New product"/.test(page))
-  const editor = code("app/app/products/new/product-editor.tsx")
+  const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
   check("the editor no longer reads the address after mounting to become a course", !/URLSearchParams\(window\.location\.search\)\.get\("type"\)/.test(editor) && /initialForm\(loaded, startAs\)/.test(editor))
   check("the switch to a course is a quiet line now, not the violet link", /Video lessons instead of files\?/.test(editor) && /Make it a course/.test(editor) && !/Add video lessons instead/.test(editor) && !/text-\[#6d28d9\]/.test(editor))
   check("switching kind goes through one place that brings the kind's default lines", (editor.match(/switchKind\("(digital|course)"\)/g) ?? []).length === 2 && /swapDefaults\(kind, whatsIncluded, faqs\)/.test(editor))
@@ -70,7 +70,7 @@ console.log("\nThe new product page")
 
 console.log("\nEvery New product in /app asks first")
 {
-  const chooser = code("app/app/products/new/kind-chooser.tsx")
+  const chooser = code("app/(storelib)/app/products/new/kind-chooser.tsx")
   check("in place: the shared sheet on a phone, a dialog from 768px", /<SheetDialog/.test(chooser) && /setPhone\(window\.matchMedia\(LAYER_PHONE\)\.matches\)/.test(chooser))
   check("no pick makes anything: no membership draft, every answer's address is known", !/api\/app\/memberships|makeMembership|membershipHref/.test(chooser) && /target\.current = kindHref\(kind\)/.test(chooser) && /const href = kindHref\(kind\)/.test(chooser))
   check("the chooser offers no paid community: it reads no communities switch, and both places draw the same list", !/useCommunitiesEnabled|communities/.test(chooser) && (chooser.match(/<KindList onChoose=\{choose\} \/>/g) ?? []).length === 2 && /kindOptions\(physical\)/.test(chooser))
@@ -79,7 +79,7 @@ console.log("\nEvery New product in /app asks first")
   check("the keyboard: first answer focused, arrows, Home and End move, the answers are buttons", /querySelector<HTMLButtonElement>\("\[data-kind\]"\)\?\.focus\(\)/.test(chooser) && /"ArrowDown"/.test(chooser) && /"ArrowUp"/.test(chooser) && /"Home"/.test(chooser) && /"End"/.test(chooser) && /<button\s+type="button"\s+data-kind=/.test(chooser))
   check("nothing about a pick is remembered", !/localStorage|sessionStorage|document\.cookie/.test(chooser))
   check("the page version gives its place in the history to the answer", /router\.replace\(href\)/.test(chooser))
-  const list = code("app/app/products/products-client.tsx")
+  const list = code("app/(storelib)/app/products/products-client.tsx")
   check("Products: New product in the bar and Create product in the empty list", (list.match(/onClick=\{askNew\}/g) ?? []).length === 2 && /\{newProduct\.chooser\}/.test(list))
   const home = code("components/app/home/quick-actions.tsx")
   check("Home: the Create product card", /useNewProductChooser\(\)/.test(home) && /a\.href === NEW_PRODUCT_HREF/.test(home) && /newProduct\.open\(\)/.test(home) && /\{newProduct\.chooser\}/.test(home))
@@ -118,7 +118,7 @@ console.log("\nThe curriculum on the product page")
   check("the count line", countLine(3, 8060) === "3 lessons · 2 h 14 min" && countLine(1, 0) === "1 lesson")
   check("a lesson's own clock", lessonClock(245) === "4:05" && lessonClock(7815) === "2:10:15" && lessonClock(null) === "")
   check("the free previews", previewLessons(modules).map((l) => l.id).join() === "a")
-  const page = code("app/(marketing)/p/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   const outline = code("components/courses/course-outline.tsx")
   /* Changed on purpose (round 31): the theme's colours are painted, so on Storelib's own product page they follow the person's dark look (lib/appearance/site-paint); the light look is the same colours. */
   check("the product page draws it, with the theme's colours", /<CourseOutline\s+modules=\{courseModules\}/.test(page) && /heading: paint\(themeColors\.textColor, "ink"\)/.test(page))
@@ -135,13 +135,13 @@ console.log("\nA large video goes up and says how")
   check("a dropped connection is tried again three times, after it comes back", PUT_RETRY_DELAYS_MS.length === 3)
   const client = code("lib/courses/upload-client.ts")
   check("the file still goes through the server's prepare and complete checks", /action: "upload-prepare"/.test(client) && /action: "upload-complete"/.test(client))
-  const ce = code("app/app/products/new/course-editor.tsx")
+  const ce = code("app/(storelib)/app/products/new/course-editor.tsx")
   check("the row says how much of how much, and when it is reconnecting", /Connection lost, trying again/.test(ce) && /of \$\{bytes\(up\.total\)\}/.test(ce) && /"Reconnecting"/.test(ce))
   check("closing the tab mid upload asks first", /addEventListener\("beforeunload", hold\)/.test(ce))
 }
 
 console.log("\nCopy")
-for (const p of ["app/app/products/new/kind-chooser.tsx", "app/app/products/new/product-kinds.ts", "components/courses/course-outline.tsx", "lib/courses/outline.ts", "lib/courses/upload-client.ts"]) {
+for (const p of ["app/(storelib)/app/products/new/kind-chooser.tsx", "app/(storelib)/app/products/new/product-kinds.ts", "components/courses/course-outline.tsx", "lib/courses/outline.ts", "lib/courses/upload-client.ts"]) {
   check(`${p}: no em dash and none of the banned words`, !/—|unlock|elevate|seamless|powerful|effortless|supercharge|transform/i.test(read(p)))
 }
 

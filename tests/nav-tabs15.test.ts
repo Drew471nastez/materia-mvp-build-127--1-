@@ -266,7 +266,7 @@ async function main() {
 
   section("Settings, Preferences renders (it crashed the page)")
   {
-    const layout = code("app/layout.tsx")
+    const layout = code("app/(storelib)/layout.tsx")
     const inLocale = /<LocaleProvider>[\s\S]*<SettingsSubpageHost \/>[\s\S]*<\/LocaleProvider>/.test(layout)
     check("the settings layer is mounted inside LocaleProvider, whose locale its Preferences tab reads", inLocale && (layout.match(/<SettingsSubpageHost \/>/g) ?? []).length === 1)
     ;(globalThis as unknown as { React: typeof React }).React = React

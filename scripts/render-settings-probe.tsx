@@ -1,6 +1,6 @@
 /**
  * The real Settings page with a creator's worth of fixture data, inside a
- * shell shaped like app/app/layout.tsx, for the probes that compare it with
+ * shell shaped like app/(storelib)/app/layout.tsx, for the probes that compare it with
  * an earlier version of itself (scripts/check-settings-header-country.mjs,
  * scripts/check-domains-design.mjs). The probe writes the entry that calls
  * `mount` with the form it wants: this checkout's, or a copy of an older

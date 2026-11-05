@@ -32,7 +32,7 @@ function check(name: string, ok: boolean, detail = "") {
 function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
-const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+const editor = untt(readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const blockList = untt(readFileSync(join(root, "components/website-builder/editor/section-block-list.tsx"), "utf8"), "components/website-builder/editor/section-block-list.tsx")
 
 const SRC = [

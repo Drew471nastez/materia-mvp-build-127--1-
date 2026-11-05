@@ -46,7 +46,7 @@ const cssFiles = [
 if (!cssFiles.length) fail("The build produced no stylesheet, so nothing here would be styled.")
 const css = cssFiles.map((f) => readFileSync(f, "utf8")).join("\n").replace(/url\(\.\.\/media\//g, "url(./")
 
-const page = readFileSync(join(root, "app/(marketing)/p/[slug]/page.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/(marketing)/p/[slug]/page.tsx"), "utf8")
 const gridClass = (page.match(/className="(grid gap-8 lg:grid-cols-5[^"]*)"/) || [])[1]
 const colClass = (page.match(/className="(hidden lg:block lg:col-span-2[^"]*)"/) || [])[1]
 const cardClass = (page.match(/className="(rounded-xl border p-6 shadow-sm relative z-20)"/) || [])[1]

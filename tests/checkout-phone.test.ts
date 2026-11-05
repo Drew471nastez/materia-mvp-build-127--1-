@@ -6,7 +6,7 @@
  * number and know where the country I am from is, or change the country",
  * and the placeholders "very simple, clean, one word".
  *
- * The field is app/checkout/parts/phone-input (the website checkout and the
+ * The field is app/(storelib)/checkout/parts/phone-input (the website checkout and the
  * shop's own physical checkout); the reading is lib/account/phone, the same
  * one Set up payouts uses; the order keeps E.164 (lib/physical/address,
  * lib/physical/checkout-server) and the page and the server refuse the same
@@ -70,9 +70,9 @@ const server = readCode("lib/physical/checkout-server.ts")
 check("a pickup's phone is kept as E.164 and checked", /buyer_phone: phoneForStorage\(ownPhone\) \|\| address\?\.phone \|\| null/.test(server) && /ownPhone && !phoneForStorage\(ownPhone\)/.test(server))
 
 console.log("\n4. The field")
-const field = readCode("app/checkout/parts/phone-input.tsx")
-const site = readCode("app/checkout/site/site-checkout.tsx")
-const physical = readCode("app/checkout/physical/physical-checkout.tsx")
+const field = readCode("app/(storelib)/checkout/parts/phone-input.tsx")
+const site = readCode("app/(storelib)/checkout/site/site-checkout.tsx")
+const physical = readCode("app/(storelib)/checkout/physical/physical-checkout.tsx")
 check("the flag and the code are a searchable country list", /<ChoicePicker/.test(field) && /fieldLeading=\{<Flag code=\{cc\} \/>\}/.test(field) && /keywords: `\$\{d\.dial\} \+\$\{d\.dial\}/.test(field))
 check("the code follows the address's country until the buyer picks one", /const cc = \(picked \|\| country \|\| "US"\)\.toUpperCase\(\)/.test(field))
 check("a country change keeps the digits and moves the code", /React\.useEffect\(\(\) => \{\s*const next = fullNumber\(digits, cc\)/.test(field) && /\}, \[cc\]\)/.test(field))

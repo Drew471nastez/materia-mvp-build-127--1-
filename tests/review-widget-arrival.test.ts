@@ -142,7 +142,7 @@ function importedThemeChecks() {
 
 function editorChecks() {
   console.log("\nThe editor")
-  const editor = readFileSync("app/website-builder/editor/[installId]/page.tsx", "utf8")
+  const editor = readFileSync("app/(storelib)/website-builder/editor/[installId]/page.tsx", "utf8")
   const effect = editor.slice(editor.indexOf("const widgetArrival = useRef"), editor.indexOf("const widgetArrival = useRef") + 1600)
   check("waits on every kind of page loading, and knows an imported theme from its install", /busy: loading \|\| canvasLoading \|\| sectionsLoading/.test(effect) && /compat: compatInstall \|\| importedTheme\.current/.test(effect))
   check("  runs again when each of them changes", /\[loading, canvasLoading, sectionsLoading, sections, librarySchemas, compatInstall\]\)/.test(effect))

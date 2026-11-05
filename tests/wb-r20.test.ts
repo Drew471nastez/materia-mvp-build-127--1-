@@ -34,12 +34,12 @@ function check(label: string, ok: boolean) {
   }
 }
 
-const wbLayout = readCode("app/website-builder/layout.tsx")
-const storeLayout = readCode("app/store/[creatorSlug]/themes/[installId]/editor/layout.tsx")
+const wbLayout = readCode("app/(storelib)/website-builder/layout.tsx")
+const storeLayout = readCode("app/(storelib)/store/[creatorSlug]/themes/[installId]/editor/layout.tsx")
 const frame = readCode("components/website-builder/editor-frame.tsx")
 const sheet = readCode("components/website-builder/mobile-editor-sheet.tsx")
 const chat = readCode("components/website-builder/theme-chat.tsx")
-const page = readCode("app/app/website-builder/website-builder-client.tsx")
+const page = readCode("app/(storelib)/app/website-builder/website-builder-client.tsx")
 
 console.log("\nThe editor keeps its scale")
 check("both editor addresses ask for no zoom past the page's own scale", /export const viewport: Viewport = \{ maximumScale: 1 \}/.test(wbLayout) && /export const viewport: Viewport = \{ maximumScale: 1 \}/.test(storeLayout))

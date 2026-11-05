@@ -305,7 +305,7 @@ async function buyByCard(j: Journey, shopId: string, items: { productId: string;
 
 async function renderBuyerPage(token: string): Promise<string> {
   try {
-    const { default: Page } = await import("@/app/checkout/physical/order/[token]/page")
+    const { default: Page } = await import("@/app/(storelib)/checkout/physical/order/[token]/page")
     const { renderToStaticMarkup } = await import("react-dom/server")
     const tree = await Page({ params: Promise.resolve({ token }), searchParams: Promise.resolve({}) })
     return renderToStaticMarkup(tree)

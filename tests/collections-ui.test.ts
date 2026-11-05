@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { howWords, opsFor, valueWords, finishedRules, ruleProduct, picturesOf, countWords } from "@/app/app/products/collections/collection-parts"
+import { howWords, opsFor, valueWords, finishedRules, ruleProduct, picturesOf, countWords } from "@/app/(storelib)/app/products/collections/collection-parts"
 import { inSmartCollection } from "@/lib/physical/collections"
 import { untt } from "./i18n-source"
 
@@ -27,7 +27,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
 
-const DIR = "app/app/products/collections"
+const DIR = "app/(storelib)/app/products/collections"
 const page = read(`${DIR}/page.tsx`)
 const list = read(`${DIR}/collections-client.tsx`)
 const editor = read(`${DIR}/collection-editor.tsx`)
@@ -37,14 +37,14 @@ const ui = [list, editor, parts].join("\n")
 console.log("\nWhere it lives\n")
 {
   check("/app/products/collections has a page, a list and an editor", existsSync(`${DIR}/page.tsx`) && existsSync(`${DIR}/collections-client.tsx`) && existsSync(`${DIR}/collection-editor.tsx`))
-  check("  the old screen is gone", !existsSync("app/app/collections/collections-client.tsx"))
-  const moved = read("app/app/collections/page.tsx")
+  check("  the old screen is gone", !existsSync("app/(storelib)/app/collections/collections-client.tsx"))
+  const moved = read("app/(storelib)/app/collections/page.tsx")
   check("/app/collections redirects there for good", /permanentRedirect\("\/app\/products\/collections"\)/.test(moved) && !/<CollectionsClient/.test(moved))
   check("the sidebar's Collections, under Products, goes there", /\{ href: "\/app\/products\/collections", label: "Collections" \}/.test(read("components/app/sidebar.tsx")))
-  check("  and the products page's Collections button", /<Link href="\/app\/products\/collections" data-products-collections=""/.test(read("app/app/products/products-client.tsx")))
+  check("  and the products page's Collections button", /<Link href="\/app\/products\/collections" data-products-collections=""/.test(read("app/(storelib)/app/products/products-client.tsx")))
   /* October 2026: the empty picker is a small card with the one thing to do (controls/empty-picker.tsx). */
   check("  and the builder's Create a collection", /<EmptyPicker kind="collection" \/>/.test(read("components/website-builder/editor/controls/collection-controls.tsx")) && /"\/app\/products\/collections"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")) && /"Create"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")))
-  check("nothing links to /app/collections any more", ![read("components/app/sidebar.tsx"), read("app/app/products/products-client.tsx"), read("components/website-builder/editor/controls/collection-controls.tsx")].some((s) => /["']\/app\/collections["']/.test(s)))
+  check("nothing links to /app/collections any more", ![read("components/app/sidebar.tsx"), read("app/(storelib)/app/products/products-client.tsx"), read("components/website-builder/editor/controls/collection-controls.tsx")].some((s) => /["']\/app\/collections["']/.test(s)))
   /* Changed on purpose (round BC): Size charts is a list under Products too, beside Collections. */
   check("it is a list, not the product editor: the setup widget and the slow-load spinner treat it like one",
     /\^\\\/app\\\/products\\\/\(\?!\(collections\|size-charts\)\(\\\/\|\$\)\)\[\^\/\]\+/.test(read("components/app/sidebar.tsx"))

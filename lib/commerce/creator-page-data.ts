@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE THREE ROWS A CREATOR PAGE STARTS FROM, FETCHED ONCE
  * ===========================================================================
- * `app/(marketing)/u/[username]/layout.tsx` ran three SEQUENTIAL queries —
+ * `app/(storelib)/(marketing)/u/[username]/layout.tsx` ran three SEQUENTIAL queries —
  * profiles, then creators, then store_builder_configs — and did it for one
  * reason: to pick the colours of the loading skeleton.
  *
@@ -98,7 +98,7 @@ export const loadShopConfig = cache(async (creatorId: string) => {
  * ===========================================================================
  *  THE LAYOUT'S TWO FACTS, HELD FOR EVERY VISITOR
  * ===========================================================================
- * The layout around storelib.com/<name> (app/(marketing)/u/[username]/
+ * The layout around storelib.com/<name> (app/(storelib)/(marketing)/u/[username]/
  * layout.tsx) needs the store whose currency the prices are in and the
  * theme that tints the loading skeleton. It wraps the creator page, but also
  * the OnePage at /<name>/links, which is the page storelib.me/<name> is
@@ -156,7 +156,7 @@ export { cachedCreator, cachedCreatorProfile }
 /**
  * The creator's sign in address, for the one place a page may show it: the
  * Contact link stands in with it when the creator typed no contact address,
- * and only for a visitor who has bought from them (app/(marketing)/u/[username]).
+ * and only for a visitor who has bought from them (app/(storelib)/(marketing)/u/[username]).
  * A private column since run-now part 63, so it is read by the server here
  * and never travels with the profile row.
  */

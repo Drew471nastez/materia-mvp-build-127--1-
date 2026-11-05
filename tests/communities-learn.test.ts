@@ -479,9 +479,9 @@ async function main() {
     check("a full refund is checked against programs", /revokeRefundedProgram\(supabaseAdmin/.test(hook))
     const proxy = code("proxy.ts")
     check("proxy.ts answers the old /classroom addresses with a 308 to /learn", /learnAddressFor\(pathname\)/.test(proxy) && /NextResponse\.redirect\(new URL\(`\$\{learn\}\$\{search\}`, request\.url\), 308\)/.test(proxy))
-    check("the old classroom pages are gone (the 308 answers first)", !existsSync("app/(marketing)/community/[slug]/(member)/classroom/page.tsx"))
+    check("the old classroom pages are gone (the 308 answers first)", !existsSync("app/(storelib)/(marketing)/community/[slug]/(member)/classroom/page.tsx"))
     /* Round 15: both seed the community's shell through PlacePage (it checks the member), and the place loader checks Learn is on. */
-    check("the Learn pages check for themselves", /<PlacePage slug=\{slug\} place=\{\{ kind: "learn" \}\}/.test(code("app/(marketing)/community/[slug]/(member)/learn/page.tsx")) && /place=\{\{ kind: "program", id: programId \}\}/.test(code("app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")) && /case "learn": \{\s*if \(!community\.classroom_enabled\) return off/.test(code("lib/communities/server/places.ts")))
+    check("the Learn pages check for themselves", /<PlacePage slug=\{slug\} place=\{\{ kind: "learn" \}\}/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/learn/page.tsx")) && /place=\{\{ kind: "program", id: programId \}\}/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")) && /case "learn": \{\s*if \(!community\.classroom_enabled\) return off/.test(code("lib/communities/server/places.ts")))
     const client = walk("components/community/learn").filter((f) => /\.tsx?$/.test(f))
     check("the Learn components import no server code", client.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/admin-blog-auth/.test(code(f))), client)
     check("the checkout sheet is Stripe's Embedded Checkout in the shared sheet", /EmbeddedCheckoutProvider/.test(code("components/community/learn/program-checkout.tsx")) && /<SheetDialog/.test(code("components/community/learn/program-checkout.tsx")) && !/window\.location|router\.push\("\/checkout/.test(code("components/community/learn/program-checkout.tsx")))
@@ -516,8 +516,8 @@ async function main() {
       "lib/communities/learn.ts",
       "lib/communities/server/learn.ts",
       "lib/communities/server/learn-checkout.ts",
-      "app/(marketing)/community/[slug]/(member)/learn/page.tsx",
-      "app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/(member)/learn/page.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx",
       "app/api/community/[communityId]/learn/route.ts",
       "app/api/community/[communityId]/learn/[programId]/checkout/route.ts",
       "app/api/community/[communityId]/learn/[programId]/checkout/confirm/route.ts",

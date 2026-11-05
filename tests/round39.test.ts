@@ -273,15 +273,15 @@ function images() {
   check("  no word naming another platform in it (withoutVendorTraces leaves it whole)", !/shopify|liquid/i.test(MISSING_IMAGE_HEAD))
   const theme = raw("lib/storelib-theme/compat/theme.ts")
   check("renderDocument puts it in every imported theme's page, live and on the canvas", /html\.replace\(\/<\\\/head>\/i, `\$\{MISSING_IMAGE_HEAD\}<\/head>`\)/.test(theme) && /<head><meta charset="utf-8">\$\{MISSING_IMAGE_HEAD\}/.test(theme))
-  check("the app mounts the guard once, in the root layout", /<MissingImageGuard \/>/.test(raw("app/layout.tsx")))
+  check("the app mounts the guard once, in the root layout", /<MissingImageGuard \/>/.test(raw("app/(storelib)/layout.tsx")))
   for (const [file, what] of [
     ["components/website-builder/sections/renderers/HeaderSection.tsx", "the mini cart and search"],
     ["components/website-builder/cart-page-body.tsx", "the cart page"],
     ["components/website-builder/theme/cart-notice.tsx", "added to cart"],
     ["components/website-builder/header-search-modal.tsx", "search"],
-    ["app/checkout/site/site-checkout.tsx", "checkout"],
-    ["app/checkout/physical/physical-checkout.tsx", "checkout for shipped goods"],
-    ["app/checkout/site/thanks/[token]/thanks-view.tsx", "the thank you page"],
+    ["app/(storelib)/checkout/site/site-checkout.tsx", "checkout"],
+    ["app/(storelib)/checkout/physical/physical-checkout.tsx", "checkout for shipped goods"],
+    ["app/(storelib)/checkout/site/thanks/[token]/thanks-view.tsx", "the thank you page"],
   ] as const) {
     check(`${what}: a product's picture is ProductImg`, /<ProductImg src=/.test(raw(file)))
   }
@@ -334,13 +334,13 @@ function connect() {
   check("Your own database starts no connect while it is Coming soon", !/startConnect/.test(raw("components/website-builder/website-settings/own-database.tsx")))
   check("both app link listeners finish a connect first", /if \(url && finishConnect\(url\)\) return/.test(raw("components/platform/app-link-opener.tsx")) && /if \(finishConnect\(url\)\) return/.test(raw("lib/native-oauth.ts")))
   check("  and a connect is never taken for a sign in", /if \(!isOAuthCallback\(rawUrl\) \|\| connectReturnPath\(rawUrl\)\)/.test(raw("lib/native-oauth.ts")))
-  const page = raw("app/auth/connect-return/page.tsx")
+  const page = raw("app/(storelib)/auth/connect-return/page.tsx")
   check("the hand back page: only a safe address, a button a person can tap, not indexed", /safeReturnPath\(/.test(page) && /data-connect-return-go/.test(page) && /index: false/.test(page))
 }
 
 function copy() {
   console.log("\nCopy")
-  for (const f of ["lib/files/keep.ts", "components/files/files-library.tsx", "lib/media/missing-image.ts", "components/media/missing-image.tsx", "lib/native-connect.ts", "lib/connect/app-return.ts", "app/auth/connect-return/page.tsx", "supabase/sql/run-now/280_files_keep_what_is_used.sql"]) {
+  for (const f of ["lib/files/keep.ts", "components/files/files-library.tsx", "lib/media/missing-image.ts", "components/media/missing-image.tsx", "lib/native-connect.ts", "lib/connect/app-return.ts", "app/(storelib)/auth/connect-return/page.tsx", "supabase/sql/run-now/280_files_keep_what_is_used.sql"]) {
     const text = raw(f)
     check(`${f}: no em dash`, !text.includes("—"))
     check(`${f}: no banned word`, !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(text))

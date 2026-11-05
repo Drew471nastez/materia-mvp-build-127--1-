@@ -2,7 +2,7 @@
  * ===========================================================================
  *  IMPORT FROM GUMROAD, MEASURED
  * ===========================================================================
- * The import page (app/app/products/import/gumroad, drawn by
+ * The import page (app/(storelib)/app/products/import/gumroad, drawn by
  * scripts/render-gumroad-import.tsx) in headless Chromium at 390x844 and
  * 1280x800, through its four screens with a fake API answered in the page:
  *

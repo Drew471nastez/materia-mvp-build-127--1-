@@ -43,7 +43,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 function main() {
-  const client = read("app/app/analytics/analytics-client.tsx")
+  const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
   const chart = read("components/app/analytics-chart.tsx")
   const css = read("app/globals.css")
   const probe = read("scripts/check-chart-skeleton.mjs")

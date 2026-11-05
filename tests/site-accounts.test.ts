@@ -464,7 +464,7 @@ async function main() {
 
     const accounts = ["lib/site-accounts/sign-in.ts", "lib/site-accounts/codes.ts", "lib/site-accounts/customers.ts", "lib/site-accounts/token.ts", "lib/site-accounts/session.ts", "app/api/site-account/code/route.ts", "app/api/site-account/verify/route.ts", "app/api/site-account/profile/route.ts", "app/api/site-account/wishlist/route.ts", "app/api/site-account/start/route.ts"].map(code).join("\n")
     check("NO STORELIB LOGIN IS EVER MADE: no Supabase user, sign up, session or creator row anywhere in it", !/auth\.admin|createUser|signUp|signInWith|setSession|verifyOtp|\.from\("creators"\)|\.from\("profiles"\)|\.from\("wishlist_items"\)/.test(accounts))
-    check("the storelib.com consent page and the code exchange are gone", !readdirSync(join(process.cwd(), "app/api/site-account")).includes("exchange") && !readdirSync(join(process.cwd(), "app/account")).includes("site"))
+    check("the storelib.com consent page and the code exchange are gone", !readdirSync(join(process.cwd(), "app/api/site-account")).includes("exchange") && !readdirSync(join(process.cwd(), "app/(storelib)/account")).includes("site"))
     check("the old Sign in address still lands on the website's sign in page", /new URL\("\/account\/login", originOf\(host\)\)/.test(code("app/api/site-account/start/route.ts")))
     const login = code("app/(site)/w/[username]/account/login/page.tsx")
     check("the sign in page shows the code step while this browser waits on one, and sends a signed in customer on", /pendingSignIn\(creatorId\)/.test(login) && /if \(visitor\) redirect\(back\)/.test(login))

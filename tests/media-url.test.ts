@@ -105,7 +105,7 @@ async function run() {
   check("server checks read either form: avatar, cover, rich text, downloads",
     /toStorageUrl\(url\)\.startsWith/.test(read("app/api/account/avatar/route.ts")) && /\/media\/covers\//.test(read("lib/profile/cover.ts")) &&
       /pathname\.startsWith\("\/media\/"\)/.test(read("lib/rich-text/policy.ts")) && /normalizedPath = toStorageUrl\(normalizedPath\)/.test(read("lib/storage/download.ts")))
-  const pages = ["components/marketing/hero.tsx", "components/billing/plan-cards.tsx", "app/(auth)/login/page.tsx", "components/onepage/tabs/design-tab.tsx", "app/(marketing)/layout.tsx"]
+  const pages = ["components/marketing/hero.tsx", "components/billing/plan-cards.tsx", "app/(storelib)/(auth)/login/page.tsx", "components/onepage/tabs/design-tab.tsx", "app/(storelib)/(marketing)/layout.tsx"]
   check("no page names the storage host", pages.every((f) => !/supabase\.co/.test(read(f))), pages.filter((f) => /supabase\.co/.test(read(f))))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

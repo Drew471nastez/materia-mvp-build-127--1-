@@ -44,7 +44,7 @@ const code = (p: string) => src(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s
 
 const PICKER = "components/website-builder/editor/block-picker.tsx"
 const ROWS = "components/website-builder/editor/block-tree-rows.tsx"
-const EDITOR = "app/website-builder/editor/[installId]/page.tsx"
+const EDITOR = "app/(storelib)/website-builder/editor/[installId]/page.tsx"
 
 function main() {
   console.log("\nThe block as Add block makes it, in the section it goes into")

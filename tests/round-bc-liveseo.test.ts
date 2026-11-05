@@ -218,7 +218,8 @@ console.log("\nOn a phone, the next page is fetched before the tap (lib/storelib
     check("never the cart, checkout, account, the API, another site, a new tab, nofollow or data-no-prefetch", /cart\|checkout\|account\|api/.test(TOUCH_PREFETCH_STARTER) && /u\.origin!==location\.origin/.test(TOUCH_PREFETCH_STARTER) && /\[rel~=nofollow\],\[data-no-prefetch\]/.test(TOUCH_PREFETCH_STARTER) && /a\.target==="_blank"/.test(TOUCH_PREFETCH_STARTER))
     check("started after the page has loaded and gone idle", /addEventListener\("load",later/.test(TOUCH_PREFETCH_STARTER) && /requestIdleCallback/.test(TOUCH_PREFETCH_STARTER))
     const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-    check("the live route adds it to a page opened as a document, beside the desktop prerender", /if \(!runsThirdPartyScripts\(html\)\) html = withDesktopPrerender\(html\)\n[^\n]*\n\s+html = withTouchPrefetch\(html\)/.test(route))
+    /* Changed on purpose (r52): a page that runs nobody else's script is also drawn ahead on a capable phone (tests/site-root-r52.test.ts). */
+    check("the live route adds it to a page opened as a document, beside the desktop prerender", /const ownScriptsOnly = !runsThirdPartyScripts\(html\)\n\s+if \(ownScriptsOnly\) html = withDesktopPrerender\(html\)\n[^\n]*\n\s+html = withTouchPrefetch\(html, \{ prerender: ownScriptsOnly \}\)/.test(route))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

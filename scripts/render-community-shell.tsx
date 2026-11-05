@@ -628,7 +628,7 @@ function Screen() {
       </CommunityPublicFrame>
     )
   }
-  /* &pull=1: the feed as its page draws it, inside the pull to refresh (app/(marketing)/community/[slug]/page.tsx). */
+  /* &pull=1: the feed as its page draws it, inside the pull to refresh (app/(storelib)/(marketing)/community/[slug]/page.tsx). */
   if (params.get("pull") === "1") return shell(<PullToRefreshEvent scope="community-feed">{feed(null)}</PullToRefreshEvent>)
   return shell(feed(null))
 }
@@ -651,7 +651,7 @@ const root = createRoot(document.getElementById("app")!)
 function ExploreStandIn() {
   return (
     <div className="explore-ground min-h-svh bg-[#f8f9fa]" data-probe-explore="">
-      {/* Round 31: Explore's own leaving copy (app/(marketing)/explore/page.tsx). */}
+      {/* Round 31: Explore's own leaving copy (app/(storelib)/(marketing)/explore/page.tsx). */}
       <LeaveCopy surface=".explore-ground" />
       <div className="mx-auto max-w-[1200px] px-4 py-6">
         <h1 className="text-[24px] font-bold text-[#1a1a2e]">Explore</h1>

@@ -194,7 +194,7 @@ async function main() {
     check("the control: the picture in the picker and the title as the placeholder while it follows", /kind === "image_picker"\s*\? \{ field, value: state\.fromCollection \}/.test(control) && /placeholder: state\.fromCollection \|\| field\.placeholder/.test(control))
     check("  Reset to collection empties the setting, nothing else", /onClick=\{\(\) => onChange\(""\)\}>[\s\S]{0,40}Reset to collection/.test(control))
     check("  in plain words, no em dash", !/—/.test(control.replace(/\/\*[\s\S]*?\*\//g, "")))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("every setting the sidebar draws goes through it", /<CollectionBoundField field=\{props\.field\} value=\{props\.value\} onChange=\{props\.onChange\}>/.test(editor))
     check("  with each collection's words and address beside its picture", /collections: builderCollections \? builderCollections\.choices\.map\(\(c\) => \(\{ \.\.\.c, description: builderCollections\.cards\[c\.id\]\?\.description/.test(editor))
   }

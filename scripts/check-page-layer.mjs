@@ -11,7 +11,7 @@
  *
  * The plans page and the product editor (new and saved) through their real
  * layouts (components/app/page-layer.tsx), in a shell shaped like
- * app/app/layout.tsx (scripts/render-page-layer.tsx), with a real safe-area
+ * app/(storelib)/app/layout.tsx (scripts/render-page-layer.tsx), with a real safe-area
  * inset: Chromium's own override, so env(safe-area-inset-top) is 47px and
  * env(safe-area-inset-bottom) 34px, as on an iPhone with a Dynamic Island.
  *

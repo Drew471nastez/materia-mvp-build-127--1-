@@ -188,7 +188,7 @@ async function main() {
 
   out("\nThe editor's open and its Publish")
   {
-    const editor = src("app/website-builder/editor/[installId]/page.tsx")
+    const editor = src("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const load = editor.slice(editor.indexOf("const loadData = useCallback"), editor.indexOf("NEVER A LOADER WITH NOTHING TO PRESS"))
     check("the website's read and the pages' reads are hedged", /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}`/.test(load) && /hedged\(\(\) => fetchSignedIn\(\(\) => fetchWithin\(url, \{\}, SECTIONS_WAIT_MS\)\), HEDGE_MS\)/.test(editor))
     check("the newest open wins: an older one's answer changes nothing", /const epoch = quiet \? openEpoch\.current : \+\+openEpoch\.current/.test(load) && (load.match(/if \(stale\(\)\) return false/g) ?? []).length >= 4 && /if \(!stale\(\)\) setLoading\(false\)/.test(load))
@@ -208,7 +208,7 @@ async function main() {
     const list = route.slice(route.indexOf("// List all custom files if no path"), route.indexOf("EVERY SAVE OF THIS FILE"))
     check("read a thousand at a time, in order, until the last", /\.order\("path"\)\s*\.range\(from, from \+ 999\)/.test(list) && /if \(rows\.length < 1000\) break/.test(list))
     check("a database that blinked is a 503, never an empty list", /return dbFailure\(listErr,/.test(list))
-    const code = src("app/website-builder/code/[installId]/page.tsx")
+    const code = src("app/(storelib)/website-builder/code/[installId]/page.tsx")
     const load = code.slice(code.indexOf("const loadInstall = useCallback"), code.indexOf("useEffect(() => { loadInstall() }"))
     check("the list is read signed in and asked again on a 5xx", /retrying\(async \(\) => \{\s*const r = await fetchSignedIn\(\(\) => fetchWithDeadline\(`\/api\/website-builder\/themes\/\$\{installId\}\/files`/.test(load))
     check("a list that could not be had is said, with Try again, not drawn as the default theme alone", /toast\.error\("Couldn't list the website's files"/.test(load) && !/\} else \{\s*setFileTree\(buildThemeFileTree\(\[\]\)\)\s*\}/.test(load))
@@ -216,7 +216,7 @@ async function main() {
 
   out("\nThe notice after Publish is clear of the bar (round 51)")
   {
-    const editor = src("app/website-builder/editor/[installId]/page.tsx")
+    const editor = src("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const bar = editor.slice(editor.indexOf("UNDER THE BAR, NEVER ON IT"), editor.indexOf("{notification?.message}"))
     check("on a phone it drops in under the bar, by the bar's own height", /isMobileView \? "top-\[calc\(var\(--wb-chrome-top,48px\)\+8px\)\]" : "bottom-6"/.test(bar))
     check("it moves by translate and opacity only", /transition-\[translate,opacity\]/.test(bar) && !/transition-all/.test(bar))

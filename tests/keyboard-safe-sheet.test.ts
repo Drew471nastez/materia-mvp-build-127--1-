@@ -130,7 +130,7 @@ function main() {
   check("and clears it on unmount", /removeProperty\("--kb-inset"\)/.test(vars))
   check(
     "the pre-paint bootstrap sets it too",
-    /--kb-inset/.test(read("app/layout.tsx")),
+    /--kb-inset/.test(read("app/(storelib)/layout.tsx")),
     "otherwise the first frame of a sheet is positioned against a variable that does not exist yet",
   )
 
@@ -343,7 +343,7 @@ function main() {
      one is pinned by name just below, so it is not lost from this list.
      Three since the buyer's settings page folded into /account, which scrolls
      with the document and leaves the keyboard to KeyboardGuard. */
-  check("every file that works out a keyboard height was found", scanned.length >= 3 && !scanned.includes("app/app/products/new/product-editor.tsx"), `${scanned.length} found`)
+  check("every file that works out a keyboard height was found", scanned.length >= 3 && !scanned.includes("app/(storelib)/app/products/new/product-editor.tsx"), `${scanned.length} found`)
   /* The builder's sheet takes the published floor through `keyboardFor`
      (sheet-gestures.ts), which refuses a toolbar's worth and a pinch as a
      keyboard: tests/sheet-reserve.test.ts drives it. */
@@ -371,7 +371,7 @@ function main() {
     "bottom-sheet.tsx: the product form's sheet sits on the keyboard through the published inset",
     /\.\.\.\(aboveKeyboard \? sheetOverKeyboard\(maxHeight, height\) : \{ \.\.\.sheetFoot\(\), maxHeight, height \}\)/.test(read("components/ui/bottom-sheet.tsx"))
       && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("lib/ui/keyboard-safe-sheet.ts"))
-      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard keepMounted=\{kept\}>/.test(read("app/app/products/new/product-editor.tsx")),
+      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard keepMounted=\{kept\}>/.test(read("app/(storelib)/app/products/new/product-editor.tsx")),
   )
   /* The guard's own height variable has to follow the same number, or the
      class says a keyboard is up and the height says the screen is empty. */
@@ -454,7 +454,7 @@ function main() {
     ...walk("components/onepage"),
     ...walk("components/website-builder"),
     ...walk("components/store-builder"),
-    ...walk("app/app/products/new"),
+    ...walk("app/(storelib)/app/products/new"),
   ]
   for (const file of files) {
     const src = read(file)
@@ -520,9 +520,9 @@ function main() {
      used the helper; it is the shared sheet now, which sits on the keyboard
      through the published inset when asked (aboveKeyboard). The exit dialog
      is the shared sheet too (./confirm-sheet.tsx), with nothing typed into it. */
-  const picker = read("app/app/products/new/category-picker.tsx")
+  const picker = read("app/(storelib)/app/products/new/category-picker.tsx")
   check("category-picker.tsx: the typed-into sheet is the shared one, on the keyboard",
-    /<BottomSheet[\s\S]{0,200}aboveKeyboard/.test(picker) && !read("app/app/products/new/product-editor.tsx").includes("sheetAboveKeyboard("))
+    /<BottomSheet[\s\S]{0,200}aboveKeyboard/.test(picker) && !read("app/(storelib)/app/products/new/product-editor.tsx").includes("sheetAboveKeyboard("))
 
   /*
     ═════════════════════════════════════════════════════════════════════════

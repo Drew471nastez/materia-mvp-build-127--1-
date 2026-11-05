@@ -64,8 +64,8 @@ async function main() {
   /** What is handed to <ProfileActivity>, with the rest of the file left out. */
   const activityCall = (path: string) => (readCode(path).match(/<ProfileActivity[\s\S]*?\/>/) ?? [""])[0]
   check("a profile hands the list no join date", !!activityCall("components/profile/member-profile-page.tsx") && !/joinedAt/.test(activityCall("components/profile/member-profile-page.tsx")))
-  check("and neither does /account", !!activityCall("app/account/page.tsx") && !/joinedAt/.test(activityCall("app/account/page.tsx")))
-  check("the day they joined is handed to About instead, on both", /<PersonAbout[\s\S]*?joinedAt=\{profile\.joinedAt\}/.test(readCode("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(readCode("app/account/page.tsx")))
+  check("and neither does /account", !!activityCall("app/(storelib)/account/page.tsx") && !/joinedAt/.test(activityCall("app/(storelib)/account/page.tsx")))
+  check("the day they joined is handed to About instead, on both", /<PersonAbout[\s\S]*?joinedAt=\{profile\.joinedAt\}/.test(readCode("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(readCode("app/(storelib)/account/page.tsx")))
   check("'Joined <community>' is still a kind the list draws", /joined: "Joined"/.test(activity))
   check("nothing with the list open still imports the sparkle the row used", !/Sparkles/.test(activity))
 
@@ -97,7 +97,7 @@ async function main() {
   check("their own line sits beside the facts", /data-person-about-bio/.test(about))
   check("it never repeats the follower counts the header already shows", !/followers|following/i.test(readCode("components/profile/person-about.tsx")))
   check("/@handle hands it the bio and where they are from", /bio=\{profile\.bio\}/.test(member) && /location=\{extras\.location \?\? null\}/.test(member))
-  check("/account streams its own About inside Suspense", here("components/profile/account-about.tsx") && /<Suspense fallback=\{null\}>\s*\{AccountAbout\(/.test(readCode("app/account/page.tsx")))
+  check("/account streams its own About inside Suspense", here("components/profile/account-about.tsx") && /<Suspense fallback=\{null\}>\s*\{AccountAbout\(/.test(readCode("app/(storelib)/account/page.tsx")))
   const accountAbout = readCode("components/profile/account-about.tsx")
   check("  which reads the day, the place, the line and the count", /joinedAt=\{joinedAt\}/.test(accountAbout) && /readProfileLocation/.test(accountAbout) && /readBio/.test(accountAbout) && /profileCommunities/.test(accountAbout))
   check("  and drops a row it could not read rather than failing the page", /\.catch\(\(\) => null\)/.test(accountAbout) && /\.catch\(\(\) => \(\{ owned: \[\], member: \[\] \}\)\)/.test(accountAbout))
@@ -123,7 +123,7 @@ async function main() {
   check("the track takes no touches, the button does", /pointer-events-none absolute inset-x-0 bottom-1/.test(hero) && /<EditProfileDoor/.test(hero) && /pointer-events-auto relative min-h-\[44px\]/.test(door))
   check("the full label wherever it fits, a short one only on a narrow phone", /<span className="min-\[390px\]:hidden">Edit<\/span>/.test(door) && /<span className="hidden min-\[390px\]:inline">Edit profile<\/span>/.test(door) && /aria-label="Edit profile"/.test(door))
   check("and it is still called Edit profile to a screen reader", /aria-label="Edit profile"/.test(door))
-  check("the page it sits in clips sideways without becoming a scroll box", /overflow-x-clip/.test(readCode("app/account/layout.tsx")) && !/overflow-x-hidden/.test(readCode("app/account/layout.tsx")))
+  check("the page it sits in clips sideways without becoming a scroll box", /overflow-x-clip/.test(readCode("app/(storelib)/account/layout.tsx")) && !/overflow-x-hidden/.test(readCode("app/(storelib)/account/layout.tsx")))
 
   /* ── 4. The photo ─────────────────────────────────────────────────────── */
   console.log("\nThe photo sits on the cover rather than lying flat on it")
@@ -144,7 +144,7 @@ async function main() {
   check("  by reading its first page again, with no cursor", /new URLSearchParams\(\{ userId \}\)/.test(activity))
   check("  and the ring waits for it", /detail\.done = first\.current\(\)/.test(activity))
   check("  an answer that is not a page leaves the list alone", /if \(!Array\.isArray\(data\.items\)\) return/.test(activity))
-  check("both pages name the scope they dispatch", /refreshScope=\{ACCOUNT_REFRESH_SCOPE\}/.test(readCode("app/account/page.tsx")) && /refreshScope=\{MEMBER_REFRESH_SCOPE\}/.test(readCode("components/profile/member-profile-page.tsx")))
+  check("both pages name the scope they dispatch", /refreshScope=\{ACCOUNT_REFRESH_SCOPE\}/.test(readCode("app/(storelib)/account/page.tsx")) && /refreshScope=\{MEMBER_REFRESH_SCOPE\}/.test(readCode("components/profile/member-profile-page.tsx")))
   check("reduced motion, a sideways swipe and a scrolled page are the engine's own business", /prefers-reduced-motion/.test(readSource("hooks/use-pull-to-refresh.ts")) && /axisFirst/.test(readSource("components/ui/pull-to-refresh.tsx")))
 
   /* ── 6. Copy ──────────────────────────────────────────────────────────── */
@@ -160,8 +160,8 @@ async function main() {
     "components/account/account-hub.tsx",
     "lib/profile/person-facts.ts",
     "lib/profile/refresh-scope.ts",
-    "app/account/page.tsx",
-    "app/account/layout.tsx",
+    "app/(storelib)/account/page.tsx",
+    "app/(storelib)/account/layout.tsx",
   ].filter(here)) {
     const src = readSource(f)
     check(`${f}: no em dash, no banned word`, !src.includes("—") && !banned.test(src), src.match(banned)?.[0])

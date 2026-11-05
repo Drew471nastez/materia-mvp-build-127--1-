@@ -2,7 +2,7 @@
  * The real product editor, for scripts/check-product-save-r12.mjs.
  *
  * The rows come from /__probe/loaded, which the probe answers from its
- * stand-in database, the way the server page (app/app/products/load-editor)
+ * stand-in database, the way the server page (app/(storelib)/app/products/load-editor)
  * hands them to the editor. So a reload after a Save draws what the save
  * wrote, and the probe can say whether it stayed.
  *
@@ -11,8 +11,8 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 
 async function main() {

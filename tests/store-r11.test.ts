@@ -80,11 +80,11 @@ async function main() {
 
   console.log("\nNo checkout pins Buy to the foot of the screen")
   {
-    const ui = code("app/checkout/parts/ui.tsx")
+    const ui = code("app/(storelib)/checkout/parts/ui.tsx")
     const dock = ui.slice(ui.indexOf("export function PayDock"), ui.indexOf("export function PayButton"))
     check("Pay's box is a plain block at the end of the form", dock.length > 0 && !/\bsticky\b|\bfixed\b|bottom-0|safe-area/.test(dock) && /data-pay-dock=""/.test(dock) && /"mt-5"/.test(dock))
     const files = [
-      ...walk("app/checkout"),
+      ...walk("app/(storelib)/checkout"),
       ...walk("components/checkout"),
       "components/community/public/join-flow.tsx",
       "components/community/public/compact-pay.tsx",
@@ -93,10 +93,10 @@ async function main() {
     const offenders = files.filter((f) => pinnedBottom.test(code(f)))
     check("no checkout page or checkout window has a fixed or sticky bar at the bottom", offenders.length === 0, offenders)
     check("and no inline style pins one either", files.filter((f) => /position:\s*["']?(?:fixed|sticky)["']?[^}]*bottom:/.test(code(f))).length === 0)
-    for (const f of ["app/checkout/checkout-client.tsx", "app/checkout/site/site-checkout.tsx", "app/checkout/membership-checkout.tsx", "app/checkout/physical/physical-checkout.tsx"]) {
+    for (const f of ["app/(storelib)/checkout/checkout-client.tsx", "app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/membership-checkout.tsx", "app/(storelib)/checkout/physical/physical-checkout.tsx"]) {
       check(`${f}: the page keeps the home indicator's room itself`, /pb-\[max\([^)]*env\(safe-area-inset-bottom\)\)\]/.test(code(f)))
     }
-    for (const f of ["app/checkout/checkout-client.tsx", "app/checkout/site/site-checkout.tsx", "app/checkout/membership-checkout.tsx", "app/checkout/parts/stripe-pay.tsx"]) {
+    for (const f of ["app/(storelib)/checkout/checkout-client.tsx", "app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/membership-checkout.tsx", "app/(storelib)/checkout/parts/stripe-pay.tsx"]) {
       check(`${f}: Pay goes through the one shared box`, /<PayDock\b/.test(code(f)))
     }
     check("the round 21 probe now asks for Pay in place, not pinned", /IN PLACE: Pay is not pinned/.test(src("scripts/check-checkout-paydock.mjs")) && !/position === "sticky"/.test(src("scripts/check-checkout-paydock.mjs")))

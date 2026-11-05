@@ -182,8 +182,8 @@ async function main() {
     const withCover = previewImages(facts, false)
     check("with a cover: the cover, 1200 by 630 JPEG, for Open Graph and X alike", JSON.stringify(withCover?.twitter) === JSON.stringify([shareCoverUrl("clay", "v1")]) && shareCoverUrl("clay", "v1") === "https://storelib.com/community/clay/cover.jpg?v=v1" && (withCover?.og as { type?: string }[])[0].type === "image/jpeg")
     check("without one: the drawn card (with the invite's words on an invite)", (communityMetadata({ ...facts, coverUrl: null }).openGraph as { images: { url: string }[] }).images[0].url.endsWith("/share.png?v=v1") && (inviteMetadata({ ...facts, coverUrl: null }).openGraph as { images: { url: string }[] }).images[0].url.endsWith("share.png?v=v1&invite=1"))
-    const route = code("app/(marketing)/community/[slug]/cover.jpg/route.ts")
-    check("cover.jpg: the switch first, nothing for a draft or a suspended one, the drawn card when the cover cannot be read", existsSync("app/(marketing)/community/[slug]/cover.jpg/route.ts") && route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route) && /if \(!base64\) return drawnCard\(request, community\.slug\)/.test(route) && /for \(const source of coverSources\(community\.cover_url\)\)/.test(route) && /sharePicture\(source, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg"\)/.test(route))
+    const route = code("app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts")
+    check("cover.jpg: the switch first, nothing for a draft or a suspended one, the drawn card when the cover cannot be read", existsSync("app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts") && route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route) && /if \(!base64\) return drawnCard\(request, community\.slug\)/.test(route) && /for \(const source of coverSources\(community\.cover_url\)\)/.test(route) && /sharePicture\(source, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg"\)/.test(route))
   }
 
   /* ── The About page and the join ─────────────────────────────────────── */
@@ -224,7 +224,7 @@ async function main() {
     const page = code("components/community/public/sales-page.tsx")
     /* Changed on purpose (round 26, the owner): no Membership block on the page; the price and the way in are the card's and the button's. */
     check("the sheet: no Membership block, who runs it, no Learn list", !/<PricingCard /.test(page) && !/<ClassroomPreview /.test(page) && /<CreatorBlock creator=\{c\.creator\} bio=\{extras\?\.creatorBio \?\? null\}/.test(page))
-    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /* Changed on purpose (round AH: the reads start together). */ /const \[extras, askWhy(, origin)?\] = await Promise\.all\(\[aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(marketing)/community/[slug]/${f}`))))
+    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /* Changed on purpose (round AH: the reads start together). */ /const \[extras, askWhy(, origin)?\] = await Promise\.all\(\[aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(storelib)/(marketing)/community/[slug]/${f}`))))
   }
 
   /* ── Copy ────────────────────────────────────────────────────────────── */
@@ -244,7 +244,7 @@ async function main() {
       "components/community/public/seo.ts",
       "lib/communities/server/about.ts",
       "lib/communities/server/search.ts",
-      "app/(marketing)/community/[slug]/cover.jpg/route.ts",
+      "app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts",
       "scripts/check-community-about.mjs",
       "scripts/render-community-about.tsx",
       "scripts/check-community-frame10.mjs",

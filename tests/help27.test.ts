@@ -223,7 +223,7 @@ async function main() {
     check("the website's host serves /order-help (before its pages and an imported theme get the path)", sub > 0 && sub < proxy.indexOf("compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request)))"))
     check("  an imported theme never answers it", /if \(pathname\.startsWith\("\/order-help\/"\)\) return false/.test(proxy))
     check("  a connected domain lets it through as a platform path", /"\/order-help",/.test(proxy))
-    check("links already sent on storelib.com keep working: the page is the same route", /export default async function OrderHelpPage/.test(read("app/order-help/[id]/page.tsx")))
+    check("links already sent on storelib.com keep working: the page is the same route", /export default async function OrderHelpPage/.test(read("app/(storelib)/order-help/[id]/page.tsx")))
     check("the order page's help panel opens the case on the host it is on", /samePage\(sent\?\.link \|\| openCase\?\.link \|\| null\)/.test(read("components/support/order-help.tsx")))
   }
 
@@ -273,21 +273,21 @@ async function main() {
   /* ─────────────────────────── 5. the pages ────────────────────────────── */
   section("The pages")
   {
-    const view = read("app/order-help/[id]/case-view.tsx")
+    const view = read("app/(storelib)/order-help/[id]/case-view.tsx")
     check("the buyer's page is live (channel and polling) and reads only what is new", /useCaseLive\(\{ topic: live \?\? null, refresh \}\)/.test(view) && /&after=\$\{after\}/.test(view))
     check("  a way back to the order tracking page, at the top and beside the order", /data-case-back=""/.test(view) && /data-case-order-link=""/.test(view))
     check("  a reading width on a large screen, a side column from 1024 px, one column on a phone", /max-w-\[1120px\]/.test(view) && /lg:grid-cols-\[minmax\(0,1fr\)_320px\]/.test(view))
     check("  Ask Storelib is a quiet link beside the order, only when the rule allows", /escalation\.can \?/.test(view) && /data-case-ask-storelib=""/.test(view) && /<aside/.test(view))
-    check("  in the buyer's language, through the checkout's words", /useCt\(\)/.test(view) && /<CheckoutWords lang=\{language\.lang\}/.test(read("app/order-help/[id]/page.tsx")))
+    check("  in the buyer's language, through the checkout's words", /useCt\(\)/.test(view) && /<CheckoutWords lang=\{language\.lang\}/.test(read("app/(storelib)/order-help/[id]/page.tsx")))
     check("  messages grouped by day, photos in a viewer", /dayLabel\(m\.createdAt\)/.test(view) && /<CasePhotoStrip photos=\{m\.photos\} dark=\{mine\} ct=\{ct\} \/>/.test(view))
     const photos = read("components/support/case-photos.tsx")
     check("the photo viewer: over the page, Escape and arrows, the original a link away", /role="dialog"/.test(photos) && /e\.key === "Escape"/.test(photos) && /ArrowRight/.test(photos) && /createPortal/.test(photos))
-    const store = read("app/app/support/buyer-cases.tsx")
+    const store = read("app/(storelib)/app/support/buyer-cases.tsx")
     check("the store's thread is live, with the day to answer by", /useCaseLive\(\{ topic: live, refresh, enabled: c !== null \}\)/.test(store) && /data-case-answer-by=/.test(store))
-    check("the support list reads itself again while it is in view", /useVisibleInterval\(loadCases, 60_000/.test(read("app/app/support/support-client.tsx")))
-    const admin = read("app/admin/resolution/buyer-cases.tsx")
+    check("the support list reads itself again while it is in view", /useVisibleInterval\(loadCases, 60_000/.test(read("app/(storelib)/app/support/support-client.tsx")))
+    const admin = read("app/(storelib)/admin/resolution/buyer-cases.tsx")
     check("Storelib: live thread, the order beside it, search, a list that keeps up", /useCaseLive\(\{ topic: live, refresh/.test(admin) && /data-admin-case-order=""/.test(admin) && /<SearchField/.test(admin) && /useVisibleInterval\(/.test(admin))
-    check("  the waiting count shows on the tab before it is opened", /How many buyer cases wait on Storelib/.test(read("app/admin/resolution/resolution-center.tsx")))
+    check("  the waiting count shows on the tab before it is opened", /How many buyer cases wait on Storelib/.test(read("app/(storelib)/admin/resolution/resolution-center.tsx")))
     for (const [route, fn] of [["app/api/order-help/[id]/route.ts", "getCaseUpdatesForBuyer"], ["app/api/store/cases/[id]/route.ts", "readAfter"], ["app/api/admin/cases/[id]/route.ts", "readAfter"]] as const) check(`${route} takes ?after=`, read(route).includes(fn))
   }
 
@@ -303,7 +303,7 @@ async function main() {
       const cat = (await import(`../lib/i18n/catalog/${code}`)).default as Record<string, string>
       check(`dashboard words in ${code}`, ["Sent. The buyer sees it now and by email.", "Answer by {date}. After that the buyer can ask Storelib to step in.", "The buyer can now ask Storelib to step in. Answer here to keep it between you.", "Previous photo", "Next photo", "Open the original"].every((s) => !!cat[s] && (!s.includes("{date}") || cat[s].includes("{date}"))))
     }
-    const files = ["app/order-help/[id]/case-view.tsx", "app/order-help/[id]/page.tsx", "lib/support/cases.ts", "lib/support/cases-server.ts", "lib/support/case-live-server.ts", "lib/support/use-case-live.ts", "app/app/support/buyer-cases.tsx", "app/admin/resolution/buyer-cases.tsx", "components/support/case-photos.tsx", "tests/help27.test.ts"]
+    const files = ["app/(storelib)/order-help/[id]/case-view.tsx", "app/(storelib)/order-help/[id]/page.tsx", "lib/support/cases.ts", "lib/support/cases-server.ts", "lib/support/case-live-server.ts", "lib/support/use-case-live.ts", "app/(storelib)/app/support/buyer-cases.tsx", "app/(storelib)/admin/resolution/buyer-cases.tsx", "components/support/case-photos.tsx", "tests/help27.test.ts"]
     const banned = new RegExp(`${String.fromCharCode(0x2014)}|\\b(${["un" + "lock", "ele" + "vate", "seam" + "less", "power" + "ful", "effort" + "less", "super" + "charge", "trans" + "form"].join("|")})`, "i")
     check("no em dash and none of the banned words", files.every((f) => !banned.test(read(f))), files.filter((f) => banned.test(read(f))))
     check("no gradient on these pages", files.every((f) => f.startsWith("tests/") || !/linear-gradient|bg-gradient/.test(read(f))))

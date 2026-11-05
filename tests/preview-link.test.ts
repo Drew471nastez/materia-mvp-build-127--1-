@@ -101,7 +101,7 @@ function main() {
      * draft fallback, the preview token, noindex on a preview — belong to /w
      * and the product page; the apex route must carry none of that data path.
      */
-    const seller = read("app/(marketing)/[sellername]/page.tsx")
+    const seller = read("app/(storelib)/(marketing)/[sellername]/page.tsx")
     // Both /w routes hand their work to this one file, so the website's
     // rules live here rather than in either route.
     const w = read("app/(site)/w/[username]/render-site.tsx")
@@ -140,7 +140,7 @@ function main() {
    */
   {
     const panel = read("components/website-builder/publish-panel.tsx")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
     check("the dead parameter is gone from the button", !/href=\{`\$\{websiteUrl\}[^`]*builder_preview/.test(panel) && !/builder_preview=1&show_preview_bar=1/.test(panel) && !/builder_preview/.test(editor))
     check("Preview goes through the token endpoint", /themes\/\$\{installId\}\/preview`, \{\s*\n\s*method: "POST"/.test(panel))
@@ -185,7 +185,7 @@ function main() {
     const writesSlug = /slug:\s/.test(form)
     check("editing a product does not rewrite its slug", !writesSlug, "if this fails, that change needs to leave a redirect behind")
 
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("and a page's key is set once, when it is created", /const pageKey = toPageSlug\(newPageTitle\)/.test(editor) && !/page_key:\s*renamed/.test(editor))
   }
 

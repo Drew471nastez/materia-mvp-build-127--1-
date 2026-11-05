@@ -12,7 +12,7 @@ import { createElement } from "react"
 import { createRoot } from "react-dom/client"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { THEME_INSTALL_LIMIT } from "@/lib/website-builder/theme-registry"
 
 const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString()

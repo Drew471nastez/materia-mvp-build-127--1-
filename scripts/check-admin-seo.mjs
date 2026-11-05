@@ -2,7 +2,7 @@
  * ===========================================================================
  *  /admin/seo, RENDERED AND MEASURED
  * ===========================================================================
- * The real client component (app/admin/seo/seo-admin.tsx) with stubbed
+ * The real client component (app/(storelib)/admin/seo/seo-admin.tsx) with stubbed
  * console data, in headless Chromium, with the app's own stylesheet
  * (scripts/probe-css.mjs). Two scenarios:
  *
@@ -137,7 +137,7 @@ export const useSearchParams = () => new URLSearchParams("")
 `)
   writeFileSync(join(stubs, "entry.tsx"), `import React from "react"
 import { createRoot } from "react-dom/client"
-import { SeoAdmin } from "@/app/admin/seo/seo-admin"
+import { SeoAdmin } from "@/app/(storelib)/admin/seo/seo-admin"
 createRoot(document.getElementById("app")!).render(<SeoAdmin data={(window as any).__data} />)
 `)
   const { build } = await import("esbuild")

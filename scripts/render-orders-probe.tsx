@@ -1,5 +1,5 @@
 /**
- * The real Orders page (app/app/orders/orders-client.tsx) inside a stand-in
+ * The real Orders page (app/(storelib)/app/orders/orders-client.tsx) inside a stand-in
  * for the /app shell, with a hundred and thirty orders that look like a
  * shop's: baskets from a website, free downloads, a refund, a pending
  * payment, a receipt that bounced. scripts/check-orders-page.mjs renders it

@@ -6,7 +6,7 @@
  * blog renderer actually draws and publishes it, so the post and the manual
  * never drift: edit the markdown, run this, done.
  *
- * The block vocabulary here is read off app/(marketing)/blog/[slug]/page.tsx
+ * The block vocabulary here is read off app/(storelib)/(marketing)/blog/[slug]/page.tsx
  * and nothing else. An earlier attempt used `heading` and `text` blocks,
  * which that file has no case for, so the post went live as a title, a
  * handful of tables and nothing in between. If you add a block type to the

@@ -1,10 +1,10 @@
 /**
  * The two pages drawn as a layer over the shell (the plans page at every
  * width, the product editor on a phone only), through their real layouts:
- * the plans page (app/app/settings/billing/upgrade/layout.tsx around the real
- * UpgradePageClient) and the product editor (app/app/products/new/layout.tsx
+ * the plans page (app/(storelib)/app/settings/billing/upgrade/layout.tsx around the real
+ * UpgradePageClient) and the product editor (app/(storelib)/app/products/new/layout.tsx
  * and [id]/layout.tsx around the real ProductEditor). Around them, a shell
- * with the same boxes and classes as app/app/layout.tsx and the real
+ * with the same boxes and classes as app/(storelib)/app/layout.tsx and the real
  * sidebar's chrome: the phone header and the desktop header (both
  * [data-shell-chrome], z 50, their height plus the safe-area inset), the rail,
  * and a nav pill at z 55. Bundled by scripts/check-page-layer.mjs.
@@ -16,12 +16,12 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 
-import UpgradeLayout from "@/app/app/settings/billing/upgrade/layout"
-import NewProductLayout from "@/app/app/products/new/layout"
-import EditProductLayout from "@/app/app/products/[id]/layout"
+import UpgradeLayout from "@/app/(storelib)/app/settings/billing/upgrade/layout"
+import NewProductLayout from "@/app/(storelib)/app/products/new/layout"
+import EditProductLayout from "@/app/(storelib)/app/products/[id]/layout"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { markLanded } from "@/lib/ui/app-navigation"
 
 const q = new URLSearchParams(location.search)

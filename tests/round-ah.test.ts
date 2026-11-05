@@ -74,7 +74,7 @@ async function main() {
     const to = scroll.glideWithin(scroller, { getBoundingClientRect: () => ({ top: 300 }) })
     check("a new section is glided to even when part of it shows (top less a margin)", to === 334 && scroller.scrollTop === 334)
     check("already there, nothing moves", scroll.glideWithin(scroller, { getBoundingClientRect: () => ({ top: 66 }) }) === null)
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("added, pasted, duplicated and AI sections glide", /revealSection\(copy\.id, true\)/.test(editor) && /revealSection\(pasted\.id, true\)/.test(editor) && /* round 14: with the run's start, so a canvas scrolled during the run stays */ /revealSection\(onPage\[0\], true(, undefined, aiRunStartedAt\.current)?\)/.test(editor) && /revealSection\(id, true\)/.test(editor))
     check("an imported theme's frame is told too", /type: "reveal", id/.test(code("components/website-builder/compat/compat-canvas.tsx")) && /m\.type === "reveal"/.test(read("lib/storelib-theme/compat/canvas-bridge.ts")))
   }
@@ -97,7 +97,7 @@ async function main() {
     const controls = read("components/community/public/join-controls.tsx")
     check("the About card's social icons sit on the left", /\[&_\[data-community-links\]\]:justify-start/.test(controls) && !/\[&_\[data-community-links\]\]:justify-center/.test(controls))
     check("a member reaches their plan, billing, upgrade and cancel from the card and the About row", /data-join-card-membership=""/.test(controls) && /\$\{communityPath\(community\.slug\)\}\/membership/.test(controls) && /<UpgradeButton className=/.test(controls))
-    const page = code("app/(marketing)/community/[slug]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
     check("the community page's first reads start together", /await Promise\.all\(\[communitiesEnabled\(\), params, searchParams, currentUserForRequest\(\)\]\)/.test(page) && /communityDomainOrigin\(load\.community\.id\)\]\)/.test(page))
   }
 
@@ -150,7 +150,7 @@ async function main() {
     check("a right click on the insert line: Add section or Paste here, two rows", /id: "add-here"/.test(list) && /id: "paste-here"/.test(list) && /* Changed on purpose (round AJ: the line is shared, tree-parts.tsx) */ /onContextMenu=\{\(e\) => \{\s*if \(!onMenu\) return/.test(code("components/website-builder/editor/tree-parts.tsx")))
     check("the line is dark grey with a raised disc, not violet", /* Changed on purpose (round AJ: the plus sits in the same raised white key as Add section, in the shared line, tree-parts.tsx) */ /shadow-\[0_0_0_1px_rgba\(16,24,40,0\.12\),0_2px_5px/.test(code("components/website-builder/editor/tree-parts.tsx")) && /linear-gradient\(90deg,transparent_0%[^"]*#6b7280/.test(code("components/website-builder/editor/tree-parts.tsx")) && !/8b5cf6/.test(list))
     check("Add section rows are grey", /text-\[#4b5563\]/.test(code("components/website-builder/editor/tree-parts.tsx")) && !/7c3aed/.test(code("components/website-builder/editor/tree-parts.tsx")))
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor wires Copy and Paste, to the top of the page too", /onCopy=\{\(id\) => \{ copySectionNow\(id\) \}\}/.test(editor) && /onPaste=\{pasteSectionAt\}/.test(editor) && /pasteSectionNow\(null, clip, true\)/.test(editor) && /top \? 0 : null/.test(editor))
     const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
     check("an imported theme's outlines stop at the foot of a sticky header", /var headerCover = function \(el\)/.test(bridge) && /Math\.max\(r\.top, 0, headerCover\(el\)\)/.test(bridge))
@@ -168,7 +168,7 @@ async function main() {
     const html = draw(() => undefined)
     check("a setting that is not words stays editable in another language, for all of them", /data-shared-setting="editable"/.test(html) && !/inert/.test(html) && /All languages/.test(html))
     check("without a way to change it, it is drawn as before", /inert/.test(draw()))
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("every setting the sidebar draws passes its change through", /onSharedChange=\{props\.onChange\}/.test(editor))
     check("only the menus' link titles stay locked", (editor.match(/<SharedInAllLanguages locked/g) ?? []).length === 1)
     const sw = readFileSync("components/website-builder/preview-locale-switch.tsx", "utf8")
@@ -178,21 +178,21 @@ async function main() {
 
   console.log("\nEvery store price in the store's own currency")
   {
-    const layout = code("app/app/layout.tsx")
+    const layout = code("app/(storelib)/app/layout.tsx")
     check("Settings opened as a sheet sits inside the store's currency, as the page does", /<LiveStoreCurrency currency=\{storeCurrency\}>\{sheet\}<\/LiveStoreCurrency>/.test(layout))
     check("the app restoring its session asks for the currency itself", /<LiveStoreCurrency currency=\{null\}>[\s\S]*\{sheet\}[\s\S]*<\/LiveStoreCurrency>/.test(layout) && /fetch\("\/api\/store\/currency"/.test(code("lib/store/currency-context.tsx")))
-    check("the creator page editor has the store's currency too", /<LiveStoreCurrency currency=\{storeCurrency\}>/.test(code("app/creator-page/layout.tsx")))
+    check("the creator page editor has the store's currency too", /<LiveStoreCurrency currency=\{storeCurrency\}>/.test(code("app/(storelib)/creator-page/layout.tsx")))
     const ui = code("components/physical/ui.tsx")
     check("shipping rates and local delivery read the store's currency", /export function useShopMoney\(\)/.test(ui) && /useStoreCurrency\(\)/.test(ui))
     const ship = code("components/physical/shipping-settings.tsx")
     check("Settings › Shipping never formats a rate in the platform's currency", !/import \{[^}]*\bmoney\b[^}]*\} from "\.\/ui"/.test(ship) && (ship.match(/const money = useShopMoney\(\)/g) ?? []).length >= 2)
-    check("the products list and its exports are in the store's currency", /function PriceOf[\s\S]{0,200}useStoreCurrency\(\)/.test(code("app/app/products/products-client.tsx")) && /* Changed on purpose (currency round AM): a plan in its own dollars. */ /formatMoney\(c, productPriceCurrency\(p, storeCurrency\)\)/.test(code("app/app/products/products-client.tsx")))
+    check("the products list and its exports are in the store's currency", /function PriceOf[\s\S]{0,200}useStoreCurrency\(\)/.test(code("app/(storelib)/app/products/products-client.tsx")) && /* Changed on purpose (currency round AM): a plan in its own dollars. */ /formatMoney\(c, productPriceCurrency\(p, storeCurrency\)\)/.test(code("app/(storelib)/app/products/products-client.tsx")))
     /* Changed on purpose (currency round AM): orders in another currency converted at their own day's rate first (spentOf). */
-    check("a customer's total spent is in the store's currency", /formatPrice\(spentOf\(customer\), storeCurrency\)/.test(code("app/app/customers/page.tsx")) && /inStoreCurrency\(/.test(code("app/app/customers/page.tsx")))
+    check("a customer's total spent is in the store's currency", /formatPrice\(spentOf\(customer\), storeCurrency\)/.test(code("app/(storelib)/app/customers/page.tsx")) && /inStoreCurrency\(/.test(code("app/(storelib)/app/customers/page.tsx")))
     for (const f of ["components/onepage/tabs/links-tab.tsx", "components/onepage/tabs/products-tab.tsx", "components/onepage/link-stats-chart.tsx", "components/offers/bundle-offers.tsx", "components/offers/checkout-suggestions.tsx", "components/physical/buy-box.tsx", "components/email/compose/product-picker.tsx", "components/store-builder/product-page-mode-selector.tsx", "components/store-builder/sections-sidebar.tsx"]) {
       check(`${f.split("/").pop()} prints no price in the platform's currency`, !/import \{[^}]*\bshopMoney\b[^}]*\} from "@\/lib\/store\/shop-money"/.test(code(f)))
     }
-    check("checkout suggestions are in the checkout's own money", /money=\{money\}/.test(code("app/checkout/site/site-checkout.tsx")) && /money=\{money\}/.test(code("app/checkout/physical/physical-checkout.tsx")))
+    check("checkout suggestions are in the checkout's own money", /money=\{money\}/.test(code("app/(storelib)/checkout/site/site-checkout.tsx")) && /money=\{money\}/.test(code("app/(storelib)/checkout/physical/physical-checkout.tsx")))
     check("the buy box is told its store's currency", /currency,\n/.test(code("app/api/physical/storefront/product/route.ts")) && /useBoxMoney\(data\?\.currency\)/.test(code("components/physical/buy-box.tsx")))
     check("an email's product block carries the store's currency", /priceLabel\(p\.price_cents, currency\)/.test(code("components/email/compose/panels.tsx")))
     /* Changed on purpose (currency round AM): in the order's own currency, read from the order; none recorded, no amount guessed. */

@@ -1,7 +1,7 @@
 /**
  * A page of the Developer Hub (components/developers/hub-page.tsx) inside a
  * stand-in for the marketing layout: a sticky black bar the height of the
- * site header, and the page under it in a <main>, as app/(marketing)/layout
+ * site header, and the page under it in a <main>, as app/(storelib)/(marketing)/layout
  * draws it. scripts/check-developer-hub.mjs renders this on the server and
  * measures it in Chromium.
  */

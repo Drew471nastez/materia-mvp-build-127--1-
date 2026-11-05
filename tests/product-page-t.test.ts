@@ -317,7 +317,7 @@ async function main() {
     check("  and a creator who deletes that block keeps it deleted", withProductBlocks({ ...withBlocks, blocks: [withBlocks.blocks![0]] }).blocks!.length === 1)
     check("  and the old switches' blocks carry the questions too", types.includes("product_faq") && types.indexOf("product_faq") === types.indexOf("description") + 1)
     check("the old fake review line is gone", !/128 reviews/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && legacyProductBlocks({}).every((b) => b.type !== "reviews"))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the builder shows the same blocks in the sidebar when the page opens", /loaded = loaded\.map\(\(s\) => withProductBlocks\(s\)\)/.test(editor))
   }
 

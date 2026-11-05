@@ -6,7 +6,7 @@
  * layout is measured without Stripe's iframes, which need a live key.
  */
 import * as React from "react"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 
 declare global {

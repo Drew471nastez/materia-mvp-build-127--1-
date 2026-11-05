@@ -1,6 +1,6 @@
 /**
  * The real Settings page (components/app/settings-form-new) with a creator's
- * worth of fixture data, inside a shell shaped like app/app/layout.tsx: the
+ * worth of fixture data, inside a shell shaped like app/(storelib)/app/layout.tsx: the
  * header, <main>, and `.app-content-scroll`, which is what Settings scrolls
  * in. The probe switches its tabs and measures what moves.
  *

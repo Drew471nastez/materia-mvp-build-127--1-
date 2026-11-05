@@ -387,7 +387,7 @@ section("The panel is simple, and the settings match the model")
 // ===========================================================================
 
 {
-  const page = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+  const page = stripComments(read("app/(storelib)/website-builder/editor/[installId]/page.tsx"))
   check("the eighty-picker scheme editor is gone from the editor", !/COLOR_SCHEME_GROUPS|ColorSchemesEditor|SchemePillList/.test(page))
   check("the section panel, the Colors panel and the Typography panel are the design panels", /<SectionDesignPanel/.test(page) && /<ColorsPanel/.test(page) && /<TypographyPanel/.test(page))
   const colors = THEME_SETTINGS_GROUPS.find((g) => g.id === "color_schemes")

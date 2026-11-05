@@ -224,7 +224,7 @@ async function main() {
   section("Both surfaces are handed the same list")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const site = read("lib/website-builder/published-site.ts")
     const live = read("components/website-builder/sections/storelib-live.tsx")
 

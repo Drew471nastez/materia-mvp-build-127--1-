@@ -32,7 +32,7 @@ const hook = read("components/website-builder/editor/controls/use-reorder.ts")
 const list = read("components/website-builder/editor/sections-list.tsx")
 const tree = read("components/website-builder/editor/block-tree-rows.tsx")
 const blockList = read("components/website-builder/editor/section-block-list.tsx")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nTHE ROWS MOVE ASIDE, THE ROW FOLLOWS THE POINTER")
 {

@@ -90,7 +90,7 @@ async function main() {
 
   /* ---- the answer, on the page ---- */
   {
-    const page = readFileSync(join(process.cwd(), "app/(marketing)/u/[username]/page.tsx"), "utf8")
+    const page = readFileSync(join(process.cwd(), "app/(storelib)/(marketing)/u/[username]/page.tsx"), "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "")
 

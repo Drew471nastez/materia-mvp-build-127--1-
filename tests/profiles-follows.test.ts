@@ -479,14 +479,14 @@ async function main() {
     check("  only when arrived from somewhere: another page of ours, not this one, not sign in", /if \(!shown && !always\) return null/.test(bar) && /cameFromElsewhere\(from, \[window\.location\.pathname, /.test(bar)) // Changed on purpose (round 49): this page's other addresses (ownPaths) count as "this one" too
     check("arrived from another page: shown", cameFromElsewhere("/library", "/maya") && cameFromElsewhere("/community/x", ["/maya", "/u/maya"]) && cameFromElsewhere("/p/glaze", "/maya"))
     check("a reload of the same page, a sign in, nothing or another site: not shown", !cameFromElsewhere("/maya/", ["/maya", "/u/maya"]) && !cameFromElsewhere("/U/Maya?x=1", ["/maya", "/u/maya"]) && !cameFromElsewhere("/login", "/maya") && !cameFromElsewhere(null, "/maya") && !cameFromElsewhere("//evil.example/x", "/maya"))
-    const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
+    const creatorPage = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     /* Changed on purpose (round 49, cdnpages): the creator page is one HTML for everybody (a CDN holds it), so it no longer reads the Referer on the server; the same rule runs in the browser after load (useCameFromSomewhere: the in-app trail, else a same-origin document.referrer), handed every address the page answers to. */
     check("  the creator page asks the same rule of where the visitor came from, in the browser, with every address it answers to",
       !/refererPath\(|from "next\/headers"/.test(creatorPage) &&
       /const ownPaths = \[`\/\$\{username\}`, `\/u\/\$\{username\}`/.test(creatorPage) && /`\/@\$\{profile\.username\}`/.test(creatorPage) &&
       (creatorPage.match(/<TopBarBack initiallyShown=\{backShown\} ownPaths=\{ownPaths\} \/>/g) ?? []).length === 3 && (creatorPage.match(/<ProfileTopBar\s+always\s+initiallyShown=\{backShown\}\s+ownPaths=\{ownPaths\}/g) ?? []).length === 2 &&
       /cameFromElsewhere\(from, \[window\.location\.pathname, \.\.\.\(ownKey \? ownKey\.split\("\\n"\) : \[\]\)\]\)/.test(bar) && /if \(ref\.origin === window\.location\.origin\) from = ref\.pathname/.test(bar))
-    check("  and so does a profile", /cameFromElsewhere\(refererPath\(head\.get\("referer"\), head\.get\("host"\)\), ownPaths\)/.test(read("app/(marketing)/member/[username]/page.tsx")))
+    check("  and so does a profile", /cameFromElsewhere\(refererPath\(head\.get\("referer"\), head\.get\("host"\)\), ownPaths\)/.test(read("app/(storelib)/(marketing)/member/[username]/page.tsx")))
     /* Round 9: "the back icon next to the avatar in the profile top bar is smooth and works on the first tap". */
     check("the chevron answers the press at once, set on the element without a React render: a tint, no shrink", /onPointerDown=\{\(e\) => \{[\s\S]{0,80}e\.currentTarget\.dataset\.pressed = ""/.test(bar) && /data-\[pressed\]:duration-0/.test(bar) && !/setPressed|scale-\[/.test(stripComments(bar)) && /touch-manipulation/.test(bar))
     check("  a double tap goes back once: the press after the first is ignored until the page shows again", /if \(leaving\.current\) return\s*leaving\.current = true/.test(bar) && /addEventListener\("pageshow", again\)/.test(bar) && /const LEAVING_MS = 1500/.test(bar))
@@ -527,7 +527,7 @@ async function main() {
   console.log("\nThe pages")
   {
     const page = read("components/profile/member-profile-page.tsx")
-    const route = read("app/(marketing)/member/[username]/page.tsx")
+    const route = read("app/(storelib)/(marketing)/member/[username]/page.tsx")
     check("the member profile reads follows, not the old table", !/profile_follows/.test(read("lib/profile/member-profile-data.ts")) && !/profile_follows/.test(route))
     /* Round 12: /@handle is the creator page's template; your own is it too, with Edit profile on the cover where a creator's sits. The pills are /account's. */
     check("owner pills only on /account; your own /@handle has Edit profile on the cover", !/ProfileOwnerPills/.test(page) && /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(page) && /<ProfileOwnerPills\b/.test(read("components/account/account-hub.tsx")))
@@ -536,15 +536,15 @@ async function main() {
     check("the pills: Activity, Communities, Library, Settings; Edit profile on the cover instead", ["Activity", "Communities", "Library", "Settings"].every((w) => pills.includes(`label: "${w}"`)) && !pills.includes(`label: "Edit profile"`) && /Edit profile/.test(read("components/profile/profile-hero.tsx")))
     check("no selling UI on a buyer's profile", !/Start selling|Become a seller|Sell on Storelib|\/app\/onboarding/.test(page + pills))
     /* Round 12: a person without a store sells nothing; a creator's /@handle is their creator page (a 308), which has the products. */
-    check("Products only with a live store: never on a person's page", !/label: "Products"|ProductGrid/.test(page) && /permanentRedirect\(target\)/.test(read("app/(marketing)/member/[username]/layout.tsx")))
+    check("Products only with a live store: never on a person's page", !/label: "Products"|ProductGrid/.test(page) && /permanentRedirect\(target\)/.test(read("app/(storelib)/(marketing)/member/[username]/layout.tsx")))
     check("memberships only when shown, or to themselves", /showCommunities \|\| isSelf/.test(page) && /showCommunities \|\| isSelf/.test(route))
     /* Round 9: "Remove the Message button on profiles and creator pages for now: only Follow." */
     const socialSrc = read("components/profile/profile-social.tsx")
-    check("no Message on a profile or a creator page, and nothing looks for one", !/messageTarget\(|messageHref/.test(route) && !/messageHref|>\s*Message\s*<|MessageCircle/.test(socialSrc) && !/messageHref/.test(read("components/profile/profile-hero.tsx") + read("components/profile/member-profile-page.tsx")) && !/messageTarget|messageHref=/.test(read("app/(marketing)/u/[username]/page.tsx")))
+    check("no Message on a profile or a creator page, and nothing looks for one", !/messageTarget\(|messageHref/.test(route) && !/messageHref|>\s*Message\s*<|MessageCircle/.test(socialSrc) && !/messageHref/.test(read("components/profile/profile-hero.tsx") + read("components/profile/member-profile-page.tsx")) && !/messageTarget|messageHref=/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")))
     const shared = stripComments(read("lib/profile/profile-communities.ts"))
     check("Message needs chat on, the directory open, both active and not banned", /chat_enabled", true/.test(shared) && /directory_enabled", true/.test(shared) && (shared.match(/is\("banned_at", null\)/g) ?? []).length === 2)
     check("listed communities are published, public, open, not hidden", /eq\("visibility", "public"\)/.test(shared) && /platform_hidden", false/.test(shared) && /is\("suspended_at", null\)/.test(shared))
-    const creator = read("app/(marketing)/u/[username]/page.tsx")
+    const creator = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the creator page has the same follow block", /<ProfileSocial[\s\S]{0,80}tone="storefront"/.test(creator) && (creator.match(/followRow=\{buildFollowRow\(/g) ?? []).length === 2)
     check("the creator page has the way back on both of its headers: in the newsletter bar, else a slim top bar", (creator.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} ownPaths=\{ownPaths\} \/> : undefined\}/g) ?? []).length === 3 && (creator.match(/<ProfileTopBar\b/g) ?? []).length === 2 && !/ProfileBackBar/.test(creator))  // Changed on purpose (round 49): the creator page hands its other addresses (ownPaths) to the way back
     check("the creator page draws no Follow, only where they are from", /* Changed on purpose (r40): the owner, "there should be no follow button" on creator pages; the scheme's action colours stay for its other buttons. */ /buildFollowRow\(chrome\.action\)/.test(creator) && /<ProfileSocial tone="storefront" showCounts=\{false\} location=\{location\} \/>/.test(creator) && !/viewerFollowing=/.test(creator) && /action: schemeAction\(\{/.test(read("lib/store-builder/storefront-chrome.ts")))
@@ -558,15 +558,15 @@ async function main() {
     /* Round 6: "In creator pages or creator profiles there should be no activity." Their /@handle and their own /account too. */
     const pageCode = stripComments(page)
     /* Round 12: a creator's /@handle never draws this page (the layout's 308 to their creator page), so it holds no creator branch. */
-    check("a creator's /@handle (a live store) is their creator page, so this page has no creator branch", !/hasStorefront/.test(pageCode) && /hasActiveStorefront\(creator\)/.test(read("app/(marketing)/member/[username]/layout.tsx")))
+    check("a creator's /@handle (a live store) is their creator page, so this page has no creator branch", !/hasStorefront/.test(pageCode) && /hasActiveStorefront\(creator\)/.test(read("app/(storelib)/(marketing)/member/[username]/layout.tsx")))
     check("  their own creator page has the owner's controls (Edit profile, the menu), not pills", /<EditProfileButton\b/.test(creator) && /<OwnerMenu embedded=\{embedded\} \/>/.test(creator))
     const routeCode = stripComments(route)
     check("  the route reads no activity, no shared posts and no memberships for them", /const creator = profile\.hasStorefront/.test(routeCode) && /creator\s*\?\s*Promise\.resolve\(\{ items: \[\], next: null, hidden: false \}\)\s*:\s*activityFor\(/.test(routeCode) && /includeMemberships: !creator && /.test(routeCode) && /* Round 13 (ask 30): the person's own profile lists their own contributions too. */ /viewerId && !creator \? sharedSections\(/.test(routeCode))
     check("  and the activity gate answers nothing for anybody with a store, so Show more or the API cannot bring it back", /if \(creator\) return \{ items: \[\], next: null, hidden: false \}/.test(stripComments(read("lib/profile/activity-page.ts"))))
     check("a creator's pills: Posts, Communities (which is /account), Library, Settings; no Activity", ownerPillLinks(true, true).map((p) => `${p.label} ${p.href}`).join() === "Posts /account/posts,Communities /account,Library /account/library,Settings /account/settings?section=profile" && ownerPillLinks(false, true).map((p) => p.key).join() === "library,settings" && ownerPillFor("/account", true) === "communities" && ownerPillFor("/account") === "activity" && /* Round 16: Posts after Activity. */ ownerPillLinks(true).map((p) => p.key).join() === "activity,posts,communities,library,settings")
-    const account = stripComments(read("app/account/page.tsx"))
+    const account = stripComments(read("app/(storelib)/account/page.tsx"))
     check("  /account for a creator opens on their Communities, never their activity", /const creator = await accountIsCreator\(user\.id\)/.test(account) && /\{creator \? creatorBody\(user\) : activityBody\(user\)\}/.test(account) && /return accountCommunitiesBody\(user\.id\)/.test(account) && !/ProfileActivity/.test(account.slice(account.indexOf("async function creatorBody"), account.indexOf("export default"))))
-    check("  the layout tells the pills who is a creator, by the creator page's own test", /accountIsCreator\(user\.id\)/.test(read("app/account/layout.tsx")) && /creator,\n/.test(read("app/account/layout.tsx")) && /creator=\{!!identity\.creator\}/.test(read("components/account/account-hub.tsx")) && /hasActiveStorefront\(await loadCreatorForUser\(userId\)\)/.test(read("lib/profile/account-creator.ts")) && /^import "server-only"/.test(read("lib/profile/account-creator.ts")))
+    check("  the layout tells the pills who is a creator, by the creator page's own test", /accountIsCreator\(user\.id\)/.test(read("app/(storelib)/account/layout.tsx")) && /creator,\n/.test(read("app/(storelib)/account/layout.tsx")) && /creator=\{!!identity\.creator\}/.test(read("components/account/account-hub.tsx")) && /hasActiveStorefront\(await loadCreatorForUser\(userId\)\)/.test(read("lib/profile/account-creator.ts")) && /^import "server-only"/.test(read("lib/profile/account-creator.ts")))
     const header = read("components/store-builder/unified-section-renderer.tsx")
     /* Changed on purpose (round 38): "followers and following only inside profiles, inside communities, not in creator pages at all". */
     check("the header prints no follower count of its own", !/followerCount|settings\.showFollowers/.test(header))
@@ -592,10 +592,10 @@ async function main() {
     check("settings: the two privacy switches", /Show my activity/.test(settings) && /Show communities I am in/.test(settings) && /\/api\/profile\/privacy/.test(settings))
     /* Round 6 follow up: a creator shows no activity anywhere, so has no switch for it; Show communities I am in still drives their card in a community (lib/communities/server/people.ts). */
     /* Changed on purpose: 89c6f3ba moved the settings route's reads, the creator flag among them, into lib/account/load-account-settings.ts. */
-    check("  a creator's Privacy has no activity switch, and keeps the communities one", /\{creator \? null : \(\s*<PrivacyRow\s+id="show-activity"/.test(settings) && /<PrivacyRow\s+id="show-communities"/.test(settings) && /loadAccountSettingsForUser\(user,/.test(read("app/account/settings/page.tsx")) && /\{\.\.\.props\}/.test(read("app/account/settings/page.tsx")) && /accountIsCreator\(user\.id\)/.test(read("lib/account/load-account-settings.ts")) && /^\s*creator,$/m.test(read("lib/account/load-account-settings.ts")) && /communityFacts\(db, targetId, viewer\.userId, extras\.showCommunities\)/.test(read("lib/communities/server/people.ts")))
+    check("  a creator's Privacy has no activity switch, and keeps the communities one", /\{creator \? null : \(\s*<PrivacyRow\s+id="show-activity"/.test(settings) && /<PrivacyRow\s+id="show-communities"/.test(settings) && /loadAccountSettingsForUser\(user,/.test(read("app/(storelib)/account/settings/page.tsx")) && /\{\.\.\.props\}/.test(read("app/(storelib)/account/settings/page.tsx")) && /accountIsCreator\(user\.id\)/.test(read("lib/account/load-account-settings.ts")) && /^\s*creator,$/m.test(read("lib/account/load-account-settings.ts")) && /communityFacts\(db, targetId, viewer\.userId, extras\.showCommunities\)/.test(read("lib/communities/server/people.ts")))
     check("  the scheme has no Unfollow red any more", !/danger/.test(stripComments(read("components/profile/follow-button.tsx"))) && !/danger:/.test(stripComments(read("lib/store-builder/storefront-chrome.ts"))))
     /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
-    check("the account page makes a handle when there is none", /ensureUsername\(/.test(read("app/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(read("app/account/settings/page.tsx")) && /ensureUsername\(admin, user\.id\)/.test(read("lib/account/load-account-settings.ts")))
+    check("the account page makes a handle when there is none", /ensureUsername\(/.test(read("app/(storelib)/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(read("app/(storelib)/account/settings/page.tsx")) && /ensureUsername\(admin, user\.id\)/.test(read("lib/account/load-account-settings.ts")))
   }
 
   console.log("\nNo client module reaches server code")
@@ -696,7 +696,7 @@ async function main() {
     check("  nothing in Home: the communities stand alone (one panel, no strip); none made, or switched off: nothing at all", bare.length === 1 && none.length === 0 && off.length === 0)
     const np = read("components/storefront/no-products.tsx")
     check("the owner's line: what is true and the one button, to the new product page, in the scheme's tokens and buy colour", NEW_PRODUCT_HREF === "/app/products/new" && /No products on your page yet/.test(np) && />\s*Add a product\s*</.test(np) && /bg-card/.test(np) && /border-border/.test(np) && /bg-\[var\(--sf-bg,var\(--foreground\)\)\]/.test(np) && !/^"use client"/m.test(np) && !/^import \{[^}]*\} from "@\/components\/profile\/follow-button"/m.test(np))
-    const creator = read("app/(marketing)/u/[username]/page.tsx")
+    const creator = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     /* Changed on purpose (round 49, cdnpages): who is the owner is asked after load (components/storefront/creator-page-viewer), so "for the owner only" is OwnerOnly around the line instead of a server viewerIsOwner. */
     check("the creator page uses it on both branches, the line for the owner only, never in the editor's frame", (creator.match(/tabsWithoutProducts\(/g) ?? []).length === 2 && /noProducts && !embedded \? <OwnerOnly><FirstProductPrompt scheme=\{chrome\.action\} \/><\/OwnerOnly>/.test(creator) && /!embedded \? <OwnerOnly><FirstProductPrompt \/><\/OwnerOnly>/.test(creator) && /drawableSections\(/.test(creator) && !/viewerIsOwner/.test(creator))
     check("  no Home tab over nothing on a page never arranged", !/panel: productsData\.length > 0 \? \(/.test(creator))
@@ -705,7 +705,7 @@ async function main() {
   /* Round 9: "Opening a user profile page and going back feels smooth (the page lands cleanly, no jump, the avatar/cover appear without popping)". */
   console.log("\nOpening a profile")
   {
-    const skeleton = read("app/(marketing)/member/[username]/loading.tsx")
+    const skeleton = read("app/(storelib)/(marketing)/member/[username]/loading.tsx")
     /* Round 12: the top bar is always there now, so the skeleton holds it: 56px and its hairline. */
     check("the skeleton holds the top bar's 57px, so the profile lands where it stood", /border-b border-black\/\[0\.06\][^"]*"[\s\S]{0,80}<div className="h-14" \/>/.test(skeleton) && /"mx-auto flex h-14 w-full items-center/.test(read("components/profile/profile-top-bar.tsx")) && /border-b border-black\/\[0\.06\]/.test(read("components/profile/profile-top-bar.tsx")))
     const cover = read("components/profile/profile-cover-image.tsx")
@@ -750,7 +750,7 @@ async function main() {
   {
     const act = read("components/profile/profile-activity.tsx")
     check("no Joined Storelib row, and no join date reaching the list", !/JoinedRow/.test(act) && !/joinedAt/.test(act))
-    check("About carries the day instead, on a profile and on /account", /<PersonAbout[\s\S]{0,200}joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(read("app/account/page.tsx")))
+    check("About carries the day instead, on a profile and on /account", /<PersonAbout[\s\S]{0,200}joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(read("app/(storelib)/account/page.tsx")))
   }
 
   console.log("\nCopy")
@@ -786,7 +786,7 @@ async function main() {
       "app/api/profile/cover/route.ts",
       "app/api/profile/shared-posts/route.ts",
       "components/profile/member-profile-page.tsx",
-      "app/(marketing)/member/[username]/page.tsx",
+      "app/(storelib)/(marketing)/member/[username]/page.tsx",
       "app/api/profile/username/route.ts",
       "app/api/profile/privacy/route.ts",
       "app/api/profile/activity/route.ts",
@@ -796,7 +796,7 @@ async function main() {
       "scripts/render-follow-button.tsx",
       "lib/profile/account-creator.ts",
       "components/account/account-communities-body.tsx",
-      "app/account/page.tsx",
+      "app/(storelib)/account/page.tsx",
     ].filter((f) => existsSync(join(root, f)))
     const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
     for (const f of files) {

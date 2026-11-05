@@ -43,8 +43,8 @@ check("the Veteran badge says Veteran", CREATOR_BADGES.veteran.label === "Vetera
 console.log("\nWhere they are drawn, and how they are stored\n")
 
 const header = read("components/store-builder/unified-section-renderer.tsx")
-const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
-const productPage = read("app/(marketing)/p/[slug]/page.tsx")
+const creatorPage = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
+const productPage = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
 check("the creator page hands both header branches the badges", (creatorPage.match(/badges=\{creatorBadges\(profile\)\}/g) ?? []).length === 2)
 check("the header draws them after the name", /<CreatorBadges badges=\{badges\}/.test(header))
 check("both creator rows on a product page draw them", (productPage.match(/<CreatorBadges badges=\{creatorBadgeIds\}/g) ?? []).length === 2)

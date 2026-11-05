@@ -69,7 +69,7 @@ console.log("\nThe wizard's page")
   check("Skip lets the welcome draft go and opens the Overview", /data-wizard-skip/.test(flow) && /removeItem\(m\.draftKey\(made\.id\)\)/.test(flow))
   check("no going back once it is made", /if \(made\) return/.test(flow))
   check("the foot bar carries the pill rule", /data-create-foot="" data-app-foot="up"/.test(flow))
-  const page = code("app/app/community/new/page.tsx")
+  const page = code("app/(storelib)/app/community/new/page.tsx")
   check("the page hands the person signed in to the composer", /peopleOf\(admin\(\), \[user\.id\]\)/.test(page) && /me=\{\{ userId: user\.id/.test(page))
 }
 
@@ -93,7 +93,7 @@ console.log("\nThe setup pill and the bottom bars")
     class is a bar unless it says it is something else: a toast (aria-live), a phone's alone (md:hidden, sm:static,
     lg:static, a phone branch), a foot inside a side panel, a whole screen or dialog, or the pills themselves.
   */
-  const roots = ["app/app", "components/app", "components/community/creator", "components/memberships", "components/files", "components/email"]
+  const roots = ["app/(storelib)/app", "components/app", "components/community/creator", "components/memberships", "components/files", "components/email"]
   const files: string[] = []
   const walk = (d: string) => {
     for (const n of readdirSync(d)) {
@@ -130,7 +130,7 @@ console.log("\nThe setup pill and the bottom bars")
   check("the bars found: New community, coupons, products, a flow, Settings, a community's save and bulk bars, Files, Memberships", bars.length >= 9, bars.map((b) => b.at))
   check("every one of them carries data-app-foot", bars.every((b) => b.ok), bars.filter((b) => !b.ok))
   if (pending.length) console.log(`        (for E27: ${pending.join(", ")} has a bottom bar without data-app-foot)`)
-  check("a bar that comes and goes says which it is", /data-app-foot=\{up \? "up" : "down"\}/.test(code("components/community/creator/parts.tsx")) && /data-app-foot=\{barUp \? "up" : "down"\}/.test(code("components/app/settings-form-new.tsx")) && /data-app-foot=\{dirty \? "up" : "down"\}/.test(code("app/app/emails/flow/[id]/builder.tsx")))
+  check("a bar that comes and goes says which it is", /data-app-foot=\{up \? "up" : "down"\}/.test(code("components/community/creator/parts.tsx")) && /data-app-foot=\{barUp \? "up" : "down"\}/.test(code("components/app/settings-form-new.tsx")) && /data-app-foot=\{dirty \? "up" : "down"\}/.test(code("app/(storelib)/app/emails/flow/[id]/builder.tsx")))
 }
 
 console.log("\nA community's analytics")
@@ -145,7 +145,7 @@ console.log("\nA community's analytics")
 
 console.log("\nCopy")
 {
-  for (const f of ["components/community/creator/create-flow.tsx", "components/community/creator/analytics-section.tsx", "lib/ui/foot-bars.ts", "lib/communities/create-wizard.ts", "app/app/community/new/page.tsx", "components/community/creator/setup-pill.tsx", "scripts/check-j27.mjs", "scripts/render-j27.tsx"]) {
+  for (const f of ["components/community/creator/create-flow.tsx", "components/community/creator/analytics-section.tsx", "lib/ui/foot-bars.ts", "lib/communities/create-wizard.ts", "app/(storelib)/app/community/new/page.tsx", "components/community/creator/setup-pill.tsx", "scripts/check-j27.mjs", "scripts/render-j27.tsx"]) {
     const t = read(f)
     check(`${f}: no em dash, no banned word`, !t.includes("—") && !/\b(unlock|elevate|seamless(ly)?|powerful|effortless(ly)?|supercharge|transform)\b/i.test(t))
   }

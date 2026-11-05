@@ -1,5 +1,5 @@
 /**
- * The real Orders page (app/app/orders/orders-client.tsx) with physical
+ * The real Orders page (app/(storelib)/app/orders/orders-client.tsx) with physical
  * commerce on, for scripts/check-orders20.mjs: downloads, an order still to
  * ship from two places, a mixed order with one parcel on its way, and one
  * delivered. The probe's server answers /api/physical/orders/[id] as the

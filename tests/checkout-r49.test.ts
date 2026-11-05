@@ -4,7 +4,7 @@
  * The owner: buying a physical product on a OnePage opened the OLD checkout
  * (storelib.com/checkout/physical, Stripe's embedded form under the shop's
  * bar). It should open the NEW one, the store website's checkout at
- * https://<site>/checkout (app/checkout/site, drawn as the Explore checkout),
+ * https://<site>/checkout (app/(storelib)/checkout/site, drawn as the Explore checkout),
  * which the website's product pages and cart already pay on.
  *
  *   every OnePage entry point   the block's tap, the sheet's Check out, and
@@ -130,15 +130,15 @@ function main() {
   check("the product's facts name its website (storeOriginFor), never storelib.com as one", /storeOriginFor\(admin, creatorId\)/.test(api) && /siteOrigin: storeOrigin && storeOrigin !== `https:\/\/\$\{getMainDomain\(\)\}` \? storeOrigin : null/.test(api))
   const site = code("app/api/checkout/site/route.ts")
   check("the website's checkout route keeps a OnePage's surface, everything else is the website's", /if \(sent\?\.surface === "onepage"\)/.test(site) && /surface: "website", site: cleanHost/.test(site))
-  const sitePage = code("app/checkout/site/page.tsx")
+  const sitePage = code("app/(storelib)/checkout/site/page.tsx")
   check("the website's checkout checks the OnePage before Back goes there", /onePageReturnFor\(site\.creatorId, named\)/.test(sitePage) && /const backTo = onePage \?\? /.test(sitePage) && /onePage=\{onePage\}/.test(sitePage))
-  check("  and hands it to the thank you page after paying", /withOnePageBack\(inLang, onePage\)/.test(code("app/checkout/site/site-checkout.tsx")))
-  const thanks = code("app/checkout/site/thanks/[token]/page.tsx")
+  check("  and hands it to the thank you page after paying", /withOnePageBack\(inLang, onePage\)/.test(code("app/(storelib)/checkout/site/site-checkout.tsx")))
+  const thanks = code("app/(storelib)/checkout/site/thanks/[token]/page.tsx")
   check("the thank you page checks it again before Continue shopping goes there", /onePageReturnFor\(site\.creatorId, named\)/.test(thanks) && /shopUrl=\{onePage \?\? shopUrl\}/.test(thanks))
-  const productCheckout = code("app/checkout/page.tsx")
+  const productCheckout = code("app/(storelib)/checkout/page.tsx")
   check("storelib.com/checkout?productId=<ships>: the website's checkout first, the old page only without one", /websiteCheckoutFor\(checkoutAdmin\(\)/.test(productCheckout) && /redirect\(website \?\? physicalCheckoutHref\(/.test(productCheckout))
   check("  no option named: the buyer chooses it there (no first option forced)", /variantId: variantId && ID\.test\(variantId\) \? variantId : null, quantity: 1/.test(productCheckout))
-  const physicalPage = code("app/checkout/physical/page.tsx")
+  const physicalPage = code("app/(storelib)/checkout/physical/page.tsx")
   check("an old /checkout/physical link with its cart goes on to the website's checkout", /linkItems\.length\s*\?\s*await websiteCheckoutFor\(db, \{ shopId: shop, items: linkItems, back: asked/.test(physicalPage) && /if \(website\) redirect\(website\)/.test(physicalPage))
   const server = code("lib/checkout/shipped-checkout-server.ts")
   check("the server helper checks the OnePage and the website, and never names storelib.com as one", /onePageReturnFor\(ask\.shopId, back\)/.test(server) && /servingSiteOrigin\(db, ask\.shopId/.test(server) && /firstServingSite\(db, ask\.shopId/.test(server) && /hostname === getMainDomain\(\)\) return null/.test(server))

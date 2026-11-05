@@ -130,7 +130,7 @@ async function main() {
     const bridge = src("lib/storelib-theme/compat/canvas-bridge.ts")
     check("Cmd/Ctrl+C and V inside an imported theme's page reach the builder", /type: "clip-key"/.test(bridge))
     check("the canvas hands them on", /storelib:clip-key/.test(src("components/website-builder/compat/compat-canvas.tsx")))
-    const page = code("app/website-builder/editor/[installId]/page.tsx")
+    const page = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor copies or pastes on them", /addEventListener\("storelib:clip-key", onFrameKey\)/.test(page))
     check("pasting with the header open lands at the top of the page, never in the header", /groupOf\(opened\) !== "template"/.test(page))
     check("pasting with nothing copied says so", /if \(!from\) \{ toast\.error\("Copy a section first"\)/.test(page))

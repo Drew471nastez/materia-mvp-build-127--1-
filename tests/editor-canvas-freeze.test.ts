@@ -84,7 +84,7 @@ console.log("\nA PAGE THAT LEFT THE CANVAS IS DRAWN AGAIN")
 
 console.log("\nA WHEEL OVER THE TOOLBAR SCROLLS THE CANVAS")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the toolbar hands its wheel on, to the card or to the frame", /onWheel=\{\(e\) => \{[\s\S]{0,400}root\.scrollBy\(\{ top: e\.deltaY, left: 0 \}\)[\s\S]{0,300}type: "scroll-by", top: e\.deltaY/.test(page))
   check("the frame scrolls itself by it", /m\.type === "scroll-by"/.test(CANVAS_BRIDGE) && /scrollBy\(\{ top: m\.top, left: 0 \}\)/.test(CANVAS_BRIDGE))
   check("the outlines and the ghost box take no pointer", /\[data-sl-box\]\{position:fixed;pointer-events:none/.test(CANVAS_BRIDGE) && /className="pointer-events-none absolute" style=\{\{ top: ghost\.top/.test(read("components/website-builder/compat/compat-canvas.tsx")))
@@ -103,7 +103,7 @@ console.log("\nA STOREFRONT DRAWER'S HOLD WITH NO DRAWER")
   check("no drawer counted: let go", releaseStrayDrawerHold(stray, 0) === true && stray.style.overflow === "" && stray.style.touchAction === "" && !stray.attrs.has(DRAWER_HOLD_ATTRIBUTE))
   const clean = el([], "")
   check("nothing held: nothing done", releaseStrayDrawerHold(clean, 0) === false)
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("asked on a wheel and on a touch on the canvas", (page.match(/releaseStrayDrawerHold\(e\.currentTarget, lockHolders\(e\.currentTarget\)\)/g) ?? []).length === 2)
 }
 

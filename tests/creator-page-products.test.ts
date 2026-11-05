@@ -100,7 +100,7 @@ function main() {
     })(),
     JSON.stringify(plainSummary("word ".repeat(80), 60)))
 
-  const productPage = read("app/(marketing)/p/[slug]/page.tsx")
+  const productPage = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("the product page summarises before it shares",
     /const pageDescription = ownDescription \|\| plainSummary\(product\.description\)/.test(productPage))
   check("and so does the structured data a search result is drawn from",
@@ -111,7 +111,7 @@ function main() {
 
   console.log("\n  a published product is on the creator's page without a second step")
 
-  const page = read("app/(marketing)/u/[username]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
   /*
     The branch for a creator who has never opened the builder. It is found by
     the two things it drew and nothing else: the default header, then the

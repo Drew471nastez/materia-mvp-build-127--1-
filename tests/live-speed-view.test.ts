@@ -22,7 +22,7 @@ check("still only a published product", /\.eq\("slug", slug\)\.eq\("status", "pu
 const revalidate = read("app/api/revalidate/route.ts")
 const site = read("lib/website-builder/published-site.ts")
 check("a save purges the page at every name the site answers to", /await revalidatePublishedProduct\(owned\.creator_id, slug\)/.test(revalidate) && /revalidatePath\(`\/w\/\$\{name\}\/products\/\$\{slug\}`\)/.test(site))
-check("the preview and storelib.com's product page stay per visit", /export const dynamic = "force-dynamic"/.test(read("app/(site)/w/[username]/preview/[token]/products/[slug]/page.tsx")) && /export const dynamic = "force-dynamic"/.test(read("app/products/[slug]/page.tsx")))
+check("the preview and storelib.com's product page stay per visit", /export const dynamic = "force-dynamic"/.test(read("app/(site)/w/[username]/preview/[token]/products/[slug]/page.tsx")) && /export const dynamic = "force-dynamic"/.test(read("app/(storelib)/products/[slug]/page.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

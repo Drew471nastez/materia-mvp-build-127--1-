@@ -27,7 +27,7 @@ export const gumroad: Competitor = {
     { text: `A lower cut of each sale: ${STORELIB.freeFee} on Free and ${STORELIB.proFee} on Pro, against Gumroad's 10% + 50¢. Above about $${proBreakEvenDollars().toLocaleString("en-US")} a month in sales, Pro's lower rate covers its ${STORELIB.proPrice} price.`, code: "lib/payments/fees/defaults.ts" },
     { text: "The same fee wherever the sale happens. Storelib's fee does not change for a sale that came through Explore, where Gumroad's Discover sales pay 30%.", code: "lib/payments/fees/engine.ts" },
     { text: `More than a product page: a creator page, a OnePage for your bio link, and a website builder with ${STORELIB.freeSites} sites on Free and ${STORELIB.proSites} on Pro.`, code: "lib/sites/plan.ts" },
-    { text: "Email campaigns, automations, discount codes, bundles and upsells are built in, so a launch does not need three other tools.", code: "app/app/emails" },
+    { text: "Email campaigns, automations, discount codes, bundles and upsells are built in, so a launch does not need three other tools.", code: "app/(storelib)/app/emails" },
   ],
   whenToStay: [
     { text: "You want the platform to be the merchant of record and handle sales tax for you. Gumroad does that; on Storelib you set your own tax rates.", sources: ["gumroad-mor", "gumroad-tax"], status: "verified" },
@@ -51,7 +51,7 @@ export const gumroad: Competitor = {
     { text: `${STORELIB.freeFee} a sale on Free, ${STORELIB.proFee} on Pro, and a lower rate with no fixed part under ${STORELIB.smallOrderBelow}.`, code: "lib/payments/fees/config.ts" },
     { text: "A website builder, a creator page and a OnePage, all selling the same products.", code: "lib/sites/plan.ts" },
     { text: "Courses with lessons and progress, and paid communities billed monthly or yearly.", code: "lib/courses/types.ts", flag: "communities", textOff: "Courses with lessons, video and each student's progress." },
-    { text: "Email campaigns and automations to your buyers and subscribers.", code: "app/app/emails" },
+    { text: "Email campaigns and automations to your buyers and subscribers.", code: "app/(storelib)/app/emails" },
   ],
   storelibLimits: [
     { text: "Storelib is not the merchant of record. You set the tax rates your store charges in Settings, Taxes.", code: "lib/tax/rules.ts" },

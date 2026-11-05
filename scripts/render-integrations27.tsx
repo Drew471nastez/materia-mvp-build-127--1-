@@ -1,5 +1,5 @@
 /**
- * The /app shell as app/app/layout.tsx draws it (the real sidebar,
+ * The /app shell as app/(storelib)/app/layout.tsx draws it (the real sidebar,
  * NavigationLoadingBar and AppStage), for scripts/check-integrations27.mjs:
  *
  *   /app/integrations   the real Integrations page and an integration's page
@@ -20,14 +20,14 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { AppSidebar } from "@/components/app/sidebar"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
-import { IntegrationsClient } from "@/app/app/integrations/integrations-client"
-import { ReviewsClient } from "@/app/app/reviews/reviews-client"
-import { GUTTER, LIST_BAR, LIST_WIDTH, ORDER_WIDTH, OrderBarFrame, PaneBar } from "@/app/app/orders/order-parts"
+import { IntegrationsClient } from "@/app/(storelib)/app/integrations/integrations-client"
+import { ReviewsClient } from "@/app/(storelib)/app/reviews/reviews-client"
+import { GUTTER, LIST_BAR, LIST_WIDTH, ORDER_WIDTH, OrderBarFrame, PaneBar } from "@/app/(storelib)/app/orders/order-parts"
 import { railStateOf, railWidth } from "@/lib/ui/app-rail"
 
 const rail = railStateOf(new URLSearchParams(location.search).get("rail"))
 
-/* Copied from app/app/layout.tsx; the probe fails if they ever differ. */
+/* Copied from app/(storelib)/app/layout.tsx; the probe fails if they ever differ. */
 export const ROOT_CLASS = "h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar"
 export const MAIN_CLASS =
   "h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content"

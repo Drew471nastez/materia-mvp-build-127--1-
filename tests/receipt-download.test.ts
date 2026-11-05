@@ -310,7 +310,7 @@ function main() {
   check("files are only listed for an open line, and not when the variant map cannot be read",
     /state === "open" && !\(mappingUnknown && r\.variant_id\)\s*\?\s*filesForVariant/.test(load))
 
-  const page = code("app/receipt/[token]/page.tsx")
+  const page = code("app/(storelib)/receipt/[token]/page.tsx")
   check("the page is never indexed and sends no Referer", /index: false/.test(page) && /referrer: "no-referrer"/.test(page))
   check("a malformed token is a 404 before any query", /if \(!isPlausibleToken\(token\)\) notFound\(\)/.test(page))
   /* Changed on purpose: the page now adds a discount code's saving to the
@@ -323,7 +323,7 @@ function main() {
   check("the browser gets the view model, not the order row",
     /let receipt = loaded\.view/.test(page) && /receipt = withDiscount\(receipt, await withinTime\(\(\) => invoiceForReceipt\(admin, token\), \d+\)\)/.test(page) && /<ReceiptView receipt=\{receipt\}/.test(page) && !/select\("\*/.test(page))
 
-  const view = read("app/receipt/[token]/receipt-view.tsx")
+  const view = read("app/(storelib)/receipt/[token]/receipt-view.tsx")
   check("a pending payment refreshes by itself", /router\.refresh\(\)/.test(view) && /PENDING_POLL_LIMIT/.test(view))
   check("and stops rather than polling for ever", /polls >= PENDING_POLL_LIMIT/.test(view))
   check("dates are in the buyer's locale and zone", /new Intl\.DateTimeFormat\(locale/.test(view) && /format\(undefined\)/.test(view))
@@ -387,20 +387,20 @@ function main() {
   check("the button is a thin call into that one path", /return downloadFile\(\{ assetId, receiptToken/.test(code("components/download-button.tsx")))
 
   const legacy = [
-    ["app/checkout/receipt/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
-    ["app/access/[orderId]/page.tsx", /receiptTokenForLegacyLink\(/],
-    ["app/downloads/page.tsx", /receiptTokenForLegacyLink\(/],
-    ["app/receipt/cart/[sessionId]/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
-    ["app/purchase/success/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
+    ["app/(storelib)/checkout/receipt/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
+    ["app/(storelib)/access/[orderId]/page.tsx", /receiptTokenForLegacyLink\(/],
+    ["app/(storelib)/downloads/page.tsx", /receiptTokenForLegacyLink\(/],
+    ["app/(storelib)/receipt/cart/[sessionId]/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
+    ["app/(storelib)/purchase/success/page.tsx", /redirect\(`\/receipt\/\$\{token\}`\)/],
   ] as const
   for (const [file, pattern] of legacy) check(`${file} forwards to the one receipt`, pattern.test(read(file)))
   check("an old access link compares its token in constant time", /sameSecret\(order\.access_token, input\.accessToken\)/.test(read("lib/receipts/legacy-link.ts")))
   check(
     "payment state comes from Stripe, not from the query string",
-    /stripe\.checkout\.sessions\.retrieve\(sessionId[,)]/.test(read("app/purchase/success/page.tsx")) &&
+    /stripe\.checkout\.sessions\.retrieve\(sessionId[,)]/.test(read("app/(storelib)/purchase/success/page.tsx")) &&
       !/searchParams\.get\("(paid|status|emailSent)"\)/.test(view),
   )
-  check("the checkout-only receipt component is gone", !existsSync(join(process.cwd(), "app/checkout/receipt/checkout-receipt-client.tsx")))
+  check("the checkout-only receipt component is gone", !existsSync(join(process.cwd(), "app/(storelib)/checkout/receipt/checkout-receipt-client.tsx")))
   check("and so is the old receipt component", !existsSync(join(process.cwd(), "components/receipt/receipt-content.tsx")))
 
   /* ---------------------------------------------------------------------
@@ -459,7 +459,7 @@ function main() {
   check("the product page stops offering Download for a refunded receipt", /if \(!canDeliver\(order\)\) continue/.test(verify))
 
   {
-    const view = read("app/receipt/[token]/receipt-view.tsx")
+    const view = read("app/(storelib)/receipt/[token]/receipt-view.tsx")
     check("a paid card order offers its invoice PDF on the receipt",
       /\/api\/checkout\/invoice\?token=\$\{encodeURIComponent\(receipt\.primary\.token\)\}/.test(view)
         && /invoice: totals\.totalCents > 0 && !!rows\[0\]\.stripe_payment_intent_id/.test(read("lib/receipts/load.ts")))

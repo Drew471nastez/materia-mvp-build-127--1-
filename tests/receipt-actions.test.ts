@@ -255,7 +255,7 @@ function pure() {
     withDiscount(view, { discountCents: 600, discountCode: "X", lines: [{ amountCents: 2000 }] }).discountCents === undefined)
   check("no invoice, no change", withDiscount(view, null) === view)
 
-  const page = readFileSync("app/receipt/[token]/receipt-view.tsx", "utf8") + readFileSync("components/reviews/review-form.tsx", "utf8")
+  const page = readFileSync("app/(storelib)/receipt/[token]/receipt-view.tsx", "utf8") + readFileSync("components/reviews/review-form.tsx", "utf8")
   check("no violet on the receipt or its review card", !/#(8b5cf6|7c3aed|6d28d9|5b21b6|a78bfa|ede9fe|f5f3ff|ddd6fe)|violet-|purple-/i.test(page))
   check("the review card shows the buyer, not the seller", /reviewerAvatarUrl/.test(page) && !/creatorAvatarUrl|MessageSquare/.test(page))
   /* Was: the change form sat behind `receipt.buyer.unclaimed ?` alone. An

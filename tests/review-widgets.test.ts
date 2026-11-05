@@ -271,12 +271,12 @@ function placementChecks() {
   const href = editorAddress("inst-1", { widget: "product_reviews", config: CONFIG, page: "product", placement: "below_product" }, "linen-apron")
   check("the builder opens on a product page with the widget to add", href.startsWith("/website-builder/editor/inst-1?") && href.includes("previewPath=%2Fproducts%2Flinen-apron") && href.includes("addReviewWidget=product_reviews") && href.includes(`reviewConfig=${CONFIG}`) && href.includes("placement=below_product"))
   check("  no product yet: the home page, at the end", editorAddress("i", { widget: "product_reviews", config: "", page: "product", placement: "below_product" }, null).includes("placement=bottom"))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   /* Changed on purpose (reviews add-to-website fix): the decision moved to lib/reviews/widgets/arrival.ts, tested for behaviour in tests/review-widget-arrival.test.ts; the editor waits for the page asked for, not only its first sections. */
   check("the editor adds it once the page is in, under the main product, naming the look", /widgetArrival/.test(editor) && /planWidgetArrival\(want,/.test(editor) && /busy: loading \|\| canvasLoading \|\| sectionsLoading/.test(editor) && /addSection\(plan\.type, plan\.presetIndex, true, \{ settings: plan\.settings, at: plan\.at \}\)/.test(editor))
   check("  and takes the words off the address", /readWidgetArrival\(window\.location\.href\)/.test(editor) && /window\.history\.replaceState\(window\.history\.state, "", read\.cleaned\)/.test(editor))
   /* Changed on purpose (round K5): the reviews list moved into Storelib Reviews' integration page, whose Widgets view embeds the gallery; /app/reviews/widgets sends there. Round 27: that page is /app/reviews itself now. */
-  check("the gallery is the reviews management's Widgets view, and /app/reviews/widgets opens it", /export function WidgetsGallery/.test(read("components/reviews/widgets/widgets-gallery.tsx")) && /<ReviewWidgetsGallery embedded \/>/.test(read("components/reviews/manage/widgets-slot.tsx")) && /"\/app\/reviews\?view=widgets"/.test(read("app/app/reviews/widgets/page.tsx")))
+  check("the gallery is the reviews management's Widgets view, and /app/reviews/widgets opens it", /export function WidgetsGallery/.test(read("components/reviews/widgets/widgets-gallery.tsx")) && /<ReviewWidgetsGallery embedded \/>/.test(read("components/reviews/manage/widgets-slot.tsx")) && /"\/app\/reviews\?view=widgets"/.test(read("app/(storelib)/app/reviews/widgets/page.tsx")))
 }
 
 function sqlChecks() {

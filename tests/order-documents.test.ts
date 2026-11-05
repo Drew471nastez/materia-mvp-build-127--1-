@@ -336,7 +336,7 @@ async function main() {
     withLogo.store_settings[0] = { ...withLogo.store_settings[0], logo_url: "https://xyz.supabase.co/storage/v1/object/public/avatars/logo.png" } as never
     const inv = await invoiceForOrder(fakeDb(withLogo), row as unknown as OrderRow, { metadata: {}, business: null, language: null })
     check("the store's logo is the one its receipt carries", !!inv?.seller.logoUrl && /logo\.png/.test(inv.seller.logoUrl), inv?.seller.logoUrl)
-    const png = readFileSync(join(process.cwd(), "app/icon.png"))
+    const png = readFileSync(join(process.cwd(), "app/(storelib)/icon.png"))
     const asked: string[] = []
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (u: URL | string) => {

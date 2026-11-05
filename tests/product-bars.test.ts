@@ -52,7 +52,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const buyBar = read("components/store-builder/sticky-add-to-cart.tsx")
 const topBar = read("components/store-builder/product-creator-bar.tsx")
 const wrapper = read("components/store-builder/discover-sticky-wrapper.tsx")
-const productPage = read("app/(marketing)/p/[slug]/page.tsx")
+const productPage = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
 const css = read("app/globals.css")
 
 /** Every `rgba(r, g, b, a)` alpha in a declaration, in order. */

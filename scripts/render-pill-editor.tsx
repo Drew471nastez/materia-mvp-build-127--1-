@@ -8,7 +8,7 @@
  * the layer or the editor is reimplemented: the pill is
  * components/app/sidebar-mobile-nav's own MobileNavPill, wired exactly as
  * components/app/sidebar.tsx wires it (startNavigationLoading, then
- * router.push), and the shell's boxes are the ones app/app/layout.tsx draws
+ * router.push), and the shell's boxes are the ones app/(storelib)/app/layout.tsx draws
  * — the pill beside <main>, the page inside `.app-content-scroll`, so the
  * stills page-layer.tsx builds land where they land in the app.
  */
@@ -26,9 +26,9 @@ import { useRouter } from "next/navigation"
 const __RouteContext = (nextNavigation as unknown as {
   __RouteContext: React.Context<{ path: string; search: string }>
 }).__RouteContext
-import { ProductsClient } from "@/app/app/products/products-client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { PageLayer } from "@/components/app/page-layer"
 import { AppStage } from "@/components/app/app-stage"
 import { NavigationLoadingBar, startNavigationLoading } from "@/components/app/navigation-loading-bar"

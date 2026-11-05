@@ -32,7 +32,7 @@ const big = read("components/app/analytics-chart.tsx")
 check("the figures' chart and the community's draw it too, its axis numbers faded out", /nothingToDraw\(\.\.\.lines, comparedLine\)/.test(big) && /loading=\{isLoading \|\| blank\}/.test(big) && /opacity: blank \? 0 : 1/.test(big))
 
 console.log("\nThe sales cards")
-const commerce = read("app/app/analytics/commerce-reports.tsx")
+const commerce = read("app/(storelib)/app/analytics/commerce-reports.tsx")
 check("Average order value and Returning customer rate say their zero, the line where the change goes, a ghost at the right", /value: b \? money\(b\.orders \? b\.aov : 0\) : null/.test(commerce) && /value: b \? percentText\(b\.customers \? b\.returningRate : 0\) : null/.test(commerce) && /f\.blank \? <GhostLine shown className="absolute bottom-4 right-5 h-8 w-20" \/>/.test(commerce))
 check("  no sentence where the figure goes", !/data-figure-empty/.test(commerce))
 check("Total sales over time says what is missing over its ghost", /emptyText=\{metric === "total" \? tt\("No sales in this period\."\) : tt\("No orders in this period\."\)\}/.test(commerce))

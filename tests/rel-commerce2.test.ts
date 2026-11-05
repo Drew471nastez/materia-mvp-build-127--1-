@@ -304,7 +304,7 @@ async function main() {
     check("Stripe says there is no bank: bankAccount null, bankUnknown false (Add bank stays)", empty.status === 200 && empty.json?.bankAccount === null && empty.json?.bankUnknown === false, empty.json)
     a.external_accounts = keptBanks
 
-    const ui = readFileSync(join(process.cwd(), "app/app/payouts/payouts-client.tsx"), "utf8")
+    const ui = readFileSync(join(process.cwd(), "app/(storelib)/app/payouts/payouts-client.tsx"), "utf8")
     const card = ui.slice(ui.indexOf("function PayoutMethodCard("), ui.indexOf("function SwitchAccountPanel("))
     check("the card: unknown is not \"needs a bank\"", /const bankUnknown = !bank && !!data\?\.bankUnknown;/.test(card) && /const needsBank = data && !bank && !bankUnknown;/.test(card))
     check("  it says \"We couldn't check your bank account right now\" instead of \"No bank account yet\"", /bankUnknown \? \([\s\S]{0,160}tt\("We couldn't check your bank account right now"\)/.test(card))

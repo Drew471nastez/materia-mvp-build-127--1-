@@ -80,7 +80,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     title: "How it fits together",
     intro:
       "A creator sets up the store in Settings, adds products, and sells them on their website, their creator page and Explore. A buyer adds to the cart, pays through Stripe, and gets emails at each step. The creator ships from Orders, the buyer follows the parcel on their order page, and returns and refunds go back the same way.",
-    code: ["lib/platform/physical-commerce.ts", "app/admin/_console/panel-physical-commerce.tsx", "components/app/settings-form-new.tsx"],
+    code: ["lib/platform/physical-commerce.ts", "app/(storelib)/admin/_console/panel-physical-commerce.tsx", "components/app/settings-form-new.tsx"],
     topics: [
       {
         id: "switch",
@@ -229,7 +229,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "Where products are listed. Storelib runs three channels: the Online store (the website), the Creator page and Explore. Taking a product off one really hides it there; its own link keeps working. A store can add its own channels (a market stall, a wholesale list) as names for its own records.",
     where: SETTINGS("channels", "Sales channels"),
     help: ["sales-channels"],
-    code: ["components/app/settings/channels-panel.tsx", "lib/store/channels.ts", "lib/store/channel-filter.ts", "app/app/products/new/sales-channels-card.tsx"],
+    code: ["components/app/settings/channels-panel.tsx", "lib/store/channels.ts", "lib/store/channel-filter.ts", "app/(storelib)/app/products/new/sales-channels-card.tsx"],
     facts: ["channels"],
     topics: [
       {
@@ -383,7 +383,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     where: SETTINGS("locations", "Locations"),
     physicalOnly: true,
     help: ["locations", "inventory-and-stock", "local-pickup"],
-    code: ["components/physical/shipping-settings.tsx", "app/app/inventory/inventory-client.tsx", "lib/physical/inventory-server.ts", "lib/physical/storefront-stock.ts", "lib/physical/checkout-server.ts", "lib/physical/jobs-server.ts", "lib/website-builder/site-commerce.ts"],
+    code: ["components/physical/shipping-settings.tsx", "app/(storelib)/app/inventory/inventory-client.tsx", "lib/physical/inventory-server.ts", "lib/physical/storefront-stock.ts", "lib/physical/checkout-server.ts", "lib/physical/jobs-server.ts", "lib/website-builder/site-commerce.ts"],
     facts: ["locationKinds", "pickupReady"],
     topics: [
       {
@@ -439,7 +439,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "Buyers ask for a return from their order page and the creator approves each one. Refunds are made from the order, all or part, and also when made in Stripe. Without physical commerce the section is Refunds and holds the refund reasons alone.",
     where: SETTINGS("returns", "Returns and refunds"),
     help: ["returns-physical", "refund-a-physical-order", "cancel-a-physical-order", "store-policies"],
-    code: ["components/physical/shipping-settings.tsx", "components/app/settings/reasons-panel.tsx", "lib/store/reasons.ts", "app/checkout/physical/order/[token]/order-status-view.tsx", "components/physical/order-panel.tsx"],
+    code: ["components/physical/shipping-settings.tsx", "components/app/settings/reasons-panel.tsx", "lib/store/reasons.ts", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", "components/physical/order-panel.tsx"],
     topics: [
       {
         id: "window",
@@ -473,7 +473,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "A creator's own web address for their website or creator page. Every website also has its own <site>.storelib.com address. The cart, checkout, order tracking and thank you page all work on the connected domain.",
     where: SETTINGS("domains", "Domains"),
     help: ["store-domain", "sell-on-your-website"],
-    code: ["components/app/settings/domains-panel.tsx", "app/api/domains/route.ts", "app/checkout/site/page.tsx", "app/checkout/site/track/page.tsx"],
+    code: ["components/app/settings/domains-panel.tsx", "app/api/domains/route.ts", "app/(storelib)/checkout/site/page.tsx", "app/(storelib)/checkout/site/track/page.tsx"],
     topics: [
       {
         id: "connect",
@@ -493,7 +493,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "Services a store connects. Analytics and ad pixels load on every page of the store's website with the ID the creator saved, and a paid order is reported to the ad and analytics ones once. Printful, Printify, Gelato and CJ Dropshipping take each paid order for their location and send tracking back; CJ can also keep a product's stock in step. Shippo and EasyPost buy labels from the order page and price Carrier calculated rates at checkout; ShipStation takes the orders the seller ships and sends tracking back. The list below says which ones are working today and which are Coming soon.",
     where: SETTINGS("integrations", "Integrations"),
     help: ["integrations", "printful-and-printify", "gelato-and-cj-dropshipping"],
-    code: ["components/app/settings/integrations-directory.tsx", "components/physical/integrations-marketplace.tsx", "lib/integrations/catalog.ts", "lib/store/tracking.ts", "lib/physical/providers.ts", "lib/integrations/fulfilment/forward-server.ts", "lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/integrations/marketing/sync-server.ts", "components/app/settings/marketing-sync-panel.tsx", "lib/physical/secrets.ts", "app/api/integrations/webhooks", "app/api/cron/physical/route.ts", "app/admin/integrations"],
+    code: ["components/app/settings/integrations-directory.tsx", "components/physical/integrations-marketplace.tsx", "lib/integrations/catalog.ts", "lib/store/tracking.ts", "lib/physical/providers.ts", "lib/integrations/fulfilment/forward-server.ts", "lib/integrations/fulfilment/gelato.ts", "lib/integrations/fulfilment/cj.ts", "lib/integrations/fulfilment/links-server.ts", "lib/integrations/marketing/sync-server.ts", "components/app/settings/marketing-sync-panel.tsx", "lib/physical/secrets.ts", "app/api/integrations/webhooks", "app/api/cron/physical/route.ts", "app/(storelib)/admin/integrations"],
     facts: ["integrations"],
     topics: [
       {
@@ -619,7 +619,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       "Every order, digital and physical, is on the Orders page. A physical order is laid out the way Shopify lays one out: what is left to ship, each shipment with its tracking, the address and delivery the buyer paid for, the buyer's note and a timeline.",
     where: { label: "Orders", href: "/app/orders" },
     help: ["ship-your-orders", "cancel-a-physical-order", "physical-payouts"],
-    code: ["components/physical/order-panel.tsx", "app/app/orders/order-detail.tsx", "lib/physical/status.ts", "lib/physical/checkout-server.ts", "lib/physical/buyer-cancel.ts", "app/api/physical/orders", "app/api/physical/order-status/[token]/cancel/route.ts", "lib/support/cases-server.ts", "components/support/order-help.tsx", "lib/orders/order-number-server.ts"],
+    code: ["components/physical/order-panel.tsx", "app/(storelib)/app/orders/order-detail.tsx", "lib/physical/status.ts", "lib/physical/checkout-server.ts", "lib/physical/buyer-cancel.ts", "app/api/physical/orders", "app/api/physical/order-status/[token]/cancel/route.ts", "lib/support/cases-server.ts", "components/support/order-help.tsx", "lib/orders/order-number-server.ts"],
     facts: ["orderStatuses"],
     topics: [
       {
@@ -681,7 +681,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     intro: "The tracking number a creator adds becomes a link to the carrier's own tracking page when the carrier is one Storelib knows. An unknown carrier gets no made up link: the buyer sees the number, and the creator can paste the carrier's link.",
     physicalOnly: true,
     help: ["ship-your-orders"],
-    code: ["lib/physical/carriers.ts", "lib/physical/status.ts", "app/checkout/physical/order/[token]/order-status-view.tsx", "app/checkout/site/track/page.tsx", "app/checkout/physical/partner/[token]/page.tsx"],
+    code: ["lib/physical/carriers.ts", "lib/physical/status.ts", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", "app/(storelib)/checkout/site/track/page.tsx", "app/(storelib)/checkout/physical/partner/[token]/page.tsx"],
     facts: ["carriers", "shipmentStatuses"],
     topics: [
       {
@@ -731,7 +731,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     title: "Receipts",
     intro:
       "Every payment has one receipt page, which is also the download page for digital items. The receipt email and the page read the same data, so they never disagree about items or totals.",
-    code: ["lib/receipts/rules.ts", "app/receipt/[token]/page.tsx", "lib/store/identity-server.ts"],
+    code: ["lib/receipts/rules.ts", "app/(storelib)/receipt/[token]/page.tsx", "lib/store/identity-server.ts"],
     topics: [
       {
         id: "receipt",
@@ -748,7 +748,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     title: "Checking it all with test payments",
     intro:
       "Stripe has test keys and live keys. The status at the top says which mode this deployment runs in. On the live site every payment is real money: do not test with a real card there.",
-    code: ["lib/payments/stripe/config.ts", "app/admin/payments"],
+    code: ["lib/payments/stripe/config.ts", "app/(storelib)/admin/payments"],
     facts: ["stripeEvents"],
     topics: [
       {

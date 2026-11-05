@@ -1,6 +1,6 @@
 /**
  * The buyer's profile (scripts/account-hub-demo.tsx: the real hub, the
- * Overview and Settings) in a shell shaped like app/account/layout.tsx: the
+ * Overview and Settings) in a shell shaped like app/(storelib)/account/layout.tsx: the
  * black site header at EVERY width, as the library has it, the light page,
  * the footer. The router is the probe's stub
  * (scripts/check-account-hub.mjs): a link's press changes the path a moment

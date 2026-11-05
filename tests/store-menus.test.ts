@@ -112,7 +112,7 @@ async function run() {
   check("  the database's own words never reach the browser", !/error\.message/.test(route))
   check("the editor gets the store's menus with the theme", /builderStoreMenus\(creator!\.id, installId\)/.test(read("app/api/website-builder/themes/[installId]/route.ts")))
 
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("Edit opens Navigation, its own panel, and Back returns to what asked", /setSelectedPanel\(\(prev\) => \(\{ type: "navigation", handle, back:/.test(page) && /data-wb-navigation-panel/.test(page) && !/setExpandedSettings\("menus"\)/.test(page))
   check("Menus are no longer a Theme settings group", (page.match(/group\.id !== "menus"/g) ?? []).length === 2)
   check("a menu change is saved to the store, once the typing stops", /* Changed on purpose (round 12, WBPERF): through putJsonWithRetry, a 401 asked about and a 5xx tried again. */ /putJsonWithRetry\("\/api\/website-builder\/menus"/.test(page) && /menusJson === st\.synced/.test(page))

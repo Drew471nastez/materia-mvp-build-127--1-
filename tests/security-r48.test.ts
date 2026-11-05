@@ -69,11 +69,11 @@ async function redirectsStayOurs() {
   check("kept: the receipt path the receipt page sends", safeReturnTarget("/receipt/abc123", rules) === "/receipt/abc123")
   check("kept: a page on storelib.com", safeReturnTarget("https://storelib.com/app", rules) !== null)
 
-  const verify = readCode("app/(auth)/verify-email/verify-email-content.tsx")
+  const verify = readCode("app/(storelib)/(auth)/verify-email/verify-email-content.tsx")
   check("/verify-email checks ?redirect before following it", /const redirectUrl = safeReturnTarget\(searchParams\.get\("redirect"\)/.test(verify))
-  const signup = readCode("app/(auth)/signup/page.tsx")
+  const signup = readCode("app/(storelib)/(auth)/signup/page.tsx")
   check("/signup checks ?redirect before storing it for after Google", /const redirectUrl = safeReturnTarget\(searchParams\.get\("redirect"\)/.test(signup))
-  const complete = readCode("app/auth/complete/page.tsx")
+  const complete = readCode("app/(storelib)/auth/complete/page.tsx")
   check("/auth/complete checks the stored redirect (a subdomain can write that cookie)", /const storedUrl = safeReturnTarget\(redirectData\.url/.test(complete) && !/let finalUrl = redirectData\.url/.test(complete))
   check("  and ?fallback", /const fallback = safeReturnTarget\(searchParams\.get\("fallback"\)/.test(complete))
 }

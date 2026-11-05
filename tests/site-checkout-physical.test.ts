@@ -24,7 +24,7 @@ import { fakeDb } from "./_fake-db"
 import { stripComments } from "./_source"
 import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, shipsToCountries, themeCartAfter } from "@/lib/checkout/site-checkout"
 import { variantChoices } from "@/lib/checkout/variant-choices-server"
-import { pickByValue } from "@/app/checkout/parts/variant-edit"
+import { pickByValue } from "@/app/(storelib)/checkout/parts/variant-edit"
 import { clampToLimits, shippedQuote } from "@/lib/checkout/site-quote-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import type { ShippingProfile } from "@/lib/physical/types"
@@ -131,10 +131,10 @@ async function main() {
     check("the website checkout's quote carries them", q.ok === true && q.quote.choices?.[SLEEVE]?.variants.length === 3, q.ok ? q.quote.choices : q)
     const after = await shippedQuote(shop({ sizes: true }) as never, SHOP, { items: [{ productId: SLEEVE, variantId: L, quantity: 1 }], country: "RO" }, null)
     check("  and the order changed to another option is priced again from the database (L at its own price; sold out, so short)", after.ok === true && after.quote.short?.[0]?.variantId === L && after.quote.stockIssues.length === 1, after.ok ? after.quote.short : after)
-    const page = code("app/checkout/site/site-checkout.tsx")
-    check("the page: Edit on each line and on a short line, the change through the same path as - / +", /<VariantEdit\s+choices=\{quote\.choices\?\.\[l\.productId\]\}/.test(page) && /commitItems\(setLineVariant\(items, line, variantId\)/.test(page) && /A size that sold out is changed to one in stock right here/.test(readFileSync(join(process.cwd(), "app/checkout/site/site-checkout.tsx"), "utf8")))
+    const page = code("app/(storelib)/checkout/site/site-checkout.tsx")
+    check("the page: Edit on each line and on a short line, the change through the same path as - / +", /<VariantEdit\s+choices=\{quote\.choices\?\.\[l\.productId\]\}/.test(page) && /commitItems\(setLineVariant\(items, line, variantId\)/.test(page) && /A size that sold out is changed to one in stock right here/.test(readFileSync(join(process.cwd(), "app/(storelib)/checkout/site/site-checkout.tsx"), "utf8")))
     check("  this browser's cart follows the new option rather than losing the line", /swap && was\.productId === swap\.productId/.test(page))
-    const other = code("app/checkout/physical/physical-checkout.tsx")
+    const other = code("app/(storelib)/checkout/physical/physical-checkout.tsx")
     check("the storelib.com cart checkout has the same picker, from its own quote", /<VariantEdit/.test(other) && /variantChoices\(db,/.test(code("app/api/physical/checkout/quote/route.ts")))
   }
 
@@ -145,7 +145,7 @@ async function main() {
     check("a $0 option stays in the order at $0, with its shipping", free.ok === true && free.quote.lines.length === 1 && free.quote.lines[0].unitCents === 0 && free.quote.totals.shippingCents === 1500 && free.quote.dropped.length === 0, free.ok ? { lines: free.quote.lines, totals: free.quote.totals, dropped: free.quote.dropped } : free)
     const cards = code("components/physical/product-cards.tsx")
     check("the editor takes $0, asks for a price only when there is none, and refuses only between nothing and $0.50", /if \(p === null\) return multi \? tt\("Set a price for \{name\}"/.test(cards) && /if \(p > 0 && p < 50\)/.test(cards) && !/p === null \|\| p < 50/.test(cards))
-    const editor = code("app/app/products/new/product-editor.tsx")
+    const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
     /* Round 12 changed this on purpose: markDirty set a flag the snapshot effect put back on its next draw (the
        owner's unchecked sales channel left Save grey). Each card now says what it holds and Save compares it with
        what it loaded or saved (tests/product-save-r12.test.ts). */
@@ -217,7 +217,7 @@ async function main() {
     const route = code("app/api/checkout/site/route.ts")
     check("the server checks the phone for any physical order, and leaves company and apartment to the address check", /fieldPlan\(config, \{ ships: false, physical: order\.ships \}\)/.test(route) && /phone: clean\(body\.phone, 40\) \|\| clean\(address\.phone, 40\)/.test(route))
     check("the held checkout reads the address with the same settings", /readAddress\(input\.address, config\)/.test(code("lib/physical/checkout-server.ts")))
-    const page = code("app/checkout/site/site-checkout.tsx")
+    const page = code("app/(storelib)/checkout/site/site-checkout.tsx")
     check("the page draws the phone for a physical order that ships nothing", /!ships && physical && plan\.phone !== "off"/.test(page))
     check("the page lists only the shop's countries and says when it doesn't ship there", /shipsTo\.includes\(c\.code\) \|\| c\.code === address\.country/.test(page) && /* Changed on purpose: in the visitor's language, the country named in it too. */ /ct\("We don't ship to \{country\}\.", \{ country: countryName\(address\.country\) \}\)/.test(page))
     check("each line has - / + and Remove, + held to the server's max", /data-qty-plus="" disabled=\{atMax\}/.test(page) && /data-line-remove=""/.test(page) && /max=\{l\.maxQuantity \?\? l\.quantity\}/.test(page))

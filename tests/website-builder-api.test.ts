@@ -94,7 +94,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const backups = read(`${ROUTES}/backups/route.ts`)
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const agent = read(`${ROUTES}/agent/route.ts`)
     const prompt = Number(agent.match(/const MAX_PROMPT = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
     const kept = Number(backups.match(/const LABEL_MAX = (\d+)/)?.[1] ?? 0)
@@ -189,7 +189,7 @@ async function main() {
     const preview = read(`${ROUTES}/preview/route.ts`)
     check("the preview link's three methods all count against it", (preview.match(/const limited = await limit\(o\.userId\)/g) ?? []).length === 3)
 
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     const delay = Number(editor.match(/const AUTOSAVE_DELAY_MS = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
     const perTabPerMinute = Math.ceil(60_000 / delay)
     const [minute, hour] = LIMITS.siteSave

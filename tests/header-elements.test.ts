@@ -50,7 +50,7 @@ function main() {
   console.log("\n  and both sides ask it")
 
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
   /* The keys are written out on both sides rather than reached through the
      constant, because the panel-coverage test reads these files for the

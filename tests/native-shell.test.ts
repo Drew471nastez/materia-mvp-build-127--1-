@@ -44,7 +44,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 
 const css = readSource("app/globals.css")
 const cssCode = readCode("app/globals.css")
-const layout = readCode("app/layout.tsx")
+const layout = readCode("app/(storelib)/layout.tsx")
 const chrome = readCode("lib/platform/header-chrome.ts")
 const header = readCode("components/platform/platform-header-client.tsx")
 const conditional = readCode("components/marketing/conditional-header.tsx")

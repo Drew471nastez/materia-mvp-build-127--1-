@@ -26,7 +26,7 @@ import { compatFilter } from "@/lib/storelib-theme/compat/filters"
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
 import { toCard } from "@/lib/website-builder/shop-products"
 import { productImages } from "@/lib/products/product-page-model"
-import { mediaOf as editorMediaOf } from "@/app/app/products/new/editor-form"
+import { mediaOf as editorMediaOf } from "@/app/(storelib)/app/products/new/editor-form"
 import { checkoutCoverUrl } from "@/lib/checkout/share-meta"
 
 let passed = 0
@@ -146,14 +146,14 @@ async function main() {
   check("a checkout's share picture is never a video", checkoutCoverUrl({ thumbnailUrl: null, galleryUrls: ["https://x/a.mp4", "https://x/b.jpg"] }) === "https://x/b.jpg")
 
   console.log("\n7. The product editor takes video files")
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("its picker and drop zone take videos", /accept=\{`image\/\*,\$\{VIDEO_ACCEPT\}`\}/.test(editor) && /if \(isVideoFile\(file\)\)/.test(editor))
   check("  uploaded with their frame into the products folder", /uploadVideo\(file, "products"/.test(editor))
   check("  Choose from your files shows photos and videos", /kind="media"/.test(editor) && /prefetchLibrary\("media"/.test(editor))
   check("  saved in their place in the gallery, a video first leaves its frame as the thumbnail", /m\.type === "image" \|\| m\.type === "video"/.test(editor) && /videoPosterUrl\(firstMedia\.url\)/.test(editor))
   const loaded = editorMediaOf({ thumbnail_url: "https://x/u/products/1-a-37s.poster.jpg", gallery_urls: ["https://x/u/products/1-a-37s.mp4", "https://x/1.jpg"] } as never)
   check("  read back as a video tile, not a stray frame", JSON.stringify(loaded.map((m) => m.type)) === '["video","image"]', loaded)
-  const grid = read("app/app/products/new/media-grid.tsx")
+  const grid = read("app/(storelib)/app/products/new/media-grid.tsx")
   check("  its tile shows the frame and the length", /videoPosterUrl\(item\.url\)/.test(grid) && /data-media-video=""/.test(grid))
   const upload = read("lib/files/upload-video.ts")
   check("the frame is drawn in the browser from the first second, at most 1280 wide", /Math\.min\(0\.5, d \/ 2\)/.test(upload) && /1280 \/ w/.test(upload) && /toBlob\(/.test(upload))

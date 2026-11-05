@@ -48,7 +48,7 @@ console.log("\nSTATE\n")
   check("  the UK, which writes none, is taken without one", gb.ok === true, gb)
   const de = readAddress({ ...base, country: "DE", city: "Berlin", postalCode: "10115" })
   check("  so is Germany", de.ok === true, de)
-  const page = code("app/checkout/site/site-checkout.tsx")
+  const page = code("app/(storelib)/checkout/site/site-checkout.tsx")
   check("the website's checkout asks for it before Pay too", /addressFormat\(address\.country\)\.region\?\.required\) && !address\.region\.trim\(\)\) return missing\("region"/.test(page))
 }
 
@@ -64,9 +64,9 @@ console.log("\nROWS\n")
 
 console.log("\nCREATE\n")
 {
-  const editor = code("app/app/products/new/product-editor.tsx")
+  const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
   check("a new physical product is written as shipped by the editor itself", /\.insert\(productType === "physical" \? \{ \.\.\.productData, requires_shipping: true \} : productData\)/.test(editor))
-  const list = code("app/app/products/products-client.tsx")
+  const list = code("app/(storelib)/app/products/products-client.tsx")
   check("Duplicate of a physical product ships too", /\.\.\.\(product\.type === "physical" \? \{ requires_shipping: true \} : \{\}\)/.test(list))
 }
 
@@ -83,7 +83,7 @@ console.log("\nNEVER WITHOUT AN ADDRESS\n")
 
 console.log("\nVIEW\n")
 {
-  const list = code("app/app/products/products-client.tsx")
+  const list = code("app/(storelib)/app/products/products-client.tsx")
   check("View for a physical product is the live route, the website first", /product\.type === "physical" \? `\/api\/app\/products\/\$\{encodeURIComponent\(product\.id\)\}\/live`/.test(list))
   check("  in the table and in the row's menu", /const url = viewUrl\(product, username\)/.test(list) && /href: url, target: "_blank"/.test(list) /* Round 40: View is in the row's menu alone, on a phone and in the table. */)
   check("  and in the app, with the whole address for the phone's browser", /openExternal\(url\.startsWith\("\/"\) \? `\$\{getCanonicalSiteUrl\(\)\}\$\{url\}` : url\)/.test(list))

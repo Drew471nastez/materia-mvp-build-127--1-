@@ -318,7 +318,7 @@ function Screen() {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[1]} comments={{ comments: COMMENTS, nextCursor: null }} me={me} />} />)
   }
   if (which === "chat") {
-    /* As app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx draws a chat space: under the chips. */
+    /* As app/(storelib)/(marketing)/community/[slug]/(member)/space/[space]/page.tsx draws a chat space: under the chips. */
     return shell(
       <div className="max-w-[760px]">
         <SpaceChips slug={community.slug} spaces={spaces} active={spaces[4].slug} />

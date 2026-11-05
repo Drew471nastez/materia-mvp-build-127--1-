@@ -149,21 +149,21 @@ async function main() {
   check("the JSON place route reads the one loader, members only", /requireMember\(db, communityId, await sessionUserId\(\), "view"\)/.test(route) && /await loadPlace\(db, gate\.community, gate\.viewer, place,/.test(route))
   check("a place's page reads the same loader and only seeds the shell", /await loadPlace\(admin\(\), page\.community, page\.viewer, place, \{ lesson \}\)/.test(page) && /<PlaceSeed /.test(page))
   for (const [file, kind] of [
-    ["app/(marketing)/community/[slug]/(member)/learn/page.tsx", "learn"],
-    ["app/(marketing)/community/[slug]/(member)/events/page.tsx", "calendar"],
-    ["app/(marketing)/community/[slug]/(member)/members/page.tsx", "members"],
-    ["app/(marketing)/community/[slug]/(member)/leaderboard/page.tsx", "leaderboard"],
-    ["app/(marketing)/community/[slug]/(member)/notifications/page.tsx", "notifications"],
-    ["app/(marketing)/community/[slug]/(member)/saved/page.tsx", "saved"],
-    ["app/(marketing)/community/[slug]/(member)/membership/page.tsx", "membership"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/learn/page.tsx", "learn"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/events/page.tsx", "calendar"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/members/page.tsx", "members"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/leaderboard/page.tsx", "leaderboard"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/notifications/page.tsx", "notifications"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/saved/page.tsx", "saved"],
+    ["app/(storelib)/(marketing)/community/[slug]/(member)/membership/page.tsx", "membership"],
   ] as const) {
     check(`${kind}'s page is PlacePage and nothing else`, new RegExp(`<PlacePage slug=\\{slug\\} place=\\{\\{ kind: "${kind}" \\}\\} />`).test(code(file)))
   }
-  check("a space's page, a program's and an event's seed the shell too", /place=\{\{ kind: "space"/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /place=\{\{ kind: "program"/.test(code("app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")) && /place=\{\{ kind: "event"/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/page.tsx")))
+  check("a space's page, a program's and an event's seed the shell too", /place=\{\{ kind: "space"/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /place=\{\{ kind: "program"/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")) && /place=\{\{ kind: "event"/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/events/[eventId]/page.tsx")))
   /* Changed on purpose (round 39): in memberHome, whichever way the member was found. */
-  check("the home address seeds the place it names (feed, ?profile=, ?space=)", /placeFromUrl\(home, search\.toString\(\)\)/.test(code("app/(marketing)/community/[slug]/page.tsx")) && /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(marketing)/community/[slug]/page.tsx")))
-  check("About, for a member, is a place in the shell", /<PlacePage slug=\{load\.community\.slug\} place=\{\{ kind: "about" \}\} \/>/.test(code("app/(marketing)/community/[slug]/about/page.tsx")))
-  check("the old /members/<id> goes to ?profile=<handle>, inside the community", /redirect\(ref \? placeHref\(page\.community\.slug, \{ kind: "profile", ref \}\)/.test(code("app/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx")))
+  check("the home address seeds the place it names (feed, ?profile=, ?space=)", /placeFromUrl\(home, search\.toString\(\)\)/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")) && /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")))
+  check("About, for a member, is a place in the shell", /<PlacePage slug=\{load\.community\.slug\} place=\{\{ kind: "about" \}\} \/>/.test(code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")))
+  check("the old /members/<id> goes to ?profile=<handle>, inside the community", /redirect\(ref \? placeHref\(page\.community\.slug, \{ kind: "profile", ref \}\)/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx")))
   check("the loader covers every kind of place", ["feed", "saved", "space", "learn", "program", "calendar", "event", "members", "leaderboard", "about", "notifications", "membership", "profile"].every((k) => places.includes(`case "${k}":`)))
   check("a switched off place is a 404, never another community's row", /if \(!community\.classroom_enabled\) return off/.test(places) && /if \(!community\.events_enabled\) return off/.test(places) && /if \(!community\.gamification_enabled\) return off/.test(places))
   check("a phone opening /space/<x> takes ?space=<x> in place, never a page load", /window\.history\.replaceState\(window\.history\.state, "", href\)/.test(host) && !/location\.replace/.test(host))
@@ -213,7 +213,7 @@ async function main() {
   check("the hard navigation runs once", hardNavigationAllowed(s, 1_000_000) && !hardNavigationAllowed(s, 1_000_000 + HARD_AGAIN_MS - 1))
   check("never in a loop, and again after a while", hardNavigationAllowed(s, 1_000_000 + HARD_AGAIN_MS + 1))
   check("no storage: no hard navigation (it could not know it already tried)", !hardNavigationAllowed(null))
-  check("a failure inside a place stays inside the frame (an error boundary per kept screen, an error.tsx for the community)", /class PlaceBoundary extends Component/.test(host) && /export default function CommunityPlaceError/.test(code("app/(marketing)/community/[slug]/error.tsx")))
+  check("a failure inside a place stays inside the frame (an error boundary per kept screen, an error.tsx for the community)", /class PlaceBoundary extends Component/.test(host) && /export default function CommunityPlaceError/.test(code("app/(storelib)/(marketing)/community/[slug]/error.tsx")))
   const behind = { from: "https://storelib.com/community/clay", href: "/explore", type: "push" as const, newDeploy: true, holdsWork: false }
   check("a tab that knows of a newer deploy does not throw itself away while skew protection serves it", fullLoadFor({ ...behind, tabAgeMs: 30 * 60_000 }) === null)
   check("past the window it still loads the new code at a route change", fullLoadFor({ ...behind, tabAgeMs: SKEW_SAFE_MS + 1 }) === "assign")

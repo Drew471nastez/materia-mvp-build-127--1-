@@ -41,7 +41,7 @@ Full list: DB audit appendix, summarised in [AUDIT.md](AUDIT.md) DB-11.
 | Stripe | 20s per attempt, 2 retries, breaker | `lib/stripe/resilience.ts` |
 | Mailgun | 15s per attempt | `lib/mailgun.ts` |
 | GitHub | 25s per attempt, 4 attempts | `lib/github-sync/github.ts` |
-| Dashboard extras | 2-2.5s caps on Home banner sales, commerce actions, businesses; Payouts Stripe 2.5s | `app/app/page.tsx`, `app/app/payouts/page.tsx` |
+| Dashboard extras | 2-2.5s caps on Home banner sales, commerce actions, businesses; Payouts Stripe 2.5s | `app/(storelib)/app/page.tsx`, `app/(storelib)/app/payouts/page.tsx` |
 
 ### Production signals (7 days to 2026-10-31)
 

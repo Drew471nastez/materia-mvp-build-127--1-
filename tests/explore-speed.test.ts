@@ -130,7 +130,7 @@ async function main() {
 
   console.log("\nItem 11: the page and its pills")
   {
-    const page = code("app/(marketing)/explore/page.tsx")
+    const page = code("app/(storelib)/(marketing)/explore/page.tsx")
     /* Round 17: creators.user_id points at auth.users, so `profiles!creators_user_id_fkey` named a key PostgREST does not have and was refused on every load. The creators are embedded on products.creator_id; their faces are one read by user id. */
     check("the catalogue embeds its creators on products.creator_id, and names no creators to profiles key that does not exist", /CREATOR_EMBED = "creator:creators\(id, user_id, slug, niche_tags\)"/.test(page) && /read\(`\$\{PRODUCT_COLUMNS\}, \$\{CREATOR_EMBED\}`\)/.test(page) && !/profiles!creators_user_id_fkey/.test(page))
     check("the faces, the sales channels and the intervals are read together after the one products read", /from\("profiles"\)\.select\(PROFILE_FIELDS\)\.in\("id", userIds\)/.test(page) && /const together = Promise\.all\(\[\s*offChannelAmong\(/.test(page) && /\] = await together/.test(page) && /creatorsPromise,\s*profilesPromise,\s*intervalsPromise/.test(page))
