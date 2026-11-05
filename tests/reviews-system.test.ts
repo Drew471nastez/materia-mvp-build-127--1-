@@ -592,7 +592,8 @@ function faces() {
     !/\|\| "\?"/.test(code("components/storefront/reviews-panel.tsx")) && /<AppAvatar/.test(panel) && /tone="theme"/.test(panel) && /markWhileLoading/.test(panel) && /UNNAMED_REVIEWER/.test(panel))
   const creatorPage = source("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("  and it asks for the guest's name, which is why those reviews had none to draw",
-    /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /missingColumn\(res\.error\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
+    /* Changed on purpose (r54): the fallback is a readLadder that remembers per server the list that answered (lib/supabase/missing-memory.ts). */
+    /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /readLadder\(\s*"reviews:creator-page"/.test(creatorPage) && /\],\s*missingColumn,\s*\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
 
   const card = source("components/reviews/review-card.tsx")
   /* Changed on purpose (round 31): the page's text colour is painted first (lib/appearance/site-paint), so on Storelib's own product page the circle follows the person's dark look; anywhere else paint() hands the colour back and the circle is `${textColor}1f` exactly as before. */
