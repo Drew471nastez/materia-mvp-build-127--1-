@@ -44,11 +44,11 @@
  *   - the cart, checkout, account, password, search, the language selector's
  *     answer, the wishlist and a preview: each is this visitor's, or carries
  *     what they typed (search)
- *   - a request carrying one of Storelib's own cookies that a page is drawn
- *     from: the cart (sl_theme_cart), a website customer's session and its
- *     hint, a Storelib session, a password pass, a chosen country
- *     (sl_country), the wishlist, a checkout country, a discount hold. An
- *     unknown cookie of Storelib's own counts as one of these (below).
+ *   - (until round 53) a request carrying one of Storelib's own cookies that
+ *     a page is drawn from. Since round 53 the marked page reads none of
+ *     them, so a cart or a sign in no longer keeps a page private: only a
+ *     cart, session or guest purchase whose readable hint is missing
+ *     (hintedCookies), for one request.
  *   - a website behind a password, and a request let in with a pass
  *   - a page the proxy is offering a language on (it sets a cookie)
  *   - the empty-the-cart link (?sl_cart=clear), which sets the cart cookie
@@ -64,6 +64,21 @@
  * minute rather than once a visit; the browser is told what any page of the
  * theme says.
  */
+
+/*
+ * BACK AT THE CDN, FOR EVERYBODY (round 53). The marked page reads no
+ * cookie, so one copy per marked address is right for every visitor: a
+ * cart, a sign in and the owner's own visit are filled in by the browser
+ * after load (./personal-fill.ts). The handler sends it with
+ * Vercel-CDN-Cache-Control (SHARED_PAGE_CDN) and Vercel-Cache-Tag naming the
+ * site's tags, the same tags the hold is kept under, so Publish, a product
+ * saved or a post published takes the CDN copy down with the hold
+ * (revalidateTag on Vercel deletes CDN entries by tag). The browser is still
+ * told "private, no-cache": Vercel reads Vercel-CDN-Cache-Control and never
+ * passes it on.
+ */
+/** How long the CDN keeps a shared page: five minutes, then served stale for a day while it is drawn again. Writes purge it by tag. */
+export const SHARED_PAGE_CDN = "public, s-maxage=300, stale-while-revalidate=86400"
 
 /** What a stranger's page is sent with: what every page of a theme says (./site.ts pageHtml), which keeps Back and Forward instant and no shared cache holds. */
 export const PUBLIC_PAGE_CACHE = "private, no-cache"
@@ -115,11 +130,33 @@ export function strangerCookies(header: string | null | undefined): boolean {
   return !cookieNames(header).some(pageCookie)
 }
 
+/*
+  ONE PAGE FOR EVERYBODY (round 53). The marked address is drawn from the
+  marker alone and reads no cookie (the handler, app/api/site-theme/site),
+  so it is the same page whoever is sent to it: a stranger, a buyer with a
+  cart, a signed in customer, the owner. What is theirs is filled in by the
+  browser after load (./personal-fill.ts), which needs to know there is
+  something to fill: a readable hint beside each private cookie. A request
+  that carries a private cookie without its hint (a cart from before the
+  hint existed) is drawn for itself once, and that answer sets the hint.
+*/
+const HINTED: readonly [RegExp, RegExp][] = [
+  [/^sl_theme_cart$/, /^sl_cart_n$/],
+  [/^(?:__Host-)?sl_site_session$/, /^sl_signed_in$/],
+  [/^sl_owned$/, /^sl_owned_hint$/],
+]
+
+/** Whether every private cookie this request carries has the hint the browser fills its parts from. */
+export function hintedCookies(header: string | null | undefined): boolean {
+  const names = cookieNames(header)
+  return HINTED.every(([cookie, hint]) => !names.some((n) => cookie.test(n)) || names.some((n) => hint.test(n)))
+}
+
 /** Paths that are always one visitor's, or carry what they typed. A blog post's preview is its editor's (lib/storelib-theme/compat/site.ts). */
 const PRIVATE_PAGE = /^\/(?:cart|checkout|account|password|search|localization|wishlist|preview|challenge|apps|tools|services|blogs\/[^/?#]+\/~preview)(?:[/?#.]|$)/i
 
 /** Query keys that make an answer a script's, or change the visitor's cart. */
-const PRIVATE_QUERY = /^(?:section_id|sections|sections_url|sl_cart|preview|view|oseid|form_type|return_to|return)$/i
+const PRIVATE_QUERY = /^(?:section_id|sections|sections_url|sl_cart|sl_personal|sl_layout|preview|view|oseid|form_type|return_to|return)$/i
 
 /** Whether an address is a page a stranger may be served from the CDN: the path (on the site, after any language) and its query. */
 export function strangerAddress(path: string, query: URLSearchParams): boolean {
@@ -152,8 +189,36 @@ export function strangerPage(r: StrangerRequest): boolean {
   if (r.protectedSite || r.offersLanguage) return false
   if (r.requestedWith) return false
   if ((r.accept ?? "").includes("application/json") || (r.contentType ?? "").includes("json")) return false
-  if (!strangerCookies(r.cookie)) return false
+  if (!hintedCookies(r.cookie)) return false
   return strangerAddress(r.path, r.query)
+}
+
+/*
+  THE QUERY A SHARED PAGE IS DRAWN WITH (round 53). Only the keys an
+  imported theme's page is drawn from: its page number, its sort, its
+  filters, the product's chosen variant, a form's answer. Everything else
+  (utm_source, fbclid, a random string added to get past the cache) is left
+  out of the address the page is drawn and held at, so it cannot make the
+  CDN draw the page again. The browser keeps the address it asked for, so
+  the page's own scripts still read every key.
+*/
+const SHARED_QUERY = /^(?:page|sort_by|variant|option_values|q|type|form_error|error|sent|step|filter\.[a-z0-9._-]{1,80})$/i
+
+/** The query a shared page is drawn and held with: the keys it reads, in one order, each once, short. */
+export function sharedQuery(query: URLSearchParams): string {
+  const kept: [string, string][] = []
+  const seen = new Set<string>()
+  for (const [key, value] of query) {
+    if (!SHARED_QUERY.test(key) || value.length > 200) continue
+    /* A filter may be named more than once (two sizes); anything else once. */
+    const id = key.startsWith("filter.") ? `${key}=${value}` : key
+    if (seen.has(id) || kept.length >= 20) continue
+    seen.add(id)
+    kept.push([key, value])
+  }
+  kept.sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0) : a[0] < b[0] ? -1 : 1))
+  const out = new URLSearchParams(kept).toString()
+  return out ? `?${out}` : ""
 }
 
 // ── The marker ──────────────────────────────────────────────────────────────

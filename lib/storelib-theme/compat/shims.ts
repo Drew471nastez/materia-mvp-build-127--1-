@@ -341,7 +341,7 @@ const PREFETCH = `if(!EDITING&&HTMLScriptElement.supports&&HTMLScriptElement.sup
   page prerendered on a desktop (./prerender.ts) when it is shown: it was
   drawn a moment before the click, and the cart may have changed since.
 */
-const BACK_FORWARD = `if(!EDITING){var cartNow=function(){fetch("/cart.js",{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(c&&Number(c.item_count)!==CART_AT_DRAW)location.reload()}).catch(function(){})};window.addEventListener("pageshow",function(e){if(e.persisted)cartNow()});if(document.prerendering)document.addEventListener("prerenderingchange",cartNow,{once:true})}`
+const BACK_FORWARD = `if(!EDITING){var cartNow=function(){fetch("/cart.js",{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(c&&Number(c.item_count)!==(typeof S.storelibCartAtDraw==="number"?S.storelibCartAtDraw:CART_AT_DRAW))location.reload()}).catch(function(){})};window.addEventListener("pageshow",function(e){if(e.persisted)cartNow()});if(document.prerendering)document.addEventListener("prerenderingchange",cartNow,{once:true})}`
 
 /*
   ONE PAGE FADES INTO THE NEXT. Between a store's own pages the browser

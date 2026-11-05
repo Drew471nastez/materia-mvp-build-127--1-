@@ -40,9 +40,11 @@ import { gaProductFor } from "@/lib/store/ga-server"
 import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, SHARED_PAGE_CDN, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, personalFillTag } from "@/lib/storelib-theme/compat/personal-fill"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
+import { withLcpHint } from "@/lib/storelib-theme/compat/lcp-hint"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
@@ -167,7 +169,26 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
     }
     segments = segments.slice(1)
-  } else if (segments[0] === "preview" && segments[1]) {
+  } else if (req.method !== "GET" && req.method !== "HEAD") {
+    /*
+      HOW OFTEN ONE ADDRESS MAY CHANGE A CART OR POST A FORM (round 53): each
+      is a draw of the theme with this visitor's cart. A shopper adds a few
+      things a minute; a script adding thousands is refused. Counted in
+      memory first (lib/api/rate-limit.ts memoryFirst).
+    */
+    const limited = await rateLimit({ bucket: "site-theme-post", subjects: [addressSubject(req)], windows: [{ limit: 120, seconds: 60 }], memoryFirst: true, message: "Too many requests. Wait a moment and try again." })
+    if (limited) return limited
+  } else {
+    /*
+      AND HOW OFTEN IT MAY ASK FOR A PAGE DRAWN FOR IT ALONE: a search, the
+      cart, a section a script draws, /cart.js. A shared page is the CDN's and
+      never reaches here more than once a few minutes per address; these
+      cannot be held, so a flood of them is a flood of draws.
+    */
+    const limited = await rateLimit({ bucket: "site-theme-draw", subjects: [addressSubject(req)], windows: [{ limit: 300, seconds: 60 }], memoryFirst: true, message: "Too many requests. Wait a moment and try again." })
+    if (limited) return limited
+  }
+  if (!stranger && segments[0] === "preview" && segments[1]) {
     token = previewTokenFrom(new URLSearchParams([["preview", decodeURIComponent(segments[1])]]))
     segments = segments.slice(2)
   }
@@ -184,7 +205,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   */
   const creatorAsked = token ? null : quietly(creatorByName(username).catch(() => null))
   const languagesAsked = creatorAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await siteLanguages(c.creatorId) } : null))) : null
-  const pageAsked = req.method === "GET" && !/\.(js|json)$/.test(segments[segments.length - 1] ?? "") && req.headers.get("x-requested-with") !== "XMLHttpRequest" && !(req.headers.get("accept") ?? "").includes("application/json")
+  const pageAsked = req.method === "GET" && !url.searchParams.has(PERSONAL_PARAM) && !/\.(js|json)$/.test(segments[segments.length - 1] ?? "") && req.headers.get("x-requested-with") !== "XMLHttpRequest" && !(req.headers.get("accept") ?? "").includes("application/json")
   const trackingAsked = creatorAsked && pageAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await publishedTracking(createAdminClient(), c.creatorId).catch(() => null) } : null))) : null
   /* Each early answer only for the site that was found (the same name's creator; never a last good copy's other one). */
   const forSite = <T,>(asked: Promise<{ creatorId: string; value: T } | null> | null, creatorId: string): Promise<T | undefined> | undefined =>
@@ -401,6 +422,11 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
     headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes, out.discountCode ?? discount, out.discountCodes ?? codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+    /* Its readable count beside it: the shared page asks for this visitor's cart only when there is one (personal-fill.ts). */
+    headers.append("Set-Cookie", cartHintCookie(out.cart.reduce((n, l) => n + (Number(l.q) || 0), 0)))
+  } else if (!stranger && !token && cookie !== undefined && !new RegExp(`(?:^|;\\s*)${CART_HINT_COOKIE}=`).test(req.headers.get("cookie") ?? "")) {
+    /* A cart from before the count existed: said once here, so the next page is the shared one. */
+    headers.append("Set-Cookie", cartHintCookie(cart.reduce((n, l) => n + (Number(l.q) || 0), 0)))
   }
   /*
     A stranger's plain page: the same for every stranger sent to this marked
@@ -412,9 +438,33 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     what any page of the theme says ("private, no-cache"), which keeps Back
     and Forward instant. Anything else drawn for the marker keeps its own header.
   */
-  if (stranger && !ajax && publicAnswer({ method: req.method, status: out.status, type: out.type, cacheControl: headers.get("Cache-Control"), setsCookie: headers.has("Set-Cookie"), changesCart: out.cart !== undefined })) {
+  const shared = stranger !== null && !ajax && publicAnswer({ method: req.method, status: out.status, type: out.type, cacheControl: headers.get("Cache-Control"), setsCookie: headers.has("Set-Cookie"), changesCart: out.cart !== undefined })
+  if (shared) {
     headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
     headers.set(SHAREABLE_HEADER, "1")
+    /*
+      AND THE CDN'S (round 53): the marked page reads no cookie, so it is the
+      same for everybody sent to it, and the browser fills in what is theirs
+      (personal-fill.ts). Kept under the tags the hold is kept under, so
+      Publish and every save that clears the hold take this copy down too.
+      Only a page opened as a page: a script fetching the same address gets
+      the markup as written, which is held apart (Vary, and the hold's key).
+
+      NEVER A MARKET'S PRICES. Round 48 measured Vercel keeping a rewritten
+      answer under the address the browser asked for, not the marked one, so
+      the copy at /products/hat must suit everybody who asks for /products/hat.
+      Nothing personal is in it (the marker reads no cookie), and the
+      language is in the address (/fr/...). A market's currency is not: a
+      page drawn in one is kept by the hold only. The visitor's country,
+      which the theme's country selector shows, is said in Vary for a CDN
+      that keys on it.
+    */
+    if (openedAsDocument(req.headers) && stranger?.market === null) {
+      const id = found.site.creatorId
+      headers.set("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN)
+      headers.set("Vercel-Cache-Tag", [creatorSiteTag(id), creatorShopTag(id), siteBlogTag(id)].join(","))
+    }
+    headers.set("Vary", "Sec-Fetch-Dest, X-Vercel-IP-Country")
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
   /*
@@ -452,7 +502,14 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       with the markup as the theme wrote it, styles in their sections.
     */
     if (openedAsDocument(req.headers)) {
+      /* What is the visitor's, filled in after load from a private address, on the copy every visitor shares (personal-fill.ts). */
+      if (shared) {
+        const end = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
+        html = `${html.slice(0, end)}${personalFillTag(out.personal ?? { sections: [], layout: false })}${html.slice(end)}`
+      }
       html = readierFirstLoad(html).html
+      /* The first big picture of the page's first sections, asked for from the top of the head (lib/storelib-theme/compat/lcp-hint.ts). */
+      html = withLcpHint(html).html
       /*
         ITS SCRIPTS IN THEIR ORDER WITHOUT HOLDING UP THE PAGE: a blocking
         theme script deferred with everything after it, an app widget or
@@ -518,6 +575,13 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   const told = (name: string) => req.headers.get(name) || null
   if (!(await siteSealed(req.headers.get(SITE_SEAL_HEADER), username, host))) return handle(req, ctx)
   if (stranger.host !== host || told(SITE_LOCALE_HEADER) !== stranger.locale || told(SITE_MARKET_HEADER) !== stranger.market || told(SITE_COUNTRY_HEADER) !== stranger.country) return handle(req, ctx)
+  /*
+    Here only when the CDN did not have it. One address asking for shared
+    pages the CDN never has (a new filter value each time) is refused before
+    the hold, so a refusal is never held for the visitors after it.
+  */
+  const limited = await rateLimit({ bucket: "site-theme-shared", subjects: [addressSubject(req)], windows: [{ limit: 120, seconds: 60 }], memoryFirst: true, message: "Too many requests. Wait a moment and try again." })
+  if (limited) return limited
   const creator = await creatorByName(username).catch(() => null)
   if (!creator) return handle(req, ctx)
   const url = new URL(req.url)
