@@ -27,7 +27,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || detail === undefined ? "" : `  ${JSON.stringify(detail)}`}`)
 }
-const ROOT = join(__dirname, "..")
+const ROOT = process.cwd()
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8")
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
 
