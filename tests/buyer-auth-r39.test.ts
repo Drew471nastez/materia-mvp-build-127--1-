@@ -306,7 +306,7 @@ async function main() {
 
   section("HEADER: one answer everywhere, at once")
   const header = readCode("components/platform/platform-header-client.tsx")
-  check("sign out clears the record every reader listens to, before anything else", /await supabase\.auth\.signOut\(\{ scope: "local" \}\)\s*clearAuthSnapshot\(\)/.test(header))
+  check("sign out clears the record every reader listens to, before anything else", /* Changed on purpose (r53): lib/auth/log-out */ /await endDeviceSession\("local", supabase\.auth\)\s*clearAuthSnapshot\(\)/.test(header))
   check("a failed profile read still tells the tab bar and the menus who is signed in", /if \(profileErr\) \{[\s\S]{0,1600}writeAuthSnapshot\(\{\s*signedIn: true,\s*userId: user\.id/.test(header))
   const cc = readCode("lib/auth/continue-client.ts")
   check("signing in writes the header's record before the next page paints, so its tab bar line sees it (SIGNED_IN_BOOT)",

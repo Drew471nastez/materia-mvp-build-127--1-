@@ -252,7 +252,7 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
   const layout = code("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 reliability): a third gate, over the screen that says the profile or the creator row could not be read; it uses it too. */
-  check("and every one of the layout's gates uses it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 3 && (layout.match(/<NativeAuthGate/g) ?? []).length === 3)
+  check("and every one of the layout's gates uses it", /* Changed on purpose (r53): two paths now, the whole page screen is gone. */ (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2 && (layout.match(/<NativeAuthGate/g) ?? []).length === 2)
   const dash = code("components/app/dashboard-client.tsx")
   /* "The loading should not be the spinner in the charts loading and the
      tables loading; loading structures or skeleton, light gray shimmering."

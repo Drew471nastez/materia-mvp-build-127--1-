@@ -52,7 +52,7 @@ const SHELL_EXTRA_MS = 2_500
 const SHELL_ROWS_MS = 6_000
 /** The setup ring's reads and the store's currency: decoration, drawn without past this. */
 const SHELL_SETUP_MS = 3_000
-const TIMED_OUT = "timed out" as const
+const TIMED_OUT: unique symbol = Symbol("late")
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -211,7 +211,7 @@ export default async function AppLayout({
       /* The ring's four reads together: any one missing, or past the ceiling, and the ring is left out rather than counted wrong. */
       within(ringRead, SHELL_SETUP_MS, null),
       /* The Community row in the sidebar shows only while the platform switch is on (cached 10s per instance). */
-      within(communitiesEnabled(), SHELL_SETUP_MS, false),
+      within(communitiesEnabled().catch(() => false), SHELL_SETUP_MS, false),
       /* Explore in the account menu only while it is switched on; not known yet, it shows (round 51, lib/explore/off-target.ts). Cached for every instance: no trip on most requests. */
       within(exploreMarketplaceAnswer(), SHELL_EXTRA_MS, null),
       /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). null: the provider asks for it itself. */

@@ -67,7 +67,7 @@ export default async function AnalyticsPage() {
   const ownerUserId = access.ownerUserId
   const [productRows, communityRows, savedReports, properties] = await Promise.all([
     /* Whether the sales reports are drawn at all is decided from these (lib/analytics/sections, products > 0): a failed read is asked again, then thrown to the page's boundary, never "no products" (round 53). */
-    decisiveRead("analytics products", () => adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creatorId)),
+    decisiveRead("analytics_products", () => adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creatorId)),
     /* Published and archived communities: a draft has had no visitor, as a draft website is not a place.
        A team member's only when Community is theirs too: each one's figures are read through its own route, which asks for it. */
     !access.acting || permits(access.acting.permissions, "community")

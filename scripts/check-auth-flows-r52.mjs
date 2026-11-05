@@ -25,6 +25,7 @@
  *   node scripts/check-auth-flows-r52.mjs
  *   SHOTS_DIR=/some/dir ...      screenshots of every step
  *   ONLY=reset,login ...         some flows only
+ *   LOGOUT_FAIL=1 ...            Supabase Auth's logout answers 500 (round 53)
  */
 import { spawn } from "node:child_process"
 import { appendFileSync, existsSync, mkdirSync } from "node:fs"
@@ -159,6 +160,8 @@ const stub = createServer(async (req, res) => {
     return send(who.error || 401, { code: who.code || "no_authorization", error_code: who.code || "no_authorization", msg: "no user" })
   }
   if (p === "/auth/v1/logout") {
+    /* LOGOUT_FAIL=1 (round 53): Supabase Auth's logout answers 500, as in an Auth incident; this device's Log out must still end the session. */
+    if (process.env.LOGOUT_FAIL === "1") return send(500, { code: "unexpected_failure", msg: "upstream" })
     const who = tokenUser(req.headers.authorization)
     if (who.claims) for (const [, s] of sessions) if (s.userId === who.claims.sub) s.alive = false
     return send(204)

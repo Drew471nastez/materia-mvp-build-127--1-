@@ -171,7 +171,7 @@ async function main() {
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar draws only what the permissions open", /memberSees\(teamPermissions, item\.href\)/.test(sidebar) && (sidebar.match(/items=\{navItems\}/g) ?? []).length === 2)
     const layout = read("app/(storelib)/app/layout.tsx")
-    check("the layout hands the sidebar the permissions and the stores they are on", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(layout) && /teamStoresForRequest\(user\.id\)/.test(layout))
+    check("the layout hands the sidebar the permissions and the stores they are on", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(layout) && /* Changed on purpose (r53): the read that also says when it failed */ /teamStoresReadForRequest\(user\.id\)/.test(layout))
     check("the account switcher lists team stores and opens them through /api/team/act", /data-business-row="team"/.test(read("components/app/business-switcher.tsx")) && /\/api\/team\/act/.test(read("components/app/business-switcher.tsx")))
     const settings = read("components/app/settings-form-new.tsx")
     /* Changed on purpose (round 42 team): Plan, in the account group, is the store's plan for a member, shown only with Billing (lib/team/settings STORE_SIDE_ACCOUNT_TABS). */

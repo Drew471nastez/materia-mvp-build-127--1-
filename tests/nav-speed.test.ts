@@ -115,7 +115,7 @@ async function main() {
     const layout = readCode("app/(storelib)/app/layout.tsx")
     check("the layout's setup reads start from the creator read, not after the whole first round",
       /const setupRead = Promise\.all\(\[creatorForRequest\(user\.id\), teamStoreForRequest\(user\.id\)\.catch\(\(\) => null\)\]\)\.then/.test(layout) && /setupRead\.catch\(\(\) => \{\}\)/.test(layout)
-      && layout.indexOf("const setupRead") < layout.indexOf("listBusinesses(user.id)") && /const setupRows = await setupRead/.test(layout))
+      && layout.indexOf("const setupRead") < layout.indexOf("listBusinesses(user.id)") && /* Changed on purpose (r53): with a ceiling */ /const setupRows = creator \? await within\(setupRead, SHELL_SETUP_MS \+ 500, null\) : null/.test(layout))
     check("  the store is the same one the shell draws: the team store first, then their own", /const creator = team\?\.store \?\? own/.test(layout) && /const creator = teamStore \?\? ownCreator/.test(layout))
     const home = readCode("app/(storelib)/app/page.tsx")
     check("Home's creator reads start when the creator row lands, after the same two checks",
