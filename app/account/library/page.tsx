@@ -8,7 +8,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LibrarySplashInit } from "@/components/library/splash-init"
 import { LibraryHome } from "@/components/library/library-home"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { fullUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -24,7 +24,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
    * The layout wrapping this page already asked who is signed in. This is the
    * same answer, not a second request. See lib/auth/request-scope.ts.
    */
-  const { user } = await currentUserForRequest()
+  const { user } = await fullUserForRequest()
 
   if (!user) {
     /* The layout's gate restores an app session in the browser; a browser with none is sent to sign in there. */

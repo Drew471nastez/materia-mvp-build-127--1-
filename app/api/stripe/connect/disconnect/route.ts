@@ -16,7 +16,7 @@ import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
  */
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to change your payments." }, { status: 401 })

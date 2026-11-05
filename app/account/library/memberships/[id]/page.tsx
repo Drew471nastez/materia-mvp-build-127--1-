@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadMembershipPage } from "@/lib/memberships/library"
 import { NOT_SET_UP, viewerOf } from "@/lib/memberships/server"
@@ -23,7 +23,7 @@ interface Props {
  * the card on Stripe's page.
  */
 export default async function MembershipPageRoute({ params, searchParams }: Props) {
-  const [{ id }, query, { user }] = await Promise.all([params, searchParams, currentUserForRequest()])
+  const [{ id }, query, { user }] = await Promise.all([params, searchParams, fullUserForRequest()])
   const viewer = viewerOf(user)
   if (!viewer) return null
   const read = await loadMembershipPage(createAdminClient(), viewer, id)

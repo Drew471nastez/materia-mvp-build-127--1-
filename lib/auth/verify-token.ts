@@ -34,8 +34,11 @@ import type { User } from "@supabase/supabase-js"
  * anybody out: it only means the fallback does not help.
  *
  * What it cannot see is a session revoked within the token's own life (one
- * hour), which row level security cannot see either. That is why callers
- * ask Supabase Auth first and use this only when Auth does not answer.
+ * hour), which row level security cannot see either. Changed on purpose
+ * (round 52): ordinary requests take this as their first answer
+ * (lib/auth/request-scope currentUserForRequest); the routes where that
+ * window matters still ask Supabase Auth itself (lib/auth/route-user
+ * `fresh: true`).
  */
 
 export interface VerifiedClaims {
@@ -252,8 +255,28 @@ export async function verifyAccessToken(
 /**
  * A User built from verified claims: who, their email and metadata as of the
  * token. Fields the token does not carry are empty, never invented.
+ *
+ * Round 52: with `sessionUser` (the user object the session cookie carries,
+ * which supabase-js writes on every sign in, renewal and updateUser), two
+ * fields come from the cookie when it names the same account:
+ *
+ *   user_metadata   what a person may write about themselves anyway
+ *                   (updateUser), so never a security property. The
+ *                   cookie's copy is the fresh one after a save; the
+ *                   token's copy is as old as the token.
+ *   created_at      shown ("Account created") and used for the welcome
+ *                   question only.
+ *
+ * Everything that decides access (id, role, email, app_metadata) is the
+ * verified token's alone. email_confirmed_at and identities are never taken
+ * from the cookie: a caller that needs them reads the full user
+ * (lib/auth/request-scope fullUserForRequest).
  */
-export function userFromClaims(claims: VerifiedClaims): User {
+export function userFromClaims(claims: VerifiedClaims, sessionUser?: unknown): User {
+  const cookie = sessionUser && typeof sessionUser === "object" && ownField(sessionUser, "id") === claims.sub ? sessionUser : null
+  const meta = cookie ? ownField(cookie, "user_metadata") : null
+  const made = cookie ? ownField(cookie, "created_at") : null
+  const cookieMeta = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as User["user_metadata"]) : null
   return {
     id: claims.sub,
     aud: typeof claims.aud === "string" ? claims.aud : "authenticated",
@@ -261,8 +284,23 @@ export function userFromClaims(claims: VerifiedClaims): User {
     email: typeof claims.email === "string" ? claims.email : undefined,
     phone: typeof claims.phone === "string" ? claims.phone : undefined,
     app_metadata: (claims.app_metadata as User["app_metadata"]) ?? {},
-    user_metadata: (claims.user_metadata as User["user_metadata"]) ?? {},
+    user_metadata: cookieMeta ?? (claims.user_metadata as User["user_metadata"]) ?? {},
     is_anonymous: claims.is_anonymous === true,
-    created_at: "",
+    created_at: typeof made === "string" ? made : "",
   } as User
+}
+
+/*
+  A field of the cookie's user, read through its property descriptor.
+  supabase-js wraps that object on the server in a Proxy that prints "could
+  be insecure" on the first property get, once per client, so once per
+  request. The two fields read here are the ones above, chosen because they
+  are not trusted for anything.
+*/
+function ownField(o: object, key: string): unknown {
+  try {
+    return Object.getOwnPropertyDescriptor(o, key)?.value
+  } catch {
+    return undefined
+  }
 }

@@ -15,7 +15,7 @@
  */
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
-import { readerForRequest, strictUserForRequest } from "@/lib/auth/route-user"
+import { readerForRequest } from "@/lib/auth/route-user"
 
 export const UNREACHABLE = "Storelib could not reach your website just now. Your changes are still here; try again in a moment."
 
@@ -46,8 +46,16 @@ export async function editorUser(supabase: SupabaseClient, opts: { read?: boolea
     before "could not check". A read takes a page's answer; a change still
     needs Supabase Auth itself. `supabase` is kept for callers that pass it.
   */
+  /*
+    Round 52: a save, a publish and a read alike take the token's verified
+    signature (lib/auth/request-scope), so a slow Supabase Auth no longer
+    answers an editor save "could not check your sign in". Nothing the
+    editor does is on the list that needs Auth itself (lib/auth/route-user
+    `fresh`); `read` is kept for callers that pass it.
+  */
   void supabase
-  const current = await (opts.read ? readerForRequest() : strictUserForRequest())
+  void opts
+  const current = await readerForRequest()
   if (current.user) return { user: current.user, status: 200, error: null }
   if (current.state === "indeterminate") return { user: null, status: 503, error: AUTH_UNREACHABLE }
   return { user: null, status: 401, error: "Unauthorized" }

@@ -134,11 +134,14 @@ async function main() {
     const c = await routeUser()
     const d = await readUserForRoute()
     check("page read, route read, route change and a raw read: all the user", a.user?.id === "u1" && b.kind === "user" && c.kind === "user" && d.data.user?.id === "u1", { a, b, c, d })
-    check(`  one /auth/v1/user call between them (${auth.hits}; was 3 for the first three)`, auth.hits === 1, auth.hits)
-    check("  verified by Supabase Auth itself", a.verifiedBy === "user", a)
+    /* Changed on purpose (r52): the token's signature is checked here first, so none of them asks Supabase Auth. */
+    check(`  no /auth/v1/user call between them (${auth.hits}; was 1 in round 49, 3 before)`, auth.hits === 0, auth.hits)
+    check("  verified by the token's signature", a.verifiedBy === "claims", a)
+    const e = await routeUser({ fresh: true })
+    check(`  a strict change asks Auth itself, once (${auth.hits})`, e.kind === "user" && auth.hits === 1, { e, hits: auth.hits })
   }
   holdRequest()
-  await currentUserForRequest()
+  await routeUser({ fresh: true })
   check("  the next request asks again (nothing kept between requests)", auth.hits === 2, auth.hits)
 
   console.log("\n2. Send analytics while Supabase Auth hangs (the screenshot)")
@@ -149,15 +152,19 @@ async function main() {
     const took = Date.now() - t
     check(`options shown, from the token's verified signature (${took}ms; was a 503 and "We could not check your sign in" after ~14s)`, r.ok && Array.isArray(r.data.destinations), r)
     check("  under 3.2s", took < 3_200, took)
-    check(`  one Auth question (${auth.hits})`, auth.hits === 1, auth.hits)
+    /* Changed on purpose (r52): was one Auth question. */
+    check(`  no Auth question (${auth.hits})`, auth.hits === 0, auth.hits)
   }
 
-  console.log("\n3. A change stays strict, and asks Auth again before refusing")
+  /* Changed on purpose (r52): "a change" here is a strict one (routeUser fresh: true); an ordinary change takes the signature. */
+  console.log("\n3. A strict change stays strict, and asks Auth again before refusing")
   reset("never")
   holdRequest()
   {
+    const plain = await routeUser()
+    check("an ordinary change while Auth is silent: the user, from the signature", plain.kind === "user" && auth.hits === 0, { plain, hits: auth.hits })
     const t = Date.now()
-    const w = await routeUser()
+    const w = await routeUser({ fresh: true })
     const took = Date.now() - t
     check(`Auth silent: unavailable, never the signature alone (${took}ms)`, w.kind === "unavailable", w)
     check(`  Auth asked three times in all, with pauses (${auth.hits})`, auth.hits === 3, auth.hits)
@@ -169,7 +176,7 @@ async function main() {
   holdRequest()
   {
     const t = Date.now()
-    const w = await routeUser()
+    const w = await routeUser({ fresh: true })
     const took = Date.now() - t
     check(`Auth hangs once, then answers: the change goes through (${took}ms; was "unavailable" after 6.3s, the retry queued on the hung try's lock)`, w.kind === "user" && w.user.id === "u1", w)
     check("  verified by Auth, not by the signature", (await strictUserForRequest()).verifiedBy === "user")
@@ -185,10 +192,13 @@ async function main() {
   reset("revoked")
   holdRequest()
   {
+    /* Changed on purpose (r52): Auth's no is final wherever Auth is asked: the strict routes and the full read. The ordinary read trusts the signed token until it expires (the JWT expiry setting bounds it). */
+    const w = await routeUser({ fresh: true })
+    check("revoked session: anonymous for a strict change, with no extra tries", w.kind === "anonymous" && auth.hits === 1, { w, hits: auth.hits })
+    const f = await routeUser({ full: true })
+    check("  and for the full read", f.kind === "anonymous", f)
     const r = await routeUser({ fresh: false })
-    const w = await routeUser()
-    check("revoked session: anonymous for a read", r.kind === "anonymous", r)
-    check("  and for a change, with no extra tries", w.kind === "anonymous" && auth.hits === 1, { w, hits: auth.hits })
+    check("  an ordinary read: the signed token, until it expires", r.kind === "user", r)
   }
   token = forged
   reset("never")
@@ -232,7 +242,8 @@ async function main() {
   holdRequest()
   {
     const res = (await authStateGet()) as Response
-    check(`/api/auth/state, Auth fine: "${res.headers.get(AUTH_CHECK_HEADER)}"`, res.headers.get(AUTH_CHECK_HEADER) === "network; verifier=hs256")
+    /* Changed on purpose (r52): the signature is the first check, Auth fine or not. */
+    check(`/api/auth/state, Auth fine: "${res.headers.get(AUTH_CHECK_HEADER)}"`, res.headers.get(AUTH_CHECK_HEADER) === "local; verifier=hs256")
     const body = JSON.stringify(await res.json())
     check("  the body is one word, no token or secret", !body.includes(SECRET) && !body.includes(good.split(".")[2]), body)
   }

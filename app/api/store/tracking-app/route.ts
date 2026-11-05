@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const c = await physicalCaller("store")
+  const c = await physicalCaller("store", { strict: true })
   if (c instanceof NextResponse) return c
   const limited = await rateLimit({ bucket: "tracking-key", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 10, seconds: 600 }], message: "That is a lot of tries. Wait a few minutes and try again." })
   if (limited) return limited

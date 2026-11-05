@@ -147,20 +147,79 @@ redeploy. If the legacy secret is ever revoked or rotated, remove or update
 the variable at the same time (a wrong secret never signs anybody out; the
 fallback just stops helping).
 
+## Round 52: the token's signature is the first check, not the fallback
+
+The owner, Nov 5: "We could not check your sign in just now. Try again in a
+moment", on saves, publishes and settings everywhere. Every API route that
+changed something used `routeUser()`, whose default asked Supabase Auth
+itself and waited for it (about 10 s with retries) before refusing. A slow
+Auth refused every change on the platform, though the page around it had
+the person from the token.
+
+Since round 52 (`lib/auth/request-scope.ts` `currentUserForRequest`,
+`lib/auth/route-user.ts` `routeUser`):
+
+- Pages, API reads and ordinary changes (saves, publishes, settings, the
+  website editor, uploads, the account's own settings) check the access
+  token here: signature, expiry, issuer, audience, role. This is Supabase's
+  `getClaims` and exactly what PostgREST does on every query. Supabase Auth
+  is not asked at all, so its slow minutes no longer reach these.
+- Auth is still asked, as before, when the token cannot be checked here (no
+  secret, no keys) or does not check out. An expired, forged or foreign token
+  is never accepted.
+- **The strict list still asks Supabase Auth itself** (`routeUser({ fresh:
+  true })` or a direct Auth read): account deletion; email change (both
+  steps) and the password changed hook; AI keys; agent connection keys;
+  marketing and tracking integration keys; payout settings; every payouts,
+  bank and billing change through `moneyCaller` at "manage"; Stripe Connect
+  disconnect; refunds; team invites, roles and removals (`requestUser`); the
+  statement descriptor; web push subscriptions. Admin has its own signed
+  cookie and never used Supabase Auth. `tests/auth-strict-r52.test.ts`
+  names each one.
+- Reads that need what a token does not carry (`email_confirmed_at`,
+  `identities`) keep Auth first with the signature as the fallback
+  (`fullUserForRequest`): checkout, the library and its memberships, a
+  community's paid checkout.
+
+### What this trusts, and for how long
+
+A valid signed token is trusted until it expires. A session ended inside
+that window (signed out elsewhere, a password reset) is still accepted by
+ordinary routes until the token runs out, exactly as row level security
+already accepted it on every query. The strict list above does not accept it.
+
+The window is the project's access token lifetime:
+
+- Supabase Dashboard > **Project Settings > JWT Keys** > **Access token
+  expiry time** (older dashboards: Settings > API > JWT Settings > "JWT
+  expiry limit"). Default 3600 seconds.
+- Recommended: **keep 3600**. Every renewal is a request to Supabase Auth
+  made by the proxy, so a shorter lifetime brings Auth's slow minutes back
+  into more page loads. If a shorter window matters more, 1800 is the
+  lowest worth using; never below 900.
+
+### What the server needs for this to work
+
+Without a local key nothing changes: every request asks Auth as before, and
+the message can still show. Each server instance now logs once which check
+it has. Vercel > Logs, search `auth_verifier`:
+
+| Line | Meaning |
+| --- | --- |
+| `"mode":"hs256","local":true` | `SUPABASE_JWT_SECRET` is set (B) |
+| `"mode":"jwks","local":true` | asymmetric signing keys are published (A done) |
+| `"mode":"none","local":false` | **neither**: do A or B, or the fix above does nothing |
+
+The X-Storelib-Auth-Check header now reads `local; verifier=...` on a
+normal request (it used to read `network` when Auth was fine), and
+`network` only when the token could not be checked here.
+
 ## What stays the same
 
 - Every database call still carries the person's own token, so row level
   security applies exactly as before.
-- API routes that change something (`routeUser()` with its default) still
-  need Supabase Auth itself to answer. Since round 49 the server asks Auth
-  again (twice more, with backoff, about 10s in all) before refusing; then
-  they answer 503 and the browser asks again quietly (twice, with jitter)
-  before showing "We could not check your sign in just now".
-- API reads (GET routes with `{ read: true }`, `routeUser({ fresh: false })`
-  or `readUserForRoute()`) take the same answer as pages: Supabase Auth, or
-  the token's verified signature after about 2.5s. The browser asks a read
-  again three times (about 10s) before showing anything.
-- What the local check cannot see is a session revoked less than an hour ago
-  (the token's lifetime). Row level security cannot see that either. Supabase
-  Auth is always asked first, so this only matters while Auth is not
-  answering.
+- A strict route that Auth does not answer is refused with 503 and nothing
+  is done; the browser asks again quietly before showing "We could not
+  check your sign in just now".
+- A forged, altered, expired or foreign token, `alg: none`, or the anon
+  role is never a user. Auth's own "no" is final wherever Auth is asked.

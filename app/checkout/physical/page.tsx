@@ -12,7 +12,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { websiteCheckoutFor } from "@/lib/checkout/shipped-checkout-server"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { CheckoutCurrency } from "../parts/ui"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { platformSellingCurrency } from "@/lib/store/selling-currency"
@@ -143,7 +143,7 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
   if (config.requireAccount) {
     const {
       data: { user },
-    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
+    } = await fullUserForRequest().then((c) => ({ data: { user: c.user } }))
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null

@@ -53,7 +53,10 @@ const PROOFS: [string, RegExp][] = [
   ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
   /* Changed on purpose (round rel-auth): lib/auth/route-user routeUser() is getUser() with a ceiling and one retry, a 401 only for Auth's nobody and a 503 when it did not answer; the route acts only on `who.user`. */
-  ["a signed-in session, fresh and classified", /await routeUser\((?:\{ fresh: (?:false|!opts\.read) \})?\)[\s\S]*(?:who|caller|asker|signIn)\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
+  /* Changed on purpose (r52): `{ fresh: true }` names the strict routes and `{ full: true }` the reads that need email_confirmed_at. */
+  ["a signed-in session, fresh and classified", /await routeUser\((?:\{ (?:fresh: (?:false|true|!opts\.read)|full: true) \})?\)[\s\S]*(?:who|caller|asker|signIn)\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
+  /* Round 52: lib/auth/route-user readerForRequest is readCurrentUser's three answers from the request's one read (the token's verified signature first); the route acts only on `current.user`. */
+  ["a signed-in session, the request's one read, classified", /await readerForRequest\(\)[\s\S]*if \(!(current\.)?user\b/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],

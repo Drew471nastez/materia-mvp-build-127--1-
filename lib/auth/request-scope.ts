@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
-import { verifierKind } from "@/lib/auth/verify-token"
+import { verifierKind, type VerifierKind } from "@/lib/auth/verify-token"
 import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access"
 import { ServiceUnavailable, classifyServiceError, dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
@@ -72,22 +72,91 @@ export async function oncePerRequest<T>(name: string, fn: () => Promise<T>): Pro
 }
 
 
+/*
+  ===========================================================================
+   SUPABASE AUTH IS NOT ASKED FOR AN ORDINARY REQUEST (round 52)
+  ===========================================================================
+  The owner: "We could not check your sign in just now", on saves, publishes
+  and settings everywhere, whenever Supabase Auth had a slow minute. Every
+  request asked Auth (getUser, a round trip) who sent it, and every change
+  waited for Auth itself to answer, with retries, before it did anything.
+
+  Now the access token is checked here, by its signature, expiry, issuer,
+  audience and role (lib/auth/verify-token.ts), and that is the answer:
+  what Supabase recommends (getClaims) and exactly the check PostgREST makes
+  on every query, so row level security sees the same person. Auth is asked
+  only when the token cannot be checked here (no secret or public keys on
+  this server) or does not check out, as before.
+
+  What a signed token cannot show is a session ended within its own life.
+  That window is the project's JWT expiry (Supabase: Authentication > Sessions
+  "Access token expiry"; JWT Keys "JWT expiry limit"), and the routes where
+  it matters still ask Auth itself: lib/auth/route-user `fresh: true`.
+
+  fullUserForRequest is the old order (Auth first, the signature when Auth is
+  slow), for the few readers that need what a token does not carry:
+  email_confirmed_at and identities.
+*/
 export const currentUserForRequest = cache(
   (): Promise<CurrentUser> =>
     oncePerRequest("current-user", async () => {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
+      void logVerifierOnce(url)
+      const supabase = await createClient()
+      const current = await readCurrentUser(supabase, { fallbackClaims: url, localFirst: true })
+      return logDegraded(current)
+    }),
+)
+
+/** Supabase Auth first, the token's signature when Auth is slow: for email_confirmed_at, identities and other fields a token does not carry. */
+export const fullUserForRequest = cache(
+  (): Promise<CurrentUser> =>
+    oncePerRequest("full-user", async () => {
       const supabase = await createClient()
       /* When Supabase Auth does not answer, the token's signature is checked instead (lib/auth/current-user.ts). */
       const current = await readCurrentUser(supabase, { fallbackClaims: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null })
-      /* Logged, never decided on: a degraded answer is one JSON line (lib/net/log.ts) with the request's id. */
-      const degraded = current.verifiedBy === "claims" ? "claims" : !current.user && current.state !== "anonymous" ? "indeterminate" : null
-      if (degraded) {
-        void Promise.all([currentRequestId(), verifierKind(process.env.NEXT_PUBLIC_SUPABASE_URL ?? null).catch(() => "none")]).then(([rid, verifier]) =>
-          console.warn(logLine("auth_degraded", { outcome: degraded, reason: current.reason ?? "unknown", verifier, rid })),
-        )
-      }
-      return current
+      return logDegraded(current)
     }),
 )
+
+/*
+  WHICH CHECK THIS SERVER HAS, SAID ONCE PER INSTANCE (round 52). Without
+  SUPABASE_JWT_SECRET (HS256) or published signing keys (JWKS) nothing can
+  be checked here, every request asks Supabase Auth as before, and a slow
+  Auth answers "We could not check your sign in just now" for everybody.
+  Search the Vercel logs for "auth_verifier": mode hs256 or jwks is local,
+  none is not. The line names the kind of check, never a key.
+*/
+let verifierLogged: Promise<VerifierKind> | null = null
+export function logVerifierOnce(supabaseUrl: string | null | undefined): Promise<VerifierKind> {
+  if (!verifierLogged) {
+    verifierLogged = verifierKind(supabaseUrl)
+      .catch((): VerifierKind => "none")
+      .then((mode) => {
+        const fields = { mode, local: mode !== "none", fix: mode === "none" ? "set SUPABASE_JWT_SECRET in Vercel, or move Supabase to asymmetric JWT signing keys" : null }
+        if (mode === "none") console.warn(logLine("auth_verifier", fields))
+        else console.info(logLine("auth_verifier", fields))
+        return mode
+      })
+  }
+  return verifierLogged
+}
+
+/** For tests: log it again on the next request. */
+export function forgetVerifierLog() {
+  verifierLogged = null
+}
+
+/* Logged, never decided on: a degraded answer is one JSON line (lib/net/log.ts) with the request's id. A token checked here first, with Auth never asked, carries no reason and is not degraded. */
+function logDegraded(current: CurrentUser): CurrentUser {
+  const degraded = current.verifiedBy === "claims" && current.reason ? "claims" : !current.user && current.state !== "anonymous" ? "indeterminate" : null
+  if (degraded) {
+    void Promise.all([currentRequestId(), verifierKind(process.env.NEXT_PUBLIC_SUPABASE_URL ?? null).catch(() => "none")]).then(([rid, verifier]) =>
+      console.warn(logLine("auth_degraded", { outcome: degraded, reason: current.reason ?? "unknown", verifier, rid })),
+    )
+  }
+  return current
+}
 
 export interface RequestProfile {
   display_name: string | null

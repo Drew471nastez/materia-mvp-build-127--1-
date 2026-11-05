@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadLibraryMemberships } from "@/lib/memberships/library"
 import { NOT_SET_UP, viewerOf } from "@/lib/memberships/server"
@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: "Memberships" }
  * it has its own way back to the library instead of the pills above.
  */
 export default async function LibraryMembershipsPage() {
-  const { user } = await currentUserForRequest()
+  const { user } = await fullUserForRequest()
   const viewer = viewerOf(user)
   if (!viewer) return null
   const list = await loadLibraryMemberships(createAdminClient(), viewer)

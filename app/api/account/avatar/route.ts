@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { toStorageUrl } from "@/lib/storage/media-url"
 import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+/* Round 52: the token's verified signature, with no Supabase Auth round trip (lib/auth/route-user). */
+import { readerForRequest } from "@/lib/auth/route-user"
 import { saveProfilePhoto, type PhotoClient } from "@/lib/account/avatar-save"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { identityChanged } from "@/lib/account/identity-caches"
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") {
     return NextResponse.json({ error: "Could not reach Storelib. Check your connection and try again." }, { status: 503, headers: NO_STORE })
   }

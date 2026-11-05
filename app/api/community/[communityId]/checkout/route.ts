@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   if (off) return off
   const { communityId } = await params
   const planId = new URL(request.url).searchParams.get("plan") ?? ""
-  const caller = await routeUser()
+  const caller = await routeUser({ full: true })
   if (caller.kind === "unavailable") return authUnavailableResponse()
   const user = caller.kind === "user" ? caller.user : null
   if (!user) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })

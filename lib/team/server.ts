@@ -667,7 +667,7 @@ export async function requireTeamPermission(area: TeamArea, opts: { read?: boole
     answer. Nothing is allowed on that last answer; it is refused with a true reason.
   */
   /* Round 49: a read-only GET passes { read: true } and takes a page's answer (lib/physical/auth CallerOptions). */
-  const who = await routeUser({ fresh: !opts.read })
+  const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
   const user = who.user
