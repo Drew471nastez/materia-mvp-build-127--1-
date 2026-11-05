@@ -128,6 +128,13 @@ async function handleGET(req: Request, { params }: Params) {
         .select("path, content, draft_content")
         .eq("install_id", installId)
         .like("path", "shopify/%")
+        /*
+          A font or picture kept as base64 with no draft is dropped below
+          anyway, so it is left in the database (round 54): on an imported
+          theme they were most of the bytes this read moved, 12 MB of 17 in
+          the harness's theme (scripts/sql-harness, 40 fonts beside 360 files).
+        */
+        .or('content.not.like."base64:*",draft_content.not.is.null')
         .order("path")
         .range(from, from + 999)
       if (readErr) return NextResponse.json({ error: "Could not read theme files. Try again." }, { status: 503 })

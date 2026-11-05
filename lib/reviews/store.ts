@@ -25,6 +25,7 @@ import { revalidateTag } from "next/cache"
 import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { summarize, type StarCounts } from "./rules"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (table: string) => any }
@@ -86,9 +87,8 @@ export async function readPublishedReviews(
     if (published) q = q.eq("status", "published")
     return q.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
   }
-  let res = await run(PUBLIC_REVIEW_COLUMNS, true)
-  if (res.error && missingColumn(res.error)) res = await run(PART_52_REVIEW_COLUMNS, true)
-  if (res.error && missingColumn(res.error)) res = await run(OLD_REVIEW_COLUMNS, false)
+  /* Remembered per server, so a database before part 134 is not refused first on every read (lib/supabase/missing-memory.ts). */
+  const res = await readLadder("reviews:published", [() => run(PUBLIC_REVIEW_COLUMNS, true), () => run(PART_52_REVIEW_COLUMNS, true), () => run(OLD_REVIEW_COLUMNS, false)], missingColumn)
   if (res.error) throw new Error(`reviews could not be read (${res.error.code ?? "unknown"})`)
   return { reviews: (res.data ?? []) as PublicReview[], total: res.count ?? (res.data ?? []).length }
 }
@@ -104,9 +104,15 @@ export async function publishedRatings(db: Db, where: { productId?: string | nul
   const key = where.productId ? "product_id" : "creator_id"
   const value = where.productId ?? where.creatorId
   if (!value) return []
-  let res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published").neq("verified", false)
-  if (res.error && missingColumn(res.error)) res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published")
-  if (res.error && missingColumn(res.error)) res = await db.from("reviews").select("rating").eq(key, value)
+  const res = await readLadder(
+    "reviews:ratings",
+    [
+      () => db.from("reviews").select("rating").eq(key, value).eq("status", "published").neq("verified", false),
+      () => db.from("reviews").select("rating").eq(key, value).eq("status", "published"),
+      () => db.from("reviews").select("rating").eq(key, value),
+    ],
+    missingColumn,
+  )
   if (res.error) return null
   return ((res.data ?? []) as { rating: number }[]).map((r) => Number(r.rating))
 }

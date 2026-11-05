@@ -292,13 +292,37 @@ export async function retireUnseen(admin: Admin, sweepStartedAt: string, seenAt:
 }
 
 /** The next rows to ask Google about for one property, in rotation order (plan.ts rotationOrder, said in SQL). */
-export async function nextToInspect(admin: Admin, property: string, n: number): Promise<{ url: string; property: string }[]> {
+/*
+  ===========================================================================
+   ONLY WHAT IS DUE (round 54)
+  ===========================================================================
+  The three queues below were ordered by "longest ago" with no floor, so
+  every ten minute run took the next rows whatever their age: on an
+  inventory smaller than one run's share, the same pages were fetched (each
+  a full render with its own database reads, on a page that was usually
+  stale in the CDN) and the same sites' sitemaps read again every run, all
+  day. A row is now due only when its last check is older than these.
+*/
+/** A page is scored again a day after its last score (Check now still checks at once). */
+export const SCORE_EVERY_MS = 24 * 60 * 60 * 1000
+/** A built site's own pages are listed again a day after the last listing. */
+export const EXPAND_EVERY_MS = 24 * 60 * 60 * 1000
+/** Google is asked about an address again a day after it last answered for it. */
+export const INSPECT_EVERY_MS = 24 * 60 * 60 * 1000
+
+/** `column` is null or older than `everyMs` before `now`: the PostgREST filter, its time quoted. */
+export function dueFilter(column: string, everyMs: number, now: number): string {
+  return `${column}.is.null,${column}.lt."${new Date(now - everyMs).toISOString()}"`
+}
+
+export async function nextToInspect(admin: Admin, property: string, n: number, now = Date.now()): Promise<{ url: string; property: string }[]> {
   if (n <= 0) return []
   const { data, error } = await admin
     .from("seo_index_status")
     .select("url, property")
     .eq("in_sitemap", true)
     .eq("property", property)
+    .or(dueFilter("inspected_at", INSPECT_EVERY_MS, now))
     .order("inspected_at", { ascending: true, nullsFirst: true })
     .order("url", { ascending: true })
     .limit(n)
@@ -306,12 +330,13 @@ export async function nextToInspect(admin: Admin, property: string, n: number): 
   return (data ?? []) as { url: string; property: string }[]
 }
 
-export async function nextToScore(admin: Admin, n: number): Promise<{ url: string; in_sitemap: boolean; google_status: string | null }[]> {
+export async function nextToScore(admin: Admin, n: number, now = Date.now()): Promise<{ url: string; in_sitemap: boolean; google_status: string | null }[]> {
   if (n <= 0) return []
   const { data, error } = await admin
     .from("seo_index_status")
     .select("url, in_sitemap, google_status")
     .eq("in_sitemap", true)
+    .or(dueFilter("scored_at", SCORE_EVERY_MS, now))
     .order("scored_at", { ascending: true, nullsFirst: true })
     .order("url", { ascending: true })
     .limit(n)
@@ -320,13 +345,14 @@ export async function nextToScore(admin: Admin, n: number): Promise<{ url: strin
 }
 
 /** Website front pages whose own pages have been listed longest ago. */
-export async function nextToExpand(admin: Admin, n: number): Promise<string[]> {
+export async function nextToExpand(admin: Admin, n: number, now = Date.now()): Promise<string[]> {
   if (n <= 0) return []
   const { data, error } = await admin
     .from("seo_index_status")
     .select("url")
     .eq("in_sitemap", true)
     .like("source", "websites-%")
+    .or(dueFilter("expanded_at", EXPAND_EVERY_MS, now))
     .order("expanded_at", { ascending: true, nullsFirst: true })
     .order("url", { ascending: true })
     .limit(n)

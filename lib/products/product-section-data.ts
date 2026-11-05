@@ -38,6 +38,7 @@ import { productFaqs } from "./product-faqs"
 import { salesStanding } from "./sales-standings"
 import { FEW_LEFT, copiesLeft } from "./sales-limit"
 import { sizeChartForProduct } from "@/lib/size-charts/storefront"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -109,8 +110,11 @@ async function readVariants(db: Db, productId: string): Promise<VariantRow[]> {
 async function readOptions(db: Db, productId: string): Promise<ProductOptionData[]> {
   try {
     /* With each value's own swatch (part 286, lib/products/option-swatches.ts); a database before it answers without. */
-    let res = await db.from("product_options").select("name, values, position, swatches").eq("product_id", productId).order("position", { ascending: true })
-    if (res.error) res = await db.from("product_options").select("name, values, position").eq("product_id", productId).order("position", { ascending: true })
+    /* Asked again without the swatches only when the column is missing, and remembered (lib/supabase/missing-memory.ts); a timeout is not asked twice. */
+    const res = await readLadder("product_options:swatches", [
+      () => db.from("product_options").select("name, values, position, swatches").eq("product_id", productId).order("position", { ascending: true }),
+      () => db.from("product_options").select("name, values, position").eq("product_id", productId).order("position", { ascending: true }),
+    ])
     const { data, error } = res
     if (error) return []
     return ((data ?? []) as { name: unknown; values: unknown; swatches?: unknown }[])

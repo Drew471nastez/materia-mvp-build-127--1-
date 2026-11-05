@@ -324,9 +324,10 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
   const row = install as { id: string; name?: string | null; store_theme_settings?: unknown }
   /* Menus and the release do not depend on each other. The page rows only need the install. */
   const menusPromise = storeMenusOrNull(admin, creatorId)
+  /* Published sections only: the drafts were read with them on every live build and never used (round 54). */
   const pagesPromise = siteRead("pages", (signal) => admin
     .from("store_theme_pages")
-    .select("page_key, sections, draft_sections")
+    .select("page_key, sections")
     .eq("install_id", row.id)
     .abortSignal(signal))
   void pagesPromise.catch(() => {})

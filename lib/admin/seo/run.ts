@@ -60,6 +60,14 @@ export interface RunSummary {
 }
 
 const FILES_PER_RUN = 3
+/** A new walk of every sitemap file starts this long after the last one finished. */
+export const INVENTORY_EVERY_MS = 6 * 60 * 60 * 1000
+
+/** Whether a new inventory walk is due: never finished, unreadable, or finished INVENTORY_EVERY_MS ago. */
+export function walkDue(finishedAt: string | null | undefined, now: number): boolean {
+  const at = finishedAt ? Date.parse(finishedAt) : NaN
+  return !Number.isFinite(at) || now - at >= INVENTORY_EVERY_MS
+}
 const SITES_PER_RUN = 4
 const SCORE_BATCH = 10
 const SCORE_LANES = 5
@@ -86,6 +94,8 @@ const plainError = (e: unknown) => (e instanceof Error ? e.message : String(e)).
 export async function syncInventory(admin: Admin, deadline: number, summary: RunSummary, properties: string[], hardStop = Number.POSITIVE_INFINITY): Promise<void> {
   let state = await readSyncState(admin)
   const now = () => new Date().toISOString()
+  /* A walk that ended less than INVENTORY_EVERY_MS ago is not started again (round 54): every sitemap file was read from the database again every ten minutes. */
+  if (state && state.next_file >= state.files.length && !walkDue(state.sweep_finished_at, Date.now())) return
   if (!state || state.next_file >= state.files.length) {
     const files = await sitemapFiles()
     const at = now()
