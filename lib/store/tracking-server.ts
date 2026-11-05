@@ -7,7 +7,7 @@ import "server-only"
  * on it; a save clears that cache, so the next view carries the change.
  */
 import { unstable_cache, revalidateTag } from "next/cache"
-import { TRACKER_ORDER, readTracking, tidyId, TRACKERS, type Tracking, type TrackerId } from "./tracking"
+import { TRACKER_ORDER, readTracking, tidyAdsLabel, tidyId, TRACKERS, type Tracking, type TrackerId } from "./tracking"
 import { isMissingTable } from "./settings-server"
 import { readGaInput } from "./ga"
 
@@ -38,8 +38,34 @@ export function publishedTracking(db: Db, creatorId: string): Promise<Tracking> 
   )()
 }
 
-/** One ID set or removed (null). */
+/** Google Ads' purchase conversion label (lib/store/tracking.ts tidyAdsLabel), set or removed (null). It needs the Conversion ID saved first. */
+async function saveAdsLabel(db: Db, creatorId: string, value: unknown): Promise<{ ok: true; tracking: Tracking } | { ok: false; error: string; status: number }> {
+  const tidy = tidyAdsLabel(value)
+  if (tidy === "bad") return { ok: false, error: "That isn't a conversion label. It looks like AbC-D_efGh12, the part after the slash in send_to.", status: 400 }
+  const now = await loadTracking(db, creatorId)
+  if (!now.ready) return { ok: false, error: TRACKING_NEEDS_PART, status: 409 }
+  if (tidy && !now.tracking.google_ads) return { ok: false, error: "Add your Conversion ID first.", status: 409 }
+  if (tidy?.id && tidy.id !== now.tracking.google_ads) return { ok: false, error: `That label is for ${tidy.id}. Your Conversion ID is ${now.tracking.google_ads}.`, status: 400 }
+  const next: Tracking = { ...now.tracking }
+  if (tidy) next.google_ads_label = tidy.label
+  else delete next.google_ads_label
+  return writeTracking(db, creatorId, next)
+}
+
+async function writeTracking(db: Db, creatorId: string, next: Tracking): Promise<{ ok: true; tracking: Tracking } | { ok: false; error: string; status: number }> {
+  const { error } = await db.from("store_settings").upsert({ creator_id: creatorId, tracking: next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  if (error) return { ok: false, error: isMissingTable(error) ? TRACKING_NEEDS_PART : "It could not be saved.", status: isMissingTable(error) ? 409 : 500 }
+  try {
+    revalidateTag(trackingTag(creatorId), { expire: 0 })
+  } catch {
+    /* Outside a request (tests): the cache runs out on its own in five minutes. */
+  }
+  return { ok: true, tracking: next }
+}
+
+/** One ID set or removed (null); `google_ads_label` is Google Ads' purchase conversion label. */
 export async function saveTrackerId(db: Db, creatorId: string, id: unknown, value: unknown): Promise<{ ok: true; tracking: Tracking } | { ok: false; error: string; status: number }> {
+  if (id === "google_ads_label") return saveAdsLabel(db, creatorId, value)
   if (typeof id !== "string" || !(TRACKER_ORDER as string[]).includes(id)) return { ok: false, error: "That integration was not found.", status: 404 }
   const tracker = id as TrackerId
   const tidy = tidyId(tracker, value)
@@ -53,14 +79,9 @@ export async function saveTrackerId(db: Db, creatorId: string, id: unknown, valu
   const next: Tracking = { ...now.tracking }
   if (tidy) next[tracker] = tidy
   else delete next[tracker]
-  const { error } = await db.from("store_settings").upsert({ creator_id: creatorId, tracking: next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
-  if (error) return { ok: false, error: isMissingTable(error) ? TRACKING_NEEDS_PART : "It could not be saved.", status: isMissingTable(error) ? 409 : 500 }
-  try {
-    revalidateTag(trackingTag(creatorId), { expire: 0 })
-  } catch {
-    /* Outside a request (tests): the cache runs out on its own in five minutes. */
-  }
-  return { ok: true, tracking: next }
+  /* A label goes with the ID it was issued for: a new or removed Conversion ID takes it away. */
+  if (tracker === "google_ads" && next.google_ads !== now.tracking.google_ads) delete next.google_ads_label
+  return writeTracking(db, creatorId, next)
 }
 
 /**

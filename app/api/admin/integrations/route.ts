@@ -59,7 +59,8 @@ export async function GET() {
   const installs = new Map<string, number>()
   const errors = new Map<string, { count: number; last: string | null }>()
   for (const row of (trackingRows.data ?? []) as { tracking: unknown }[]) {
-    for (const id of Object.keys(readTracking(row.tracking))) installs.set(id, (installs.get(id) ?? 0) + 1)
+    /* Each service once: Google Ads' conversion label is part of Google Ads, not an install of its own. */
+    for (const id of Object.keys(readTracking(row.tracking))) if (id !== "google_ads_label") installs.set(id, (installs.get(id) ?? 0) + 1)
   }
   for (const row of (providerRows.data ?? []) as { provider: string; status: string; last_error: string | null }[]) {
     if (row.status !== "disconnected") installs.set(row.provider, (installs.get(row.provider) ?? 0) + 1)

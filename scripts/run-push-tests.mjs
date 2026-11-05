@@ -694,6 +694,10 @@ const SUITES = [
   "tests/community-money-r43.test.ts",
   /* Round 51: test mode subscriptions, refunded periods and the owner's own plan are no MRR on any screen. */
   "tests/community-mrr-r51.test.ts",
+  /* Round 52: a community's event tickets, programs and modules are Revenue on /app/analytics, Home's chart and the sales breakdown, as in Community Analytics. */
+  "tests/community-sales-r52.test.ts",
+  /* Round 52: Google Ads' purchase conversion label, and gtag('event','conversion',{send_to,value,currency,transaction_id}) on the thank you page as Google's snippet writes it. */
+  "tests/google-ads-conversion-r52.test.ts",
   /* Round 51: every event to every tool in its documented format, recorded answers, last sent, GA4 session. */
   "tests/analytics-send-r51.test.ts",
   /* Round 51: empty analytics cards (a ghost of the line, the zero, one line), the breakdown and channels waiting at their own height, Send analytics closing whole. */

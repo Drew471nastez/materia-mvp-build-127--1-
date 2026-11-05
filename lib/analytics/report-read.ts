@@ -28,6 +28,7 @@ import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { readCommunitySales, isCommunitySale, type CommunitySales } from "./community-sales"
 import { withoutTestSales } from "./test-sales"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
@@ -522,14 +523,23 @@ export function readOrders(
   product: string | null,
   /** The period the figures add up: the "could not be converted" count is of its sales only (lib/analytics/unconverted-count). */
   counted?: Span,
-): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
+  /**
+   * With the community's own sales: event tickets, programs and modules,
+   * which are never orders (./community-sales). Every place and every
+   * product only: they are on no website and are no product of the store.
+   */
+  opts: { community?: boolean } = {},
+): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number }; community: Omit<CommunitySales, "rows"> }> {
   /*
-    Side by side with the orders themselves, the two reads that do not need
-    them: the refunds the ledger dates inside the periods, and the store's
-    currency. They were each a round trip after the orders had come back.
+    Side by side with the orders themselves, the reads that do not need
+    them: the refunds the ledger dates inside the periods, the store's
+    currency and the community's sales. They were each a round trip after
+    the orders had come back.
   */
   const ledger = refundedOrderIds(admin, creatorId, spans)
   const storeCurrency = readStoreCurrency(admin, creatorId)
+  const community: Promise<CommunitySales> = opts.community && !product ? readCommunitySales(admin, creatorId, spans) : Promise.resolve({ rows: [], titles: {}, types: {} })
+  community.catch(() => {})
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
       const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
@@ -544,10 +554,12 @@ export function readOrders(
       const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)), ledgerRefunded)
       /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates), before the money is converted. */
       const dated = await withRefundHistory(admin, creatorId, [...own, ...withoutTestSales(ownRows(earlier))].map(asOrdersPageRow))
+      /* The community's sales after the ledger's dates (theirs are on their own rows) and before the money is converted, with the orders. */
+      const sales = await community
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
-      const inStore = await inStoreCurrency(admin, creatorId, dated, (await storeCurrency).currency, { rates: ratesFrom(admin) })
+      const inStore = await inStoreCurrency(admin, creatorId, [...dated, ...sales.rows], (await storeCurrency).currency, { rates: ratesFrom(admin) })
       const unconverted = inStore.unconverted > 0 ? unconvertedIncluded(inStore.left, counted ?? spans[spans.length - 1]) : 0
-      return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted } }
+      return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted }, community: { titles: sales.titles, types: sales.types } }
     }),
   )
 }
@@ -664,7 +676,8 @@ export async function readAudience(admin: Admin, q: CountQuestion, w: Span): Pro
  * order id) is not found here.
  */
 export async function readDownloads(admin: Admin, lineIds: string[]): Promise<Record<string, number> | null> {
-  const ids = [...new Set(lineIds)].slice(0, 5000)
+  /* A community's ticket or program is no order line with downloads (./community-sales), and its id is no uuid. */
+  const ids = [...new Set(lineIds.filter((id) => !isCommunitySale(id)))].slice(0, 5000)
   if (ids.length === 0) return {}
   try {
     const out: Record<string, number> = {}

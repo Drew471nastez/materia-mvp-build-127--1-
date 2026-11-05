@@ -22,6 +22,7 @@ import type { OrderRow } from "@/lib/orders/order-view"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { readCommunitySales } from "./community-sales"
 import { isTestSale, withoutTestSales } from "./test-sales"
 import { creatorProperties, orderSpans, ratesFrom, readSpans, refundedEarlier, startingAt } from "./report-read"
 import { spansToRead } from "./buckets"
@@ -206,13 +207,18 @@ function asStored(orders: Array<{ lines: Array<{ buyer_email?: string | null }> 
 /** Every sales figure for the question, read and counted. */
 export async function countCommerce(admin: Admin, q: CommerceQuestion): Promise<CommerceAnswer> {
   const spans = spansToRead(q.span, q.previous)
-  /* The store's currency beside the orders, not after them. */
+  /* Every place and product: the community's tickets and programs too, as Revenue counts them (report-read readOrders), so Total sales is still Revenue. */
+  const community = q.selector.type === "all" && !q.productId ? readCommunitySales(admin, q.creatorId, spans) : Promise.resolve({ rows: [] as OrderRow[], titles: {}, types: {} as Record<string, string | null> })
+  community.catch(() => {})
+  /* The store's currency and the community's sales beside the orders, not after them. */
   const storeCurrency = readStoreCurrency(admin, q.creatorId)
   const read = await readLines(admin, q.creatorId, spans)
   const placeUnknown = !/property_type/.test(read.columns)
-  const inStore = await inStoreCurrency(admin, q.creatorId, withListTotal(read.rows as CommerceOrderRow[]) as unknown as OrderRow[], (await storeCurrency).currency, { rates: ratesFrom(admin) })
+  const sales = await community
+  const inStore = await inStoreCurrency(admin, q.creatorId, withListTotal([...read.rows, ...sales.rows] as CommerceOrderRow[]) as unknown as OrderRow[], (await storeCurrency).currency, { rates: ratesFrom(admin) })
   const rows = inStore.rows
   const selector: PropertySelector = placeUnknown ? { type: "all" } : q.selector
+  if (sales.rows.length) q = { ...q, productTypes: { ...q.productTypes, ...sales.types } }
 
   /* Who of the period's customers had bought before it began: returning, as Shopify counts them. */
   const first = commerceReport({ rows, span: q.span, previous: q.previous, timeZone: q.timeZone, selector, properties: q.properties, productId: q.productId, mode: q.mode, productTypes: q.productTypes })

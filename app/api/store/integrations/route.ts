@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  * website (lib/store/tracking-server.ts). Every store, the owner alone.
  *
  *   GET                  the IDs saved, and whether Google Analytics is receiving data
- *   PUT  { id, value }   set one (null or "" removes it)
+ *   PUT  { id, value }   set one (null or "" removes it); id "google_ads_label" is Google Ads' purchase conversion label
  */
 export async function GET() {
   /* Round 41: read too by the OnePage editor's Integrations panel, so a team member with OnePage sees the store's tags. Changing one stays the owner's (PUT). */
@@ -34,7 +34,8 @@ export async function PUT(request: Request) {
   /* Paused or hidden for every store from /admin: it can still be removed, never added. */
   const adding = typeof body.value === "string" && body.value.trim() !== ""
   if (adding) {
-    const slug = INTEGRATIONS.find((i) => i.kind === "tracker" && i.trackerId === body.id)?.id
+    /* Google Ads' conversion label is Google Ads': paused with it. */
+    const slug = INTEGRATIONS.find((i) => i.kind === "tracker" && i.trackerId === (body.id === "google_ads_label" ? "google_ads" : body.id))?.id
     const o = slug ? (await cachedCatalogOverrides().catch(() => [])).find((x) => x.id === slug) : null
     if (o && o.availability !== "default") return physicalJson({ error: "This integration is paused on Storelib for now. Try again later." }, 409)
   }

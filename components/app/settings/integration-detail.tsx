@@ -379,7 +379,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     /* Google Analytics: pasted, checked with a live hit, then "Receiving data" with the last event's time. */
     <GaConnect value={tracking?.ga4 ?? null} ready={trackingReady} onSaved={onTracking} />
   ) : item.kind === "tracker" && item.trackerId ? (
-    <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
+    <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} label={item.trackerId === "google_ads" ? (tracking?.google_ads_label ?? null) : undefined} ready={trackingReady} onSaved={onTracking} />
   ) : item.providerId && providerInfo(item.providerId) ? (
     <ul className="[&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
       <IntegrationCard provider={providerInfo(item.providerId)!} state={providerState} loading={states === null} onSaved={onStates} startOpen={!item.builtIn && !installed} />
@@ -922,7 +922,12 @@ function usePageBar(back: React.RefObject<HTMLElement | null> | null, actions: R
   return on ? state : { bar: false, action: false }
 }
 
-function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; value: string | null; ready: boolean; onSaved: (t: Tracking) => void }) {
+/**
+ * The ID, and for Google Ads (round 52) its purchase conversion label under
+ * it once the ID is saved: `label` is the saved one, undefined for every
+ * other service.
+ */
+function TrackerInstall({ item, value, label, ready, onSaved }: { item: Integration; value: string | null; label?: string | null; ready: boolean; onSaved: (t: Tracking) => void }) {
   const t = TRACKERS[item.trackerId!]
   const [typed, setTyped] = React.useState(value ?? "")
   const [busy, setBusy] = React.useState(false)
@@ -963,6 +968,54 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
       </Field>
       {error ? <Notice>{error}</Notice> : null}
       {saved && !error ? <p className="text-[13px] text-[#067647]" data-tracker-saved="">{value ? tt("Saved. {name} loads on your website from its next page view.", { name: t.name }) : tt("Removed from your website.")}</p> : null}
+      {label !== undefined && value ? <AdsLabelInstall value={label} adsId={value} onSaved={onSaved} /> : null}
+    </div>
+  )
+}
+
+/**
+ * GOOGLE ADS' PURCHASE CONVERSION LABEL (round 52). With it, each paid order
+ * is a conversion of that action (lib/store/tracking.ts purchaseTags); the
+ * ID alone attributes none. The same row as the ID above.
+ */
+function AdsLabelInstall({ value, adsId, onSaved }: { value: string | null; adsId: string; onSaved: (t: Tracking) => void }) {
+  const [typed, setTyped] = React.useState(value ?? "")
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [saved, setSaved] = React.useState(false)
+  React.useEffect(() => setTyped(value ?? ""), [value])
+
+  const save = async (next: string | null) => {
+    setBusy(true)
+    setError(null)
+    setSaved(false)
+    const r = await api<{ tracking: Tracking }>("/api/store/integrations", { method: "PUT", body: { id: "google_ads_label", value: next } })
+    setBusy(false)
+    if (!r.ok) return setError(("error" in r ? r.error : ""))
+    onSaved(r.data.tracking)
+    setSaved(true)
+  }
+
+  return (
+    <div className="space-y-3" data-ads-label="">
+      <Field label={tt("Purchase conversion label")} htmlFor="tracker-google_ads_label">
+        <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]" data-tracker-row="">
+          <TextInput id="tracker-google_ads_label" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="AbC-D_efGh12" autoComplete="off" spellCheck={false} inputMode="text" aria-describedby="tracker-google_ads_label-where" />
+          <div className="order-last mt-2 flex gap-2 sm:order-none sm:mt-0">
+            {value ? (
+              <button type="button" className={cn(BTN_DANGER, "h-11 flex-1 sm:h-10 sm:flex-none")} disabled={busy} onClick={() => void save(null)}>
+                {tt("Remove")}
+              </button>
+            ) : null}
+            <button type="button" className={cn(BTN_PRIMARY, "h-11 flex-1 sm:h-10 sm:flex-none")} disabled={busy || !typed.trim() || typed.trim() === value} onClick={() => void save(typed)}>
+              {busy ? tt("Saving") : tt("Save")}
+            </button>
+          </div>
+          <p id="tracker-google_ads_label-where" className="text-[12.5px] leading-[18px] text-[#6b7280] sm:col-span-2">{tt("In your purchase conversion's event snippet, after {id}/ in send_to.", { id: adsId })}</p>
+        </div>
+      </Field>
+      {error ? <Notice>{error}</Notice> : null}
+      {saved && !error ? <p className="text-[13px] text-[#067647]" data-ads-label-saved="">{value ? tt("Saved. Each paid order is now a Google Ads conversion.") : tt("Removed. Orders are no longer sent as conversions.")}</p> : null}
     </div>
   )
 }

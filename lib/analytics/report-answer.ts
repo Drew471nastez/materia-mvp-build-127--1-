@@ -17,6 +17,7 @@ import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
 import { withoutTestSales } from "./test-sales"
+import { readCommunitySales } from "./community-sales"
 import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { ownsProperty, parseProperty, propertyParam } from "./properties"
@@ -162,7 +163,8 @@ export async function countReportAnswer(
     const quick = countVisits(admin, { ...q, part: "figures" }, shared)
     const rest = countVisits(admin, { ...q, part: "detail" }, shared)
     const legacy = readLegacyOnePage(admin, q)
-    const orders = readOrders(admin, spans, q.creatorId, q.product, q.window)
+    /* Every place: the community's tickets and programs too, which are on no website (lib/analytics/community-sales). */
+    const orders = readOrders(admin, spans, q.creatorId, q.product, q.window, { community: q.selector.type === "all" })
     const subscribers = q.product ? Promise.resolve(null) : readSubscribers(admin, spans, q.creatorId)
     const labels = q.selector.type === "onepage" || q.selector.type === "all" ? onePageLinkLabels(admin, q.properties.onePageId) : Promise.resolve({})
     /* The all time line is extra: its counting function failing leaves it out, never the report (and never reads every order instead). */
@@ -187,6 +189,8 @@ export async function countReportAnswer(
     for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads, nav]) p.catch(() => {})
 
     const base = { window: q.window, previous: q.previous, timeZone: q.timeZone, mainDomain: q.mainDomain, productTitles, selector: q.selector, properties: q.properties, product: q.product, mode: q.mode ?? "all", productTypes }
+    /* What the community's sales are called and of what kind, beside the products' (Top products, By kind). */
+    const named = (o: Awaited<typeof orders>) => (Object.keys(o.community.titles).length ? { ...base, productTitles: { ...productTitles, ...o.community.titles }, productTypes: { ...productTypes, ...o.community.types } } : base)
     if (onFigures) {
       onFigures(Promise.all([quick, legacy, orders, allTime])
         .then(([v, l, o, a]) => {
@@ -201,7 +205,7 @@ export async function countReportAnswer(
             click_buckets: w.click_buckets,
           })
           const wire = foldLegacy({ cur: only(v.wire.cur), prev: only(v.wire.prev) }, l.legacy, q)
-          return { reports: buildReports({ ...base, wire, orders: o.rows }), allTime: a, truncated: false, viewer, property: propertyParam(q.selector) ?? "all", properties: q.properties, kind: q.mode ?? "all" }
+          return { reports: buildReports({ ...named(o), wire, orders: o.rows }), allTime: a, truncated: false, viewer, property: propertyParam(q.selector) ?? "all", properties: q.properties, kind: q.mode ?? "all" }
         })
         .catch(() => null))
     }
@@ -213,7 +217,7 @@ export async function countReportAnswer(
       prev: { ...v.wire.prev, ...d.wire.prev, ...(fromRows || !audBefore.audience ? {} : { os: audBefore.audience.os }) },
     }
     const wire = foldLegacy(merged, l.legacy, q)
-    const reports = buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, downloadsByLine: dl })
+    const reports = buildReports({ ...named(o), wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, downloadsByLine: dl })
     if (navWire) reports.siteClicks = siteClicksOf(navWire, { compared: reports.compared, selector: q.selector, properties: q.properties })
     return {
       reports,
@@ -234,6 +238,18 @@ export async function countReportAnswer(
  * database when it can (analytics_all_time), else from every order here.
  */
 export async function allTimeOf(admin: Admin, creatorId: string) {
+  /* The community's tickets and programs, never orders (lib/analytics/community-sales), added to either count, so All time is never below the period's Revenue. */
+  const community = readCommunitySales(admin, creatorId)
+  community.catch(() => {})
+  const [orders, extra] = await Promise.all([allTimeOrders(admin, creatorId), community])
+  if (!extra.rows.length) return orders
+  const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
+  const rows = (await inStoreCurrency(admin, creatorId, extra.rows, storeCurrency, { rates: ratesFrom(admin) })).rows
+  const sales = groupOrders(rows).filter(isSale)
+  return { orders: orders.orders + sales.length, salesCents: orders.salesCents + sales.reduce((sum, o) => sum + moneyOf(o).net, 0) }
+}
+
+async function allTimeOrders(admin: Admin, creatorId: string) {
   /* The database's count adds cents as they are: right only while every order is in the store's currency. Otherwise each is converted at its own day's rate (lib/money/report-currency). */
   const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
   const mixed = await byCreator((scope) => hasOrdersInOtherCurrency((columns) => scopedOrders(admin, columns, scope, creatorId, null), storeCurrency))
@@ -270,15 +286,15 @@ export async function countRowSeries(admin: Admin, asked: AskedQuestion, dim: Ro
   const { q } = asked
   const { labels } = periodsOf(q.window, null, q.timeZone)
   if (dim === "product") {
-    const o = await readOrders(admin, [q.window], q.creatorId, q.product, q.window)
+    const o = await readOrders(admin, [q.window], q.creatorId, q.product, q.window, { community: q.selector.type === "all" })
     const series = productSalesSeries({
       orders: o.rows,
       window: q.window,
       timeZone: q.timeZone,
       selector: q.selector,
       defaultWebsite: q.properties.defaultWebsite,
-      productTitles: asked.productTitles,
-      productTypes: asked.productTypes,
+      productTitles: { ...asked.productTitles, ...o.community.titles },
+      productTypes: { ...asked.productTypes, ...o.community.types },
       mode: q.mode ?? "all",
       removedKey: REMOVED_PRODUCT,
     })

@@ -94,9 +94,9 @@ const TRACKER_COPY: Record<TrackerId, { category: IntegrationCategory; logo: str
   google_ads: {
     category: "advertising",
     logo: "/integrations/google-ads.svg",
-    summary: "Build audiences from your visitors for Google Ads.",
-    about: ["The Google tag loads with your Google Ads conversion ID on every page of your website, so visitors can be added to your remarketing lists.", "An order paid at your shop's checkout for products that ship is sent to Google Ads as a purchase, with its value and currency, when the buyer reaches their order page. Downloads, courses and memberships are counted in Storelib Analytics only, for now."],
-    counts: "Page views",
+    summary: "Count your sales as Google Ads conversions.",
+    about: ["The Google tag loads with your Google Ads conversion ID on every page of your website, so visitors can be added to your remarketing lists.", "Add your purchase conversion label and each order paid at your shop's checkout is a conversion, with its value, currency and order number, when the buyer reaches their order page. Downloads, courses and memberships are counted in Storelib Analytics only, for now."],
+    counts: "Page views and purchases",
     docs: "https://support.google.com/google-ads/answer/7548399",
   },
   meta_pixel: {

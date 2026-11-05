@@ -143,7 +143,35 @@ export function trackersHint(): string {
   return tt("{value} load on every page of this website once you add them. Each paid order is reported to them once{value2}.", { value: inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name)), value2: pagesOnly.length ? tt(", except {pagesOnly}", { pagesOnly: inWords(pagesOnly) }) : "" })
 }
 
-export type Tracking = Partial<Record<TrackerId, string>>
+/**
+ * WHAT IS KEPT. Each service's ID by its own key, and beside Google Ads its
+ * purchase conversion's label (round 52, `google_ads_label`). The ID alone
+ * loads the Google tag; a purchase is attributed to a conversion action
+ * only when it names one, `send_to: 'AW-ID/label'`, so the label is what
+ * makes Google Ads count a sale.
+ */
+export type Tracking = Partial<Record<TrackerId, string>> & { google_ads_label?: string }
+
+/** A conversion label as Google Ads issues it: letters, digits, - and _, case sensitive. */
+export const ADS_LABEL_PATTERN = /^[A-Za-z0-9_-]{6,40}$/
+
+/**
+ * A purchase conversion label as typed or pasted, tidied. Google's event
+ * snippet names it as `'send_to': 'AW-123456789/AbC-D_efGh'`: pasted whole
+ * or as that pair, the label is what follows the slash, and `id` is the
+ * AW- ID it was issued with (a label is only good with its own ID). Empty
+ * is "remove it".
+ */
+export function tidyAdsLabel(typed: unknown): { label: string; id: string | null } | null | "bad" {
+  if (typed === null || typed === undefined) return null
+  if (typeof typed !== "string") return "bad"
+  const bare = typed.trim()
+  if (!bare) return null
+  const pair = bare.match(/(AW-[0-9]{6,12})\/([A-Za-z0-9_-]{6,40})(?![A-Za-z0-9_-])/i)
+  if (pair) return { label: pair[2], id: pair[1].toUpperCase() }
+  const label = bare.replace(/^['"]|['"]$/g, "")
+  return ADS_LABEL_PATTERN.test(label) ? { label, id: null } : "bad"
+}
 
 /** An ID as typed, tidied: spaces gone, letters in the case its service issues. Empty is "remove it". */
 export function tidyId(id: TrackerId, typed: unknown): string | null | "bad" {
@@ -165,6 +193,9 @@ export function readTracking(stored: unknown): Tracking {
     const v = (stored as Record<string, unknown>)[id]
     if (typeof v === "string" && TRACKERS[id].pattern.test(v)) out[id] = v
   }
+  /* The label only with the ID it goes with. */
+  const label = (stored as Record<string, unknown>).google_ads_label
+  if (out.google_ads && typeof label === "string" && ADS_LABEL_PATTERN.test(label)) out.google_ads_label = label
   return out
 }
 
@@ -297,7 +328,7 @@ export const TRACKER_HOSTS = [...new Set(TRACKER_ORDER.flatMap((id) => TRACKERS[
  * A PAID ORDER, TOLD TO THE STORE'S PIXELS. Run once, on the buyer's order
  * page as it opens straight after paying (never on a later visit to it), so
  * each order is one purchase in each service: GA4 and Google Ads a
- * `purchase`, Tag Manager a `purchase` in its data layer, Meta a `Purchase`,
+ * `purchase` (and Google Ads its conversion, when its label is saved), Tag Manager a `purchase` in its data layer, Meta a `Purchase`,
  * TikTok a `CompletePayment`, Pinterest a `checkout`. Only the order's
  * number, value and currency go: no name, no email, no address. Once told,
  * `paid` is taken off the address, so a reload is a later visit.
@@ -314,6 +345,16 @@ export function purchaseTags(stored: unknown, order: { id: string; valueCents: n
   /* With the products, when the page knows them, so GA's ecommerce reports name what sold (lib/store/ga.ts gaItem). */
   const items = order.items?.length ? `,items:${scriptJson(order.items.slice(0, 50))}` : ""
   if (t.ga4 || t.google_ads) out.push(`if(window.gtag)gtag('event','purchase',{transaction_id:${id},value:${value},currency:${currency}${items}});`)
+  /*
+    Google Ads' own purchase conversion (round 52), as its event snippet
+    writes it: gtag('event','conversion',{send_to:'AW-ID/label',value,
+    currency,transaction_id}). The purchase above reaches the Ads ID but
+    names no conversion action, so Google Ads counted none. Under the same
+    consent mode as every Google tag here (lib/store/ga.ts gaConsentJs: the
+    banner's Marketing answer is ad_storage and ad_user_data), and once per
+    order: in this browser by the guard below, at Google by transaction_id.
+  */
+  if (t.google_ads && t.google_ads_label) out.push(`if(window.gtag)gtag('event','conversion',{send_to:${JSON.stringify(`${t.google_ads}/${t.google_ads_label}`)},value:${value},currency:${currency},transaction_id:${id}});`)
   if (t.gtm) out.push(`window.dataLayer=window.dataLayer||[];dataLayer.push({event:'purchase',transaction_id:${id},event_id:${id},ecommerce:{transaction_id:${id},value:${value},currency:${currency}}});`)
   if (t.meta_pixel) out.push(`if(window.fbq)fbq('track','Purchase',{value:${value},currency:${currency}},{eventID:${id}});`)
   if (t.tiktok_pixel) out.push(`if(window.ttq)ttq.track('CompletePayment',{value:${value},currency:${currency},content_type:'product'},{event_id:${id}});`)
