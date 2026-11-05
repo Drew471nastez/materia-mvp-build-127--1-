@@ -211,6 +211,13 @@ async function settle(page, t0) {
       screen: !!document.querySelector('[data-service-unavailable="screen"]'),
       error: /Something went wrong on this page|This page is out of date/.test(document.body?.innerText || ""),
       busy: !!document.querySelector("[data-app-slow-page], [aria-busy='true'], [data-app-quiet-retry]"),
+      /* What is still busy, for a page that never settles: its marker and a few words around it. */
+      busyWhat: (() => {
+        const el = document.querySelector("[data-app-slow-page], [aria-busy='true'], [data-app-quiet-retry]")
+        if (!el) return null
+        const tag = [...el.attributes].map((a) => a.name).filter((n) => n.startsWith("data-") || n === "aria-busy").join(" ")
+        return `${el.tagName.toLowerCase()} ${tag} "${(el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40)}"`
+      })(),
       text: (document.querySelector("main")?.innerText || document.body?.innerText || "").length,
       seen: window.__screenSeen || 0,
     })).catch(() => null)
@@ -233,7 +240,9 @@ async function visit(ctx, path) {
   await page.evaluateOnNewDocument(WATCH)
   const t0 = Date.now()
   await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded", timeout: LIMIT_MS }).catch(() => null)
+  const domMs = Date.now() - t0
   const r = await settle(page, t0)
+  r.domMs = domMs
   r.ms = Date.now() - t0
   r.sections = r.outcome === "page" || r.outcome === "error" ? await page.evaluate(SECTIONS).catch(() => []) : []
   /* What stands where a part could not be read: a Try again, a retry, a spinner. */
@@ -281,6 +290,7 @@ for (const m of MODES) {
       if (r.screenSeen) row.screen++
       row[r.outcome === "screen" ? "screen_end" : r.outcome] = (row[r.outcome === "screen" ? "screen_end" : r.outcome] || 0) + 1
       row.slowest = Math.max(row.slowest, r.ms)
+      if (process.env.R53_DETAIL) out(`      ${p} try ${i + 1}: ${r.outcome}, document ${r.domMs}ms, settled ${r.ms}ms${r.busyWhat ? `, still busy: ${r.busyWhat}` : ""}`)
       if (m === "ok") baseline[p] = r.sections
       else if (r.outcome === "page" && !r.retryShown) {
         for (const s of baseline[p] || []) if (!r.sections.includes(s)) row.missing[s] = (row.missing[s] || 0) + 1

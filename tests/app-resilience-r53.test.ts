@@ -134,7 +134,7 @@ async function main() {
   check("the ring is left out rather than drawn with a wrong count", /setupProgress=\{setup \? \{ completed: setup\.completed, total: setup\.total \} : undefined\}/.test(layout))
   check("drawn from a copy or the session alone, the shell asks again by itself", /\{refill \? <ShellRefill \/> : null\}/.test(layout))
   const refill = readCode("components/app/shell-refill.tsx")
-  check("  in a transition, three times at most, and when back online", /startTransition\(\(\) => router\.refresh\(\)\)/.test(refill) && /REFILL_WAITS_MS = \[2_500, 6_000, 15_000\]/.test(refill) && /addEventListener\("online"/.test(refill))
+  check("  in a transition, twice at most, never while one is on its way, and when back online", /startTransition\(\(\) => router\.refresh\(\)\)/.test(refill) && /REFILL_WAITS_MS = \[4_000, 15_000\]/.test(refill) && /if \(pendingRef\.current \|\| navigator\.onLine === false\)/.test(refill) && /addEventListener\("online"/.test(refill))
 
   section("4. Home: Getting started's reads have ceilings and a kept copy")
   const home = readCode("app/(storelib)/app/page.tsx")

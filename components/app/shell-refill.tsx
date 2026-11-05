@@ -9,36 +9,46 @@
  * time (app/app/layout.tsx). Nothing is put over the page for it. This asks
  * the server for the page again in the background (router.refresh, inside a
  * transition, so what is on screen stays until the new answer is ready),
- * after REFILL_WAITS_MS, and at once when the browser comes back online. Once
- * a render had its rows the layout no longer draws this, so the asking stops;
- * three tries at most for one page.
+ * after REFILL_WAITS_MS, and at once when the browser comes back online.
+ *
+ * Never two at once: a refresh still on its way (a slow database takes as
+ * long to answer the second time) is waited for, not joined by another, so
+ * this never multiplies the load on a database that is already slow. Once a
+ * render had its rows the layout no longer draws this, so the asking stops;
+ * two tries at most for one page.
  */
-import { startTransition, useEffect } from "react"
+import { useEffect, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 
-export const REFILL_WAITS_MS = [2_500, 6_000, 15_000] as const
+export const REFILL_WAITS_MS = [4_000, 15_000] as const
 
 export function ShellRefill() {
   const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  const tries = useRef(0)
+
   useEffect(() => {
-    let tries = 0
     let timer: number | undefined
     const ask = () => {
-      tries++
+      if (tries.current >= REFILL_WAITS_MS.length) return
+      /* The last one is still on its way: look again in a moment instead of sending another. */
+      if (pendingRef.current || navigator.onLine === false) {
+        timer = window.setTimeout(ask, 1_000)
+        return
+      }
+      tries.current++
       startTransition(() => router.refresh())
       plan()
     }
     const plan = () => {
-      if (tries >= REFILL_WAITS_MS.length) return
-      const wait = REFILL_WAITS_MS[tries] + Math.round(Math.random() * 800)
-      timer = window.setTimeout(() => {
-        if (navigator.onLine === false) return
-        ask()
-      }, wait)
+      if (tries.current >= REFILL_WAITS_MS.length) return
+      timer = window.setTimeout(ask, REFILL_WAITS_MS[tries.current] + Math.round(Math.random() * 800))
     }
     const online = () => {
       window.clearTimeout(timer)
-      if (tries < REFILL_WAITS_MS.length) ask()
+      ask()
     }
     plan()
     window.addEventListener("online", online)
