@@ -162,6 +162,9 @@ const cookieOf = (setCookie) => (Array.isArray(setCookie) ? setCookie : setCooki
       console.log(`  ${path.padEnd(28)} ${who.padEnd(26)} ${row.status} ${row.sha} ${kb(row.bytes).padStart(7)}  cdn=${row.cdn ?? "-"}  set-cookie=${row.setsCookie}  count=${row.count}  name=${row.name}  fill=${row.fill}`)
     }
   }
+  const home = out.personas.find((r) => r.path === "/")?.sha
+  const tagged = out.personas.find((r) => r.path === "/?utm_source=ig&fbclid=abc")?.sha
+  console.log(`  / and /?utm_source=ig&fbclid=abc: ${home === tagged ? "one copy (the unknown keys are not a new draw)" : "TWO copies (the unknown keys made a new draw)"}`)
   console.log(`  buyer's cart cookie: ${buyerCookie.replace(/sl_theme_cart=[^;]+/, "sl_theme_cart=…")}`)
   for (const path of pages) {
     const rows = out.personas.filter((r) => r.path === path)
