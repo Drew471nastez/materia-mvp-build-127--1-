@@ -202,10 +202,10 @@ const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile 
   ===========================================================================
    A FAILED READ OF ONE OF THE SHELL'S TWO ROWS (round 53)
   ===========================================================================
-  Measured with scripts/check-app-resilience-r53.mjs: with 10% of database
-  requests failing, the profile or the creator read failed on about one full
-  /app load in five, and every one of those was the whole page "Storelib is
-  not answering right now". The fetch underneath asks a read again only for
+  Measured with scripts/check-app-resilience-r53.mjs over 23 /app pages: the
+  whole page "Storelib is not answering right now" on 10 of 81 full loads
+  with 10% of database requests failing, and 19 of 81 with 30%; after this,
+  0 of 81 in both. The fetch underneath asks a read again only for
   a 502, a 504, a 429 or a dropped connection (lib/net/deadline.ts); a 503,
   a 500 statement timeout or a gateway's page reached the shell on the first
   try. Now:
