@@ -8550,6 +8550,8 @@ const words: Record<string, string> = {
  "The report queue, held posts and join alarms.": "La cola de denuncias, las publicaciones retenidas y las alarmas de ingreso.",
  "The reports could not be loaded.": "No se pudieron cargar las denuncias.",
  "The reports could not be loaded. Refresh the page to try again.": "No se pudieron cargar los informes. Recarga la página para intentarlo de nuevo.",
+ "These reports could not be loaded.": "No se pudieron cargar estos informes.",
+ "The sales reports could not be loaded.": "No se pudieron cargar los informes de ventas.",
  "The requests did not load. Refresh the page.": "Las solicitudes no se cargaron. Actualiza la página.",
  "The rest": "El resto",
  "The rest shows in {name}": "El resto se muestra en {name}",
