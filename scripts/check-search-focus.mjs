@@ -29,9 +29,9 @@ mkdirSync(shots, { recursive: true })
 
 /* Where each field is, and how to find the box that draws its edge: the wrapper (focus-within) or the input itself (focus). */
 const FIELDS = [
-  { name: "Orders", file: "app/app/orders/orders-list.tsx", placeholder: "Search by order, customer or product", edge: "wrapper" },
-  { name: "Emails subscribers", file: "app/app/emails/emails-home.tsx", placeholder: "Search by email or name", edge: "wrapper" },
-  /* The Products page's field has no box of its own on any width now: it sits bare in the card's toolbar, the row's own edge the frame, as it always did on a phone (app/app/products/products-client.tsx). Nothing to focus but the caret. */
+  { name: "Orders", file: "app/(storelib)/app/orders/orders-list.tsx", placeholder: "Search by order, customer or product", edge: "wrapper" },
+  { name: "Emails subscribers", file: "app/(storelib)/app/emails/emails-home.tsx", placeholder: "Search by email or name", edge: "wrapper" },
+  /* The Products page's field has no box of its own on any width now: it sits bare in the card's toolbar, the row's own edge the frame, as it always did on a phone (app/(storelib)/app/products/products-client.tsx). Nothing to focus but the caret. */
   { name: "Product picker", file: "components/app/product-picker.tsx", placeholder: "Search products", edge: "input" },
   /* The time zone and country fields are one shared ChoicePicker now
      (62a7ea8d, c7bb5b46; the time zone's words changed in 88d197a4), so

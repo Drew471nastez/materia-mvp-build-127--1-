@@ -30,9 +30,9 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { stripComments } from "./_source"
 import type { BlogPost } from "@/lib/blog/listing"
-import BlogListing from "@/app/(marketing)/blog/_blog-listing"
-import { PostCard } from "@/app/(marketing)/blog/_components/post-card"
-import { YouTubeFacade } from "@/app/(marketing)/blog/_components/youtube-facade"
+import BlogListing from "@/app/(storelib)/(marketing)/blog/_blog-listing"
+import { PostCard } from "@/app/(storelib)/(marketing)/blog/_components/post-card"
+import { YouTubeFacade } from "@/app/(storelib)/(marketing)/blog/_components/youtube-facade"
 import { VideoPlayer } from "@/components/marketing/video-player"
 
 let passed = 0
@@ -79,10 +79,10 @@ function main() {
     const tags = imgs(html)
     check("a category's first card is eager with fetchpriority high", tags.length === 4 && eager(tags[0]), tags[0])
     check("  and every other card stays lazy", tags.slice(1).every(lazy), tags.slice(1))
-    const image = code("app/(marketing)/blog/_components/blog-image.tsx")
+    const image = code("app/(storelib)/(marketing)/blog/_components/blog-image.tsx")
     check("  a Storelib file gets the same priority through next/image", (image.match(/<Image [^>]*priority=\{priority\}/g) ?? []).length === 2)
-    check("  and the card hands it to its cover", /<PostCover post=\{post\} sizes=\{sizes\} priority=\{priority\} \/>/.test(code("app/(marketing)/blog/_components/post-card.tsx")))
-    const author = code("app/(marketing)/blog/_blog-author.tsx")
+    check("  and the card hands it to its cover", /<PostCover post=\{post\} sizes=\{sizes\} priority=\{priority\} \/>/.test(code("app/(storelib)/(marketing)/blog/_components/post-card.tsx")))
+    const author = code("app/(storelib)/(marketing)/blog/_blog-author.tsx")
     check("an author's first card has priority, only the first", /posts\.map\(\(post, i\) => \(\s*<PostCard key=\{post\.id\} post=\{post\} headingLevel="h3" priority=\{i === 0\} \/>/.test(author))
     const card = renderToStaticMarkup(createElement(PostCard, { post: post(9, HOTLINK) }))
     check("a card on its own is lazy (priority is opt in)", imgs(card).length === 1 && lazy(imgs(card)[0]))
@@ -96,12 +96,12 @@ function main() {
     const own = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, OWN), post(2, OWN)], activeCategory: null, featured: true }))
     check("  with its sizes, phone first at the full column", /sizes="\(min-width: 1240px\) 680px, \(min-width: 1024px\) 56vw, 100vw"/.test(imgs(own)[0] ?? ""), imgs(own))
     check("  the cards below it carry the three column sizes", /sizes="\(min-width: 1024px\) 380px, \(min-width: 640px\) 50vw, 100vw"/.test(imgs(own)[1] ?? ""))
-    const view = code("app/(marketing)/blog/_components/article-view.tsx")
+    const view = code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")
     /* Changed on purpose (round 47): the cover is the reading column's width (720px), in the 1200x630 shape share cards are made in, so a cover with words on it is not cropped. */
     /* Changed on purpose (round 49): the reading column is 760px from 1200px, so the cover asks for 760px there. */
     check("an article's cover has priority and its sizes", /<BlogImage src=\{cover\} alt=\{[^}]+\} fill priority sizes="\(min-width: 1200px\) 760px, \(min-width: 768px\) 720px, calc\(100vw - 32px\)"/.test(view))
     check("  in a box of a fixed shape, so it shifts nothing", /relative mt-8 aspect-\[40\/21\] overflow-hidden/.test(view))
-    check("a hot-linked picture with priority is eager and fetchpriority high; without, lazy", /loading=\{priority \? "eager" : "lazy"\}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")) && /priority \? \{ fetchPriority: "high" as const \}/.test(code("app/(marketing)/blog/_components/blog-image.tsx")))
+    check("a hot-linked picture with priority is eager and fetchpriority high; without, lazy", /loading=\{priority \? "eager" : "lazy"\}/.test(code("app/(storelib)/(marketing)/blog/_components/blog-image.tsx")) && /priority \? \{ fetchPriority: "high" as const \}/.test(code("app/(storelib)/(marketing)/blog/_components/blog-image.tsx")))
   }
 
   console.log("\n3. No YouTube player, frame or script before a press")
@@ -114,7 +114,7 @@ function main() {
     const player = renderToStaticMarkup(createElement(VideoPlayer, { id: "dQw4w9WgXcQ", title: "A video", chapters: [] }))
     check("the marketing video player draws no iframe and no script", !/<iframe|<script/i.test(player))
     check("  its thumbnail is lazy too", imgs(player).length === 1 && lazy(imgs(player)[0]))
-    const both = code("app/(marketing)/blog/_components/youtube-facade.tsx") + code("components/marketing/video-player.tsx")
+    const both = code("app/(storelib)/(marketing)/blog/_components/youtube-facade.tsx") + code("components/marketing/video-player.tsx")
     check("neither loads the IFrame API script", !/iframe_api|youtube\.com\/s\/player|createElement\(["']script/.test(both))
   }
 
@@ -128,10 +128,10 @@ function main() {
 
   console.log("\n5. No preconnect to a host nothing loads from")
   {
-    const layout = code("app/(marketing)/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/layout.tsx")
     check("the marketing layout opens no connection to cdn.sanity.io", !/cdn\.sanity\.io/.test(layout))
     const hosts = [...layout.matchAll(/rel="preconnect" href="([^"]+)"/g)].map((m) => m[1])
-    check("  and any preconnect it has is to a host the code names elsewhere", hosts.every((h) => read("next.config.mjs").includes(new URL(h).hostname) || read("app/layout.tsx").includes(new URL(h).hostname)), hosts)
+    check("  and any preconnect it has is to a host the code names elsewhere", hosts.every((h) => read("next.config.mjs").includes(new URL(h).hostname) || read("app/(storelib)/layout.tsx").includes(new URL(h).hostname)), hosts)
   }
 
   console.log("\n6. The measuring script")

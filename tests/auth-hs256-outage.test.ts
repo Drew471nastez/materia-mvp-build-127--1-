@@ -23,7 +23,7 @@ import { forgetSigningKeys } from "@/lib/auth/verify-token"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { pageUser } from "@/lib/auth/page-user"
 import { routeUser } from "@/lib/auth/route-user"
-import { POST as syncPost } from "@/app/auth/sync-session/route"
+import { POST as syncPost } from "@/app/(storelib)/auth/sync-session/route"
 
 let passed = 0
 let failed = 0

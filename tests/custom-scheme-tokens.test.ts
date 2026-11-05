@@ -14,7 +14,7 @@
  *    risk and the App Link alternative are in docs/reliability/SECURITY.md.
  *  - storelib://auth/callback?code=... for OAuth: PKCE, the code is useless
  *    without the verifier kept in the app.
- *  - app/auth/app-callback: nothing links to it (no producer in web or
+ *  - app/(storelib)/auth/app-callback: nothing links to it (no producer in web or
  *    native code); documented as legacy in SECURITY.md.
  *  - lib/native-oauth.ts keeps a storelib:// string as a sessionStorage
  *    format inside the app, never as a navigation.
@@ -37,7 +37,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 
-const ALLOWED = new Set(["app/auth/app-callback/page.tsx", "lib/native-oauth.ts"])
+const ALLOWED = new Set(["app/(storelib)/auth/app-callback/page.tsx", "lib/native-oauth.ts"])
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -48,7 +48,7 @@ function files(dir: string): string[] {
 }
 
 function main() {
-  const reset = readCode("app/(auth)/reset-password/page.tsx")
+  const reset = readCode("app/(storelib)/(auth)/reset-password/page.tsx")
   check("the reset page builds no storelib:// link with access_token or refresh_token", !/storelib:\/\/[^`"']*(access_token|refresh_token)/.test(reset))
   check("  the legacy flow still finishes in the browser", /await establishSessionAndShowForm\(accessToken, refreshToken\)/.test(reset))
   check("  the bridge code handoff is kept (the app depends on it)", /storelib:\/\/reset-password\?code=/.test(reset))

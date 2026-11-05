@@ -208,7 +208,7 @@ async function main() {
     check("the live site takes any header or footer off the password page, and leaves the others theirs", pages.password.length === 1 && pages.password[0].type === "main_password" && pages.home.length === 2)
     check("the page key is the site's own: reserved, generated, built in, at /password, filed under Other",
       RESERVED_PAGE_KEYS.has("password") && GENERATED_PAGE_KEYS.has("password") && BUILT_IN_PAGE_KEYS.has("password") && pagePath("password") === "/password" && pageKeyFromSegment("password") === null && pageGroupOf("password") === "other")
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("and the builder opens it without the header and footer too", /const loaded = CHROMELESS_PAGES\.has\(currentPage\) \? withoutChrome\(loadedRaw\)/.test(editor) && /const merged = CHROMELESS_PAGES\.has\(page\) \? withoutChrome\(loaded\)/.test(editor))
   }
 
@@ -362,11 +362,11 @@ async function main() {
     check("the creator comes from the session, never the request", /await requireTeamPermission\("marketing"\)/.test(api) && /gate instanceof NextResponse \? null : gate\.creatorId/.test(api) && !/creator_id\s*[:=]\s*body/.test(api))
     check("every change names the message AND the signed in creator", (api.match(/\.eq\("id", id\)\s*\.eq\("creator_id", creatorId\)/g) ?? []).length === 2 && (api.match(/\.eq\("id", id\)/g) ?? []).length === 2)
     check("another creator's id matches no row and answers 404, like one that does not exist", /data\.length !== 1\) return json\(\{ error: "Not found" \}, 404\)/.test(api))
-    const data = read("app/app/emails/emails-data.ts")
+    const data = read("app/(storelib)/app/emails/emails-data.ts")
     /* Changed on purpose (round 40 team permissions): read on the server (app/api/email/area?part=messages) for the session's store, named by its creator id. */
     const area = read("app/api/email/area/route.ts")
     check("the list is read for the session's own store and names its creator id", /\/api\/email\/area\?part=messages/.test(data) && /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", creatorId\)/.test(area) && /await requireTeamPermission\("marketing"\)/.test(area))
-    check("Messages is a tab of Emails, with the new ones counted", /\{ id: "messages", label: "Messages" \}/.test(read("app/app/emails/emails-home.tsx")) && /counts=\{\{ messages:/.test(read("app/app/emails/emails-home.tsx")))
+    check("Messages is a tab of Emails, with the new ones counted", /\{ id: "messages", label: "Messages" \}/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /counts=\{\{ messages:/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
     const sql = read("supabase/sql/run-now/92_site_password_and_inbox.sql")
     check("part 92 adds read_at where the messages table is, and is safe to run twice", /ADD COLUMN IF NOT EXISTS read_at timestamptz/.test(sql) && /to_regclass\('public\.site_contact_messages'\) IS NOT NULL/.test(sql))
   }
@@ -523,7 +523,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const files = [
-      "themes/default/sections/main_password.storelib", "components/website-builder/website-settings/password.tsx", "app/app/emails/message-detail.tsx",
+      "themes/default/sections/main_password.storelib", "components/website-builder/website-settings/password.tsx", "app/(storelib)/app/emails/message-detail.tsx",
       "components/website-builder/coming-soon-signup.tsx", "app/(site)/w/[username]/not-published.tsx", "lib/site-contact/notify.ts", "lib/site-password/enter.ts",
     ]
     const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i

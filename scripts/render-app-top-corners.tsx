@@ -1,5 +1,5 @@
 /**
- * The /app shell as app/app/layout.tsx mounts it, for
+ * The /app shell as app/(storelib)/app/layout.tsx mounts it, for
  * scripts/check-app-top-corners.mjs: the real AppSidebar (both black
  * headers, the rail, the pill), the real AppStage (a page's landing and a
  * slow page's surface) and one of these pages in the real <main>:
@@ -19,7 +19,7 @@
  * the page's landing. `window.__startNav(path)` starts one that never
  * commits (beginAppNavigation, as a press does), so a slow page's surface
  * comes up. `?cold=1` draws the native
- * cold start (app/app/cold-start.tsx) instead of the shell.
+ * cold start (app/(storelib)/app/cold-start.tsx) instead of the shell.
  */
 import React, { Suspense } from "react"
 import { createRoot } from "react-dom/client"
@@ -33,7 +33,7 @@ import { AppStage } from "@/components/app/app-stage"
 import { beginAppNavigation } from "@/lib/ui/app-navigation"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { TryProStrip } from "@/components/app/announcement-bar-mobile"
-import AppColdStart from "@/app/app/cold-start"
+import AppColdStart from "@/app/(storelib)/app/cold-start"
 
 type W = Window & { __go: (href: string) => void; __startNav: (href: string) => void; __commit: (href: string) => void; __ran?: boolean }
 const w = window as unknown as W

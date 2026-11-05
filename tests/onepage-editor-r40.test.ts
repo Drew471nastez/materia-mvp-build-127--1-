@@ -63,7 +63,7 @@ function main() {
   const productEditor = read("components/onepage/tabs/product-block-editor.tsx")
   const dateField = read("components/onepage/date-time-field.tsx")
   const extra = read("components/onepage/extra-blocks.tsx")
-  const route = read("app/(marketing)/l/[slug]/page.tsx")
+  const route = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   const leads = read("app/api/onepage/leads/route.ts")
   const nextConfig = read("next.config.mjs")
   const refresh = read("components/onepage/schedule-refresh.tsx")

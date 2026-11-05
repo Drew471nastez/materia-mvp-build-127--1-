@@ -121,7 +121,7 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
   AB=1: THE LIVE PAGE AGAINST THE SAME PAGE WITH STRIPE IN ITS HEAD. The
   document is fetched once and served to both arms from memory, so the
   server's time is the same in both; arm B is that HTML with exactly the
-  hints app/checkout/parts/stripe-early.ts makes React write at the top of
+  hints app/(storelib)/checkout/parts/stripe-early.ts makes React write at the top of
   <head>. Everything else goes to the network through the same throttling.
   It measures the browser side of the change before it is deployed.
 */

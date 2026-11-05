@@ -57,7 +57,7 @@ const read = (p: string) => readFileSync(join(root, p), "utf8")
 const code = (p: string) =>
   read(p).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1")
 
-const EDITOR = "app/website-builder/editor/[installId]/page.tsx"
+const EDITOR = "app/(storelib)/website-builder/editor/[installId]/page.tsx"
 
 function main() {
   console.log("\nEvery colour in the builder's sidebar opens the same picker")

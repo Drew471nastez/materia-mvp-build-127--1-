@@ -27,14 +27,14 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { OffersClient } from "@/app/app/offers/offers-client"
-import { OfferEditor } from "@/app/app/offers/offer-editor"
+import { OffersClient } from "@/app/(storelib)/app/offers/offers-client"
+import { OfferEditor } from "@/app/(storelib)/app/offers/offer-editor"
 import { ProductBlock } from "@/components/website-builder/sections/renderers/product/product-blocks"
 import { productBlockDefaults } from "@/lib/website-builder/product-page"
 import { SiteCartProvider } from "@/components/website-builder/site-cart"
 import { CartPageBody } from "@/components/website-builder/cart-page-body"
 import { StorefrontProvider } from "@/components/website-builder/theme/storefront-context"
-import { SiteCheckout } from "@/app/checkout/site/site-checkout"
+import { SiteCheckout } from "@/app/(storelib)/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { cartStorageKey, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { applyOffers, bundleCompletions, bundlePrice, bundlesWith, discountLabel, offerUnitPrice, suggestionsFor, upsellsFor, type Offer } from "@/lib/offers/offers"
@@ -335,7 +335,7 @@ function App() {
       return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={area.offers} products={area.products} collections={[]} currency="USD" ready settingsReady breaksReady sold={SOLD} physical /></div>
     case "new":
     case "offer": {
-      /* The page the editor's routes draw (app/app/offers/new/page.tsx, [id]/page.tsx), with the props they read from the server. */
+      /* The page the editor's routes draw (app/(storelib)/app/offers/new/page.tsx, [id]/page.tsx), with the props they read from the server. */
       const offer = view === "offer" ? (OFFERS.find((o) => o.id === params.get("id")) ?? OFFERS[0]) : null
       const kind = offer?.kind ?? ((["bundle", "checkout", "quantity_break"] as const).find((k) => k === params.get("kind")) ?? "bundle")
       return (

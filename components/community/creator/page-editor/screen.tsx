@@ -49,7 +49,7 @@ import { holdLanding } from "@/lib/ui/app-navigation"
 import { previousPath } from "@/lib/navigation/in-app-history"
 import { useRouter } from "next/navigation"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
-import { card } from "@/app/app/orders/order-parts"
+import { card } from "@/app/(storelib)/app/orders/order-parts"
 
 /** On a section that draws its own screen: the shell plays no arrival on it (community-shell.tsx). */
 export const OWN_SCREEN_ATTR = "data-section-own-screen"

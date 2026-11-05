@@ -268,7 +268,9 @@ function main() {
      * providers and the fonts are, and a failure there is the one that
      * produced a completely blank document.
      */
-    const rootError = readFileSync(join(appDir, "error.tsx"), "utf8")
+    /* Changed on purpose (r52): two roots, Storelib's (app/(storelib)) and the websites' (app/(site)), each with its boundary. */
+    const rootError = readFileSync(join(appDir, "(storelib)", "error.tsx"), "utf8")
+    check("the websites' root has its boundary too", /ErrorScreen/.test(readFileSync(join(appDir, "(site)", "error.tsx"), "utf8")))
     const globalError = readFileSync(join(appDir, "global-error.tsx"), "utf8")
     check("the root segment has a boundary", /ErrorScreen/.test(rootError) && /"use client"/.test(rootError))
     check("and so does the root layout itself", /ErrorScreen/.test(globalError))

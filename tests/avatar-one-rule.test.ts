@@ -117,8 +117,8 @@ console.log("\nNo face is a question mark")
        5 (round 12, 69.webp): the menu a community's "..." opens shows the real picture beside the name again, as the phone's sheet does. */
     ["components/platform/platform-header-client.tsx", 5],
     ["components/store-builder/sticky-desktop-creator-bar.tsx", 1],
-    ["app/(marketing)/p/[slug]/page.tsx", 2],
-    ["app/(marketing)/u/[username]/page.tsx", 1],
+    ["app/(storelib)/(marketing)/p/[slug]/page.tsx", 2],
+    ["app/(storelib)/(marketing)/u/[username]/page.tsx", 1],
     /* The library no longer draws the buyer's own face (that is /account).
        A product row draws the seller once. The library home draws them once
        too, in the one list both sizes use, not again as pills and a strip. */
@@ -128,7 +128,7 @@ console.log("\nNo face is a question mark")
     /* The phone's search screen drew a creator found by name here. Round 9
        made it the header's search (products and communities, drawn by
        components/platform/header-search-results), so it draws no faces. */
-    ["app/admin/blog/seo/_seo-client.tsx", 1],
+    ["app/(storelib)/admin/blog/seo/_seo-client.tsx", 1],
   ]
   for (const [file, n] of moved) {
     const src = readCode(file)

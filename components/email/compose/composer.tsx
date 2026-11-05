@@ -30,7 +30,7 @@
  */
 import * as React from "react"
 import { ArrowLeft, MoreHorizontal } from "lucide-react"
-import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/app/orders/order-parts"
+import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/(storelib)/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { displayEmail } from "@/lib/businesses/email-alias"
 import { cn } from "@/lib/utils"

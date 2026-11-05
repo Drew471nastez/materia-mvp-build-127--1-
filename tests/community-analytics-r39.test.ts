@@ -103,7 +103,7 @@ async function main() {
   check("measured on a canvas, never in a hidden span: no preserveStartEnd and no recharts <Text> for the dates", !/preserveStartEnd/.test(chart) && /tick=\{<DateTick widest=\{widest\} plotLeft=\{plotLeft\} \/>\}/.test(chart) && /interval=\{0\}/.test(chart) && /measureText/.test(chart))
 
   console.log("\nthe switcher and View all (/app's, shared)")
-  const reports = code("app/app/analytics/analytics-reports.tsx")
+  const reports = code("app/(storelib)/app/analytics/analytics-reports.tsx")
   check("one pill per switcher, sliding by translate and width", /data-segment-pill=""[\s\S]{0,200}transition-\[translate,width\]/.test(reports) && /translate: `\$\{thumb\.x\}px 0`/.test(reports) && !/scale-\[0\.92\] opacity-0/.test(reports))
   check("View all: the dialog with every row, and a search from nine rows", /const SEARCH_FROM = 9/.test(reports) && /<AllRows open=\{all\}/.test(reports) && /data-all-search=""/.test(reports) && /Nothing matches “\{query\}”\./.test(reports))
   check("a row can open what it is (a community's post)", /r\.href \? \(\s*<a href=\{r\.href\} target="_blank"/.test(reports))
@@ -124,7 +124,7 @@ async function main() {
   for (const key of ["Revenue by plan", "Event attendance", "Program progress", "Retention", "Top members", "Nothing matches “{query}”."]) {
     check(`"${key}" in every language`, langs.every((l) => raw(`lib/i18n/catalog/${l}.ts`).includes(`${JSON.stringify(key)}:`)))
   }
-  for (const f of ["components/community/creator/analytics-section.tsx", "components/community/creator/community-shell.tsx", "app/app/analytics/analytics-reports.tsx", "components/app/analytics-chart.tsx", "lib/communities/server/analytics-report.ts", "scripts/check-community-admin-round39.mjs", "scripts/check-community-analytics-round39.mjs"]) {
+  for (const f of ["components/community/creator/analytics-section.tsx", "components/community/creator/community-shell.tsx", "app/(storelib)/app/analytics/analytics-reports.tsx", "components/app/analytics-chart.tsx", "lib/communities/server/analytics-report.ts", "scripts/check-community-admin-round39.mjs", "scripts/check-community-analytics-round39.mjs"]) {
     const text = raw(f)
     check(`${f}: no em dash`, !text.includes("—"))
     check(`${f}: no banned word`, !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(text.replace(/\btransform(?=[\s:,"'`)\]}.]|$)/gi, "")))

@@ -99,7 +99,7 @@ check(
 
 console.log("\nEvery dynamic route can show something the moment it is pressed\n")
 
-const marketingPages = walk("app/(marketing)").filter((f) => /[/\\]page\.tsx$/.test(f))
+const marketingPages = walk("app/(storelib)/(marketing)").filter((f) => /[/\\]page\.tsx$/.test(f))
 const dynamicPages = marketingPages.filter((f) =>
   /export const dynamic\s*=\s*["']force-dynamic["']/.test(readFileSync(f, "utf8")),
 )
@@ -131,11 +131,11 @@ check(
  * gets a real loading.tsx, both lines go.
  */
 const KNOWN_GAPS = new Set([
-  "app/(marketing)/l/[slug]",
-  "app/(marketing)/[sellername]/links",
-  "app/(marketing)/wishlist",
-  "app/(marketing)/blog/category/[slug]",
-  "app/(marketing)/blog/category/[slug]/page/[page]",
+  "app/(storelib)/(marketing)/l/[slug]",
+  "app/(storelib)/(marketing)/[sellername]/links",
+  "app/(storelib)/(marketing)/wishlist",
+  "app/(storelib)/(marketing)/blog/category/[slug]",
+  "app/(storelib)/(marketing)/blog/category/[slug]/page/[page]",
 ])
 
 /**
@@ -172,9 +172,9 @@ const KNOWN_GAPS = new Set([
  * Give the product page a real streaming shell and this can come back.
  */
 const DELIBERATELY_NONE = new Map([
-  ["app/(marketing)/p/[slug]", "the router keeps the page you are on instead; see the note above"],
-  ["app/(marketing)/[sellername]/[productSlug]", "the same page at its nested address"],
-  ["app/(marketing)/[sellername]", "a boundary here catches its children too; see the note below"],
+  ["app/(storelib)/(marketing)/p/[slug]", "the router keeps the page you are on instead; see the note above"],
+  ["app/(storelib)/(marketing)/[sellername]/[productSlug]", "the same page at its nested address"],
+  ["app/(storelib)/(marketing)/[sellername]", "a boundary here catches its children too; see the note below"],
 ])
 
 /**
@@ -187,7 +187,7 @@ const DELIBERATELY_NONE = new Map([
  * the CREATOR page's skeleton: still grey, and now the wrong shape. Filmed on
  * production after that deploy, a skeleton was still up at +1541ms.
  *
- * `app/(marketing)/[sellername]/loading.tsx` argued for its own existence in
+ * `app/(storelib)/(marketing)/[sellername]/loading.tsx` argued for its own existence in
  * its header, and the argument was sound when it was written: without one,
  * "the page you were on stays on screen for the whole round trip — measured
  * 1.5 seconds of a press that appeared to do nothing at all."
@@ -269,7 +269,7 @@ console.log("\nThe creator page's skeleton is tinted to the page behind it\n")
 
 check(
   "the bare handle route has the storefront's layout",
-  existsSync("app/(marketing)/[sellername]/layout.tsx"),
+  existsSync("app/(storelib)/(marketing)/[sellername]/layout.tsx"),
   "otherwise a dark creator page flashes a white skeleton on every visit",
 )
 

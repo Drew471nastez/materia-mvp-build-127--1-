@@ -43,8 +43,8 @@ const css = code("app/globals.css")
 const sidebar = code("components/app/sidebar.tsx")
 const corners = code("components/app/app-top-corners.tsx")
 const stage = code("components/app/app-stage.tsx")
-const cold = code("app/app/cold-start.tsx")
-const layout = code("app/app/layout.tsx")
+const cold = code("app/(storelib)/app/cold-start.tsx")
+const layout = code("app/(storelib)/app/layout.tsx")
 
 section("One radius, one overlap, in one place")
 {
@@ -89,7 +89,7 @@ section("Nothing else rounds the top by a number of its own")
     /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[var\(--app-top-corner\)\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage))
   check("the native cold start draws the header's own corners, at every width",
     /<AppTopCorners \/>/.test(cold) && /text-\[#111111\] md:h-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:text-\[#131316\]/.test(cold) && !/rounded-t-\[\d+px\]/.test(cold))
-  for (const file of ["app/app/layout.tsx", "app/app/cold-start.tsx", "components/app/app-stage.tsx", "components/app/sidebar.tsx"]) {
+  for (const file of ["app/(storelib)/app/layout.tsx", "app/(storelib)/app/cold-start.tsx", "components/app/app-stage.tsx", "components/app/sidebar.tsx"]) {
     check(`${file} writes no rounded-t-[20px] of its own`, !/rounded-t-\[20px\]/.test(code(file)))
   }
 }
@@ -98,7 +98,7 @@ section("The Try Pro strip: in the rounded top, the violet band it was")
 {
   const strip = code("components/app/announcement-bar-mobile.tsx")
   check("one strip for Analytics, Emails and Payouts, from one component",
-    ["app/app/analytics/analytics-client.tsx", "app/app/emails/emails-client.tsx", "app/app/payouts/page.tsx"].every((f) => /<TryProStrip \/>/.test(code(f)) && !/<AnnouncementBarMobile>/.test(code(f))))
+    ["app/(storelib)/app/analytics/analytics-client.tsx", "app/(storelib)/app/emails/emails-client.tsx", "app/(storelib)/app/payouts/page.tsx"].every((f) => /<TryProStrip \/>/.test(code(f)) && !/<AnnouncementBarMobile>/.test(code(f))))
   /* "The announcement bar background colour: I want it purple like it was before." */
   check("the solid violet band in white type, as it was, with no hairline under it",
     /STRIP_TINT = "bg-\[#8b5cf6\] text-white"/.test(strip) && /STRIP_TITLE = "font-semibold text-white"/.test(strip) && !/#f5f3ff|shadow-\[inset_0_-1px_0_#ede9fe\]/.test(strip))

@@ -10,7 +10,7 @@
  *   ?case=creator&sections=calvin|empty|text&communities=none|some
  *        &view=visitor|owner&rule=old|new
  *                                       a creator page with no products, as
- *                                       app/(marketing)/u/[username] builds
+ *                                       app/(storelib)/(marketing)/u/[username] builds
  *                                       it: the newsletter bar, the header,
  *                                       the tabs and About. rule=old is the
  *                                       round 9 rule, to reproduce 62.webp

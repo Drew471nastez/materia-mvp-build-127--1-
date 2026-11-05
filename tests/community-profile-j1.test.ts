@@ -219,7 +219,7 @@ async function main() {
 
   console.log("\nEdit profile: the same cover, and the page's offered back")
   {
-    const layout = code("app/account/layout.tsx")
+    const layout = code("app/(storelib)/account/layout.tsx")
     check("the account page draws the same cover (own, else page)", /personCover\(admin, user\.id\)/.test(layout) && /coverUrl: cover\?\.value \?\? null/.test(layout) && /ownCoverUrl: cover\?\.source === "own"/.test(layout))
     const loader = code("lib/account/load-account-settings.ts")
     check("Settings knows their page's cover", /chooseCover\(null, look\)\.page/.test(loader))

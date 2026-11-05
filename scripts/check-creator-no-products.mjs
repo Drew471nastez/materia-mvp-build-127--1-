@@ -3,7 +3,7 @@
  *  A CREATOR PAGE WITH NO PRODUCTS, AND THE COMMUNITIES ROW, MEASURED
  * ===========================================================================
  * The real components (scripts/render-creator-no-products.tsx, composed as
- * app/(marketing)/u/[username]/page.tsx composes them) on three schemes
+ * app/(storelib)/(marketing)/u/[username]/page.tsx composes them) on three schemes
  * (Storelib's default, Sage, Astrid dark), as a visitor and as the owner,
  * at 1440x900 and 390x844:
  *

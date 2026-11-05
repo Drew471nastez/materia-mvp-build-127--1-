@@ -91,7 +91,7 @@ console.log("\nEvery integration has its mark\n")
   const files = INTEGRATIONS.filter((i) => i.logo?.startsWith("/")).filter((i) => !existsSync(join(process.cwd(), "public", i.logo!))).map((i) => i.logo)
   check("and every logo file is there", files.length === 0, files)
   check("a logo that fails to load falls back to the initial", /onError=\{\(\) => setFailed\(logo\)\}/.test(mark) && /if \(item\.logo && failed !== item\.logo\)/.test(mark) && /\{markInitial\(item\.name\)\}/.test(mark))
-  check("the provider cards and /admin draw the same mark", /<Mark item=\{\{ id, name: provider\.name, logo: provider\.logo \?\? integrationById\(id\)\?\.logo \?\? null \}\}/.test(read("components/physical/integrations-marketplace.tsx")) && /<Mark item=\{\{ id: r\.id, name: r\.name, logo: r\.logo \}\} size=\{28\} \/>/.test(read("app/admin/integrations/integrations-admin.tsx")))
+  check("the provider cards and /admin draw the same mark", /<Mark item=\{\{ id, name: provider\.name, logo: provider\.logo \?\? integrationById\(id\)\?\.logo \?\? null \}\}/.test(read("components/physical/integrations-marketplace.tsx")) && /<Mark item=\{\{ id: r\.id, name: r\.name, logo: r\.logo \}\} size=\{28\} \/>/.test(read("app/(storelib)/admin/integrations/integrations-admin.tsx")))
 }
 
 console.log("\nThe sections' column\n")

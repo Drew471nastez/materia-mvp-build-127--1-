@@ -10,7 +10,7 @@
 import { addressWordsFor } from "@/lib/checkout/business"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
-import type { Summary } from "@/app/checkout/site/thanks/[token]/thanks-view"
+import type { Summary } from "@/app/(storelib)/checkout/site/thanks/[token]/thanks-view"
 import type { PreviewOrderPage } from "./preview"
 
 /** The buyer the pages after paying are drawn for. */

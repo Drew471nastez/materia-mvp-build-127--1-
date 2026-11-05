@@ -34,7 +34,7 @@ const font = params.get("font") || "Inter"
 const root = createRoot(document.getElementById("app")!)
 
 if (location.pathname.startsWith("/onepage-preview")) {
-  /* The editor preview's own frame, as app/onepage-preview renders it: the page comes from the editor by message. */
+  /* The editor preview's own frame, as app/(storelib)/onepage-preview renders it: the page comes from the editor by message. */
   root.render(<OnePagePreviewDocument />)
 } else if (view === "site") {
   const theme = { font_heading: font, font_body: font, font_accent: "" } as unknown as ThemeSettingsValues

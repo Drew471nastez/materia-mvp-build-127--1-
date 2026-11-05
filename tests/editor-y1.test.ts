@@ -57,7 +57,7 @@ console.log("\nMORPH: the card itself goes from the old box to the new one (roun
 
 console.log("\nSWITCH: read once at the press, played from there")
 {
-  const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const lib = readCode("lib/website-builder/canvas-switch.ts")
   /* Changed on purpose (round AX, the owner: "it flashes, it fades, it bumps", wants it flexible). The fade (AW) and the picture morph read as a flash; the card's real box moves again and the page flows with it, live, but only the sections on screen are laid out on the way. */
   check("the card's look and the sidebar's are read once on the press, the off-screen sections paused, before the change", /switchFrom\.current = \{ card: card \? readCardLook\(card\) : null, fold: fold && panel \? readFoldLook\(fold, panel\) : null \}\s*\n[\s\S]{0,200}if \(card\) \{\s*holdView\(card\)\s*holdOffscreenSections\(card\)\s*\}[\s\S]{0,60}apply\(\)/.test(editor) /* Changed on purpose (round 34): what is under the eye is held through the switch too (holdView) */)

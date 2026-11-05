@@ -118,7 +118,7 @@ check(
  * deliberately NOT wrapped: a shop that quietly loses its products looks fine
  * and sells nothing, which is worse than one that says it is broken.
  */
-const page = readFileSync(join(root, "app/(marketing)/u/[username]/page.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/(marketing)/u/[username]/page.tsx"), "utf8")
 for (const region of ["reviews", "about", "footer"]) {
   check(`the ${region} cannot take the whole shop down with it`, new RegExp(`SafeRegion name="${region}"`).test(page))
 }

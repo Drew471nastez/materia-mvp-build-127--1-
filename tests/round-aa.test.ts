@@ -35,7 +35,7 @@ console.log("\nThe page a cover is taken of")
 
 console.log("\nPublishing ends, and sooner")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))
   /* Changed on purpose (round 34): Publish writes its draft through the draft's queue (after any autosave on its way), whose one write sends the three at once. */
   const send = editor.slice(editor.indexOf("const sendDraft = async"), editor.indexOf("const sendDraftLatest"))
@@ -55,7 +55,7 @@ console.log("\nThe editor follows the site's links as the live site does")
   const ctx = { currentPage: "about", inspectorEnabled: true, fromNav: true, shopPath: "/products", customPageKeys: [] as string[] }
   check("a menu link to the page that is open is that page, with the inspector on", JSON.stringify(resolveEditorHref("/about", ctx)) === '{"kind":"page","key":"about"}')
   check("  and without fromNav a tap with the inspector on selects instead", resolveEditorHref("/about", { ...ctx, fromNav: false }).kind === "ignore")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the page that is open goes to its top, smoothly, instead of nothing", /if \(decision\.key === currentPageRef\.current && !decision\.anchor\) \{\s*document\.getElementById\("wb-preview-root"\)\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/.test(editor))
   const section = read("components/website-builder/sections/StorelibSection.tsx")
   check("a .storelib section says when its link is the site's navigation", section.includes(`const fromNav = chrome || !!a.closest("nav, [role='navigation']")`) && section.includes(`section.group === "header" || section.group === "footer"`) && section.includes(`onEditorNavigate(a.getAttribute("href") ?? "#", fromNav)`))
@@ -68,7 +68,7 @@ console.log("\nA push to GitHub reaches an open editor")
   const hook = read("components/website-builder/site-connections.tsx")
   check("and while the tab is visible it asks once a second, so a push does not wait on that", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : POLL_ACTIVE_MS\)/.test(hook))
   check("  and at once when the pointer comes back over it, at most every few seconds", /addEventListener\("pointerenter", wake\)/.test(hook) && /removeEventListener\("pointerenter", wake\)/.test(hook) && /if \(!back && Date\.now\(\) - woke < WAKE_GAP_MS && \(timer !== null \|\| busy\)\) return/.test(hook))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("what arrives is a draft, so Publish says the site has changes", /const handleAgentEvents = async[\s\S]{0,900}?if \(events\.length > 0\) setUnpublished\(true\)/.test(editor))
   check("an imported theme reads its files again, keeping the page drawn meanwhile", /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(editor) && /filesVersion=\{compatFilesVersion\}/.test(editor) && /compatFilesChanged\(installId\)/.test(editor) && /loadCompatFiles\(installId\)\.then\([\s\S]{0,200}?\}, \[installId, attempt, filesVersion\]\)/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 }

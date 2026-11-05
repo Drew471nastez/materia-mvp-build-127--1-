@@ -11,7 +11,7 @@
  *     Website        andrewrullz.storelib.com
  *
  * One address under two names, and the creator page — the profile with the
- * products and the follow button, served by app/(marketing)/[sellername] —
+ * products and the follow button, served by app/(storelib)/(marketing)/[sellername] —
  * could not be copied from anywhere in the product.
  *
  * The native branch of getStoreUrl was already right; it returns `/<name>`,
@@ -305,7 +305,7 @@ function main() {
      --------------------------------------------------------------------- */
   console.log("\n  the dot ground")
 
-  check("Explore carries it", /className="explore-ground min-h-screen/.test(read("app/(marketing)/explore/page.tsx")))
+  check("Explore carries it", /className="explore-ground min-h-screen/.test(read("app/(storelib)/(marketing)/explore/page.tsx")))
   /*
     THE DAMASK IS GONE. The owner's objection was that you could name the
     shape, and a ground you can name is a pattern. Dots, staggered, and about
@@ -419,7 +419,7 @@ function main() {
     marketing page: /explore served 778 characters of visible text and no
     <main> at all while it was live.
   */
-  const marketingLayout = read("app/(marketing)/layout.tsx")
+  const marketingLayout = read("app/(storelib)/(marketing)/layout.tsx")
   check(
     "the marketing layout is not wrapped in a provider that renders null before hydration",
     !/<LanguageProvider>/.test(marketingLayout),

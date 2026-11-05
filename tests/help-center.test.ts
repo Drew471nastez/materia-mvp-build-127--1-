@@ -77,16 +77,17 @@ const pageExists = (href: string) => {
   const help = href.match(/^\/help\/([^/]+)\/([^/]+)$/)
   if (help) return !!helpArticle(help[1], help[2])
   const seg = href.slice(1)
-  return ["", "(marketing)/", "(auth)/", "(platform)/"].some((g) => existsSync(join(process.cwd(), `app/${g}${seg}/page.tsx`)))
+  /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+  return ["(storelib)/", "(storelib)/(marketing)/", "(storelib)/(auth)/", "(platform)/"].some((g) => existsSync(join(process.cwd(), `app/${g}${seg}/page.tsx`)))
 }
 const broken = links.filter((h) => !pageExists(h))
 check("every link in an article goes to a page that exists", links.length >= 10 && broken.length === 0, broken)
 check("no link is a placeholder", !links.some((h) => h === "#" || h === ""))
 
 console.log("\nThe pages")
-const index = read("app/help/page.tsx")
-const category = read("app/help/[category]/page.tsx")
-const article = read("app/help/[category]/[article]/page.tsx")
+const index = read("app/(storelib)/help/page.tsx")
+const category = read("app/(storelib)/help/[category]/page.tsx")
+const article = read("app/(storelib)/help/[category]/[article]/page.tsx")
 check("the index no longer links to \"#\"", !/href="#"/.test(index))
 check("no purple gradient anywhere in the Help Center",
   ![index, category, article, read("components/help/help-parts.tsx"), read("components/help/help-search.tsx")].some((s) => /bg-gradient|from-\[#8b5cf6\]/.test(s)))
@@ -98,7 +99,7 @@ check("each category and article page has its own title, description and canonic
 check("pages are built ahead of time and unknown ones 404", /dynamicParams = false/.test(category) && /dynamicParams = false/.test(article))
 /* Changed on purpose (round K): the form posts to the search of the Help Center it is in, /help/search by default or /app/help/search in the app. */
 check("the search is a form that works without script", /action=\{`\$\{base\}\/search`\} method="get" role="search"/.test(read("components/help/help-search.tsx")) && /base = HELP_BASE/.test(read("components/help/help-search.tsx")) && /export const HELP_BASE = "\/help"/.test(read("lib/help/paths.ts")))
-check("and the results page runs the same search, unindexed", /searchHelp\(q, 30, \{ physical: await isPhysicalCommerceEnabled\(\) \}\)/.test(read("app/help/search/page.tsx")) && /index: false/.test(read("app/help/search/page.tsx")))
+check("and the results page runs the same search, unindexed", /searchHelp\(q, 30, \{ physical: await isPhysicalCommerceEnabled\(\) \}\)/.test(read("app/(storelib)/help/search/page.tsx")) && /index: false/.test(read("app/(storelib)/help/search/page.tsx")))
 check("support is the real address", /SUPPORT_EMAIL = "support@storelib\.com"/.test(read("lib/help/articles.ts")))
 check("no \"Was this helpful\" that records nothing", ![index, category, article].some((s) => /helpful/i.test(s)))
 
@@ -163,7 +164,7 @@ console.log("\nThe physical products guide")
   check("  Locations opens the locations article, Checkout and Sales channels their own",
     EXPLAINERS.locations.guide === "/help/physical-products/locations" && EXPLAINERS.checkout.guide === "/help/physical-products/checkout-settings" && EXPLAINERS.channels.guide === "/help/physical-products/sales-channels" && EXPLAINERS.taxes.guide === "/help/physical-products/taxes")
   check("  and a physical guide is offered only while physical commerce is on", /usePhysicalCommerceEnabled\(\)/.test(read("components/app/settings/how-it-works.tsx")) && /physical \|\| !e\.guide\.startsWith\("\/help\/physical-products\/"\)/.test(read("components/app/settings/how-it-works.tsx")))
-  const appLinks = ["components/physical/shipping-settings.tsx", "components/physical/product-cards.tsx", "lib/help/questions.ts", "app/app/payouts/payouts-client.tsx"].flatMap((f) => [...read(f).matchAll(/["(](\/help\/[a-z-]+\/[a-z0-9-]+)[")]/g)].map((m) => m[1]))
+  const appLinks = ["components/physical/shipping-settings.tsx", "components/physical/product-cards.tsx", "lib/help/questions.ts", "app/(storelib)/app/payouts/payouts-client.tsx"].flatMap((f) => [...read(f).matchAll(/["(](\/help\/[a-z-]+\/[a-z0-9-]+)[")]/g)].map((m) => m[1]))
   check("every Help link in the shipping settings, product cards, questions and Payouts lands", appLinks.length >= 4 && appLinks.every((l) => landsP(l)), appLinks.filter((l) => !landsP(l)))
   check("Taxes' How tax regions work opens the tax guide, only while the guide is there",
     /\{physical \? \(\s*<a href="\/help\/physical-products\/taxes"/.test(read("components/app/settings/taxes-panel.tsx")) && landsP("/help/physical-products/taxes"))

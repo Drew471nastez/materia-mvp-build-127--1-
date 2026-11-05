@@ -54,7 +54,7 @@ async function main() {
     check("sections fold away from their bin and their menu", /remove: \(id\) => latest\.current\.removeSmooth\(id\)/.test(list) && /onRemove=\{pinned \? undefined : \(\) => h\.remove\(id\)\}/.test(list) && /onRemove: removeSmooth/.test(list))
     check("Add section right under the Page heading", /<TreeAddRow data-add-section-top="" label=\{tt\("Add section"\)\} onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(list))
     check("one insert line for sections and blocks, with a raised plus", /<TreeInsertLine data-insert-section/.test(list) && /data-insert-block/.test(src("components/website-builder/editor/block-tree-rows.tsx")))
-    const page = code("app/website-builder/editor/[installId]/page.tsx")
+    const page = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("a block added between two lands there", /ops\.add\(choice, parentKey, at < 0 \? undefined : at\)/.test(page) && /insertBlockAt\(s\.blocks, parent, newBlock, parent === asked \? opts\.index : undefined\)/.test(page))
   }
 
@@ -79,7 +79,7 @@ async function main() {
 
   console.log("\nThe canvas glides")
   {
-    const page = code("app/website-builder/editor/[installId]/page.tsx")
+    const page = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     /* Y1: not its radius or shadow either (a repaint of the whole card a frame), only opacity for the code pane. */
     /* Changed on purpose (round Z1, the owner: "like how it was before a long time ago"): the card's size is played from where it is on screen (playCardMorph), never a CSS transition on it. */
     check("the card has no CSS transition on its size", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
@@ -103,7 +103,7 @@ async function main() {
 
   console.log("\nThe Actions menu")
   {
-    const page = code("app/website-builder/editor/[installId]/page.tsx")
+    const page = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("GitHub and your own AI, nothing else to connect", /label: githubRepo \? "GitHub" : "Connect GitHub"/.test(page) && /label: "Your own AI"/.test(page) && !/label: "Connect Claude Code or Codex"/.test(page))
   }
 
@@ -125,7 +125,7 @@ async function main() {
 
   console.log("\nProducts")
   {
-    check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(code("app/app/products/new/product-editor.tsx")))
+    check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(code("app/(storelib)/app/products/new/product-editor.tsx")))
     const cache = code("lib/commerce/product-page-cache.ts")
     check("a free community has its card in More from, to its own page", /href: communityPath\(c\.slug\)/.test(cache) && /kind: "community"/.test(cache))
     check("and the card goes there", /product\.href && product\.href\.startsWith\("\/"\) \? product\.href/.test(code("components/explore/product-card.tsx")))

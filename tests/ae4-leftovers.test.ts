@@ -83,7 +83,7 @@ async function main() {
     check("  and a line not told whose numbers they are keeps none", summaryKey(null, "website:w1", "UTC") === null && summaryKey("", "website:w1", "UTC") === null)
     const line = read("components/app/analytics-summary-line.tsx")
     check("  read and written only under that key, and asked again when the account changes", /const kept = key \? keptSummary\(key\) : null/.test(line) && /if \(key\) keepSummary\(key, s\)/.test(line) && /\}, \[property, account\]\)/.test(line) && /storelib\.analytics\.summary\.v2/.test(line))
-    check("  the website builder says whose", /account=\{access\.viewer\}/.test(read("app/app/website-builder/page.tsx")) /* Changed on purpose (round 42 team): the viewer key, the owner's id or a member's id and the store's */ && /account=\{account\}/.test(read("app/app/website-builder/website-builder-client.tsx")))
+    check("  the website builder says whose", /account=\{access\.viewer\}/.test(read("app/(storelib)/app/website-builder/page.tsx")) /* Changed on purpose (round 42 team): the viewer key, the owner's id or a member's id and the store's */ && /account=\{account\}/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx")))
   }
 
   console.log("\nThe owner's hand-off: two minutes, and once on each host\n")
@@ -140,7 +140,7 @@ async function main() {
     const converted = await inStoreCurrency(changed, SHOP, [old], "RON", { rates: async () => [{ asOf: "2026-05-04", rates: { EUR: 1, RON: 5, USD: 1.1 } }] })
     check("  and converted from euros in Analytics, at that day's rate", converted.converted === 1 && converted.rows[0].amount_cents === 5000 && converted.unknown === 1, converted)
     const pagedSrc = read("lib/orders/paged.ts")
-    check("  every read of Orders, its export, search and Customers fill it the same way", /return withOrderCurrency\(db, creatorId, ownRows\(out\)\)/.test(pagedSrc) && /withOrderCurrency\(admin, creatorId, ordersData\)/.test(read("lib/orders/load-rows.ts")) && /withOrderCurrency\(db, creatorId, rows\)/.test(read("lib/search/app-search.ts")) && /withOrderCurrency\(admin, creator\.id, readRows/.test(read("app/app/customers/page.tsx")))
+    check("  every read of Orders, its export, search and Customers fill it the same way", /return withOrderCurrency\(db, creatorId, ownRows\(out\)\)/.test(pagedSrc) && /withOrderCurrency\(admin, creatorId, ordersData\)/.test(read("lib/orders/load-rows.ts")) && /withOrderCurrency\(db, creatorId, rows\)/.test(read("lib/search/app-search.ts")) && /withOrderCurrency\(admin, creator\.id, readRows/.test(read("app/(storelib)/app/customers/page.tsx")))
   }
 
   console.log("\nThe 'could not be converted' count is of the figure's own sales\n")
@@ -201,7 +201,7 @@ async function main() {
     check("  never below nothing, a refund never more than its payment", kept({ email: "bo@x.com", total_spent_cents: 1000 }) === 0)
     const fromOrders = customerSpent(rows, true)
     check("from the orders when some are in another currency: paid less refunded", fromOrders({ email: "ANA@x.com" }) === 6500, fromOrders({ email: "ANA@x.com" }))
-    check("the Customers page draws it", /const spentOf = customerSpent\(inStore\.rows as SpentRow\[\], mixed\)/.test(read("app/app/customers/page.tsx")))
+    check("the Customers page draws it", /const spentOf = customerSpent\(inStore\.rows as SpentRow\[\], mixed\)/.test(read("app/(storelib)/app/customers/page.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

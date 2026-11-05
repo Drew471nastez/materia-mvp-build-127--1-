@@ -41,7 +41,7 @@ import {
 import { readPeriod, writePeriod } from "@/lib/date-range/params"
 import { rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { readMetrics } from "@/lib/orders/metrics"
-import { ordersCsv, csvCell } from "@/app/app/orders/export-dialog"
+import { ordersCsv, csvCell } from "@/app/(storelib)/app/orders/export-dialog"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -199,11 +199,11 @@ function main() {
 
   console.log("\nEvery page uses the one picker")
   const pages: [string, string][] = [
-    ["analytics", "app/app/analytics/analytics-client.tsx"],
+    ["analytics", "app/(storelib)/app/analytics/analytics-client.tsx"],
     ["the dashboard", "components/app/dashboard-client.tsx"],
-    ["orders", "app/app/orders/orders-list.tsx"],
-    ["payouts", "app/app/payouts/payouts-client.tsx"],
-    ["emails", "app/app/emails/emails-home.tsx"],
+    ["orders", "app/(storelib)/app/orders/orders-list.tsx"],
+    ["payouts", "app/(storelib)/app/payouts/payouts-client.tsx"],
+    ["emails", "app/(storelib)/app/emails/emails-home.tsx"],
     ["OnePage stats", "components/onepage/tabs/links-tab.tsx"],
   ]
   for (const [name, file] of pages) {
@@ -220,12 +220,12 @@ function main() {
   check("no page draws a comparison control, and the shared picker no longer has one",
     pages.every(([, f]) => !/<ComparePicker\b/.test(read(f))) && !/export function ComparePicker/.test(read("components/app/date-range-picker.tsx")))
   check("analytics and orders measure every change against the period just before",
-    /const compare = PREVIOUS_PERIOD/.test(read("app/app/analytics/analytics-client.tsx"))
-      && /const compare = PREVIOUS_PERIOD/.test(read("app/app/orders/orders-client.tsx"))
-      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/analytics/analytics-client.tsx"))
-      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/app/orders/orders-client.tsx")))
+    /const compare = PREVIOUS_PERIOD/.test(read("app/(storelib)/app/analytics/analytics-client.tsx"))
+      && /const compare = PREVIOUS_PERIOD/.test(read("app/(storelib)/app/orders/orders-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/(storelib)/app/analytics/analytics-client.tsx"))
+      && /const PREVIOUS_PERIOD: CompareValue = \{ mode: "previous_period" \}/.test(read("app/(storelib)/app/orders/orders-client.tsx")))
   check("analytics hides percentages with No comparison, and names what they compare with",
-    /against === null(?: \|\| [a-z]+ === null)*\) return null/.test(read("app/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/app/analytics/analytics-client.tsx")))
+    /against === null(?: \|\| [a-z]+ === null)*\) return null/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")) && /compared with \$\{against\}/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
   /* The line and its comparison are drawn by components/app/morph-lines, which the chart hands the period before. */
   check("and draws the comparison as a dashed line under the chart's own",
     /strokeDasharray="5 4"/.test(read("components/app/morph-lines.tsx")) && /compared=\{comparedLine\}/.test(read("components/app/analytics-chart.tsx")))
@@ -259,7 +259,7 @@ function main() {
     !/GroupList|group:|groupDetail|Quarters|Black Friday|More periods|Year to date/.test(picker.replace(/\/\*[\s\S]*?\*\//g, ""))
       && !/"year_to_date"|"bfcm"|"q1"/.test(read("lib/date-range/range.ts").replace(/export const RETIRED_PRESETS[^=]*=\s*\[[\s\S]*?\]/, "")))
   check("the address hook keeps the period only: nothing on any page sets a comparison",
-    !/setCompare|compare,/.test(read("components/app/use-period-params.ts")) && !/setCompare/.test(read("app/app/analytics/analytics-client.tsx")))
+    !/setCompare|compare,/.test(read("components/app/use-period-params.ts")) && !/setCompare/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
   check("a step moves by transform on the iOS curve, and the frame follows the arriving step's measured size",
     /@keyframes drp-in-next \{\s*from \{ opacity: 0; transform: translate3d/.test(css)
       && /\.drp-frame \{\s*transition:\s*width 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\),\s*height 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\);/.test(css)
@@ -311,19 +311,19 @@ function main() {
       !/\[data-app-nav-pill\] \{\s*\n\s*z-index: 0;/.test(css)
         && /:is\(\[data-slot="sheet-overlay"\], \[data-slot="sheet-content"\], \[data-slot="alert-dialog-overlay"\], \[data-slot="alert-dialog-content"\]\) \{\s*z-index: 60;/.test(css)
         /* The coupon delete confirm draws its own layer, and it is above the pill (60 or more). */
-        && /fixed inset-0 z-\[(6\d|[1-9]\d\d)\] flex/.test(read("app/app/coupons/coupons-client.tsx")))
+        && /fixed inset-0 z-\[(6\d|[1-9]\d\d)\] flex/.test(read("app/(storelib)/app/coupons/coupons-client.tsx")))
     /* The phone sheets in these pages are the shared one now, which says it
        is open itself; what is left drawing its own layer is a centred modal
        that still has to say so. */
     const sheets: [string, number][] = [
-      ["app/app/payouts/payouts-client.tsx", 1],
+      ["app/(storelib)/app/payouts/payouts-client.tsx", 1],
       /* The photo's upload and crop modals are gone: the photo changes in place (settings/profile-photo). */
       ["components/app/settings-form-new.tsx", 1],
       ["components/app/billing/billing-page-client.tsx", 0],
     ]
     /* The dashboard's share sheet and the new product's sheet are the
        shared one too, not drawn by hand. */
-    const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/share/share-storelib.tsx"]
+    const shared = ["app/(storelib)/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/share/share-storelib.tsx"]
     check("and the sheets pages draw for themselves say when they are open",
       sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
         && /data-app-sheet=\{atRest \? undefined : isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
@@ -337,7 +337,7 @@ function main() {
     /panel\.focus\(\{ preventScroll: true \}\)/.test(read("components/ui/bottom-sheet.tsx"))
       && /opener\.focus\(\{ preventScroll: true \}\)/.test(read("components/ui/bottom-sheet.tsx"))
       && /tabIndex=\{-1\}/.test(read("components/ui/bottom-sheet.tsx")))
-  check("the old one-off modal is gone", !/date-range-picker-modal/.test(read("app/app/analytics/analytics-client.tsx")))
+  check("the old one-off modal is gone", !/date-range-picker-modal/.test(read("app/(storelib)/app/analytics/analytics-client.tsx")))
   check("the revenue chart's 30 days is 30 days, not 365", /case "30": \{\s*\/\* This fell through to 365 days\. \*\/\s*const start = new Date\(now\)\s*start\.setUTCDate\(start\.getUTCDate\(\) - 30\)/.test(read("app/api/stripe/revenue-chart/route.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

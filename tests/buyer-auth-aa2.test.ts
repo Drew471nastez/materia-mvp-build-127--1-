@@ -98,8 +98,8 @@ async function main() {
   check("  read from a document's cookies", arrivalFromCookieString(`a=1; ${ARRIVAL_COOKIE}=back; b=2`) === "back" && arrivalFromCookieString("a=1") === null && arrivalFromCookieString(`x${ARRIVAL_COOKIE}=new`) === null)
   check("the note waits past the sign in screens and the welcome step", ["/login", "/signup", "/signup/verify", "/onboarding/start", "/auth/continue", "/verify-email"].every(arrivalWaitsOn))
   check("  and is said on the page they were going to", !["/", "/explore", "/receipt/abc", "/account/library", "/maria", "/loginsomething"].some(arrivalWaitsOn))
-  const cont = readCode("app/auth/continue/route.ts")
-  const callback = readCode("app/auth/callback/route.ts")
+  const cont = readCode("app/(storelib)/auth/continue/route.ts")
+  const callback = readCode("app/(storelib)/auth/callback/route.ts")
   check("/auth/continue sets it from the account's created_at", /arrivalOf\(user\.created_at\)/.test(cont) && /ARRIVAL_COOKIE/.test(cont))
   check("  only where the sign in ends, not on the way to the email code", cont.indexOf("arrivalOf(") > cont.indexOf("/signup/verify"))
   check("/auth/callback (Google, Apple) sets it the same way", /arrivalOf\(data\.user\.created_at\)/.test(callback) && /ARRIVAL_COOKIE/.test(callback))
@@ -108,7 +108,7 @@ async function main() {
   check("the note clears its cookie as it reads it, so it is said once", /document\.cookie = `\$\{ARRIVAL_COOKIE\}=; path=\/; max-age=0/.test(note))
   check("  is a status for a screen reader", /role="status"/.test(note))
   check("  stands over the phone's tab bar", /var\(--buyer-tabs-h/.test(note))
-  check("  is mounted once, in the root layout", /<ArrivalNote \/>/.test(readCode("app/layout.tsx")))
+  check("  is mounted once, in the root layout", /<ArrivalNote \/>/.test(readCode("app/(storelib)/layout.tsx")))
   for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
     const cat = readSource(`lib/i18n/catalog/${lang}.ts`)
     check(`  ${lang} says both`, cat.includes(`"Account created":`) && cat.includes(`"Welcome back":`))
@@ -124,7 +124,7 @@ async function main() {
   check("no identities is an existing account (email confirmation on)", signUpFoundExisting({ user: { id: "x", identities: [] } }) === true)
   check("  a new account has one", signUpFoundExisting({ user: { id: "x", identities: [{ provider: "email" }] } }) === false)
   check("  a response without the list says nothing either way", signUpFoundExisting({ user: { id: "x" } }) === false && signUpFoundExisting({ user: null }) === false && signUpFoundExisting(null) === false)
-  const signup = readCode("app/(auth)/signup/page.tsx")
+  const signup = readCode("app/(storelib)/(auth)/signup/page.tsx")
   check("sign up moves to sign in on it, before any profile or code", /if \(signUpFoundExisting\(data\)\) \{\s*switchToSignIn\(trimmedEmail\)\s*return/.test(signup) && signup.indexOf("signUpFoundExisting(data)") < signup.indexOf("/api/auth/verify-email"))
 
   section("TABS: the bottom bar is for somebody signed in, in a browser")

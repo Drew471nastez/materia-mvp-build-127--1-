@@ -1,5 +1,5 @@
 /**
- * The whole Emails page (app/app/emails/emails-client.tsx): its tabs, its
+ * The whole Emails page (app/(storelib)/app/emails/emails-client.tsx): its tabs, its
  * cache, and an email's own page over the list, against a stand-in
  * Supabase (./.emails-probe/supabase-client.js, written by the probe) and a
  * stand-in server answered here, for scripts/check-emails-page.mjs to drive
@@ -12,7 +12,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { EmailsClient } from "@/app/app/emails/emails-client"
+import { EmailsClient } from "@/app/(storelib)/app/emails/emails-client"
 import { buildEmail } from "@/lib/email-campaigns/template"
 import { newBlock, renderBlocks, type Block } from "@/lib/email-campaigns/blocks"
 import { themeOf } from "@/lib/email-campaigns/brand"

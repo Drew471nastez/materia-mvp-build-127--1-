@@ -386,7 +386,7 @@ async function main() {
 
     const added = customPageSections(home[0], home[2], "  Size guide  ", "page_content-1")
     check("a page a creator adds is the header, Page content with its title, the footer", added.map((s) => s.type).join(",") === "header,page_content,footer" && added[1].settings.heading === "Size guide")
-    check("and the builder makes new pages with it", /customPageSections\(/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("and the builder makes new pages with it", /customPageSections\(/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
     const notFound = read("lib/website-builder/shop-page.ts")
     check("the 404 page is still a section the creator arranges", /type: "not_found"/.test(notFound) && GENERATED_PAGE_KEYS.has("404"))
   }

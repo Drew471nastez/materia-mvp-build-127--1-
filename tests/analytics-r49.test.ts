@@ -49,16 +49,16 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(p, "utf8")
 
-const detail = read("app/app/analytics/report-detail.tsx")
+const detail = read("app/(storelib)/app/analytics/report-detail.tsx")
 const css = read("app/globals.css")
 const chart = read("components/app/analytics-chart.tsx")
 const morph = read("components/app/chart-morph.tsx")
 const send = read("components/app/analytics/send-analytics.tsx")
 const head = read("components/app/analytics/head-button.tsx")
-const exp = read("app/app/analytics/export-button.tsx")
-const client = read("app/app/analytics/analytics-client.tsx")
-const reports = read("app/app/analytics/analytics-reports.tsx")
-const commerce = read("app/app/analytics/commerce-reports.tsx")
+const exp = read("app/(storelib)/app/analytics/export-button.tsx")
+const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
+const reports = read("app/(storelib)/app/analytics/analytics-reports.tsx")
+const commerce = read("app/(storelib)/app/analytics/commerce-reports.tsx")
 
 console.log("\n1. MODAL")
 check("at most 720px wide and 640px (78% of a short window) tall", /max-h-\[min\(78dvh,640px\)\] w-\[min\(720px,calc\(100vw-48px\)\)\]/.test(detail))

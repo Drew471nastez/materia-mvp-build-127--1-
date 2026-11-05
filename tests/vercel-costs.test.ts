@@ -82,7 +82,7 @@ check("and a password page or a market's prices are still never shared", /if \(g
 check("Supabase pictures are optimized only from storage paths", (config.match(/supabase\.co',\n\s*pathname: '\/storage\/v1\/\*\*'/g) ?? []).length === 2)
 
 console.log("\n3. Polling")
-const detail = readCode("app/app/emails/email-detail.tsx")
+const detail = readCode("app/(storelib)/app/emails/email-detail.tsx")
 check("an email that is sending is read every 5s, not while the tab is hidden, and at once when it comes back", /if \(!document\.hidden\) refresh\(reportKey\(seed\.id\)\)\s*\}, 5000\)/.test(detail) && /addEventListener\("visibilitychange", back\)/.test(detail))
 const composer = readCode("components/email/compose/composer.tsx")
 check("the composer's send progress the same way", /if \(document\.hidden\) return/.test(composer) && /setInterval\(ask, 5000\)/.test(composer) && /addEventListener\("visibilitychange", ask\)/.test(composer))

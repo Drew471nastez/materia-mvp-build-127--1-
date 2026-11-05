@@ -1,9 +1,9 @@
 /**
- * The Orders, Products and Coupons lists (the real ones: app/app/orders/
- * orders-client.tsx, app/app/products/products-client.tsx, app/app/coupons/
+ * The Orders, Products and Coupons lists (the real ones: app/(storelib)/app/orders/
+ * orders-client.tsx, app/(storelib)/app/products/products-client.tsx, app/(storelib)/app/coupons/
  * coupons-client.tsx) inside the real shell pieces that decide how an /app
  * page arrives (NavigationLoadingBar and AppStage), over a shell shaped like
- * app/app/layout.tsx, for scripts/check-lists-back.mjs.
+ * app/(storelib)/app/layout.tsx, for scripts/check-lists-back.mjs.
  *
  * The router is scripts/render-emails-back.tsx's: `push` and `replace` write
  * the address after `__delay` ms and the page for it commits with it; back
@@ -37,19 +37,19 @@ import { LanguageProvider } from "@/lib/i18n"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
 import { OrdersClient } from "./fixtures/orders-client"
-import { ProductsClient } from "@/app/app/products/products-client"
-import { CouponsClient, type Coupon } from "@/app/app/coupons/coupons-client"
-import { returnToProducts, useListOrigin } from "@/app/app/products/list-return"
-import { returnToCoupons, useCouponListOrigin } from "@/app/app/coupons/list-return"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
+import { CouponsClient, type Coupon } from "@/app/(storelib)/app/coupons/coupons-client"
+import { returnToProducts, useListOrigin } from "@/app/(storelib)/app/products/list-return"
+import { returnToCoupons, useCouponListOrigin } from "@/app/(storelib)/app/coupons/list-return"
 import { fixtureRows } from "./render-orders-probe"
-import { OffersClient } from "@/app/app/offers/offers-client"
-import { offersReturn } from "@/app/app/offers/list-return"
-import { CollectionsClient } from "@/app/app/products/collections/collections-client"
-import { collectionsReturn } from "@/app/app/products/collections/list-return"
-import { SizeChartsClient } from "@/app/app/products/size-charts/size-charts-client"
-import { sizeChartsReturn } from "@/app/app/products/size-charts/list-return"
+import { OffersClient } from "@/app/(storelib)/app/offers/offers-client"
+import { offersReturn } from "@/app/(storelib)/app/offers/list-return"
+import { CollectionsClient } from "@/app/(storelib)/app/products/collections/collections-client"
+import { collectionsReturn } from "@/app/(storelib)/app/products/collections/list-return"
+import { SizeChartsClient } from "@/app/(storelib)/app/products/size-charts/size-charts-client"
+import { sizeChartsReturn } from "@/app/(storelib)/app/products/size-charts/list-return"
 import type { Offer } from "@/lib/offers/offers"
-import type { Collection } from "@/app/app/products/collections/collection-parts"
+import type { Collection } from "@/app/(storelib)/app/products/collections/collection-parts"
 import type { SavedSizeChart } from "@/components/physical/size-chart-editor"
 
 const NOW = Date.now()

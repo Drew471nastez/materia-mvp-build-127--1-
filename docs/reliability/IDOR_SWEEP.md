@@ -15,7 +15,7 @@ themselves, 243 get it through a helper (`lib/communities/server/db`
 `admin()`, `lib/email-campaigns/route-auth`, `lib/physical/auth`,
 `lib/team/*`, `lib/custom-domains/owner`, `lib/website-builder/agent/chat`).
 There are no server actions under `app/` that use the service role (the one
-`"use server"` file, `app/app/products/new/description-action.ts`, uses the
+`"use server"` file, `app/(storelib)/app/products/new/description-action.ts`, uses the
 user's own client).
 
 ## Method
@@ -82,28 +82,28 @@ file calls `createAdminClient()`, `helper` when a helper gives it.
 
 | Route | Admin client | Input ids | Check found | Verdict |
 | --- | --- | --- | --- | --- |
-| `app/(marketing)/[sellername]/[productSlug]/page.tsx` | direct | :sellername, :productSlug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/[sellername]/links/photo.jpg/route.ts` | helper | :sellername | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/[sellername]/links/share.png/route.tsx` | helper | :sellername | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/blog/[slug]/page.tsx` | direct | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/blog/explore/categories/[category]/page.tsx` | helper | :category | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx` | helper | :slug, :userId | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx` | helper | :slug, :postId | :15 published or public data only | OK by design: public, published data only |
-| `app/(marketing)/community/[slug]/about/page.tsx` | helper | :slug | :4 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/(marketing)/community/[slug]/cover.jpg/route.ts` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/community/[slug]/join/page.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/community/[slug]/page.tsx` | helper | :slug | :6 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/(marketing)/community/[slug]/share.png/route.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/community/[slug]/tab-icon.png/route.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/explore/[category]/page.tsx` | direct | :category | :128 published or public data only | OK by design: public, published data only |
-| `app/(marketing)/l/[slug]/page.tsx` | direct | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/member/[username]/page.tsx` | direct | :username | :13 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/(marketing)/member/[username]/share.png/route.tsx` | direct | :username | :26 published or public data only | OK by design: public, published data only |
-| `app/(marketing)/p/[slug]/page.tsx` | direct | :slug | :94 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/(marketing)/themes/[slug]/page.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/u/[username]/page.tsx` | direct | :username | :671 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/(marketing)/u/[username]/robots.txt/route.ts` | helper | :username | none needed | OK by design: public page or redirect, no private fields |
-| `app/(marketing)/u/[username]/sitemap.xml/route.ts` | helper | :username | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx` | direct | :sellername, :productSlug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/[sellername]/links/photo.jpg/route.ts` | helper | :sellername | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/[sellername]/links/share.png/route.tsx` | helper | :sellername | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/blog/[slug]/page.tsx` | direct | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/blog/explore/categories/[category]/page.tsx` | helper | :category | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx` | helper | :slug, :userId | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx` | helper | :slug, :postId | :15 published or public data only | OK by design: public, published data only |
+| `app/(storelib)/(marketing)/community/[slug]/about/page.tsx` | helper | :slug | :4 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/(marketing)/community/[slug]/cover.jpg/route.ts` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/community/[slug]/join/page.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/community/[slug]/page.tsx` | helper | :slug | :6 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/(marketing)/community/[slug]/share.png/route.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/community/[slug]/tab-icon.png/route.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/explore/[category]/page.tsx` | direct | :category | :128 published or public data only | OK by design: public, published data only |
+| `app/(storelib)/(marketing)/l/[slug]/page.tsx` | direct | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/member/[username]/page.tsx` | direct | :username | :13 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/(marketing)/member/[username]/share.png/route.tsx` | direct | :username | :26 published or public data only | OK by design: public, published data only |
+| `app/(storelib)/(marketing)/p/[slug]/page.tsx` | direct | :slug | :94 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/(marketing)/themes/[slug]/page.tsx` | helper | :slug | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/u/[username]/page.tsx` | direct | :username | :671 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/(marketing)/u/[username]/robots.txt/route.ts` | helper | :username | none needed | OK by design: public page or redirect, no private fields |
+| `app/(storelib)/(marketing)/u/[username]/sitemap.xml/route.ts` | helper | :username | none needed | OK by design: public page or redirect, no private fields |
 | `app/(site)/theme-preview/[slug]/page.tsx` | helper | :slug | none needed | OK by design: catalogue theme preview with sample content |
 | `app/(site)/w/[username]/account/orders/[id]/page.tsx` | direct | :username, :id | :20 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
 | `app/(site)/w/[username]/account/page.tsx` | direct | :username | :47 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
@@ -112,10 +112,10 @@ file calls `createAdminClient()`, `helper` when a helper gives it.
 | `app/(site)/w/[username]/reviews/page.tsx` | direct | :username | none needed | OK by design: public page or redirect, no private fields |
 | `app/(site)/w/[username]/wishlist/page.tsx` | direct | :username | :43 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
 | `app/(sites)/site/[slug]/[[...path]]/route.ts` | direct | :slug, :path | none needed | OK by design: public page or redirect, no private fields |
-| `app/access/[orderId]/page.tsx` | direct | :orderId | :7 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/account/library/courses/[id]/page.tsx` | direct | :id | :5 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/account/library/memberships/[id]/page.tsx` | direct | :id | :3 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/account/library/products/[id]/page.tsx` | direct | :id | :60 creator row of the session | OK: the creator row comes from the session; ids filtered by it |
+| `app/(storelib)/access/[orderId]/page.tsx` | direct | :orderId | :7 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/account/library/courses/[id]/page.tsx` | direct | :id | :5 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/account/library/memberships/[id]/page.tsx` | direct | :id | :3 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/account/library/products/[id]/page.tsx` | direct | :id | :60 creator row of the session | OK: the creator row comes from the session; ids filtered by it |
 | `app/api/admin/accounts/delete/route.ts` | direct | ?id, body.userId | :4 admin gate | OK: platform admin only (not tenant scoped by design) |
 | `app/api/admin/blog/auth/route.ts` | helper | body.username | :112 admin gate | OK: platform admin only (not tenant scoped by design) |
 | `app/api/admin/blog/posts/[id]/route.ts` | direct | :id | :6 admin gate | OK: platform admin only (not tenant scoped by design) |
@@ -528,20 +528,20 @@ file calls `createAdminClient()`, `helper` when a helper gives it.
 | `app/api/website-builder/themes/add/route.ts` | direct | body.theme_id | :34 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
 | `app/api/wishlist/check/route.ts` | direct | ?productId | :49 creator row of the session | OK: the session user, or the guest cookie id |
 | `app/api/wishlist/route.ts` | direct | ?productId | :100 creator row of the session | OK: the session user, or the guest cookie id |
-| `app/app/auth/callback/route.ts` | direct | ?bridge_token | :47 published or public data only | OK by design: public, published data only |
-| `app/app/coupons/[id]/page.tsx` | helper | :id | :33 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/app/emails/flow/[id]/page.tsx` | direct | :id | :45 owner/team helper | OK: flow.creator_id checked against the acting store before anything is drawn |
-| `app/app/memberships/[id]/page.tsx` | direct | :id | :31 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/app/offers/[id]/page.tsx` | helper | :id | :26 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/app/products/collections/[id]/page.tsx` | helper | :id | :22 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/app/products/size-charts/[id]/page.tsx` | helper | :id | :22 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
-| `app/auth/callback/route.ts` | direct | ?code, ?error_code | :94 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/checkout/physical/order/[token]/page.tsx` | direct | :token | :28 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
-| `app/checkout/physical/partner/[token]/page.tsx` | direct | :token | :6 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
-| `app/checkout/site/thanks/[token]/page.tsx` | direct | :token | :6 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
-| `app/dashboard/products/[id]/page.tsx` | direct | :id | :32 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/order-help/[id]/page.tsx` | direct | :id | :4 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
-| `app/receipt/[token]/page.tsx` | direct | :token | :18 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
-| `app/receipt/cart/[sessionId]/page.tsx` | direct | :sessionId | :5 token or signed link is the credential | OK: the Stripe Checkout session id is the credential |
-| `app/review/[token]/page.tsx` | direct | :token | :50 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
-| `app/review/confirm/[token]/page.tsx` | direct | :token | :35 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/app/auth/callback/route.ts` | direct | ?bridge_token | :47 published or public data only | OK by design: public, published data only |
+| `app/(storelib)/app/coupons/[id]/page.tsx` | helper | :id | :33 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/app/emails/flow/[id]/page.tsx` | direct | :id | :45 owner/team helper | OK: flow.creator_id checked against the acting store before anything is drawn |
+| `app/(storelib)/app/memberships/[id]/page.tsx` | direct | :id | :31 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/app/offers/[id]/page.tsx` | helper | :id | :26 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/app/products/collections/[id]/page.tsx` | helper | :id | :22 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/app/products/size-charts/[id]/page.tsx` | helper | :id | :22 owner/team helper | OK: ids resolved inside the acting store (owner or team member with the area) |
+| `app/(storelib)/auth/callback/route.ts` | direct | ?code, ?error_code | :94 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/checkout/physical/order/[token]/page.tsx` | direct | :token | :28 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/checkout/physical/partner/[token]/page.tsx` | direct | :token | :6 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/checkout/site/thanks/[token]/page.tsx` | direct | :token | :6 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/dashboard/products/[id]/page.tsx` | direct | :id | :32 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/order-help/[id]/page.tsx` | direct | :id | :4 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/receipt/[token]/page.tsx` | direct | :token | :18 own rows of the signed-in user or visitor | OK: rows of the signed-in user (or the website's visitor session) only |
+| `app/(storelib)/receipt/cart/[sessionId]/page.tsx` | direct | :sessionId | :5 token or signed link is the credential | OK: the Stripe Checkout session id is the credential |
+| `app/(storelib)/review/[token]/page.tsx` | direct | :token | :50 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |
+| `app/(storelib)/review/confirm/[token]/page.tsx` | direct | :token | :35 token or signed link is the credential | OK: an unguessable token or a signed link in the request is the credential |

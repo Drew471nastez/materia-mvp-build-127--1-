@@ -1,5 +1,5 @@
 /**
- * The account page's pills and Settings' section pills, as app/account/layout.tsx draws them, for
+ * The account page's pills and Settings' section pills, as app/(storelib)/account/layout.tsx draws them, for
  * scripts/check-pills17.mjs: the account's wrapper (account-nav-fade.tsx), the hub (the profile's header, its pills and
  * the panel under them) over the real pages filled with a made up buyer:
  *

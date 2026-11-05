@@ -154,7 +154,7 @@ const ms = (n) => `${Math.round(n)}ms`
 // ─────────────────────────────────────────────────────────────────────────
 
 const dir = join(root, ".arrival-probe")
-const beforeClient = join(root, "app/app/website-builder/__probe-before-client.tsx")
+const beforeClient = join(root, "app/(storelib)/app/website-builder/__probe-before-client.tsx")
 process.on("exit", () => {
   if (!process.env.KEEP) rmSync(dir, { recursive: true, force: true })
   rmSync(beforeClient, { force: true })
@@ -217,9 +217,9 @@ const files = {
 }
 if (BEFORE_REV) {
   /* The Website page as it was, beside the harness's own copy of itself. */
-  writeFileSync(beforeClient, execFileSync("git", ["show", `${BEFORE_REV}:app/app/website-builder/website-builder-client.tsx`], { encoding: "utf8" }))
+  writeFileSync(beforeClient, execFileSync("git", ["show", `${BEFORE_REV}:app/(storelib)/app/website-builder/website-builder-client.tsx`], { encoding: "utf8" }))
   const harness = readFileSync(join(root, "scripts/render-website-arrival.tsx"), "utf8")
-    .replace('"@/app/app/website-builder/website-builder-client"', '"@/app/app/website-builder/__probe-before-client"')
+    .replace('"@/app/(storelib)/app/website-builder/website-builder-client"', '"@/app/(storelib)/app/website-builder/__probe-before-client"')
   writeFileSync(join(dir, "arrival-before.tsx"), harness)
   files["/arrival-before.js"] = bundle(join(dir, "arrival-before.tsx"), join(dir, "arrival-before.js"), BROWSER)
   rmSync(beforeClient, { force: true })
@@ -230,7 +230,7 @@ const ssr = JSON.parse(execFileSync("node", [join(dir, "ssr.cjs")], { encoding: 
 
 const css = (await appCss(root)) + "\n" + interFaces(root)
 const HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${css}</style>`
-/* The root layout's body (app/layout.tsx): the theme's background, white. */
+/* The root layout's body (app/(storelib)/layout.tsx): the theme's background, white. */
 const BODY = `class="font-sans antialiased bg-background text-foreground"`
 const arrivalHtml = (js) => `<!doctype html><html class="light"><head>${HEAD}</head><body ${BODY}><div id="app"></div><script src="${js}"></script></body></html>`
 /* One reading per frame from the new document's first script, before anything of it is drawn. */

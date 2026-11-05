@@ -46,10 +46,10 @@ import { blogJsonLd, blogPostingJsonLd, breadcrumbListJsonLd, videoObjectsJsonLd
 import { readSignupSource } from "@/lib/alternatives/attribution"
 import { blogSitemapEntries } from "@/lib/blog/listing"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
-import { ArticleBlocks, sanitizeInline } from "@/app/(marketing)/blog/_components/article-blocks"
-import { GET as legacyCategoryGET } from "@/app/(marketing)/blog/explore/categories/[category]/route"
-import BlogListing from "@/app/(marketing)/blog/_blog-listing"
-import { blogListOf } from "@/app/(marketing)/blog/_components/blog-nav"
+import { ArticleBlocks, sanitizeInline } from "@/app/(storelib)/(marketing)/blog/_components/article-blocks"
+import { GET as legacyCategoryGET } from "@/app/(storelib)/(marketing)/blog/explore/categories/[category]/route"
+import BlogListing from "@/app/(storelib)/(marketing)/blog/_blog-listing"
+import { blogListOf } from "@/app/(storelib)/(marketing)/blog/_components/blog-nav"
 
 /* Round 47: which paths draw the pills (the lists) and which do not (an article, an author). */
 const blogListOfOk = () =>
@@ -91,7 +91,7 @@ async function main() {
     check("the href's quotes cannot break out", !/"\s+onclick/.test(sanitizeInline(`<a href='/x" onclick="alert(1)'>x</a>`)))
     check("comments and unclosed script are removed", sanitizeInline("a<!-- <b>x</b> -->b<script>never closed") === "ab")
     check("null and empty are empty", sanitizeInline(null) === "" && sanitizeInline("") === "")
-    const renderer = code("app/(marketing)/blog/_components/article-blocks.tsx")
+    const renderer = code("app/(storelib)/(marketing)/blog/_components/article-blocks.tsx")
     check("every dangerouslySetInnerHTML in the renderer goes through sanitizeInline", (renderer.match(/dangerouslySetInnerHTML/g) ?? []).length === 1 && /dangerouslySetInnerHTML=\{\{ __html: sanitizeInline\(html\) \}\}/.test(renderer))
   }
 
@@ -226,7 +226,7 @@ async function main() {
     const blog = blogJsonLd([{ slug: "a", title: "A", published_at: "2026-01-01T00:00:00Z", cover_image_url: "/images/blog/x.svg" }, { slug: "b", title: "B", published_at: null, cover_image_url: "https://cdn.example.com/b.jpg" }], { url: "https://storelib.com/blog", description: "d" }) as Any
     check("Blog with its posts as blogPost items", blog["@type"] === "Blog" && blog.blogPost.length === 2 && blog.blogPost[0].url === "https://storelib.com/blog/a" && !("image" in blog.blogPost[0]) && blog.blogPost[1].image === "https://cdn.example.com/b.jpg")
 
-    const page = code("app/(marketing)/blog/[slug]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/blog/[slug]/page.tsx")
     check("the article prints BlogPosting, BreadcrumbList and each VideoObject", /blogPostingJsonLd\(/.test(page) && /breadcrumbListJsonLd\(/.test(page) && /videoObjectsJsonLd\(blocks/.test(page) && (page.match(/jsonLdScript\(/g) ?? []).length === 3)
   }
 
@@ -238,10 +238,10 @@ async function main() {
     check("the old URL is a 308 to the new one", moved.status === 308 && moved.headers.get("location") === "/blog/category/growth")
     const missing = await legacyCategoryGET(new Request("https://storelib.com/blog/explore/categories/nope"), { params: Promise.resolve({ category: "nope" }) })
     check("  an unknown category is still a 404", missing.status === 404)
-    check("the old page is gone, the new pages exist with layouts deciding 404 and 308 before the stream", !existsSync(join(process.cwd(), "app/(marketing)/blog/explore/categories/[category]/page.tsx")) && existsSync(join(process.cwd(), "app/(marketing)/blog/category/[slug]/page.tsx")) && /permanentRedirect\(`\/blog\/category\/\$\{slug\}`\)/.test(code("app/(marketing)/blog/category/[slug]/page/[page]/layout.tsx")) && /notFound\(\)/.test(code("app/(marketing)/blog/category/[slug]/layout.tsx")))
-    const cat = code("app/(marketing)/blog/_blog-category.tsx")
+    check("the old page is gone, the new pages exist with layouts deciding 404 and 308 before the stream", !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/explore/categories/[category]/page.tsx")) && existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/category/[slug]/page.tsx")) && /permanentRedirect\(`\/blog\/category\/\$\{slug\}`\)/.test(code("app/(storelib)/(marketing)/blog/category/[slug]/page/[page]/layout.tsx")) && /notFound\(\)/.test(code("app/(storelib)/(marketing)/blog/category/[slug]/layout.tsx")))
+    const cat = code("app/(storelib)/(marketing)/blog/_blog-category.tsx")
     check("a category page: its own canonical, BreadcrumbList, noindex while empty", /path: blogCategoryPath\(category\.name, page, categories\)/.test(cat) && /breadcrumbListJsonLd\(crumbs\)/.test(cat) && /: \{ index: false, follow: true \}/.test(cat))
-    const internal = ["app/(marketing)/blog/_blog-listing.tsx", "app/(marketing)/blog/_components/blog-nav.tsx", "app/(marketing)/blog/_components/article-view.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/_blog-category.tsx"]
+    const internal = ["app/(storelib)/(marketing)/blog/_blog-listing.tsx", "app/(storelib)/(marketing)/blog/_components/blog-nav.tsx", "app/(storelib)/(marketing)/blog/_components/article-view.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/_blog-category.tsx"]
     check("no internal link names the old address", internal.every((p) => !code(p).includes("explore/categories")))
 
     const rows = [{ slug: "p1", category: "Tutorials", published_at: "2026-09-01T00:00:00Z", updated_at: null }]
@@ -256,10 +256,10 @@ async function main() {
     /* Changed on purpose (round 47): the list no longer takes a title and a line; the blog's layout draws them. */
     const html = renderToStaticMarkup(createElement(BlogListing, { posts: [], activeCategory: "Growth", pagination: { page: 2, pages: 3 }, pagePath: (n: number) => blogCategoryPath("Growth", n) }))
     check("a category's pages are real links at its own addresses", /href="\/blog\/category\/growth"[^>]*rel="prev"|rel="prev"[^>]*href="\/blog\/category\/growth"/.test(html) && /href="\/blog\/category\/growth\/page\/3"/.test(html))
-    /* Changed on purpose (round 47): the category pills moved out of the list into the blog's shared layout (app/(marketing)/blog/layout.tsx and _components/blog-nav.tsx), so they stay mounted between categories. Still real links at the new addresses. */
-    const nav = code("app/(marketing)/blog/_components/blog-nav.tsx")
+    /* Changed on purpose (round 47): the category pills moved out of the list into the blog's shared layout (app/(storelib)/(marketing)/blog/layout.tsx and _components/blog-nav.tsx), so they stay mounted between categories. Still real links at the new addresses. */
+    const nav = code("app/(storelib)/(marketing)/blog/_components/blog-nav.tsx")
     check("  the category navigation links the new addresses, as real links", /href=\{`\/blog\/category\/\$\{c\.slug\}`\}/.test(nav) && /<Link href=\{href\}/.test(nav) && /aria-current=\{on \? "page" : undefined\}/.test(nav) && !nav.includes("explore/categories"))
-    check("  the layout draws it around every blog page", /<BlogNav categories=\{nav\}/.test(code("app/(marketing)/blog/layout.tsx")) && blogListOfOk())
+    check("  the layout draws it around every blog page", /<BlogNav categories=\{nav\}/.test(code("app/(storelib)/(marketing)/blog/layout.tsx")) && blogListOfOk())
   }
 
   console.log("\nThe sign up box and the newsletter")
@@ -272,20 +272,20 @@ async function main() {
     const route = code("app/api/newsletter/route.ts")
     check("the newsletter route takes source blog and a honeypot that stores nothing", /body\.source === "blog" \? "blog" : "footer"/.test(route) && /body\.company/.test(route) && route.indexOf("body.company") < route.indexOf(".upsert("))
     /* Changed on purpose (round 47): the owner asked for the newsletter box to go from the article; the card is gone, the route above stays for the footer. */
-    check("  the article draws no newsletter box", !existsSync(join(process.cwd(), "app/(marketing)/blog/_components/newsletter-card.tsx")) && !/Newsletter/.test(code("app/(marketing)/blog/_components/article-view.tsx")))
+    check("  the article draws no newsletter box", !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/_components/newsletter-card.tsx")) && !/Newsletter/.test(code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")))
   }
 
   console.log("\nWired to the editor's data layer (seo-blogadmin)")
   {
-    const page = code("app/(marketing)/blog/[slug]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/blog/[slug]/page.tsx")
     check("snippets are expanded on the server before drawing", /expandSnippets\(rowBlocks, await readBlogSnippets\(rowBlocks\)\)/.test(page))
     check("the author row drives the byline, the box and the Person", /readBlogAuthor\(dbPost\?\.author_id\)/.test(page) && /author: profile/.test(page) && /profile,/.test(page))
     check("canonical_url, noindex, og_image_url, cover_alt and tags", /canonicalOf\(slug, dbPost\?\.canonical_url\)/.test(page) && /dbPost\?\.noindex === true/.test(page) && /dbPost\?\.og_image_url \|\| dbPost\?\.cover_image_url/.test(page) && /cover_alt/.test(page) && /dbPost\?\.tags/.test(page))
     check("generateStaticParams lists only live posts", /\.eq\("is_published", true\)\.or\(liveDateFilter\(\)\)/.test(page))
-    check("the blog's lists read through readBlogPosts, which is date filtered", /\.or\(liveDateFilter\(\)\)/.test(code("lib/blog/read.ts")) && /readBlogPosts/.test(code("app/(marketing)/blog/rss.xml/route.ts")) && /readBlogPosts/.test(code("app/(marketing)/blog/_blog-category.tsx")))
-    check("the preview draws with the public renderer", /import \{ ArticleBlocks \} from "@\/app\/\(marketing\)\/blog\/_components\/article-blocks"/.test(code("app/admin/blog/preview/[token]/_article.tsx")))
-    check("sanitizeInline is sanitizeInlineHtml", /return sanitizeInlineHtml\(html \?\? ""\)/.test(code("app/(marketing)/blog/_components/article-blocks.tsx")))
-    check("the old slug's 308 stays in the post's layout", /blogRedirectFor\(slug\)/.test(code("app/(marketing)/blog/[slug]/layout.tsx")))
+    check("the blog's lists read through readBlogPosts, which is date filtered", /\.or\(liveDateFilter\(\)\)/.test(code("lib/blog/read.ts")) && /readBlogPosts/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /readBlogPosts/.test(code("app/(storelib)/(marketing)/blog/_blog-category.tsx")))
+    check("the preview draws with the public renderer", /import \{ ArticleBlocks \} from "@\/app\/\(storelib\)\/\(marketing\)\/blog\/_components\/article-blocks"/.test(code("app/(storelib)/admin/blog/preview/[token]/_article.tsx")))
+    check("sanitizeInline is sanitizeInlineHtml", /return sanitizeInlineHtml\(html \?\? ""\)/.test(code("app/(storelib)/(marketing)/blog/_components/article-blocks.tsx")))
+    check("the old slug's 308 stays in the post's layout", /blogRedirectFor\(slug\)/.test(code("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")))
     const renamed = [{ slug: "growth", name: "Growing", description: "d" }]
     check("a renamed category keeps its slug in every address", blogCategoryPath("Growing", 1, renamed) === "/blog/category/growth" && legacyCategoryTarget("growth", renamed) === "/blog/category/growth" && legacyCategoryTarget("tutorials", renamed) === null)
     const sd = blogPostingJsonLd({ url: "https://storelib.com/blog/x", title: "T", description: "D", images: [], fallbackImage: "/x.jpg", published: null, modified: null, byline: "Storelib Team", profile: { name: "Jane Roe", role: "Editor", links: [{ url: "https://x.com/jane" }, { url: "javascript:x" }] } }) as Any
@@ -308,14 +308,14 @@ async function main() {
 
   console.log("\nPerformance shape")
   {
-    const yt = read("app/(marketing)/blog/_components/youtube-facade.tsx")
+    const yt = read("app/(storelib)/(marketing)/blog/_components/youtube-facade.tsx")
     check("the YouTube player loads only on a press", /start === null \?/.test(yt) && !/<script/.test(yt) && !/iframe_api/.test(yt))
-    const progress = code("app/(marketing)/blog/[slug]/_reading-progress.tsx")
+    const progress = code("app/(storelib)/(marketing)/blog/[slug]/_reading-progress.tsx")
     check("the progress line is a transform, measured on resize only", /scaleX\(\$\{p\}\)/.test(progress) && /new ResizeObserver/.test(progress) && !/useState/.test(progress))
-    check("the contents spy uses an IntersectionObserver", /new IntersectionObserver/.test(code("app/(marketing)/blog/_components/toc-spy.tsx")))
-    const view = code("app/(marketing)/blog/_components/article-view.tsx")
-    check("the article view is a server component; the cover has priority and sizes", !/^"use client"/.test(read("app/(marketing)/blog/_components/article-view.tsx")) && /fill priority sizes=/.test(view))
-    check("the help article has the same contents on the left and the progress line", /ReadingProgress target="\[data-help-article\]"/.test(code("app/help/[category]/[article]/page.tsx")) && /lg:grid-cols-\[220px_minmax\(0,1fr\)\]/.test(code("app/help/[category]/[article]/page.tsx")) && /toc\.length >= 2 \?/.test(code("app/help/[category]/[article]/page.tsx")))
+    check("the contents spy uses an IntersectionObserver", /new IntersectionObserver/.test(code("app/(storelib)/(marketing)/blog/_components/toc-spy.tsx")))
+    const view = code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")
+    check("the article view is a server component; the cover has priority and sizes", !/^"use client"/.test(read("app/(storelib)/(marketing)/blog/_components/article-view.tsx")) && /fill priority sizes=/.test(view))
+    check("the help article has the same contents on the left and the progress line", /ReadingProgress target="\[data-help-article\]"/.test(code("app/(storelib)/help/[category]/[article]/page.tsx")) && /lg:grid-cols-\[220px_minmax\(0,1fr\)\]/.test(code("app/(storelib)/help/[category]/[article]/page.tsx")) && /toc\.length >= 2 \?/.test(code("app/(storelib)/help/[category]/[article]/page.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

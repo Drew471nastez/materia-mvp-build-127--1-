@@ -119,7 +119,7 @@ section("No :has() whose subject is the root, in any stylesheet of the app")
   }
   check("none: each one restyled half the editor on every insertion", offenders.length === 0, offenders)
 
-  const layout = readCode("app/layout.tsx")
+  const layout = readCode("app/(storelib)/layout.tsx")
   const htmlTag = /<html[^>]*>/.exec(layout)?.[0] ?? ""
   const bodyTag = /<body[^>]*>/.exec(layout)?.[0] ?? ""
   check("the root layout's <html> and <body> carry no has-[…] variant", !!htmlTag && !!bodyTag && !/\bhas-|:has\(/.test(htmlTag + bodyTag), { htmlTag, bodyTag })
@@ -132,10 +132,10 @@ section("The account pages keep their width by class")
   check("and so is the scrollbar where there is no gutter", /@supports not \(scrollbar-gutter: stable\) \{\s*@media \(pointer: fine\) \{\s*html\.with-account-settings,\s*html\.with-page-account \{\s*overflow-y: scroll;/.test(css))
   check("the :has() rules they replace are gone", !/html:has\(\[data-account-settings\]\)/.test(css) && !/html:has\(\[data-page="account"\]\)/.test(css))
 
-  const layout = readCode("app/account/layout.tsx")
+  const layout = readCode("app/(storelib)/account/layout.tsx")
   check("the account layout sets its class from the element the rule asked about, from its first paint",
     /import \{ HtmlClass \} from "@\/components\/platform\/html-class"/.test(layout) &&
-      /data-page="account">\s*(\{\/\*[\s\S]*?\*\/\}\s*)?<HtmlClass name="with-page-account" \/>/.test(readSource("app/account/layout.tsx")))
+      /data-page="account">\s*(\{\/\*[\s\S]*?\*\/\}\s*)?<HtmlClass name="with-page-account" \/>/.test(readSource("app/(storelib)/account/layout.tsx")))
   const settings = readSource("components/account/account-settings.tsx")
   check("the settings set theirs from their own root, wherever they are drawn (the page and the layer over the profile)",
     /import \{ HtmlClass \} from "@\/components\/platform\/html-class"/.test(settings) &&

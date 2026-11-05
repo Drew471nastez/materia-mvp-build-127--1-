@@ -4,7 +4,7 @@
  * ===========================================================================
  * The owner: "next to the phone number I want to know where the country I am
  * from is, or change the country". Types into the real field
- * (app/checkout/parts/phone-input) and reads what is on screen and what the
+ * (app/(storelib)/checkout/parts/phone-input) and reads what is on screen and what the
  * order would keep: the code following the address's country, the code
  * picked from the searchable list, a pasted number with its own code, the
  * digits kept when the country changes, the code never shown twice. At 390

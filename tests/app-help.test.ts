@@ -60,7 +60,7 @@ console.log("\nAn article read in the app links inside the app")
 }
 
 console.log("\nThe pages under /app/help")
-const pages = ["app/app/help/page.tsx", "app/app/help/[category]/page.tsx", "app/app/help/[category]/[article]/page.tsx", "app/app/help/search/page.tsx", "app/app/help/questions/page.tsx"]
+const pages = ["app/(storelib)/app/help/page.tsx", "app/(storelib)/app/help/[category]/page.tsx", "app/(storelib)/app/help/[category]/[article]/page.tsx", "app/(storelib)/app/help/search/page.tsx", "app/(storelib)/app/help/questions/page.tsx"]
 check("home, topic, article, search and order problems, inside the /app layout", pages.every((p) => existsSync(join(process.cwd(), p))))
 const views = read("components/help/app-help-views.tsx")
 const frame = read("components/help/app-help-frame.tsx")
@@ -73,7 +73,7 @@ check("the title is the app's word for Help, in the creator's language", /title:
 check("backs go up a level when there is nothing to return to: home, Help, the topic", /fallback: "\/app"/.test(read(pages[0])) && /fallback: APP_HELP_BASE/.test(read(pages[1])) && /fallback: appTopicPath\(category\.slug\)/.test(read(pages[2])))
 
 console.log("\nThe public /help is untouched")
-for (const p of ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx", "app/help/questions/page.tsx"]) {
+for (const p of ["app/(storelib)/help/page.tsx", "app/(storelib)/help/[category]/page.tsx", "app/(storelib)/help/[category]/[article]/page.tsx", "app/(storelib)/help/search/page.tsx", "app/(storelib)/help/questions/page.tsx"]) {
   check(`  ${p} is still there, on its own layout`, existsSync(join(process.cwd(), p)) && !/APP_HELP_BASE|app-help/.test(read(p)))
 }
 check("an article path is still /help/<topic>/<slug>", helpArticlePath({ category: "products", slug: "x" }) === "/help/products/x")
@@ -84,7 +84,7 @@ check("a plain press with somewhere of ours behind goes back through history, an
 
 console.log("\nOn a phone and in the iOS and Android apps")
 check("its own pane on the app's grey from the first frame (no white), with the phone pill's room (page-scroll)", /className="orders-pane page-scroll h-full overflow-y-auto overflow-x-hidden bg-\[#f8f9fa\] app-page-enter" data-help-scroll=""/.test(frame))
-check("the bar sticks to the top of the pane with its hairline once scrolled (PaneBar), under the shell's safe-area header", /<PaneBar width=\{APP_HELP_WIDTH\}/.test(frame) && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\]/.test(read("app/app/layout.tsx")))
+check("the bar sticks to the top of the pane with its hairline once scrolled (PaneBar), under the shell's safe-area header", /<PaneBar width=\{APP_HELP_WIDTH\}/.test(frame) && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\]/.test(read("app/(storelib)/app/layout.tsx")))
 check("the contents list follows the pane's scroll, not only the window's", /closest<HTMLElement>\("\[data-help-scroll\]"\) \?\? window/.test(read("components/help/toc-spy.tsx")))
 const search = read("components/help/help-search.tsx")
 check("the search: 16px type (no zoom on focus), Search on the keyboard, the field moved up to make room on a phone", /enterKeyHint="search"/.test(search) && /h-14 pl-12 pr-4 text-\[16px\]/.test(search) && /matchMedia\("\(max-width: 767px\)"\)[\s\S]{0,1200}closest<HTMLElement>\("\[data-help-scroll\]"\)[\s\S]{0,400}pane\.scrollBy\(\{ top: by, behavior: "smooth" \}\)/.test(search))

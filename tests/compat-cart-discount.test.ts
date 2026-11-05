@@ -282,9 +282,9 @@ async function main() {
     check("Check out carries the note and the attributes to the website's checkout", params.note === "Leave it at the door" && params.attributes?.["Gift message"] === "Happy birthday" && params.attributes?.["Delivery date"] === "Friday", params)
     check("the cookie keeps the note, the attributes and the code together", (() => { const c = readCartCookie(writeCartCookie(v.cart, v.note, v.attributes, "SAVE10")); return c.note === v.note && c.attributes["Gift message"] === "Happy birthday" && c.discount === "SAVE10" })())
 
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("the checkout opened from the cookie takes its note, attributes and code", /params\.note = params\.note \?\? \(theme\.note/.test(page) && /params\.couponCode = params\.couponCode \?\? \(theme\.discount/.test(page))
-    const checkout = code("app/checkout/site/site-checkout.tsx")
+    const checkout = code("app/(storelib)/checkout/site/site-checkout.tsx")
     check("  its note for the shop starts with the cart's note and is sent with the order", /React\.useState\(initialNote \?\? ""\)/.test(checkout) && /buyerNote/.test(checkout) && /cartAttributes/.test(checkout))
     const route = code("app/api/checkout/site/route.ts")
     check("  the route hands both to the order", (route.match(/buyerNote: body\.buyerNote/g) ?? []).length >= 2 && (route.match(/cartAttributes: body\.cartAttributes/g) ?? []).length >= 2)

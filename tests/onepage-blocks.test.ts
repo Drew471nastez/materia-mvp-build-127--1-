@@ -104,7 +104,7 @@ function main() {
       !on({ type: "image", data: { images: [] } }))
     /* Moved on purpose to lib/onepage/public-shape.ts, which the route calls with the published copy. */
     /* The route reads it through lib/onepage/published-page, which its metadata and share image share. */
-    const page = read("app/(marketing)/l/[slug]/page.tsx") + read("lib/onepage/published-page.ts")
+    const page = read("app/(storelib)/(marketing)/l/[slug]/page.tsx") + read("lib/onepage/published-page.ts")
     check("a block that has not started is not sent to the browser at all",
       /publicOnePage\(onepage, \{\s*source: "published"/.test(page) && /publishedShape\(onepage, owner, \{/.test(page) &&/blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
 

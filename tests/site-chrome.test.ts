@@ -148,7 +148,7 @@ async function main() {
   console.log("\nAdd Section offers a header file in the Header group, never for a page body")
   const custom = { site_header: { ...SECTION_SCHEMAS.header, type: "site_header", name: "Site header", presets: [{ name: "x" }] }, promo: { type: "promo", name: "Promo", fields: [], presets: [{ name: "x" }] } }
   check("an old header-like section is not offered for a page body", customAddableSections(custom as never).join(",") === "promo")
-  const editorSrc = read("app/website-builder/editor/[installId]/page.tsx")
+  const editorSrc = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the page's own Add section leaves headers out; the Header group's lists the creator's own",
     /return g\.includes\("template"\) \|\| \(g\.includes\("header"\) && !kindOfType\(t\)\)/.test(editorSrc) && /kindOfType\(t\) === own\)/.test(editorSrc))
 
@@ -196,7 +196,7 @@ async function main() {
   check("a legacy scheme name is accepted", goodDefault.ok === true, goodDefault.ok === false ? goodDefault.errors : undefined)
 
   console.log("\nThe panel shows a section's own colours, and nothing twice")
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("colour settings are no longer filtered out wholesale", !/filter\(f => f\.type !== "color" && f\.type !== "color_scheme"/.test(page))
   check("only the older fields Advanced colors already edits are", /covered\.has\(f\.id\)/.test(page) && /LEGACY_OVERRIDE_FIELDS/.test(page))
   check("they are drawn as the same row Advanced colors uses", /<SectionColorSetting/.test(page))

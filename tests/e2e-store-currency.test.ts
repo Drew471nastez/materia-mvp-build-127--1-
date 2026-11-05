@@ -160,7 +160,7 @@ async function main() {
 
 async function renderBuyerPage(token: string): Promise<string> {
   try {
-    const { default: Page } = await import("@/app/checkout/physical/order/[token]/page")
+    const { default: Page } = await import("@/app/(storelib)/checkout/physical/order/[token]/page")
     const { renderToStaticMarkup } = await import("react-dom/server")
     const tree = await Page({ params: Promise.resolve({ token }), searchParams: Promise.resolve({}) })
     return renderToStaticMarkup(tree)
@@ -171,19 +171,19 @@ async function renderBuyerPage(token: string): Promise<string> {
 
 /**
  * The website's checkout totals as the page draws them, in the store's
- * currency (app/checkout/site/page.tsx hands `currency` down to them). The
+ * currency (app/(storelib)/checkout/site/page.tsx hands `currency` down to them). The
  * whole page also loads Stripe's browser script, which does not load outside
  * a browser, so its totals are drawn on their own: the same component the page uses.
  */
 async function renderSiteCheckout(quote: any, shopId: string, _host: string): Promise<string> {
   try {
-    const { Totals } = await import("@/app/checkout/parts/order-summary")
-    const { money, CheckoutCurrency } = await import("@/app/checkout/parts/ui")
+    const { Totals } = await import("@/app/(storelib)/checkout/parts/order-summary")
+    const { money, CheckoutCurrency } = await import("@/app/(storelib)/checkout/parts/ui")
     const { readStoreCurrency } = await import("@/lib/store/selling-currency-read")
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { renderToStaticMarkup } = await import("react-dom/server")
     const { createElement } = await import("react")
-    /* As app/checkout/site/page.tsx does: the store's currency read from its settings, every amount inside <CheckoutCurrency> drawn in it. */
+    /* As app/(storelib)/checkout/site/page.tsx does: the store's currency read from its settings, every amount inside <CheckoutCurrency> drawn in it. */
     const currency = (await readStoreCurrency(createAdminClient(), shopId)).currency
     const t = quote?.totals ?? {}
     return renderToStaticMarkup(

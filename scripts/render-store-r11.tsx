@@ -6,8 +6,8 @@
  *   membership    a membership's checkout
  */
 import * as React from "react"
-import CheckoutPageClient from "@/app/checkout/checkout-client"
-import MembershipCheckout from "@/app/checkout/membership-checkout"
+import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
+import MembershipCheckout from "@/app/(storelib)/checkout/membership-checkout"
 import { boot as boot23 } from "./render-store23"
 
 export function boot(render: (el: React.ReactElement) => void) {

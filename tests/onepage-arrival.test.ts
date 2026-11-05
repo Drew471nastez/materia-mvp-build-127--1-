@@ -118,10 +118,10 @@ async function main() {
 
   console.log("\nThe editor's page waits for nothing without an end")
   {
-    const page = code("app/app/onepage/page.tsx")
+    const page = code("app/(storelib)/app/onepage/page.tsx")
     check("the creator and the page are read at once, each bounded and abortable",
       /await Promise\.all\(\[\s*readTwice\(\(signal\) =>\s*createAdminClient\(\)\.from\("creators"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\),?\s*\),\s*readTwice\(\(signal\) =>\s*supabase\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\),?\s*\),?\s*\]\)/.test(page))
-    check("the reads come from the shared bounded helper", /from "@\/lib\/onepage\/bounded-read"/.test(read("app/app/onepage/page.tsx")) && !/async function readTwice/.test(page))
+    check("the reads come from the shared bounded helper", /from "@\/lib\/onepage\/bounded-read"/.test(read("app/(storelib)/app/onepage/page.tsx")) && !/async function readTwice/.test(page))
     check("making a new page has a ceiling", /await within\(\s*async \(\) => \(\{ data: await ensureOnePage\(supabase, user\.id, creator\), error: null \}\),\s*MAKE_PAGE_MS,?\s*\)/.test(page))
     check("the store builder's links are waited on for 1.5s at most", /const STORE_SOCIALS_MS = 1500/.test(page) && /\.abortSignal\(signal\)\s*\.maybeSingle\(\),\s*STORE_SOCIALS_MS,?\s*\)/.test(page))
     check("the social link writes are finished after the answer, not awaited", /after\(sent\)/.test(page) && (page.match(/keep\(supabase\s*\.from\("onepages"\)/g) || []).length === 2 && !/await supabase\s*\.from\("onepages"\)\s*\.update/.test(page))

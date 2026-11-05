@@ -78,7 +78,7 @@ const frame = () => page.evaluate(() => {
   const s = (el) => (el ? getComputedStyle(el) : null)
   return {
     /* A question's sheet is in the page, closed, until it is asked: only one that is shown counts. */
-    /* The question sheet a phone builds ahead (app/app/products/new/confirm-sheet.tsx, keepMounted) is not an editor in a sheet: left out. */
+    /* The question sheet a phone builds ahead (app/(storelib)/app/products/new/confirm-sheet.tsx, keepMounted) is not an editor in a sheet: left out. */
     dialog: [...document.querySelectorAll('[role="dialog"]')].some((el) => !el.querySelector("[data-confirm-sheet]") && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden" && Number(getComputedStyle(el).opacity) > 0),
     dialogs: [...document.querySelectorAll('[role="dialog"]')].map((el) => `${String(el.className).slice(0, 60)} ${el.getClientRects().length} ${getComputedStyle(el).visibility} ${getComputedStyle(el).opacity} ${Math.round(el.getBoundingClientRect().top)}`),
     bar: visible("[data-editor-bar]"),

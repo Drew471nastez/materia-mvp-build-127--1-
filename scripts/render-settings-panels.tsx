@@ -16,8 +16,8 @@ import { IntegrationsDirectory } from "@/components/app/settings/integrations-di
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { FilesLibrary, FilesLibraryChooser } from "@/components/files/files-library"
 import { ActivityPanel } from "@/components/app/settings/activity-panel"
-import { SalesChannelsCard } from "@/app/app/products/new/sales-channels-card"
-import { Totals } from "@/app/checkout/parts/order-summary"
+import { SalesChannelsCard } from "@/app/(storelib)/app/products/new/sales-channels-card"
+import { Totals } from "@/app/(storelib)/checkout/parts/order-summary"
 import * as React from "react"
 import { digitalTax } from "@/lib/tax/rules"
 

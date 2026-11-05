@@ -1,8 +1,8 @@
 /**
- * The Coupons list and the coupon editor (app/app/coupons), with a creator's
+ * The Coupons list and the coupon editor (app/(storelib)/app/coupons), with a creator's
  * worth of codes in every state, for scripts/check-coupons-page.mjs. The
  * editor is drawn through its real layouts (../new/layout, ../[id]/layout),
- * in a shell shaped like app/app/layout.tsx: the phone header and the
+ * in a shell shaped like app/(storelib)/app/layout.tsx: the phone header and the
  * desktop header ([data-shell-chrome], z 50), the rail, and a nav pill at
  * z 55, as scripts/render-page-layer.tsx draws them.
  *
@@ -15,10 +15,10 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { CouponsClient, type Coupon } from "@/app/app/coupons/coupons-client"
-import { CouponEditor } from "@/app/app/coupons/coupon-editor"
-import NewCouponLayout from "@/app/app/coupons/new/layout"
-import EditCouponLayout from "@/app/app/coupons/[id]/layout"
+import { CouponsClient, type Coupon } from "@/app/(storelib)/app/coupons/coupons-client"
+import { CouponEditor } from "@/app/(storelib)/app/coupons/coupon-editor"
+import NewCouponLayout from "@/app/(storelib)/app/coupons/new/layout"
+import EditCouponLayout from "@/app/(storelib)/app/coupons/[id]/layout"
 
 const day = 86_400_000
 const at = (d: number) => new Date(Date.now() + d * day).toISOString()

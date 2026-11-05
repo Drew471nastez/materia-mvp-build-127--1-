@@ -176,10 +176,10 @@ async function main() {
       check(`${name} charges no platform currency`, !/platformChargeCurrency\(/.test(src))
     }
     check("a checkout started in one currency is never reused for another", /pi\.currency/.test(physical))
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("the checkout page draws its amounts in the store's currency", /* Changed on purpose (checkout, currency and translation overhaul): the currency it is charged in: the store's, or the visitor's market's. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}/.test(page))
     check("and only notes a charge currency when a visitor's market shows another", /chargeNote\(/.test(page) && chargeNote("RON", "RON") === null)
-    const pay = code("app/checkout/parts/stripe-pay.tsx")
+    const pay = code("app/(storelib)/checkout/parts/stripe-pay.tsx")
     check("the card form is set up in the charge's currency", /chargeCurrency/.test(pay))
   }
 
@@ -227,17 +227,17 @@ async function main() {
     const session = code("app/api/checkout/stripe-session/route.ts")
     /* Changed on purpose (currency round AM): the currency is priceOrder's, which reads the store's (a dollar plan's own dollars, a marketplace dollar price behind MARKETPLACE_USD). */
     check("the single product checkout charges the store's currency, held to its minimum", /readStoreCurrency\(db, \(product as PricedProduct\)\.creator_id\)/.test(code("lib/checkout/pricing.ts")) && /const storeCurrency = priced\.currency/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session) && /minimumChargeMinor\(storeCurrency\)/.test(session) && !/platformChargeCurrency\(/.test(session))
-    const page = code("app/checkout/page.tsx")
+    const page = code("app/(storelib)/checkout/page.tsx")
     /* Changed on purpose (currency round AM): the product's own currency from the store's (lib/money/product-currency), dollars on the marketplace once switched over. */
     check("and its page draws the store's currency", /let priceCurrency = productPriceCurrency\(product, store\.currency\)/.test(page) && /<CheckoutCurrency currency=\{priceCurrency\}>/.test(page) && /* Changed on purpose (track X2): asked with the store's other reads, by the product's store. */ /readStoreCurrency\(checkoutAdmin\(\), storeId \?\? undefined\)/.test(page))
-    const client = code("app/checkout/checkout-client.tsx")
+    const client = code("app/(storelib)/checkout/checkout-client.tsx")
     check("its own minimum check is the store currency's", /minimumChargeMinor\(chargeCurrency\)/.test(client) && !/MIN_CHARGE_CENTS/.test(client))
     /* Changed on purpose: the product page's frame is shared with /creator/product (components/platform/product-page-frame), so both pages agree with the checkout. */
-    check("(marketing)/p and /creator/product use the one product page frame", /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/p/[slug]/layout.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/[sellername]/[productSlug]/page.tsx")))
-    for (const f of ["components/platform/product-page-frame.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {
+    check("(marketing)/p and /creator/product use the one product page frame", /ProductPageFrame\(\{ slug, children/.test(code("app/(storelib)/(marketing)/p/[slug]/layout.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx")))
+    for (const f of ["components/platform/product-page-frame.tsx", "app/(storelib)/(marketing)/u/[username]/layout.tsx", "app/(storelib)/(marketing)/l/[slug]/page.tsx"]) {
       check(`${f.split("/").slice(1, 3).join("/")} tells its prices the store's currency`, /<PriceCurrency currency=/.test(code(f)) && /cachedStoreCurrency\(/.test(code(f)))
     }
-    for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+    for (const f of ["app/(storelib)/(marketing)/explore/page.tsx", "app/(storelib)/(marketing)/explore/[category]/page.tsx"]) {
       /* Changed on purpose (currency round AM): through the marketplace pricer, which is the store's currency until MARKETPLACE_USD switches a store to dollars (lib/money/marketplace-server, built on storeCurrencies). */
       check(`${f.split("/").slice(1, 3).join("/")} gives each card its store's currency`, /marketplacePricer\(createAdminClient\(\), products\.map/.test(code(f)) && /\.\.\.priceOf\(product\)/.test(code(f)) && /storeCurrencies\(db, creatorIds\)/.test(code("lib/money/marketplace-server.ts")))
     }

@@ -109,35 +109,36 @@ console.log("\nEvery private route says noindex itself")
 
   /* Each private route with a folder has a layout at its top that says noindex, and nothing under it says index or names a canonical. */
   const NOINDEX_LAYOUT = /PRIVATE_PAGE_METADATA|AUTH_PAGE_METADATA|authPageMetadata\(|robots: \{ index: false/
-  const dirs = PRIVATE_ROUTES.map((r) => `app/${r}`).filter((d) => existsSync(join(root, d)) && statSync(join(root, d)).isDirectory())
+  /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+  const dirs = PRIVATE_ROUTES.map((r) => `app/(storelib)/${r}`).filter((d) => existsSync(join(root, d)) && statSync(join(root, d)).isDirectory())
   const withPages = dirs.filter((d) => walk(d).some((f) => /\/page\.tsx$/.test(f)))
   const noLayout = withPages.filter((d) => !existsSync(join(root, `${d}/layout.tsx`)) || !NOINDEX_LAYOUT.test(code(`${d}/layout.tsx`)))
   check(`each private route with pages (${withPages.length}) has a layout that says noindex for all of them`, withPages.length >= 20 && noLayout.length === 0, noLayout)
-  const authDirs = AUTH_FLOW_ROUTES.map((r) => `app/(auth)/${r}`).filter((d) => existsSync(join(root, d)))
-  check("the auth steps sit under the auth layout, which says noindex and no canonical", authDirs.length >= 6 && /robots: \{ index: false, follow: true \}/.test(code("app/(auth)/layout.tsx")) && /alternates: \{ canonical: null \}/.test(code("app/(auth)/layout.tsx")))
+  const authDirs = AUTH_FLOW_ROUTES.map((r) => `app/(storelib)/(auth)/${r}`).filter((d) => existsSync(join(root, d)))
+  check("the auth steps sit under the auth layout, which says noindex and no canonical", authDirs.length >= 6 && /robots: \{ index: false, follow: true \}/.test(code("app/(storelib)/(auth)/layout.tsx")) && /alternates: \{ canonical: null \}/.test(code("app/(storelib)/(auth)/layout.tsx")))
 
-  const files = [...dirs, ...authDirs, "app/(auth)/signup/verify", "app/(auth)/signup/success"].flatMap(walk).filter((f) => /\/(page|layout)\.tsx$/.test(f))
+  const files = [...dirs, ...authDirs, "app/(storelib)/(auth)/signup/verify", "app/(storelib)/(auth)/signup/success"].flatMap(walk).filter((f) => /\/(page|layout)\.tsx$/.test(f))
   const saysIndex = files.filter((f) => /index: true/.test(code(f)))
   check(`no page or layout under them says index (${files.length} files)`, files.length > 60 && saysIndex.length === 0, saysIndex)
   const namesCanonical = files.filter((f) => /\bcanonical:(?!\s*null)/.test(code(f)) || /alternates:\s*\{[^}]*\bcanonical\b(?!:\s*null)/.test(code(f)))
   check("  and none names a canonical", namesCanonical.length === 0, namesCanonical)
 
-  const checkout = code("app/checkout/page.tsx")
+  const checkout = code("app/(storelib)/checkout/page.tsx")
   check("/checkout keeps the shared link's card (og:url) but names no canonical", !/alternates/.test(checkout) && /url: canonical/.test(checkout))
-  check("  and says noindex through its layout", /export const metadata: Metadata = PRIVATE_PAGE_METADATA/.test(code("app/checkout/layout.tsx")))
+  check("  and says noindex through its layout", /export const metadata: Metadata = PRIVATE_PAGE_METADATA/.test(code("app/(storelib)/checkout/layout.tsx")))
   check("/signup/verify and /signup/success: noindex and no canonical, though /signup above them names one",
-    /alternates: \{ canonical: null \}/.test(code("app/(auth)/signup/verify/layout.tsx")) && /authPageMetadata\(/.test(code("app/(auth)/signup/success/layout.tsx")))
+    /alternates: \{ canonical: null \}/.test(code("app/(storelib)/(auth)/signup/verify/layout.tsx")) && /authPageMetadata\(/.test(code("app/(storelib)/(auth)/signup/success/layout.tsx")))
   check("robots.txt still keeps crawlers off the private routes", PRIVATE_ROUTES.every((r) => PLATFORM_DISALLOW.includes(`/${r}/`)))
 }
 
 console.log("\nAuth pages have titles of their own")
 {
   const titled: Record<string, string> = {
-    "app/(auth)/login/layout.tsx": "Log in",
-    "app/(auth)/reset-password/layout.tsx": "Choose a new password",
-    "app/(auth)/request/layout.tsx": "Reset your password",
-    "app/(auth)/welcome/layout.tsx": "Welcome",
-    "app/(auth)/verify-email/page.tsx": "Verify your email",
+    "app/(storelib)/(auth)/login/layout.tsx": "Log in",
+    "app/(storelib)/(auth)/reset-password/layout.tsx": "Choose a new password",
+    "app/(storelib)/(auth)/request/layout.tsx": "Reset your password",
+    "app/(storelib)/(auth)/welcome/layout.tsx": "Welcome",
+    "app/(storelib)/(auth)/verify-email/page.tsx": "Verify your email",
   }
   const wrong = Object.entries(titled).filter(([f, t]) => !code(f).includes(`authPageMetadata("${t}"`))
   check("login, the reset, the email check and the welcome step each name themselves", wrong.length === 0, wrong)
@@ -187,66 +188,66 @@ console.log("\nStorelib's own structured data")
   check("the home page: Organization, WebSite and WebApplication in one graph", home["@context"] === "https://schema.org" && ["Organization", "WebSite", "WebApplication"].every((t) => types.includes(t)))
   const ld = JSON.stringify(home)
   check("  no rating, no review, no FAQ, no SearchAction", !/AggregateRating|"Review"|FAQPage|SearchAction|HowTo/.test(ld))
-  const homeSrc = code("app/(marketing)/page.tsx")
+  const homeSrc = code("app/(storelib)/(marketing)/page.tsx")
   check("  printed through jsonLdScript, with the old SearchAction and empty sameAs gone", /jsonLdScript\(storelibHomeJsonLd\(\)\)/.test(homeSrc) && !/SearchAction|sameAs/.test(homeSrc))
   check("/pricing and /features print the WebApplication and their breadcrumbs",
-    /storelibApplicationJsonLd\(\), storelibBreadcrumbJsonLd\(\[\{ name: "Pricing", path: "\/pricing" \}\]\)/.test(code("app/(marketing)/pricing/page.tsx")) &&
-      /storelibGraph\(storelibApplicationJsonLd\(\)\)/.test(code("app/(marketing)/features/layout.tsx")) &&
+    /storelibApplicationJsonLd\(\), storelibBreadcrumbJsonLd\(\[\{ name: "Pricing", path: "\/pricing" \}\]\)/.test(code("app/(storelib)/(marketing)/pricing/page.tsx")) &&
+      /storelibGraph\(storelibApplicationJsonLd\(\)\)/.test(code("app/(storelib)/(marketing)/features/layout.tsx")) &&
       /"BreadcrumbList"/.test(code("lib/marketing/features-seo.ts")))
   check("/sell is private, the /sell/<use-case> landing pages are not",
     privatePlatformPath("/sell") && privatePlatformPath("/sell/") && !privatePlatformPath("/sell/digital-products") && !privatePlatformPath("/sell/online-courses"))
   const crumbs = storelibBreadcrumbJsonLd([{ name: "Explore", path: "/explore" }, { name: "Design", path: "/explore/design" }]) as Any
   check("a breadcrumb trail starts at Storelib and carries full addresses", crumbs["@type"] === "BreadcrumbList" && crumbs.itemListElement.length === 3 && crumbs.itemListElement[0].item === "https://storelib.com" && crumbs.itemListElement[2].item === "https://storelib.com/explore/design" && crumbs.itemListElement[2].position === 3)
   const crumbed: Record<string, RegExp> = {
-    "app/(marketing)/faq/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "FAQ", path: "\/faq" \}\]\)/,
-    "app/(marketing)/themes/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}\]\)/,
-    "app/(marketing)/themes/[slug]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}, \{ name: listing\.name/,
-    "app/(marketing)/explore/[category]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Explore", path: "\/explore" \}, \{ name: categoryLabel/,
+    "app/(storelib)/(marketing)/faq/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "FAQ", path: "\/faq" \}\]\)/,
+    "app/(storelib)/(marketing)/themes/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}\]\)/,
+    "app/(storelib)/(marketing)/themes/[slug]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}, \{ name: listing\.name/,
+    "app/(storelib)/(marketing)/explore/[category]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Explore", path: "\/explore" \}, \{ name: categoryLabel/,
     "components/developers/hub-page.tsx": /"@type": "BreadcrumbList"/,
     "components/legal/legal-page.tsx": /legalJsonLd\(kind\)/,
   }
   const noCrumbs = Object.entries(crumbed).filter(([f, re]) => !re.test(code(f))).map(([f]) => f)
   check("breadcrumbs on the platform pages with depth: FAQ, themes, a theme, a category, the developer pages, the legal pages", noCrumbs.length === 0, noCrumbs)
-  check("  no FAQPage on /faq", !/FAQPage/.test(code("app/(marketing)/faq/page.tsx")))
+  check("  no FAQPage on /faq", !/FAQPage/.test(code("app/(storelib)/(marketing)/faq/page.tsx")))
 }
 
 console.log("\nEach public platform page names itself")
 {
   /* The pages written with pageMetadata: their path, title and description read from the source. */
   const PAGES = [
-    "app/(marketing)/pricing/page.tsx",
-    "app/(marketing)/features/layout.tsx",
-    "app/(marketing)/faq/page.tsx",
-    "app/(marketing)/themes/page.tsx",
-    "app/(marketing)/account-deletion/page.tsx",
+    "app/(storelib)/(marketing)/pricing/page.tsx",
+    "app/(storelib)/(marketing)/features/layout.tsx",
+    "app/(storelib)/(marketing)/faq/page.tsx",
+    "app/(storelib)/(marketing)/themes/page.tsx",
+    "app/(storelib)/(marketing)/account-deletion/page.tsx",
   ]
   const facts = PAGES.map((f) => {
     /* /features reads its words from lib/marketing/features-seo (round 45, content), which its structured data shares. */
-    if (f === "app/(marketing)/features/layout.tsx") return { f, path: FEATURES_PATH, title: FEATURES_TITLE, description: FEATURES_DESCRIPTION }
+    if (f === "app/(storelib)/(marketing)/features/layout.tsx") return { f, path: FEATURES_PATH, title: FEATURES_TITLE, description: FEATURES_DESCRIPTION }
     const s = code(f)
     const block = /pageMetadata\(\{([\s\S]*?)\}\)/.exec(s)?.[1] ?? ""
     return { f, path: /path: "([^"]+)"/.exec(block)?.[1], title: /title: "([^"]+)"/.exec(block)?.[1], description: /description: "([^"]+)"/.exec(block)?.[1] }
   })
   check("each page sets its path, title and description through pageMetadata (canonical, Open Graph and the X card come with it)", facts.every((x) => x.path && x.title && x.description), facts)
-  const root = code("app/layout.tsx")
+  const root = code("app/(storelib)/layout.tsx")
   const homeTitle = /default: "([^"]+)"/.exec(root)?.[1]
   const homeDesc = /description: "([^"]+)"/.exec(root)?.[1]
   const legal = (["terms", "privacy"] as const).map((k) => legalMetadata(k) as Any)
   const dev = DEV_PAGES.map((p) => ({ title: p.title, description: p.description }))
-  const categoryLabels = Object.fromEntries([...code("app/(marketing)/explore/[category]/page.tsx").matchAll(/"([a-z-]+)": "([^"]+)",/g)].map((m) => [m[1], m[2]]))
+  const categoryLabels = Object.fromEntries([...code("app/(storelib)/(marketing)/explore/[category]/page.tsx").matchAll(/"([a-z-]+)": "([^"]+)",/g)].map((m) => [m[1], m[2]]))
   const titles = [homeTitle, "Storelib | Discover", ...facts.map((x) => x.title), ...legal.map((m) => m.title), ...dev.map((d) => d.title), ...CATEGORY_PAGES.map((c) => categoryLabels[c])]
   const dupes = titles.filter((t, i) => titles.indexOf(t) !== i)
   check(`${titles.length} titles, every one different`, titles.every(Boolean) && dupes.length === 0, { dupes, missing: titles.filter((t) => !t) })
   const descriptions = [homeDesc, ...facts.map((x) => x.description), ...legal.map((m) => m.description), ...dev.map((d) => d.description)]
   const dDupes = descriptions.filter((d, i) => descriptions.indexOf(d) !== i)
   check("  and every description", descriptions.every(Boolean) && dDupes.length === 0, dDupes)
-  const catPage = code("app/(marketing)/explore/[category]/page.tsx")
+  const catPage = code("app/(storelib)/(marketing)/explore/[category]/page.tsx")
   check("a category page: its own canonical, og:url and X card", /canonical: `https:\/\/storelib\.com\/explore\/\$\{category\}`/.test(catPage) && /url: `https:\/\/storelib\.com\/explore\/\$\{category\}`/.test(catPage) && /card: "summary_large_image"/.test(catPage))
   const hub = code("components/developers/hub-page.tsx")
   check("a developer page: its canonical, og:url, and now Storelib's share picture", /alternates: \{ canonical: path \}/.test(hub) && /images: \[\{ url: storelibAssetUrl\(STORELIB_OG_IMAGE\)/.test(hub) && /card: "summary_large_image"/.test(hub))
   check("legal pages: canonical and og:url at their own address", legal.every((m) => m.alternates.canonical === m.openGraph.url && /^https:\/\/storelib\.com\/(terms|privacy)$/.test(m.alternates.canonical)))
-  check("the home page's canonical is on the page", /alternates: \{ canonical: "https:\/\/storelib\.com" \}/.test(code("app/(marketing)/page.tsx")))
-  const del = code("app/(marketing)/account-deletion/page.tsx")
+  check("the home page's canonical is on the page", /alternates: \{ canonical: "https:\/\/storelib\.com" \}/.test(code("app/(storelib)/(marketing)/page.tsx")))
+  const del = code("app/(storelib)/(marketing)/account-deletion/page.tsx")
   check("the account deletion page: its share card, still noindex, so no canonical to contradict it", /pageMetadata\(\{ path: "\/account-deletion"/.test(del) && /alternates: \{ canonical: null \}/.test(del) && /robots: \{ index: false, follow: false \}/.test(del))
 }
 
@@ -262,11 +263,11 @@ console.log("\nExplore: views of a page, and pages that are not")
   check("a search is noindex, canonical at the clean page", !exploreIndexing({ q: "fonts", communitiesOn: true }).index && exploreIndexing({ q: "fonts", communitiesOn: true }).canonical === EXPLORE_URL)
   check("the plain page and the communities view stay indexed", exploreIndexing({ communitiesOn: true }).index && exploreIndexing({ type: "communities", communitiesOn: true }).index && exploreIndexing({ type: "communities", communitiesOn: true }).canonical === EXPLORE_COMMUNITIES_URL)
   check("?type=products is the plain page", exploreIndexing({ type: "products", communitiesOn: true }).canonical === EXPLORE_URL)
-  const page = code("app/(marketing)/explore/page.tsx")
+  const page = code("app/(storelib)/(marketing)/explore/page.tsx")
   check("the page reads ?sort= and ?srt=, and the default order is no order", /\[params\?\.sort, params\?\.srt\]/.test(page) && /v !== "recommended"/.test(page) && /exploreIndexing\(\{ q, type, sort,/.test(page))
-  const layout = code("app/(marketing)/explore/[category]/layout.tsx")
-  check("an unknown category is a 404 decided in the layout, before the loading screen sends a 200", /CATEGORY_PAGES/.test(layout) && /notFound\(\)/.test(layout) && existsSync(join(root, "app/(marketing)/explore/[category]/loading.tsx")))
-  check("  and its metadata says noindex too", /title: "Category Not Found",\s*robots: \{ index: false, follow: true \}/.test(code("app/(marketing)/explore/[category]/page.tsx")))
+  const layout = code("app/(storelib)/(marketing)/explore/[category]/layout.tsx")
+  check("an unknown category is a 404 decided in the layout, before the loading screen sends a 200", /CATEGORY_PAGES/.test(layout) && /notFound\(\)/.test(layout) && existsSync(join(root, "app/(storelib)/(marketing)/explore/[category]/loading.tsx")))
+  check("  and its metadata says noindex too", /title: "Category Not Found",\s*robots: \{ index: false, follow: true \}/.test(code("app/(storelib)/(marketing)/explore/[category]/page.tsx")))
 }
 
 console.log("\nThe Help Center's metadata")
@@ -277,7 +278,7 @@ console.log("\nThe Help Center's metadata")
   check(`${visible.length} articles, every title different`, dupes.length === 0, dupes)
   const catTitles = HELP_CATEGORIES.map((c) => c.title)
   check("every topic's title different", new Set(catTitles).size === catTitles.length)
-  const article = code("app/help/[category]/[article]/page.tsx")
+  const article = code("app/(storelib)/help/[category]/[article]/page.tsx")
   check("an article's canonical and og:url are at help.storelib.com", /alternates: \{ canonical: publicHelpUrl\(path\.replace\(\/\^\\\/help\/, ""\)\) \}/.test(article) && /url: publicHelpUrl\(/.test(article))
   const a = visible[0]
   const ld = helpArticleJsonLd(a, helpCategory(a.category)!) as Any

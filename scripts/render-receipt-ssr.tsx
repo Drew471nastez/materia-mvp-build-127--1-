@@ -6,7 +6,7 @@
  */
 import React from "react"
 import { renderToString } from "react-dom/server"
-import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
+import { ReceiptView } from "@/app/(storelib)/receipt/[token]/receipt-view"
 import { receiptCases } from "./receipt-cases"
 
 export function renderReceipt(which: string, origin: string): string {

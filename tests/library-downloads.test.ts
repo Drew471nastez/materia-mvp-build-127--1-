@@ -186,11 +186,11 @@ function wishlistCases() {
     seconds"). It is inside a Suspense boundary now, as the account
     overview is: the tab commits as soon as it knows who is asking.
   */
-  const wishPage = read("app/account/library/wishlist/page.tsx")
+  const wishPage = read("app/(storelib)/account/library/wishlist/page.tsx")
   check("the library's tab reads the list on the server", /loadWishlist\(userId\)/.test(wishPage) && /initialItems=\{await loadWishlist\(userId\)\}/.test(wishPage))
   check("  and streams it, so the tab is on screen before the cards are", /<Suspense fallback=/.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /LibraryRouteSkeleton path="\/account\/library\/wishlist"/.test(wishPage))
   /* A second full read of the list only for the one failure another query can fix. */
-  const wishLoad = read("app/account/library/wishlist/load-wishlist.ts")
+  const wishLoad = read("app/(storelib)/account/library/wishlist/load-wishlist.ts")
   check("  and a slow first read is not paid for twice", /if \(error && missingPwywColumn\(error\)\)/.test(wishLoad) && /error\.code === "42703"/.test(wishLoad))
   check("and never imports server code into the browser", !/load-wishlist|next\/headers|server-only/.test(content) && !/next\/headers|server-only/.test(read("components/wishlist/wishlist-entry.ts")))
 }
@@ -412,8 +412,8 @@ function screenCases() {
   /* Round 17, changed on purpose: the space pills' quiet switch (lib/ui/pill-switch.ts), the fill's opacity only, nothing scaling. */
   check("its fill fades in place on the space pills' 140ms, and nothing scales", /TAB_FADE_MS = PILL_FADE_MS/.test(tabs) && /PILL_FILL/.test(tabs) && !/scale-\[0\.9|active:scale/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && (/onPointerEnter=\{\(\) => warm/.test(tabs) || (/onPointerEnter=\{onWarm\}/.test(tabs) && /onWarm=\{\(\) => warm\(tab\.href\)\}/.test(tabs))))
-  /* The library moved into the profile (lib/library/paths.ts): its layout and loading screens are under app/account/library now. */
-  const layout = read("app/account/library/layout.tsx")
+  /* The library moved into the profile (lib/library/paths.ts): its layout and loading screens are under app/(storelib)/account/library now. */
+  const layout = read("app/(storelib)/account/library/layout.tsx")
   check("the pills and the screen under them are one stage", /<LibraryPullRefresh>[\s\S]*<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>[\s\S]*<\/LibraryPullRefresh>/.test(layout))
   check("pull at the top refreshes the library like the community feed", /RouterPullToRefresh scope=\{LIBRARY_REFRESH_SCOPE\}/.test(read("components/library/library-pull-refresh.tsx")))
   const dl = read("lib/downloads/download-file.ts")
@@ -426,13 +426,13 @@ function screenCases() {
     /getSnapshotBeforeUpdate/.test(panel) && /liveFade\.current = startNow\(live\.animate/.test(panel))
   check("the live screen stays laid out while hidden, so Next never scrolls the page up", /el\.style\.visibility = "hidden"/.test(panel) && !/style\.display = "none"\s*\n\s*}\s*\n\s*function show/.test(panel))
   check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
-  check("library tab loading draws the tab's shape, still, for the stage and the route", ["app/account/library/loading.tsx", "app/account/library/courses/loading.tsx", "app/account/library/memberships/loading.tsx", "app/account/library/wishlist/loading.tsx", "app/account/library/communities/loading.tsx"].every((f) => /LibraryRouteSkeleton/.test(read(f)) && /data-library-skeleton/.test(read("components/library/library-route-skeleton.tsx"))))
+  check("library tab loading draws the tab's shape, still, for the stage and the route", ["app/(storelib)/account/library/loading.tsx", "app/(storelib)/account/library/courses/loading.tsx", "app/(storelib)/account/library/memberships/loading.tsx", "app/(storelib)/account/library/wishlist/loading.tsx", "app/(storelib)/account/library/communities/loading.tsx"].every((f) => /LibraryRouteSkeleton/.test(read(f)) && /data-library-skeleton/.test(read("components/library/library-route-skeleton.tsx"))))
   check("library route skeleton is not deferred; the panel already cross-fades", !/skeleton-deferred/.test(read("components/library/library-route-skeleton.tsx")))
   /* Round 8, changed on purpose: the entrance played after the commit dipped the new screen to 0.2 the frame after it landed (a flash). Round 17, changed again: the cross fade at the commit showed both screens' words for ~130ms; the screen is in place on its frame and lands from 0.6 (lib/ui/pill-switch.ts). */
   check("a pill's screen lands in place at its commit, no copy over it and no second entrance on top", /landContent\(liveRef\.current\)/.test(panel) && !/leaveCopy\(live, CROSS_MS/.test(panel) && !/panelEnter/.test(panel) && !/\.library-panel \{/.test(read("app/globals.css")) && !/library-panel(?!\.tsx)/.test(read("components/library/library-content-shell.tsx")))
   check("pill links do not scroll the page to the top on a tab change", /scroll=\{false\}/.test(read("components/library/library-tabs.tsx")))
   check("tab cross-fade timing unchanged for the buyer probe", /OUT_MS = 150/.test(panel))
-  check("explore back from a product hides until scroll is restored", /explore-scroll-restoring/.test(read("app/globals.css")) && /primeExploreScrollRestore/.test(read("lib/explore/use-explore-scroll.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("lib/explore/explore-scroll-boot.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("app/layout.tsx")))
+  check("explore back from a product hides until scroll is restored", /explore-scroll-restoring/.test(read("app/globals.css")) && /primeExploreScrollRestore/.test(read("lib/explore/use-explore-scroll.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("lib/explore/explore-scroll-boot.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("app/(storelib)/layout.tsx")))
   const banner = read("components/library/open-in-app.tsx")
   /*
     THE BANNER IS UNDER THE LIBRARY, NOT OVER IT. It used to be the first

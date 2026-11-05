@@ -3,8 +3,8 @@
  *  ROUND 12: THE PICTURES A SHARED PROFILE, CREATOR PAGE AND POST SHOW,
  *  DRAWN BY THE REAL ROUTES AND LOOKED AT
  * ===========================================================================
- * The real routes (app/(marketing)/member/[username]/share.png and
- * app/(marketing)/community/[slug]/(member)/post/[postId]/share.png), the
+ * The real routes (app/(storelib)/(marketing)/member/[username]/share.png and
+ * app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png), the
  * real picture cutting (lib/communities/server/share-image, sharp) and the
  * real art, drawn by next/og exactly as the server draws them. Only the
  * database and the network are answered here.
@@ -92,7 +92,7 @@ export const createAdminClient = () => ({ from: table })
   )
   writeFileSync(
     join(dir, "entry.ts"),
-    `export { GET as PROFILE } from "../app/(marketing)/member/[username]/share.png/route"\nexport { GET as POST } from "../app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route"\nexport { postFacts } from "../app/(marketing)/community/[slug]/(member)/post/[postId]/post-facts"\n`,
+    `export { GET as PROFILE } from "../app/(storelib)/(marketing)/member/[username]/share.png/route"\nexport { GET as POST } from "../app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route"\nexport { postFacts } from "../app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-facts"\n`,
   )
   const stubs = join(dir, "stubs.js")
   await build({

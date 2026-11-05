@@ -42,7 +42,7 @@ const OUT = join(root, "app/theme-dark.css")
 const SKIP = new Set([
   "components/app", "components/admin", "components/website-builder", "components/store-builder", "components/onepage",
   "components/dashboard", "components/developers", "components/sites", "components/domains", "components/analytics",
-  "app/app", "app/admin", "app/website-builder", "app/store-builder", "app/onepage-preview", "app/api", "app/(sites)",
+  "app/(storelib)/app", "app/(storelib)/admin", "app/(storelib)/website-builder", "app/(storelib)/store-builder", "app/(storelib)/onepage-preview", "app/api", "app/(sites)",
   "lib/website-builder", "lib/store-builder", "lib/sites", "lib/onepage",
 ])
 /*
@@ -659,7 +659,7 @@ ${SCOPE} :is([role="menu"], [role="listbox"]:not([aria-orientation="horizontal"]
 }
 /*
   THE GREY FILL (round 38, the owner: "that light gray gradient, not the purple one"): a share bar behind a list row
-  in Analytics (app/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
+  in Analytics (app/(storelib)/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
   lit top edge, never violet and never a white wash.
 */
 ${SCOPE} [data-fill="grey"]${OWN} {

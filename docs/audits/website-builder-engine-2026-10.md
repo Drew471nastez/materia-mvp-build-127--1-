@@ -17,7 +17,7 @@ audit started by mapping them, so that nothing here rebuilds what works.
 | DOM morphing, keep component state | `lib/website-builder/morph-html.ts` (native), `morph` in `lib/storelib-theme/compat/canvas-bridge.ts` (imported), `stable-html.ts` for React props |
 | `shopify:section:load/unload/select` | Sent by the canvas bridge around swaps and selections |
 | Instant slider preview | `lib/website-builder/live-settings.ts`: a gesture is drawn live by its section and committed once on release |
-| CSS variable fast path | `patchCanvasThemeVars` writes theme variables straight onto the canvas root (`app/website-builder/editor/[installId]/page.tsx:10021`) |
+| CSS variable fast path | `patchCanvasThemeVars` writes theme variables straight onto the canvas root (`app/(storelib)/website-builder/editor/[installId]/page.tsx:10021`) |
 | Per-frame coalescing | `components/website-builder/editor/use-frame-commit.ts` (cost-adaptive), rAF section sync in `compat-canvas.tsx` |
 | Edge caching of storefront pages | ISR (`app/(site)/w/[username]/page.tsx:39`, `revalidate = 60` with an empty `generateStaticParams`), `unstable_cache` with creator tags, immutable theme assets (`app/api/site-theme/assets/.../route.ts:79`) |
 | Instant page changes | Speculation rules and cross-document view transitions (`app/(site)/layout.tsx:53`, `lib/website-builder/live-navigation.ts`) |
@@ -40,8 +40,8 @@ and releasing it did the same. Bisected by deleting stylesheet rules in the
 live page: the cause was seven rules, none of them on the builder's screen.
 
 - A pointer or focus state inside `:has()`: `has-[a:active]` (coupons rows,
-  `app/app/coupons/coupons-client.tsx:313`), `has-[a[data-row-link]:active]`
-  (`app/app/products/products-client.tsx:1513`),
+  `app/(storelib)/app/coupons/coupons-client.tsx:313`), `has-[a[data-row-link]:active]`
+  (`app/(storelib)/app/products/products-client.tsx:1513`),
   `has-[button[data-row-open]:active]` (collections), `has-[.rich-text-content:focus]`
   (`components/app/rich-text-editor.tsx:1014`) and `[&:has(a:hover)]`
   (the header's fade siblings, `components/website-builder/sections/renderers/HeaderSection.tsx:2877`).

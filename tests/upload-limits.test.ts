@@ -43,7 +43,7 @@ function main() {
   check("and again on the size that actually arrived, which is removed if it is over",
     /if \(realSize > MAX_UPLOAD_BYTES\.product_file\) \{\s*return discard\(userMessage\("too_large", "product_file"\), 413\)/.test(complete)
       && complete.indexOf("realSize > MAX_UPLOAD_BYTES.product_file") < complete.indexOf("checkUploadAllowed(admin, creator.id, extra)"))
-  check("the editor says 10 GB and checks it with the central rule", /Up to 10 GB each/.test(read("app/app/products/new/file-uploads.tsx")) && /precheckUpload\(\{ fileName: file\.name, size: file\.size, declaredMime: file\.type, context: "product_file" \}\)/.test(read("app/app/products/new/product-editor.tsx")))
+  check("the editor says 10 GB and checks it with the central rule", /Up to 10 GB each/.test(read("app/(storelib)/app/products/new/file-uploads.tsx")) && /precheckUpload\(\{ fileName: file\.name, size: file\.size, declaredMime: file\.type, context: "product_file" \}\)/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
 
   console.log("\nLooked at before it is sold")
   const eicar = new TextEncoder().encode("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\r\n")

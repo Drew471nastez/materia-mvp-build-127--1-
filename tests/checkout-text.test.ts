@@ -103,7 +103,7 @@ async function main() {
   check("no text a store's words never reach", !editableBySource("Add a tip") && !editableBySource("Secure checkout"))
   check("the thank you page's heading, with and without the name", editableById("messages.thanks_order_name")?.source === "Thank you, {name}" && editableById("messages.thanks_order")?.source === "Thank you for your order")
   {
-    const site = ["app/checkout/site/site-checkout.tsx", "app/checkout/site/thanks/[token]/thanks-view.tsx", "app/checkout/physical/order/[token]/order-status-view.tsx", ...["ui", "order-summary", "shop-bar", "stripe-pay", "success", "variant-edit", "phone-input", "business-fields"].map((f) => `app/checkout/parts/${f}.tsx`)].map(read).join("\n")
+    const site = ["app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/site/thanks/[token]/thanks-view.tsx", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", ...["ui", "order-summary", "shop-bar", "stripe-pay", "success", "variant-edit", "phone-input", "business-fields"].map((f) => `app/(storelib)/checkout/parts/${f}.tsx`)].map(read).join("\n")
     const unseen = EDITABLE_TEXTS.filter((e) => !site.includes(JSON.stringify(e.source)))
     check("every editable text is drawn by the website's checkout, its thank you page or its order page", unseen.length === 0, unseen.map((e) => e.source))
   }
@@ -148,10 +148,10 @@ async function main() {
   check("converted once: a $35 line is about 161 lei, never 4.77", conv.lines[0].unitCents > 15000 && conv.lines[0].unitCents < 17000, conv.lines[0])
   const cRows = summaryRows({ totals: conv.totals, offers: [], coupon: { code: "TEN" } })
   check("converted lines, shipping and discount still add up to the converted total", rowsSum(cRows) === conv.totals.totalCents && conv.totals.itemsSubtotalCents === conv.lines.reduce((n, l) => n + l.unitCents * l.quantity, 0), { cRows, totals: conv.totals })
-  const site = read("app/checkout/site/site-checkout.tsx")
+  const site = read("app/(storelib)/checkout/site/site-checkout.tsx")
   check("the website checkout draws its offer and discount rows from summaryRows", /summaryRows\(quote\)/.test(site) && /rows\?\.offers \?\? \[\]\)\.map/.test(site) && /const discountCents = rows\?\.discount \?\? 0/.test(site))
   check("its shipping row is drawn whenever the order ships", /data-shipping-line=""/.test(site) && /const ships = !!quote\?\.requiresShipping/.test(site))
-  check("the physical checkout too", /summaryRows\(quote\)\.offers\.map/.test(read("app/checkout/physical/physical-checkout.tsx")))
+  check("the physical checkout too", /summaryRows\(quote\)\.offers\.map/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")))
   check("the server stays the source of the amounts: the total shown is the quote's", /const total = t\?\.totalCents \?\? 0/.test(site))
 
   console.log("\nMachine translation only with context, only as a last resort")
@@ -203,7 +203,7 @@ async function main() {
   const panel = read("components/app/settings/checkout-panel.tsx")
   const editor = read("components/app/settings/checkout-text-editor.tsx")
   check("Settings › Checkout has Checkout text", /<CheckoutTextCard \/>/.test(panel) && /Edit checkout text/.test(panel))
-  /* Changed on purpose (round chk-1021): the preview is the website's real checkout in a frame (app/checkout/preview), not a drawing of one. */
+  /* Changed on purpose (round chk-1021): the preview is the website's real checkout in a frame (app/(storelib)/checkout/preview), not a drawing of one. */
   check("the editor: language selector, defaults, fields, the real checkout as preview, locked list, default changed", /data-checkout-text-language/.test(editor) && /placeholder=\{item\.default\}/.test(editor) && /<PreviewCanvas/.test(editor) && /CHECKOUT_PREVIEW_PATH/.test(editor) && !/function CheckoutPreview\(/.test(editor) && /data-text-locked/.test(editor) && /Default changed since you edited\./.test(editor))
   /* Changed on purpose (round chk-1021): side by side from 1024px; on a phone the checkout is the screen and the fields come up in a sheet that leaves it undimmed. */
   check("fields beside the checkout from 1024px, a sheet over it on a phone", /useMedia\("\(min-width: 1024px\)"\)/.test(editor) && /data-checkout-text-layout="side"/.test(editor) && /data-checkout-text-layout="phone"/.test(editor) && (editor.match(/scrim="clear"/g) ?? []).length === 2 && /aboveKeyboard/.test(editor))
@@ -225,7 +225,7 @@ async function main() {
     check("a delivery word opens the shipped checkout; the order page only for an order that ships", viewFor("delivery.method", { mode: "digital", view: "checkout" }, true).mode === "shipped" && viewFor("messages.thanks_name", { mode: "digital", view: "checkout" }, false).view === "thanks")
     check("the thank you heading opens the thank you page, a field's message is shown by pressing Pay", viewFor("messages.thanks_order_name", { mode: "shipped", view: "checkout" }, true).view === "thanks" && placeOf("messages.email_invalid").action === "email" && placeOf("messages.city_missing").mode === "shipped")
     check("the frame is framed by this origin only, and kept from page counters", CHECKOUT_PREVIEW_PATH.includes("embedded=1") && CHECKOUT_PREVIEW_PATH.includes("preview=1") && /url\.pathname === "\/checkout\/preview"/.test(read("proxy.ts")))
-    const frame = read("app/checkout/preview/preview-document.tsx")
+    const frame = read("app/(storelib)/checkout/preview/preview-document.tsx")
     check("the frame draws the real components: the website's checkout, its thank you page, the order page", /<SiteCheckout/.test(frame) && /<ThanksView/.test(frame) && /<OrderStatusView/.test(frame) && /<CheckoutWords lang=\{data\.lang\} words=\{words\}>/.test(frame) && /<CheckoutCurrency currency=\{data\.currency\}>/.test(frame))
     check("  nothing leaves it: requests to this origin answered in the frame, beacons and storage kept in it", /window\.fetch = /.test(frame) && /url\.origin !== window\.location\.origin\) return realFetch/.test(frame) && /navigator\.sendBeacon = \(\) => true/.test(frame) && /"localStorage", "sessionStorage"/.test(frame))
     check("  only the editor on this origin talks to it", /e\.origin !== window\.location\.origin \|\| e\.source !== parent/.test(frame) && /sandbox="allow-scripts allow-same-origin"/.test(editor))

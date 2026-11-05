@@ -218,7 +218,7 @@ async function main() {
       !/state === "/.test(requestScope),
   )
 
-  for (const layout of ["app/app/layout.tsx", "app/account/library/layout.tsx"]) {
+  for (const layout of ["app/(storelib)/app/layout.tsx", "app/(storelib)/account/library/layout.tsx"]) {
     const code = strip(readFileSync(join(root, layout), "utf8"))
     check(
       `${layout} classifies instead of guessing`,

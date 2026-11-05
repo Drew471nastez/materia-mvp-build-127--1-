@@ -207,10 +207,10 @@ section("The ingest route keeps the site, the numbers, the device and the day")
 section("The page above the cover counts nothing")
 {
   /* The bar above the cover was the site's numbers; the owner asked for the
-     settings instead (app/app/website-builder/settings-strip.tsx), so the
+     settings instead (app/(storelib)/app/website-builder/settings-strip.tsx), so the
      page no longer asks for them. The reading below is still what the
      performance route uses. */
-  const page = code("app/app/website-builder/page.tsx")
+  const page = code("app/(storelib)/app/website-builder/page.tsx")
   check("the Website page does not count visits or speed on every load", !/websitePerformanceFor/.test(page) && !/performance=/.test(page))
   const read_ = code("lib/website-builder/site-performance-read.ts")
   check("speed is read with the signed in user's client, so the policy decides", /user\.rpc\("site_vitals_summary"/.test(read_))
@@ -236,7 +236,7 @@ section("The More menu is an action list in groups")
   check("150ms open and close, on transform and opacity only",
     /\.action-list\[data-state="open"\] \{ animation: action-list-in 150ms/.test(css) && /\.action-list\[data-state="closed"\] \{ animation: action-list-out 150ms/.test(css) &&
       !/@keyframes action-list-(in|out) \{[^}]*\b(height|width|top|left|margin)\b/.test(css))
-  const client = code("app/app/website-builder/website-builder-client.tsx")
+  const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const menu = client.slice(client.indexOf("const menuFor ="), client.indexOf("// Four themes"))
   check("destructive actions are the last group", /variant: "destructive", separatorBefore: true \}\)\s*\}\s*return items/.test(menu))
 }

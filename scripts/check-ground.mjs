@@ -60,7 +60,7 @@ if (!background.includes("background-image")) fail("The rule declares no backgro
  * One reading, from the class the page actually carries, used both to paint
  * the surface and to measure against it. The two cannot disagree again.
  */
-const GROUND = readFileSync("app/(marketing)/explore/page.tsx", "utf8")
+const GROUND = readFileSync("app/(storelib)/(marketing)/explore/page.tsx", "utf8")
   .match(/explore-ground[^"]*bg-\[(#[0-9a-fA-F]{6})\]/)?.[1]
 if (!GROUND) fail("Could not find the explore page's own background colour.")
 const RGB = [1, 3, 5].map((i) => parseInt(GROUND.slice(i, i + 2), 16))

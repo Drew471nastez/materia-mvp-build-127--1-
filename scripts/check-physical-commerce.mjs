@@ -501,7 +501,7 @@ try {
     {
       const { page, errors } = await open("collections")
       console.log(`\nCollections, ${label}px`)
-      /* A collection is a page of its own now (app/app/products/collections/[id]): it is drawn open. */
+      /* A collection is a page of its own now (app/(storelib)/app/products/collections/[id]): it is drawn open. */
       await wait(500)
       const t = await page.evaluate(() => document.querySelector("[data-collection-editor]")?.innerText ?? "")
       expect(/Match by rules/.test(t) && /Products must match/.test(t), "a smart collection opens with its rules")

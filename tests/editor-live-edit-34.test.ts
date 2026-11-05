@@ -23,7 +23,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const live = read("lib/website-builder/live-settings.ts")
 const onScreen = read("lib/website-builder/on-screen-sections.ts")
 const themePage = read("components/website-builder/theme/ThemePage.tsx")

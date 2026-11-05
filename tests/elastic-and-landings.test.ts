@@ -149,11 +149,11 @@ check("Explore and its categories", ELASTIC_SURFACES.includes(".explore-ground")
 check("as one selector, so it is one query per move", ELASTIC_SELECTOR.split(", ").length === ELASTIC_SURFACES.length)
 check(
   "and those markers really are on those pages",
-  /data-page="account"/.test(readCode("app/account/layout.tsx"))
-    && /data-page="library"/.test(readCode("app/account/library/layout.tsx"))
+  /data-page="account"/.test(readCode("app/(storelib)/account/layout.tsx"))
+    && /data-page="library"/.test(readCode("app/(storelib)/account/library/layout.tsx"))
     && /data-member-profile/.test(readCode("components/profile/member-profile-page.tsx"))
     && /data-community-public/.test(readCode("components/community/public/public-frame.tsx"))
-    && /explore-ground/.test(readCode("app/(marketing)/explore/page.tsx")),
+    && /explore-ground/.test(readCode("app/(storelib)/(marketing)/explore/page.tsx")),
 )
 check(
   "nothing in /app is on the list: the dashboard keeps the refusal its scrollers were given",
@@ -326,7 +326,7 @@ check(
 /* ════════════════════════════════════════════════════════════════════════ */
 console.log("\nBoth are mounted once, beside the guard whose job they divide\n")
 
-const rootLayout = readCode("app/layout.tsx")
+const rootLayout = readCode("app/(storelib)/layout.tsx")
 check("the elastic ground and the landing are mounted in the root layout", /<ElasticOverscroll \/>/.test(rootLayout) && /<NavLanding \/>/.test(rootLayout))
 check("next to the bounce guard, which is the other half of the same subject", rootLayout.indexOf("<CapacitorBounceGuard />") < rootLayout.indexOf("<ElasticOverscroll />"))
 check(

@@ -28,7 +28,7 @@ import * as React from "react"
 import { renderToString } from "react-dom/server"
 import { siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { firstQuoteBody, sameAsFirstQuote } from "@/lib/physical/first-quote"
-import { STRIPE_JS_URL, stripeEarly } from "@/app/checkout/parts/stripe-early"
+import { STRIPE_JS_URL, stripeEarly } from "@/app/(storelib)/checkout/parts/stripe-early"
 
 let passed = 0
 let failed = 0
@@ -99,7 +99,7 @@ async function main() {
 
   section("The product checkout: the store's reads beside the creator's, one read each for the tab")
   {
-    const page = read("app/checkout/page.tsx")
+    const page = read("app/(storelib)/checkout/page.tsx")
     const storeAt = page.indexOf("const storeReads = early(")
     const creatorAt = page.indexOf("readCreatorRow(product.creator_id),")
     check("the store's reads start before the creator and options are awaited", storeAt > 0 && creatorAt > storeAt)
@@ -119,8 +119,8 @@ async function main() {
 
   section("The website checkout: its host once, the shop's reads before the cart")
   {
-    const page = read("app/checkout/site/page.tsx")
-    const layout = read("app/checkout/site/layout.tsx")
+    const page = read("app/(storelib)/checkout/site/page.tsx")
+    const layout = read("app/(storelib)/checkout/site/layout.tsx")
     const server = read("lib/checkout/site-checkout-server.ts")
     check("the host is read once per request (React cache)", /export const siteOfThisHost = cache\(/.test(server))
     check("the layout and the page both use it", /siteOfThisHost\(/.test(layout) && /siteOfThisHost\(h\.get\("host"\)\)/.test(page) && !/siteOfHost\(/.test(page))
@@ -149,22 +149,22 @@ async function main() {
     }
     const phys = renderToString(React.createElement(Physical))
     check("the physical checkout connects but does not fetch the file", /rel="preconnect" href="https:\/\/js\.stripe\.com"/.test(phys) && !phys.includes(STRIPE_JS_URL), phys.slice(0, 400))
-    const product = read("app/checkout/page.tsx")
+    const product = read("app/(storelib)/checkout/page.tsx")
     const main = product.slice(product.indexOf("export default async function CheckoutPage"))
     check("the product checkout asks before its Suspense, not after its reads", main.indexOf("stripeEarly({ script: true })") > 0 && main.indexOf("stripeEarly({ script: true })") < main.indexOf("<Suspense"))
-    check("the website checkout asks in its first frame and its page", /stripeEarly\(\{ script: true \}\)/.test(read("app/checkout/site/loading.tsx")) && /stripeEarly\(\{ script: true \}\)/.test(read("app/checkout/site/page.tsx")))
-    check("the physical checkout opens the connections only", /stripeEarly\(\{ script: false \}\)/.test(read("app/checkout/physical/page.tsx")))
-    const client = read("app/checkout/checkout-client.tsx")
+    check("the website checkout asks in its first frame and its page", /stripeEarly\(\{ script: true \}\)/.test(read("app/(storelib)/checkout/site/loading.tsx")) && /stripeEarly\(\{ script: true \}\)/.test(read("app/(storelib)/checkout/site/page.tsx")))
+    check("the physical checkout opens the connections only", /stripeEarly\(\{ script: false \}\)/.test(read("app/(storelib)/checkout/physical/page.tsx")))
+    const client = read("app/(storelib)/checkout/checkout-client.tsx")
     check("the checkout's ways out are read ahead only once the card form is ready", /const cancelWait = afterPaymentReady\(\(\) => \{[\s\S]{0,200}requestIdleCallback\(warm, \{ timeout: 2000 \}\)/.test(client) && /\}, WARM_WITHOUT_FORM_MS\)/.test(client))
-    check("the card form says so when Stripe calls it ready", /setPaymentReady\(true\)\n\s*setFailed\(false\)\n[\s\S]{0,120}notePaymentReady\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
-    const loader = read("app/checkout/parts/stripe-loader.ts")
-    check("Stripe.js still runs only through loadStripe from the pure entry", /import\("@stripe\/stripe-js\/pure"\)/.test(loader) && !/<script/.test(read("app/checkout/parts/stripe-early.ts")))
+    check("the card form says so when Stripe calls it ready", /setPaymentReady\(true\)\n\s*setFailed\(false\)\n[\s\S]{0,120}notePaymentReady\(\)/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")))
+    const loader = read("app/(storelib)/checkout/parts/stripe-loader.ts")
+    check("Stripe.js still runs only through loadStripe from the pure entry", /import\("@stripe\/stripe-js\/pure"\)/.test(loader) && !/<script/.test(read("app/(storelib)/checkout/parts/stripe-early.ts")))
   }
 
   section("The physical cart, priced before the first frame")
   {
-    const page = read("app/checkout/physical/page.tsx")
-    const client = read("app/checkout/physical/physical-checkout.tsx")
+    const page = read("app/(storelib)/checkout/physical/page.tsx")
+    const client = read("app/(storelib)/checkout/physical/physical-checkout.tsx")
     check("the page asks the quote route itself (its checks and limits)", /import\("@\/app\/api\/physical\/checkout\/quote\/route"\)/.test(page) && /await POST\(/.test(page))
     check("only for a cart in the link, started before the shop's reads", page.indexOf("const quoteRead = ") > 0 && page.indexOf("const quoteRead = ") < page.indexOf("checkoutBrand(db, shop)"))
     check("the buyer's address goes with it for the rate limit", /"x-forwarded-for", "x-real-ip"/.test(page))
@@ -198,7 +198,7 @@ async function main() {
     const target = new EventTarget()
     const g = globalThis as unknown as { window?: unknown }
     g.window = Object.assign(target, { setTimeout, clearTimeout })
-    const { afterPaymentReady, notePaymentReady } = await import("@/app/checkout/parts/stripe-loader")
+    const { afterPaymentReady, notePaymentReady } = await import("@/app/(storelib)/checkout/parts/stripe-loader")
     let early = 0
     let late = 0
     let cancelled = 0
@@ -218,7 +218,7 @@ async function main() {
 
   section("The card form's place is held, and it says when it is ready")
   {
-    const pay = read("app/checkout/parts/stripe-pay.tsx")
+    const pay = read("app/(storelib)/checkout/parts/stripe-pay.tsx")
     check("before the type size is known, the form's whole height is held", /if \(fontSize === null\) return <div aria-hidden className="min-h-\[420px\]" \/>/.test(pay))
     check("the wallets' row is held at a button's height while asked", /min-h-\[44px\] rounded-\[8px\]/.test(pay))
     check("the card form's place is held at 200px", /className=\{cn\("min-h-\[200px\]", cashOn && "hidden"\)\}/.test(pay))

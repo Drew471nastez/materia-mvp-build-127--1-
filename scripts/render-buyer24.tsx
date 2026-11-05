@@ -16,8 +16,8 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
-import { CaseView } from "@/app/order-help/[id]/case-view"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
+import { CaseView } from "@/app/(storelib)/order-help/[id]/case-view"
 import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { BuyerNoteCard, PhysicalFulfillment, usePhysicalOrder } from "@/components/physical/order-panel"
 import { ProductSection } from "@/components/website-builder/sections/renderers/ProductSection"

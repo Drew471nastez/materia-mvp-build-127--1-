@@ -59,7 +59,7 @@ console.log("\nEvery way in goes by the router")
 
 console.log("\nThe editor's page always ends somewhere")
 {
-  const page = code("app/app/onepage/page.tsx")
+  const page = code("app/(storelib)/app/onepage/page.tsx")
   check("a session the server could not confirm is recovered in the browser, not drawn as nothing", /if \(!user\) return <SessionRecovery \/>/.test(page) && !/if \(!user\) return null/.test(page))
   /* Bounded and asked at once since tests/onepage-arrival.test.ts: still maybeSingle, still twice before giving up. */
   check("the creator is read with maybeSingle, twice before giving up", /readTwice\(\(signal\) =>\s*createAdminClient\(\)\.from\("creators"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\)/.test(page))
@@ -102,11 +102,11 @@ console.log("\nThe preview is the live page")
   check("at a phone's width, 390, shown at 287 in the handset", /export const PREVIEW_PHONE_WIDTH = 390/.test(live) && /const SCREEN_W = 287/.test(live))
   check("each preview loads its frame only at the width it is shown at", /useMedia\("\(min-width: 768px\)"\)/.test(live) && /useMedia\("\(max-width: 767px\)"\)/.test(live))
   check("the frame arrives on the creator page's own fade", /drawn \? "creator-frame-in" : "opacity-0"/.test(live))
-  check("the frame's address is a route of its own, never listed", existsSync(join(process.cwd(), "app/onepage-preview/page.tsx")) && /robots: \{ index: false, follow: false \}/.test(read("app/onepage-preview/page.tsx")))
+  check("the frame's address is a route of its own, never listed", existsSync(join(process.cwd(), "app/(storelib)/onepage-preview/page.tsx")) && /robots: \{ index: false, follow: false \}/.test(read("app/(storelib)/onepage-preview/page.tsx")))
   const proxy = code("proxy.ts")
   check("framed only by this origin, and only with embedded=1", /url\.pathname === "\/onepage-preview" \|\|/.test(proxy) && /const framed = framableWhenEmbedded && url\.searchParams\.get\("embedded"\) === "1"/.test(proxy))
   check("and no creator can hold the name", /"onepage-preview"/.test(read("lib/routes/reserved-segments.ts")))
-  check("the live route builds its page with the same function", /publicOnePage\(onepage, \{\s*source: "published"/.test(code("lib/onepage/published-page.ts")) && /publishedShape\(onepage, owner, \{/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("the live route builds its page with the same function", /publicOnePage\(onepage, \{\s*source: "published"/.test(code("lib/onepage/published-page.ts")) && /publishedShape\(onepage, owner, \{/.test(code("app/(storelib)/(marketing)/l/[slug]/page.tsx")))
 }
 
 console.log("\nOne shape for the live page and the preview")

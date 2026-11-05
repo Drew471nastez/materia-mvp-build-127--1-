@@ -47,9 +47,9 @@ const code = (p: string) => stripComments(read(p))
 
 const ROUTE = "app/api/admin/platform/[section]/route.ts"
 const METRICS = "lib/admin/platform-metrics.ts"
-const PAGE = "app/admin/page.tsx"
-const SHELL = "app/admin/_console/console.tsx"
-const UI = "app/admin/_console/ui.tsx"
+const PAGE = "app/(storelib)/admin/page.tsx"
+const SHELL = "app/(storelib)/admin/_console/console.tsx"
+const UI = "app/(storelib)/admin/_console/ui.tsx"
 
 console.log("\nEverything the admin reads goes through one gated door\n")
 

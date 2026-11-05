@@ -591,7 +591,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
       rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-pick", "")
     })
   }
-  /* Round 41: New product asks first, in a sheet (app/app/products/new/kind-chooser.tsx); the editor rises from the pick, once the sheet has gone. */
+  /* Round 41: New product asks first, in a sheet (app/(storelib)/app/products/new/kind-chooser.tsx); the editor rises from the pick, once the sheet has gone. */
   const chooseKind = async () => {
     await p.touchscreen.tap(...Object.values(await p.$eval("[data-new-product]", (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } })))
     await p.waitForSelector("[data-new-product-chooser] [data-kind]")
@@ -851,7 +851,7 @@ async function slowHandTrip(p, label) {
 const COMPOSER_BACK = "button[aria-label='Back to emails']"
 
 async function emailsTrip(p, cdp, label) {
-  console.log(`  -- emails -> New email -> the composer's Back (app/app/emails/layer-nav.ts)`)
+  console.log(`  -- emails -> New email -> the composer's Back (app/(storelib)/app/emails/layer-nav.ts)`)
   await p.evaluate(() => window.__navigate("/app/emails"))
   await sleep(700)
   const up = await timedMove(p, cdp, { sel: "[data-new-email]", pressed: "[data-new-email][data-layer-press]", kind: "enter" })

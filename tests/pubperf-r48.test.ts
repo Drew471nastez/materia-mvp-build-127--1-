@@ -146,7 +146,7 @@ async function main() {
     check("the early card is hidden unless the head script asked for it", /html:not\(\[data-cookie-ask\]\) \[data-cookie-banner-early\] \{\s*display: none !important;/.test(css))
     const banner = code("components/cookie-consent-banner.tsx")
     check("  once the effect has run it is the live banner, decided as before", /const showCard = early \? !quietPath : bannerOpen && !quiet && !prefsOpen/.test(banner) && /if \(ready && isNativeApp\(\)\) return null/.test(banner))
-    check("the root layout runs the script in <head>", /<script dangerouslySetInnerHTML=\{\{ __html: COOKIE_ASK_BOOT \}\} \/>/.test(read("app/layout.tsx")))
+    check("the root layout runs the script in <head>", /<script dangerouslySetInnerHTML=\{\{ __html: COOKIE_ASK_BOOT \}\} \/>/.test(read("app/(storelib)/layout.tsx")))
 
     const { cookieAskBoot } = await import("@/lib/consent/early-ask")
     const { CONSENT_VERSION } = await import("@/lib/consent/consent")

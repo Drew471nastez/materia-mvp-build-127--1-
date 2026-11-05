@@ -2,7 +2,7 @@
  * ===========================================================================
  *  WHAT ARE YOU SELLING? MEASURED
  * ===========================================================================
- * The question before a new product (app/app/products/new/kind-chooser.tsx,
+ * The question before a new product (app/(storelib)/app/products/new/kind-chooser.tsx,
  * drawn by scripts/render-new-product.tsx) at 390x844 and 1280x800:
  *
  *   SHAPE     a sheet on the phone's bottom edge, full width; a dialog in

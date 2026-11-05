@@ -2,7 +2,7 @@
  * TWO BUSINESSES OF ONE LOGIN, EACH IN ITS OWN /app, for scripts/check-
  * business-switch.mjs.
  *
- * The /app shell as app/app/layout.tsx mounts it: the real wrapper
+ * The /app shell as app/(storelib)/app/layout.tsx mounts it: the real wrapper
  * (components/app/app-layout-wrapper, with its LanguageProvider fallback and
  * AppStage), the real AppSidebar (the header, the rail, the account dropdown
  * and the phone's account sheet, both headed by the business switcher), and
@@ -12,7 +12,7 @@
  *             the browser as a loaded app is.
  *   NewTree   Lind Studio's /app, rendered on the probe's "server" to HTML
  *             and hydrated in the browser, with the switch's arrival screen
- *             beside it exactly as app/app/layout.tsx puts it (the spin
+ *             beside it exactly as app/(storelib)/app/layout.tsx puts it (the spin
  *             script, then BusinessSwitchArrival) when the cookie came. Its
  *             photo, its page's picture and its chart's figures are answered
  *             late by the probe's server, as a real network would.
@@ -24,7 +24,7 @@ import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { LocaleProvider } from "@/components/locale-provider"
 import { SWRProvider } from "@/lib/swr-config"
 import * as switchScreen from "@/lib/businesses/switch-screen"
-import AppColdStart from "@/app/app/cold-start"
+import AppColdStart from "@/app/(storelib)/app/cold-start"
 import type { BusinessRow } from "@/components/app/business-switcher"
 
 export const OLD: BusinessRow = { userId: "00000000-0000-4000-8000-00000000000a", name: "Mara Lind", handle: "maralind", avatarUrl: "/photos/mara.png", ready: true, current: true, role: "owner" }
@@ -119,7 +119,7 @@ function NewHome() {
 /**
  * THE APP'S SESSION GATE, as components/native-auth-gate draws it in the
  * native app while it finds the session on the device: the cold start's
- * frame (app/app/cold-start) for `ms` after the script runs, then the shell.
+ * frame (app/(storelib)/app/cold-start) for `ms` after the script runs, then the shell.
  * The same on the server and on the first client render, so it hydrates.
  */
 function Gate({ ms, children }: { ms: number; children: React.ReactNode }) {
@@ -135,7 +135,7 @@ function Gate({ ms, children }: { ms: number; children: React.ReactNode }) {
 /* The script the /app layout runs before the screen: the arrival's own (with its limit) where there is one, the spinner's turn alone on a tree from before it. */
 const ARRIVAL_SCRIPT = (switchScreen as Record<string, unknown>).SWITCH_ARRIVAL_SCRIPT as string | undefined ?? switchScreen.SWITCH_SPIN_SCRIPT
 
-/** `arriving`: the name and photo the switch's cookie carried, as app/app/layout.tsx reads them (readSwitchArrival); null for a load with no switch behind it. `gateMs`: the session gate's time, 0 for none. */
+/** `arriving`: the name and photo the switch's cookie carried, as app/(storelib)/app/layout.tsx reads them (readSwitchArrival); null for a load with no switch behind it. `gateMs`: the session gate's time, 0 for none. */
 export function NewTree({ arriving, gateMs = 0 }: { arriving: { name: string; photo: string | null } | null; gateMs?: number }) {
   const me = { ...NEW, current: true }
   return (

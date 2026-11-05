@@ -173,7 +173,7 @@ async function main() {
   check("the published site draws home's Header group on every page", same(site.about.map((s) => s.id), ["h", "lh", "split", "f"]), site.about.map((s) => s.id))
   check("with one header drawn there too", visibleHeaders(site.about, codedKinds).map((s) => s.id).join() === "lh")
   check("the published site applies the repair with the site's own files", /applyUniversalChrome\(pages, "home", kindLookup\(sources/.test(read("lib/website-builder/published-site.ts")))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the editor repairs an open page once its files are known, and saves it", /const fixed = repairChrome\(sections, kindOfType\)/.test(editor) && /setIsDirty\(true\)/.test(editor.slice(editor.indexOf("const fixed = repairChrome"), editor.indexOf("const fixed = repairChrome") + 400)))
   check("the editor no longer puts the built-in header back on a page that has sections", /const empty = loaded\.length === 0/.test(editor) && !/if \(!loaded\.some\(s => s\.type === "header"\)\)/.test(editor))
 
@@ -310,7 +310,7 @@ async function main() {
   check("an empty library starts at 0", sortOrderBefore(null) === 0)
   check("the import route asks for the first place, both formats", (importRoute.match(/await firstSortOrder\(admin, creator\.id\)/g) ?? []).length === 2 && !/nextSortOrder/.test(importRoute))
   check("Add and Duplicate still go last", /nextSortOrder/.test(read("app/api/website-builder/themes/add/route.ts")) && /nextSortOrder/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")))
-  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const firstRow = client.indexOf('incoming.kind === "import" && (')
   check("the page draws the incoming import above the library's rows", firstRow !== -1 && firstRow < client.indexOf("{library.map((i) => {"))
   check("and scrolls to it and rings it when it lands", /scrollToRow\(row, "center"\)/.test(client) && /setRinged\(/.test(client))

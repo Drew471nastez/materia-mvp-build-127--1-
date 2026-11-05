@@ -2,7 +2,7 @@
  * ===========================================================================
  *  AN APP LINK BRIDGE TOKEN IS USED ONCE, EVEN BY TWO REQUESTS AT ONCE
  * ===========================================================================
- * Round rel2-security2 (SEC-10). app/app/auth/callback read the token row,
+ * Round rel2-security2 (SEC-10). app/(storelib)/app/auth/callback read the token row,
  * then deleted it in a second statement: two requests that arrived together
  * both read it and both got the session. lib/auth/bridge-token.ts now deletes
  * and reads in one statement (DELETE ... RETURNING), so the database gives the
@@ -84,7 +84,7 @@ async function main() {
   }
 
   console.log("\nThe route")
-  const route = readCode("app/app/auth/callback/route.ts")
+  const route = readCode("app/(storelib)/app/auth/callback/route.ts")
   check("consumes through consumeBridgeToken", /consumeBridgeToken\(createAdminClient\(\), bridgeToken\)/.test(route))
   check("  no separate select of the token row", !/\.from\("oauth_bridge_tokens"\)/.test(route))
   check("  the stored path is checked as a same-site path", /sameOriginPath\(consumed\.session\.nextPath, next\)/.test(route))

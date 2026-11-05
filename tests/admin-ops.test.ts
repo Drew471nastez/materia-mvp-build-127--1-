@@ -20,8 +20,8 @@ check("a check that cannot run says unknown, never ok", (ops.match(/state: "unkn
 check("alerts are the modules not fine, worst first", /severity: "critical"/.test(ops) && /severity: "warning"/.test(ops))
 const route = read("app/api/admin/platform/[section]/route.ts")
 check("behind the admin cookie, as every console view", /"ops",\s*"live",/.test(route) && /case "ops":/.test(route) && /isAdminAuthenticated/.test(route))
-check("in the console's navigation", /\{ id: "ops", label: "Operations" \}/.test(read("app/admin/_console/shell.tsx")))
-check("read again every 30 seconds while visible", /route\.view === "ops" \? 30_000 : 60_000/.test(read("app/admin/_console/console.tsx")))
+check("in the console's navigation", /\{ id: "ops", label: "Operations" \}/.test(read("app/(storelib)/admin/_console/shell.tsx")))
+check("read again every 30 seconds while visible", /route\.view === "ops" \? 30_000 : 60_000/.test(read("app/(storelib)/admin/_console/console.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

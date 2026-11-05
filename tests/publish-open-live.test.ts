@@ -99,9 +99,9 @@ async function main() {
 
   console.log("\nThe builder's live site links")
   const panel = readCode("components/website-builder/publish-panel.tsx")
-  const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const parts = readCode("components/website-builder/website-settings/parts.tsx")
-  const list = readCode("app/app/website-builder/website-builder-client.tsx")
+  const list = readCode("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const tab = readCode("lib/website-builder/opening-tab.ts")
   const preview = readCode("lib/website-builder/open-preview.ts")
   const bridge = readCode("lib/native-bridge.ts")

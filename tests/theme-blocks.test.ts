@@ -239,7 +239,7 @@ function main() {
   check("the sidebar shows only the chosen style's colours", shownFor("primary").join(",") === "Fill,Text,Hover fill,Hover text" && shownFor("secondary").join(",") === "Fill,Text,Border,Hover fill,Hover text", { primary: shownFor("primary"), secondary: shownFor("secondary") })
   check("and draws a block's colour with SectionColorSetting, against the section's scheme",
     /* Round K3 wraps it in SharedInAllLanguages (a colour is the same in every language the sidebar edits); the control and its scheme are unchanged. */
-    /field\.type === "color" \? \(\s*(?:<SharedInAllLanguages>\s*)?<SectionColorSetting\s+field=\{field\}\s+value=\{block\.settings\[field\.id\]\}\s+settings=\{section\.settings\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    /field\.type === "color" \? \(\s*(?:<SharedInAllLanguages>\s*)?<SectionColorSetting\s+field=\{field\}\s+value=\{block\.settings\[field\.id\]\}\s+settings=\{section\.settings\}/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   for (const [type, rule] of [["heading", /\[data-block-type="heading"\] \.sl-heading \{[^}]*color: var\(--heading-color, var\(--s-heading/], ["text", /\[data-block-type="text"\] \.sl-text \{[^}]*color: var\(--text-color, var\(--s-para/], ["button", /\[data-block-type="button"\] \.sl-button--primary \{ background: var\(--b-bg, var\(--s-btn/], ["group", /\[data-block-type="group"\] \.sl-group \{[^}]*background: var\(--g-bg, transparent\); border-radius: var\(--g-radius, 0\)/]] as const) {
     check(`${type}'s one rule, scoped to its type, reads its colour from the inline property`, rule.test(library[type]?.css ?? ""), (library[type]?.css ?? "").slice(0, 300))
   }
@@ -339,7 +339,7 @@ function main() {
   check("a preset placed twice gets its own ids, except a static block", fresh[0].id === "title" && fresh[1].id.startsWith("f-") && fresh[1].blocks?.[0].id.startsWith("f-") === true)
   check("countAll counts every depth", countAll(base) === 6)
 
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   /* Shopify's tree: a section's blocks are rows under it in the sidebar's list, not a list in its settings. */
   check("the sidebar's tree draws each section's blocks with BlockTreeFor", /<BlockTreeFor[\s\S]*parent=\{\[\]\}/.test(editor) && /function BlockTreeFor\(/.test(editor) && /blocksOf=\{\(s\) => \{/.test(editor))
   check("a block that holds blocks lists them under its own row, a level further in", /children=\{\(block\) => \{[\s\S]{0,400}<BlockTreeFor[\s\S]{0,300}parent=\{\[\.\.\.parent, block\.id\]\}/.test(editor))

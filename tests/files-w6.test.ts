@@ -116,9 +116,9 @@ async function main() {
   check("Files has Select, with Download (a zip) and Delete on several", /data-files-select=""/.test(lib) && /import\("jszip"\)/.test(lib) && /body: \{ files: part\.map/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("a list's add field opens the chooser for several", /multiple=\{!!onAddMany && !url\}/.test(picker) && /onPickMany=\{picks => onAddMany\?\.\(picks\.map\(p => p\.url\)\)\}/.test(picker))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("an image gallery setting takes several, up to its max", /onAddMany=\{urls => onChange\(\[\.\.\.list, \.\.\.urls\]\.slice\(0, cap\)\)\}/.test(editor) && /max=\{Math\.max\(0, cap - list\.length\)\}/.test(editor))
-  const product = read("app/app/products/new/product-editor.tsx")
+  const product = read("app/(storelib)/app/products/new/product-editor.tsx")
   /* Round H3: photos and videos, each up to its own limit (addFromFiles holds each kind to its room). */
   check("a product's photos and videos can come from your files, several at once, up to the limits", /<FilesLibraryChooser[\s\S]{0,120}multiple[\s\S]{0,40}kind="media"[\s\S]{0,40}max=\{Math\.max\(0, MAX_PHOTOS - existingImages - pendingMedia\.length\) \+ Math\.max\(0, MAX_VIDEO_FILES/.test(product) && /onPickMany=\{addFromFiles\}/.test(product))
 

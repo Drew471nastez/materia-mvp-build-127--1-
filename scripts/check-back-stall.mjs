@@ -49,7 +49,7 @@ mkdirSync(stubs, { recursive: true })
 const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-back-stall-")), "shots")
 mkdirSync(shots, { recursive: true })
 const BEFORE = process.env.BEFORE || ""
-const beforeFile = join(root, "app/checkout/.probe-stall-client.tsx")
+const beforeFile = join(root, "app/(storelib)/checkout/.probe-stall-client.tsx")
 let broken = 0
 const rows = []
 const expect = (ok, what, got) => {
@@ -78,7 +78,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
 writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
 `)
-if (BEFORE) writeFileSync(beforeFile, execFileSync("git", ["show", `${BEFORE}:app/checkout/checkout-client.tsx`], { cwd: root, encoding: "utf8" }))
+if (BEFORE) writeFileSync(beforeFile, execFileSync("git", ["show", `${BEFORE}:app/(storelib)/checkout/checkout-client.tsx`], { cwd: root, encoding: "utf8" }))
 
 const { build } = await import("esbuild")
 await build({

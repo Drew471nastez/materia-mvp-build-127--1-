@@ -78,7 +78,7 @@ From [FX Quotes API in Connect](https://docs.stripe.com/connect/currencies/fx-qu
 | Shown on `/app` | Store currency (`LiveStoreCurrency`, `useSellerMoney`) | Yes, except F5/F6 | `components/platform/price-currency.tsx` |
 | Shown on the website and builder | Store currency, or the market's converted price | Yes | `lib/markets/*` |
 | Shown on OnePage | Store currency (`usePageMoney`) | Yes | `components/onepage/public-onepage.tsx` 3373 |
-| Shown on Explore / creator page / `/p/` page | Store currency | Wrong under Option A (F3) | `app/(marketing)/explore/page.tsx` 175, `app/(marketing)/p/[slug]/page.tsx` 886 |
+| Shown on Explore / creator page / `/p/` page | Store currency | Wrong under Option A (F3) | `app/(storelib)/(marketing)/explore/page.tsx` 175, `app/(storelib)/(marketing)/p/[slug]/page.tsx` 886 |
 | Shown on a community page | Membership: USD. One-time tier: "$" | One-time is wrong (F1) | `lib/communities/server/public.ts` 170 |
 | Checkout charge | Store currency (product, cart, physical), market currency (site), platform currency (community events, programs, modules), USD (memberships) | Four rules (F4) | see 2.1 |
 | Order written | `orders.currency` from the PaymentIntent | Yes, except one fallback (F8) | `lib/checkout/fulfil-payment.ts` 242 |
@@ -111,7 +111,7 @@ From [FX Quotes API in Connect](https://docs.stripe.com/connect/currencies/fx-qu
 ### P1: wrong numbers, inconsistent rules, or records that disagree with money
 
 **F3. The public marketplace shows each store's own currency, not USD.** *(Verified, by today's design)*
-- Explore and category pages (`app/(marketing)/explore/page.tsx` 175, `[category]/page.tsx` 174), the featured carousel, creator pages and `/p/[slug]` (`page.tsx` 886) all draw in the store's currency.
+- Explore and category pages (`app/(storelib)/(marketing)/explore/page.tsx` 175, `[category]/page.tsx` 174), the featured carousel, creator pages and `/p/[slug]` (`page.tsx` 886) all draw in the store's currency.
 - This is the main Option A change. See section 5.
 
 **F4. Four different charge-currency rules in one ecosystem.** *(Verified)*
@@ -123,7 +123,7 @@ From [FX Quotes API in Connect](https://docs.stripe.com/connect/currencies/fx-qu
 
 **F5. Revenue figures add up different currencies as if they were one.** *(Verified)*
 - `lib/analytics/home-figures.ts` 95-97 (`homeTotals`), `lib/analytics/reports.ts` (~970), `lib/analytics/creator-orders.ts` (`SALE_COLUMNS` has no currency), and the `analytics_all_time` SQL function all sum `amount_cents` with no currency check.
-- `customers.total_spent_cents` is a running sum over orders in any currency (`fulfil-payment.ts` 539). The Customers page then labels it with the store currency (`app/app/customers/page.tsx` 153, 199).
+- `customers.total_spent_cents` is a running sum over orders in any currency (`fulfil-payment.ts` 539). The Customers page then labels it with the store currency (`app/(storelib)/app/customers/page.tsx` 153, 199).
 - **Today's exposure:** a store gets orders in another currency through website markets (EUR visitor on a RON store), a store currency change, and community events or programs in the platform currency. Under Option A, every marketplace sale is USD, so **this becomes common**. It must be fixed before marketplace USD checkout goes live.
 - **Already right:** the Stripe revenue chart keeps one currency per chart and lists the rest separately (`app/api/stripe/revenue-chart/route.ts` 159-161), and community analytics carries its own currency.
 

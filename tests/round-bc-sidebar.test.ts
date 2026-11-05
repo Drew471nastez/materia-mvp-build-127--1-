@@ -35,7 +35,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 const code = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const PAGE = "app/website-builder/editor/[installId]/page.tsx"
+const PAGE = "app/(storelib)/website-builder/editor/[installId]/page.tsx"
 
 console.log("\nThe page's own sections are hidden, never deleted\n")
 {

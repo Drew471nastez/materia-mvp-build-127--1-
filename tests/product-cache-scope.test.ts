@@ -44,7 +44,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 const CACHE = "lib/commerce/product-page-cache.ts"
 const PUBLIC_READ = "lib/supabase/public-read.ts"
-const PAGE = "app/(marketing)/p/[slug]/page.tsx"
+const PAGE = "app/(storelib)/(marketing)/p/[slug]/page.tsx"
 
 const cacheSrc = stripComments(readFileSync(CACHE, "utf8"))
 const publicReadSrc = stripComments(readFileSync(PUBLIC_READ, "utf8"))
@@ -148,8 +148,8 @@ check(
  */
 check(
   "the product editor sends the product id when it asks for a revalidation",
-  /productId: savedProductId/.test(readFileSync("app/app/products/new/product-editor.tsx", "utf8")),
-  "app/app/products/new/product-editor.tsx",
+  /productId: savedProductId/.test(readFileSync("app/(storelib)/app/products/new/product-editor.tsx", "utf8")),
+  "app/(storelib)/app/products/new/product-editor.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed`)

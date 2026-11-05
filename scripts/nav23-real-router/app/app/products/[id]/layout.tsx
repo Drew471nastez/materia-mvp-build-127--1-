@@ -1,1 +1,1 @@
-export { default } from "@/app/app/products/[id]/layout"
+export { default } from "@/app/(storelib)/app/products/[id]/layout"

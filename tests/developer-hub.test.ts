@@ -233,7 +233,7 @@ function main() {
   check("the side columns stick below the site header, not behind it",
     (hub.match(/sticky top-\[92px\]/g) ?? []).length === 2)
   check("a page the hub does not have is a 404, not a creator's page",
-    /export const dynamicParams = false/.test(read("app/(marketing)/developers/[slug]/page.tsx")))
+    /export const dynamicParams = false/.test(read("app/(storelib)/(marketing)/developers/[slug]/page.tsx")))
   check("and no page of it renders markdown as HTML",
     !/dangerouslySetInnerHTML/.test(read("components/developers/doc-content.tsx"))
       && !/dangerouslySetInnerHTML/.test(read("components/developers/inline.tsx"))

@@ -35,7 +35,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else { failed++; console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail)}`}`) }
 }
 const read = (p: string) => readFileSync(p, "utf8")
-const EDITOR = read("app/website-builder/editor/[installId]/page.tsx")
+const EDITOR = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 ;(async () => {
   console.log("\nA link typed in a menu\n")
@@ -87,7 +87,7 @@ const EDITOR = read("app/website-builder/editor/[installId]/page.tsx")
 
   console.log("\nThe editor's first frames\n")
   {
-    const layout = read("app/layout.tsx")
+    const layout = read("app/(storelib)/layout.tsx")
     check("the document's ground is the editor's surround from the first frame, and nothing is drawn before its frame", layout.includes("website-builder") && layout.includes("_wb.style.backgroundColor='#eef1f5'") && layout.includes("_wl.href='#wb-frame'"))
     const frame = read("components/website-builder/editor-frame.tsx")
     check("the frame is what the first paint waits for, and the ground is handed back on the way out", /id="wb-frame"/.test(frame) && /<EditorGround \/>/.test(frame))

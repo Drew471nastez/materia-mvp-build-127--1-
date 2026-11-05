@@ -69,10 +69,10 @@ check("goBackOr is the same watch, with the creator's page as the fallback", /ba
 */
 console.log("\nEvery way back in the app")
 const SOURCES = [
-  "app/app",
-  "app/admin",
-  "app/checkout",
-  "app/(marketing)",
+  "app/(storelib)/app",
+  "app/(storelib)/admin",
+  "app/(storelib)/checkout",
+  "app/(storelib)/(marketing)",
   "components/app",
   "components/onepage",
   "components/store-builder",
@@ -88,7 +88,7 @@ const SOURCES = [
   "lib",
 ]
 /* Round 20: the settings sheet's extra Back past a second Settings entry follows a backThen and has its own watch (STUCK_MS: the page under, then the sheet back working). */
-const OWN_WATCH = ["lib/navigation/go-back.ts", "app/checkout/checkout-client.tsx", "components/app/settings-sheet.tsx"]
+const OWN_WATCH = ["lib/navigation/go-back.ts", "app/(storelib)/checkout/checkout-client.tsx", "components/app/settings-sheet.tsx"]
 function walk(dir: string): string[] {
   const out: string[] = []
   const full = join(process.cwd(), dir)
@@ -110,14 +110,14 @@ check("the sweep reads the whole app and not an empty list", files.length > 300,
 const raw = files.filter((f) => !OWN_WATCH.includes(f) && /(?:window\.history|history|router)\.back\(\)/.test(code(f)))
 check("nothing calls the browser's back without the watch", raw.length === 0, raw)
 /* The checkout's own copy of the watch, so allowing it above cannot hide a regression. */
-const checkout = code("app/checkout/checkout-client.tsx")
+const checkout = code("app/(storelib)/checkout/checkout-client.tsx")
 check("the checkout's own back is inside its own watch", /const backThen = \(fallback[\s\S]{0,700}window\.history\.back\(\)/.test(checkout))
 
 console.log("\nThe seller's editors land on their list")
-const products = code("app/app/products/list-return.ts")
+const products = code("app/(storelib)/app/products/list-return.ts")
 /* Changed on purpose: Coupons, Upsells and bundles, Collections and Size charts share one round trip. */
 const coupons = code("components/app/list-return.ts")
-const couponsUse = /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/app/coupons/list-return.ts"))
+const couponsUse = /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/(storelib)/app/coupons/list-return.ts"))
 check("the product editor's Back is watched, and the list is the fallback", /backThen\(replaceWithList\)/.test(products) && /const replaceWithList = \(\) => \{\s*\n\s*markTraversal\(\)\s*\n\s*router\.replace\(PRODUCTS_HREF\)/.test(products))
 check("the coupon editor's is too", couponsUse && /backThen\(/.test(coupons) && /replaceWithList\(\)/.test(coupons) && /router\.replace\(listHref\)/.test(coupons))
 /* The fallback is a replace and is marked as a return, so the list comes back where it was left rather than as a fresh visit. */
@@ -125,14 +125,14 @@ check("and the fallback is the same return, not a fresh visit", /markTraversal\(
 check("the way back is still one move of the layer", /moveLayer\("leave"/.test(products) && /moveLayer\("leave"/.test(coupons))
 
 const composer = code("components/email/compose/compose-page.tsx")
-const flow = code("app/app/emails/flow/[id]/builder.tsx")
-const chooser = code("app/app/emails/flow/new/chooser.tsx")
+const flow = code("app/(storelib)/app/emails/flow/[id]/builder.tsx")
+const chooser = code("app/(storelib)/app/emails/flow/new/chooser.tsx")
 check("the email composer's way out is watched", /backThen\(\(\) => router\.replace\(list\)\)/.test(composer))
 check("the automation builder's is", /backThen\(\(\) => router\.replace\(EMAILS\)\)/.test(flow))
 check("and so is the new automation chooser's", /backThen\(\(\) => router\.replace\(FLOWS_HREF\)\)/.test(chooser))
 
-const emails = code("app/app/emails/emails-client.tsx")
-const orders = code("app/app/orders/orders-client.tsx")
+const emails = code("app/(storelib)/app/emails/emails-client.tsx")
+const orders = code("app/(storelib)/app/orders/orders-client.tsx")
 check("an email opened over the list closes even when the back does nothing", /backThen\(closeOver\)/.test(emails) && /const closeOver = \(\) => writeAddress/.test(emails))
 check("and so does an order", /backThen\(closeOver\)/.test(orders) && /const closeOver = \(\) => writeAddress/.test(orders))
 
@@ -154,7 +154,7 @@ check("the hardware key's back is watched", /backThen\(\(\) => router\.replace\(
 check("and it says something at once, since a key press dims no control", /startNavigationLoading\(homeFor\(here\)\)\s*\n\s*backThen\(/.test(native))
 check("a page with nothing behind it goes to its own list, not the home screen", /router\.replace\(homeFor\(here\)\)/.test(native))
 check("the thing on top still goes first (the menu, then a panel inside the page)", native.indexOf("CLOSE_EVENT") < native.indexOf("backThen(") && native.indexOf("nativeBackTarget()") < native.indexOf("backThen("))
-check("it is mounted in the seller's layout", /<NativeBackHandler \/>/.test(read("app/app/layout.tsx")))
+check("it is mounted in the seller's layout", /<NativeBackHandler \/>/.test(read("app/(storelib)/app/layout.tsx")))
 /*
   AND NOWHERE ELSE. Its home is /app and its roots are the seller shell's, so
   on a buyer route it would send somebody reading their library into the
@@ -162,7 +162,7 @@ check("it is mounted in the seller's layout", /<NativeBackHandler \/>/.test(read
   screen closes itself through a history entry of its own.
 */
 const mounted = files.filter((f) => /<NativeBackHandler \/>/.test(read(f)))
-check("and nowhere else, so no buyer route gets the seller's home", mounted.join() === "app/app/layout.tsx", mounted)
+check("and nowhere else, so no buyer route gets the seller's home", mounted.join() === "app/(storelib)/app/layout.tsx", mounted)
 check("/library is not one of the seller shell's roots", !APP_ROOT_ROUTES.includes("/library"))
 check("the buyer's search screen closes even when its own back does nothing", /backThen\(\(\) => \{\s*\n\s*closing\.current = false\s*\n\s*shut\(\)/.test(code("components/search/search-overlay.tsx")))
 
@@ -178,7 +178,7 @@ check("a buyer route is neither a root nor a home of the seller's", !isAppRootRo
 console.log("\nThe pages that are read rather than used")
 check("Back on Terms and Privacy goes home when there is nothing behind", /backThen\(\(\) => router\.push\(fallbackHref\)\)/.test(code("components/back-button.tsx")))
 /* Changed on purpose (r40): the old legal address is a permanent redirect from the server now, with no page and so no Back of its own. */
-check("the old legal address sends people on from the server", /permanentRedirect\("\/privacy"\)/.test(code("app/(marketing)/legal/privacy/page.tsx")) && /permanentRedirect\("\/terms"\)/.test(code("app/(marketing)/legal/terms/page.tsx")))
+check("the old legal address sends people on from the server", /permanentRedirect\("\/privacy"\)/.test(code("app/(storelib)/(marketing)/legal/privacy/page.tsx")) && /permanentRedirect\("\/terms"\)/.test(code("app/(storelib)/(marketing)/legal/terms/page.tsx")))
 check("a return link that is a link follows its own href when the back does nothing", /backThen\(\(\) => window\.location\.assign\(href\)\)/.test(code("components/navigation/return-link.tsx")))
 check("the embedded bar's only way out always goes somewhere", /if \(canGoBack\) backThen\(page\)/.test(code("components/storefront/embedded-back-bar.tsx")))
 check("and the public wishlist's arrow", /backThen\(\(\) => router\.push\("\/explore"\)\)/.test(code("components/wishlist/public-wishlist-shell.tsx")))

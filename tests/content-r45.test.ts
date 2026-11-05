@@ -113,8 +113,8 @@ console.log("\nThe /sell pages: only real uses, each different")
 {
   check("the pages and the light list the footer reads agree", JSON.stringify(USE_CASES.map((u) => [u.slug, u.nav, u.flag ?? null])) === JSON.stringify(SELL_PAGES.map((p) => [p.slug, p.nav, "flag" in p ? p.flag : null])))
   check("a page for courses and communities exists only because the product types do", SUPPORTED_TYPES.includes("courses") && SUPPORTED_TYPES.includes("communities"))
-  check("the route is static, from the list, anything else a 404", /dynamicParams = false/.test(code("app/(marketing)/sell/[slug]/page.tsx")) && code("app/(marketing)/sell/[slug]/page.tsx").includes("USE_CASES.map") && code("app/(marketing)/sell/[slug]/page.tsx").includes("useCaseOn(u, flags)"))
-  check("/sell itself stays the sign up door", exists("app/(auth)/sell/page.tsx") && !exists("app/(marketing)/sell/page.tsx"))
+  check("the route is static, from the list, anything else a 404", /dynamicParams = false/.test(code("app/(storelib)/(marketing)/sell/[slug]/page.tsx")) && code("app/(storelib)/(marketing)/sell/[slug]/page.tsx").includes("USE_CASES.map") && code("app/(storelib)/(marketing)/sell/[slug]/page.tsx").includes("useCaseOn(u, flags)"))
+  check("/sell itself stays the sign up door", exists("app/(storelib)/(auth)/sell/page.tsx") && !exists("app/(storelib)/(marketing)/sell/page.tsx"))
   for (const u of USE_CASES) {
     const badHelp = u.help.filter((h) => !helpLink(h))
     check(`${u.slug}: every help link is a real article`, badHelp.length === 0, badHelp)
@@ -146,7 +146,7 @@ console.log("\nEvery new or changed page: its own title, description and canonic
   check("descriptions are unique and 70 to 170 characters", new Set(descs).size === descs.length && descs.every((d) => d.length >= 70 && d.length <= 170), descs.map((d) => d.length))
   check("each canonical is the page's own absolute address", metas.every((x) => x.m.alternates.canonical === `https://storelib.com${x.path}`))
   check("Open Graph carries the same address and a picture", metas.every((x) => x.m.openGraph.url === x.m.alternates.canonical && x.m.openGraph.images.length === 1))
-  check("/features sets its own, from its layout", /path: FEATURES_PATH/.test(code("app/(marketing)/features/layout.tsx")))
+  check("/features sets its own, from its layout", /path: FEATURES_PATH/.test(code("app/(storelib)/(marketing)/features/layout.tsx")))
   for (const u of USE_CASES) {
     const ld = useCaseJsonLd(u) as Any
     const types = ld["@graph"].map((n: Any) => n["@type"])
@@ -206,8 +206,8 @@ console.log("\nWiring: sitemap, footer, header, the app's native gate")
   check("the footer links them, from the light list (no fee tables in its bundle)", footer.includes('from "@/lib/marketing/sell-links"') && !footer.includes("lib/marketing/use-cases") && footer.includes("SELL.map"))
   check("the marketing header and footer draw on /sell/ pages", code("components/marketing/conditional-header.tsx").includes('p.startsWith("/sell/")') && code("components/marketing/conditional-footer.tsx").includes('pathname.startsWith("/sell/")'))
   check("the app's shell sends /sell/ pages to native-start, never /sell itself", /pathname\.startsWith\("\/sell\/"\)\)/.test(code("proxy.ts")) && !/NATIVE_BLOCKED = \[[^\]]*"\/sell"/.test(code("proxy.ts")))
-  check("/features links each /sell page and each comparison", code("app/(marketing)/features/page.tsx").includes("useCasePath(uc.slug)") && code("app/(marketing)/features/page.tsx").includes("ALTERNATIVES.map"))
-  check("/features is a server page now", !/^"use client"/.test(read("app/(marketing)/features/page.tsx")))
+  check("/features links each /sell page and each comparison", code("app/(storelib)/(marketing)/features/page.tsx").includes("useCasePath(uc.slug)") && code("app/(storelib)/(marketing)/features/page.tsx").includes("ALTERNATIVES.map"))
+  check("/features is a server page now", !/^"use client"/.test(read("app/(storelib)/(marketing)/features/page.tsx")))
 }
 
 console.log("\nCopy: no em dash, no banned words, no passive income")
@@ -224,8 +224,8 @@ console.log("\nCopy: no em dash, no banned words, no passive income")
       "components/marketing/video-player.tsx",
       "components/alternatives/alternative-page.tsx",
       "components/alternatives/hub-sections.tsx",
-      "app/(marketing)/alternatives/page.tsx",
-      "app/(marketing)/features/page.tsx",
+      "app/(storelib)/(marketing)/alternatives/page.tsx",
+      "app/(storelib)/(marketing)/features/page.tsx",
       "lib/marketing/features-seo.ts",
       "docs/youtube-videos.md",
       /* Class names are not copy: transition-transform is a CSS utility. */
@@ -243,7 +243,8 @@ console.log("\nVideos: the registry and its structured data")
   const routeExists = (path: string) => {
     if (/^\/alternatives\/[a-z0-9-]+$/.test(path)) return ALTERNATIVES.some((c) => alternativePath(c.slug) === path)
     if (/^\/sell\/[a-z0-9-]+$/.test(path)) return !!getUseCase(path.split("/")[2])
-    return exists(`app/(marketing)${path === "/" ? "" : path}/page.tsx`)
+    /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+    return exists(`app/(storelib)/(marketing)${path === "/" ? "" : path}/page.tsx`)
   }
   const problems = VIDEOS.flatMap((v) => videoProblems(v, routeExists))
   check(`every registered video is valid (${VIDEOS.length} registered)`, problems.length === 0, problems)

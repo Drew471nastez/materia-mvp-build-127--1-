@@ -58,7 +58,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
   const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const chip = read("components/website-builder/editor/color-chip.tsx")
   const gradient = read("components/website-builder/editor/gradient-editor.tsx")
   const css = read("app/globals.css")

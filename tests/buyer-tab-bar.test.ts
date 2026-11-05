@@ -44,7 +44,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 console.log("\nThe four tabs, in the owner's order")
 check("Home, Search, Library, Profile", BUYER_TABS.map((t) => t.label).join() === "Home,Search,Library,Profile", BUYER_TABS.map((t) => t.label))
 check("Home is Explore, Library the library, Profile the account page", BUYER_TABS[0].href === "/explore" && BUYER_TABS[2].href === "/account/library" && BUYER_TABS[3].href === "/account")
-check("Search is a static screen under /explore, so no creator's handle is taken from them", SEARCH_HREF === "/explore/search" && !RESERVED_ROOT_SEGMENTS.includes("search") && existsSync(join(process.cwd(), "app/(marketing)/explore/search/page.tsx")))
+check("Search is a static screen under /explore, so no creator's handle is taken from them", SEARCH_HREF === "/explore/search" && !RESERVED_ROOT_SEGMENTS.includes("search") && existsSync(join(process.cwd(), "app/(storelib)/(marketing)/explore/search/page.tsx")))
 check("signed out, Profile is sign in and then the account page", SIGNED_OUT_PROFILE_HREF === "/login?next=%2Faccount")
 
 console.log("\nWhere it is drawn")
@@ -183,15 +183,15 @@ const buy = read("components/store-builder/sticky-add-to-cart.tsx")
 check("the product page's buy bar stands on it, and hands it the home indicator", /bottom: "var\(--buyer-tabs-h, 0px\)"/.test(buy) && /paddingBottom: "max\(0px, env\(safe-area-inset-bottom, 0px\) - var\(--buyer-tabs-h, 0px\)\)"/.test(buy))
 check("the cookie card lifts over it", /html\[data-buyer-tabs="shown"\] \[data-cookie-banner\] \{\s*bottom: var\(--buyer-tabs-h\);/.test(css))
 /* The library lives inside the profile now, so the profile's layout is the one that mounts it there. */
-for (const layout of ["app/(marketing)/layout.tsx", "app/account/layout.tsx"]) {
+for (const layout of ["app/(storelib)/(marketing)/layout.tsx", "app/(storelib)/account/layout.tsx"]) {
   check(`${layout} mounts it`, /<BuyerTabBar \/>/.test(read(layout)) && /from "@\/components\/nav\/buyer-tab-bar"/.test(read(layout)))
 }
-check("and the /app shell does not", !/BuyerTabBar/.test(read("app/app/layout.tsx")))
+check("and the /app shell does not", !/BuyerTabBar/.test(read("app/(storelib)/app/layout.tsx")))
 
 console.log("\nThe search screen")
 const search = code("components/search/search-screen.tsx")
 const page = code("components/search/search-page.tsx")
-check("one screen: the tab bar's overlay and /explore/search both draw components/search/search-screen", /<SearchScreen ref=\{screen\}/.test(overlay) && /<SearchScreen autoFocus/.test(page) && /<SearchPage \/>/.test(read("app/(marketing)/explore/search/page.tsx")) && !existsSync(join(process.cwd(), "components/explore/search-screen.tsx")))
+check("one screen: the tab bar's overlay and /explore/search both draw components/search/search-screen", /<SearchScreen ref=\{screen\}/.test(overlay) && /<SearchScreen autoFocus/.test(page) && /<SearchPage \/>/.test(read("app/(storelib)/(marketing)/explore/search/page.tsx")) && !existsSync(join(process.cwd(), "components/explore/search-screen.tsx")))
 check("image 27: a big Search title, an X to close, a rounded field under them", /text-\[30px\] font-bold[^"]*"[^>]*>\s*Search\s*</.test(search) && /aria-label="Close search"/.test(search) && /rounded-\[12px\] border border-neutral-200\/80/.test(search))
 /* Round 9, changed on purpose: "no Browse categories list; it searches products AND communities, recent searches when empty, live results like the header dropdown, View all results at the end" (image 58). */
 check("Enter and View all go to Explore's results, in the mode being browsed", /onNavigate\(viewAllHref\(word, modeHere\(\)\)\)/.test(search) && /if \(active >= 0 && active < hits\.length\) pickHit\(hits\[active\]\)\s*else viewAll\(\)/.test(search))
@@ -230,9 +230,9 @@ check("the page under it holds still while it is open", /el\.style\.setProperty\
 
 console.log("\nThe account page: a profile, with its settings one tab over (tests/account-hub.test.ts has the rest)")
 const account = code("components/account/account-settings.tsx")
-const route = code("app/account/settings/page.tsx")
-const home = code("app/account/page.tsx")
-const layout = code("app/account/layout.tsx")
+const route = code("app/(storelib)/account/settings/page.tsx")
+const home = code("app/(storelib)/account/page.tsx")
+const layout = code("app/(storelib)/account/layout.tsx")
 check("signed out it is sign in first, then back to the page that was opened", /pageUser\(accountLoginPath\("\/account"\)\)/.test(home) && /pageUser\(accountLoginPath\("\/account\/settings"\)\)/.test(route) && !/redirect\(/.test(layout))
 check("the native app's session is recovered before it decides, as the library's is", /<NativeAuthGate requireAuth/.test(layout))
 check("/account has nothing to type: no photo control, no name field", !/<ProfilePhoto\b|<input\b/.test(home) && !/<input\b/.test(code("components/account/account-hub.tsx")))
@@ -242,11 +242,11 @@ check("the email changes with a code to each address", /<EmailChangeFlow\b/.test
 /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
 check("the password is Settings' card, which can set one on a Google or Apple only account", /<PasswordCard email=\{email\} hasPassword=\{hasPassword\} via=\{via\} \/>/.test(account) && /loadAccountSettingsForUser\(user,/.test(route) && /const hasPassword = providers\.length === 0 \|\| providers\.includes\("email"\)/.test(code("lib/account/load-account-settings.ts")))
 check("preferences: language, the newsletter, recommendations, saved where they are read", /<LanguageModal\b/.test(account) && /savePreference\(\{ newsletter: v \}\)/.test(account) && /savePreference\(\{ personalizedRecommendations: v \}\)/.test(account))
-check("the wishlist counts only what is still on sale", /\.eq\("products\.status", "published"\)/.test(code("app/account/library/page.tsx")))
+check("the wishlist counts only what is still on sale", /\.eq\("products\.status", "published"\)/.test(code("app/(storelib)/account/library/page.tsx")))
 check("log out here or everywhere, and the header forgets the session at once", /signOut\(\{ scope \}\)/.test(account) && /clearAuthSnapshot\(\)/.test(account))
 check("deleting is the existing flow: a code, then the code", /action: "send-code"/.test(account) && /action: "verify", code/.test(account))
 check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
-check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/library/settings")) && !existsSync(join(process.cwd(), "app/account/library/settings")))
+check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/(storelib)/library/settings")) && !existsSync(join(process.cwd(), "app/(storelib)/account/library/settings")))
 
 /*
   ROUND 39, the owner: "inside Storelib when logged out it should not have on mobile the mobile bottom navigation bar".
@@ -262,7 +262,7 @@ check("the app keeps it signed out outside a community, as its signed-out start 
 {
   const where = code("lib/nav/use-buyer-tabs-where.ts")
   check("who is signed in is null on the server and while the page wakes, never a guess", /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, unknown\)/.test(where) && /const unknown = \(\) => null/.test(where))
-  check("the app is the class the root layout's first script puts on <html>", /classList\.contains\("capacitor"\)/.test(where) && /html\.classList\.add\('capacitor'\)|h\.classList\.add\('capacitor'\)/.test(read("app/layout.tsx")))
+  check("the app is the class the root layout's first script puts on <html>", /classList\.contains\("capacitor"\)/.test(where) && /html\.classList\.add\('capacitor'\)|h\.classList\.add\('capacitor'\)/.test(read("app/(storelib)/layout.tsx")))
   check("the bar and the header ask the same question with the same answers", /signedIn: signedIn \?\? undefined, native: native \?\? false/.test(where) && /signedIn: signedIn \?\? undefined, native: native \?\? false/.test(bar))
   check("drawn pending until the page knows: the bar and its room marked, the record read in a line printed before them", /pending=\{signedIn === null\}/.test(bar) && /<script dangerouslySetInnerHTML=\{\{ __html: SIGNED_IN_BOOT \}\} \/>[\s{}]*<div aria-hidden="true" data-buyer-tabs-room=""/.test(bar) && /data-buyer-tab-bar=\{away \? "away" : "shown"\}\s*data-tabs-auth=\{pending \? "pending" : undefined\}/.test(bar) && /localStorage\.getItem\('_sl_auth_v1'\)/.test(bar) && /setAttribute\('data-sl-signed-in',''\)/.test(bar))
   check("a pending bar and its room are not drawn on an <html> not marked signed in (the app's excepted)", /html:not\(\[data-sl-signed-in\]\):not\(\.capacitor\) \[data-tabs-auth="pending"\] \{\s*display: none;/.test(css))

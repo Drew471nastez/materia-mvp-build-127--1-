@@ -214,7 +214,7 @@ async function homeTotals() {
   } finally {
     globalThis.fetch = realFetch
   }
-  const home = readCode("app/app/page.tsx")
+  const home = readCode("app/(storelib)/app/page.tsx")
   check("Home's all time totals have a ceiling", /within<[^>]*>\(creatorSalesTotals\(adminSupabase, creator\.id, \{ noFetch: true \}\), HOME_TOTALS_MS, null\)/.test(home))
   check("  HOME_TOTALS_MS is a few seconds", /const HOME_TOTALS_MS = 3_000/.test(home))
   check("  the banner's rows never download the ECB history either", /creatorSalesRows\(adminSupabase, creator\.id, now, \{ noFetch: true \}\)/.test(home))
@@ -268,20 +268,20 @@ async function pastAThousand() {
     const latest = await latestCreatorOrders(admin, "c1", "*", { statuses: ["completed"], limit: 1000 })
     check("the Payouts list is the latest orders by creator, newest first, with an explicit limit", latest.length === 3 && calls.some((c) => c.method === "order" && c.args[0] === "created_at" && (c.args[1] as { ascending: boolean }).ascending === false) && calls.some((c) => c.method === "limit" && c.args[0] === 1000) && !calls.some((c) => c.method === "in" && c.args[0] === "product_id"))
   }
-  const customers = readCode("app/app/customers/page.tsx")
+  const customers = readCode("app/(storelib)/app/customers/page.tsx")
   check("Customers reads its orders by creator, a page at a time", /readCreatorOrders<CustomerOrder>\(admin, creator\.id, CUSTOMER_ORDER_COLUMNS\)/.test(customers) && !/\.in\("product_id"/.test(customers))
   check("  and every customer, a page at a time", /readByKeyset<CustomerRow>\(/.test(customers) && /\.from\("customers"\)/.test(customers) && /\.limit\(KEYSET_PAGE\)/.test(customers))
   check("  newest first, as the list showed them", (customers.match(/r\.rows\.reverse\(\)/g) ?? []).length === 2)
   check("  each customer's orders from one pass, not a filter per customer", /ordersByEmail\.get\(emailKey\(email\)\)/.test(customers) && !/allOrders\?\.filter/.test(customers))
   check("  never an ECB download from the render", /storeCurrency, \{ noFetch: true \}\)/.test(customers))
-  const payouts = readCode("app/app/payouts/page.tsx")
+  const payouts = readCode("app/(storelib)/app/payouts/page.tsx")
   check("Payouts: no product id list, no unpaged tax or dispute read", !/\.in\("product_id"/.test(payouts) && /readCreatorOrders<[^>]+>\(adminSupabase, creator\.id, "id, amount_cents, created_at, status, currency"/.test(payouts) && /statuses: \["disputed"\]/.test(payouts))
   check("  the products by a Map, with only the columns the list draws", /productById\.get\(order\.product_id\)/.test(payouts) && !/products\.find\(/.test(payouts) && /\.from\("products"\)\.select\("id, title, thumbnail_url, type"\)/.test(payouts))
 }
 
 function shell() {
   console.log("\n5. The /app shell's reads")
-  const layout = readCode("app/app/layout.tsx")
+  const layout = readCode("app/(storelib)/app/layout.tsx")
   const onepages = layout.slice(layout.indexOf('.from("onepages")'), layout.indexOf('.from("onepages")') + 200)
   check("the onepages read asks for its status, never draft_blocks", /\.select\("id, status"\)/.test(onepages) && !/draft_blocks/.test(layout))
   check("  onePagePublished is the published status, not 'a OnePage exists'", /onePagePublished=\{onepage\?\.status === "published"\}/.test(layout) && !/onePagePublished=\{!!onepage\}/.test(layout))
@@ -333,7 +333,7 @@ async function productsPage() {
     check("1,003 products: all of them, in two pages", data?.length === 1003 && ranges.length === 2 && ranges[1][0] === 1000, { rows: data?.length, ranges })
     check("  with named columns, never *", selects.every((c) => c === PRODUCT_LIST_COLUMNS) && !PRODUCT_LIST_COLUMNS.includes("*"))
   }
-  const client = readCode("app/app/products/products-client.tsx")
+  const client = readCode("app/(storelib)/app/products/products-client.tsx")
   const typed = client.slice(client.indexOf("interface Product {"), client.indexOf("}", client.indexOf("interface Product {")))
   const fields = [...typed.matchAll(/^\s*(\w+)\??:/gm)].map((m) => m[1])
   check("  every field the list's Product type reads is selected (and community_id for the filter)", fields.length >= 13 && [...fields, "community_id"].every((f) => PRODUCT_LIST_COLUMNS.split(", ").includes(f)), fields)
@@ -347,7 +347,7 @@ async function productsPage() {
     const { data, error } = await readProductList(db, "c1")
     check("a failed read is the old empty list (data null), not a different error path", data === null && !!error)
   }
-  const page = readCode("app/app/products/page.tsx")
+  const page = readCode("app/(storelib)/app/products/page.tsx")
   check("both the owner's and a team member's list use it", (page.match(/readProductList<ListedRow>\(/g) ?? []).length === 2 && !/select\("\*"\)/.test(page))
   check("  and the browser's refresh reads the same columns and pages", /readProductList<Product & \{ community_id\?: string \| null \}>\(supabase, creatorId\)/.test(client) && !/from\("products"\)\.select\("\*"\)/.test(client))
 }

@@ -143,7 +143,7 @@ if (!up) fail(`next start did not come up\n${serverLog.slice(-3000)}`)
 console.log(`app on ${PORT}, Supabase fixture on ${SUPA_PORT}, pictures in ${SHOTS}`)
 
 /* ── The two hosts, answered by that server with their own Host header ─── */
-const PNG = readFileSync(join(root, "app/icon.png"))
+const PNG = readFileSync(join(root, "app/(storelib)/icon.png"))
 const HOSTS = new Set(["storelib.me", "storelib.com"])
 const jar = new Map() /* host -> Map(name, value) */
 const inflight = new Set()

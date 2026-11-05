@@ -1,5 +1,5 @@
 /**
- * Mounts the checkout's option picker (app/checkout/parts/variant-edit.tsx)
+ * Mounts the checkout's option picker (app/(storelib)/checkout/parts/variant-edit.tsx)
  * for scripts/check-variant-edit.mjs: a hoodie with Size and Colour (one
  * combination sold out) and an ebook with two editions, each on a line as
  * the checkout draws it. `window.__picked` is what the page was asked to
@@ -7,7 +7,7 @@
  */
 import { createRoot } from "react-dom/client"
 import { createElement, useState } from "react"
-import { VariantEdit } from "@/app/checkout/parts/variant-edit"
+import { VariantEdit } from "@/app/(storelib)/checkout/parts/variant-edit"
 import type { VariantChoices } from "@/lib/checkout/variant-choices"
 
 const hoodie: VariantChoices = {

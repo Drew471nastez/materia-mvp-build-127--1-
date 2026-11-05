@@ -187,7 +187,7 @@ console.log("\nThe pass is known before the first draw (compat-files.ts)")
 
 console.log("\nA page rewritten by a push lands whole (GitHub's version used)")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("home rewritten whole is read again from the draft, header and footer with it", /page === null \|\| page === currentPageRef\.current \|\| page === "home"/.test(editor) && /if \(await loadData\(\{ quiet: true \}\) === false\) throw new Error\("Could not read the updated page"\)/.test(editor))
   check("  and the canvas draws a fresh document of it", /if \(importedNow && \(themeCode \|\| replacedHere \|\| \(many && !catchUp\)\)\) setReplaceDocument/.test(editor))
   const probe = read("scripts/check-canvas-stalls.mjs")

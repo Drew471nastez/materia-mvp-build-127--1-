@@ -3,7 +3,7 @@ import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { serverDelay } from "../../fix/delay"
 export const dynamic = "force-dynamic"
-/* The real /app shell (app/app/layout.tsx) without its reads: the same wrapper, rail, main, scroller and sheet slot. */
+/* The real /app shell (app/(storelib)/app/layout.tsx) without its reads: the same wrapper, rail, main, scroller and sheet slot. */
 export default async function AppLayout({ children, sheet }: { children: React.ReactNode; sheet: React.ReactNode }) {
   await serverDelay("shell", 150)
   return (

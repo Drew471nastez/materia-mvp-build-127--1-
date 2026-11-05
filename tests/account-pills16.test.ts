@@ -65,12 +65,12 @@ console.log("\nPROFILE: the tab is the account page, inside a community and out"
   check("  so Profile goes as a page, with the community's bar held for /account (as before round 15)", /if \(tab\.key === "profile" && href\.startsWith\("\/account"\) && communityContext\(\)\) \{\s*document\.documentElement\.setAttribute\("data-account-community-pending", ""\)/.test(bar))
   check("  and in the app it changes page in one piece, community to account", /const crosses = !!communityOf\(href\) !== !!communityOf\(pathname\)/.test(bar))
   check("  and /account is read ahead from inside the community (only the feed is the navigator's)", /\(navHere && tab\.key === "home"\) \? \[\] : \[hrefOf\(i\)\]/.test(bar) && /key !== "compose" && !\(navHere && key === "home"\)\) prefetchHref/.test(bar))
-  check("the other session's community bar over the account page is still mounted and still decides by the profile's pages", /<AccountCommunityChrome \/>/.test(code("app/layout.tsx")) && /const active = !!ctx\.slug && showsProfileHeader\(pathname\)/.test(code("components/account/account-community-chrome.tsx")))
+  check("the other session's community bar over the account page is still mounted and still decides by the profile's pages", /<AccountCommunityChrome \/>/.test(code("app/(storelib)/layout.tsx")) && /const active = !!ctx\.slug && showsProfileHeader\(pathname\)/.test(code("components/account/account-community-chrome.tsx")))
 }
 
 console.log("\nME: ?profile=me is the account page; somebody else's profile is unchanged")
 {
-  const page = code("app/(marketing)/community/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
   check("a fresh load of ?profile=me redirects to /account before anything is drawn", /if \(typeof query\.profile === "string" && query\.profile\.trim\(\)\.toLowerCase\(\) === "me"\) redirect\("\/account"\)/.test(page))
   check("  and only that: ?profile=<handle> still seeds the shell's place", /for \(const k of \["profile", "space"\]\)/.test(page) && JSON.stringify(placeFromUrl("/community/clay", "profile=maria")) === JSON.stringify({ kind: "profile", ref: "maria" }))
   const view = code("components/community/member/member-profile.tsx")
@@ -88,7 +88,7 @@ console.log("\nEDIT: Edit profile is the account page's own, full screen")
   check("the account page's Edit profile goes to Settings' profile fields", EDIT_PROFILE_HREF === "/account/settings")
   const door = code("components/account/edit-profile-door.tsx")
   check("  on a phone and in the apps as the full screen layer over the page; on a computer by address", /if \(settingsStaysHere\(\) \|\| !window\.matchMedia\?\.\("\(min-width: 768px\)"\)\.matches\) \{\s*openSettingsSubpage\("profile"\)/.test(door) && /router\.push\(SETTINGS_PROFILE\)/.test(door) && /const SETTINGS_PROFILE = "\/account\/settings\?section=profile"/.test(door))
-  check("  the layer is the whole screen above the tab bar (a screen layer), mounted inside the providers", /useLayer\("screen", true, panel\)/.test(code("components/account/settings-subpage.tsx")) && /<SettingsSubpageHost \/>/.test(code("app/layout.tsx")))
+  check("  the layer is the whole screen above the tab bar (a screen layer), mounted inside the providers", /useLayer\("screen", true, panel\)/.test(code("components/account/settings-subpage.tsx")) && /<SettingsSubpageHost \/>/.test(code("app/(storelib)/layout.tsx")))
   check("Settings has no community bar over it (the bar is for the profile's own pages only)", !showsProfileHeader("/account/settings") && !showsProfileHeader("/account/settings?section=profile"))
 }
 
@@ -97,7 +97,7 @@ console.log("\nPOSTS: my posts from every community, a pill of the account page"
   check("a Posts pill after Activity, to /account/posts, while communities are on", ACCOUNT_POSTS === "/account/posts" && ownerPillLinks(true).map((p) => p.key).join() === "activity,posts,communities,library,settings" && !ownerPillLinks(false).some((p) => p.key === "posts"))
   check("  a creator has it too", ownerPillLinks(true, true).map((p) => p.key).join() === "posts,communities,library,settings")
   check("/account/posts lights it, and the person's header and the community's bar stand over it", ownerPillFor("/account/posts") === "posts" && showsProfileHeader("/account/posts") && ACCOUNT_COMMUNITY_HEADER_BOOT.includes('p!=="/account/posts"'))
-  const page = code("app/account/posts/page.tsx")
+  const page = code("app/(storelib)/account/posts/page.tsx")
   check("the page: 404 with communities off, sign in with its own address, the first page from round 15's loader", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page) && /pageUser\(accountLoginPath\("\/account\/posts"\)\)/.test(page) && /myPostsPage\(admin\(\), user\.id, null\)/.test(page))
   const route = code("app/api/account/posts/route.ts")
   check("the next pages: the switch first, the session's own person only, a bounded cursor", route.indexOf("requireCommunitiesOn()") < route.indexOf("sessionUserId()") && /if \(!userId\) return NextResponse\.json\(\{ error: "unauthorized" \}, \{ status: 401/.test(route) && /myPostsPage\(admin\(\), userId, raw && raw\.length <= 400 \? raw : null\)/.test(route) && !/searchParams\.get\("(user|userId|id)"\)/.test(route))
@@ -136,7 +136,7 @@ console.log("\nHOUSE RULES")
     "components/community/member/space-chips.tsx",
     "components/community/member/chip-hit.ts",
     "components/account/account-posts.tsx",
-    "app/account/posts/page.tsx",
+    "app/(storelib)/account/posts/page.tsx",
     "app/api/account/posts/route.ts",
     "lib/profile/owner-pills.ts",
     "scripts/check-account-pills16.mjs",

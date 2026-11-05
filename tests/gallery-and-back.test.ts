@@ -400,8 +400,8 @@ console.log("\nThe sticky add to cart, and the wait before a product page\n")
   */
   check(
     "the product route has no loading boundary to swap the grid out for",
-    !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")) &&
-      !existsSync(join(root, "app/(marketing)/[sellername]/[productSlug]/loading.tsx")),
+    !existsSync(join(root, "app/(storelib)/(marketing)/p/[slug]/loading.tsx")) &&
+      !existsSync(join(root, "app/(storelib)/(marketing)/[sellername]/[productSlug]/loading.tsx")),
     "a boundary replaces the page you are on the instant a navigation starts",
   )
   /*

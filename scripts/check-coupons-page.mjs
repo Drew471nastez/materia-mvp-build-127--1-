@@ -5,7 +5,7 @@
  * The list on a page of its own (its title, one card, views with counts, no
  * tabs shared with Products, a table from 768px and a list of whole-row
  * presses under it), and the coupon editor framed as the product editor is,
- * through its real layouts in a shell shaped like app/app/layout.tsx
+ * through its real layouts in a shell shaped like app/(storelib)/app/layout.tsx
  * (scripts/render-coupons-probe.tsx):
  *
  *   A PHONE (390, and 360)   a layer over the whole window: no point of the

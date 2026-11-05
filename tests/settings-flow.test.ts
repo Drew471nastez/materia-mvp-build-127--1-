@@ -186,7 +186,7 @@ check(
 )
 check(
   "the settings loader really does select that column",
-  /\.from\("creators"\)\.select\("\*"\)/.test(read("app/app/settings/_server.ts")),
+  /\.from\("creators"\)\.select\("\*"\)/.test(read("app/(storelib)/app/settings/_server.ts")),
 )
 check(
   "the fetch still runs, so the detail is still refined",
@@ -203,13 +203,13 @@ check(
 )
 check(
   "the old route redirects, so bookmarks and Stripe return URLs still land",
-  /redirect\("\/app\/settings\?tab=billing"\)/.test(read("app/app/settings/billing/page.tsx")),
+  /redirect\("\/app\/settings\?tab=billing"\)/.test(read("app/(storelib)/app/settings/billing/page.tsx")),
 )
 check(
   "and it no longer carries a route-level skeleton",
   (() => {
     try {
-      untt(readFileSync(join(root, "app/app/settings/billing/loading.tsx"), "utf8"), "app/app/settings/billing/loading.tsx")
+      untt(readFileSync(join(root, "app/(storelib)/app/settings/billing/loading.tsx"), "utf8"), "app/(storelib)/app/settings/billing/loading.tsx")
       return false
     } catch {
       return true
@@ -267,7 +267,7 @@ section("Upgrade opens and closes")
   check(
     "it is its own page: a layer over the whole shell, with the pill stepping aside under it",
     /* The shared layer (components/app/page-layer.tsx): over the header (50), under the pill (55), which it hides. */
-    /<PageLayer inset="white">/.test(read("app/app/settings/billing/upgrade/layout.tsx")) &&
+    /<PageLayer inset="white">/.test(read("app/(storelib)/app/settings/billing/upgrade/layout.tsx")) &&
       /data-page-layer=\{pill \? "pill" : ""\}/.test(read("components/app/page-layer.tsx")) &&
       /fixed inset-0 z-\[52\]/.test(read("components/app/page-layer.tsx")) &&
       /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css),
@@ -280,7 +280,7 @@ section("Upgrade opens and closes")
     "and its 69-line skeleton is gone, so the previous screen simply stays until this one is ready",
     (() => {
       try {
-        untt(readFileSync(join(root, "app/app/settings/billing/upgrade/loading.tsx"), "utf8"), "app/app/settings/billing/upgrade/loading.tsx")
+        untt(readFileSync(join(root, "app/(storelib)/app/settings/billing/upgrade/loading.tsx"), "utf8"), "app/(storelib)/app/settings/billing/upgrade/loading.tsx")
         return false
       } catch {
         return true
@@ -374,7 +374,7 @@ check(
 )
 check(
   "and the payouts chart keeps its scale",
-  /<YAxis/.test(read("app/app/payouts/payouts-client.tsx")),
+  /<YAxis/.test(read("app/(storelib)/app/payouts/payouts-client.tsx")),
 )
 check(
   "the Website glyph is one browser window, drawn once, like the envelope and the banknote beside it",
@@ -418,7 +418,7 @@ section("The native cold start")
 // ---------------------------------------------------------------------------
 
 {
-  const start = read("app/native-start/page.tsx")
+  const start = read("app/(storelib)/native-start/page.tsx")
 
   check(
     "the deep-link check uses the bridge Capacitor already injected",
@@ -439,8 +439,8 @@ section("The native cold start")
        * the drop-target guard fell into, and the reason this is worth
        * spelling out twice.
        */
-      const resolve = code("app/native-start/page.tsx").slice(
-        code("app/native-start/page.tsx").indexOf("async function resolve()"),
+      const resolve = code("app/(storelib)/native-start/page.tsx").slice(
+        code("app/(storelib)/native-start/page.tsx").indexOf("async function resolve()"),
       )
       const firstImport = resolve.indexOf('await import("@capacitor/app")')
       const bridgeRead = resolve.indexOf(").Capacitor")
@@ -809,7 +809,7 @@ check(
      */
     const files = [
       "components/app/dashboard-client.tsx",
-      "app/app/analytics/analytics-client.tsx",
+      "app/(storelib)/app/analytics/analytics-client.tsx",
     ]
     return files.every((f) => !/touchAction: 'pan-x'/.test(read(f)))
   })(),
@@ -874,8 +874,8 @@ check(
     "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
     /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /* And round R1: its foot is room for the nav pill and the save bar, so the top is set on its own. */ /className=\{`max-w-4xl lg:max-w-\[1200px\] mx-auto app-gutter pt-6 sm:pt-8/.test(code("components/app/settings-form-new.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
-      && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
-      && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),
+      && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/(storelib)/app/analytics/analytics-client.tsx"))
+      && /export const GUTTER = "app-gutter"/.test(code("app/(storelib)/app/orders/order-parts.tsx")),
   )
   check(
     "the pill row under 1024px runs to the screen's edges and lines its first pill up with the cards",

@@ -152,7 +152,7 @@ async function main() {
     check("Cmd+S and Ctrl+S", isSaveShortcut(key("s", { metaKey: true })) && isSaveShortcut(key("s", { ctrlKey: true })) && isSaveShortcut(key("S", { ctrlKey: true })))
     check("not S alone, not Shift+Cmd+S (strike), not Alt", !isSaveShortcut(key("s")) && !isSaveShortcut(key("s", { metaKey: true, shiftKey: true })) && !isSaveShortcut(key("s", { metaKey: true, altKey: true })))
     check("Shift+Cmd+F is focus mode", isFocusShortcut(key("f", { metaKey: true, shiftKey: true })) && !isFocusShortcut(key("f", { metaKey: true })))
-    const client = code("app/admin/blog/posts/_editor-client.tsx")
+    const client = code("app/(storelib)/admin/blog/posts/_editor-client.tsx")
     check("the editor saves at once on it, cancelling the autosave timer", /if \(isSaveShortcut\(e\)\) \{\s*e\.preventDefault\(\)/.test(client) && /queue\("save"\)/.test(client) && /if \(timer\.current\) clearTimeout\(timer\.current\)\s*timer\.current = null/.test(client))
     check("  and before 345 a live post says Update saves it", /if \(!autosaves\) return flash\(/.test(client))
   }
@@ -170,7 +170,7 @@ async function main() {
     check("words: text, a line break between words, items, table headers and cells, never alt text", wordCount(blocks) === 2 + 4 + 3 + 2 + 3, wordCount(blocks))
     check("read time at 230 a minute, never under 1", readMinutes(0) === 1 && readMinutes(230) === 1 && readMinutes(460) === 2 && readMinutes(1200) === 5)
     check("the search title is the article's: SEO title or title, then | Storelib", searchTitle({ title: "A post", seo_title: "" }) === "A post | Storelib" && searchTitle({ title: "A post", seo_title: "Better | Storelib" }) === "Better | Storelib" && searchTitle({ title: "", seo_title: "" }) === "")
-    check("  matching app/layout.tsx's template", /template: "%s \| Storelib"/.test(read("app/layout.tsx")))
+    check("  matching app/(storelib)/layout.tsx's template", /template: "%s \| Storelib"/.test(read("app/(storelib)/layout.tsx")))
     check("the description is the SEO description, else the excerpt", searchDescription({ seo_description: "", excerpt: "E" }) === "E" && searchDescription({ seo_description: "D", excerpt: "E" }) === "D")
   }
 
@@ -205,7 +205,7 @@ async function main() {
     check("focus keyword in the title and in the first paragraph, case and spacing aside", by(all, "keyword-title")?.state === "warn" && by(all, "keyword-intro")?.state === "ok" && by(seoChecklist(meta({ focus_keyword: "Price  A Course" }), body, { full: true }), "keyword-title")?.state === "ok")
     check("  no focus keyword: no keyword lines", !by(seoChecklist(meta({}), body, { full: true }), "keyword-title") && !by(seoChecklist(meta({}), body, { full: true }), "keyword-intro"))
     const tools = code("lib/blog/editor-tools.ts")
-    const client = code("app/admin/blog/posts/_editor-client.tsx")
+    const client = code("app/(storelib)/admin/blog/posts/_editor-client.tsx")
     check("no score: no function or field makes one, and the page shows none", !/export (function|const) \w*score/i.test(tools) && !/score|\d+\s*\/\s*100\b/i.test(client) && Object.keys(all[0]).sort().join() === "id,state,text")
     check("the panel draws seoChecklist, and the publish step counts its warnings", /seoChecklist\(meta, blocks, \{ full \}\)/.test(client) && /checks\(\)\.filter\(\(c\) => c\.state === "warn"\)/.test(client))
     check("the SEO title's counter counts the title as rendered, | Storelib included", /count=\{\{ n: shownTitle\.length, max: TITLE_FITS \}\}/.test(client) && /const shownTitle = searchTitle\(meta\)/.test(client))
@@ -214,7 +214,7 @@ async function main() {
   /* ── The page ────────────────────────────────────────────────────────── */
   console.log("\nThe writing page\n")
   {
-    const client = code("app/admin/blog/posts/_editor-client.tsx")
+    const client = code("app/(storelib)/admin/blog/posts/_editor-client.tsx")
     const ed = code("components/admin/blog-editor.tsx")
     check("a new post opens with the caret in the title; Enter and Down go into the body", /<TitleField value=\{meta\.title\} onChange=\{onTitle\} autoFocus=\{!initial\} \/>/.test(client) && /if \(e\.key === "Enter" && !e\.nativeEvent\.isComposing\) \{\s*e\.preventDefault\(\)\s*toBody\(\)/.test(client))
     check("Up from the first line goes back to the title", /onLeaveTop=\{focusTitle\}/.test(client) && /if \(dir < 0 && leaveTopRef\.current\)/.test(ed))

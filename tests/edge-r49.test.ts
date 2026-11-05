@@ -249,10 +249,10 @@ async function main() {
     const asking = cap.slice(cap.indexOf("export const strangerFetch"), cap.indexOf("export interface PageAsk"))
     check("a copy is asked for with no cookie", !/(?<![A-Za-z])["']?cookie["']?\s*:/i.test(asking) && !/credentials/.test(asking) && (asking.match(/withCookie: false/g) ?? []).length === 2)
     check("  and the rule is checked on what came back, not assumed", /capturable\(r, r\.withCookie\)/.test(cap))
-    const community = code("app/(marketing)/community/[slug]/page.tsx")
+    const community = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
     check("a community's copy only from a stranger's draw of the plain address", /if \(!user && Object\.keys\(query\)\.length === 0\) keepPageFresh\(/.test(community))
-    check("  and its About page only from a stranger's", /if \(!user\) keepPageFresh\(/.test(code("app/(marketing)/community/[slug]/about/page.tsx")))
-    check("a OnePage's copy is of storelib.me/<name>, asked for as a stranger", /keepPageFresh\(`onepage-\$\{\(onepage\.slug \|\| slug\)\.toLowerCase\(\)\}`, "storelib\.me", `\/\$\{onepage\.slug \|\| slug\}`, "onepage"\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+    check("  and its About page only from a stranger's", /if \(!user\) keepPageFresh\(/.test(code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")))
+    check("a OnePage's copy is of storelib.me/<name>, asked for as a stranger", /keepPageFresh\(`onepage-\$\{\(onepage\.slug \|\| slug\)\.toLowerCase\(\)\}`, "storelib\.me", `\/\$\{onepage\.slug \|\| slug\}`, "onepage"\)/.test(code("app/(storelib)/(marketing)/l/[slug]/page.tsx")))
   }
 
   console.log("\n7. Purge on publish")

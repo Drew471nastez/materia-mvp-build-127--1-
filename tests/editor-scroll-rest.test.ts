@@ -55,7 +55,7 @@ async function rests() {
 
 console.log("\nThe scroll listeners do not read boxes")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const scrollFn = editor.slice(editor.indexOf("const onScroll = () => {\n      noteCanvasScroll()"), editor.indexOf("scroller.addEventListener(\"scroll\", onScroll"))
   check("the section bar follows the offset and measures when the gesture rests", /shiftWithScroll\(/.test(scrollFn) && !/getBoundingClientRect/.test(scrollFn))
   const bar = read("components/website-builder/canvas-scrollbar.tsx")

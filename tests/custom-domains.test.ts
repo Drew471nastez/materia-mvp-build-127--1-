@@ -183,10 +183,10 @@ console.log("\nThe database change, and before it runs")
 
 console.log("\nThe pages name it")
 {
-  check("the creator page's canonical", /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(marketing)/u/[username]/page.tsx")) && /canonical: pageUrl,/.test(code("app/(marketing)/u/[username]/page.tsx")))
-  const product = code("app/(marketing)/p/[slug]/page.tsx")
+  check("the creator page's canonical", /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) && /canonical: pageUrl,/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")))
+  const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("a product's canonical, structured data and share sheet", /getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(product) && /getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(product) && /pageHost=\{pageHost\}/.test(product))
-  check("the OnePage's canonical and share sheet", /alternates: \{ canonical: seo\.url \}/.test(code("lib/onepage/seo.ts")) && /* the route hands the domain to lib/onepage/public-shape, which puts it in settings.custom_domain (moved there on purpose: the editor's preview builds the same shape) */ /customDomain: await primaryHostFor\(resolvedCreatorId, "creator_page"\)/.test(code("app/(marketing)/l/[slug]/page.tsx")) && /custom_domain: customDomain/.test(code("lib/onepage/public-shape.ts")) && /getLinksShareUrl\(onepage\.slug, /.test(code("components/onepage/public-onepage.tsx")))
+  check("the OnePage's canonical and share sheet", /alternates: \{ canonical: seo\.url \}/.test(code("lib/onepage/seo.ts")) && /* the route hands the domain to lib/onepage/public-shape, which puts it in settings.custom_domain (moved there on purpose: the editor's preview builds the same shape) */ /customDomain: await primaryHostFor\(resolvedCreatorId, "creator_page"\)/.test(code("app/(storelib)/(marketing)/l/[slug]/page.tsx")) && /custom_domain: customDomain/.test(code("lib/onepage/public-shape.ts")) && /getLinksShareUrl\(onepage\.slug, /.test(code("components/onepage/public-onepage.tsx")))
   check("a website's canonical is its own primary domain, never the creator page's", /primaryHostFor\(creatorId, "website"\)/.test(code("lib/website-builder/site-seo-data.ts")))
 }
 

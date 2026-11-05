@@ -293,7 +293,7 @@ async function main() {
     const native = sourcesFor("text", "product").map((s) => s.id)
     check("the Shop data picker offers an imported theme only what its Liquid fills", compat.includes("product.title") && compat.includes("product.rating") && !compat.includes("creator.bio") && !compat.includes("social.instagram") && compat.every((id) => COMPAT_SOURCE_EXPR[id] !== undefined))
     check("  and a Storelib theme keeps its own list", native.includes("creator.bio") && !native.includes("product.rating"))
-    check("the editor tells the picker it is an imported theme", /compat: compatInstall,/.test(code("app/website-builder/editor/[installId]/page.tsx")) && /sourcesFor\(kind, env\.template, \{ compat: env\.compat === true \}\)/.test(code("components/website-builder/editor/controls/dynamic-source-field.tsx")))
+    check("the editor tells the picker it is an imported theme", /compat: compatInstall,/.test(code("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /sourcesFor\(kind, env\.template, \{ compat: env\.compat === true \}\)/.test(code("components/website-builder/editor/controls/dynamic-source-field.tsx")))
   }
 
   console.log("\nTenant isolation\n")

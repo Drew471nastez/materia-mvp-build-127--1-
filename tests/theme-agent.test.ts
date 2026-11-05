@@ -778,17 +778,17 @@ section("One door to the AI, not two")
    */
   check(
     "but the code builder still exists and still answers",
-    existsSync(join(root, "app/app/sites/page.tsx")) &&
-      existsSync(join(root, "app/sites/[siteId]/page.tsx")),
+    existsSync(join(root, "app/(storelib)/app/sites/page.tsx")) &&
+      existsSync(join(root, "app/(storelib)/sites/[siteId]/page.tsx")),
   )
 
   check(
     "and the theme editor is where the AI now lives",
     (() => {
       const editor = untt(readFileSync(
-        join(root, "app/website-builder/editor/[installId]/page.tsx"),
+        join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
         "utf8",
-      ), "app/website-builder/editor/[installId]/page.tsx")
+      ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
       return /<ThemeChat/.test(editor) && /aria-label="Ask Storelib"/.test(editor)
     })(),
   )
@@ -799,7 +799,7 @@ section("The editor has one accent, and it is the app's own")
 // ===========================================================================
 
 {
-  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+  const editor = untt(readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
   /**
    * Purple appeared in thirty-one places beside a Save button that is black,
@@ -1095,9 +1095,9 @@ section("An AI edit behaves exactly like an edit made by hand")
  */
 {
   const editor = untt(readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  ), "app/website-builder/editor/[installId]/page.tsx")
+  ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const at = editor.indexOf("const applyAiOp = useCallback")
   const body = editor.slice(at, editor.indexOf("}, [librarySchemas])", at))
 
@@ -1235,9 +1235,9 @@ section("Autosave writes the draft, never the live site")
 
 {
   const editor = untt(readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  ), "app/website-builder/editor/[installId]/page.tsx")
+  ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
   check(
     "autosave calls saveDraft, not handleSave",
@@ -1293,9 +1293,9 @@ section("Autosave writes the draft, never the live site")
 
 {
   const editor = untt(readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  ), "app/website-builder/editor/[installId]/page.tsx")
+  ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
   check(
     "'saved' and 'published' are two different facts",
@@ -1349,9 +1349,9 @@ section("Switching pages does not lose or misfile work")
 
 {
   const editor = untt(readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  ), "app/website-builder/editor/[installId]/page.tsx")
+  ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const at = editor.indexOf("const handlePageChange = async (page: PageKey)")
   const body = editor.slice(at, editor.indexOf("\n  }", editor.indexOf("switchingPage.current = false", at)))
 
@@ -2084,7 +2084,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   const parts = untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")
   const picker = untt(readFileSync(join(root, "components/website-builder/ask-model-picker.tsx"), "utf8"), "components/website-builder/ask-model-picker.tsx")
   const sheet = untt(readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8"), "components/website-builder/mobile-editor-sheet.tsx")
-  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+  const editor = untt(readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const css = untt(readFileSync(join(root, "app/globals.css"), "utf8"), "app/globals.css")
 
   check(
@@ -2221,9 +2221,9 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
 
 {
   const editor = untt(readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
-  ), "app/website-builder/editor/[installId]/page.tsx")
+  ), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check(
     "the AI exists on a phone",
     /**
@@ -2781,7 +2781,7 @@ section("The panel says the true thing, and does not make you wait to type")
 }
 
 {
-  const editor = untt(readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")
+  const editor = untt(readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check(
     "and so does the button that opens it",
     // One button at every size: the mark, with its own glow.
@@ -3899,11 +3899,11 @@ section("A setting is one way to make a change, not the limit of what is possibl
         /compatFilesChanged\(installId\)/.test(editor) &&
         /setCompatPanelVersion\(\(n\) => n \+ 1\)/.test(editor) &&
         (editor.match(/onSourcesChanged=\{reloadAiSources\}/g) ?? []).length === 2)(
-        untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx"),
+        untt(readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
       ),
   )
   check(
     "the section's own button says Ask AI",
-    /<Item label="Ask AI" onClick=\{onAskAi\}>/.test(untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx")),
+    /<Item label="Ask AI" onClick=\{onAskAi\}>/.test(untt(readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/editor/[installId]/page.tsx")),
   )
 }

@@ -3,7 +3,7 @@
  * (components/app/settings-sheet), for scripts/check-settings-r1.mjs. At
  * 1024px and up it is the sheet over a page shaped like the dashboard; below
  * it, the page under a header the shape of the app's, with a stand-in for the
- * nav pill's links. ViewportVars is mounted as in app/layout.tsx, so a
+ * nav pill's links. ViewportVars is mounted as in app/(storelib)/layout.tsx, so a
  * simulated keyboard (the probe's own visualViewport) reaches every sheet.
  * The router, Supabase and every /api answer are stubs.
  */

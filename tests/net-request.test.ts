@@ -169,7 +169,7 @@ async function main() {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
     check("the settings panels' api() goes through it", /requestJson<Record<string, unknown>>\(path,/.test(read("components/physical/ui.tsx")))
     check("the community screens' api() goes through it", /requestJson<Record<string, unknown>>\(url,/.test(read("components/community/member/api.ts")))
-    const checkout = read("app/checkout/checkout-client.tsx")
+    const checkout = read("app/(storelib)/checkout/checkout-client.tsx")
     check("checkout's calls go through it, with the payment deadline", /requestJson<T & \{ error\?: string; field\?: string \}>\(url, \{ method: "POST", json: body, timeoutMs: WAIT_MS\.pay \}\)/.test(checkout))
     check("a card confirm with no answer asks the server what the payment did, never says nothing was charged",
       /* Changed on purpose (rel-commerce): a 5xx or "unknown" is treated as no answer too, the intent is kept for the next press, and the words are the checking ones (lib/checkout/confirm-outcome). */

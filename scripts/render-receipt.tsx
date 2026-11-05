@@ -1,5 +1,5 @@
 /**
- * The real receipt page (app/receipt/[token]/receipt-view.tsx) with the
+ * The real receipt page (app/(storelib)/receipt/[token]/receipt-view.tsx) with the
  * review card under it, for scripts/check-receipt.mjs. The orders are in
  * scripts/receipt-cases.tsx; `?case=` picks one. The router is a stub; the
  * probe's server answers every /api call the page makes (download, resend,
@@ -11,8 +11,8 @@
  */
 import React from "react"
 import { createRoot, hydrateRoot } from "react-dom/client"
-import { ReceiptView } from "@/app/receipt/[token]/receipt-view"
-import ReceiptLoading from "@/app/receipt/[token]/loading"
+import { ReceiptView } from "@/app/(storelib)/receipt/[token]/receipt-view"
+import ReceiptLoading from "@/app/(storelib)/receipt/[token]/loading"
 import { receiptCases } from "./receipt-cases"
 
 const params = new URLSearchParams(location.search)

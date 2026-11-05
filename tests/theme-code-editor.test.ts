@@ -185,7 +185,7 @@ section("A file shows what that file is")
    * the section list drifted in the first place.
    */
   const editor = readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
   )
   const product = JSON.parse(getDefaultFileContent("templates/product.json"))
@@ -210,7 +210,7 @@ section("It is reachable, and it works on a file longer than the window")
 
 {
   const editor = readFileSync(
-    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
     "utf8",
   )
   check(
@@ -226,7 +226,7 @@ section("It is reachable, and it works on a file longer than the window")
     "and it loads in place, so unsaved theme work is not navigated away from",
     (() => {
       const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
-  const codeSrc = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codeSrc = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   check(
     "with the inspector on, a tap on a theme link selects and never navigates, and the page already showing is not reloaded",
     /**
@@ -389,7 +389,7 @@ section("It is reachable, and it works on a file longer than the window")
 
 {
   const code = readFileSync(
-    join(root, "app/website-builder/code/[installId]/page.tsx"),
+    join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"),
     "utf8",
   )
 
@@ -476,8 +476,8 @@ section("Save compiles, errors carry lines, the canvas finds out")
   const route =
     readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
     readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
-  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   // `<name>.storelib.com` is the website and lives at /w; the apex path is
   // the creator page and draws no sections.
   const creator = readFileSync(join(root, "app/(site)/w/[username]/render-site.tsx"), "utf8")
@@ -556,7 +556,7 @@ section("A rename is a delete, for the pages that use the section")
   const route =
     readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8") +
     readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
-  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
 
   /**
    * Renaming sections/x.storelib to sections/y.storelib takes the type with
@@ -573,7 +573,7 @@ section("A rename is a delete, for the pages that use the section")
 section("The page a section is on is the page it is on")
 // ===========================================================================
 {
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   const provider = readFileSync(join(root, "components/website-builder/sections/storelib-sources.tsx"), "utf8")
   const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
   // `<name>.storelib.com` is the website and lives at /w; the apex path is
@@ -670,7 +670,7 @@ section("A section somebody wrote is a section, not an unknown type")
 section("Create writes the file, and you name it rather than its path")
 // ===========================================================================
 {
-  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   /* The save's rules live in one module now, shared with the agent API; the
      route delegates to it. Read together, they are the same rules as before. */
   const route =
@@ -730,7 +730,7 @@ section("Create writes the file, and you name it rather than its path")
 section("The library draws what you would actually get")
 // ===========================================================================
 {
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   /**
    * The cards used to render with no sources at all, deliberately, so that
    * they showed "the section as the theme ships it". A section the creator
@@ -777,7 +777,7 @@ if (failed > 0) {
 section("The editor knows what is in the file in front of it")
 // ===========================================================================
 {
-  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   const complete = readFileSync(join(root, "lib/website-builder/storelib-complete.ts"), "utf8")
 
   const FILE = [
@@ -860,7 +860,7 @@ section("The editor knows what is in the file in front of it")
 section("Nothing typed into this editor is lost without somebody choosing it")
 // ===========================================================================
 {
-  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   /* The save's rules live in one module now, shared with the agent API; the
      route delegates to it. Read together, they are the same rules as before. */
   const route =
@@ -901,7 +901,7 @@ section("The code editor on a phone")
 // ===========================================================================
 
 {
-  const page = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const page = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
   const css = readFileSync(join(root, "app/globals.css"), "utf8")
 
@@ -992,7 +992,7 @@ section("The code editor on a phone")
     "closing the code pane blurs what the keyboard was over",
     /if \(visible\) return/.test(pane) && /contentDocument\?\.activeElement/.test(pane) && /window\.scrollTo\(0, 0\)/.test(pane),
   )
-  const builder = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const builder = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   const stuck = readFileSync(join(root, "lib/website-builder/stuck-layer.ts"), "utf8")
   check(
     "and coming back to the app clears a lock whose owner is gone",
@@ -1085,7 +1085,7 @@ section("The code editor on a phone")
  */
 {
   console.log("\n  A list of errors can be copied, and handed to the assistant")
-  const code = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const code = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
   const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/sections/code/fix/route.ts"), "utf8")
   const agent = readFileSync(join(root, "lib/website-builder/agent/fix-section.ts"), "utf8")
 

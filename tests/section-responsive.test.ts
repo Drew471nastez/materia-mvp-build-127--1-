@@ -183,9 +183,9 @@ section("Two devices, and each one changes what renders")
 // ===========================================================================
 
 const editor = untt(readFileSync(
-  join(root, "app/website-builder/editor/[installId]/page.tsx"),
+  join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"),
   "utf8",
-), "app/website-builder/editor/[installId]/page.tsx")
+), "app/(storelib)/website-builder/editor/[installId]/page.tsx")
 /* Add a section: the phone's sheet and the computer's dialog, in their own module. */
 const library = untt(readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8"), "components/website-builder/editor/section-library.tsx")
 const sectionsList = untt(readFileSync(join(root, "components/website-builder/editor/sections-list.tsx"), "utf8"), "components/website-builder/editor/sections-list.tsx")
@@ -413,7 +413,7 @@ check(
 
 check(
   "the framed code page drops its own header",
-  /\{!embedded && \(/.test(untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")),
+  /\{!embedded && \(/.test(untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx")),
 )
 
 check(
@@ -654,7 +654,7 @@ const settingsFiles = ["types.ts", "general.tsx", "backups.tsx"].map((f) =>
 )
 const settingsAll = [settingsPage, ...settingsFiles].join("\n")
 const publishPanel = untt(readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8"), "components/website-builder/publish-panel.tsx")
-const codePage = untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")
+const codePage = untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx")
 const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
 
 check(
@@ -1130,7 +1130,7 @@ check(
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
     // and the legend is desktop furniture
     /border-t border-\[var\(--code-border\)\] space-y-1", narrow && "hidden"/.test(code))(
-      untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
+      untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx"),
     ),
 )
 
@@ -1267,7 +1267,7 @@ check(
     ((code) =>
       /type: "storelib:code-theme", theme: codeTheme/.test(code) &&
       /data\.type !== "storelib:set-code-theme"/.test(code))(
-        untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
+        untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx"),
       ),
 )
 
@@ -1308,7 +1308,7 @@ check(
     // and the inset is measured, not guessed
     /const covered = window\.innerHeight - vv\.height - vv\.offsetTop/.test(code) &&
     /vv\.addEventListener\("resize", measure\)/.test(code))(
-      untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx"),
+      untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx"),
     ),
 )
 
@@ -1915,7 +1915,7 @@ check(
 section("The website list, and the row of themes under it")
 // ===========================================================================
 
-const wbPage = untt(readFileSync(join(root, "app/app/website-builder/website-builder-client.tsx"), "utf8"), "app/app/website-builder/website-builder-client.tsx")
+const wbPage = untt(readFileSync(join(root, "app/(storelib)/app/website-builder/website-builder-client.tsx"), "utf8"), "app/(storelib)/app/website-builder/website-builder-client.tsx")
 
 check(
   "the theme row sits on the page's gutters like every other block",
@@ -1966,7 +1966,7 @@ check(
 // are real on iOS, zero in a browser, and zero on Android until that app goes
 // edge-to-edge — no branch, no user-agent test, no plugin.
 const editorCss = untt(readFileSync(join(root, "app/globals.css"), "utf8"))
-const codePageSrc = untt(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"), "app/website-builder/code/[installId]/page.tsx")
+const codePageSrc = untt(readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8"), "app/(storelib)/website-builder/code/[installId]/page.tsx")
 
 check(
   "the editor's geometry comes from env(), in one place",
@@ -2416,7 +2416,7 @@ check(
 // put. With the fix the same measurement reads 0, and the canvas meets the
 // sheet with a gap of exactly 0 both with the inset and without it.
 const lockSrc = untt(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8"), "components/website-builder/full-screen-lock.tsx")
-const wbLayout = untt(readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8"), "app/website-builder/layout.tsx")
+const wbLayout = untt(readFileSync(join(root, "app/(storelib)/website-builder/layout.tsx"), "utf8"), "app/(storelib)/website-builder/layout.tsx")
 const readRoot = (p: string) => untt(readFileSync(join(root, p), "utf8"))
 
 check(
@@ -2435,8 +2435,8 @@ check(
 check(
   "both editor addresses draw the editor's frame under it (its surround and its dark bar), never white",
   /bg-\[#171717\]/.test(readRoot("components/website-builder/editor-frame.tsx"))
-    && /<EditorFrame>/.test(readRoot("app/store/[creatorSlug]/themes/[installId]/editor/layout.tsx"))
-    && /<EditorToaster \/>/.test(readRoot("app/store/[creatorSlug]/themes/[installId]/editor/layout.tsx")),
+    && /<EditorFrame>/.test(readRoot("app/(storelib)/store/[creatorSlug]/themes/[installId]/editor/layout.tsx"))
+    && /<EditorToaster \/>/.test(readRoot("app/(storelib)/store/[creatorSlug]/themes/[installId]/editor/layout.tsx")),
 )
 
 check(
@@ -3179,8 +3179,8 @@ check(
   // assertion that passes when the code is deleted and the comment stays.
   /* Changed on purpose: the Library block takes a dropped theme, so its attributes run on after the mark (9a60d8790). Still matched as an attribute of a <section>, never the comment's word. */
   (wbPage.match(/<section\b[^>]*\sdata-page-block(?=[\s>])/g) ?? []).length === 3 &&
-    !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
-    !existsSync(join(root, "app/app/website-builder/loading.tsx")),
+    !existsSync(join(root, "app/(storelib)/app/website-builder/skeleton.tsx")) &&
+    !existsSync(join(root, "app/(storelib)/app/website-builder/loading.tsx")),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

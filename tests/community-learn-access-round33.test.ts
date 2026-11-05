@@ -385,11 +385,11 @@ async function main() {
     const route = code("app/api/app/community/[id]/learn/members/route.ts")
     check("the members picker: communities on first, then whoever may manage Learn, names only", route.indexOf("requireCommunitiesOn()") > 0 && route.indexOf("requireCommunitiesOn()") < route.indexOf('requireCreatorCommunity(id, "manage_classroom")') && /withEmail: false/.test(route) && !/email:/.test(route.replace(/withEmail: false/, "")))
     const editor = code("components/community/learn/program-editor.tsx")
-    check("the description is the product editor's own rich text field", /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(editor) && /<RichTextEditor/.test(editor) && /uploadImage=/.test(editor) && /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(code("app/app/products/new/product-editor.tsx")))
+    check("the description is the product editor's own rich text field", /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(editor) && /<RichTextEditor/.test(editor) && /uploadImage=/.test(editor) && /import \{ RichTextEditor \} from "@\/components\/app\/rich-text-editor"/.test(code("app/(storelib)/app/products/new/product-editor.tsx")))
     check("Save and Cancel are the shared save bar; Publish saves on its own", /<EditorFoot /.test(editor) && /onCancel=\{\(\) => \{ setForm\(saved\)/.test(editor) && /learnRequest\(url, "PATCH", \{ status: next \}\)/.test(editor))
     check("the five choices as cards, each with what it needs", /value: "free"/.test(editor) && /value: "level"/.test(editor) && /value: "paid"/.test(editor) && /value: "time"/.test(editor) && /value: "private"/.test(editor) && /data-access-inputs=\{o\.value\}/.test(editor))
     check("no bar of its own in the page's flow, no inner scroll box", !/sticky bottom-0/.test(editor) && !/overflow-y-auto/.test(editor) && !/max-w-\[880px\]/.test(editor))
-    const ce = code("app/app/products/new/course-editor.tsx")
+    const ce = code("app/(storelib)/app/products/new/course-editor.tsx")
     check("a new module and lesson carry the id made in the browser, and take the caret", /action: "add-module", moduleId, lessonId/.test(ce) && /action: "add-lesson", moduleId: m\.id, lessonId/.test(ce) && /el\.select\(\)/.test(ce))
     check("adding never waits: no button is held while a change is saved", !/disabled=\{busy\}[^\n]*data-add/.test(ce) && !/disabled=\{props\.busy\}/.test(ce) && !/\|\| props\.busy/.test(ce))
     check("a move glides, unless motion is asked to be less", /prefers-reduced-motion: reduce/.test(ce) && /translate: `0 \$\{own\}px`/.test(ce))
@@ -411,7 +411,7 @@ async function main() {
       "lib/communities/server/learn.ts",
       "lib/courses/editor-ops.ts",
       "lib/courses/manage.ts",
-      "app/app/products/new/course-editor.tsx",
+      "app/(storelib)/app/products/new/course-editor.tsx",
       "app/api/app/community/[id]/learn/members/route.ts",
       "supabase/sql/run-now/200_learn_access_types.sql",
       "scripts/check-learn-round33.mjs",

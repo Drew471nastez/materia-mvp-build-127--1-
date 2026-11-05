@@ -422,7 +422,7 @@ async function main() {
   check("in a request a push waits for the response (next/server after), never holding it up", /after\(task\)/.test(code("lib/notifications/push-bridge.ts")) && /defer: deferAfterResponse/.test(code("lib/notifications/push-bridge.ts")))
   const client = code("lib/push/client.ts")
   check("the app's tap listener opens any page a push names (lib/push/tap), not only payouts", /const to = pushTapTarget\(data\)/.test(client) && /window\.location\.href = to/.test(client) && !/type === "sale"/.test(client))
-  check("and a cold start's gate does not send the person elsewhere after a tap chose", /__storelibPushTap\) return/.test(code("app/native-start/page.tsx")))
+  check("and a cold start's gate does not send the person elsewhere after a tap chose", /__storelibPushTap\) return/.test(code("app/(storelib)/native-start/page.tsx")))
   const sender = code("lib/push/sender.ts")
   check("a browser push opens the inbox page too, and phones stack one banner per key", /data\?\.type === "inbox" \? inboxTapTarget\(data\.url\)/.test(sender) && /"apns-collapse-id": collapse/.test(sender) && /tag: collapse/.test(sender))
 

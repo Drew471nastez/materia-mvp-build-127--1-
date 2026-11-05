@@ -18,7 +18,7 @@
  *              client move and as a document.
  *   SPEED      the tab bar between Explore, Library and Account: laggy.
  *
- * GROUND needs no server: the app's stylesheets in the order app/layout.tsx
+ * GROUND needs no server: the app's stylesheets in the order app/(storelib)/layout.tsx
  * loads them, in the browser and in the app (html.capacitor), light and dark,
  * and what the body and the canvas are painted.
  *
@@ -324,7 +324,7 @@ try {
         for (const page of ["explore", "account"]) {
           const p = await browser.newPage()
           await p.setViewport(PHONE.vp)
-          /* The order app/layout.tsx imports them in: the dark sheet, then globals.css. */
+          /* The order app/(storelib)/layout.tsx imports them in: the dark sheet, then globals.css. */
           await p.setContent(`<!doctype html><html class="${shell === "app" ? "capacitor elastic-scroll" : "elastic-scroll"}" ${look === "dark" ? 'data-sl-dark="" style="color-scheme:dark"' : ""}><head><style>${theme}</style><style>${css}</style></head><body class="bg-background"><div style="height:200px"></div></body></html>`)
           /* The account's layout writes its canvas inline (components/library/library-bg-fix.tsx). */
           if (page === "account") await p.evaluate(() => { document.documentElement.style.backgroundColor = "#fafafa"; document.documentElement.classList.add("library-layout") })

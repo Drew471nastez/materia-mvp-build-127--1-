@@ -101,9 +101,9 @@ if (BASE && !process.env.BASE_FILES) {
   oldClient = join(stubs, "old-products-client.tsx")
   writeFileSync(
     oldClient,
-    execFileSync("git", ["show", `${BASE}:app/app/products/products-client.tsx`], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26 })
-      .replace(/from "\.\/(?!\.)/g, 'from "@/app/app/products/')
-      .replace(/from "\.\.\/orders\//g, 'from "@/app/app/orders/'),
+    execFileSync("git", ["show", `${BASE}:app/(storelib)/app/products/products-client.tsx`], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26 })
+      .replace(/from "\.\/(?!\.)/g, 'from "@/app/(storelib)/app/products/')
+      .replace(/from "\.\.\/orders\//g, 'from "@/app/(storelib)/app/orders/'),
   )
 }
 

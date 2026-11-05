@@ -136,7 +136,7 @@ function main() {
    * this: the editor imports its hooks by name and still never imports React,
    * which is the condition that made `React.useRef` a ReferenceError.
    */
-  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   check("the editor still imports its hooks by name", /import \{[^}]*useRef[^}]*\} from "react"/.test(editor))
   check("and still does not import React itself", !importsReact(strip(editor)))
 

@@ -68,7 +68,7 @@ function errorMessages(path: string): string[] {
 }
 
 const CREATOR_AND_BUYER_UI = [
-  "app/app/products/new/file-uploads.tsx",
+  "app/(storelib)/app/products/new/file-uploads.tsx",
   "components/app/file-upload.tsx",
   "components/download-button.tsx",
   /* The notice a refused tab shows, and the sentences on it. */
@@ -91,8 +91,8 @@ const CREATOR_AND_BUYER_UI = [
   "components/onepage/blocks-section.tsx",
   "components/onepage/sections/blocks-section.tsx",
   "lib/rich-text/upload-image.ts",
-  ...walk("app/receipt"),
-  ...walk("app/library").filter((p) => /download|file/i.test(p)),
+  ...walk("app/(storelib)/receipt"),
+  ...walk("app/(storelib)/library").filter((p) => /download|file/i.test(p)),
 ]
 
 const ROUTES_THEY_CALL = [
@@ -127,7 +127,7 @@ function main() {
     const hits = sentences(file).filter((s) => BANNED.test(s) || OLD_ROW_WORDS.test(s))
     check(`${file} says nothing about how files are checked`, hits.length === 0, hits)
   }
-  const editor = sentences("app/app/products/new/product-editor.tsx").filter((s) => /file|upload/i.test(s))
+  const editor = sentences("app/(storelib)/app/products/new/product-editor.tsx").filter((s) => /file|upload/i.test(s))
   check("the product editor's file sentences too", editor.every((s) => !BANNED.test(s)), editor.filter((s) => BANNED.test(s)))
   const links = sentences("components/onepage/tabs/links-tab.tsx").filter((s) => /file|upload|blocked|security/i.test(s))
   check("the OnePage uploader's too, and no \"security reasons\" wording", links.every((s) => !BANNED.test(s) && !/security reasons|executable code/i.test(s)), links.filter((s) => BANNED.test(s) || /security reasons|executable code/i.test(s)))
@@ -143,7 +143,7 @@ function main() {
     const shared = readFileSync("lib/storage/upload-state.ts", "utf8")
     check("the delay is one number, and it is about 300ms", /export const CHECKING_DELAY_MS = 300\b/.test(shared))
     check("the words are there once", /export const CHECKING_LABEL = "Checking file…"/.test(shared) && /export const REFUSED_FILE = "We couldn't accept this file\. Try another file\."/.test(shared))
-    for (const file of ["app/app/products/new/file-uploads.tsx", "components/app/file-upload.tsx"]) {
+    for (const file of ["app/(storelib)/app/products/new/file-uploads.tsx", "components/app/file-upload.tsx"]) {
       const src = stripComments(readFileSync(file, "utf8"))
       check(`${file} takes the rule from lib/storage/upload-state`, /from "@\/lib\/storage\/upload-state"/.test(src), src.slice(0, 200))
       check(`${file} keeps no timer of its own for it`, !/setTimeout\([^)]*setChecking/.test(src))
@@ -158,7 +158,7 @@ function main() {
   }
 
   console.log("\nThe admin page is the one place the internals are named\n")
-  check("it names them (so the owner can act)", /ClamAV/.test(readFileSync("app/admin/security/security-admin.tsx", "utf8")))
+  check("it names them (so the owner can act)", /ClamAV/.test(readFileSync("app/(storelib)/admin/security/security-admin.tsx", "utf8")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

@@ -165,7 +165,7 @@ console.log("\nA website shared or searched for is its creator's, with a picture
   const layout = read("app/(site)/layout.tsx")
   check("no page of a website inherits Storelib as its keywords, author, creator, publisher or generator",
     /export const metadata: Metadata = \{\s*keywords: null,\s*authors: null,\s*creator: null,\s*publisher: null,\s*generator: null,\s*\}/.test(layout) &&
-      ["keywords", "authors", "creator", "publisher", "generator"].every((k) => new RegExp(`\\b${k}: `).test(read("app/layout.tsx"))))
+      ["keywords", "authors", "creator", "publisher", "generator"].every((k) => new RegExp(`\\b${k}: `).test(read("app/(storelib)/layout.tsx"))))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

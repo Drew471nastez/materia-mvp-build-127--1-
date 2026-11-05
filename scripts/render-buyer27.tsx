@@ -17,10 +17,10 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
-import { ThanksView } from "@/app/checkout/site/thanks/[token]/thanks-view"
-import { ShopBar } from "@/app/checkout/parts/shop-bar"
-import { CheckoutWords } from "@/app/checkout/parts/words"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
+import { ThanksView } from "@/app/(storelib)/checkout/site/thanks/[token]/thanks-view"
+import { ShopBar } from "@/app/(storelib)/checkout/parts/shop-bar"
+import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
 import { checkoutWordsIn } from "@/lib/markets/checkout-words"
 
 const q = new URLSearchParams(location.search)

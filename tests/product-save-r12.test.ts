@@ -10,7 +10,7 @@
  * straight back on the next draw. Fields outside the snapshot (the address,
  * the SEO title and description, the kind) never counted at all.
  *
- * Now there is one answer (app/app/products/new/editor-form.ts changedFields
+ * Now there is one answer (app/(storelib)/app/products/new/editor-form.ts changedFields
  * and the card drafts, lib/forms/dirty.ts): the form now against the form as
  * saved, every card's draft against what it loaded or last saved.
  *
@@ -34,7 +34,7 @@ import {
   type DirtyField,
   type DirtyFields,
   type LoadedProduct,
-} from "../app/app/products/new/editor-form"
+} from "../app/(storelib)/app/products/new/editor-form"
 
 let passed = 0
 let failed = 0
@@ -119,7 +119,7 @@ function changeOf(key: DirtyField, value: unknown): unknown {
       return (value as DirtyFields["faqs"]).map((f) => ({ ...f, answer: "B" }))
     case "customFields":
       return (value as DirtyFields["customFields"]).map((f) => ({ ...f, value: "12 cm" }))
-    /* Round 13: a personalization field added (app/app/products/new/personalization-card.tsx). */
+    /* Round 13: a personalization field added (app/(storelib)/app/products/new/personalization-card.tsx). */
     case "personalization":
       return [...((value as DirtyFields["personalization"]) ?? []), { id: "pz1", label: "Name to engrave", type: "text", required: true, maxLength: 12, placeholder: "", help: "" }]
   }
@@ -208,7 +208,7 @@ const statesOf = (body: string) => [...body.matchAll(/const \[(\w+), set\w+\] = 
 
 console.log("\nThe editor's state, enumerated: each piece is in the form, a card, or named here as not saved\n")
 {
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   const body = bodyOf(editor, "export function ProductEditor(")
   const literal = body.match(/const currentForm: DirtyFields = \{([\s\S]*?)\n {2}\}/)?.[1] ?? ""
   /* Changed on purpose (round 41): a field may be written `name: value`, as selectedCategory is (the category counts as a change only once it is picked or cleared). */
@@ -286,8 +286,8 @@ console.log("\nThe physical product's cards, enumerated the same way\n")
 
 console.log("\nWired in the editor\n")
 {
-  const editor = read("app/app/products/new/product-editor.tsx")
-  const channels = read("app/app/products/new/sales-channels-card.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
+  const channels = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
   check("Save is on exactly while something differs", /const canSave = !isLoading && !!title\.trim\(\) && isDirty/.test(editor) && /const isDirty = unsavedFields\.length > 0/.test(editor))
   check("no flag that a later draw can put back: no justSaved, no markDirty, no snapshot effect", !/justSaved|markDirty|savedValuesRef|setHasUnsavedChanges/.test(editor))
   check("the sales channels card says what is ticked, as a set, and the editor counts it", /told\.current\?\.\(\[\.\.\.on\]\.sort\(\), asLoaded\.current\)/.test(channels) && /onValue=\{reportChannels\}/.test(editor) && !/onChange\?\.\(\)/.test(channels))

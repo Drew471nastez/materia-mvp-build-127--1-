@@ -2,7 +2,7 @@
  * ===========================================================================
  *  ADD BLOCK LISTS WHAT THE SCHEMA ALLOWS, IN THE BUILDER AND OVER MCP
  * ===========================================================================
- * The builder's Add block picker (app/website-builder/editor/[installId]/
+ * The builder's Add block picker (app/(storelib)/website-builder/editor/[installId]/
  * page.tsx BlockTreeFor) lists `addableBlocks(owner, catalog)`, the catalog
  * being the install's own theme blocks (themeBlockCatalog over its files; an
  * imported theme's alone). Checked here against every way a schema says what
@@ -100,7 +100,7 @@ async function main() {
 
   console.log("\nThe editor builds Add block that way")
   {
-    const editor = readFileSync("app/website-builder/editor/[installId]/page.tsx", "utf8")
+    const editor = readFileSync("app/(storelib)/website-builder/editor/[installId]/page.tsx", "utf8")
     check("its catalog is the install's files, an imported theme's alone", /themeBlockCatalog\(storelibSources, \{ builtIn: !isCompatSource\(storelibSources\["layout\/theme\.storelib"\]\) \}\)/.test(editor))
     check("each level lists addableBlocks: the section's own rule at the top, a block's accepts inside it", /const options = addableBlocks\(parent\.length === 0 \? owner : \{ accepts: owner\.accepts \}, catalog\)/.test(editor))
   }

@@ -26,8 +26,8 @@ function check(label: string, ok: boolean) {
   }
 }
 
-const list = readCode("app/app/orders/orders-list.tsx")
-const detail = readCode("app/app/orders/order-detail.tsx")
+const list = readCode("app/(storelib)/app/orders/orders-list.tsx")
+const detail = readCode("app/(storelib)/app/orders/order-detail.tsx")
 const css = readCode("app/globals.css")
 
 console.log("\nThe orders list on a phone")

@@ -94,18 +94,18 @@ console.log("\n3. Buyer pages\n")
   check("  no shadow, no ring, never cropped", !/shadow|ring-|object-cover/.test(comp.replace(/\/\*[\s\S]*?\*\//g, "")))
   check("  a wordmark wider than its box is drawn at its own height, so its own corners are the rounded ones", /height: "auto", maxHeight: height/.test(comp) && /naturalWidth \/ img\.naturalHeight/.test(comp))
   const pages: [string, string, RegExp][] = [
-    ["the checkout's shop bar (cart, physical, site checkout, thanks, tracking, preview)", "app/checkout/parts/shop-bar.tsx", /* Changed on purpose (r51): the logo is read into `logo` first (Top of checkout chooses what shows). */ /const logo = brand\.kind === "logo" && brand\.imageUrl \? brand\.imageUrl : null[\s\S]*<StoreLogo src=\{logo\}/],
-    ["the order status page", "app/checkout/physical/order/[token]/order-status-view.tsx", /<StoreLogo src=\{shop\.avatar\}/],
-    ["the order help page", "app/order-help/[id]/case-view.tsx", /<StoreLogo src=\{store\.logoUrl\}/],
-    ["the receipt", "app/receipt/[token]/receipt-view.tsx", /kind === "logo" && avatarUrl[\s\S]{0,80}<StoreLogo src=\{avatarUrl\}/],
+    ["the checkout's shop bar (cart, physical, site checkout, thanks, tracking, preview)", "app/(storelib)/checkout/parts/shop-bar.tsx", /* Changed on purpose (r51): the logo is read into `logo` first (Top of checkout chooses what shows). */ /const logo = brand\.kind === "logo" && brand\.imageUrl \? brand\.imageUrl : null[\s\S]*<StoreLogo src=\{logo\}/],
+    ["the order status page", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", /<StoreLogo src=\{shop\.avatar\}/],
+    ["the order help page", "app/(storelib)/order-help/[id]/case-view.tsx", /<StoreLogo src=\{store\.logoUrl\}/],
+    ["the receipt", "app/(storelib)/receipt/[token]/receipt-view.tsx", /kind === "logo" && avatarUrl[\s\S]{0,80}<StoreLogo src=\{avatarUrl\}/],
   ]
   for (const [what, file, drawnBy] of pages) {
     const src = read(file)
     const ownImg = (src.match(/<img\b[^>]*>/g) ?? []).filter((i) => /brand\.imageUrl|shop\.avatar|store\.logoUrl|seller\.avatarUrl|src=\{avatarUrl\}/.test(i))
     check(`${what}: drawn by StoreLogo, never its own <img>`, drawnBy.test(src) && ownImg.length === 0, ownImg)
   }
-  check("the receipt knows a logo from a photo: a photo stays the round avatar", /avatarKind: store\.logoUrl && store\.logoFrom !== "profile" \? "logo" : "photo"/.test(read("lib/receipts/load.ts")) && /<AppAvatar src=\{avatarUrl\}/.test(read("app/receipt/[token]/receipt-view.tsx")))
-  check("the photo in the checkout bar stays a circle", /<AppAvatar src=\{brand\.imageUrl\}/.test(read("app/checkout/parts/shop-bar.tsx")))
+  check("the receipt knows a logo from a photo: a photo stays the round avatar", /avatarKind: store\.logoUrl && store\.logoFrom !== "profile" \? "logo" : "photo"/.test(read("lib/receipts/load.ts")) && /<AppAvatar src=\{avatarUrl\}/.test(read("app/(storelib)/receipt/[token]/receipt-view.tsx")))
+  check("the photo in the checkout bar stays a circle", /<AppAvatar src=\{brand\.imageUrl\}/.test(read("app/(storelib)/checkout/parts/shop-bar.tsx")))
 }
 
 console.log("\n4. The packing slip and the invoice PDF\n")

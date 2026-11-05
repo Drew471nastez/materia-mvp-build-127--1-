@@ -62,7 +62,7 @@ const WANTED: Wanted[] = [
       { file: "app/api/stripe/webhook/route.ts", has: '.eq("stripe_session_id", session.id)' },
       { file: "lib/orders/owned.ts", has: '.eq("stripe_session_id", row.stripe_session_id)' },
       { file: "lib/checkout/fulfil-cart-session.ts", has: '.eq("stripe_session_id", sessionId)' },
-      { file: "app/purchase/success/page.tsx", has: '.eq("stripe_session_id", sessionId)' },
+      { file: "app/(storelib)/purchase/success/page.tsx", has: '.eq("stripe_session_id", sessionId)' },
     ],
   },
   {
@@ -231,7 +231,7 @@ console.log("\n5. The code")
   const fn = cache.slice(start, cache.indexOf("export const cachedReviews"))
   check("More from seller: no longer `*`", start > 0 && !fn.includes('select("*")') && fn.includes(".select(MORE_FROM_CREATOR_COLUMNS)"))
   const columns = (cache.match(/export const MORE_FROM_CREATOR_COLUMNS = "([^"]+)"/)?.[1] ?? "").split(",").map((c) => c.trim())
-  const page = read("app/(marketing)/p/[slug]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   /* Changed on purpose (currency round AM): each card through the page's quote (pageQuote.convert), with its own currency. */
   const mapStart = page.indexOf("moreProducts.map((p) => pageQuote.convert({")
   const mapped = page.slice(mapStart, page.indexOf("}) as ProductData)", mapStart))
@@ -239,7 +239,7 @@ console.log("\n5. The code")
   check("  the card's fields are read from the rows", used.length >= 8, used.join(","))
   for (const f of used) check(`  reads ${f}, which the card draws`, columns.includes(f), columns.join(","))
   check("  and nothing else reads those rows", (page.match(/\bmoreProducts\b/g) ?? []).length === 3)
-  const explore = read("app/(marketing)/explore/[category]/page.tsx")
+  const explore = read("app/(storelib)/(marketing)/explore/[category]/page.tsx")
   check("  every column is one Explore's catalogue already names", columns.every((c) => new RegExp(`\\b${c}\\b`).test(explore.slice(explore.indexOf('.from("products")'), explore.indexOf('.eq("status", "published")', explore.indexOf('.from("products")'))))))
 }
 

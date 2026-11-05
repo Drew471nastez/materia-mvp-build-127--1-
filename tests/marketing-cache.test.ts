@@ -6,7 +6,7 @@
  * CDN-cacheable, without changing what anybody sees."
  *
  * One request read in a layout makes every page under it render per request.
- * app/(marketing)/layout read the wishlist cookie and the Host header, so
+ * app/(storelib)/(marketing)/layout read the wishlist cookie and the Host header, so
  * /pricing, /features, /faq and the homepage ran a function for every
  * visitor and were served `private, no-store`. Measured on a production
  * build (`next build`, then `next start`):
@@ -38,7 +38,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 const REQUEST_READS = /from "next\/headers"|\bcookies\(\)|\bheaders\(\)|readWishlistCount|isPlatformDomain|currentUserForRequest|createClient\(\)|searchParams|force-dynamic|connection\(\)/
 
 console.log("\nThe marketing layout asks nothing about the request")
-const layout = code("app/(marketing)/layout.tsx")
+const layout = code("app/(storelib)/(marketing)/layout.tsx")
 check("no cookie, no header, no session", !REQUEST_READS.test(layout), layout.match(REQUEST_READS)?.[0])
 check("the header colour is the platform setting, held 30 seconds for everybody", /await isBuyerHeaderLight\(\)/.test(layout) && /revalidate: 30/.test(read("lib/platform/buyer-header-theme.ts")) && /unstable_cache\(/.test(read("lib/platform/buyer-header-theme.ts")))
 check("and the header is told to answer the homepage question from the route", /<ConditionalHeader platformHomeFromRoute buyerHeaderLight=\{buyerHeaderLight\} \/>/.test(layout))
@@ -52,7 +52,7 @@ check("and the effect still has the last word on the host", /const isOnCustomDom
 const proxy = read("proxy.ts")
 check("the proxy rewrites \"/\" on a connected domain to the creator's page", /\} else if \(pathname === "\/" \|\| pathname === ""\) \{\s*\/\/ username\.storelib\.com -> \/u\/\{username\}\s*rewritePath = `\/u\/\$\{username\}`/.test(proxy))
 check("and sends a domain nobody connected to storelib.com", /Truly unknown domain — fallback to main site/.test(proxy))
-check("the account layout, per visitor anyway, still asks the host", /isPlatformDomain\(\)/.test(code("app/account/layout.tsx")))
+check("the account layout, per visitor anyway, still asks the host", /isPlatformDomain\(\)/.test(code("app/(storelib)/account/layout.tsx")))
 
 console.log("\nThe wishlist count")
 const platformHeader = code("components/platform/platform-header-client.tsx")
@@ -60,32 +60,32 @@ check("the header never draws the count it was seeded with, so the server read d
 check("and still asks /api/wishlist after it mounts", /\/api\/wishlist/.test(platformHeader))
 
 console.log("\n/pricing is built once")
-const pricingPage = code("app/(marketing)/pricing/page.tsx")
+const pricingPage = code("app/(storelib)/(marketing)/pricing/page.tsx")
 check("the page reads no session and no query", !REQUEST_READS.test(pricingPage), pricingPage.match(REQUEST_READS)?.[0])
-const pricing = code("app/(marketing)/pricing/pricing-client.tsx")
+const pricing = code("app/(storelib)/(marketing)/pricing/pricing-client.tsx")
 check("who is signed in is the header's record of the session, read after hydration", /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, \(\) => false\)/.test(pricing))
 check("the upgrade mode is read from the address before the browser paints again", /useLayoutEffect\(\(\) => setQuery\(readUpgradeQuery\(\)\), \[\]\)/.test(pricing) && /new URLSearchParams\(window\.location\.search\)/.test(pricing))
 check("returnTo is decoded once more, as the server did, and a bad escape does not throw", /try \{ returnTo = decodeURIComponent\(raw\) \} catch \{ returnTo = raw \}/.test(pricing))
 check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/bento-grid.tsx")))
 
 console.log("\nThe blog is rebuilt at most once a minute")
-for (const p of ["app/(marketing)/blog/page.tsx", "app/(marketing)/blog/[slug]/page.tsx", "app/(marketing)/blog/category/[slug]/page.tsx"]) {
+for (const p of ["app/(storelib)/(marketing)/blog/page.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/category/[slug]/page.tsx"]) {
   const src = code(p)
   check(`${p}: revalidate 60, not force-dynamic`, /export const revalidate = 60/.test(src) && !/force-dynamic/.test(src))
   check(`${p}: posts from the admin client, which reads no cookie`, !/from "@\/lib\/supabase\/server"/.test(src) && !/next\/headers/.test(src))
 }
 check("next.config gives the CDN the same minute for /blog", /source: '\/blog\/:path\*',\s*headers: \[\s*\{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' \}/.test(read("next.config.mjs")))
-const post = code("app/(marketing)/blog/[slug]/page.tsx")
+const post = code("app/(storelib)/(marketing)/blog/[slug]/page.tsx")
 /* Changed on purpose (round 44): fetchPost moved to lib/blog/post so the post's layout can answer 404 before anything streams; still one read per render. */
 const postData = read("lib/blog/post.ts")
-check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{[^}]*\bfetchPost\b[^}]*\} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(marketing)/blog/[slug]/layout.tsx")))
+check("fetchPost is one read per render: the layout, generateMetadata and the page share it through cache()", /import \{ cache \} from "react"/.test(postData) && /export const fetchPost = cache\(async \(slug: string\) =>/.test(postData) && /import \{[^}]*\bfetchPost\b[^}]*\} from "@\/lib\/blog\/post"/.test(post) && /blogPostExists\(slug\)/.test(read("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")))
 check("  and both still call it", (post.match(/await fetchPost\(slug\)/g) ?? []).length === 2)
 
 console.log("\nWhat stays per request, and why")
 /* Changed on purpose (round 49): both still render per request, but read nobody; the CDN holds one copy for everybody (next.config.mjs edgeRule) and For you and ownership are asked after load. */
-check("/explore: rendered per request (its search screen reads useSearchParams), For you asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/layout.tsx")) && /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/explore/page.tsx")) && !/readInterests/.test(code("app/(marketing)/explore/page.tsx")) && /readInterests/.test(code("app/api/explore/interests/route.ts")))
-check("/p/[slug]: rendered per request, what the visitor owns asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/p/[slug]/page.tsx")) && !/currentUserForRequest/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-check("/wishlist: the visitor's own list", /export const dynamic = "force-dynamic"/.test(code("app/(marketing)/wishlist/page.tsx")))
+check("/explore: rendered per request (its search screen reads useSearchParams), For you asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/explore/layout.tsx")) && /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && !/readInterests/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && /readInterests/.test(code("app/api/explore/interests/route.ts")))
+check("/p/[slug]: rendered per request, what the visitor owns asked after load", /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && !/currentUserForRequest/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
+check("/wishlist: the visitor's own list", /export const dynamic = "force-dynamic"/.test(code("app/(storelib)/(marketing)/wishlist/page.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

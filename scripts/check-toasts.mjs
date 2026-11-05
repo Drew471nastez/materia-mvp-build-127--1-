@@ -7,7 +7,7 @@
  * adapted, clean, shrunk text on mobile. Fix it across all."
  *
  * The real Toaster and the real nav pill in a shell shaped like
- * app/app/layout.tsx (scripts/render-toasts.tsx), with an iPhone's safe area
+ * app/(storelib)/app/layout.tsx (scripts/render-toasts.tsx), with an iPhone's safe area
  * (Chromium's own override: 47px at the top, 34px at the foot), raising the
  * longest toasts the app really raises, through the real `toast()`:
  *
@@ -48,12 +48,12 @@ const INSET = { top: 47, bottom: 34 }
 */
 const STRIPE_REASON = "You cannot create an account link for an account that has not completed onboarding. Finish setting up payouts in Stripe first."
 const TOASTS = [
-  { at: "app/app/payouts (account link)", before: { title: "Could not open account settings", description: STRIPE_REASON, variant: "destructive" }, after: { title: "Could not open Stripe", description: STRIPE_REASON, variant: "destructive" } },
-  { at: "app/app/payouts (withdraw)", before: { title: "Withdrawal created!", description: "$1,240.00 is on its way to your bank." }, after: { title: "Withdrawal sent", description: "$1,240.00 is on its way to your bank." } },
-  { at: "app/app/website-builder/themes", before: { title: "Portrait Studio Pro added to your library" }, after: { title: "Portrait Studio Pro added" } },
+  { at: "app/(storelib)/app/payouts (account link)", before: { title: "Could not open account settings", description: STRIPE_REASON, variant: "destructive" }, after: { title: "Could not open Stripe", description: STRIPE_REASON, variant: "destructive" } },
+  { at: "app/(storelib)/app/payouts (withdraw)", before: { title: "Withdrawal created!", description: "$1,240.00 is on its way to your bank." }, after: { title: "Withdrawal sent", description: "$1,240.00 is on its way to your bank." } },
+  { at: "app/(storelib)/app/website-builder/themes", before: { title: "Portrait Studio Pro added to your library" }, after: { title: "Portrait Studio Pro added" } },
   { at: "components/app/dashboard-client (copy)", before: { title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" }, after: { title: "Could not copy the link", variant: "destructive" } },
-  { at: "app/app/website-builder (import error)", before: { title: "Missing manifest.json — not a storelib export", variant: "destructive" }, after: { title: "Not a Storelib theme export", variant: "destructive" } },
-  { at: "app/app/website-builder (import)", before: { title: "Imported Summer Market Autumn Edition with 12 pictures" }, after: { title: "Imported Summer Market Autumn Edition with 12 pictures" } },
+  { at: "app/(storelib)/app/website-builder (import error)", before: { title: "Missing manifest.json — not a storelib export", variant: "destructive" }, after: { title: "Not a Storelib theme export", variant: "destructive" } },
+  { at: "app/(storelib)/app/website-builder (import)", before: { title: "Imported Summer Market Autumn Edition with 12 pictures" }, after: { title: "Imported Summer Market Autumn Edition with 12 pictures" } },
 ]
 
 const dir = join(root, ".toast-probe")
@@ -227,7 +227,7 @@ for (const [label, viewport, inset] of [
 
 /*
   THE WEBSITE BUILDER'S EDITORS use sonner (components/ui/editor-toaster.tsx,
-  mounted by app/website-builder/layout.tsx), at the foot of the screen. The
+  mounted by app/(storelib)/website-builder/layout.tsx), at the foot of the screen. The
   longest of the code editor's own toasts, before and now.
 */
 const FILE = "featured-collection-with-slider.liquid"

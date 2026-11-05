@@ -174,7 +174,7 @@ async function main() {
     const footer = code("components/storefront/seller-footer.tsx")
     check("the footer can take the header's container", /headerWidth \? "max-w-\[1400px\] lg:px-8" : "max-w-6xl"/.test(footer))
     check("the header's container is that one", /mx-auto max-w-\[1400px\] px-4 sm:px-6 lg:px-8/.test(read("components/platform/platform-header-client.tsx")))
-    check("Explore on a computer asks for it, and only Explore", /data-explore-desktop-footer="">\s*(\{\}\s*)?(\{\}\s*)?<SellerFooter headerWidth( home=\{!signedIn\})? \/>/.test(code("components/marketing/conditional-footer.tsx")) && !/headerWidth/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+    check("Explore on a computer asks for it, and only Explore", /data-explore-desktop-footer="">\s*(\{\}\s*)?(\{\}\s*)?<SellerFooter headerWidth( home=\{!signedIn\})? \/>/.test(code("components/marketing/conditional-footer.tsx")) && !/headerWidth/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
   }
 
   console.log("\n3. The photo beside Dashboard")
@@ -214,7 +214,7 @@ async function main() {
     check("and an older answer is not swapped for a first page under the visitor", /if \(!hit\.stale \|\| hasMoreThanFirstPage\(hit\)\) return/.test(results))
     /* Round 25: that one fade now belongs to the reveal after a hold (html.explore-scroll-revealing); a return put back before its first frame has none (tests/explore25). */
     check("Explore comes in with round 11's one settle fade, not a second fade of this round's on top", /html\.explore-scroll-revealing:not\(\.explore-scroll-restoring\) \.explore-ground \{\s*animation: explore-return/.test(read("app/globals.css")) && !/html:not\(\.explore-scroll-restoring\) \.explore-ground/.test(read("app/globals.css")))
-    check("the checkout still leaves through history, never into a loop", /canReturnInApp\(\)/.test(code("app/checkout/checkout-client.tsx")) && /backThen\(\(\) => \(path \? router\.replace\(path\)/.test(code("app/checkout/checkout-client.tsx")))
+    check("the checkout still leaves through history, never into a loop", /canReturnInApp\(\)/.test(code("app/(storelib)/checkout/checkout-client.tsx")) && /backThen\(\(\) => \(path \? router\.replace\(path\)/.test(code("app/(storelib)/checkout/checkout-client.tsx")))
   }
 
   console.log("\n7. A community opened from Discover lands softly")

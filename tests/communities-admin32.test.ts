@@ -72,7 +72,7 @@ function main() {
   console.log("\nGALLERY")
   const editor = code("components/community/creator/gallery-editor.tsx")
   const tiles = code("components/community/creator/gallery-tiles.tsx")
-  const media = code("app/app/products/new/media-grid.tsx")
+  const media = code("app/(storelib)/app/products/new/media-grid.tsx")
   check("the product editor's grid: two a row on a phone, three wider", /grid grid-cols-2 gap-2\.5 sm:grid-cols-3 sm:gap-3/.test(editor) && /grid grid-cols-2 gap-2\.5 sm:grid-cols-3 sm:gap-3/.test(media))
   check("16:9 tiles with a hairline, as a product's photos", /group\/tile relative aspect-video overflow-hidden rounded-lg border/.test(tiles) && /aspect-video/.test(media))
   check("no narrow add tile and no row of buttons under the grid: one upload zone across the card", /data-gallery-drop=/.test(editor) && /border-2 border-dashed/.test(editor) && !/aspect-\[16\/10\]/.test(editor + tiles) && !/data-gallery-add-video/.test(editor))

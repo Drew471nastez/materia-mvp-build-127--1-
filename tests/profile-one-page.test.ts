@@ -66,7 +66,7 @@ async function main() {
   check("the target is always a path on this site", !/^\/\//.test(creatorPageTarget("a", "/@a?next=//evil.com") ?? "") && creatorPageTarget("a", "/@a?next=//evil.com")!.startsWith("/a?"))
   check("both spellings are a profile, nothing else is", isProfilePath("/@maya") && isProfilePath("/member/maya") && !isProfilePath("/maya") && !isProfilePath("/members") && !isProfilePath("/explore"))
 
-  const layout = readCode("app/(marketing)/member/[username]/layout.tsx")
+  const layout = readCode("app/(storelib)/(marketing)/member/[username]/layout.tsx")
   const gate = readCode("lib/profile/storefront-gate.ts")
   check("the layout answers the redirect (outside the route's skeleton), a permanent one", /permanentRedirect\(target\)/.test(layout) && /export default async function MemberProfileLayout/.test(layout))
   check("  by the creator page door's own rule and loaders, so the two cannot disagree",
@@ -78,9 +78,9 @@ async function main() {
   const proxy = readCode("proxy.ts")
   check("the proxy writes the asked for address for /@ and /member/ only, replacing what a visitor sent", /if \(isProfilePath\(pathname\)\) request\.headers\.set\(PROFILE_PATH_HEADER, `\$\{pathname\}\$\{search\}`\)/.test(proxy))
   check("the header's name is the one the layout reads", PROFILE_PATH_HEADER === "x-storelib-profile-path")
-  const marketing = readCode("app/(marketing)/layout.tsx")
+  const marketing = readCode("app/(storelib)/(marketing)/layout.tsx")
   check("nothing above the layout waits in a Suspense boundary, so the redirect is a real 308 and not a streamed 200",
-    /<main className="flex-1">\{children\}<\/main>/.test(marketing) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/layout.tsx")))
+    /<main className="flex-1">\{children\}<\/main>/.test(marketing) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/(storelib)/layout.tsx")))
 
   const header = readCode("components/marketing/conditional-header.tsx")
   /* Round 12: a person's page is the creator page's template with its own top bar, so Storelib's header is not drawn over /@ or /member (it is one of the screens with their own chrome, decided first, on every domain). */
@@ -102,10 +102,10 @@ async function main() {
   check("  under /member/, where the route is (the rewrite takes one segment)", og.images[0].url.startsWith("https://storelib.com/member/maya/share.png?v="))
   check("indexed and followed", JSON.stringify(meta.robots).includes('"index":true'))
   check("a handle the sign up guard calls spam is left out", JSON.stringify(profileMetadata({ ...facts, indexable: false }).robots).includes('"index":false'))
-  const route = readCode("app/(marketing)/member/[username]/page.tsx")
+  const route = readCode("app/(storelib)/(marketing)/member/[username]/page.tsx")
   check("the page asks profileMetadata, with the spam verdict", /return profileMetadata\(\{/.test(route) && /* Changed on purpose (round 44): the handle score and an operator's verdict, by deservesIndexing. */
     /indexable: await inSearch\(profile\.userId, profile\.username\)/.test(route) && /deservesIndexing\(\{ handle: username, spamState: await spamStateOf\(userId\) \}\)/.test(route))
-  const share = readCode("app/(marketing)/member/[username]/share.png/route.tsx")
+  const share = readCode("app/(storelib)/(marketing)/member/[username]/share.png/route.tsx")
   check("the share picture: next/og, an unknown handle a 404, the communities count only when they show it",
     /new ImageResponse\(/.test(share) && /if \(!profile\) return notFound\(\)/.test(share) && /profile\.privacy\.showCommunities/.test(share))
   check("  its fonts traced for the route", /'\/member\/\*\/share\.png': \['\.\/lib\/checkout\/fonts\/\*\*'\]/.test(raw("next.config.mjs")))
@@ -134,7 +134,7 @@ async function main() {
   check("product rails only with products", !drawsSomething({ type: "featured-products", settings: { visible: true } }, page0) && drawsSomething({ type: "featured-products", settings: { visible: true } }, { productCount: 2 }))
   check("reviews, custom code, an old subscribe bar: no drawing on a creator page", ["reviews", "custom-html", "subscribe-bar", "faq"].every((type) => !drawsSomething({ type, settings: { visible: true } }, { productCount: 3 })))
   check("order is kept", drawableSections([{ id: "a", type: "text-block", settings: { visible: true, body: "a" } }, { id: "h", type: "header", settings: {} }, { id: "b", type: "announcement-bar", settings: { visible: true, text: "b" } }], page0).map((s) => s.id).join() === "a,b")
-  const creatorPage = readCode("app/(marketing)/u/[username]/page.tsx")
+  const creatorPage = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("the creator page counts what Home draws, not how many sections it has", /const regularSections = drawableSections\(\s*themedSections\.filter\(\(s\) => s\.type !== "about"\)\.sort\(\(a, b\) => a\.order - b\.order\),\s*\{ productCount: productsData\.length, communityBlocks \},\s*\)/.test(creatorPage))
   check("  and Home is a tab only when something is left in it", /tabsWithoutProducts\(\{ home: regularSections\.length > 0 \? home : null/.test(creatorPage))
 
@@ -222,10 +222,10 @@ async function main() {
     check("a database that does not answer never fails the sign in", (await keepProviderPhoto(client, user("u6", { avatar_url: GOOGLE }))) === "failed")
     check("no profile yet: nothing written", (await keepProviderPhoto(db(new Map()).client, user("u7", { avatar_url: GOOGLE }))) === "no_profile")
   }
-  const callback = readCode("app/auth/callback/route.ts")
+  const callback = readCode("app/(storelib)/auth/callback/route.ts")
   check("the web sign in asks the same rule when it makes the profile and when it finds one",
     (callback.match(/providerPhotoWanted\(\{/g) ?? []).length === 2 && /const providerPhoto = providerPhotoOf\(data\.user\.user_metadata\)/.test(callback) && /AVATAR_CHOSEN\] === true/.test(callback) && !/accountAgeMs/.test(callback))
-  const sync = readCode("app/auth/sync-session/route.ts")
+  const sync = readCode("app/(storelib)/auth/sync-session/route.ts")
   check("the app's sign in (sync-session) keeps it too, after the answer so nobody waits",
     /if \(signedIn\) after\(\(\) => keepProviderPhoto\(createAdminClient\(\) as unknown as ProviderPhotoDb, signedIn\)/.test(sync) && sync.indexOf("after(") > sync.indexOf("supabase.auth.setSession(") && sync.indexOf("after(") < sync.lastIndexOf("const res = NextResponse.redirect(`${origin}${next}`, status)")) // Changed on purpose (round 42 reliability): the signed in answer is a no-store redirect with the POST's 303
 

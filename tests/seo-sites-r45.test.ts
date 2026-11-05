@@ -259,7 +259,7 @@ async function main() {
     check("the space rule is the page's: an open rule and not archived", [...openSpaceIds(spaces)].join() === "s-open" && !listablePost(posts[2], openSpaceIds(spaces)))
     const sm = code("lib/seo/sitemaps.ts")
     check("the communities file lists them after its communities, and reads only posts in an open space or none", /const posts = await communityPostEntries\(/.test(sm) && /space_id\.is\.null,space_id\.in\.\(\$\{open\.join\(","\)\}\)/.test(sm) && /q\.is\("space_id", null\)/.test(sm) && /return \[\.\.\.communities, \.\.\.posts\]/.test(sm))
-    const page = code("app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo.ts")
+    const page = code("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo.ts")
     check("  at the address the post's page names as canonical", /postPath\(f\.community\.slug, f\.post\)/.test(page))
   }
 
@@ -280,7 +280,7 @@ async function main() {
 
   console.log("\nA product page links its creator's products where they are indexed")
   {
-    const page = code("app/(marketing)/p/[slug]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("\"More from\" cards link /<handle>/<slug>, as the creator page's do", /href: cardLink\(p\) \?\? \(p\.slug && creatorProfile\?\.username \? getProductInternalPath\(p\.slug, creatorProfile\.username\) : undefined\)/.test(page))
     check("  a crawlable <a href> (the renderer draws product.href when it is a path)", /if \(product\.href && product\.href\.startsWith\("\/"\)\) return product\.href/.test(code("components/store-builder/unified-section-renderer.tsx")))
     check("a rating in structured data needs a real review count and an average of 1 to 5", /reviewsCount > 0 && reviewsAverage >= 1 && reviewsAverage <= 5 && \{\s*aggregateRating/.test(page))
@@ -388,17 +388,17 @@ async function main() {
       "community/[slug]/(member)/post/[postId]/page.tsx": "listed: communities file, public posts only",
     }
     const roots = ["[sellername]", "p", "l", "u", "member", "c", "community"]
-    const found = roots.flatMap((r) => routesUnder(`app/(marketing)/${r}`).map((f) => `${r}/${f}`))
+    const found = roots.flatMap((r) => routesUnder(`app/(storelib)/(marketing)/${r}`).map((f) => `${r}/${f}`))
     /* The member area says noindex once, in its layout, for everything but a public post (checked below). */
     const memberArea = (r: string) => r.startsWith("community/[slug]/(member)/") && r !== "community/[slug]/(member)/post/[postId]/page.tsx"
     const undecided = found.filter((r) => !(r in MARKETING) && !memberArea(r))
     check("each route is decided (a new one fails here until it is)", undecided.length === 0, undecided)
-    check("  the member area is noindex except a public post", /return \{ robots: \{ index: false, follow: false \} \}/.test(read("app/(marketing)/community/[slug]/(member)/layout.tsx")))
+    check("  the member area is noindex except a public post", /return \{ robots: \{ index: false, follow: false \} \}/.test(read("app/(storelib)/(marketing)/community/[slug]/(member)/layout.tsx")))
     const sm = code("lib/seo/sitemaps.ts")
     const kinds = ["products", "creators", "websites", "communities"]
     check("  each file a listed route names is in storelib.com's sitemap index", kinds.every((k) => new RegExp(`chunkEntries\\([^)]*"${k}"`).test(sm)), kinds.filter((k) => !new RegExp(`chunkEntries\\([^)]*"${k}"`).test(sm)))
     check("  and the OnePages in storelib.me's", /export async function onePagesSitemapIndex\(/.test(sm))
-    check("  the join page says noindex", /robots: \{ index: false, follow: false \}/.test(read("app/(marketing)/community/[slug]/join/page.tsx")))
+    check("  the join page says noindex", /robots: \{ index: false, follow: false \}/.test(read("app/(storelib)/(marketing)/community/[slug]/join/page.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

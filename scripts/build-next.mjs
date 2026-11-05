@@ -13,7 +13,9 @@ process.loadEnvFile(new URL("./build-limits.env", import.meta.url))
   const { existsSync, statSync } = await import("node:fs")
   const compiled = new URL("../.next-css/globals.css", import.meta.url)
   const source = new URL("../app/globals.css", import.meta.url)
-  if (process.env.STORELIB_CSS_PRECOMPILED === undefined && existsSync(compiled) && statSync(compiled).mtimeMs >= statSync(source).mtimeMs) {
+  /* A published website's stylesheet, compiled beside it (scripts/site-css.cjs): both, or Tailwind compiles both here. */
+  const site = new URL("../.next-css/site.css", import.meta.url)
+  if (process.env.STORELIB_CSS_PRECOMPILED === undefined && existsSync(compiled) && statSync(compiled).mtimeMs >= statSync(source).mtimeMs && existsSync(site) && statSync(site).mtimeMs >= statSync(source).mtimeMs) {
     process.env.STORELIB_CSS_PRECOMPILED = "1"
   }
 }

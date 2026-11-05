@@ -17,8 +17,8 @@
 import { useRouter } from "next/navigation"
 import { refreshMatching } from "@/components/email/emails-cache"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
-import { listBehindShows } from "@/app/app/emails/list-return"
-import { leaveLayer } from "@/app/app/emails/layer-nav"
+import { listBehindShows } from "@/app/(storelib)/app/emails/list-return"
+import { leaveLayer } from "@/app/(storelib)/app/emails/layer-nav"
 import { backThen } from "@/lib/navigation/go-back"
 import { EmailComposer } from "./composer"
 

@@ -167,7 +167,7 @@ async function main() {
   const offOpenRouter = [
     "lib/ai-keys/store.ts", "lib/ai-keys/verify.ts", "lib/ai-keys/errors.ts", "lib/ai-keys/crypto.ts",
     "lib/sites/agent/provider.ts", "lib/sites/agent/openai-provider.ts", "lib/sites/agent/anthropic-provider.ts",
-    "app/api/ai-keys/route.ts", "app/api/website-builder/themes/[installId]/agent/route.ts", "app/website-builder/editor/[installId]/page.tsx",
+    "app/api/ai-keys/route.ts", "app/api/website-builder/themes/[installId]/agent/route.ts", "app/(storelib)/website-builder/editor/[installId]/page.tsx",
     "components/website-builder/use-own-ai.ts", "components/website-builder/website-settings/own-ai.tsx",
     "components/website-builder/ask-model-picker.tsx", "components/website-builder/theme-chat.tsx", "content/developers/ai.md",
   ].filter((f) => /openrouter/i.test(read(f)))

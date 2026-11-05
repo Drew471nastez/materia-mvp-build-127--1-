@@ -113,7 +113,7 @@ console.log("\n3. Speed beacons: one in four, counts scaled back up")
 {
   check("one page load and one timed call in four", CLIENT_SAMPLE_RATE === 0.25 && SERVER_SAMPLE_RATE === 0.25)
   check("a count of sampled page views stands for four times as many", estimatedCount(25, 0.25) === 100 && estimatedCount(3, 0.25) === 12 && estimatedCount(25, 1) === 25 && estimatedCount(0, 0.25) === 0)
-  const admin = read("app/admin/performance/performance-admin.tsx")
+  const admin = read("app/(storelib)/admin/performance/performance-admin.tsx")
   check("page views per area are scaled", /estimated\(n, CLIENT_SAMPLE_RATE, "page view", "page views"\)/.test(admin))
   check("API calls and server errors are scaled", /estimated\(a\.samples, SERVER_SAMPLE_RATE, "call", "calls"\)/.test(admin) && /estimatedCount\(a\.bad, SERVER_SAMPLE_RATE\)/.test(admin))
   check("JavaScript errors are scaled, and the panel says from what", /estimatedCount\(e\.n, CLIENT_SAMPLE_RATE\)/.test(admin) && /Estimated from \$\{Math\.round\(CLIENT_SAMPLE_RATE \* 100\)\}% of page views/.test(admin))

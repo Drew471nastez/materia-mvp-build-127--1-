@@ -19,7 +19,7 @@ import { Mail, Phone } from "lucide-react"
 import { reasonsFor, type CaseReason } from "@/lib/support/cases"
 import { CasePhotoPicker, caseRequestBody, useCasePhotos } from "@/components/support/case-photos"
 import { cn } from "@/lib/utils"
-import { useCt } from "@/app/checkout/parts/words"
+import { useCt } from "@/app/(storelib)/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
 /* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). Also the conversation page's title (app/order-help). */

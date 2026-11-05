@@ -4,7 +4,7 @@
  * (components/app/emails/community-emails.tsx) and its editor, against
  * stand-ins for the routes it reads, for scripts/check-emails-families.mjs
  * to drive in Chromium on a phone and a computer. At /app/emails it is the
- * Emails page's list (app/app/emails/emails-home.tsx) on its Customer emails
+ * Emails page's list (app/(storelib)/app/emails/emails-home.tsx) on its Customer emails
  * tab; at /app/settings, Settings' card. Every request is written to
  * window.__requests.
  */
@@ -12,7 +12,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { EmailsHome, type EmailsHomeProps } from "@/app/app/emails/emails-home"
+import { EmailsHome, type EmailsHomeProps } from "@/app/(storelib)/app/emails/emails-home"
 
 type W = { __requests: { method: string; url: string; body?: unknown }[] }
 const w = window as unknown as W

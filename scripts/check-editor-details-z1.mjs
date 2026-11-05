@@ -60,7 +60,7 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 async function open({ width, height, phone = false, dpr = 1, states = null }) {
   const page = await browser.newPage()
   if (states) await page.evaluateOnNewDocument((s) => { window.PROBE_APP_STATES = s }, states)
-  /* The editor's layout mounts the drawn scrollbar (app/website-builder/layout.tsx); the probe mounts it when asked. */
+  /* The editor's layout mounts the drawn scrollbar (app/(storelib)/website-builder/layout.tsx); the probe mounts it when asked. */
   await page.evaluateOnNewDocument(() => { window.PROBE_RAIL = true })
   await page.setViewport({ width, height, isMobile: phone, hasTouch: phone, deviceScaleFactor: dpr })
   /* A computer has a mouse: headless reports none, and the drawn scrollbar is only for a fine pointer (slim-scroll-rail.tsx). */

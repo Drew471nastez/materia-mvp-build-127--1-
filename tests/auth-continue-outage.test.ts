@@ -25,7 +25,7 @@ function check(name: string, ok: boolean) {
   }
 }
 
-const cont = readCode("app/auth/continue/route.ts")
+const cont = readCode("app/(storelib)/auth/continue/route.ts")
 check("/auth/continue reads the user with the token signature fallback", /readCurrentUser\(supabase, \{ fallbackClaims: process\.env\.NEXT_PUBLIC_SUPABASE_URL \?\? null \}\)/.test(cont))
 check("  the same fallback request-scope and route-user use", /fallbackClaims/.test(readCode("lib/auth/request-scope.ts")) && /* Round 49: route-user reads through request-scope */ /readerForRequest\(\)/.test(readCode("lib/auth/route-user.ts")))
 check("  signed out still goes to login", /if \(!user\) return go\(withCarry\("\/login", carry\)\)/.test(cont))

@@ -369,7 +369,7 @@ section("History, filed by day")
 section("Undo for one run, the editor's side")
 // ---------------------------------------------------------------------------
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const chat = read("components/website-builder/theme-chat.tsx")
   check(
     "a run's snapshot is kept under its id with its page, as its one undo step",

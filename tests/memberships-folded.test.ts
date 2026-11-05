@@ -34,7 +34,7 @@ import { existsSync, readFileSync } from "node:fs"
 
 import { fakeDb } from "./_fake-db"
 import { stripComments } from "./_source"
-import { KIND_OPTIONS, kindFromParam, kindHref, kindOptions } from "@/app/app/products/new/product-kinds"
+import { KIND_OPTIONS, kindFromParam, kindHref, kindOptions } from "@/app/(storelib)/app/products/new/product-kinds"
 import { APP_PAGES, matchPages } from "@/lib/search/app-pages"
 import { LIBRARY_TABS, showsLibraryTabs } from "@/components/library/library-tab-list"
 import { legacyLibraryTarget, libraryMembershipPath } from "@/lib/library/paths"
@@ -71,9 +71,9 @@ async function main() {
     check("Paid community is never offered in New product (it is made on the Community page); an old ?type=community link still opens /app/community/new", every.every((list) => !list.some((o) => o.kind === "community")) && kindHref("community") === "/app/community/new")
     check("the old ?type=membership is no answer: the question is asked again", kindFromParam("membership") === null)
 
-    const chooser = code("app/app/products/new/kind-chooser.tsx")
+    const chooser = code("app/(storelib)/app/products/new/kind-chooser.tsx")
     check("the chooser makes no membership draft", !/\/api\/app\/memberships/.test(chooser) && !/makeMembership|membershipHref/.test(chooser))
-    const page = code("app/app/products/new/page.tsx")
+    const page = code("app/(storelib)/app/products/new/page.tsx")
     check("the new product page makes nothing and sends a community pick to its setup only while the switch is on", !/api\/app\/memberships|createMembershipProduct/.test(page) && /redirect\(NEW_COMMUNITY_HREF\)/.test(page) && /communitiesEnabled\(\)/.test(page))
 
     const list = code("components/memberships/creator-list.tsx")
@@ -85,7 +85,7 @@ async function main() {
     check("paid communities still make their recurring tier through the engine directly", /createMembershipProduct\(db, t\.creatorId, title\)/.test(code("lib/communities/server/tiers.ts")))
 
     /* Anywhere in the app's screens: a POST to the bare create route would be a way back in. */
-    const screens = ["app/app/products/products-client.tsx", "components/app/home/quick-actions.tsx", "components/app/app-search.tsx", "components/memberships/creator-screen.tsx", "components/memberships/creator-list.tsx", "app/app/products/new/kind-chooser.tsx"]
+    const screens = ["app/(storelib)/app/products/products-client.tsx", "components/app/home/quick-actions.tsx", "components/app/app-search.tsx", "components/memberships/creator-screen.tsx", "components/memberships/creator-list.tsx", "app/(storelib)/app/products/new/kind-chooser.tsx"]
     check("no /app screen calls the create route", screens.every((f) => !/fetch\(\s*["'`]\/api\/app\/memberships["'`]/.test(code(f))))
   }
 
@@ -107,26 +107,26 @@ async function main() {
 
   console.log("\nEvery route an existing membership uses still answers")
   {
-    for (const f of ["app/app/memberships/page.tsx", "app/app/memberships/[id]/page.tsx", "app/account/library/memberships/page.tsx", "app/account/library/memberships/[id]/page.tsx", "app/account/library/memberships/loading.tsx"]) {
+    for (const f of ["app/(storelib)/app/memberships/page.tsx", "app/(storelib)/app/memberships/[id]/page.tsx", "app/(storelib)/account/library/memberships/page.tsx", "app/(storelib)/account/library/memberships/[id]/page.tsx", "app/(storelib)/account/library/memberships/loading.tsx"]) {
       check(`  ${f} is there`, existsSync(f))
     }
-    const one = code("app/app/memberships/[id]/page.tsx")
+    const one = code("app/(storelib)/app/memberships/[id]/page.tsx")
     /* Changed on purpose (round 41 team): the store is the one the team gate answers (teamPageStore("products")), the owner's own store for the owner. */
     check("the creator's screen still reads and draws its membership", /teamPageStore\("products"\)/.test(one) && /loadCreatorMembership\(createAdminClient\(\), access\.creatorId, id,/.test(one) && /<CreatorMembershipScreenView screen=\{read\.screen\}/.test(one))
-    const list = code("app/app/memberships/page.tsx")
+    const list = code("app/(storelib)/app/memberships/page.tsx")
     check("/app/memberships sends a creator with none to Community, or Products while the switch is off", /if \(!list\.available \|\| list\.rows\.length === 0\) redirect\(\(await communitiesEnabled\(\)\.catch\(\(\) => false\)\) \? "\/app\/community" : "\/app\/products"\)/.test(list))
     check("and lists them for a creator who has some", /return <CreatorMembershipsList rows=\{list\.rows\} \/>/.test(list) && /teamPageStore\("products"\)/.test(list) && /loadCreatorMemberships\(createAdminClient\(\), access\.creatorId\)/.test(list))
-    check("a membership product's own address still opens its screen", /if \(load\.loaded\?\.product\.type === "membership"\) redirect\(`\/app\/memberships\/\$\{encodeURIComponent\(id\)\}`\)/.test(code("app/app/products/[id]/page.tsx")))
-    const member = code("app/account/library/memberships/[id]/page.tsx")
+    check("a membership product's own address still opens its screen", /if \(load\.loaded\?\.product\.type === "membership"\) redirect\(`\/app\/memberships\/\$\{encodeURIComponent\(id\)\}`\)/.test(code("app/(storelib)/app/products/[id]/page.tsx")))
+    const member = code("app/(storelib)/account/library/memberships/[id]/page.tsx")
     check("the buyer's membership page still loads it", /loadMembershipPage|viewerMembership|MemberPage/.test(member))
-    check("the buyer's list page still lists every membership", /loadLibraryMemberships\(createAdminClient\(\), viewer\)/.test(code("app/account/library/memberships/page.tsx")) && /<MembershipsList current=\{list\.current\} ended=\{list\.ended\} \/>/.test(code("app/account/library/memberships/page.tsx")))
+    check("the buyer's list page still lists every membership", /loadLibraryMemberships\(createAdminClient\(\), viewer\)/.test(code("app/(storelib)/account/library/memberships/page.tsx")) && /<MembershipsList current=\{list\.current\} ended=\{list\.ended\} \/>/.test(code("app/(storelib)/account/library/memberships/page.tsx")))
     check("the old /library addresses still land there", legacyLibraryTarget("/library/memberships") === "/account/library/memberships" && legacyLibraryTarget("/library/memberships/m1") === "/account/library/memberships/m1" && libraryMembershipPath("m1") === "/account/library/memberships/m1")
     check("a paid community's member still manages billing at the membership page", /manageHref: paying \? `\/account\/library\/memberships\/\$\{v\.membershipId\}`/.test(code("components/community/public/join-state.ts")))
   }
 
   console.log("\nThe buyer still sees a membership bought on its own")
   {
-    const page = code("app/account/library/page.tsx")
+    const page = code("app/(storelib)/account/library/page.tsx")
     check("the library reads them beside the products, in the same Promise.all", /const \[downloads, extras, \{ count: wishlistCount \}, memberships\] = await Promise\.all\(\[/.test(page) && /libraryMemberships\(createAdminClient\(\), user, \{ communities \}\)/.test(page) && /memberships=\{memberships\}/.test(page))
     const home = code("components/library/library-home.tsx")
     /* Changed on purpose (round 29): the map takes the row's index too, so the first screen's pictures load eagerly. */
@@ -176,7 +176,7 @@ async function main() {
     check("the Stripe webhook still asks memberships first", webhook.indexOf("handleMembershipEvent(supabaseAdmin, event)") > 0)
     check("the memberships webhook still handles every subscription and invoice event", ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed"].every((e) => read("lib/memberships/webhook.ts").includes(`"${e}"`)))
     check("every sync still updates a paid community's access", /await quietly\("community access", \(\) => communityAccessAfterMembership\(admin, row,/.test(read("lib/memberships/sync.ts")))
-    check("checkout, manage and the member's own routes are all still there", ["app/api/memberships/checkout/route.ts", "app/api/memberships/[id]/manage/route.ts", "app/api/memberships/[id]/portal/route.ts", "app/api/memberships/files/[postId]/[assetId]/route.ts", "app/api/memberships/unsubscribe/route.ts", "app/api/cron/memberships/route.ts", "app/checkout/membership-checkout.tsx"].every((f) => existsSync(f)))
+    check("checkout, manage and the member's own routes are all still there", ["app/api/memberships/checkout/route.ts", "app/api/memberships/[id]/manage/route.ts", "app/api/memberships/[id]/portal/route.ts", "app/api/memberships/files/[postId]/[assetId]/route.ts", "app/api/memberships/unsubscribe/route.ts", "app/api/cron/memberships/route.ts", "app/(storelib)/checkout/membership-checkout.tsx"].every((f) => existsSync(f)))
     check("the creator's edit, posts and settings routes for an existing membership are still there", ["app/api/app/memberships/[productId]/route.ts", "app/api/app/memberships/[productId]/posts/route.ts", "app/api/app/memberships/[productId]/posts/[postId]/route.ts"].every((f) => existsSync(f)))
     const catalog = read("lib/notify/templates/catalog.ts")
     check("member emails still link to the membership's page", /membership: \(id: string\) => \(id \? `\/account\/library\/memberships\/\$\{id\}` : "\/account\/library\/memberships"\)/.test(catalog) && /MEMBERSHIP_RENEWED: \(d\) =>/.test(catalog) && /MEMBERSHIP_PAYMENT_FAILED: \(d\) =>/.test(catalog))
@@ -190,7 +190,7 @@ async function main() {
     check("a new site's goals say Run a community", /"Run a community"/.test(read("components/sites/new-site-flow.tsx")) && !/Sell memberships/.test(read("components/sites/new-site-flow.tsx")))
     check("the help figure of the question has no Membership", !/title="Membership"/.test(read("components/help/help-figures.tsx")) && /title="Community"/.test(read("components/help/help-figures.tsx")))
     check("the welcome email lists communities, not memberships", /courses, services, communities or anything else/.test(read("lib/notify/templates/catalog.ts")))
-    const touched = ["app/app/products/new/product-kinds.ts", "app/app/products/new/kind-chooser.tsx", "app/app/memberships/page.tsx", "app/api/app/memberships/route.ts", "components/memberships/creator-list.tsx", "components/library/library-memberships.tsx", "lib/library/library-memberships.ts", "components/library/library-tab-list.ts", "lib/search/app-pages.ts"]
+    const touched = ["app/(storelib)/app/products/new/product-kinds.ts", "app/(storelib)/app/products/new/kind-chooser.tsx", "app/(storelib)/app/memberships/page.tsx", "app/api/app/memberships/route.ts", "components/memberships/creator-list.tsx", "components/library/library-memberships.tsx", "lib/library/library-memberships.ts", "components/library/library-tab-list.ts", "lib/search/app-pages.ts"]
     check("no em dash and none of the banned words in the files this change wrote", touched.every((f) => !/—|\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(read(f))))
   }
 

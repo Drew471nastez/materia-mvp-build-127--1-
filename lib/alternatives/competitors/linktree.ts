@@ -28,7 +28,7 @@ export const linktree: Competitor = {
   whyStorelib: [
     { text: `Sell from your bio link with no monthly fee. A OnePage on Storelib Free takes ${STORELIB.freeFee} a sale and nothing a month; Linktree's 0% fee comes with a Pro plan at $17 a month.`, code: "lib/onepage/address.ts" },
     { text: "The bio link is the front of a full store: product pages, a creator page and a website share the same products and orders.", code: "lib/sites/plan.ts" },
-    { text: "Courses, paid communities and email campaigns live in the same dashboard as the link page.", code: "app/app/courses", flag: "communities", textOff: "Courses and email campaigns live in the same dashboard as the link page." },
+    { text: "Courses, paid communities and email campaigns live in the same dashboard as the link page.", code: "app/(storelib)/app/courses", flag: "communities", textOff: "Courses and email campaigns live in the same dashboard as the link page." },
   ],
   whenToStay: [
     { text: "Your page is mostly links out to other places, not products you sell. Linktree's free plan does that well.", sources: ["linktree-pricing"], status: "verified" },
@@ -49,7 +49,7 @@ export const linktree: Competitor = {
   storelibStrengths: [
     { text: "Selling from the free plan, with no monthly fee.", code: "lib/billing/plans.ts" },
     { text: "Product pages, a creator page and a website behind the same link.", code: "lib/sites/plan.ts" },
-    { text: "Courses, discount codes and email campaigns.", code: "app/app/emails" },
+    { text: "Courses, discount codes and email campaigns.", code: "app/(storelib)/app/emails" },
   ],
   storelibLimits: [
     { text: "No affiliate storefront with partner brands like Linktree Shops.", code: "lib/attribution/touch.ts" },

@@ -11,7 +11,8 @@ import { join } from "node:path"
 const config = {
   plugins: process.env.STORELIB_CSS_PRECOMPILED === "1"
     ? { [join(process.cwd(), "scripts", "postcss-precompiled.cjs")]: {} }
-    : { "@tailwindcss/postcss": {} },
+    /* scripts/site-css.cjs first: app/site.css becomes a published website's own source, for Tailwind to compile. */
+    : { [join(process.cwd(), "scripts", "site-css.cjs")]: {}, "@tailwindcss/postcss": {} },
 }
 
 export default config

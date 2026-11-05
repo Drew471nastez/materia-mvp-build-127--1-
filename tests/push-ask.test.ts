@@ -30,7 +30,7 @@ check("a limited number of times per install", !shouldAsk({ at: now - 365 * 24 *
 check("every seven days, eight times", ASK_AGAIN_AFTER_MS === 7 * 24 * 3600 * 1000 && ASK_AT_MOST === 8)
 
 const ask = readFileSync("components/platform/notifications-ask.tsx", "utf8")
-const layout = readFileSync("app/layout.tsx", "utf8")
+const layout = readFileSync("app/(storelib)/layout.tsx", "utf8")
 const settings = readFileSync("components/account/notification-settings.tsx", "utf8")
 const init = readFileSync("components/native-push-init.tsx", "utf8")
 const client = readFileSync("lib/push/client.ts", "utf8")

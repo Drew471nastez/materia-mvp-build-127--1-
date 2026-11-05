@@ -31,7 +31,7 @@ const ts = require("typescript")
 
 /** The creator dashboard and app: every file a creator's screen is drawn from. */
 export const SCOPE_INCLUDE = [
-  /^app\/app\/.*\.tsx?$/,
+  /^app\/\(storelib\)\/app\/.*\.tsx?$/,
   /^components\/app\/.*\.tsx?$/,
   /* Storelib Reviews managed on its integration page (round K5). */
   /^components\/reviews\/manage\/.*\.tsx?$/,
@@ -63,10 +63,10 @@ export const SCOPE_EXCLUDE = [
   /^components\/website-builder\/sections\//,
   /^components\/website-builder\/theme\//,
   /^components\/website-builder\/compat\/compat-(canvas|section-preview|files)\./,
-  /^components\/website-builder\/(site-cart|site-document|cart-page-body|coming-soon-signup|header-search-modal|checkout-return-notice|checkout-link-origin)\./,
+  /^components\/website-builder\/(site-cart|site-document|cart-page-body|coming-soon-signup|header-search-modal|checkout-return-notice|checkout-link-origin|plain-site-not-found)\./,
   /^components\/website-builder\/.*image[^/]*\.tsx?$/,
   /^components\/website-builder\/.*color-scheme[^/]*\.tsx?$/,
-  /^app\/app\/.*\/opengraph-image\.tsx$/,
+  /^app\/\(storelib\)\/app\/.*\/opengraph-image\.tsx$/,
 ]
 
 /**
@@ -257,7 +257,7 @@ const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|ends
 
 /**
  * Bindings that are themselves translations, so nothing inside is reported.
- * ct is the website checkout's translator (app/checkout/parts/words.tsx): its
+ * ct is the website checkout's translator (app/(storelib)/checkout/parts/words.tsx): its
  * sentences are the website's, listed by scripts/i18n/checkout-sentences.mjs.
  */
 const TRANSLATED_CALL = /^(tt|ttx|msg|t|ct|getT|getServerT|getTranslation|translate|tn|tp)$/

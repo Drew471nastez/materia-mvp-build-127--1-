@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { PaneBar, OrderBarFrame } from "@/app/app/orders/order-parts"
+import { PaneBar, OrderBarFrame } from "@/app/(storelib)/app/orders/order-parts"
 import { ReviewsManageBody } from "@/components/reviews/manage/reviews-manage"
 import { MANAGE_VIEWS } from "@/components/reviews/manage/views"
 import { reviewsIntegrationView } from "@/components/reviews/manage/integration-view"
@@ -49,13 +49,13 @@ console.log("\nK  The page bar: sticky only where it is worked from\n")
   check("  the same box either way: the same column inside, the same background", flat.replace(/<div[^>]*data-orders-bar[^>]*>/, "") === stuck.replace(/<div[^>]*data-orders-bar[^>]*>/, "").replace("Order", "Integrations"))
   const order = renderToStaticMarkup(React.createElement(OrderBarFrame, { back: null, title: "#1", subtitle: "today" }))
   check("an order's or an email's bar (OrderBarFrame: Back and the actions) is sticky", /orders-bar sticky top-0/.test(order))
-  const parts = raw("app/app/orders/order-parts.tsx")
+  const parts = raw("app/(storelib)/app/orders/order-parts.tsx")
   check("  the scroll is only listened to on a sticky bar", /const pane = sticky \? bar\?\.closest<HTMLElement>\("\.orders-pane"\) : null/.test(parts))
   /* Changed on purpose (round 28, the owner: "do not make the page header sticky"): Emails' title, buttons and tabs scroll away with the page, as every list's. */
   const stickyPages = ["components/email/compose/composer.tsx", "components/memberships/creator-screen.tsx", "components/help/app-help-frame.tsx"]
-  check("Emails' bar is flat now", /<PaneBar width=\{LIST_WIDTH\} className=/.test(raw("app/app/emails/emails-home.tsx")) && !/<PaneBar [^>]*\bsticky\b/.test(raw("app/app/emails/emails-home.tsx")))
+  check("Emails' bar is flat now", /<PaneBar width=\{LIST_WIDTH\} className=/.test(raw("app/(storelib)/app/emails/emails-home.tsx")) && !/<PaneBar [^>]*\bsticky\b/.test(raw("app/(storelib)/app/emails/emails-home.tsx")))
   check("sticky where the bar is how the page is worked: the composer, a membership, a Help article", stickyPages.every((f) => /<PaneBar width=\{[A-Z_]+\} sticky className=/.test(raw(f))), stickyPages.filter((f) => !/<PaneBar width=\{[A-Z_]+\} sticky/.test(raw(f))))
-  const listPages = ["app/app/integrations/integrations-client.tsx", "app/app/orders/orders-list.tsx", "app/app/products/products-client.tsx", "app/app/files/files-client.tsx", "app/app/coupons/coupons-client.tsx", "app/app/offers/offers-client.tsx", "app/app/inventory/inventory-client.tsx", "app/app/support/support-client.tsx"]
+  const listPages = ["app/(storelib)/app/integrations/integrations-client.tsx", "app/(storelib)/app/orders/orders-list.tsx", "app/(storelib)/app/products/products-client.tsx", "app/(storelib)/app/files/files-client.tsx", "app/(storelib)/app/coupons/coupons-client.tsx", "app/(storelib)/app/offers/offers-client.tsx", "app/(storelib)/app/inventory/inventory-client.tsx", "app/(storelib)/app/support/support-client.tsx"]
   check("flat on a list (title and one action): Integrations, Orders, Products, Files, Coupons, Offers, Inventory, Support", listPages.every((f) => /<PaneBar /.test(raw(f)) && !/<PaneBar [^>]*\bsticky\b/.test(raw(f))), listPages.filter((f) => /<PaneBar [^>]*\bsticky\b/.test(raw(f))))
   check("the hairline and shadow are still the sticky bar's (app/globals.css)", /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(raw("app/globals.css")))
 }
@@ -73,7 +73,7 @@ console.log("\nL1 L2  The cards\n")
 console.log("\nL3 L5 L7  An integration's page\n")
 {
   const ui = raw("components/app/settings/integration-detail.tsx")
-  const page = raw("app/app/integrations/integrations-client.tsx")
+  const page = raw("app/(storelib)/app/integrations/integrations-client.tsx")
   check("L5: no page title on an integration's page, gone in the same frame it is drawn (the directory's own view, not the address)", /const NO_BAR_ON_A_PAGE = "\[&:has\(\[data-integrations-view=page\]\)>\[data-orders-bar\]\]:hidden"/.test(page) && /cn\("orders-pane [^"]*", NO_BAR_ON_A_PAGE\)/.test(page))
   check("  the page starts with Back, with room of its own above it", /data-integrations-view="page" className=\{cn\("scroll-mt-4", page && "pt-3 sm:pt-5"\)\}/.test(raw("components/app/settings/integrations-directory.tsx")))
   check("  the integration's name is the page's title where it is a page", /const Title = pin \? "h1" : "h2"/.test(ui) && /<Title className="text-\[24px\] font-bold/.test(ui))
@@ -90,15 +90,15 @@ console.log("\nL3 L5 L7  An integration's page\n")
 
 console.log("\nL6  /app/reviews is Storelib Reviews' own page\n")
 {
-  const page = read("app/app/reviews/page.tsx")
-  const client = raw("app/app/reviews/reviews-client.tsx")
+  const page = read("app/(storelib)/app/reviews/page.tsx")
+  const client = raw("app/(storelib)/app/reviews/reviews-client.tsx")
   check("the page draws it, no longer sending to Integrations", /<ReviewsClient \/>/.test(page) && !/redirect\(`/.test(page) && !/integration=storelib-reviews/.test(page))
   check("  the integration's own page, alone: the directory with `only`, in the pane every /app list page scrolls in", /<IntegrationsDirectory page only="storelib-reviews" \/>/.test(client) && /orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-\[#f8f9fa\] app-page-enter" data-integrations-scroll=""/.test(client))
   const dir = raw("components/app/settings/integrations-directory.tsx")
   check("  `only`: that page from the first render, no Back to integrations, nothing else drawn", /const wanted = only \?\? params\?\.get\("integration"\) \?\? null/.test(dir) && /onBack=\{only \? undefined : \(\) => open\(null\)\}/.test(dir) && /if \(only && !current\) return null/.test(dir))
   check("  Back is drawn only when there is somewhere to go back to", /\{onBack \? \(\s*<button/.test(raw("components/app/settings/integration-detail.tsx")))
   check("the sidebar's Products › Reviews names /app/reviews", /\{ href: "\/app\/reviews", label: "Reviews" \}/.test(read("components/app/sidebar.tsx")))
-  check("/app/reviews/widgets opens its Widgets tab there", /const WIDGETS_HOME = "\/app\/reviews\?view=widgets"/.test(raw("app/app/reviews/widgets/page.tsx")))
+  check("/app/reviews/widgets opens its Widgets tab there", /const WIDGETS_HOME = "\/app\/reviews\?view=widgets"/.test(raw("app/(storelib)/app/reviews/widgets/page.tsx")))
   check("  and the gallery's Turn it on goes to its Settings tab there", /href="\/app\/reviews\?view=settings"/.test(raw("components/reviews/widgets/widgets-gallery.tsx")))
 }
 
@@ -127,7 +127,7 @@ console.log("\nL8  The reviews tabs\n")
 
 console.log("\nCopy\n")
 {
-  const files = ["app/app/orders/order-parts.tsx", "app/app/integrations/integrations-client.tsx", "components/app/settings/integrations-directory.tsx", "components/app/settings/integration-detail.tsx", "components/app/settings/integration-apps.tsx", "app/app/reviews/page.tsx", "app/app/reviews/reviews-client.tsx", "app/app/reviews/widgets/page.tsx", "components/reviews/manage/integration-view.tsx", "components/reviews/manage/reviews-manage.tsx", "components/reviews/manage/parts.tsx", "components/reviews/manage/requests-view.tsx", "scripts/check-integrations27.mjs", "scripts/render-integrations27.tsx", "tests/integrations27.test.ts"]
+  const files = ["app/(storelib)/app/orders/order-parts.tsx", "app/(storelib)/app/integrations/integrations-client.tsx", "components/app/settings/integrations-directory.tsx", "components/app/settings/integration-detail.tsx", "components/app/settings/integration-apps.tsx", "app/(storelib)/app/reviews/page.tsx", "app/(storelib)/app/reviews/reviews-client.tsx", "app/(storelib)/app/reviews/widgets/page.tsx", "components/reviews/manage/integration-view.tsx", "components/reviews/manage/reviews-manage.tsx", "components/reviews/manage/parts.tsx", "components/reviews/manage/requests-view.tsx", "scripts/check-integrations27.mjs", "scripts/render-integrations27.tsx", "tests/integrations27.test.ts"]
   const text = files.filter((f) => !f.startsWith("tests/")).map(raw).join("\n")
   /* The CSS property of that name is not a word anyone reads. */
   const words = text.replace(/transition-\[[^\]]*\]|transition-transform|\.transform\b|transform:/g, "")

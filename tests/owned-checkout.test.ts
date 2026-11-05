@@ -168,13 +168,13 @@ async function main() {
     check("the quote is priced for the session's customer, never a typed email", /siteQuote\(admin, site\.creatorId, body, detectedCountry\(request\.headers\), owner \? \{ email: owner\.email \} : null\)/.test(route))
     check("a cart that ships carries the proven email to the held checkout", (route.match(/ownerEmail: contact\.ownerEmail,/g) ?? []).length === 3 && /ownerEmail: buyer\?\.email \?\? null/.test(route) && /ownerEmail: input\.ownerEmail \?\? null/.test(code("lib/physical/checkout-server.ts")))
     check("the physical pricing leaves owned digital lines out by the same rule", /ownedLines\(\s*db,\s*\{ userId: req\.buyerId \?\? null, provenEmail: req\.ownerEmail \?\? null \}/.test(code("lib/physical/checkout-pricing-server.ts")))
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("the page prices for the signed in customer and links to the site's own /account", /* Changed on purpose (round AB): priced as soon as the buyer is known. */ /* Changed on purpose (checkout, currency and translation overhaul): with the delivery country known before the first frame. */ /* Changed on purpose (round BC): priced for the signed in customer's default address's country when they have one (countryOf). */ /siteQuote\(admin, site\.creatorId, \{ items, couponCode: params\.couponCode, \.\.\.\(country \? \{ country \} : \{\}\) \}, null, b \? \{ email: b\.email \} : null\)/.test(page) && /const country = countryOf\(b\)/.test(page) && /const quoteRead = buyerRead\.then/.test(page) && /accountUrl=\{`\$\{site\.origin\}\/account`\}/.test(page))
-    const client = code("app/checkout/site/site-checkout.tsx")
+    const client = code("app/(storelib)/checkout/site/site-checkout.tsx")
     check("the client draws 'You already own this' for a cart of only owned things, and the note for a mixed one", /if \(onlyOwned\) return <SiteOwned /.test(client) && /<OwnedNote owned=\{owned\} accountUrl=\{accountUrl\} \/>/.test(client))
     check("  the guest's 'Email me my link' is offered only to a guest with a download in the cart", /\{!buyer && !lockedEmail && !needsSignIn && hasDownloads \? <AccessLink /.test(client))
     check("  a cart of only owned things leaves the browser's cart and the theme's cookie", /void call\(\{ action: "forget" \}\)/.test(client) && /async function forget\(request: Request, admin: Admin, site: SiteOfCheckout\)/.test(route))
-    const owned = code("app/checkout/site/owned.tsx")
+    const owned = code("app/(storelib)/checkout/site/owned.tsx")
     check("'Go to your downloads' is the website's, never storelib.com", /href=\{accountUrl\}/.test(owned) && !/storelib\.com/.test(owned))
   }
 
@@ -254,12 +254,12 @@ async function main() {
 
   console.log("\nExplore and the creator page keep their library, by the same rule")
   {
-    const page = code("app/checkout/page.tsx")
+    const page = code("app/(storelib)/checkout/page.tsx")
     check("a signed in owner of this option (or the whole product) goes to the library", /if \(rowsOwn\(existingEntitlements\.map\(\(e\) => \(\{ product_id: product\.id, variant_id: e\.variant_id \}\)\), product\.id, variantId \|\| null\)\) redirect\(OWNED\)/.test(page))
     check("an active member goes to Manage membership, not a second subscription", /const current = \(\(mine \?\? \[\]\) as any\[\]\)\.find\(\(m\) => grantsAccess\(m\)\)/.test(page) && /redirect\(`\/account\/library\/memberships\/\$\{encodeURIComponent\(current\.id\)\}`\)/.test(page))
     const session = code("app/api/checkout/stripe-session/route.ts")
     check("the payment route refuses the same, with the library's address", /rowsOwn\(\(data \?\? \[\]\)/.test(session) && /code: "already_owned", url: `\/account\/library\/products\//.test(session))
-    const client = code("app/checkout/checkout-client.tsx")
+    const client = code("app/(storelib)/checkout/checkout-client.tsx")
     check("a guest on Explore gets the same 'Email me my link'", /\{!isLoggedIn \? <AccessLink email=\{email\} send=\{sendAccess\} \/> : null\}/.test(client) && /fetch\("\/api\/checkout\/access-link"/.test(client))
   }
 

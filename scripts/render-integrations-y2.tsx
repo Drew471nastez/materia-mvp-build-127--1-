@@ -1,5 +1,5 @@
 /**
- * The /app shell as app/app/layout.tsx draws it, for
+ * The /app shell as app/(storelib)/app/layout.tsx draws it, for
  * scripts/check-integrations-y2.mjs:
  *
  *   /app/integrations   the real Integrations page (IntegrationsClient)
@@ -17,13 +17,13 @@ import { LanguageProvider } from "@/lib/i18n"
 import { LocaleProvider } from "@/components/locale-provider"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { AppSidebar } from "@/components/app/sidebar"
-import { IntegrationsClient } from "@/app/app/integrations/integrations-client"
+import { IntegrationsClient } from "@/app/(storelib)/app/integrations/integrations-client"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { railStateOf, railWidth } from "@/lib/ui/app-rail"
 
 const rail = railStateOf(new URLSearchParams(location.search).get("rail"))
 
-/* The same classes as app/app/layout.tsx (scripts/render-integrations27.tsx checks they match). */
+/* The same classes as app/(storelib)/app/layout.tsx (scripts/render-integrations27.tsx checks they match). */
 const ROOT_CLASS = "h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar"
 const MAIN_CLASS =
   "h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content"

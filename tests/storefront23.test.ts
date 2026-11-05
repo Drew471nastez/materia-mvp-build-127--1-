@@ -393,13 +393,13 @@ async function main() {
     check("held to the checkout's own limit, control characters out", cartNote("a".repeat(5000))?.length === CART_NOTE_MAX && cartNote("a\u0000b") === "ab")
     const cart = read("components/website-builder/cart-page-body.tsx")
     check("the cart page asks for it when something ships, and hands it on", /data-cart-note=""/.test(cart) && /wholeCart: true, note \}\)/.test(cart))
-    const checkout = read("app/checkout/site/site-checkout.tsx")
-    check("the checkout starts its note with it, open", /React\.useState\(initialNote \?\? ""\)/.test(checkout) && /open=\{initialNote \? true : undefined\}/.test(checkout) && /initialNote=\{params\.note\}/.test(read("app/checkout/site/page.tsx")))
+    const checkout = read("app/(storelib)/checkout/site/site-checkout.tsx")
+    check("the checkout starts its note with it, open", /React\.useState\(initialNote \?\? ""\)/.test(checkout) && /open=\{initialNote \? true : undefined\}/.test(checkout) && /initialNote=\{params\.note\}/.test(read("app/(storelib)/checkout/site/page.tsx")))
   }
 
   console.log("\nThe builder's canvas follows the product\n")
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the product page's product is read again when the builder comes back into view", /THE PRODUCT THE PRODUCT PAGE SHOWS, READ AGAIN/.test(editor) && /fetch\(`\/api\/website-builder\/products\?id=\$\{encodeURIComponent\(id\)\}`, \{ cache: "no-store" \}\)/.test(editor))
     check("only its _product_data changes, so nothing becomes unsaved", /return \{ \.\.\.sec, settings: \{ \.\.\.s, _product_data: fresh \} \}/.test(editor) && !/setIsDirty\(true\)[^\n]*_product_data: fresh/.test(editor))
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")

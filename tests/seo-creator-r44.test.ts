@@ -37,8 +37,8 @@ import { creatorChunkEntries } from "@/lib/seo/sitemaps"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { profileMetadata } from "@/lib/profile/profile-seo"
 import { getProductShareUrl, getStoreShareUrl } from "@/lib/url-helpers"
-import { indexablePost, postArticleJsonLd, postMetadata, publicPost, type PostFacts } from "@/app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
-import { eventMetadata, indexableEvent, type EventFacts } from "@/app/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo"
+import { indexablePost, postArticleJsonLd, postMetadata, publicPost, type PostFacts } from "@/app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
+import { eventMetadata, indexableEvent, type EventFacts } from "@/app/(storelib)/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo"
 
 let passed = 0
 let failed = 0
@@ -124,7 +124,7 @@ async function main() {
     check("nothing anywhere: a real 404", productAddressStep({ slug: "nope", owner, found: null, renamedTo: null, elsewhere: null }).kind === "missing")
     check("  and for a handle nobody has", productAddressStep({ slug: "nope", owner: null, found: null, renamedTo: null, elsewhere: null }).kind === "missing")
 
-    const door = code("app/(marketing)/[sellername]/[productSlug]/page.tsx")
+    const door = code("app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx")
     check("the door decides by the handle, once per request for the metadata and the page",
       /const addressOf = cache\(async \(handle: string, slug: string\)/.test(door) && (door.match(/await addressOf\(at\.handle, at\.slug\)/g) ?? []).length === 2)
     check("  the owner is the profile the handle names and its creator row, the creator page's own loaders",
@@ -148,7 +148,7 @@ async function main() {
       !/\.eq\("slug", slug\)[^]{0,120}\.maybeSingle\(\)/.test(loader) && !/\.eq\("slug", slug\)[^]{0,120}\.maybeSingle\(\)/.test(cacheFile) &&
         /\.order\("created_at", \{ ascending: true \}\)\.limit\(1\)/.test(cacheFile) && /\.order\("created_at", \{ ascending: true \}\)\.limit\(1\)/.test(loader))
     check("  an old slug is the owner's own move, not another creator's", /\(!owner \|\| p\.creator_id === owner\)/.test(loader) && !/old_slug", slug\)\s*\.maybeSingle/.test(loader))
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("/p/<slug> itself has no owner segment: only the door can set one", /params: Promise<\{ slug: string; owner\?: string \| null \}>/.test(product) && (product.match(/loadProductBySlug\(slug, owner\)/g) ?? []).length === 2)
   }
 
@@ -175,7 +175,7 @@ async function main() {
   {
     const render = code("components/website-builder/theme/render-product.tsx")
     check("the creator page's own domain when it has one", /primaryHostFor\(product\.creator_id, "creator_page"\)/.test(render) && /if \(handle\) canonical = getProductShareUrl\(handle, product\.slug, pageHost\)/.test(render))
-    check("  the same address storelib.com/<handle>/<slug> names", /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+    check("  the same address storelib.com/<handle>/<slug> names", /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
     check("and noindex for a banned seller", /index = productIndexable\(product, handle \|\| null\) && !isBanned\(creator/.test(render) && /\.from\("creators"\)\.select\("\*"\)/.test(render))
   }
 
@@ -187,7 +187,7 @@ async function main() {
     check("  no verdict: the handle score, as before", deservesIndexing({ handle: "maya", spamState: null }) === deservesIndexing({ handle: "maya" }))
     const facts = { name: "Maya", username: "maya", bio: null, avatarUrl: null, coverUrl: null, followers: 0 }
     check("  and noindex is what the page then says", JSON.stringify(profileMetadata({ ...facts, indexable: false }).robots).includes('"index":false'))
-    const route = code("app/(marketing)/member/[username]/page.tsx")
+    const route = code("app/(storelib)/(marketing)/member/[username]/page.tsx")
     check("the page and its metadata ask one rule, with spamStateOf",
       /const inSearch = cache\(async \(userId: string, username: string\) => deservesIndexing\(\{ handle: username, spamState: await spamStateOf\(userId\) \}\)\)/.test(route) &&
         /indexable: await inSearch\(profile\.userId, profile\.username\)/.test(route) && /const indexable = await inSearch\(profile\.userId, profile\.username\)/.test(route) && !/scoreSignup/.test(route))
@@ -215,9 +215,9 @@ async function main() {
       ownerBanned,
     })
     check("an event the same", indexableEvent(event()) && !indexableEvent(event(true)) && (eventMetadata(event(true)).robots as Any).index === false)
-    check("the facts read the ban for both", /creatorIsBanned\(community\.creator_id\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")) && /ownerBanned: await banned/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/event-facts.ts")))
-    const page = code("app/(marketing)/community/[slug]/page.tsx")
-    const about = code("app/(marketing)/community/[slug]/about/page.tsx")
+    check("the facts read the ban for both", /creatorIsBanned\(community\.creator_id\)/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")) && /ownerBanned: await banned/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/events/[eventId]/event-facts.ts")))
+    const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
+    const about = code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")
     check("the community's page and About say noindex for it", [page, about].every((s) => /\.\.\.\(\(await banned\) \? \{ indexable: false \} : \{\}\)/.test(s)))
     check("  and the page's structured data follows its metadata (waiting to be deleted, or banned)", /const unlisted = Promise\.all\(\[communityDeleting\(load\.community\.id\), ownerBanned\(load\.community\.creator_id\)\]\)/.test(page) && /const hidden = await unlisted/.test(page) && /\{jsonLd && !hidden \? <script type="application\/ld\+json"/.test(page))
     check("a private post is never more than the generic card", !indexablePost(post({ community: { ...post().community, visibility: "private" } })) && !publicPost(post({ community: { ...post().community, visibility: "private" } })))
@@ -253,7 +253,7 @@ async function main() {
     check("storelib.com's product files: published only, never a product that ships or sells a tier, never a banned seller's",
       /\.eq\("status", "published"\)\s*\.neq\("type", "physical"\)/.test(maps) && /q = q\.is\("community_id", null\)/.test(maps) && /banned\.has\(row\.creator_id\)\)\) continue/.test(maps))
     check("a OnePage on storelib.com is a redirect to storelib.me, never a copy", /`\/l\/\{slug\}` and `\/\{handle\}\/links` answer with a 308/.test(read("proxy.ts")))
-    const storefront = code("app/(marketing)/u/[username]/page.tsx")
+    const storefront = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("a creator page nobody has is a real 404, a renamed one a 308", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)\s*\n\s*\}\s*\n\s*notFound\(\)/.test(storefront))
     check("  and its canonical names one host, without the query it was opened with", /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(storefront) && /canonical: pageUrl,/.test(storefront))
     check("  its banned owner keeps it out of search", /creatorIndexable\(\{ publishedProducts, handle, spamState \}\) && !isBanned\(creator\)/.test(storefront))

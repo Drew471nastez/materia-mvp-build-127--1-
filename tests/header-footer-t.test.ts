@@ -112,7 +112,7 @@ console.log("\nLogo shows")
   const schema = JSON.parse(read("themes/default/sections/header.json")) as { fields: { id: string; options?: { value: string }[] }[] }
   const field = schema.fields.find((f) => f.id === "logo_mode")
   check("the schema offers Logo shows with the three values", !!field && JSON.stringify(field.options?.map((o) => o.value)) === JSON.stringify(["image", "text", "image_text"]))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("and the panel draws it", /label="Logo shows"/.test(editor) && /onUpdateSetting\("logo_mode", v\)/.test(editor))
 }
 

@@ -48,7 +48,7 @@ export const podia: Competitor = {
   ],
   storelibStrengths: [
     { text: "A free plan that sells, no card needed to start.", code: "lib/billing/plans.ts" },
-    { text: "Bundles, upsells and quantity breaks on every plan.", code: "app/app/offers" },
+    { text: "Bundles, upsells and quantity breaks on every plan.", code: "app/(storelib)/app/offers" },
     { text: "A website in more than one language, with every translation editable.", code: "lib/markets/auto-translate.ts" },
   ],
   storelibLimits: [

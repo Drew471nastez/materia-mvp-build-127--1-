@@ -263,7 +263,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   section("Each paste is one Undo step, and the canvas draws it from the page's state")
   // ═══════════════════════════════════════════════════════════════════════
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const body_ = (name: string) => {
     const at = editor.indexOf(`const ${name} = `)
     return at === -1 ? "" : editor.slice(at, editor.indexOf("\n  }\n", at))
@@ -298,7 +298,7 @@ async function main() {
   check("Edit code opens the code editor at that file and section", /openCode\(target\.path, \{ at, sectionId: s\.id \}\)/.test(editor) && /q\.set\("section", opts\.sectionId\)/.test(editor))
   const pane = read("components/website-builder/preview-mode-switch.tsx")
   check("a loaded pane opens a new file in place, not by reloading", /type: "storelib:open-file", path: ask\.path, at: ask\.at, n: ask\.n/.test(pane) && /srcRef\.current === null/.test(pane))
-  const code = read("app/website-builder/code/[installId]/page.tsx")
+  const code = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
   check("the code editor opens it there, at the schema when asked", /d\.type !== "storelib:open-file"/.test(code) && /l\.includes\("<schema"\)/.test(code))
   check("back from the code on a phone comes back to the section on its page", backToEditorHref("i1", "?back=editor&path=sections%2Fx.storelib&section=hero-1&previewPath=%2Fabout") === "/website-builder/editor/i1?previewPath=%2Fabout&section=hero-1")
   check("and carries nothing that is not a path on this site", backToEditorHref("i1", "?previewPath=%2F%2Fevil.com&section=%3Cx%3E") === "/website-builder/editor/i1")

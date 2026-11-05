@@ -3,7 +3,7 @@
  * components, every /api request answered here from one in-memory case, so
  * what one side writes the other side reads back through its own route.
  *
- *   ?view=buyer&lang=en|ro   the buyer's conversation (app/order-help)
+ *   ?view=buyer&lang=en|ro   the buyer's conversation (app/(storelib)/order-help)
  *   ?view=seller             Support › From buyers, the case open
  *   ?view=support            Support › From buyers, the list
  *   ?view=both               the buyer's page and the store's thread side by
@@ -13,11 +13,11 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { CaseView } from "@/app/order-help/[id]/case-view"
-import { BuyerCaseThread } from "@/app/app/support/buyer-cases"
-import { SupportClient } from "@/app/app/support/support-client"
-import { ResolutionCenter } from "@/app/admin/resolution/resolution-center"
-import { CheckoutWords } from "@/app/checkout/parts/words"
+import { CaseView } from "@/app/(storelib)/order-help/[id]/case-view"
+import { BuyerCaseThread } from "@/app/(storelib)/app/support/buyer-cases"
+import { SupportClient } from "@/app/(storelib)/app/support/support-client"
+import { ResolutionCenter } from "@/app/(storelib)/admin/resolution/resolution-center"
+import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
 import { checkoutWordsIn } from "@/lib/markets/checkout-words"
 import { buyerEscalation, type CaseMessage, type CaseSummary } from "@/lib/support/cases"
 

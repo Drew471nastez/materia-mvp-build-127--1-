@@ -1,0 +1,9 @@
+/*
+ * The stylesheet of a published website (app/(site)/layout.tsx).
+ *
+ * Built from app/globals.css by scripts/site-css.cjs: the same rules, with
+ * Tailwind's utilities written only for the classes in the files a website's
+ * pages import. This file only imports app/globals.css, so a compile that
+ * skips that step still draws every website, with the whole sheet.
+ */
+@import "./globals.css";

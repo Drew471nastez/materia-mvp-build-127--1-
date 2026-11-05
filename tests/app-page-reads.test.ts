@@ -72,15 +72,15 @@ function batchAfter(src: string, from: RegExp): string {
 
 /* The main destinations, and the one call none of them makes any more. */
 const PAGES = [
-  "app/app/page.tsx",
-  "app/app/products/page.tsx",
-  "app/app/orders/sales/page.tsx",
-  "app/app/analytics/page.tsx",
-  "app/app/payouts/page.tsx",
-  "app/app/settings/_server.ts",
-  "app/app/customers/page.tsx",
-  "app/app/coupons/load-coupons.ts",
-  "app/app/layout.tsx",
+  "app/(storelib)/app/page.tsx",
+  "app/(storelib)/app/products/page.tsx",
+  "app/(storelib)/app/orders/sales/page.tsx",
+  "app/(storelib)/app/analytics/page.tsx",
+  "app/(storelib)/app/payouts/page.tsx",
+  "app/(storelib)/app/settings/_server.ts",
+  "app/(storelib)/app/customers/page.tsx",
+  "app/(storelib)/app/coupons/load-coupons.ts",
+  "app/(storelib)/app/layout.tsx",
 ]
 
 section("Who is signed in: asked once per request")
@@ -117,7 +117,7 @@ section("Who is signed in: asked once per request")
 
 section("The layout: everything that needs only the user, together")
 {
-  const layout = code("app/app/layout.tsx")
+  const layout = code("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round AA, Team): the account's own creator row is
      ownCreator, and a team member's store (lib/team/server teamStoreForRequest,
      checked against the membership in the database) is read in the same batch. */
@@ -145,7 +145,7 @@ section("The layout: everything that needs only the user, together")
 
 section("Home: three trips, and its title shares them")
 {
-  const home = code("app/app/page.tsx")
+  const home = code("app/(storelib)/app/page.tsx")
   check("the profile and creator rows are per request (React cache), on the service role as both reads were, by the user's id",
     /const homeProfile = cache\(async \(userId: string\)/.test(home) && /const homeCreator = cache\(async \(userId: string\)/.test(home)
       && /\.from\("profiles"\)[\s\S]{0,120}\.eq\("id", userId\)/.test(home) && /\.from\("creators"\)[\s\S]{0,400}\.eq\("user_id", userId\)/.test(home))
@@ -167,7 +167,7 @@ section("Home: three trips, and its title shares them")
 
 section("Products: the creator and the profile together")
 {
-  const src = code("app/app/products/page.tsx")
+  const src = code("app/(storelib)/app/products/page.tsx")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
   /* Changed on purpose (round 41 team): the owner's list is on their own client as before; a team member's is read with the service role, by the store's id */
@@ -178,7 +178,7 @@ section("Products: the creator and the profile together")
 
 section("Settings: six trips to three")
 {
-  const src = code("app/app/settings/_server.ts")
+  const src = code("app/(storelib)/app/settings/_server.ts")
   const first = batchAfter(src, /pageUser\(\)/)
   check("the profile and the creator row together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first))
   /* Their photos were read only for the avatar's fallback chain, which is gone (lib/account/avatar).
@@ -206,7 +206,7 @@ section("Settings: six trips to three")
 
 section("Payouts: its questions asked together")
 {
-  const src = code("app/app/payouts/page.tsx")
+  const src = code("app/(storelib)/app/payouts/page.tsx")
   const first = batchAfter(src, /const stripeAccount/)
   check("with the creator: the products, Stripe and the ledger row, and no Express dashboard link",
     /\.from\("products"\)/.test(first) && /stripe\.balance\.retrieve/.test(first) && /stripe\.accounts\.retrieve/.test(first)
@@ -232,22 +232,22 @@ section("Payouts: its questions asked together")
 
 section("Customers, Coupons, Analytics, Orders")
 {
-  const customers = code("app/app/customers/page.tsx")
+  const customers = code("app/(storelib)/app/customers/page.tsx")
   /* Changed on purpose (round rel-db): both read a page at a time, the orders by their own creator, side by side. */
   const batch = batchAfter(customers, /const customerRows/)
   check("Customers reads its customers and its orders side by side", /customerRows/.test(batch) && /orderRows/.test(batch) && /readStoreCurrency\(admin, creator\.id\)/.test(batch))
   /* Round 40: changed on purpose. The store comes from lib/team (a member's permissions, part 320), not the session's own creator row. */ 
   check("its creator row is the layout's (teamPageStore reads the same per request cache)", /teamPageStore\("customers"\)/.test(customers) && /const own = await creatorForRequest\(user\.id\)/.test(code("lib/team/server.ts")))
-  check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/app/coupons/load-coupons.ts")))
+  check("Coupons' creator row is the layout's too", /teamPageStore\("marketing"\)/.test(code("app/(storelib)/app/coupons/load-coupons.ts")))
   /* Changed on purpose (round 48): Analytics takes the store teamPageStore found (the owner's own row through the per request cache, as Customers does) and reads everything by its id in one round, instead of reading the creator row a second time. */
-  for (const f of ["app/app/analytics/page.tsx"]) {
+  for (const f of ["app/(storelib)/app/analytics/page.tsx"]) {
     check(`${f} keeps its service role reads by the creator found from the user`, /teamPageStore\("analytics"\)/.test(code(f)) && /const creatorId = access\.creatorId/.test(code(f)) && /\.from\("products"\)[\s\S]{0,80}\.eq\("creator_id", creatorId\)/.test(code(f)) && !/\.from\("creators"\)/.test(code(f)))
   }
   /* Changed on purpose (round AA, Team): Orders finds the creator from the user through
      lib/team/server creatorFor, which reads it by user_id for the owner, or the store a
      team member works in after checking the membership in the database. */
-  check("app/app/orders/sales/page.tsx keeps its service role reads by the creator found from the user",
-    /creatorFor<[^>]+>\(admin, user\.id, "orders", "id, stripe_onboarding_status"\)/.test(code("app/app/orders/sales/page.tsx"))
+  check("app/(storelib)/app/orders/sales/page.tsx keeps its service role reads by the creator found from the user",
+    /creatorFor<[^>]+>\(admin, user\.id, "orders", "id, stripe_onboarding_status"\)/.test(code("app/(storelib)/app/orders/sales/page.tsx"))
       && /\.from\("creators"\)\.select\(columns\)\.eq\("user_id", userId\)\.maybeSingle\(\)/.test(code("lib/team/server.ts")))
 }
 

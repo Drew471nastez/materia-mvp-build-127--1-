@@ -18,7 +18,7 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const chat = read("components/website-builder/theme-chat.tsx")
 
 /* On a computer Ask Storelib is a pill over the canvas now (variant "dock"),

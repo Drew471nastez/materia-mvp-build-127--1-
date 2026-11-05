@@ -3,7 +3,7 @@
  *  THE PRODUCTS AREA: THE EDITOR'S FIRST FRAME, AND THE RULES FOR A CODE
  * ===========================================================================
  * 1. The product editor opens from rows the server read. The pure function
- *    that turns them into the form (app/app/products/new/editor-form.ts) is
+ *    that turns them into the form (app/(storelib)/app/products/new/editor-form.ts) is
  *    pinned here, and so is the absence of the old client-side load.
  * 2. A coupon is checked on the server by readCouponInput and placed in a
  *    view by couponState (lib/checkout/coupons.ts). Both are pure.
@@ -19,7 +19,7 @@
  *    scripts/check-products-sheets.mjs the phone's two sheets.
  */
 import { readFileSync, existsSync } from "node:fs"
-import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/app/products/new/editor-form"
+import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { couponState, readCouponInput, CODE_PATTERN } from "@/lib/checkout/coupons"
 import { archiveProduct, isArchivedProduct, restoreProduct } from "@/lib/products/archive"
 import { stripComments } from "./_source"
@@ -89,17 +89,17 @@ check("and undoing it is not", snapshotOf({ ...fields, compareAtPrice: "39" }) =
 
 console.log("\nThe editor no longer loads itself")
 
-const editor = code("app/app/products/new/product-editor.tsx")
+const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
 /* The one place the /app gutter and card padding are written (app/globals.css). */
 const css = read("app/globals.css")
 check("it reads no search parameter to find its product", !/useSearchParams/.test(editor))
 check("it fetches no creator and no product on mount", !/\.from\("creators"\)/.test(editor) && !/\.from\("products"\)\s*\.select\("\*"\)/.test(editor) && !/\.from\("product_variants"\)\s*\.select\(`/.test(editor))
 check("it is not held back behind a timer", !/setIsPageReady|isPageReady/.test(editor) && !/setTimeout\(forceScrollTop/.test(editor))
-/* Changed on purpose: a new product starts as the kind the question before it picked (app/app/products/new/kind-chooser), so the form takes that too. */
+/* Changed on purpose: a new product starts as the kind the question before it picked (app/(storelib)/app/products/new/kind-chooser), so the form takes that too. */
 check("its fields start from the server's rows", /useState\(\(\) => initialForm\(loaded, startAs\)\)/.test(editor))
-const idPage = code("app/app/products/[id]/page.tsx")
+const idPage = code("app/(storelib)/app/products/[id]/page.tsx")
 check("/app/products/<id> draws the editor with the product, not a redirect", /loadProductEditor\(id\)/.test(idPage) && /<ProductEditor/.test(idPage) && !/new\?edit=/.test(idPage))
-const loader = code("app/app/products/load-editor.ts")
+const loader = code("app/(storelib)/app/products/load-editor.ts")
 /* The creator and profile rows through the request's own copies, which the /app layout shares on a full load; the product by its named columns, not `*`, with `*` only when a column is refused. */
 check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\)/.test(loader)
   && /\.from\("products"\)\.select\(PRODUCT_COLUMNS\)/.test(loader) && /missingColumn\(productRes\.error\) \? supabase\.from\("products"\)\.select\("\*"\)/.test(loader))
@@ -108,20 +108,20 @@ check("and only hands over a product that is the creator's", /product\.creator_i
 /* No loading.tsx under /app, and no outline for the editor: "the whole page should not have a loading
    skeleton when I click to edit a product". The page you were on stays until the editor is ready. */
 check("opening a product draws no outline, no spinner and no loading boundary: the old page stays until the editor is here",
-  !existsSync("app/app/products/[id]/loading.tsx") && !existsSync("app/app/products/new/loading.tsx")
+  !existsSync("app/(storelib)/app/products/[id]/loading.tsx") && !existsSync("app/(storelib)/app/products/new/loading.tsx")
     && !existsSync("components/app/route-skeletons.tsx")
     && read("lib/ui/app-navigation.ts").includes('if (/^\\/app\\/products\\/[^/]+(\\/|$)/.test(path)) return false'))
 check("a save drops the router's kept pages", /router\.refresh\(\)/.test(editor))
-/* Opening a product from the list shows the editor with its data, and nothing before it from app/app/products. */
-const newPage = code("app/app/products/new/page.tsx")
-check("no page or loading boundary under app/app/products draws an outline of the editor",
-  !existsSync("app/app/products/loading.tsx") && !existsSync("app/app/products/new/loading.tsx") && !existsSync("app/app/products/[id]/loading.tsx") &&
+/* Opening a product from the list shows the editor with its data, and nothing before it from app/(storelib)/app/products. */
+const newPage = code("app/(storelib)/app/products/new/page.tsx")
+check("no page or loading boundary under app/(storelib)/app/products draws an outline of the editor",
+  !existsSync("app/(storelib)/app/products/loading.tsx") && !existsSync("app/(storelib)/app/products/new/loading.tsx") && !existsSync("app/(storelib)/app/products/[id]/loading.tsx") &&
   !/EditorSkeleton|editor-skeleton/.test(idPage + newPage) &&
   /if \(load\.state === "signed-out"\) return null/.test(idPage) && /if \(load\.state === "signed-out"\) return null/.test(newPage))
 /* "Opening a product or New product from the list should load faster." The prefetch moved into list-return (warmEditor), still in full, and starts sooner: at a 50ms rest, a press going down or focus, and for New product and the first three rows once the list is idle. */
 {
-  const listSrc = code("app/app/products/products-client.tsx")
-  const ret = code("app/app/products/list-return.ts")
+  const listSrc = code("app/(storelib)/app/products/products-client.tsx")
+  const ret = code("app/(storelib)/app/products/list-return.ts")
   check("and the list still prefetches the editor, data and all, when a row is hovered, touched, pressed or focused",
     /warmEditor\(router, `\/app\/products\/\$\{id\}`\)/.test(listSrc) && /export function warmEditor\(router: Router, href: string\) \{\s*prefetchAppPage\(router, href\)/.test(ret)
       && /router\.prefetch\(href, \{ kind: "full" \} as never\)/.test(read("lib/ui/app-navigation.ts"))
@@ -130,7 +130,7 @@ check("no page or loading boundary under app/app/products draws an outline of th
   check("and New product and the first three rows are fetched ahead once the list is idle, one after another on a fresh session, not in one burst",
     /const WARM_AHEAD = 3/.test(listSrc) && /whenIdle\(\(\) => \{\s*stop = warmInTurn\(\[warmNew, \.\.\.firstShown\.current\.map\(\(id\) => \(\) => warm\(id\)\)\], \(\) => createClient\(\)\.auth\.getSession\(\)\)/.test(listSrc)
       /* Changed on purpose: New product asks what is being sold first, so what is fetched ahead is the two editors it can open (kind-chooser warmKinds). */
-      && /newProduct\.warm\(\)/.test(listSrc) && /prefetchAppPage\(router, editorHref\("digital"\)\)\s*prefetchAppPage\(router, editorHref\("course"\)\)/.test(code("app/app/products/new/kind-chooser.tsx")) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret)
+      && /newProduct\.warm\(\)/.test(listSrc) && /prefetchAppPage\(router, editorHref\("digital"\)\)\s*prefetchAppPage\(router, editorHref\("course"\)\)/.test(code("app/(storelib)/app/products/new/kind-chooser.tsx")) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret)
       && /fresh\(\)\.then\(start, start\)/.test(ret) && /timer = setTimeout\(\(\) => next\(i \+ 1\), WARM_GAP_MS\)/.test(ret))
   check("and a product fetched ahead is asked for again after a minute, so a list left open or refreshed still opens warm",
     /const WARM_AGAIN_MS = 60_000/.test(listSrc) && /Date\.now\(\) - at < WARM_AGAIN_MS/.test(listSrc) && !/warmed\.current\.has\(/.test(listSrc))
@@ -138,7 +138,7 @@ check("no page or loading boundary under app/app/products draws an outline of th
 
 /* "Sometimes it loads for 5 seconds, then the page appears with a delay, very abruptly." */
 {
-  const load = code("app/app/products/load-editor.ts")
+  const load = code("app/(storelib)/app/products/load-editor.ts")
   check("the editor's product reads start beside the auth check, not after it",
     load.indexOf("const productReads = Promise.all(") > -1 && load.indexOf("const productReads = Promise.all(") < load.indexOf("await currentUserForRequest()")
       && /await Promise\.all\(\[\s*creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\),\s*productReads,\s*\]\)/.test(load))
@@ -154,7 +154,7 @@ console.log("\nNo section tabs; one bar at the top below lg")
 check("no row of section tabs on any width, and no scroll spy behind one",
   !/role="tablist"|role="tab"|aria-label="Sections"|PILL_SECTIONS|getPillForSection|activeSection|pillScrollRef|pillRefs|completedSections/.test(editor))
 check("a failed check still brings its card into view, the files check its own card", /const scrollToSection = \(sectionId: SectionId\)/.test(editor) && /showToast\("Upload a file"\)[\s\S]{0,160}scrollToSection\("files"\)/.test(editor) && /sectionRefs\.current\.files = el/.test(editor))
-check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
+check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
 check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} leaving=\{leaving\} asks=\{hasUnsavedChanges\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('data-editor-page=""'))
@@ -237,10 +237,10 @@ check("both ways out go through the list's return: the layer's move, the list's 
 check("the list is fetched ahead when the editor opens and again after a save's refresh", /useEffect\(\(\) => \{\s*warmProducts\(router\)\s*\}, \[router, loaded\]\)/.test(editor))
 check("Cmd or Ctrl and S still saves from anywhere", /saveShortcut\.current\(\)/.test(editor))
 
-console.log("\nThe bar's buttons (app/app/products/new/editor-buttons.tsx)")
+console.log("\nThe bar's buttons (app/(storelib)/app/products/new/editor-buttons.tsx)")
 
 /* The depth is shared from components/ui/depth-button.ts; the sizes stay in the editor. */
-const buttons = code("app/app/products/new/editor-buttons.tsx") + code("components/ui/depth-button.ts")
+const buttons = code("app/(storelib)/app/products/new/editor-buttons.tsx") + code("components/ui/depth-button.ts")
 check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
   /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
 check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
@@ -268,18 +268,18 @@ check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 
 check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
 check("one save at a time: a ref guards it, not only the state", /if \(isLoading \|\| saveInFlight\.current\) return false/.test(editor) && /saveInFlight\.current = true/.test(editor) && /finally \{[\s\S]{0,120}saveInFlight\.current = false/.test(editor))
 
-console.log("\nEvery question the editor asks (app/app/products/new/confirm-sheet.tsx)")
+console.log("\nEvery question the editor asks (app/(storelib)/app/products/new/confirm-sheet.tsx)")
 
-const confirmSheet = code("app/app/products/new/confirm-sheet.tsx")
+const confirmSheet = code("app/(storelib)/app/products/new/confirm-sheet.tsx")
 check("on a phone it is the shared bottom sheet", /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(confirmSheet) && /<BottomSheet\s/.test(confirmSheet) && /data-surface="sheet"/.test(confirmSheet))
 check("from 640px a compact modal in the middle", /AlertDialogPrimitive\.Content/.test(confirmSheet) && /data-surface="modal"/.test(confirmSheet) && /max-w-\[420px\]/.test(confirmSheet))
 check("two buttons: the safe one with the bar's depth, the one that does it near black, never red", /cn\(secondaryDepth, "h-12/.test(confirmSheet) && /destructiveDepth/.test(confirmSheet) && /bg-\[#1a1a2e\]/.test(confirmSheet) && !/criticalDepth|#c4290c/.test(confirmSheet))
 check("the old forced dialog sheet and its swipe code are gone from the editor", !/showExitDialog|handleSaveAndExit|"unsaved"/.test(editor) && /\{confirmSheet\}/.test(editor))
 check("no window.confirm left in the editor: deleting a file asks in the sheet, and a big upload asks nothing (the owner: no confirmation steps)", !/\bconfirm\(`/.test(editor) && !/title: "Upload this much\?"/.test(editor) && /title: "Delete this file\?"/.test(editor))
 
-console.log("\nHold to drag: one set of sensors (app/app/products/new/hold-to-drag.ts)")
+console.log("\nHold to drag: one set of sensors (app/(storelib)/app/products/new/hold-to-drag.ts)")
 
-const hold = code("app/app/products/new/hold-to-drag.ts")
+const hold = code("app/(storelib)/app/products/new/hold-to-drag.ts")
 check("a mouse and a held finger, not PointerSensor, which took every touch after 12px with no hold",
   /useSensor\(MouseSensor, \{ activationConstraint: \{ distance: MOUSE_DISTANCE_PX \} \}\)/.test(hold) && /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: HOLD_MS, tolerance: HOLD_TOLERANCE_PX \} \}\)/.test(hold) && !/PointerSensor/.test(hold))
 check("the hold is 300ms within 8px", /export const HOLD_MS = 300/.test(hold) && /export const HOLD_TOLERANCE_PX = 8/.test(hold))
@@ -288,18 +288,18 @@ check("a handle lets a swipe scroll the page (touch-action: manipulation), and a
 check("a tick when a finger lifts, through the app's haptic", /hapticTap\("soft"\)/.test(hold) && /event instanceof TouchEvent/.test(hold))
 check("the pane scrolls near its edges, gently", /AUTO_SCROLL = \{ threshold: \{ x: 0, y: 0\.15 \}, acceleration: 6 \}/.test(hold))
 
-console.log("\nThe questions (app/app/products/new/faq-list.tsx)")
+console.log("\nThe questions (app/(storelib)/app/products/new/faq-list.tsx)")
 
-const faq = code("app/app/products/new/faq-list.tsx")
+const faq = code("app/(storelib)/app/products/new/faq-list.tsx")
 check("they use the shared sensors, handle and autoscroll", /const sensors = useHoldToDragSensors\(\)/.test(faq) && /HANDLE_TOUCH,/.test(faq) && /autoScroll=\{AUTO_SCROLL\}/.test(faq) && !/PointerSensor|touch-none/.test(faq))
 check("the keyboard moves a question too, in words", /onDragStart: \(\{ active \}\) => `Picked up question/.test(faq))
 check("the held card follows the finger with no transition of its own; it lifts on an inner layer", /transition: isDragging \? undefined : transition/.test(faq) && /scale-\[1\.02\]/.test(faq) && /transition-\[scale,box-shadow,border-color\]/.test(faq))
 check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(faq) && /arrayMove\(prev, from, to\)/.test(faq))
 check("the editor draws the list from the form's own faqs", /<FaqList faqs=\{faqs\} onChange=\{setFaqs\} \/>/.test(editor) && !/SortableFAQItem|faqSensors/.test(editor))
 
-console.log("\nThe photos and videos (app/app/products/new/media-grid.tsx)")
+console.log("\nThe photos and videos (app/(storelib)/app/products/new/media-grid.tsx)")
 
-const media = code("app/app/products/new/media-grid.tsx")
+const media = code("app/(storelib)/app/products/new/media-grid.tsx")
 check("the same sensors, handle and autoscroll as the questions", /const sensors = useHoldToDragSensors\(\)/.test(media) && /HANDLE_TOUCH,/.test(media) && /autoScroll=\{AUTO_SCROLL\}/.test(media) && !/PointerSensor|touch-none/.test(media))
 check("the held tile stays in the grid and follows by transform, both ways, with no transition of its own",
   /translate3d\(\$\{Math\.round\(transform\.x\)\}px, \$\{Math\.round\(transform\.y\)\}px, 0\)/.test(media) && /transition: isDragging \? undefined : transition/.test(media) && !/DragOverlay|opacity: isDragging \? 0/.test(media))
@@ -318,22 +318,22 @@ check("on a phone, first on the screen as a layer over the app's header, it star
     && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
 /* Changed on purpose (round 41): both editor layers ask to rise and drop (`moves`). */
 check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
-  /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/app/products/[id]/layout.tsx")))
+  /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/(storelib)/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/(storelib)/app/products/[id]/layout.tsx")))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared --app-nav-room and nothing else", /className=\{cn\(FIELD_FOCUS, "page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
-const list = code("app/app/products/products-client.tsx")
+const list = code("app/(storelib)/app/products/products-client.tsx")
 /* Round 40 (the owner: "restyle the products page to match the orders/emails pages"): Orders' and Emails' parts, sizes and rows. */
 check("a list under 768px inside the card and the table from it, at 13px", /<ul aria-label="Products" data-list="" className="md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => api\.current\?\.warm\(product\.id\)\}/.test(list) && /warmEditor\(/.test(list) && /\bwarm,\n/.test(list))
-const couponsList = code("app/app/coupons/coupons-client.tsx")
-check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList))
+const couponsList = code("app/(storelib)/app/coupons/coupons-client.tsx")
+check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/(storelib)/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList))
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
-/* Reviews joined Coupons under Products on purpose (app/app/reviews, the seller's reviews list), and Memberships after them (app/app/memberships); Coupons is still the first child. */
+/* Reviews joined Coupons under Products on purpose (app/(storelib)/app/reviews, the seller's reviews list), and Memberships after them (app/(storelib)/app/memberships); Coupons is still the first child. */
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\s*\{ href: "\/app\/coupons", label: "Coupons" \},\s*\{ href: "\/app\/reviews", label: "Reviews" \},?\s*(\{ href: "\/app\/memberships", label: "Memberships" \},?\s*)?\]/.test(sidebar))
 check("Orders' bar, gutter and 1200px column, on every width (no 7% and 3% from 1024px any more)",
   /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list) && /cn\("mx-auto pb-6", LIST_WIDTH, GUTTER\)/.test(list)
@@ -396,7 +396,7 @@ check("on every width the list is one card whose first row is Orders' toolbar: t
     /* The name in a span of its own since a browser translator swapped the bare text node and the view kept saying "All" (lib/ui/dom-guard, tests/dom-guard.test.ts). */
     && /<span>\{v\.label\}<\/span>/.test(list))
 /* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
-const pickSheet = code("app/app/products/pick-sheet.tsx")
+const pickSheet = code("app/(storelib)/app/products/pick-sheet.tsx")
 check("Sort opens a sheet (a dropdown from 768px) of the orders alone; the views are tabs; no checkbox (nothing to select)",
   /<PickSheet\s+name="sort"\s+title="Sort by"\s+options=\{SORTS\}\s+value=\{sort\}\s+onPick=\{pickSort\}/.test(list)
     && /const pickSort = \(next: string\) => sortBy\(next as Sort\)/.test(list) && /<ViewTabs views=\{views\} value=\{view\} onPick=\{showView\} \/>/.test(list)
@@ -456,7 +456,7 @@ check("a row once drawn keeps its element: every product shown since the page op
 check("an empty view hides the lists rather than unmounting them", /\{drawn\.length > 0 \? \(/.test(list) && /\{pageProducts\.length === 0 \? \(\s*<div data-empty=""/.test(list))
 check("the hairlines follow the rows shown, not the rows in the page", /\[li:not\(\[hidden\]\)~&\]:border-t/.test(list) && /\[tr:not\(\[hidden\]\)~tr>&\]:border-t/.test(list) && !/\[&\+li\]|\[&\+tr>td\]|divide-y/.test(list))
 check("a change of view is measured before and played after, in a layout effect", /listShot\.current = shootList\(sectionRef\.current\)/.test(list) && /useLayoutEffect\(\(\) => \{\s*const before = listShot\.current\s*listShot\.current = null\s*playList\(sectionRef\.current, before\)\s*\}, \[view\]\)/.test(list))
-const motion = code("app/app/products/list-motion.ts")
+const motion = code("app/(storelib)/app/products/list-motion.ts")
 check("rows that stay glide on transform, rows that come fade in from 6px, 16ms apart for the first six",
   /\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: "translateY\(0\)" \}/.test(motion) && /\{ opacity: 0, transform: "translateY\(6px\)" \}, \{ opacity: 1, transform: "translateY\(0\)" \}/.test(motion)
     && /export const ROW_MOVE_MS = 220/.test(motion) && /export const ROW_FADE_IN_MS = 200/.test(motion) && /const ROW_STAGGER_MS = 16/.test(motion) && /const ROW_STAGGER_MAX = 6/.test(motion))
@@ -485,10 +485,10 @@ check("but only on a return: a fresh visit from the sidebar or the pill starts a
     && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's drop", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_LEAVE_MS/.test(list))
-/* Changed on purpose: New product asks what is being sold first (app/app/products/new/kind-chooser), and the editor its answer opens rises with the same layer move. */
+/* Changed on purpose: New product asks what is being sold first (app/(storelib)/app/products/new/kind-chooser), and the editor its answer opens rises with the same layer move. */
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
   /openEditor\(router, href, id !== "new"\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{askNew\}/g) ?? []).length === 2
-    && /if \(href\.startsWith\(NEW_PRODUCT_HREF\)\) openEditor\(router, href, true\)/.test(code("app/app/products/new/kind-chooser.tsx")) && /!e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(code("app/app/products/new/kind-chooser.tsx"))
+    && /if \(href\.startsWith\(NEW_PRODUCT_HREF\)\) openEditor\(router, href, true\)/.test(code("app/(storelib)/app/products/new/kind-chooser.tsx")) && /!e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(code("app/(storelib)/app/products/new/kind-chooser.tsx"))
     && (list.match(/onClick=\{\(e\) => api\.current\?\.open\(product\.id\)\(e\)\}/g) ?? []).length === 2 && /open: openFromLink,/.test(list))
 
 const layer = code("components/app/page-layer.tsx")
@@ -581,7 +581,7 @@ check("  a move is held at its first position until frames arrive a frame apart 
     && /startWhenFramesFlow\(\[a\], 2\)/.test(layer)
     && /for \(const a of animations\) a\.playbackRate = 0/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
     /* Changed on purpose: the way back's own view transition is gone (dropAtCommit plays it by hand, through moveByHand and so startWhenFramesFlow with two in a row). */
-    && /const move = moveByHand\(still, false, LAYER_LEAVE_MS\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
+    && /const move = moveByHand\(still, false, LAYER_LEAVE_MS\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/(storelib)/app/orders/order-motion.ts")))
 check("  a page's own redraw waits for the move (afterLayerMove), let go when the move ends or after 1.5s",
   /export function afterLayerMove\(fn: \(\) => void\): \(\) => void/.test(layer) && /const AFTER_MOVE_CAP_MS = 1500/.test(layer) && (layer.match(/runAfterMove\(\)/g) ?? []).length >= 2
     && /afterLayerMove\(\(\) => \{\s*setOptions\(d\.options \?\? \[\]\)/.test(code("components/email/compose/composer.tsx")))
@@ -595,7 +595,7 @@ check("the pill keeps its place while a layer moves under it", /html\[data-layer
 /* Changed on purpose: the stage also holds its landing while a pull to refresh is showing (pullRefreshVisualActive, ddcbaf919; page-performance pins it). */
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
   /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?( \|\| pullRefreshVisualActive\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
-const ret = code("app/app/products/list-return.ts")
+const ret = code("app/(storelib)/app/products/list-return.ts")
 /* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
 /* And a back that does nothing is followed by the list itself, rather than by
    the layer sitting over a dimmed arrow for eight seconds
@@ -646,7 +646,7 @@ check("and follows the history: replace when opened directly, back when the list
   skeletons: nothing imported it, and this test measured its shapes as if a
   slow load still drew it. A slow load is the app stage's spinner now.
 */
-check("the Products page has no route skeleton, rendered or orphaned", !existsSync("app/app/products/skeleton.tsx") && !existsSync("app/app/products/loading.tsx"))
+check("the Products page has no route skeleton, rendered or orphaned", !existsSync("app/(storelib)/app/products/skeleton.tsx") && !existsSync("app/(storelib)/app/products/loading.tsx"))
 
 console.log("\nArchive and Restore: the status decides, as in Shopify")
 
@@ -804,9 +804,9 @@ check("the public list of every active code is closed", /DROP POLICY IF EXISTS "
 
 console.log("\nRound 41: a product opens untouched, and Back drops it at once")
 {
-  const ed = code("app/app/products/new/product-editor.tsx")
+  const ed = code("app/(storelib)/app/products/new/product-editor.tsx")
   const lyr = code("components/app/page-layer.tsx")
-  const ret = code("app/app/products/list-return.ts")
+  const ret = code("app/(storelib)/app/products/list-return.ts")
   /* "Discard changes?" with no change made: a saved category the lists no longer have was cleared on the first frame. */
   check("the category is put right only on a switch between a download and a thing that ships, never as the editor opens",
     /const kindShown = useRef\(categoryKind\)\s*useEffect\(\(\) => \{\s*if \(kindShown\.current === categoryKind\) return\s*kindShown\.current = categoryKind/.test(ed))

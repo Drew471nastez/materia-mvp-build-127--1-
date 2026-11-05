@@ -39,8 +39,8 @@ function check(label: string, ok: boolean) {
 
 const picker = readCode("components/website-builder/editor/block-picker.tsx")
 const canvas = readCode("components/website-builder/compat/compat-canvas.tsx")
-const layout = readCode("app/layout.tsx")
-const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+const layout = readCode("app/(storelib)/layout.tsx")
+const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const memory = readCode("components/website-builder/ask-memory.tsx")
 const chat = readCode("components/website-builder/theme-chat.tsx")
 const sheet = readCode("components/website-builder/mobile-editor-sheet.tsx")

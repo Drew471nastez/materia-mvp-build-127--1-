@@ -4,7 +4,7 @@
  * There are two language contexts in this codebase and only one of them is
  * mounted globally:
  *
- *   LocaleProvider   app/layout.tsx           above everything
+ *   LocaleProvider   app/(storelib)/layout.tsx           above everything
  *   LanguageProvider components/app/app-layout-wrapper.tsx   /app only
  *
  * Both export a hook that THROWS when its provider is missing, so calling
@@ -161,7 +161,7 @@ for (const caller of callers) {
   reach.add(caller)
   for (const f of reach) {
     if (!f.startsWith("app/")) continue
-    if (f.startsWith("app/app/")) continue
+    if (f.startsWith("app/(storelib)/app/")) continue
     outsiders.push(`${f} reaches useLanguage via ${caller}`)
   }
 }
@@ -198,12 +198,12 @@ check(
 )
 
 /*
-  THE ROOT LAYOUT'S OWN CHILDREN. Whatever app/layout.tsx draws beside the
+  THE ROOT LAYOUT'S OWN CHILDREN. Whatever app/(storelib)/layout.tsx draws beside the
   providers instead of inside them gets no locale. The /account community
   bar was mounted there and its account menu calls useLocale, so /account
   in a community read "Something went wrong". It renders inside them.
 */
-const root = read.get("app/layout.tsx") || ""
+const root = read.get("app/(storelib)/layout.tsx") || ""
 const localeOpen = root.indexOf("<LocaleProvider>")
 const localeClose = root.indexOf("</LocaleProvider>")
 const chrome = root.indexOf("<AccountCommunityChrome")

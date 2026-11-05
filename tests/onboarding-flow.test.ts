@@ -165,7 +165,7 @@ check("  and the step never leaves for Stripe", !/location\.assign|window\.open|
   when it is finished. Browsers and big screens stay as they are.
 */
 check("in the apps setup opens Stripe's embed on /payouts-sheet in the system browser sheet, never Safari", /const sheet = isNativeApp\(\)/.test(flow) && /const OWN_STEPS_IN_APP = false/.test(flow) && /if \(sheet && !inApp\) \{[\s\S]{0,200}<AppBrowserSetup/.test(flow) && /presentationStyle: "popover"/.test(flow) && /post<\{ url: string \}>\("app-sheet"/.test(flow) && /Browser\.close\(\)/.test(flow))
-check("  the sheet's page is signed in by a link in its #fragment, for one creator, checked again on the server", /payouts-sheet#f=\$\{form\}&t=/.test(read("app/api/payments/[action]/route.ts")) && /verifySheetLink\(body\.token\)/.test(read("app/api/payouts-sheet/route.ts")) && /row\.user_id !== link\.u/.test(read("app/api/payouts-sheet/route.ts")) && /replaceState/.test(read("app/payouts-sheet/payouts-sheet.tsx")))
+check("  the sheet's page is signed in by a link in its #fragment, for one creator, checked again on the server", /payouts-sheet#f=\$\{form\}&t=/.test(read("app/api/payments/[action]/route.ts")) && /verifySheetLink\(body\.token\)/.test(read("app/api/payouts-sheet/route.ts")) && /row\.user_id !== link\.u/.test(read("app/api/payouts-sheet/route.ts")) && /replaceState/.test(read("app/(storelib)/payouts-sheet/payouts-sheet.tsx")))
 check("  a browser keeps the page it had", /<Panel open=\{open\} phone=\{phone\} onClose=\{onClose\} label=\{title\}>\s*\{bar\}\s*\{content\}/.test(flow))
 check("  Stripe is not asked for the website, the industry or what is sold", /"business_profile\.url",\s*"business_profile\.mcc",\s*"business_profile\.product_description"/.test(collection))
 check("  and the account has them before the form is drawn", /fill\.business_profile = \{/.test(untt(readFileSync("lib/payments/stripe/connect.ts", "utf8"), "lib/payments/stripe/connect.ts")) && /if \(!account\.business_type\) fill\.business_type = "individual"/.test(untt(readFileSync("lib/payments/stripe/connect.ts", "utf8"), "lib/payments/stripe/connect.ts")))
@@ -269,8 +269,8 @@ check("the embed uses the server key", embedded.includes("publishableKey") && !e
 check("session secrets are not stored or logged", !/localStorage|sessionStorage|console\./.test(embedded) && !/console\.[a-z]+\([^)]*client_secret/.test(connect))
 check("the overview reads status from Stripe", /syncStripeAccountFull\(/.test(overview) && /paymentsStatus/.test(overview))
 
-const payouts = untt(readFileSync("app/app/payouts/payouts-client.tsx", "utf8"), "app/app/payouts/payouts-client.tsx")
-const payoutsPage = untt(readFileSync("app/app/payouts/page.tsx", "utf8"), "app/app/payouts/page.tsx")
+const payouts = untt(readFileSync("app/(storelib)/app/payouts/payouts-client.tsx", "utf8"), "app/(storelib)/app/payouts/payouts-client.tsx")
+const payoutsPage = untt(readFileSync("app/(storelib)/app/payouts/page.tsx", "utf8"), "app/(storelib)/app/payouts/page.tsx")
 const accountLink = untt(readFileSync("app/api/stripe/account-link/route.ts", "utf8"), "app/api/stripe/account-link/route.ts")
 const connectStart = untt(readFileSync("app/api/stripe/connect/start/route.ts", "utf8"), "app/api/stripe/connect/start/route.ts")
 check("payouts does not open an account link", !/\/api\/stripe\/account-link/.test(payouts) && !/Could not open Stripe/.test(payouts))

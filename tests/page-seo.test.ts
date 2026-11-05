@@ -107,7 +107,7 @@ console.log("\nA OnePage says where it lives and who it is about")
       ld.mainEntity.image === "https://cdn.example.com/m.png" && ld.mainEntity.description === "Film & photo" && ld.mainEntity.sameAs?.length === 2)
   check("a picture that is not a full address is left out rather than guessed", !("image" in (profilePageJsonLd({ url: "u", name: "n", image: "/placeholder.svg" }) as { mainEntity: object }).mainEntity))
 
-  const page = code("app/(marketing)/l/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   /* The row, the owner and the address are read in lib/onepage/published-page, and the tags written by lib/onepage/seo, for the page and its share image alike. */
   const loader = code("lib/onepage/published-page.ts")
   const seoLib = code("lib/onepage/seo.ts")
@@ -143,7 +143,7 @@ console.log("\nA OnePage says where it lives and who it is about")
 
 console.log("\nThe creator page is one address, described in the creator's own words")
 {
-  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
   const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function StorefrontPage"))
   check("its metadata finds the profile the way the page does, so /Andrew is Andrew's page",
     /const profile = await loadProfileByUsername\(username\)/.test(meta) && !/\.eq\("username", username\)/.test(meta) && /const creator = await loadCreatorForUser\(profile\.id\)/.test(meta))
@@ -177,7 +177,7 @@ console.log("\nA product is described in its creator's words, with its real avai
   check("a product's category is the Explore page the sitemap lists",
     DB_CATEGORY_TO_ID["lightroom presets"] === "photography" && hasCategoryPage("photography") && categoryPath("photography") === "/explore/photography" && !hasCategoryPage("for-you"))
 
-  const page = code("app/(marketing)/p/[slug]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function ProductPage"))
   check("its title and description are the ones its creator wrote in the editor, when they wrote them",
     /const ownTitle = typeof product\.seo_title === "string"/.test(meta) && /const tabTitle = ownTitle \|\|/.test(meta) && /const ogTitle = ownTitle \|\|/.test(meta) &&
@@ -232,12 +232,12 @@ console.log("\nA picture that means something says what it is")
 console.log("\nAn old address moved for good says so")
 {
   /* A 307 keeps a search engine on the old address; a 308 moves what it knows to the new one. */
-  check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
+  check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")))
   /* The page reads the rename from lib/onepage/resolve-address now (a past username or a past page address, one resolver shared with the proxy), and carries the visitor's query; still permanent, still straight to storelib.me/<new>. */
-  check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(`\$\{onOnePageHost \? onePageUrl\(address\.name\) : getLinksInternalPath\(address\.name\)\}\$\{query\}`\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(`\$\{onOnePageHost \? onePageUrl\(address\.name\) : getLinksInternalPath\(address\.name\)\}\$\{query\}`\)/.test(code("app/(storelib)/(marketing)/l/[slug]/page.tsx")))
   /* Changed on purpose (currency round AM): the loaded row is `loaded`, and `product` is it in the page's currency (the marketplace's quote). */
-  check("a renamed product", /permanentRedirect\(`\/p\/\$\{loaded\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-  const c = code("app/(marketing)/c/[slug]/page.tsx")
+  check("a renamed product", /permanentRedirect\(`\/p\/\$\{loaded\.slug\}`\)/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
+  const c = code("app/(storelib)/(marketing)/c/[slug]/page.tsx")
   check("the old /c/ address, while a guess with nothing behind it stays temporary",
     /permanentRedirect\(`\/\$\{creator\.profile\.username\}`\)/.test(c) && /\bredirect\(`\/\$\{slug\}`\)/.test(c))
   check("a renamed creator's website, to the same page, and its shop",

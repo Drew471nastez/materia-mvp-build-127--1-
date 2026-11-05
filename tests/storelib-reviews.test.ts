@@ -644,7 +644,7 @@ function wiring() {
   check("  in the README, the check after, and migrations", read("supabase/sql/run-now/README.md").includes("`134_storelib_reviews.sql`") && /p134_storelib_reviews/.test(read("supabase/sql/run-now/99_check_after.sql")))
   const proxy = read("proxy.ts")
   check("/review/<token> is Storelib's page on every host, a website's own included", /"\/review",/.test(proxy) && /if \(pathname\.startsWith\("\/review\/"\)\) return NextResponse\.next\(\)/.test(proxy) && /if \(pathname\.startsWith\("\/review\/"\)\) return false/.test(proxy))
-  check("  never indexed, no referer", /robots: \{ index: false, follow: false \}/.test(read("app/review/[token]/page.tsx")) && /referrer: "no-referrer"/.test(read("app/review/[token]/page.tsx")))
+  check("  never indexed, no referer", /robots: \{ index: false, follow: false \}/.test(read("app/(storelib)/review/[token]/page.tsx")) && /referrer: "no-referrer"/.test(read("app/(storelib)/review/[token]/page.tsx")))
   const photo = read("lib/reviews/photos-server.ts")
   check("a photo: a picture by its bytes, the picture reader, the malware scan", /preparePublicImage\(/.test(photo) && /judgePicture\(/.test(photo) && /screenInBackground\(/.test(photo))
   check("the website's card ratings never import server code (the browser loads shop-products)", !/server-only|app-server/.test(read("lib/website-builder/shop-products.ts")))

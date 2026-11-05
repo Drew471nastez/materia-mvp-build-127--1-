@@ -195,12 +195,12 @@ function main() {
   const upgraded = withTabSwitchKey<{ type: string; settings: Record<string, unknown> }>({ type: "tabs_content", settings: { animation: "slide", heading: "x" } })
   check("  an old one is brought up to date as the editor loads it: the switch moved, the old key gone", upgraded.settings.tab_animation === "slide" && !("animation" in upgraded.settings) && upgraded.settings.heading === "x")
   check("    so setting its switch later never turns the old value into an entrance", entranceSetting({ ...upgraded, settings: { ...upgraded.settings, tab_animation: "none" } }) === undefined)
-  check("    and the editor does it on every page it loads", /sec = withTabSwitchKey\(sec\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("    and the editor does it on every page it loads", /sec = withTabSwitchKey\(sec\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   const write = tabSwitchUpgrade({ type: "tabs_content", settings: { animation: "fade" } }, { tab_animation: "slide" })
   check("  a write through the assistant or the agent API to an old one clears the old key", write.settings.tab_animation === "slide" && write.unset.join() === "animation")
   const designPanel = read("components/website-builder/editor/design-panels.tsx")
   check("  the panel offers the entrance for tabs too", /const own = entranceSetting\(section\)/.test(designPanel) && /const setAnimation = \(v: string\) => onUpdateSetting\("animation"/.test(designPanel))
-  check("the panel says the first section shows without an entrance", /firstBody \? <p[^>]*>\{?"?The first section is on screen as the page opens, so it shows without an entrance\."?\}?/.test(designPanel) && /firstBody=\{sections\.find\(\(x\) => !x\.hidden && !isChromeType\(x\.type\)\)\?\.id === section\.id\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("the panel says the first section shows without an entrance", /firstBody \? <p[^>]*>\{?"?The first section is on screen as the page opens, so it shows without an entrance\."?\}?/.test(designPanel) && /firstBody=\{sections\.find\(\(x\) => !x\.hidden && !isChromeType\(x\.type\)\)\?\.id === section\.id\}/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   check("\"Same as theme\" names alternate sides, never fade up", /themeAlternates\(asRecord\(theme\)\) \? "alternate sides"/.test(designPanel))
 
   /* A changed setting plays in the editor: the edited section is on screen, and on screen is never hidden. */
@@ -230,7 +230,7 @@ function main() {
   check("on opacity and transforms only", /fill: "backwards"/.test(motion) && !/(height|top|margin)\s*:/.test(motion.slice(motion.indexOf("function keyframesFor"), motion.indexOf("export interface Reveal"))))
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
   check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)(?: && !followSitePage\(href\))?\) window\.location\.assign\(href\)/.test(header))
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the canvas scrolls an anchor with the same code", /scrollToHash\(root, decision\.id, \{ scroller \}\)/.test(editor))
   check("a section link in preview scrolls the canvas", /if \(decision\.kind === "anchor"\) handleEditorNavigate\(href, inNav\)/.test(editor))
   check("a page opened by a section link goes on to the section", /pendingAnchor\.current = decision\.anchor \?\? null/.test(editor) && /scrollToHash\(root, anchor, \{ scroller \}\)/.test(editor))

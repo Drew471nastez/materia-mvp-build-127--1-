@@ -385,7 +385,7 @@ async function main() {
 
   console.log("\nThe product editor says nothing about checks\n")
   {
-    const rows = code("app/app/products/new/file-uploads.tsx")
+    const rows = code("app/(storelib)/app/products/new/file-uploads.tsx")
     check("no Scanning, Clean, Virus check pending or Blocked by the virus scan", !/"Scanning"|"Clean"|Virus check pending|Blocked by the virus scan|virus|ClamAV/i.test(rows))
     check("nothing asks /api/v2/upload/scan after an upload", !/\/api\/v2\/upload\/scan/.test(rows))
     /* The rule and the words moved to lib/storage/upload-state.ts, so every
@@ -394,20 +394,20 @@ async function main() {
     check("\"Checking file…\" only once the check takes longer than a blink", /CHECKING_DELAY_MS = 300/.test(shared) && /setTimeout\(\(\) => setShown\(true\), delayMs\)/.test(shared) && /CHECKING_LABEL = "Checking file…"/.test(shared) && /useUploadChecking\(status\)/.test(rows))
     check("and the other uploader shows it from the same rule", /useUploadChecking\(upload\.status\)/.test(code("components/app/file-upload.tsx")))
     check("a refused upload has only a way to remove it, no Retry", /status === "error" && upload\.refused \?/.test(rows))
-    check("the editor loads no threat names", !/scan_result/.test(code("app/app/products/load-editor.ts")))
+    check("the editor loads no threat names", !/scan_result/.test(code("app/(storelib)/app/products/load-editor.ts")))
   }
 
   console.log("\nThe admin page\n")
   {
-    const page = code("app/admin/security/page.tsx")
-    check("it checks the admin session on the server and is never indexed", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && /index: false/.test(read("app/admin/security/page.tsx")))
-    check("/admin/scanner goes to /admin/security", /permanentRedirect\("\/admin\/security"\)/.test(code("app/admin/scanner/page.tsx")))
-    const client = read("app/admin/security/security-admin.tsx")
+    const page = code("app/(storelib)/admin/security/page.tsx")
+    check("it checks the admin session on the server and is never indexed", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>/.test(page) && /index: false/.test(read("app/(storelib)/admin/security/page.tsx")))
+    check("/admin/scanner goes to /admin/security", /permanentRedirect\("\/admin\/security"\)/.test(code("app/(storelib)/admin/scanner/page.tsx")))
+    const client = read("app/(storelib)/admin/security/security-admin.tsx")
     check("its client component imports nothing server only", /^"use client"/.test(client) && !/lib\/security\/file-scanner"|admin-blog-auth|next\/headers|server-only|uploads\/(audit|stored|pipeline|providers)/.test(client))
     check("no engine reads as normal: grey, not a warning", /return <Status value=\{null\} label="Not enabled, built-in checks only" \/>/.test(client))
     const route = code("app/api/admin/security/route.ts")
     check("its route runs the central check on a sample, an upload and a stored file", /mode === "sample"/.test(route) && /mode === "upload"/.test(route) && /mode === "object"/.test(route) && /requireAdmin\(\)/.test(route))
-    check("the console links to it as File security", /\{ href: "\/admin\/security", label: "File security" \}/.test(read("app/admin/_console/shell.tsx")))
+    check("the console links to it as File security", /\{ href: "\/admin\/security", label: "File security" \}/.test(read("app/(storelib)/admin/_console/shell.tsx")))
   }
 
   console.log("\nThe service itself (services/file-scanner)\n")

@@ -344,7 +344,7 @@ async function main() {
     check("the panel: a Size guide row, the chart's name, a cm / in switch and the table", panel.includes("Size guide") && panel.includes("Tees") && /role="radiogroup"/.test(panel) && panel.includes("86-91") && panel.includes("Flat."))
     const q = renderToStaticMarkup(createElement(ProductQuestions, { faqs: [{ question: "Q<i>?</i>", answer: "line1\nline2" }] }))
     check("questions as plain text, lines kept", q.includes("Q&lt;i&gt;?&lt;/i&gt;") && /whitespace-pre-line/.test(q))
-    check("storelib.com's product page keeps an answer's lines", /<p className="whitespace-pre-line">\{faq\.answer\}<\/p>/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+    check("storelib.com's product page keeps an answer's lines", /<p className="whitespace-pre-line">\{faq\.answer\}<\/p>/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
   }
 
   console.log("\nThe seller's side: Also show it on\n")

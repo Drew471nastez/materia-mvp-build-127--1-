@@ -10,7 +10,7 @@ import * as React from "react"
 import { createRoot } from "react-dom/client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 
 const params = new URLSearchParams(location.search)

@@ -103,7 +103,7 @@ function main() {
     a SIBLING of main in a flex column, so main's height is what holds it
     down the page. Shrink main and the footer comes up to meet it.
   */
-  const layout = read("app/(marketing)/layout.tsx")
+  const layout = read("app/(storelib)/(marketing)/layout.tsx")
   check("header, main and footer are one flex column", /flex min-h-svh flex-col/.test(layout))
   check("main takes the remaining space", /<main className="flex-1/.test(layout))
   check("and the footer follows it as a sibling", layout.indexOf("<main") < layout.indexOf("ConditionalFooter />"))
@@ -117,7 +117,7 @@ function main() {
      the variable is useful everywhere; only the clamp was not. */
   check(
     "KeyboardGuard is still mounted once, at the root",
-    (read("app/layout.tsx").match(/<KeyboardGuard \/>/g) ?? []).length === 1,
+    (read("app/(storelib)/layout.tsx").match(/<KeyboardGuard \/>/g) ?? []).length === 1,
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)

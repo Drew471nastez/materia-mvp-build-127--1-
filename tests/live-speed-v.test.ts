@@ -286,11 +286,11 @@ async function favicon() {
   check("nothing a tab cannot fetch", siteIconTags("javascript:alert(1)") === "" && siteIconTags("//evil.example/x.png") === "")
 
   /* THE SINGLE SOURCE OF TRUTH: every reader of the stored value asks faviconOf, and every writer goes through the editor's one writer. */
-  const readers = ["lib/website-builder/site-icon.ts", "lib/storelib-theme/resolve.ts", "lib/checkout/brand-server.ts", "app/(site)/w/[username]/render-site.tsx", "components/website-builder/website-settings/general.tsx", "app/website-builder/editor/[installId]/page.tsx"]
+  const readers = ["lib/website-builder/site-icon.ts", "lib/storelib-theme/resolve.ts", "lib/checkout/brand-server.ts", "app/(site)/w/[username]/render-site.tsx", "components/website-builder/website-settings/general.tsx", "app/(storelib)/website-builder/editor/[installId]/page.tsx"]
   check("every place that reads the favicon asks faviconOf", readers.every((f) => /faviconOf\(/.test(code(f))), readers.filter((f) => !/faviconOf\(/.test(code(f))))
   const strayReads = ["lib/storelib-theme/resolve.ts", "lib/checkout/brand-server.ts", "app/(site)/w/[username]/render-site.tsx", "lib/website-builder/site-icon.ts", "components/website-builder/website-settings/seo.tsx"].filter((f) => /\.favicon_url\b|"favicon_url"\)/.test(code(f)))
   check("and none reads the stored field around it", strayReads.length === 0, strayReads)
-  const editor = code("app/website-builder/editor/[installId]/page.tsx")
+  const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the builder's Branding panel shows the same value Website settings does", /value=\{faviconOf\(settingsDraft as Record<string, unknown>\) \|\| undefined\}/.test(editor))
   check("both write through the editor's one writer, which carries an imported theme's copy along", /onChange=\{url => updateSetting\("favicon_url", url \?\? ""\)\}/.test(editor) && /ctx\.onSettingChange\("favicon_url", url \?\? ""\)/.test(code("components/website-builder/website-settings/general.tsx")) && /onSettingChange=\{updateSetting\}/.test(editor) && /faviconFollows\(prev as Record<string, unknown>, key, value\)/.test(editor))
   const general = code("components/website-builder/website-settings/general.tsx")
@@ -347,7 +347,7 @@ async function openingTab() {
     const src = code(f)
     check(`${f}: no blank tab`, !/window\.open\(""/.test(src) && /openOpeningTab\(/.test(src) && /\.fail\(/.test(src))
   }
-  const builder = ["components/website-builder", "app/website-builder"]
+  const builder = ["components/website-builder", "app/(storelib)/website-builder"]
   void builder
   /* Round AC3: through openInBrowser, a new tab on the web and the phone's browser in the app. */
   check("the live site's own address opens directly when it is known", /openInBrowser\(previewUrl\)/.test(code("components/website-builder/publish-panel.tsx")))

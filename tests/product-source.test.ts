@@ -173,7 +173,7 @@ await (async () => {
 section("CANVAS: the builder draws the live cards, and keeps what an edit did not change")
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const route = read("app/api/website-builder/products/route.ts")
   check("the products route hands the canvas the live site's own cards", /cards"\) === "1"/.test(route) && /shopProducts\(admin, creator\.id\)/.test(route) && /catalogCards\(admin, creator\.id\)/.test(route))
   check("the editor reads them, and reads them again when its tab comes back", /\/api\/website-builder\/products\?cards=1/.test(editor) && /visibilitychange", again/.test(editor))

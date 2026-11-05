@@ -110,8 +110,8 @@ function main() {
     ["public" + STORELIB_EMAIL_LOGO, 8_000],
     ["public" + STORELIB_OG_IMAGE, 60_000],
     ["public/storelib-logo.webp", 20_000],
-    ["app/icon.png", 20_000],
-    ["app/apple-icon.png", 20_000],
+    ["app/(storelib)/icon.png", 20_000],
+    ["app/(storelib)/apple-icon.png", 20_000],
     ["public/icon-light-32x32.png", 4_000],
     ["public/icon-dark-32x32.png", 4_000],
     ["android/app/src/main/assets/welcome/storelib-logo.webp", 8_000],
@@ -131,10 +131,10 @@ function main() {
   check("the email logo is 96 square (32px at 3x) with see-through corners cut in", email.w === 96 && email.h === 96 && email.alpha, email)
   const png = pngSize("public" + STORELIB_LOGO_PNG)
   check("Google's logo is at least 112px, as it asks", png.w >= 112 && png.h >= 112 && png.w === png.h, png)
-  const icon = pngSize("app/icon.png")
+  const icon = pngSize("app/(storelib)/icon.png")
   check("the favicon is a multiple of 48px, as Google asks, with rounded see-through corners", icon.w % 48 === 0 && icon.w === icon.h && icon.alpha, icon)
   check(
-    "public/apple-icon.png is gone: app/apple-icon.png serves that path now, and Next refuses both",
+    "public/apple-icon.png is gone: app/(storelib)/apple-icon.png serves that path now, and Next refuses both",
     !existsSync(join(root, "public/apple-icon.png")),
   )
 
@@ -190,11 +190,11 @@ function main() {
     /* Every email draws the logo through the one shared layout. */
     "lib/emails/layout.ts",
     "lib/unsubscribe-card.ts",
-    "app/app/products/products-client.tsx",
+    "app/(storelib)/app/products/products-client.tsx",
     "components/store-builder/dynamic-favicon.tsx",
     "app/api/invoice/route.ts",
-    "app/(marketing)/page.tsx",
-    "app/(marketing)/blog/[slug]/page.tsx",
+    "app/(storelib)/(marketing)/page.tsx",
+    "app/(storelib)/(marketing)/blog/[slug]/page.tsx",
     /* Round 45: the blog's structured data (BlogPosting's publisher) moved here from the post page. */
     "lib/blog/structured-data.ts",
     /* Changed on purpose: a3e63b12 (checkout previews follow the product) gives /checkout's share card the logo's address when the product has no picture: metadata, not a page drawing it. */
@@ -238,7 +238,7 @@ function main() {
     ["the /app top bar while switching business", "components/app/shell-header-still.tsx"],
     ["the Library sidebar", "components/dashboard/sidebar.tsx"],
     ["sign in, sign up, password reset, verify", "components/auth/auth-logo.tsx"],
-    ["the welcome screen", "app/(auth)/welcome/page.tsx"],
+    ["the welcome screen", "app/(storelib)/(auth)/welcome/page.tsx"],
     /* Changed on purpose: the "choose how to use Storelib" screen after sign up is gone; a new account is a buyer (lib/account/seller-access.ts). */
     ["the welcome modal", "components/app/welcome-modal.tsx"],
     ["creator onboarding's setup step", "components/app/creator-onboarding-modal.tsx"],
@@ -251,8 +251,8 @@ function main() {
     /* Changed on purpose (r40): the OnePage share sheet moved to its own file, its last line is the way to make a page. */
     ["the Make a page like this line in a OnePage's share sheet", "components/onepage/share-sheet.tsx"],
     ["the public wishlist", "components/wishlist/public-wishlist-shell.tsx"],
-    ["the website editor's Ask AI buttons", "app/website-builder/editor/[installId]/page.tsx"],
-    ["the code editor's Solve with AI", "app/website-builder/code/[installId]/page.tsx"],
+    ["the website editor's Ask AI buttons", "app/(storelib)/website-builder/editor/[installId]/page.tsx"],
+    ["the code editor's Solve with AI", "app/(storelib)/website-builder/code/[installId]/page.tsx"],
     ["the theme assistant", "components/website-builder/theme-chat.tsx"],
     ["the site editor header", "components/sites/editor/editor-shell.tsx"],
     ["the site editor's Storelib AI pane", "components/sites/editor/chat-pane.tsx"],
@@ -287,7 +287,7 @@ function main() {
     !/\.sn-logo\{background-color:#ffffff/.test(read("lib/notify/templates/layout.ts")),
   )
 
-  const home = read("app/(marketing)/page.tsx")
+  const home = read("app/(storelib)/(marketing)/page.tsx")
   /* Changed on purpose (round 45): the home page prints Storelib's graph from lib/seo/structured-data.ts. */
   check("the Organization JSON-LD names the logo by its absolute address", /jsonLdScript\(storelibHomeJsonLd\(\)\)/.test(home) && /"@type": "Organization"[\s\S]{0,200}logo: storelibLogoUrl\(\)/.test(read("lib/seo/structured-data.ts")))
   check(
@@ -301,7 +301,7 @@ function main() {
   })
   check("robots.txt lets Google fetch it", blocked.length === 0, blocked)
 
-  for (const file of ["app/layout.tsx", "app/(auth)/layout.tsx", "app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+  for (const file of ["app/(storelib)/layout.tsx", "app/(storelib)/(auth)/layout.tsx", "app/(storelib)/(marketing)/explore/page.tsx", "app/(storelib)/(marketing)/explore/[category]/page.tsx"]) {
     check(`${file}: the share card is the new one`, (read(file).match(/storelibAssetUrl\(STORELIB_OG_IMAGE\)/g) ?? []).length === 2)
   }
 
@@ -319,7 +319,7 @@ function main() {
     "a push notification wears the new logo, with its corners cut in",
     /icon: "\/images\/brand\/storelib-logo-email-v2\.png"/.test(read("public/storelib-push-sw.js")),
   )
-  const print = read("app/app/products/products-client.tsx")
+  const print = read("app/(storelib)/app/products/products-client.tsx")
   check(
     "the printed products report rounds its two logos at 7px",
     /\.logo img \{ width: 32px; height: 32px; border-radius: 7px; box-shadow: \$\{STORELIB_LOGO_SHADOW\}/.test(print) &&

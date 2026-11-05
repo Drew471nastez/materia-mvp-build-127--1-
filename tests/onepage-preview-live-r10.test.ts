@@ -155,7 +155,7 @@ function main() {
 
   console.log("\n  the preview's prices are in the store's currency, as the live page's are")
   {
-    const live = strip(read("app/(marketing)/l/[slug]/page.tsx"))
+    const live = strip(read("app/(storelib)/(marketing)/l/[slug]/page.tsx"))
     check("the live route draws the page in the store's currency", /<PriceCurrency currency=\{[^}]*cachedStoreCurrency/.test(live))
     const frame = strip(read("components/onepage/live-preview.tsx"))
     check("the editor sends the store's currency with the page", /useStoreCurrencyIfSet\(\)/.test(frame) && /kind: "page", page: latest\.current, currency: latestCurrency\.current/.test(frame))

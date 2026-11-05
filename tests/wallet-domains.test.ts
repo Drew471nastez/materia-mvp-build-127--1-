@@ -194,8 +194,8 @@ function main() {
 
   console.log("\nThe panel is on the Health view and shows Stripe's own reason\n")
   {
-    const panel = readFileSync("app/admin/_console/panel-wallets.tsx", "utf8")
-    const view = readFileSync("app/admin/_console/view-platform.tsx", "utf8")
+    const panel = readFileSync("app/(storelib)/admin/_console/panel-wallets.tsx", "utf8")
+    const view = readFileSync("app/(storelib)/admin/_console/view-platform.tsx", "utf8")
     check("the Health view renders it", /<WalletDomainsPanel \/>/.test(view) && /from "\.\/panel-wallets"/.test(view))
     /* Round 11: a template string now, so one panel can ask about the OnePage host (storelib.me) too. */
     check("the panel calls the route", /fetch\(["`]\/api\/admin\/payment-domains/.test(panel))
@@ -223,7 +223,7 @@ function main() {
 
   console.log("\nThe checkout still asks for Apple Pay and Google Pay\n")
   {
-    const pay = readFileSync("app/checkout/parts/stripe-pay.tsx", "utf8")
+    const pay = readFileSync("app/(storelib)/checkout/parts/stripe-pay.tsx", "utf8")
     check("the express row asks for Apple Pay and Google Pay, not Link", /applePay: "auto", googlePay: "auto", link: "never"/.test(pay))
     check("and the card form does not draw the wallets a second time", /wallets: \{ applePay: "never", googlePay: "never" \}/.test(pay))
   }

@@ -1,12 +1,12 @@
 /**
- * The Lessons card of the product editor (app/app/products/new/course-editor.tsx)
+ * The Lessons card of the product editor (app/(storelib)/app/products/new/course-editor.tsx)
  * for scripts/check-course-editor.mjs, in a card the width the editor gives
  * it. The probe answers /api/courses/manage from a course kept in the page,
  * and takes the upload PUT itself, so every press does what it does on the site.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { CourseEditor } from "@/app/app/products/new/course-editor"
+import { CourseEditor } from "@/app/(storelib)/app/products/new/course-editor"
 
 function Card() {
   const [toast, setToast] = React.useState<string | null>(null)

@@ -110,7 +110,7 @@ section("Nothing in the rail is declared during a render")
   check(
     "and the rail is 240px, or 63 collapsed, one width (--app-rail-w) with everything beside it moved to match",
     /w-\[var\(--app-rail-w,240px\)\]/.test(shellSource) &&
-      /md:pl-\[var\(--app-rail-w,240px\)\]/.test(untt(readFileSync(join(root, "app/app/layout.tsx"), "utf8"), "app/app/layout.tsx")) &&
+      /md:pl-\[var\(--app-rail-w,240px\)\]/.test(untt(readFileSync(join(root, "app/(storelib)/app/layout.tsx"), "utf8"), "app/(storelib)/app/layout.tsx")) &&
       /RAIL_OPEN_PX = 240/.test(readFileSync(join(root, "lib/ui/app-rail.ts"), "utf8")),
   )
 }
@@ -217,7 +217,7 @@ section("A row is the same size in every state")
   check(
     "at a weight of 450, which needs a variable font to mean anything",
     /**
-     * `next/font` loads Inter with no weight list in app/layout.tsx, which is
+     * `next/font` loads Inter with no weight list in app/(storelib)/layout.tsx, which is
      * what makes the whole 100–900 axis available. On a static font 450 snaps
      * to 500 and 575 snaps to 600 — and a five per cent step would land
      * wherever the rounding happened to put it, which is to say nowhere near
@@ -226,7 +226,7 @@ section("A row is the same size in every state")
     /const REST_WEIGHT = 470/.test(navSource) &&
       /const ACTIVE_WEIGHT = 575/.test(navSource) &&
       /* Inter's own call: Roboto beside it loads one weight on purpose, for community card titles only. */
-      !/Inter\(\{[^}]*weight:/.test(untt(readFileSync(join(root, "app/layout.tsx"), "utf8"), "app/layout.tsx")),
+      !/Inter\(\{[^}]*weight:/.test(untt(readFileSync(join(root, "app/(storelib)/layout.tsx"), "utf8"), "app/(storelib)/layout.tsx")),
   )
   check(
     /* Changed on purpose (round U): the active row's faint shadow eases with its colours. */
@@ -538,9 +538,9 @@ section("The sidebar advertises nothing that does not exist")
   check("  a row's picture is drawn on desktop and phone alike", /child\.thumb \?/.test(r("components/app/sidebar-desktop-nav.tsx")) && /child\.thumb \?/.test(r("components/app/sidebar-mobile-nav.tsx")))
   /* Changed on purpose (round K4, Andrew: "remove the large Connected heading and horizontal installed section; Installed becomes a pill filter"): yours are the Installed pill, right after All. */
   /* Changed on purpose (round 41): the page hands the directory its first frame read on the server (initial={...}), so the cards never reorder after loading. */
-  check("the page: the same directory as Settings, yours under the Installed pill beside All", /<IntegrationsDirectory page(?: initial=\{initial\})? \/>/.test(r("app/app/integrations/integrations-client.tsx")) && !/data-installed-integrations=""/.test(r("components/app/settings/integrations-directory.tsx")) && /\["all", "installed",/.test(r("lib/integrations/directory-order.ts")))
+  check("the page: the same directory as Settings, yours under the Installed pill beside All", /<IntegrationsDirectory page(?: initial=\{initial\})? \/>/.test(r("app/(storelib)/app/integrations/integrations-client.tsx")) && !/data-installed-integrations=""/.test(r("components/app/settings/integrations-directory.tsx")) && /\["all", "installed",/.test(r("lib/integrations/directory-order.ts")))
   /* Changed on purpose (round 27): /app/reviews is Storelib Reviews' own page now, not a way to Integrations. */
-  check("  links that went to Settings › Integrations open the page", /only="storelib-reviews"/.test(r("app/app/reviews/reviews-client.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
+  check("  links that went to Settings › Integrations open the page", /only="storelib-reviews"/.test(r("app/(storelib)/app/reviews/reviews-client.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
 }
 
 /*

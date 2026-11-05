@@ -100,7 +100,7 @@ async function main() {
     check("a request says sent only once it is kept, and never shows a store the SQL part", /return physicalJson\(\{ ok: true \}\)/.test(req) && !/Run SQL part/.test(req) && /already: true/.test(req))
     const admin = read("app/api/admin/integrations/route.ts")
     check("/admin › Integrations behind the admin cookie, answers requests, edits the catalog, never reads a key", /requireAdmin\(\)/.test(admin) && /action === "request"/.test(admin) && /action === "catalog"/.test(admin) && !/secret_ciphertext|api_key/.test(admin))
-    check("  listed in the console", /href: "\/admin\/integrations"/.test(read("app/admin/_console/shell.tsx")))
+    check("  listed in the console", /href: "\/admin\/integrations"/.test(read("app/(storelib)/admin/_console/shell.tsx")))
     const side = read("components/app/sidebar.tsx")
     check("the sidebar gets an Integrations group, its installed ones under it", /* Changed on purpose (round AD): always there, to its own page. */ /installedIntegrations\.length > 0/.test(side) && /\/api\/store\/integrations\/installed/.test(side))
     const sql = read("supabase/sql/run-now/115_integrations_admin_and_marketplace_search.sql")
@@ -111,7 +111,7 @@ async function main() {
   console.log("\nPhysical products stay off the marketplace\n")
   {
     /* Changed on purpose (round 41): the creator page's robots count reads every product type, so a seller of physical goods is indexed; the products it lists still leave them out (one filter left on that page). */
-    check("the sitemap, the seller's marketplace profile and More from this seller leave them out", /\.neq\("type", "physical"\)/.test(read("lib/seo/sitemaps.ts")) && (read("app/(marketing)/u/[username]/page.tsx").match(/\.neq\("type", "physical"\)/g) ?? []).length >= 1 && /\.neq\("type", "physical"\)/.test(read("lib/commerce/product-page-cache.ts")))
+    check("the sitemap, the seller's marketplace profile and More from this seller leave them out", /\.neq\("type", "physical"\)/.test(read("lib/seo/sitemaps.ts")) && (read("app/(storelib)/(marketing)/u/[username]/page.tsx").match(/\.neq\("type", "physical"\)/g) ?? []).length >= 1 && /\.neq\("type", "physical"\)/.test(read("lib/commerce/product-page-cache.ts")))
   }
 
   console.log("\nHelp, the 404 and the header\n")
@@ -121,12 +121,12 @@ async function main() {
     check("every How it works guide opens a real article", linked.length > 0 && linked.every((l) => slugs.has(l)), linked.filter((l) => !slugs.has(l)))
     const taxes = ALL_HELP_ARTICLES.find((a) => a.category === "physical-products" && a.slug === "taxes")
     check("  /help/physical-products/taxes is a full article: setup, examples, troubleshooting", !!taxes && taxes.body.filter((b) => b.type === "table").length >= 3 && taxes.body.some((b) => b.type === "steps"))
-    const nf = read("app/not-found.tsx")
+    const nf = read("app/(storelib)/not-found.tsx")
     check("the 404: the header, Go back and home, no Explore button", /<PlatformHeaderClient \/>/.test(nf) && /<NotFoundActions \/>/.test(nf) && !/href="\/explore"/.test(nf))
     const header = read("components/platform/platform-header-client.tsx")
     check("Help, Terms and Privacy take the reading header, no marketplace search", /const isReadRoute = pathname === "\/help"/.test(header) && /isDevelopersRoute \|\| isReadRoute/.test(header))
     check("  on the dark bar the search field is the bar's colour, not white", /!buyerHeaderLight && HEADER_FIELD_ON_DARK/.test(header))
-    check("  those pages follow the header colour set in /admin", /* Changed on purpose (round AR): the Help Center has its own bar (components/help/help-header). */ ["app/terms/layout.tsx", "app/privacy/layout.tsx"].every((p) => /ConditionalHeader buyerHeaderLight=\{buyerHeaderLight\}/.test(read(p))))
+    check("  those pages follow the header colour set in /admin", /* Changed on purpose (round AR): the Help Center has its own bar (components/help/help-header). */ ["app/(storelib)/terms/layout.tsx", "app/(storelib)/privacy/layout.tsx"].every((p) => /ConditionalHeader buyerHeaderLight=\{buyerHeaderLight\}/.test(read(p))))
   }
 
   console.log("\nSettings data and AI Memory\n")
@@ -186,7 +186,7 @@ async function main() {
     check("  the location form: country first, its own words, one list of what happens there", /addressFormat\(f\.country\)/.test(form) && /data-location-uses=""/.test(form) && /Ships orders from here/.test(form))
     const tags = purchaseTags({ ga4: "G-ABCD1234", meta_pixel: "1234567890123456" }, { id: "55555555-5555-4555-8555-555555555555", valueCents: 4250, currency: "eur", quantity: 2 })
     check("a paid order goes to the pixels with its value only", tags.length === 1 && /gtag\('event','purchase',\{transaction_id:"55555555-5555-4555-8555-555555555555",value:42\.5,currency:"EUR"\}\)/.test(tags[0].inline) && /fbq\('track','Purchase'/.test(tags[0].inline) && !/@/.test(tags[0].inline))
-    check("  only on the order page as it opens from paying", /paid === "1" && order\.status === "paid"/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    check("  only on the order page as it opens from paying", /paid === "1" && order\.status === "paid"/.test(read("app/(storelib)/checkout/physical/order/[token]/page.tsx")))
     const facts: PhysicalSetupFacts = { fulfilmentChosen: true, locations: 1, rates: 1, pickupLocations: 0, physicalProducts: 1, stockedProducts: 1, packages: 1 }
     check("the physical setup is not done while buyers can't pay, and says payments first", !physicalSetupDone({ ...facts, paymentsReady: false }) && physicalBlockers({ ...facts, paymentsReady: false })[0]?.href === "/app/payouts" && physicalSetupDone({ ...facts, paymentsReady: true }) && physicalSetupDone({ ...facts, paymentsReady: null }))
     const wf = read("lib/notify/workflows/unfinished.ts")

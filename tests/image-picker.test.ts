@@ -35,7 +35,7 @@ const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s
 
 function main() {
   const picker = read("components/website-builder/editor/image-picker.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const css = read("app/globals.css")
 
   console.log("\nThe picture you chose is on screen before the upload finishes")

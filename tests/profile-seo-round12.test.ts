@@ -28,7 +28,7 @@ import { join } from "node:path"
 import { readCode } from "./_source"
 import { CITY_MAX, cleanCity, cleanCountry, locationLine, missingLocationColumns, readProfileLocation } from "../lib/profile/location"
 import { personJsonLd, profileMetadata, profileShareImageUrl, profileShareVersion } from "../lib/profile/profile-seo"
-import { firstPicture, postArticleJsonLd, postHeadline, postMetadata, publicPost, type PostFacts } from "../app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
+import { firstPicture, postArticleJsonLd, postHeadline, postMetadata, publicPost, type PostFacts } from "../app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
 
 let passed = 0
 let failed = 0
@@ -57,7 +57,7 @@ async function main() {
   /* ── 30. One profile system ──────────────────────────────────────────── */
   console.log("\nA person without a store: the creator page without products")
   const page = readCode("components/profile/member-profile-page.tsx")
-  const creatorPage = readCode("app/(marketing)/u/[username]/page.tsx")
+  const creatorPage = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
   check("the creator header, the underline tabs and the creator footer", /<ShopHeaderRenderer\b/.test(page) && /<StorefrontTabs tabs=\{tabs\} surface=\{storefrontTabsSurface\(chrome\)\} \/>/.test(page) && /<SellerFooter surface=\{storefrontFooterSurface\(chrome\)\} \/>/.test(page))
   check("  its own top bar, always, with the way back only when they came from somewhere", /<ProfileTopBar always initiallyShown=\{extras\.backShown\}/.test(page) && /if \(!shown && !always\) return null/.test(readCode("components/profile/profile-top-bar.tsx")) && /\{shown \? <BackChevron fallback=\{fallback\} \/> : null\}/.test(readCode("components/profile/profile-top-bar.tsx")))
   /* Changed on purpose (round 28): PERSON_CHROME with its colours behind variables the dark look sets. */
@@ -67,11 +67,11 @@ async function main() {
   check("  Activity and Communities, About, followers and Follow", /label: "Activity"/.test(page) && /label: "Communities"/.test(page) && /<PersonAbout\b/.test(page) && /<ProfileSocial\b[\s\S]*?tone="storefront"/.test(page))
   check("  About without the shop's words", !/Returns|payment/i.test(readCode("components/profile/person-about.tsx")) && /About \{name\}/.test(readCode("components/profile/person-about.tsx")))
   check("  your own page: Edit profile on the cover, to Settings' Profile", /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(page) && /PERSON_EDIT_HREF = "\/account\/settings\?section=profile"/.test(readCode("components/profile/person-owner-actions.tsx")))
-  check("  no round 10 pieces: the hero, the owner pills and the shell are not on it", !/ProfileHero|ProfileOwnerPills|MemberProfileShell/.test(page) && !exists("components/profile/member-profile-shell.tsx") && !/MemberProfileShell|explore-ground/.test(readCode("app/(marketing)/member/[username]/page.tsx")))
+  check("  no round 10 pieces: the hero, the owner pills and the shell are not on it", !/ProfileHero|ProfileOwnerPills|MemberProfileShell/.test(page) && !exists("components/profile/member-profile-shell.tsx") && !/MemberProfileShell|explore-ground/.test(readCode("app/(storelib)/(marketing)/member/[username]/page.tsx")))
 
   const header = readCode("components/marketing/conditional-header.tsx")
   check("no Storelib header (wishlist, library) over /@ and /member, on any domain", /p\.startsWith\("\/community\/"\) \|\| isProfilePath\(p\)/.test(header) && !/setShowPlatformHeader\(true\)\s*return\s*\}\s*\/\*\*\s*\* `isSellerPage`/.test(header) && !/isProfilePath\(pathname\) && onPlatformDomain/.test(header))
-  const layout = readCode("app/(marketing)/member/[username]/layout.tsx")
+  const layout = readCode("app/(storelib)/(marketing)/member/[username]/layout.tsx")
   check("a creator's /@handle is still a 308 to their creator page", /permanentRedirect\(target\)/.test(layout) && /hasActiveStorefront\(creator\)/.test(layout))
 
   /* ── 31. Sharing a profile or a creator page ─────────────────────────── */
@@ -84,10 +84,10 @@ async function main() {
   check("  and not at all for somebody who never said (older links keep their picture)", (profileMetadata(facts).openGraph as typeof og).images[0].url === profileShareImageUrl("maya", profileShareVersion(["Maya Ortiz", "maya", facts.bio, null, null, 12])))
   const ld = personJsonLd(facts) as { "@type": string; mainEntity: { "@type": string; name: string; url: string } }
   check("a person's page says who it is about: ProfilePage, a Person", ld["@type"] === "ProfilePage" && ld.mainEntity["@type"] === "Person" && ld.mainEntity.name === "Maya Ortiz" && ld.mainEntity.url === "https://storelib.com/@maya")
-  const route = readCode("app/(marketing)/member/[username]/page.tsx")
+  const route = readCode("app/(storelib)/(marketing)/member/[username]/page.tsx")
   check("  printed only when the page is in search", /\{indexable \? <script type="application\/ld\+json" dangerouslySetInnerHTML=\{\{ __html: jsonLdScript\(personJsonLd\(profile\)\) \}\} \/> : null\}/.test(route) && /const indexable = await inSearch\(profile\.userId, profile\.username\)/.test(route))
   check("a creator page's shared link: their chosen Social image, else the same drawn card", /chosenImage \|\|\s*profileShareImageUrl\(\s*handle,/.test(creatorPage) && /card: "summary_large_image"/.test(creatorPage) && !/profile\.avatar_url \|\|\s*avatarFromHeader \|\|\s*undefined/.test(creatorPage))
-  const share = readCode("app/(marketing)/member/[username]/share.png/route.tsx")
+  const share = readCode("app/(storelib)/(marketing)/member/[username]/share.png/route.tsx")
   check("  the card draws a creator from their page's header: its cover, bio and photo, and how many products", /header\?\.coverImageUrl \|\| row\?\.cover_url/.test(share) && /products: creatorFace \? profile\.productCount : null/.test(share) && /keptPhoto\(header\?\.avatarUrl\)/.test(share))
   check("  and where they are from, for everybody", /location: locationLine\(place\)/.test(share) && /model\.location \?/.test(readCode("components/profile/profile-share-card.tsx")))
   check("  no \"0 followers\" on a new account's card", /model\.followers > 0 \?/.test(readCode("components/profile/profile-share-card.tsx")))
@@ -129,12 +129,12 @@ async function main() {
   }
   check("  the generic picture's address does not change with the post's words", (postMetadata(with_({ visibility: "private" }, undefined, { title: "A" })).openGraph as typeof pog).images[0].url === (postMetadata(with_({ visibility: "private" }, undefined, { title: "B", bodyText: "other" })).openGraph as typeof pog).images[0].url)
 
-  const postPage = readCode("app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
+  const postPage = readCode("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
   check("the post page asks the rows, never the viewer, for its metadata", /export async function generateMetadata/.test(postPage) && /const facts = await postFacts\(slug, postId\)/.test(postPage) && /return postMetadata\(facts\)/.test(postPage) && /if \(!facts\) return \{ robots: \{ index: false, follow: false \} \}/.test(postPage))
   check("  and prints the Article only for a public post", /const article = facts \? postArticleJsonLd\(facts\) : null/.test(postPage) && /\{article \? <script type="application\/ld\+json"/.test(postPage))
-  const facts_ = readCode("app/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")
-  check("  the facts: server only, cached per request, the post must belong to the community in the address", /^import "server-only"/.test(raw("app/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")) && /export const postFacts = cache\(/.test(facts_) && /parsePostParam/.test(facts_) && /\.eq\("community_id", community\.id\)/.test(facts_) && /if \(!\(await communitiesEnabled\(\)\)\) return null/.test(facts_))
-  const postShare = readCode("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")
+  const facts_ = readCode("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")
+  check("  the facts: server only, cached per request, the post must belong to the community in the address", /^import "server-only"/.test(raw("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts")) && /export const postFacts = cache\(/.test(facts_) && /parsePostParam/.test(facts_) && /\.eq\("community_id", community\.id\)/.test(facts_) && /if \(!\(await communitiesEnabled\(\)\)\) return null/.test(facts_))
+  const postShare = readCode("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")
   check("the post's picture: the rule decides (round 26: a public post while its community is published), the generic card reads nothing of the post", /if \(indexablePost\(facts\)\)/.test(postShare) && /<GenericPostShareArt \{\.\.\.generic\} logoSrc=\{logoSrc\} \/>/.test(postShare) && /const generic = \{ communityName: facts\.community\.name, memberCount: facts\.communityRow\.member_count \?\? 0 \}/.test(postShare))
   check("  a 404 for no post, a deleted one, a draft or suspended community", /if \(!facts \|\| !sharePreviewable\(facts\.communityRow\)\) return notFound\(\)/.test(postShare) && /if \(facts\.post\.status === "deleted" \|\| facts\.post\.deletedAt\) return notFound\(\)/.test(postShare))
   check("  its fonts traced for the route", /'\/community\/\*\/post\/\*\/share\.png': \['\.\/lib\/checkout\/fonts\/\*\*'\]/.test(raw("next.config.mjs")))
@@ -156,7 +156,7 @@ async function main() {
   check("  saved with the rest of the card, only when changed: the city cleaned, the country as its code", /if \(placeChanged\) \{\s*patch\.location_city = nextCity\s*patch\.location_country = nextCountry/.test(profileSection) && /const placeChanged = location\.supported &&/.test(profileSection) && /\|\| handleChanged \|\| placeChanged/.test(profileSection))
   check("  the country picked by its name from every country", /\{COUNTRIES\.map\(\(c\) => \(\s*<option key=\{c\.code\} value=\{c\.code\}/.test(readCode("components/profile/location-fields.tsx")))
   /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
-  check("  the settings page reads it (unsupported before part 98)", /loadAccountSettingsForUser\(user,/.test(readCode("app/account/settings/page.tsx")) && /location: await locationRead,/.test(readCode("lib/account/load-account-settings.ts")) && /const locationRead = readProfileLocation\(admin, user\.id\)/.test(readCode("lib/account/load-account-settings.ts")))
+  check("  the settings page reads it (unsupported before part 98)", /loadAccountSettingsForUser\(user,/.test(readCode("app/(storelib)/account/settings/page.tsx")) && /location: await locationRead,/.test(readCode("lib/account/load-account-settings.ts")) && /const locationRead = readProfileLocation\(admin, user\.id\)/.test(readCode("lib/account/load-account-settings.ts")))
   check("shown under the name on a person's page and a creator page", /location=\{extras\.location \?\? null\}/.test(page) && /* Changed on purpose (round 38): read once into `location`, which also decides whether the owner's block is drawn. */ /const location = locationLine\(place\)/.test(creatorPage) && /location=\{location\}/.test(creatorPage) && /readProfileLocation\(createAdminClient\(\), profile\.id\)/.test(creatorPage) && /data-profile-location=""/.test(readCode("components/profile/profile-social.tsx")))
 
   console.log("\nThe copy")
@@ -168,10 +168,10 @@ async function main() {
     "components/storefront/storefront-template.tsx",
     "lib/profile/location.ts",
     "lib/profile/profile-seo.ts",
-    "app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo.ts",
-    "app/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts",
-    "app/(marketing)/community/[slug]/(member)/post/[postId]/post-share-card.tsx",
-    "app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo.ts",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-facts.ts",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-share-card.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx",
   ]) {
     const text = raw(f)
     check(`${f}: no em dashes, none of the banned words`, !/—/.test(text) && !/\b(unlock|elevate|seamless|powerful|effortless|supercharge|transform)/i.test(text))

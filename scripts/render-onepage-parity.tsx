@@ -11,7 +11,7 @@
  *
  * AND ITS PRODUCTS COME FROM A CATALOGUE, ON BOTH SIDES. The live route
  * reads every product block's row before it draws (withLiveProducts in
- * app/(marketing)/l/[slug]/page.tsx), and so does the preview's frame
+ * app/(storelib)/(marketing)/l/[slug]/page.tsx), and so does the preview's frame
  * (components/onepage/preview-document.tsx). Both read PROBE_PRODUCTS
  * below through the stubbed database (scripts/onepage-probe-server.mjs).
  * Without it the frame was told no product existed and left all three out,
@@ -126,7 +126,7 @@ const orderOf = (list: any[]) => list.filter((x) => isBlockShown(x)).sort((x, y)
 
 const root = createRoot(document.getElementById("app")!)
 if (location.pathname.startsWith("/onepage-preview")) {
-  /* The editor preview's frame, as app/onepage-preview renders it. */
+  /* The editor preview's frame, as app/(storelib)/onepage-preview renders it. */
   root.render(<OnePagePreviewDocument />)
 } else if (view === "none") {
   /* A blank page the probe draws its comparisons on. */
@@ -142,7 +142,7 @@ if (location.pathname.startsWith("/onepage-preview")) {
   )
 } else {
   /*
-    THE LIVE ROUTE'S TWO STEPS (app/(marketing)/l/[slug]/page.tsx): the
+    THE LIVE ROUTE'S TWO STEPS (app/(storelib)/(marketing)/l/[slug]/page.tsx): the
     published shape, then its products read from the catalogue, by the
     seller the shape names. The page has not been published, so the shape
     falls back to its draft, which is what the preview draws.

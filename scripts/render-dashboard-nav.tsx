@@ -9,7 +9,7 @@
  *
  * This is the page somebody is actually looking at when they say that: the
  * DashboardClient the route renders, inside the div/main/scroll-container
- * nesting app/app/layout.tsx builds around it, with the bar floating over the
+ * nesting app/(storelib)/app/layout.tsx builds around it, with the bar floating over the
  * bottom of it. Driven by scripts/check-dashboard-nav.mjs.
  */
 import { createRoot } from "react-dom/client"
@@ -50,7 +50,7 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
 }
 
-/* The nesting app/app/layout.tsx builds, copied class for class. */
+/* The nesting app/(storelib)/app/layout.tsx builds, copied class for class. */
 function Shell({ children }: { children: ReactNode }) {
   return createElement(
     "div",

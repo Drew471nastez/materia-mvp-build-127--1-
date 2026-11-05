@@ -10,27 +10,27 @@ import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
 import { EMPTY_CARRIER_PREFS } from "@/lib/physical/carrier-prefs"
-import { InventoryClient } from "@/app/app/inventory/inventory-client"
-import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
+import { InventoryClient } from "@/app/(storelib)/app/inventory/inventory-client"
+import { PhysicalCheckout } from "@/app/(storelib)/checkout/physical/physical-checkout"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
-import { KindList } from "@/app/app/products/new/kind-chooser"
+import { KindList } from "@/app/(storelib)/app/products/new/kind-chooser"
 import { PayoutsDemo } from "@/components/app/payouts-demo/payouts-demo"
-import { OffersClient } from "@/app/app/offers/offers-client"
+import { OffersClient } from "@/app/(storelib)/app/offers/offers-client"
 import type { Offer } from "@/lib/offers/offers"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
-import { SiteCheckout } from "@/app/checkout/site/site-checkout"
+import { SiteCheckout } from "@/app/(storelib)/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { OrderMessagesCard } from "@/components/support/order-messages-card"
-import { CaseView } from "@/app/order-help/[id]/case-view"
+import { CaseView } from "@/app/(storelib)/order-help/[id]/case-view"
 import { shipmentEmail } from "@/lib/physical/email-templates"
 import { lowStockEmail } from "@/lib/notify/seller-commerce"
 import { MarketsPanel } from "@/components/app/settings/markets-panel"
@@ -215,7 +215,7 @@ const buyBoxProduct = {
   variants: combos.map(([a, b], n) => ({ id: V(n), name: `${a} / ${b}`, options: [a, b, null], priceCents: a === "16 oz" ? 3600 : 3200, compareAtCents: null, imageUrl: null, soldOut: stock[n] === 0, left: stock[n] > 0 && stock[n] <= 3 ? stock[n] : null, maxQuantity: stock[n] })),
 }
 
-/* The website's own checkout (app/checkout/site): its quote, in the shape app/api/checkout/site answers. */
+/* The website's own checkout (app/(storelib)/checkout/site): its quote, in the shape app/api/checkout/site answers. */
 function siteQuote(body: { country?: string; deliveryOptionId?: string; deliveryMethod?: string } = {}) {
   const q = quote({ items: [{ productId: PRODUCT, variantId: V(0), quantity: 2 }, { productId: "p-bowl", variantId: "", quantity: 1 }], country: body.country, deliveryOptionId: body.deliveryOptionId })
   /* Pick up is asked for as the pickup point's id in deliveryOptionId: nothing to pay for delivery. */

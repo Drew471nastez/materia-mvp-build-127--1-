@@ -50,7 +50,7 @@ const root = process.cwd()
 const read = (path: string) => readFileSync(join(root, path), "utf8")
 
 const css = read("app/globals.css")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
 /* Add a section, in its own module since it became a phone sheet and a kept dialog. */
 const library = read("components/website-builder/editor/section-library.tsx")
@@ -215,8 +215,8 @@ check(
 )
 check(
   "the same measurement is used in the code editor, so the two agree",
-  /window\.innerHeight - vv\.height - vv\.offsetTop/.test(read("app/website-builder/code/[installId]/page.tsx"))
-    && /keyboardInsetOrFloor\(covered\)/.test(read("app/website-builder/code/[installId]/page.tsx")),
+  /window\.innerHeight - vv\.height - vv\.offsetTop/.test(read("app/(storelib)/website-builder/code/[installId]/page.tsx"))
+    && /keyboardInsetOrFloor\(covered\)/.test(read("app/(storelib)/website-builder/code/[installId]/page.tsx")),
 )
 /**
  * AND IT IS PADDED ONCE, NOT TWICE.

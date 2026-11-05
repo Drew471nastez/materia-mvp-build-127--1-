@@ -136,10 +136,10 @@ const testSteps = test.find((b) => b.type === "steps") as Extract<HelpBlock, { t
 check("ten steps or more, from a code to the buyer's page and back", (testSteps?.items.length ?? 0) >= 10)
 check("  honest about Stripe's test mode: a test site's, not a live store's", /test mode/.test(JSON.stringify(test)) && /4242 4242 4242 4242/.test(JSON.stringify(test)) && /only work on a Storelib test site/.test(JSON.stringify(test)))
 check("  a free order instead: 100 percent and free shipping, once per customer", /Percentage and type 100/.test(JSON.stringify(testSteps)) && /Free shipping/.test(JSON.stringify(testSteps)) && /Limit uses per customer/.test(JSON.stringify(testSteps)))
-const coupon = read("components/physical/coupon-options.tsx") + read("app/app/coupons/coupons-client.tsx") + read("app/app/coupons/coupon-editor.tsx") + read("app/app/coupons/coupon-form.ts")
+const coupon = read("components/physical/coupon-options.tsx") + read("app/(storelib)/app/coupons/coupons-client.tsx") + read("app/(storelib)/app/coupons/coupon-editor.tsx") + read("app/(storelib)/app/coupons/coupon-form.ts")
 check("  the coupon really allows 100 percent and free shipping", /value > 100/.test(coupon) && /(label|title)="Free shipping"/.test(coupon) && /(label|title)="Limit uses per customer"/.test(coupon) && coupon.includes("Create coupon") && coupon.includes('"Percentage"'))
 const siteRoute = read("app/api/checkout/site/route.ts")
-check("  and a free order that ships is placed with no card", /async function free\(/.test(siteRoute) && /if \(ships\)/.test(siteRoute) && read("app/checkout/site/site-checkout.tsx").includes('"Place order"'))
+check("  and a free order that ships is placed with no card", /async function free\(/.test(siteRoute) && /if \(ships\)/.test(siteRoute) && read("app/(storelib)/checkout/site/site-checkout.tsx").includes('"Place order"'))
 
 /* ── 8. The words are the product's ────────────────────────────────────── */
 console.log("\n8. Every button it names is on the screen")
@@ -160,9 +160,9 @@ const WORDS: [string, string][] = [
   ["components/support/order-help.tsx", "Need help with this order?"],
   ["components/support/order-help.tsx", "Contact the shop"],
   ["components/support/order-messages-card.tsx", "Messages from the buyer"],
-  ["app/order-help/[id]/case-view.tsx", "Ask Storelib for help"],
-  ["app/app/support/buyer-cases.tsx", "Ask Storelib to step in"],
-  ["app/app/support/buyer-cases.tsx", "Mark resolved"],
+  ["app/(storelib)/order-help/[id]/case-view.tsx", "Ask Storelib for help"],
+  ["app/(storelib)/app/support/buyer-cases.tsx", "Ask Storelib to step in"],
+  ["app/(storelib)/app/support/buyer-cases.tsx", "Mark resolved"],
   ["components/physical/integrations-marketplace.tsx", "Match products to"],
   ["components/physical/integrations-marketplace.tsx", "Download orders"],
   ["components/physical/partner-links.tsx", "Keep stock in step with CJ"],
@@ -194,11 +194,11 @@ check("taken from the real components by the shots script", ["OrderMessagesCard"
 
 /* ── 10. Reachable ─────────────────────────────────────────────────────── */
 console.log("\n10. Reachable from the Help Center and the app")
-check("the topic page opens with it under Start here", PHYSICAL_CATEGORY.start === "playbook" && /category\.start \? "Start here"/.test(read("app/help/[category]/page.tsx")) && /articles\.find\(\(a\) => a\.slug === category\.start\)/.test(read("app/help/[category]/page.tsx")))
+check("the topic page opens with it under Start here", PHYSICAL_CATEGORY.start === "playbook" && /category\.start \? "Start here"/.test(read("app/(storelib)/help/[category]/page.tsx")) && /articles\.find\(\(a\) => a\.slug === category\.start\)/.test(read("app/(storelib)/help/[category]/page.tsx")))
 check("Zero to 100 and How selling works point to it", JSON.stringify(helpArticle("physical-products", "zero-to-100")!.body).includes("(/help/physical-products/playbook)") && JSON.stringify(helpArticle("physical-products", "how-physical-products-work")!.body).includes("(/help/physical-products/playbook)"))
 check("Settings › Shipping and delivery links it, beside the step by step guide", /href="\/help\/physical-products\/playbook"/.test(read("components/physical/shipping-settings.tsx")) && /href="\/help\/physical-products\/zero-to-100"/.test(read("components/physical/shipping-settings.tsx")))
 check("  and its How it works (who ships your orders) opens it", EXPLAINERS.fulfilment.guide === "/help/physical-products/playbook")
-const orders = read("app/app/orders/orders-list.tsx")
+const orders = read("app/(storelib)/app/orders/orders-list.tsx")
 check("the empty Orders page links it while physical commerce is on", /!hasOrders && physical \?/.test(orders) && /href="\/help\/physical-products\/playbook"/.test(orders) && /usePhysicalCommerceEnabled\(\)/.test(orders))
 check("it is in the sitemap's list while physical commerce is on, and gone while it is off", helpArticlesFor(true).some((x) => x.slug === "playbook") && !helpArticlesFor(false).some((x) => x.slug === "playbook"))
 check("searching for it finds it", helpArticlesIn("physical-products").includes(a))

@@ -252,7 +252,7 @@ async function main() {
 
     const glossary = read("components/app/settings/translation-glossary.tsx")
     check("the switch says what it does and where a title can still be translated", /Automatic translation leaves product titles as you wrote them\. You can still translate a title yourself on the product's Translations card\./.test(glossary))
-    const card = read("app/app/products/new/product-translations-card.tsx")
+    const card = read("app/(storelib)/app/products/new/product-translations-card.tsx")
     const view = read("lib/markets/product-translations.ts")
     check("a product's Translations card knows, says it under Title, and Translate automatically leaves the title", /keepName: rules\.keepProductNames === true/.test(view) && /data-product-keep-name=""/.test(card) && /!\(view\.keepName && f\.field === "title"\)/.test(card))
   }
@@ -275,7 +275,7 @@ async function main() {
   {
     const sheet = read("components/app/settings/translate-sheet.tsx")
     const editor = read("components/website-builder/editor/translation-editing.tsx")
-    const card = read("app/app/products/new/product-translations-card.tsx")
+    const card = read("app/(storelib)/app/products/new/product-translations-card.tsx")
     check("Not translated, Outdated, Automatic in the Translate list", /missing: \{ get label\(\) \{ return tt\("Not translated"\) \}/.test(sheet) && /outdated: \{ get label\(\) \{ return tt\("Outdated"\) \}/.test(sheet) && /auto: \{ get label\(\) \{ return tt\("Automatic"\) \}/.test(sheet) && /review: \{ get label\(\) \{ return tt\("Needs review"\) \}/.test(sheet))
     check("  the same in the theme editor's sidebar", /auto: \{ label: \(\) => tt\("Automatic"\)/.test(editor) && /updating: \{ label: \(\) => tt\("Outdated"\)/.test(editor) && /outdated: \{ label: \(\) => tt\("Needs review"\)/.test(editor) && /missing: \{ label: \(\) => tt\("Not translated"\)/.test(editor))
     check("  and on a product's Translations card", /tt\("Outdated"\)/.test(card) && /tt\("Automatic"\)/.test(card))

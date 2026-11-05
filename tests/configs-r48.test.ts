@@ -76,8 +76,8 @@ const OWNER_READERS = [
   "app/api/store-builder/apply-theme-globally/route.ts",
   "app/api/store-builder/preview/route.ts",
   "app/api/store-builder/route.ts",
-  "app/app/onepage/page.tsx",
-  "app/app/settings/_server.ts",
+  "app/(storelib)/app/onepage/page.tsx",
+  "app/(storelib)/app/settings/_server.ts",
   "components/app/creator-onboarding-modal.tsx",
   "components/onepage/onboarding-modal.tsx",
   "lib/account/avatar-save.ts",
@@ -117,9 +117,9 @@ const PUBLIC_LOADERS = [
   "lib/commerce/product-page-data.ts",
   "lib/commerce/creator-page-data.ts",
   "lib/store-builder/get-published-config.ts",
-  "app/(marketing)/u/[username]/page.tsx",
-  "app/(marketing)/u/[username]/layout.tsx",
-  "app/(marketing)/p/[slug]/page.tsx",
+  "app/(storelib)/(marketing)/u/[username]/page.tsx",
+  "app/(storelib)/(marketing)/u/[username]/layout.tsx",
+  "app/(storelib)/(marketing)/p/[slug]/page.tsx",
   "app/api/creator-contact/route.ts",
 ]
 
@@ -248,7 +248,7 @@ async function stripping() {
 
 function typedAddress() {
   console.log("\n5. The creator page and /api/creator-contact still get the typed address, on the server\n")
-  const page = readCode("app/(marketing)/u/[username]/page.tsx")
+  const page = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
   /* Round 49: the page is one HTML for everybody and never holds the typed address; it is read for the owner's own form by /api/creator-page/viewer, and for a buyer's Contact by /api/creator-contact. */
   const viewerRoute = readCode("app/api/creator-page/viewer/route.ts")
   check("the creator page never reads it; the owner's form asks its own route", !/loadTypedContactEmail/.test(page) && /const contactEmail = owner \? await loadTypedContactEmail\(row\.id\) : null/.test(viewerRoute))

@@ -56,16 +56,16 @@ async function main() {
   console.log("\n1. Nothing in the render asks who is looking")
   {
     const RENDER = [
-      "app/(marketing)/[sellername]/page.tsx",
-      "app/(marketing)/[sellername]/layout.tsx",
-      "app/(marketing)/[sellername]/[productSlug]/page.tsx",
-      "app/(marketing)/u/[username]/page.tsx",
-      "app/(marketing)/u/[username]/layout.tsx",
-      "app/(marketing)/p/[slug]/page.tsx",
-      "app/(marketing)/layout.tsx",
-      "app/(marketing)/explore/page.tsx",
-      "app/(marketing)/explore/layout.tsx",
-      "app/(marketing)/explore/[category]/page.tsx",
+      "app/(storelib)/(marketing)/[sellername]/page.tsx",
+      "app/(storelib)/(marketing)/[sellername]/layout.tsx",
+      "app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx",
+      "app/(storelib)/(marketing)/u/[username]/page.tsx",
+      "app/(storelib)/(marketing)/u/[username]/layout.tsx",
+      "app/(storelib)/(marketing)/p/[slug]/page.tsx",
+      "app/(storelib)/(marketing)/layout.tsx",
+      "app/(storelib)/(marketing)/explore/page.tsx",
+      "app/(storelib)/(marketing)/explore/layout.tsx",
+      "app/(storelib)/(marketing)/explore/[category]/page.tsx",
       "components/platform/product-page-frame.tsx",
       "lib/commerce/creator-page-data.ts",
       "lib/commerce/product-page-data.ts",
@@ -86,11 +86,11 @@ async function main() {
       ].filter(Boolean)
       check(`${f}: no ${["cookies()", "headers()", "session"].join(", ")}`, hits.length === 0, hits)
     }
-    check("the pages read through the anon key with no session (createPublicReadClient)", /createPublicReadClient\(\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && /const stranger = \(\) => createPublicReadClient\(\)/.test(code("lib/commerce/creator-page-data.ts")) && /const stranger = \(\) => createPublicReadClient\(\)/.test(code("lib/commerce/product-page-data.ts")))
+    check("the pages read through the anon key with no session (createPublicReadClient)", /createPublicReadClient\(\)/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) && /const stranger = \(\) => createPublicReadClient\(\)/.test(code("lib/commerce/creator-page-data.ts")) && /const stranger = \(\) => createPublicReadClient\(\)/.test(code("lib/commerce/product-page-data.ts")))
     check("  nothing published is answered from the shared copy for everybody (no session branch)", /if \(cached === null\) return null/.test(code("lib/commerce/creator-page-data.ts")) && (code("lib/commerce/product-page-data.ts").match(/if \(shared === null\) return null/g) ?? []).length === 2)
     check("the creator page's language is the address's alone", /const code = find\(asked\) \?\? langs\.defaultLanguage/.test(code("lib/markets/creator-page-language.ts")))
-    check("the product page no longer re-asks the server after load (ViewerSync)", !/ViewerSync/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-    check("Explore hands everybody the plain interests", /interests=\{EMPTY_INTERESTS\}/.test(code("app/(marketing)/explore/page.tsx")))
+    check("the product page no longer re-asks the server after load (ViewerSync)", !/ViewerSync/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
+    check("Explore hands everybody the plain interests", /interests=\{EMPTY_INTERESTS\}/.test(code("app/(storelib)/(marketing)/explore/page.tsx")))
   }
 
   console.log("\n2. What was somebody's is asked after load; the server's HTML is the visitor's")
@@ -109,7 +109,7 @@ async function main() {
     const bare = renderToString(createElement(Probe))
     check("  outside a creator page the hooks answer what the caller decided (Contact shown, owner as given)", bare.includes("owner=false given=true contact=true"), bare)
 
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the creator page is wrapped in the viewer provider (both branches)", (page.match(/<CreatorPageViewerProvider creatorId=\{creator\.id\}>/g) ?? []).length === 2)
     check("  Edit profile and the owner menu, the subscribe bar's pencil and the first product line are OwnerOnly", /<OwnerOnly>\s*<div className="flex items-center gap-2" style=\{OWNER_FADE_IN\}>/.test(page) && /<OwnerOnly\s+fallback=\{\s*<SubscribeBar/.test(page) && (page.match(/<OwnerOnly><FirstProductPrompt/g) ?? []).length === 2)
     check("  Edit about takes the owner's typed address from the private route, never from the page", (page.match(/<EditAboutButtonForOwner/g) ?? []).length === 2 && !/contactEmail=\{headerSettings/.test(page) && /contactEmail=\{contactEmail \?\? ""\}/.test(code("components/storefront/owner-controls-lazy.tsx")))
@@ -125,7 +125,7 @@ async function main() {
     check("session hint: a Supabase session cookie, whole or chunked", mayBeSignedIn("a=1; sb-abcd-auth-token=xyz") && mayBeSignedIn("sb-abcd-auth-token.0=xyz") && !mayBeSignedIn("storelib_consent=1") && !mayBeSignedIn("sb-abcd-auth-token="))
     check("  guest hint: sl_owned_hint=1 only", mayOwnAsGuest("sl_owned_hint=1") && mayOwnAsGuest("x=2; sl_owned_hint=1; y=3") && !mayOwnAsGuest("sl_owned_hint=0") && !mayOwnAsGuest("sl_owned=abc"))
 
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("the product page draws as for a stranger: not purchased, no files of anybody's, Join for everybody", /const hasPurchased = false/.test(product) && /const purchasedVariantIds: string\[\] = \[\]/.test(product) && /membershipForProductPage\(product\.id, null\)/.test(product) && !/isLoggedIn=\{!!user\}/.test(product))
     check("  the owned row is the browser's: library, or the guest buyer's own (OwnedActions)", (product.match(/<OwnedActions/g) ?? []).length === 2 && !/GuestOwnedActions/.test(product))
     const hook = code("components/checkout/use-purchase-status.tsx")
@@ -258,10 +258,10 @@ async function main() {
 
   console.log("\n6. SEO is drawn on the server, unchanged")
   {
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("canonical, robots and the share card from generateMetadata, read as a stranger", /canonical: pageUrl/.test(page) && /creatorIndexable\(\{ publishedProducts, handle, spamState \}\)/.test(page))
     check("  JSON-LD (ProfilePage and BreadcrumbList) in the server HTML when indexable", /jsonLdScript\(profileJsonLd\)/.test(page) && /jsonLdScript\(breadcrumbJsonLd\)/.test(page))
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("the product page's JSON-LD is still drawn on the server", /jsonLdScript\(productJsonLd\)/.test(product))
   }
 

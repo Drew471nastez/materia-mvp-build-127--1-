@@ -50,7 +50,7 @@ async function main() {
   const preview = readCode("components/website-builder/compat/compat-section-preview.tsx")
   /* Changed on purpose (push lag): the version is read as it moves (filesVersionNow) and taken at once while the library is open, once the editor is left alone while it is closed (CLOSED_ADOPT_MS). */
   check("the block library reads again when the version moves", /const filesVersionNow = useCompatFilesVersion\(installId\)/.test(preview) && /const \{ sources, settings, filesVersion \} = taken/.test(preview) && /\}, \[installId, filesVersion\]\)/.test(preview))
-  const page = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const page = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the editor patches the files a push changed, and reads the whole theme again only when that patch cannot land", /patchCompatFiles\(installId, shopify\)/.test(page) && /compatFilesChanged\(installId\)/.test(page) && /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(page))
 
   console.log(`\n${passed} passed, ${failed} failed`)

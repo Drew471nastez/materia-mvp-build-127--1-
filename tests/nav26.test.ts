@@ -54,7 +54,7 @@ function main() {
   const settings = code("components/community/creator/settings-section.tsx")
   const overview = code("components/community/creator/overview.tsx")
   const frame = code("components/community/creator/section-frame.tsx")
-  const page = code("app/app/community/[id]/page.tsx")
+  const page = code("app/(storelib)/app/community/[id]/page.tsx")
 
   console.log("\nROW")
   check("the row is the pane's sticky top: the pane starts under /app's header at every width", /data-community-tabs-bar="" className="orders-bar sticky top-0 z-10 bg-\[#f8f9fa\]"/.test(shell) && /orders-pane h-full overflow-y-auto/.test(shell))
@@ -134,7 +134,7 @@ function main() {
 
   console.log("\nLOOK")
   check("/app is not one of the pages that follow the person's look", !THEMED_PREFIXES.some((p) => "/app/community/club".startsWith(p)) && /\/explore/.test(APPEARANCE_BOOT))
-  check("the dark look's generator leaves the dashboard out", /"app\/app"/.test(read("scripts/gen-theme-dark.mjs")))
+  check("the dark look's generator leaves the dashboard out", /"app\/\(storelib\)\/app"/.test(read("scripts/gen-theme-dark.mjs")))
 
   console.log("\nCOPY")
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i

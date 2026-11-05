@@ -8,10 +8,10 @@
 import { createRoot } from "react-dom/client"
 import type { ReactNode } from "react"
 
-import HelpPage from "@/app/help/page"
-import HelpCategoryPage from "@/app/help/[category]/page"
-import HelpArticlePage from "@/app/help/[category]/[article]/page"
-import HelpSearchPage from "@/app/help/search/page"
+import HelpPage from "@/app/(storelib)/help/page"
+import HelpCategoryPage from "@/app/(storelib)/help/[category]/page"
+import HelpArticlePage from "@/app/(storelib)/help/[category]/[article]/page"
+import HelpSearchPage from "@/app/(storelib)/help/search/page"
 
 async function page(which: string): Promise<ReactNode> {
   const [kind, a, b] = which.split("/")

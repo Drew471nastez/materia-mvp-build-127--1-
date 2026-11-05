@@ -63,7 +63,7 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, entry),
   `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
   { cwd: root, stdio: "inherit" })
 
-/* The canvas, copied from app/website-builder/editor/[installId]/page.tsx. */
+/* The canvas, copied from app/(storelib)/website-builder/editor/[installId]/page.tsx. */
 const CANVAS_CLASS = "relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"
 const filler = `<main id="content" style="padding:24px"><p id="marker" style="margin:0 0 16px;font:600 28px/1.2 system-ui">Put your experience into words</p>${"<p style='height:120px;margin:0 0 12px;background:#f1f1f1'></p>".repeat(30)}</main>`
 const html = (body) => `<!doctype html><html class="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

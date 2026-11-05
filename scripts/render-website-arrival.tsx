@@ -3,7 +3,7 @@
  *
  * The real shell pieces that decide how an /app page arrives (the top bar
  * and AppStage with its spinner for a slow page, over a shell shaped like
- * app/app/layout.tsx), the real Website page (WebsiteBuilderClient) with a
+ * app/(storelib)/app/layout.tsx), the real Website page (WebsiteBuilderClient) with a
  * library of four websites whose covers the probe's server answers, a plain
  * list page to come from, and a dark full screen standing in for the editor.
  * The router is what these components can see of one: an address that
@@ -24,7 +24,7 @@ import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { seedCover } from "@/lib/website-builder/cover-refresh"
 
 type W = Window & {

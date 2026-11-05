@@ -254,10 +254,10 @@ function withoutColumn(db: ReturnType<typeof fakeDb>) {
 }
 
 async function routes() {
-  const page = (await import(await bundle("app/(marketing)/l/[slug]/page.tsx"))) as any
+  const page = (await import(await bundle("app/(storelib)/(marketing)/l/[slug]/page.tsx"))) as any
   const route = (await import(await bundle("app/api/onepage/route.ts"))) as any
-  const photo = (await import(await bundle("app/(marketing)/[sellername]/links/photo.jpg/route.ts"))) as any
-  const card = (await import(await bundle("app/(marketing)/[sellername]/links/share.png/route.tsx"))) as any
+  const photo = (await import(await bundle("app/(storelib)/(marketing)/[sellername]/links/photo.jpg/route.ts"))) as any
+  const card = (await import(await bundle("app/(storelib)/(marketing)/[sellername]/links/share.png/route.tsx"))) as any
 
   console.log("\nThe public page's metadata")
   const meta = async (row: Record<string, any>, profilePhoto: string | null = PHOTO) => {

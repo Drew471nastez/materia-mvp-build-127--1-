@@ -62,7 +62,7 @@ const sheet = readFileSync("components/platform/access-sheet.tsx", "utf8")
 const ask = readFileSync("components/platform/notifications-ask.tsx", "utf8")
 const camera = readFileSync("lib/native-camera.ts", "utf8")
 const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
-const layout = readFileSync("app/layout.tsx", "utf8")
+const layout = readFileSync("app/(storelib)/layout.tsx", "utf8")
 const appOnly = readFileSync("components/platform/app-only.tsx", "utf8")
 const push = readFileSync("lib/native-push.ts", "utf8")
 
@@ -80,7 +80,7 @@ check("one way to the phone's Settings", /return openAppSettings\(\)/.test(push)
 check("mounted in the root layout, not on websites", /<AccessSheet \/>/.test(layout) && /import\("@\/components\/platform\/access-sheet"\)/.test(appOnly) && /usePublishedWebsite\(\) \? null : <LazyAccess \/>/.test(appOnly))
 
 console.log("\nNotifications at the moments they matter")
-check("joining, posting, commenting, a new product", /nudgeNotifications\("joined"\)/.test(readFileSync("components/community/public/join-controls.tsx", "utf8")) && /nudgeNotifications\("posted"\)/.test(readFileSync("components/community/member/composer.tsx", "utf8")) && /nudgeNotifications\("commented"\)/.test(readFileSync("components/community/member/comments.tsx", "utf8")) && /if \(created\) nudgeNotifications\("product"\)/.test(readFileSync("app/app/products/new/product-editor.tsx", "utf8")))
+check("joining, posting, commenting, a new product", /nudgeNotifications\("joined"\)/.test(readFileSync("components/community/public/join-controls.tsx", "utf8")) && /nudgeNotifications\("posted"\)/.test(readFileSync("components/community/member/composer.tsx", "utf8")) && /nudgeNotifications\("commented"\)/.test(readFileSync("components/community/member/comments.tsx", "utf8")) && /if \(created\) nudgeNotifications\("product"\)/.test(readFileSync("app/(storelib)/app/products/new/product-editor.tsx", "utf8")))
 /* Changed on purpose: a short sheet first, then the phone's prompt; one rule and one budget for every kind (lib/native-permissions-rule.ts). */
 check("not asked yet: Storelib's sheet, then the phone's own prompt", /void askPushPermission\(\)\.then\(\(answer\) => \(answer === "granted" \? accountOn\(\) : undefined\)\)/.test(ask))
 check("refused: on the shared budget, never stacked on a sheet", /permissionAskStep\(\{ signedIn: true, askedThisSession: askedThisSession\(\), permission, record: readRecord\(kind\) \}, Date\.now\(\)\)/.test(ask) && /if \(pageIsBusy\(\)\)/.test(ask))

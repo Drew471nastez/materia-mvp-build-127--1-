@@ -599,7 +599,7 @@ async function main() {
   const hook = code("app/api/webhooks/video/[provider]/route.ts")
   check("webhook: switch first, signature checked before anything is applied", /requireCommunitiesOn\(\)[\s\S]*adapter\.webhook\([\s\S]*bad_signature[\s\S]*applyVideoWebhook/.test(hook))
   check("webhook: a service not connected answers 404", /if \(!adapter\.connected\(\)\)/.test(hook))
-  const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(learn|events)\//.test(f))
+  const pages = walk("app/(storelib)/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(learn|events)\//.test(f))
   check("four pages", pages.length === 4, pages)
   /* Round 15: each page seeds the community's shell through PlacePage, which checks the member for itself, and the one place loader checks the section is on. */
   const placesLoader = code("lib/communities/server/places.ts")

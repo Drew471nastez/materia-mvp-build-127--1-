@@ -224,11 +224,11 @@ async function main() {
   check("the props stay { head, initial? }", /export function AnalyticsSection\(\{ head \}: \{ head: CommunityHead; initial\?: AnalyticsView \| null \}\)/.test(s))
   /* Changed on purpose (round 33): the link beside the period is gone; a connected Google Analytics is one quiet line under Traffic, one that is not connected is not mentioned. */
   check("Google Analytics: one quiet line when connected, with the way to manage it", s.includes('"/app/integrations?integration=google-analytics"') && /if \(!ga\?\.id\) return null/.test(s) && /data-ga="connected"/.test(s) && !/Connect Google Analytics/.test(s))
-  check("the page reads only the head", !/loadAnalytics|loadMoneyAndGrowth/.test(raw("app/app/community/[id]/analytics/page.tsx")) && /<AnalyticsSection head=\{head\} \/>/.test(raw("app/app/community/[id]/analytics/page.tsx")))
+  check("the page reads only the head", !/loadAnalytics|loadMoneyAndGrowth/.test(raw("app/(storelib)/app/community/[id]/analytics/page.tsx")) && /<AnalyticsSection head=\{head\} \/>/.test(raw("app/(storelib)/app/community/[id]/analytics/page.tsx")))
 
   /* ── Google Analytics ───────────────────────────────────────────────── */
   console.log("\nGoogle Analytics")
-  const layout = raw("app/(marketing)/community/[slug]/layout.tsx")
+  const layout = raw("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
   check("the store's tags on a published community, not for its owner", /if \(!c \|\| !c\.creator_id \|\| c\.status !== "published" \|\| page\.viewer\?\.isOwner\) return null/.test(layout) && /<StoreTracking creatorId=\{c\.creator_id\} \/>/.test(layout))
   check("in both frames, so every page of the community counts", (layout.match(/\{tracking\}/g) ?? []).length === 2)
   const sent: unknown[][] = []

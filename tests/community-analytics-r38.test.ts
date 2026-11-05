@@ -33,7 +33,7 @@
  * are run there on the same rows and must answer as the reference does.
  *
  * Also: the row of five figures and its menu (components/community/creator/
- * analytics-section.tsx), the grey fills (app/app/analytics/analytics-
+ * analytics-section.tsx), the grey fills (app/(storelib)/app/analytics/analytics-
  * reports.tsx), and part 274's conventions.
  *
  * Run with:  npx tsx --conditions=react-server tests/community-analytics-r38.test.ts
@@ -403,8 +403,8 @@ async function main() {
   check("the row draws only the five", /\{shown\.map\(\(t\) => \(\s*<MetricTab/.test(sectionSrc))
 
   console.log("\nthe grey fills")
-  const reports = raw("app/app/analytics/analytics-reports.tsx")
-  const commerce = raw("app/app/analytics/commerce-reports.tsx")
+  const reports = raw("app/(storelib)/app/analytics/analytics-reports.tsx")
+  const commerce = raw("app/(storelib)/app/analytics/commerce-reports.tsx")
   check("the fill is the light grey gradient the rows had before round 34, class for class", reports.includes('"bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)]"'))
   check("no violet fill left: no ROW_BAR, no Fill in the accent", !/ROW_BAR|rgba\(139,92,246,0\.10\)/.test(reports) && !/<(Report)?Fill[^>]*ACCENT/.test(reports + commerce))
   /* Changed on purpose (round 39): the top posts are Analytics' own rows (ReportList), so their fill is the rows' GREY_FILL itself. */

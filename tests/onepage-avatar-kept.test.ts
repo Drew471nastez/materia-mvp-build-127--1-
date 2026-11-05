@@ -116,7 +116,7 @@ async function main() {
   /* ── One face ──────────────────────────────────────────────────────────── */
   console.log("\nThe tab, the icon and the share card show what the page shows")
   {
-    const route = readCode("app/(marketing)/l/[slug]/page.tsx")
+    const route = readCode("app/(storelib)/(marketing)/l/[slug]/page.tsx")
     /* The loader and the tags the metadata and the share image both read (lib/onepage/published-page, lib/onepage/seo). */
     const loader = readCode("lib/onepage/published-page.ts")
     const seoLib = readCode("lib/onepage/seo.ts")

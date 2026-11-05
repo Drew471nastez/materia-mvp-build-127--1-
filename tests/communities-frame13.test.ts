@@ -157,8 +157,8 @@ async function main() {
   /* ── MEMBERSHIP ─────────────────────────────────────────────────────── */
   console.log("\nMEMBERSHIP: the page and its entry")
   {
-    const route = "app/(marketing)/community/[slug]/(member)/membership/page.tsx"
-    check("the page and its loading screen are there, under the members' door", existsSync(route) && existsSync("app/(marketing)/community/[slug]/(member)/membership/loading.tsx"))
+    const route = "app/(storelib)/(marketing)/community/[slug]/(member)/membership/page.tsx"
+    check("the page and its loading screen are there, under the members' door", existsSync(route) && existsSync("app/(storelib)/(marketing)/community/[slug]/(member)/membership/loading.tsx"))
     const page = code(route)
     /* Round 15: the page seeds the shell (PlacePage checks the member); the facts are the place loader's, from the member's own row. */
     const placesLoader = code("lib/communities/server/places.ts")
@@ -191,7 +191,7 @@ async function main() {
     const api = code("app/api/profile/contributions/route.ts")
     check("the route: off first, rate limited, signed out gets nothing", api.indexOf("requireCommunitiesOn") < api.indexOf("rateLimit({") && /if \(!user\?\.id\) return NextResponse\.json\(\{ sections: \[\] \}/.test(api))
     check("the creator page's Communities tab draws them under the cards", /<CommunityContributions userId=\{creator\.id\} firstName=\{first\} only=\{cards\.map\(\(c\) => c\.id\)\} tone="storefront" \/>/.test(code("components/profile/creator-communities-tab.tsx")))
-    check("a profile reads them for the person themselves too", /communitiesOn && viewerId && !creator \? sharedSections\(db, viewerId, profile\.userId\)/.test(code("app/(marketing)/member/[username]/page.tsx")))
+    check("a profile reads them for the person themselves too", /communitiesOn && viewerId && !creator \? sharedSections\(db, viewerId, profile\.userId\)/.test(code("app/(storelib)/(marketing)/member/[username]/page.tsx")))
   }
 
   /* ── INVITES ────────────────────────────────────────────────────────── */

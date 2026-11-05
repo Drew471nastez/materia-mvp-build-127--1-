@@ -1,13 +1,13 @@
 /**
- * The checkout's phone field (app/checkout/parts/phone-input) under its label,
+ * The checkout's phone field (app/(storelib)/checkout/parts/phone-input) under its label,
  * as the website checkout draws it, with the address's country switchable
  * above it, for scripts/check-checkout-phone.mjs. What the order would keep
  * is printed under it.
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { CheckoutPhone } from "@/app/checkout/parts/phone-input"
-import { Field } from "@/app/checkout/parts/ui"
+import { CheckoutPhone } from "@/app/(storelib)/checkout/parts/phone-input"
+import { Field } from "@/app/(storelib)/checkout/parts/ui"
 
 function Page() {
   const [country, setCountry] = React.useState("RO")

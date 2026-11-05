@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE EMAILS PAGE, MEASURED AND DRIVEN
  * ===========================================================================
- * The whole page (app/app/emails/emails-client.tsx) against a stand-in
+ * The whole page (app/(storelib)/app/emails/emails-client.tsx) against a stand-in
  * Supabase and server where every request takes 150ms
  * (scripts/render-emails-probe.tsx), at 360, 390 and 1440 wide. What the
  * owner asked for, checked in Chromium:
@@ -19,7 +19,7 @@
  *   - a row darkens while pressed; a pointer resting on an email's row, or
  *     a finger on it, reads its page ahead;
  *   - the email's page opens and goes back with Orders' own move
- *     (app/app/orders/order-motion.ts), measured the way
+ *     (app/(storelib)/app/orders/order-motion.ts), measured the way
  *     scripts/check-orders-page.mjs measures an order: on the first frame
  *     after the click, pushed from the right edge in about 300ms on a phone
  *     and on a computer whole at once with its cards faded in over about
@@ -99,7 +99,7 @@ function from(table) {
   let eqValue = null
   const q = {
     select() { return q }, eq(_c, v) { eqValue = v; return q }, in() { return q }, order() { return q }, delete() { return q }, update() { return q },
-    /* A contact's automation runs (app/app/emails/contact-detail.tsx), answered late. */
+    /* A contact's automation runs (app/(storelib)/app/emails/contact-detail.tsx), answered late. */
     limit() {
       if (table !== "email_flow_runs") return q
       ;(window.__runsAsked = window.__runsAsked || []).push(eqValue)
@@ -476,7 +476,7 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     console.log(`  ..    click to the email's first frame: ${opening.ms}ms, ${opening.framesBefore} frames before it, ${phone ? `its left edge at ${opening.firstLeft}px of ${vp.width}` : `at opacity ${opening.firstOpacity}`}; at rest ${opening.restMs}ms later over ${opening.frames} frames; the list ${phone ? `moved to ${opening.listLeftMin}px and ` : ""}was drawn under it until then: ${opening.listDuring}, after: ${opening.listAfter}; blank frames ${opening.blankFrames}; bar in the layer ${JSON.stringify(opening.bars)}; layout shift ${clsOpen.toFixed(4)}`)
     expect(opening.ms !== null && opening.framesBefore === 0 && opening.title.length > 0, "the email's page and its bar are there on the first frame after the click", { ms: opening.ms, title: opening.title })
     if (phone) {
-      /* Changed with Orders (app/app/orders/order-motion.ts): on a phone an order, and so an email, rises from below the screen in 360ms over a list that holds still; it was pushed in from the right over a list moving a third of the way left. */
+      /* Changed with Orders (app/(storelib)/app/orders/order-motion.ts): on a phone an order, and so an email, rises from below the screen in 360ms over a list that holds still; it was pushed in from the right over a list moving a third of the way left. */
       expect(opening.firstTopShare !== null && opening.firstTopShare >= 0.77 && opening.risesOneWay && opening.firstLeft === 0, "on a phone it starts below the screen, not at rest, and only rises", { firstTop: opening.firstTopShare, oneWay: opening.risesOneWay, left: opening.firstLeft })
       expect(opening.restMs !== null && opening.restMs >= 300 && opening.restMs <= 440, "and is in place in about 360ms, as an order is", opening.restMs)
       expect(opening.listDuring && opening.listAfter === false && opening.listLeftMin === 0, "the list stays drawn underneath, holding still, then rests hidden", { min: opening.listLeftMin, after: opening.listAfter })

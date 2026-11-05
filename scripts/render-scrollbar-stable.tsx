@@ -1,7 +1,7 @@
 /**
  * The shell pieces that move when an /app page swaps (AppStage's landing and
  * scroll, the top bar, the slow page surface) over a shell with the same
- * boxes and classes as app/app/layout.tsx, with the REAL client side of the
+ * boxes and classes as app/(storelib)/app/layout.tsx, with the REAL client side of the
  * main pages in it. Bundled by scripts/check-scrollbar-stable.mjs.
  *
  *   /app                  the dashboard (components/app/dashboard-client)
@@ -40,20 +40,20 @@ import { LanguageProvider } from "@/lib/i18n"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
-import EditProductLayout from "@/app/app/products/[id]/layout"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import EditProductLayout from "@/app/(storelib)/app/products/[id]/layout"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import { DashboardClient } from "@/components/app/dashboard-client"
-import { ProductsClient } from "@/app/app/products/products-client"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { OrdersClient } from "./fixtures/orders-client"
-import { EmailsClient } from "@/app/app/emails/emails-client"
-import { CouponsClient } from "@/app/app/coupons/coupons-client"
-import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
-import { PayoutsClient } from "@/app/app/payouts/payouts-client"
+import { EmailsClient } from "@/app/(storelib)/app/emails/emails-client"
+import { CouponsClient } from "@/app/(storelib)/app/coupons/coupons-client"
+import { AnalyticsClient } from "@/app/(storelib)/app/analytics/analytics-client"
+import { PayoutsClient } from "@/app/(storelib)/app/payouts/payouts-client"
 import { SettingsFormNew } from "@/components/app/settings-form-new"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
-import CustomersPage from "@/app/app/customers/page"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
+import CustomersPage from "@/app/(storelib)/app/customers/page"
 import { buildReports, type ViewRow } from "@/lib/analytics/reports"
 import type { OrderRow } from "@/lib/orders/order-view"
 
@@ -299,7 +299,7 @@ function Page({ path, search }: { path: string; search: string }) {
     case "/app/analytics":
       return <AnalyticsClient creatorId="c1" userId="u1" products={PRODUCTS.map(({ id, title }) => ({ id, title })) as never} properties={{ onePageId: null, websites: [], defaultWebsite: null }} />
     case "/app/payouts":
-      /* app/app/payouts/page.tsx's own box, around the client. */
+      /* app/(storelib)/app/payouts/page.tsx's own box, around the client. */
       return (
         <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
           <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">

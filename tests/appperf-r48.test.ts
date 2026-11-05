@@ -140,7 +140,7 @@ section("Search: the Community switch comes from the layout")
   check("the sidebar passes the layout's answer", /<AppSearch ref=\{searchRef\} communitiesEnabled=\{communitiesEnabled\} \/>/.test(sidebar))
   const flags = code("lib/platform/use-flags.ts")
   check("useCommunitiesEnabled skips its request when given an answer", /if \(initial !== undefined\) return/.test(flags) && /return initial \?\? enabled/.test(flags))
-  check("the layout reads the switch once and gives it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/app/layout.tsx")))
+  check("the layout reads the switch once and gives it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/(storelib)/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/(storelib)/app/layout.tsx")))
 }
 
 section("Sidebar: the installed integrations, not on every return to the tab")
@@ -153,7 +153,7 @@ section("Sidebar: the installed integrations, not on every return to the tab")
 
 section("Emails: the other tabs warmed once per five minutes")
 {
-  const emails = code("app/app/emails/emails-client.tsx")
+  const emails = code("app/(storelib)/app/emails/emails-client.tsx")
   check("the idle warm-up keeps a tab for the router's five minutes", /for \(const t of TABS\) if \(t !== tab\) prefetch\(keyFor\(t\), loaderFor\(t\), APP_PAGE_KEPT_MS\)/.test(emails) && /export const APP_PAGE_KEPT_MS = 300_000/.test(code("lib/ui/app-navigation.ts")))
   const cache = code("components/email/emails-cache.ts")
   check("  a tab that is opened is still read again behind what is kept after a few seconds", /const FRESH_MS = 8_000/.test(cache) && /if \(!e \|\| e\.data === undefined \|\| Date\.now\(\) - e\.at > FRESH_MS\) void load\(key\)/.test(cache))
@@ -162,7 +162,7 @@ section("Emails: the other tabs warmed once per five minutes")
 
 section("Analytics: one read round once the store is known")
 {
-  const page = code("app/app/analytics/page.tsx")
+  const page = code("app/(storelib)/app/analytics/page.tsx")
   check("the store is teamPageStore's, for an owner and a team member alike", /const access = await teamPageStore\("analytics"\)/.test(page) && /const creatorId = access\.creatorId/.test(page) && /const ownerUserId = access\.ownerUserId/.test(page))
   check("no creator row is read here a second time", !/\.from\("creators"\)/.test(page) && !/creators!inner/.test(page))
   const batch = batchAfter(page, /const ownerUserId = access\.ownerUserId/)
@@ -181,7 +181,7 @@ section("Analytics: one read round once the store is known")
 
 section("Settings: the team store beside the first reads")
 {
-  const src = code("app/app/settings/_server.ts")
+  const src = code("app/(storelib)/app/settings/_server.ts")
   const first = batchAfter(src, /pageUser\(\)/)
   check("teamStoreForRequest is in the first round", /teamStoreForRequest\(user\.id\)\.catch\(\(\) => null\)/.test(first))
   check("  and not awaited on its own after it", !/await teamStoreForRequest/.test(src))
@@ -191,7 +191,7 @@ section("Settings: the team store beside the first reads")
 
 section("Products: the list beside the profile")
 {
-  const src = code("app/app/products/page.tsx")
+  const src = code("app/(storelib)/app/products/page.tsx")
   check("the list is started from the creator row's promise, on the caller's own client", /const listRead = creatorForRequest\(user\.id\)\.then\(\(creator\) => \(creator \? readProductList<ListedRow>\(supabase, creator\.id\) : null\)\)/.test(src))
   check("  before the creator and profile batch is awaited", src.indexOf("const listRead") > 0 && src.indexOf("const listRead") < src.indexOf("await Promise.all([creatorForRequest(user.id), profileForRequest(user.id)])"))
   check("  and never left as an unhandled rejection when a redirect wins", /listRead\.catch\(\(\) => \{\}\)/.test(src))
@@ -201,7 +201,7 @@ section("Products: the list beside the profile")
 
 section("Website: the library beside the creator read")
 {
-  const src = code("app/app/website-builder/page.tsx")
+  const src = code("app/(storelib)/app/website-builder/page.tsx")
   const batch = batchAfter(src, /const handle = websiteHandleOf\(storeId\)/)
   check("installs, creator and profile in one Promise.all", /\.from\("creators"\)\.select\("id, slug"\)\.eq\("id", storeId\)/.test(batch) && /\.from\("profiles"\)/.test(batch) && /load\(\)/.test(batch), batch.slice(0, 160))
   check("  the library by the store id websitePage found", /\.eq\("creator_id", storeId\)/.test(src) && /const storeId = access\.creatorId/.test(src))
@@ -212,7 +212,7 @@ section("Website: the library beside the creator read")
 
 section("No route level loading screen under /app (the owner's rule, tests/app-shell-motion.test.ts)")
 {
-  const offenders = ["app/app/loading.tsx", "app/app/products/loading.tsx", "app/app/orders/loading.tsx", "app/app/analytics/loading.tsx", "app/app/emails/loading.tsx", "app/app/customers/loading.tsx", "app/app/community/loading.tsx", "app/app/settings/loading.tsx", "app/app/integrations/loading.tsx"].filter((f) => existsSync(join(root, f)))
+  const offenders = ["app/(storelib)/app/loading.tsx", "app/(storelib)/app/products/loading.tsx", "app/(storelib)/app/orders/loading.tsx", "app/(storelib)/app/analytics/loading.tsx", "app/(storelib)/app/emails/loading.tsx", "app/(storelib)/app/customers/loading.tsx", "app/(storelib)/app/community/loading.tsx", "app/(storelib)/app/settings/loading.tsx", "app/(storelib)/app/integrations/loading.tsx"].filter((f) => existsSync(join(root, f)))
   check("none added: the shell's bar and spinner are the slow-load state", offenders.length === 0, offenders)
 }
 

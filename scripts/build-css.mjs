@@ -22,6 +22,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import postcss from "postcss"
 import tailwind from "@tailwindcss/postcss"
+import { createRequire } from "node:module"
+
+const { siteCssSource } = createRequire(import.meta.url)("./site-css.cjs")
 
 const root = process.cwd()
 const from = join(root, "app", "globals.css")
@@ -34,3 +37,15 @@ const result = await postcss([tailwind({ optimize: true })]).process(readFileSyn
 mkdirSync(outDir, { recursive: true })
 writeFileSync(out, result.css)
 console.log(`Stylesheet compiled before the build: ${Math.round(result.css.length / 1024)} KB in ${Date.now() - started} ms (.next-css/globals.css)`)
+
+/*
+  AND A PUBLISHED WEBSITE'S (round 52): the same source, with Tailwind's
+  utilities for the files a website's pages import only (scripts/site-css.cjs).
+  scripts/build-next.mjs hands both over only when both are newer than their
+  source.
+*/
+const siteStarted = Date.now()
+const siteFrom = join(root, "app", "site.css")
+const site = await postcss([tailwind({ optimize: true })]).process(siteCssSource(root), { from: siteFrom, to: siteFrom })
+writeFileSync(join(outDir, "site.css"), site.css)
+console.log(`Website stylesheet compiled before the build: ${Math.round(site.css.length / 1024)} KB in ${Date.now() - siteStarted} ms (.next-css/site.css)`)

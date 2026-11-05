@@ -33,7 +33,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\s*\}/g, "{}")
 
 function main() {
-  const loading = code("app/(marketing)/explore/loading.tsx")
+  const loading = code("app/(storelib)/(marketing)/explore/loading.tsx")
   const skeleton = code("components/explore/explore-skeleton.tsx")
   const card = code("components/explore/product-card-skeleton.tsx")
   const page = code("components/explore/explore-page-client.tsx")
@@ -133,8 +133,8 @@ function main() {
   check("  the More pill keeps its own marker, which the pill row scrolls into view by", /marker = "more-pill"/.test(picker) && /\[data-more-pill\]/.test(page))
 
   console.log("\n5. A category page is built from Explore's parts")
-  const catLoading = code("app/(marketing)/explore/[category]/loading.tsx")
-  const catRoute = code("app/(marketing)/explore/[category]/page.tsx")
+  const catLoading = code("app/(storelib)/(marketing)/explore/[category]/loading.tsx")
+  const catRoute = code("app/(storelib)/(marketing)/explore/[category]/page.tsx")
   const catSkeleton = code("components/explore/category-skeleton.tsx")
   const catFrame = code("components/explore/category-frame.tsx")
   const catPage = code("components/explore/category-page-client.tsx")

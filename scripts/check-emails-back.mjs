@@ -10,7 +10,7 @@
  * way back to the list is a navigation, and the stage played its landing on
  * it (components/app/app-stage.tsx playEntrance): everything in the list
  * faded in from nothing and rose 2px, the whole page, on every Back. This
- * drives the real list (app/app/emails/emails-client.tsx) inside the real
+ * drives the real list (app/(storelib)/app/emails/emails-client.tsx) inside the real
  * NavigationLoadingBar and AppStage (scripts/render-emails-back.tsx), served
  * over http so the history is the browser's own, and reads every frame:
  *

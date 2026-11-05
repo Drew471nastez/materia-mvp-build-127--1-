@@ -32,7 +32,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 console.log("\nPayouts page")
 {
-  const payouts = read("app/app/payouts/payouts-client.tsx")
+  const payouts = read("app/(storelib)/app/payouts/payouts-client.tsx")
   check("the revenue chart reads once a minute in the background", /setInterval\(tick, 60000\)/.test(payouts) && !/setInterval\(tick, 15000\)/.test(payouts))
   check("Stripe balances every two minutes in the background", /setInterval\(tick, 120000\)/.test(payouts) && !/setInterval\(tick, 30000\)/.test(payouts))
   check("both still read when the tab comes back or gains focus", (payouts.match(/addEventListener\("visibilitychange", onVisible\)/g) ?? []).length >= 2 && (payouts.match(/addEventListener\("focus", onVisible\)/g) ?? []).length >= 2)

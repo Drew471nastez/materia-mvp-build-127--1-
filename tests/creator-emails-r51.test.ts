@@ -196,7 +196,7 @@ async function main() {
   {
     const header = read("components/store-builder/unified-section-renderer.tsx")
     const route = read("app/api/creator-profile/route.ts")
-    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const types = read("lib/store-builder/types.ts")
     check("the icons hide on Edit profile's own flag", /settings\.socialLinks && settings\.hideSocialLinks !== true &&/.test(header) && /hideSocialLinks\?: boolean/.test(types))
     check("never on the builder's stale showSocialMedia", !/settings\.showSocialMedia/.test(header))

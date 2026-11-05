@@ -9,7 +9,7 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
-import { PerformanceAdmin } from "@/app/admin/performance/performance-admin"
+import { PerformanceAdmin } from "@/app/(storelib)/admin/performance/performance-admin"
 import { rankProblems, type ErrorGroupRow } from "@/lib/perf/problems"
 import type { PerfReport, ScoreDay } from "@/lib/perf/report"
 import { NO_EXTRAS, healthIndex, type Aggregate, type Extras } from "@/lib/perf/scoring"

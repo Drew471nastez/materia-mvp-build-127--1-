@@ -1,5 +1,5 @@
 /**
- * The Products page (app/app/products/products-client.tsx) with a shop's
+ * The Products page (app/(storelib)/app/products/products-client.tsx) with a shop's
  * worth of products, for scripts/check-products-page.mjs to measure.
  * `#many` renders sixty, enough for a second page, `#none` an empty shop, and
  * `#legacy` one archived by its status alone. `#sidebar` sets the page
@@ -14,8 +14,8 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { LanguageProvider } from "@/lib/i18n"
-import { ProductsClient } from "@/app/app/products/products-client"
-import { SaveButton, barIconButton } from "@/app/app/products/new/editor-buttons"
+import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
+import { SaveButton, barIconButton } from "@/app/(storelib)/app/products/new/editor-buttons"
 
 const many = location.hash.includes("many")
 const sidebar = location.hash.includes("sidebar")

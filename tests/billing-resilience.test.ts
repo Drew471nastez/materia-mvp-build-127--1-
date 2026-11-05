@@ -313,7 +313,7 @@ async function main() {
         check(`${status} + ${label}: still growth with its subscription, never free/canceled/inactive`, v.planId === "growth" && v.status === status && v.subscription?.status === status && v.stale === true, v)
       }
     }
-    const routes = ["app/api/billing/subscription/route.ts", "lib/billing/overview.ts", "app/app/settings/billing/upgrade/page.tsx"]
+    const routes = ["app/api/billing/subscription/route.ts", "lib/billing/overview.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx"]
     check("no billing read writes a plan (one writer: the webhook's sync)", routes.every((p) => !/\.update\(\s*\{[^}]*subscription_plan_id/.test(code(p))))
   }
 

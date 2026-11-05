@@ -214,7 +214,7 @@ check(
     if (/href: "\/app\/sites"/.test(sidebar) || /href="\/app\/sites"/.test(sidebar))
       missing.push("the code builder is still linked from the dashboard nav")
 
-    if (!existsSync(join(root, "app/app/sites/page.tsx")))
+    if (!existsSync(join(root, "app/(storelib)/app/sites/page.tsx")))
       missing.push("the code builder's route was deleted, not hidden")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -521,10 +521,10 @@ check(
      * of it to every visitor of every site.
      *
      * Enforced structurally rather than by care: public routes live under
-     * app/(marketing), the editor under app/sites and components/sites.
+     * app/(storelib)/(marketing), the editor under app/(storelib)/sites and components/sites.
      */
     const missing: string[] = []
-    const publicDirs = ["app/(marketing)"]
+    const publicDirs = ["app/(storelib)/(marketing)"]
     const walk = (d: string): string[] => {
       const full = join(root, d)
       if (!existsSync(full)) return []
@@ -1479,7 +1479,7 @@ check(
   "the brief is carried into the editor, not just stored",
   (() => {
     const flow = read("components/sites/new-site-flow.tsx")
-    const page = read("app/sites/[siteId]/page.tsx")
+    const page = read("app/(storelib)/sites/[siteId]/page.tsx")
     const shell = read("components/sites/editor/editor-shell.tsx")
     return (
       /brief=\$\{encodeURIComponent\(brief\)\}/.test(flow) &&
@@ -1702,7 +1702,7 @@ const siteRoute = read("app/(sites)/site/[slug]/[[...path]]/route.ts")
  *  NOT storelib.com — TWICE OVER
  * ===========================================================================
  *
- * `app/(marketing)/[sellername]` catches every root path, so storelib.com/x is
+ * `app/(storelib)/(marketing)/[sellername]` catches every root path, so storelib.com/x is
  * already somebody's storefront. Creator pages keep the paths and AI-built
  * sites take the SUBDOMAINS — andrewrullz.storelib.com — so the two address
  * spaces never overlap.
@@ -2011,7 +2011,7 @@ check(
   "the editor holds a revision and sends it on every save",
   (() => {
     const shell = read("components/sites/editor/editor-shell.tsx")
-    const page = read("app/sites/[siteId]/page.tsx")
+    const page = read("app/(storelib)/sites/[siteId]/page.tsx")
     return (
       /initialRevision: number/.test(shell) &&
       /revision: revision\.current/.test(shell) &&
@@ -3004,7 +3004,7 @@ section("A signed-in creator's own sites are the ones they see")
  * exactly that violation), and it never set onboarding_completed /
  * store_published, columns other parts of the app depend on existing.
  *
- * Every OTHER working read of `creators` in this codebase — app/app/page.tsx,
+ * Every OTHER working read of `creators` in this codebase — app/(storelib)/app/page.tsx,
  * app/api/onboarding/finalize/route.ts, the settings form's server actions —
  * goes through the ADMIN client. This was the one path that did not, and it
  * is why a creator who plainly already had a site could look it up and find
@@ -3127,7 +3127,7 @@ check(
 check(
   "the dashboard says which of the two happened",
   (() => {
-    const page = strip(read("app/app/sites/page.tsx"))
+    const page = strip(read("app/(storelib)/app/sites/page.tsx"))
     return (
       /SitesUnavailableError/.test(page) &&
       /We could not load your sites/.test(page) &&
@@ -3507,7 +3507,7 @@ check(
 check(
   "reopening a site with unpublished edits does not claim to be live",
   (() => {
-    const page = strip(read("app/sites/[siteId]/page.tsx"))
+    const page = strip(read("app/(storelib)/sites/[siteId]/page.tsx"))
     const shell = strip(read("components/sites/editor/editor-shell.tsx"))
     return (
       /revisions\.publishedRevision !== null && revisions\.revision !== revisions\.publishedRevision/.test(page) &&

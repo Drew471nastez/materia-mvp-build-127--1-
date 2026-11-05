@@ -9,13 +9,13 @@
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { OffersClient } from "@/app/app/offers/offers-client"
+import { OffersClient } from "@/app/(storelib)/app/offers/offers-client"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { CartOfferSavings, CartOfferSuggestions, type CartOffersData } from "@/components/offers/cart-offers"
 import { QuantityBreaks } from "@/components/offers/quantity-breaks"
 import type { Offer } from "@/lib/offers/offers"
-import type { OfferCollection, OfferProduct } from "@/app/app/offers/offer-parts"
+import type { OfferCollection, OfferProduct } from "@/app/(storelib)/app/offers/offer-parts"
 
 type Data = { offers: Offer[]; products: OfferProduct[]; collections: OfferCollection[]; currency: string; ready: boolean; settingsReady: boolean; breaksReady?: boolean; sold?: Record<string, number>; physical: boolean }
 type W = Window & { __panel?: string; __api?: Record<string, unknown>; __data?: Data; __cart?: CartOffersData; __sent?: { method: string; path: string; body: unknown }[]; __added?: unknown[] }

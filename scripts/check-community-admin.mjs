@@ -2,7 +2,7 @@
  * ===========================================================================
  *  /admin/communities, MEASURED AT A DESK AND ON A PHONE
  * ===========================================================================
- * Renders the real page (app/admin/communities/communities-admin.tsx) with
+ * Renders the real page (app/(storelib)/admin/communities/communities-admin.tsx) with
  * fixtures (scripts/render-community-admin.tsx) at 1440 and 390 wide, with
  * the switch on and off, the confirm before off, the escalated reports and
  * one community opened, and measures:

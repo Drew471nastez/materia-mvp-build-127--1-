@@ -2,7 +2,7 @@
  * ===========================================================================
  *  /admin/performance, MEASURED AT A DESK AND ON A PHONE
  * ===========================================================================
- * Renders the real page (app/admin/performance/performance-admin.tsx) with
+ * Renders the real page (app/(storelib)/admin/performance/performance-admin.tsx) with
  * fixtures (scripts/render-perf-health18.tsx) at 1440x900 and 390x844, with
  * realistic data and with nothing measured at all, then:
  *

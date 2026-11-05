@@ -4,7 +4,7 @@
  * page, the product editor's layer (PageLayer pill), and a plain page.
  * scripts/check-app-menu19.mjs drives it.
  *
- * The boxes are the ones app/app/layout.tsx and components/app/sidebar.tsx
+ * The boxes are the ones app/(storelib)/app/layout.tsx and components/app/sidebar.tsx
  * draw, in the same order: the menu, then the phone header, then <main> with
  * the page in `.app-content-scroll`, then the @sheet slot, with the pill
  * beside them, wired the way sidebar.tsx wires it.

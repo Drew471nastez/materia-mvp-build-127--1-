@@ -272,7 +272,7 @@ async function main() {
     const ui = read("components/website-builder/website-settings/backups.tsx")
     check("the dialog goes through settleRestore and holds the editor's draft", /settleRestore\(/.test(ui) && /hold: ctx\.onHoldDraft/.test(ui))
     check("  says so when a large site takes a while", /Still restoring\. A large website can take a minute\./.test(ui))
-    const page = read("app/website-builder/editor/[installId]/page.tsx")
+    const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor: autosave waits while a restore runs", /if \(switchingPage\.current \|\| restoreHold\.current\) return/.test(page))
     check("  saves what is unsaved first, and reloads without asking about leaving", /onHoldDraft=\{async \(hold\) =>/.test(page) && /leaveAnswered\.current = true\s+window\.location\.reload\(\)/.test(page))
   }

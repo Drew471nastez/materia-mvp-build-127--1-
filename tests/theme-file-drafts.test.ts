@@ -270,7 +270,7 @@ async function main() {
       readFileSync(join(root, "lib/website-builder/save-theme-file.ts"), "utf8")
     const publish = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
     const storefront = readFileSync(join(root, "lib/website-builder/storefront-render.ts"), "utf8")
-    const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+    const codePage = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
     const sql = readFileSync(join(root, "supabase/sql/RUN_THEME_FILE_DRAFTS.sql"), "utf8")
 
     check("saving goes through the draft half", /const saved = await saveDraft\(db, installId, path, content\)/.test(files) && /saveThemeFile\(/.test(files))

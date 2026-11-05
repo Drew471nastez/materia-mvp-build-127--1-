@@ -110,7 +110,7 @@ console.log("\nEXIT: at least three seconds of Going back, in the canvas")
     check("cancel with nothing up does nothing", log.length === 0 && hold.phase() === "idle")
   }
 
-  const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const leaveFor = editor.slice(editor.indexOf("const leaveFor = useCallback("), editor.indexOf("}, [router])", editor.indexOf("const leaveFor = useCallback(")))
   check("one push per exit: leaveFor stands down once its exit has started",
     /if \(exitPushed\.current\) return\s*\n\s*exitPushed\.current = true/.test(leaveFor) && leaveFor.indexOf("exitPushed.current = true") < leaveFor.indexOf("router.push(href)"))
@@ -169,7 +169,7 @@ console.log("\nKEYS: a memo keyed by what it reads")
   check("and so does an edit to the section itself", withDynamicSources([typedHero, editedFooter], schemaOf, dyn)[1].settings.heading === "Drew & Co")
   check("what was stored keeps its placeholder", footer.settings.heading === "© {{ date.year }} {{ shop.name }}")
 
-  const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const addable = editor.slice(editor.indexOf("const libraryAddable = useMemo("), editor.indexOf("const overlayAddable = useMemo("))
   check("the library's list no longer depends on the page's sections", addable.length > 0 && !/\bsections\b/.test(addable) && /* Changed on purpose (round canvas-1023): and on whether the install's files are read, so the built-in schemas are not all read as the editor opens. */ /* Changed on purpose (round BC): plus missingOwnKey, a string of the page's missing main sections read each render like overlayTypesKey. */ /compatInstall, overlayTypesKey, storelibSourcesRead(, missingOwnKey)?\]\)/.test(addable))
   check("its key is read from the sections each render, cheaply", /const overlayTypesKey = overlayTypesOf\(sections\)/.test(editor))

@@ -2,17 +2,17 @@
  * The collection editor and the offer editor against a stubbed API, for
  * scripts/check-editors-r42.mjs:
  *
- *   "collection"   a saved collection's page (app/app/products/collections/collection-editor)
- *   "offer-new"    New offer, opened with no kind (app/app/offers/offer-editor askKind)
+ *   "collection"   a saved collection's page (app/(storelib)/app/products/collections/collection-editor)
+ *   "offer-new"    New offer, opened with no kind (app/(storelib)/app/offers/offer-editor askKind)
  *   "offer-edit"   a saved bundle's page
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { CollectionPage } from "@/app/app/products/collections/collection-editor"
-import { OfferEditor } from "@/app/app/offers/offer-editor"
+import { CollectionPage } from "@/app/(storelib)/app/products/collections/collection-editor"
+import { OfferEditor } from "@/app/(storelib)/app/offers/offer-editor"
 import type { Offer } from "@/lib/offers/offers"
-import type { OfferProduct } from "@/app/app/offers/offer-parts"
-import type { Collection, CollectionProduct } from "@/app/app/products/collections/collection-parts"
+import type { OfferProduct } from "@/app/(storelib)/app/offers/offer-parts"
+import type { Collection, CollectionProduct } from "@/app/(storelib)/app/products/collections/collection-parts"
 
 type W = Window & { __panel?: string; __sent?: { method: string; path: string; body: unknown }[] }
 const w = window as W

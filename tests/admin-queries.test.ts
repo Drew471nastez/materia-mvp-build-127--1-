@@ -12,7 +12,7 @@
  * that way. The admin guessed a name that sounded right, and nothing could
  * catch it before the database did, because a column name is a string.
  *
- * This suite catches the next one. It reads every query under app/admin,
+ * This suite catches the next one. It reads every query under app/(storelib)/admin,
  * app/api/admin and lib/admin (each `.from("…")` chain and each read through
  * the admin's Reader), pulls out every table, every selected column, every
  * embedded table and its columns, every filtered and ordered column, every
@@ -58,7 +58,7 @@ const OUTSIDE_MIGRATIONS: Record<string, { columns: string[]; evidence: string }
   /* The link page table predates the repository's SQL; only one ALTER of it is in a file. */
   onepages: {
     columns: ["id", "owner_id", "slug", "title", "status", "seller_id", "creator_id"],
-    evidence: 'app/(marketing)/l/[slug]/page.tsx selects "id, owner_id", "id, slug, settings, seller_id, creator_id" and "…, title", and filters on status',
+    evidence: 'app/(storelib)/(marketing)/l/[slug]/page.tsx selects "id, owner_id", "id, slug, settings, seller_id, creator_id" and "…, title", and filters on status',
   },
 }
 
@@ -88,7 +88,7 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-const FILES = ["app/admin", "app/api/admin", "lib/admin"].flatMap((d) => walk(d))
+const FILES = ["app/(storelib)/admin", "app/api/admin", "lib/admin"].flatMap((d) => walk(d))
 
 /* ── Reading a query out of source ───────────────────────────────────────── */
 

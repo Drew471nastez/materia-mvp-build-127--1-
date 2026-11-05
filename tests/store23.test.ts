@@ -121,7 +121,7 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   check("  with the business behind it: legal name, address, VAT number", v?.seller.legal?.name === "Bread Studio SRL" && v.seller.legal.taxId === "RO12345678" && v.seller.legal.lines.includes("Romania"), v?.seller.legal)
   check("the tax line is named as charged, and Subtotal + VAT = Total", v?.taxLabel === "VAT 19%" && v.taxCents === 931 && v.subtotalCents === 4900 && v.totalCents === 5831, v && { label: v.taxLabel, tax: v.taxCents, sub: v.subtotalCents, total: v.totalCents })
   check("  number, date and currency are on it", !!v?.number && v.createdAt.startsWith("2026-10-11") && v.currency.toUpperCase() === "USD")
-  const view = read("app/receipt/[token]/receipt-view.tsx")
+  const view = read("app/(storelib)/receipt/[token]/receipt-view.tsx")
   check("  the page draws the name and the business block", /* Changed on purpose: in the buyer's language (ct). */ /<Row label=\{receipt\.taxLabel \|\| ct\("Tax"\)\}/.test(view) && /<Row label=\{includedTax\}/.test(view) && /ct\("Including \{tax\}", \{ tax: taxName \}\)/.test(view) && /data-receipt-seller/.test(view) && /receipt\.seller\.legal\.taxIdLabel/.test(view))
 
   console.log("\nThe invoice PDF: what an accountant files\n")
@@ -144,8 +144,8 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   check("no business details: signed with the store's name, nothing invented, an old order's tax by its rate", t3.includes("Bread Studio") && !t3.some((x) => /Trading as|VAT number/.test(x)) && t3.includes("Tax 19%"), t3.slice(18, 26))
 
   console.log("\nThe physical order page: the same\n")
-  const page = read("app/checkout/physical/order/[token]/page.tsx")
-  const osv = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+  const page = read("app/(storelib)/checkout/physical/order/[token]/page.tsx")
+  const osv = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
   /* Changed on purpose (round 27, B27): the logo as the website draws it (checkoutBrand, then Store details'), and Visit store is the live website the order came from (lib/physical/store-link.ts), never the creator page. */
   check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: brand\.name \|\| store\.name, avatar: brand\.imageUrl \?\? store\.logoUrl, avatarKind: brand\.imageUrl \? brand\.kind : store\.logoUrl \? "logo" : null, email: store\.email, phone: store\.phone, websiteUrl: storeUrl \|\| null, legal: store\.legal \}\}/.test(page))
   /* Changed on purpose: in the buyer's language (ct). */
@@ -177,7 +177,7 @@ async function checkoutGates() {
     ["app/api/physical/checkout/route.ts", [/buyerEmailConfirmed: !!user\?\.email_confirmed_at/]],
   ]
   for (const [file, res] of routes) check(`  ${file.replace(/^app\/api\//, "")} refuses on the server, not only on the page`, res.every((re) => re.test(read(file))))
-  const shopPage = read("app/(marketing)/p/[slug]/page.tsx")
+  const shopPage = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("browsing stays open: the product page never asks for an account", !/requireAccount/.test(shopPage))
 
   console.log("\nThe email news box: only a tick subscribes, with when and where\n")
@@ -195,7 +195,7 @@ async function checkoutGates() {
     ["app/api/checkout/site/route.ts", /optedIn: config\.marketingOptIn && body\.emailOptIn === true/],
     ["lib/physical/checkout-server.ts", /if \(config\.marketingOptIn && input\.emailOptIn === true\)/],
   ].every(([f, re]) => (re as RegExp).test(read(f as string))))
-  check("  and the box is drawn unticked", /React\.useState\(false\)/.test(read("app/checkout/checkout-client.tsx")) && /const \[emailOptIn, setEmailOptIn\] = React\.useState\(false\)/.test(read("app/checkout/checkout-client.tsx")))
+  check("  and the box is drawn unticked", /React\.useState\(false\)/.test(read("app/(storelib)/checkout/checkout-client.tsx")) && /const \[emailOptIn, setEmailOptIn\] = React\.useState\(false\)/.test(read("app/(storelib)/checkout/checkout-client.tsx")))
 
   console.log("\nCustomer information: Don't include, Optional, Required\n")
   const addr = { name: "Ana Pop", line1: "Strada Lungă 4", city: "Cluj", postalCode: "400001", country: "RO" }
@@ -284,15 +284,15 @@ async function channels() {
     ["lib/website-builder/storefront-data-server.ts", /offChannel\(db, creatorId, "storefront"\)/],
     ["app/api/website-builder/search/route.ts", /offChannel\(admin, creatorId, "storefront"\)/],
     ["lib/website-builder/site-seo-data.ts", /offChannel\(admin, creatorId, "storefront"\)/],
-    ["app/(marketing)/u/[username]/page.tsx", /offChannel\(createAdminClient\(\), creator\.id, "creator_page"\)/],
+    ["app/(storelib)/(marketing)/u/[username]/page.tsx", /offChannel\(createAdminClient\(\), creator\.id, "creator_page"\)/],
     ["lib/onepage/live-products.ts", /offChannel\(db, creatorId, "creator_page"\)/],
-    ["app/(marketing)/explore/page.tsx", /offChannelAmong\(createAdminClient\(\), products\.map\(\(p\) => p\.id\), "marketplace"\)/],
-    ["app/(marketing)/explore/[category]/page.tsx", /"marketplace"\)/],
+    ["app/(storelib)/(marketing)/explore/page.tsx", /offChannelAmong\(createAdminClient\(\), products\.map\(\(p\) => p\.id\), "marketplace"\)/],
+    ["app/(storelib)/(marketing)/explore/[category]/page.tsx", /"marketplace"\)/],
     ["app/api/v2/search/route.ts", /"marketplace"\)/],
   ]
   for (const [f, re] of surfaces) check(`  filtered on ${f}`, re.test(read(f)))
-  check("its link keeps working: the product page and checkout never ask the channels", !/offChannel/.test(read("app/(marketing)/p/[slug]/page.tsx")) && !/offChannel/.test(read("app/api/checkout/stripe-session/route.ts")) && !/offChannel/.test(read("lib/checkout/pricing.ts")))
-  const card = read("app/app/products/new/sales-channels-card.tsx")
+  check("its link keeps working: the product page and checkout never ask the channels", !/offChannel/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && !/offChannel/.test(read("app/api/checkout/stripe-session/route.ts")) && !/offChannel/.test(read("lib/checkout/pricing.ts")))
+  const card = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
   check("a new product saved before its card loaded still starts where Settings says", /if \(!loaded && !productId\) \{/.test(card) && /startingChannels\(d\.channels, d\.defaultKey\)/.test(card))
   const { setDefaultChannel, loadChannels, setProductChannels, productOff } = await import("@/lib/store/channels-server")
   const P = "a0000000-0000-4000-8000-0000000000aa"
@@ -343,7 +343,7 @@ async function taxes() {
   check("the cart checkout's Stripe line is the tax by its name, the order keeps the name", /product_data: \{ name: totals\.taxLabel \|\| "Tax" \}/.test(phys) && /tax_label: totals\.taxLabel[ ,}]/.test(phys))
   check("the single product checkout and the website checkout send it with the payment", /tax_label: tax && tax\.taxCents > 0 \? tax\.label : ""/.test(read("app/api/checkout/stripe-session/route.ts")) && /tax_label: tax\.label \}/.test(read("app/api/checkout/site/route.ts")))
   check("  and the order keeps it (part 153), on its own write", /update\(\{ tax_label: String\(m\.tax_label\)\.slice\(0, 80\) \}\)/.test(read("lib/checkout/fulfil-payment.ts")) && /update\(\{ tax_label: String\(ctx\.tax\.label\)\.slice\(0, 80\) \}\)/.test(read("lib/checkout/fulfil-cart-item.ts")))
-  check("every checkout page draws the name", /* Changed on purpose: in the visitor's language (ct). */ /t\.taxLabel \? ct\(t\.taxLabel\) : ct\("Tax"\)/.test(read("app/checkout/site/site-checkout.tsx")) && /includedTaxLabel\(t\.taxLabel\)/.test(read("app/checkout/physical/physical-checkout.tsx")) && /label: taxNow\?\.label/.test(read("app/checkout/checkout-client.tsx")))
+  check("every checkout page draws the name", /* Changed on purpose: in the visitor's language (ct). */ /t\.taxLabel \? ct\(t\.taxLabel\) : ct\("Tax"\)/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && /includedTaxLabel\(t\.taxLabel\)/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")) && /label: taxNow\?\.label/.test(read("app/(storelib)/checkout/checkout-client.tsx")))
   const sql = read("supabase/sql/run-now/153_store_business_and_tax_names.sql")
   check("SQL part 153: one statement a line, safe again, pgrst last", sql.trim().split("\n").every((l) => l.startsWith("/*") || l.endsWith(";")) && /ADD COLUMN IF NOT EXISTS legal jsonb/.test(sql) && /ADD COLUMN IF NOT EXISTS tax_label text/.test(sql) && sql.trim().endsWith("notify pgrst, 'reload schema';") && /p153_store_business_and_tax_names/.test(read("supabase/sql/run-now/99_check_after.sql")))
 

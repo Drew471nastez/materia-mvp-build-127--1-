@@ -21,7 +21,7 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
 
 const popover = read("components/website-builder/field-popover.tsx")
 const picker = read("components/website-builder/link-picker.tsx")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nThe link picker on a phone is a bottom sheet\n")
 {

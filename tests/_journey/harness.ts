@@ -204,7 +204,7 @@ export class Journey {
   async call<T = any>(route: string, opts: { as?: Person | null; body?: unknown; raw?: string; headers?: Record<string, string>; host?: string; cookies?: Record<string, string> } = {}): Promise<Answer<T>> {
     /*
       Paying on the website's checkout carries the total the page showed
-      (app/checkout/site/site-checkout.tsx: the quote's totals.totalCents in
+      (app/(storelib)/checkout/site/site-checkout.tsx: the quote's totals.totalCents in
       its currency), and the route refuses a payment without it. A journey
       that pays without saying one does what the page does: quotes the same
       basket first and sends that. One that sets shownTotal itself (to check

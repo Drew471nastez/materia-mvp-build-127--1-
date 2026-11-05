@@ -229,7 +229,7 @@ export const PRODUCT_TYPES: readonly Fact[] = [
     label: "Memberships and subscriptions",
     status: "partial",
     text: "Recurring payments are sold as paid community plans, monthly or yearly, billed through Stripe. A subscription to a single file or product is not offered as a new product type.",
-    source: "app/app/products/new/product-kinds.ts",
+    source: "app/(storelib)/app/products/new/product-kinds.ts",
     flag: "communities",
   },
   {
@@ -280,7 +280,7 @@ export const STOREFRONTS: readonly Fact[] = [
     label: "Creator page",
     status: "yes",
     text: "A store page at storelib.com/yourname with every product you publish.",
-    source: "app/(marketing)/[sellername]/page.tsx",
+    source: "app/(storelib)/(marketing)/[sellername]/page.tsx",
     help: "/help/website-builder/creator-page-website-onepage",
   },
   {
@@ -323,7 +323,7 @@ export const SELLING_TOOLS: readonly Fact[] = [
     label: "Email marketing",
     status: "yes",
     text: "Subscribers, emails to your list and automations, from the same dashboard as your orders.",
-    source: "app/app/emails",
+    source: "app/(storelib)/app/emails",
     help: "/help/email/send-an-email",
   },
   {
@@ -338,7 +338,7 @@ export const SELLING_TOOLS: readonly Fact[] = [
     label: "Discount codes",
     status: "yes",
     text: "Codes for a percent or an amount off.",
-    source: "app/app/coupons",
+    source: "app/(storelib)/app/coupons",
     help: "/help/products/coupons",
   },
   {
@@ -346,7 +346,7 @@ export const SELLING_TOOLS: readonly Fact[] = [
     label: "Bundles, upsells and quantity breaks",
     status: "yes",
     text: "Sets of products at a discount, a product suggested in the cart and at checkout, and tiers like Buy 2 get 1 free.",
-    source: "app/app/offers",
+    source: "app/(storelib)/app/offers",
     help: "/help/products/offers",
   },
   {
@@ -362,7 +362,7 @@ export const SELLING_TOOLS: readonly Fact[] = [
     label: "Variants",
     status: "yes",
     text: "Versions of one product, such as a personal and a commercial license, each with its own price and files.",
-    source: "app/app/products/new/variant-save.ts",
+    source: "app/(storelib)/app/products/new/variant-save.ts",
     help: "/help/products/variants",
   },
   {
@@ -370,14 +370,14 @@ export const SELLING_TOOLS: readonly Fact[] = [
     label: "Analytics",
     status: "yes",
     text: "Visitors, where they came from, and sales.",
-    source: "app/app/analytics",
+    source: "app/(storelib)/app/analytics",
   },
   {
     id: "gumroad-import",
     label: "Gumroad import",
     status: "partial",
     text: "Bring digital products over from Gumroad with an access token. They arrive as drafts; you upload the files again.",
-    source: "app/app/products/import/gumroad",
+    source: "app/(storelib)/app/products/import/gumroad",
   },
   {
     id: "ios-app",

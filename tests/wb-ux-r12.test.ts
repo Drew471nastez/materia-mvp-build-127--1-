@@ -56,7 +56,7 @@ console.log("\nAdd a block between two blocks")
 
 console.log("\nThe canvas and the imported theme's frame offer it")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const strip = read("components/website-builder/editor/canvas-block-insert.tsx")
   const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
   const compat = read("components/website-builder/compat/compat-canvas.tsx")

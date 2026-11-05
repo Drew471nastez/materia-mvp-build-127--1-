@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE PICTURE A SHARED COMMUNITY LINK SHOWS, DRAWN AND LOOKED AT
  * ===========================================================================
- * The real route (app/(marketing)/community/[slug]/share.png/route.tsx), the
+ * The real route (app/(storelib)/(marketing)/community/[slug]/share.png/route.tsx), the
  * real picture fetching and cutting (lib/communities/server/share-image.ts,
  * sharp) and the real art (components/community/public/share-card.tsx),
  * drawn by next/og exactly as the server draws them. Only the database and
@@ -64,7 +64,7 @@ export async function cardsFor(_db, list) { return list.map((c) => state.cards[c
 export async function fetchImageBytes(url) { const b = (globalThis.__pictures || {})[url]; return b ? new Uint8Array(b) : null }
 `)
   const entry = join(dir, "entry.ts")
-  writeFileSync(entry, `export { GET } from "../app/(marketing)/community/[slug]/share.png/route"\nexport { GET as COVER } from "../app/(marketing)/community/[slug]/cover.jpg/route"\n`)
+  writeFileSync(entry, `export { GET } from "../app/(storelib)/(marketing)/community/[slug]/share.png/route"\nexport { GET as COVER } from "../app/(storelib)/(marketing)/community/[slug]/cover.jpg/route"\n`)
   const stubs = join(dir, "stubs.js")
   await build({
     entryPoints: [entry],

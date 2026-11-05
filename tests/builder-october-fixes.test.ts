@@ -17,7 +17,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
 const read = (p: string) => readFileSync(p, "utf8")
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nAdd a section never shows a blank white card\n")
 const lib = read("components/website-builder/editor/section-library.tsx")

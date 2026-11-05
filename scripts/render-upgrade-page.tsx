@@ -7,7 +7,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 
-import UpgradeLayout from "@/app/app/settings/billing/upgrade/layout"
+import UpgradeLayout from "@/app/(storelib)/app/settings/billing/upgrade/layout"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { markLanded } from "@/lib/ui/app-navigation"
 

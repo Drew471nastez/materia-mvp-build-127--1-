@@ -43,7 +43,7 @@ console.log("\nA changed file redraws the sections that read it")
 
 console.log("\nThe open editor takes a push in one pass")
 {
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("} = useSiteActivity({"))
   check("only the files a push names are read, and they are applied at once", /readThemeTexts\(installId, sourcePaths\)/.test(handler) && /else files = await loadStorelibSources\(\{ hold: true \}\)/.test(handler) && /landRemote\(\); applyIncoming\(\); flush\(\)/.test(handler))
   check("one section file is drawn in place; a rewritten page or theme code is a fresh document", /if \(importedNow && \(themeCode \|\| replacedHere \|\| \(many && !catchUp\)\)\) setReplaceDocument/.test(handler))

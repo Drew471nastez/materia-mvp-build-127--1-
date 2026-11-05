@@ -320,7 +320,7 @@ async function main() {
   const server = readFileSync(join(process.cwd(), "lib/products/import/gumroad-server.ts"), "utf8")
   check("the importer writes drafts only", /status: "draft"/.test(server) && !/status: "published"/.test(server))
   check("the importer never logs", !/console\.(log|error|warn|info)/.test(server))
-  const client = readFileSync(join(process.cwd(), "app/app/products/import/gumroad/gumroad-import-client.tsx"), "utf8")
+  const client = readFileSync(join(process.cwd(), "app/(storelib)/app/products/import/gumroad/gumroad-import-client.tsx"), "utf8")
   check("the page keeps nothing in the browser's storage", !/localStorage|sessionStorage|indexedDB/.test(client))
   check("the page says files are not copied", client.includes("Files are not copied."))
   section("SQL part 344")

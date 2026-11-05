@@ -55,24 +55,24 @@ console.log("\nStorelib sells digital products\n")
 /* ── THE FRONT DOOR ──────────────────────────────────────────────────────── */
 
 /**
- * "/" is app/(marketing)/page.tsx again -- the file itself, restored verbatim
+ * "/" is app/(storelib)/(marketing)/page.tsx again -- the file itself, restored verbatim
  * from 95bb2f8f, not a wrapper re-exporting a parked copy.
  *
  * The pivot renamed this file to _legacy-landing.tsx and put a fashion feed in
  * its place; an earlier pass at the switch-back left the rename alone and added
- * app/(marketing)/(feed)/page.tsx to re-export it, which worked but meant the
+ * app/(storelib)/(marketing)/(feed)/page.tsx to re-export it, which worked but meant the
  * home page lived at a path Next.js only resolved to "/" by route-group
  * accident. Both the group and the parked copy are gone.
  */
-const home = code("app/(marketing)/page.tsx")
+const home = code("app/(storelib)/(marketing)/page.tsx")
 check(
   '"/" is the landing page file itself, not a wrapper around a parked copy',
   home.includes("StorelibLanding") &&
     !home.includes("_legacy-landing") &&
     !/ExploreFeed/.test(home) &&
-    gone("app/(marketing)/_legacy-landing.tsx") &&
-    gone("app/(marketing)/(feed)/page.tsx"),
-  "        app/(marketing)/page.tsx",
+    gone("app/(storelib)/(marketing)/_legacy-landing.tsx") &&
+    gone("app/(storelib)/(marketing)/(feed)/page.tsx"),
+  "        app/(storelib)/(marketing)/page.tsx",
 )
 
 check(
@@ -90,7 +90,7 @@ check(
     // The landing itself carries no metadata export -- it inherits the root
     // layout's, which is where the title and description live. Checking both,
     // so the claim is tested where it is actually made.
-    const root = code("app/layout.tsx")
+    const root = code("app/(storelib)/layout.tsx")
     return (
       /Sell Products & Grow Your Audience/.test(root) &&
       /sell digital products/i.test(root) &&
@@ -109,15 +109,15 @@ const REMOVED = [
   "lib/eawb.ts",
   "components/shipping",
   "app/api/shipping",
-  "app/checkout/livrare",
+  "app/(storelib)/checkout/livrare",
   "app/api/cron/shipping-awb",
   "lib/import",
   "app/api/import",
   "lib/marketplace/listing-taxonomy.ts",
   "lib/marketplace/department-nav.ts",
   "lib/marketplace/feed-filters.ts",
-  "app/(marketing)/shop",
-  "app/(marketing)/_explore-feed.tsx",
+  "app/(storelib)/(marketing)/shop",
+  "app/(storelib)/(marketing)/_explore-feed.tsx",
   "components/sell/new-listing-form.tsx",
   "components/checkout/marketplace-checkout.tsx",
   "app/api/listings",
@@ -139,7 +139,7 @@ check(
     // somebody restoring one file and not the rest.
     const FILES = [
       "lib/seo/sitemaps.ts",
-      "app/checkout/page.tsx",
+      "app/(storelib)/checkout/page.tsx",
       "app/api/checkout/stripe-session/route.ts",
       "components/platform/platform-header-client.tsx",
     ]
@@ -164,8 +164,8 @@ check(
     // into a file with nothing to zero. The property is the absence of postage,
     // not the presence of a zero.
     const files = [
-      "app/checkout/page.tsx",
-      "app/checkout/checkout-client.tsx",
+      "app/(storelib)/checkout/page.tsx",
+      "app/(storelib)/checkout/checkout-client.tsx",
       "app/api/checkout/stripe-session/route.ts",
       "app/api/checkout/process/route.ts",
     ]
@@ -220,7 +220,7 @@ check(
     // pre-pivot files and are deliberately left verbatim, so this is what stops
     // the shared copy drifting away from what the pages actually browse.
     const client = code("components/explore/explore-page-client.tsx")
-    const route = code("app/(marketing)/explore/[category]/page.tsx")
+    const route = code("app/(storelib)/(marketing)/explore/[category]/page.tsx")
     return CATEGORIES.every(
       (c) =>
         new RegExp(`id: "${c.id}"`).test(client) &&
@@ -267,7 +267,7 @@ check(
     // It redirected to "/" because "/" WAS the feed. "/" is a marketing page
     // now, so a redirect would send somebody asking to browse to the wrong
     // place entirely.
-    const src = code("app/(marketing)/explore/page.tsx")
+    const src = code("app/(storelib)/(marketing)/explore/page.tsx")
     return (
       !/redirect\(/.test(src) &&
       /from\("products"\)/.test(src) &&
@@ -304,8 +304,8 @@ check(
     return (
       !/source: '\/(pricing|features|faq)'/.test(block) &&
       !/website-builder/.test(block) &&
-      ["pricing", "features", "faq"].every((r) => !gone(`app/(marketing)/${r}/page.tsx`)) &&
-      !gone("app/app/website-builder")
+      ["pricing", "features", "faq"].every((r) => !gone(`app/(storelib)/(marketing)/${r}/page.tsx`)) &&
+      !gone("app/(storelib)/app/website-builder")
     )
   })(),
   "        next.config.mjs",
@@ -327,12 +327,12 @@ check(
     // category page is a real route now; this is what stops the two drifting
     // apart again.
     return (
-      !gone("app/(marketing)/explore/[category]/page.tsx") &&
-      !gone("app/(marketing)/explore/page.tsx") &&
-      ["pricing", "features", "faq", "blog"].every((r) => !gone(`app/(marketing)/${r}/page.tsx`))
+      !gone("app/(storelib)/(marketing)/explore/[category]/page.tsx") &&
+      !gone("app/(storelib)/(marketing)/explore/page.tsx") &&
+      ["pricing", "features", "faq", "blog"].every((r) => !gone(`app/(storelib)/(marketing)/${r}/page.tsx`))
     )
   })(),
-  "        app/(marketing)/explore/[category]/page.tsx",
+  "        app/(storelib)/(marketing)/explore/[category]/page.tsx",
 )
 
 check(
@@ -340,7 +340,7 @@ check(
   (() => {
     // An empty meta description wastes the page: it is what a search result
     // shows. One hand-written sentence per category, not a generated list.
-    const src = read("app/(marketing)/explore/[category]/page.tsx")
+    const src = read("app/(storelib)/(marketing)/explore/[category]/page.tsx")
     const block = src.slice(src.indexOf("CATEGORY_DESCRIPTIONS"))
     return CATEGORIES.filter((c) => c.id !== "all").every((c) =>
       new RegExp(`"${c.id}":\\s*\n?\\s*"`).test(block),

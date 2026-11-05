@@ -47,7 +47,7 @@ table; `lib/analytics/events.ts` `EVENT` maps a meaning to its stored name.
 | `view` | `pageView` | One real page navigation: a full page load, or a client side route change (Next `<Link>`, `router.push`, back and forward), of a creator page, a product page, a OnePage or any page of a website. With `product_id` set it is also a product view. |
 | `link_click` | `linkClick` | A OnePage link block was clicked (`link_id` is the block), or a link out of the page on the creator page or a website (`link_url` is the destination). New in part 61. |
 | `buy_click` | `buyClick` | Buy was pressed on a product (`components/checkout/*buy-button.tsx`, the website product section). |
-| `checkout_start` | `checkoutStart` | The checkout page opened for a product (`app/checkout/checkout-client.tsx`). |
+| `checkout_start` | `checkoutStart` | The checkout page opened for a product (`app/(storelib)/checkout/checkout-client.tsx`). |
 | `checkout_complete` | `checkoutComplete` | Allowed; no page sends it today. |
 | `download` | `download` | Allowed; no page sends it today. |
 | `purchase` | `purchase` | Written by the checkout when an order is paid (`lib/checkout/*`, the Stripe webhook). A marker only, with no amount. Count sales from `orders`. |
@@ -145,7 +145,7 @@ place is dropped.
    `store_theme_installs` with `status = 'published'`, first by `sort_order`,
    the query `lib/website-builder/published-site.ts` uses to draw it.
 6. A OnePage's `property_id` is found by `seller_id`, then `creator_id`, then
-   `owner_id` (the creator's user), as `app/(marketing)/l/[slug]` finds it.
+   `owner_id` (the creator's user), as `app/(storelib)/(marketing)/l/[slug]` finds it.
 
 A client sent `propertyId` or `propertyType` is never read. The answers are
 kept in memory for a minute per server instance.

@@ -101,7 +101,7 @@ const check = (label, ok, detail = "") => {
   else { failed++; console.log(`  FAIL  ${label}${detail ? `  (${detail})` : ""}`) }
 }
 
-/* The site's dark look too (app/layout.tsx imports it after globals.css; a source compile of globals.css does not have it). */
+/* The site's dark look too (app/(storelib)/layout.tsx imports it after globals.css; a source compile of globals.css does not have it). */
 const css = (await appCss(root)) + "\n" + readFileSync(join(root, "app/theme-dark.css"), "utf8")
 /* HERO_ONLY=hero or HERO_ONLY=header runs one half. */
 const ONLY = process.env.HERO_ONLY || ""

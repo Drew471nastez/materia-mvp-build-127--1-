@@ -1,11 +1,11 @@
 /**
  * The Emails list screen, rebuilt in the Orders page's language
- * (app/app/emails/emails-home.tsx). scripts/check-emails-page.mjs measures it
+ * (app/(storelib)/app/emails/emails-home.tsx). scripts/check-emails-page.mjs measures it
  * in a browser; this holds the structure that measurement depends on.
  */
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { listBehindShows } from "@/app/app/emails/list-return"
+import { listBehindShows } from "@/app/(storelib)/app/emails/list-return"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -16,13 +16,13 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p)
-const page = read("app/app/emails/emails-client.tsx")
-const home = read("app/app/emails/emails-home.tsx")
-const detail = read("app/app/emails/email-detail.tsx")
+const page = read("app/(storelib)/app/emails/emails-client.tsx")
+const home = read("app/(storelib)/app/emails/emails-home.tsx")
+const detail = read("app/(storelib)/app/emails/email-detail.tsx")
 const cache = read("components/email/emails-cache.ts")
 
 console.log("\nThe Emails screen")
-check("the page draws the list with EmailsHome, and new and edit open the composer", /<EmailsHome\n/.test(page) && /<ComposePage campaignId=\{null\} \/>/.test(read("app/app/emails/new/page.tsx")) && /<ComposePage campaignId=\{id\} \/>/.test(read("app/app/emails/edit/[id]/page.tsx")) && /<EmailComposer/.test(read("components/email/compose/compose-page.tsx")))
+check("the page draws the list with EmailsHome, and new and edit open the composer", /<EmailsHome\n/.test(page) && /<ComposePage campaignId=\{null\} \/>/.test(read("app/(storelib)/app/emails/new/page.tsx")) && /<ComposePage campaignId=\{id\} \/>/.test(read("app/(storelib)/app/emails/edit/[id]/page.tsx")) && /<EmailComposer/.test(read("components/email/compose/compose-page.tsx")))
 check("a send that is not simply done says so in the Sent list", /function SendBadge/.test(home) && /Partly sent/.test(home) && /Not sent/.test(home))
 check("the old pill tabs, stat boxes and flow cards are gone", !/Tabs - Pill Style/.test(page) && !/grid grid-cols-2 sm:grid-cols-4 gap-4/.test(page) && !/rounded-full transition-all whitespace-nowrap/.test(page))
 check("it is drawn with the Orders page's own parts", /from "\.\.\/orders\/order-parts"/.test(home) && /<PaneBar /.test(home) && /StatusBadge/.test(home))
@@ -44,7 +44,7 @@ check("fifty to a page", /const PAGE_SIZE = 50/.test(home))
 /* Five in the tables, and three in the phone rows (round 24: subscribers, messages, emails; an automation's phone row already had its own). */
 check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 8)
 check("and its trigger takes the menu's handlers, or the desktop dropdown never opens",
-  /trigger=\{<RowMenuButton /.test(home) && /export const RowMenuButton = React\.forwardRef<HTMLButtonElement/.test(read("app/app/orders/order-parts.tsx")) && /\{\.\.\.rest\}/.test(read("app/app/orders/order-parts.tsx")))
+  /trigger=\{<RowMenuButton /.test(home) && /export const RowMenuButton = React\.forwardRef<HTMLButtonElement/.test(read("app/(storelib)/app/orders/order-parts.tsx")) && /\{\.\.\.rest\}/.test(read("app/(storelib)/app/orders/order-parts.tsx")))
 check("a search box is 16px on a phone, so iOS does not zoom", /text-\[16px\][^"]*sm:text-\[13px\]/.test(home))
 check("a resend reads Sent again, not a raw (Resend) suffix", /Sent again/.test(home))
 check("no em dash in what it says", !home.replace(/\/\*[\s\S]*?\*\//g, "").includes("—"))
@@ -79,15 +79,15 @@ console.log("\nTables that scroll sideways under a frozen column")
   check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
   check("the frozen cells are the row's own opaque colour, hover and press included, and Orders' sticky cells, so a picked row's tint leaves them pinned",
     /const sticky = "orders-sticky sticky left-0 z-\[1\] bg-white[^"]*group-hover:bg-\[#fafbfb\][^"]*group-active:bg-\[#f4f5f7\][^"]*group-data-\[pressed=true\]:bg-\[#f4f5f7\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
-  const flow = read("app/app/emails/flow/[id]/builder.tsx")
+  const flow = read("app/(storelib)/app/emails/flow/[id]/builder.tsx")
   check("so does an automation's runs table", /<ScrollEdge>/.test(flow) && (flow.match(/data-scroll-edge="" className="sticky left-0 z-\[1\]/g) ?? []).length === 2)
-  const orders = read("app/app/orders/orders-list.tsx")
+  const orders = read("app/(storelib)/app/orders/orders-list.tsx")
   check("and the orders list, which had its own copy of the listener and the shadow",
     /<ScrollEdge className="orders-scroller">/.test(orders) && !/scrollerRef|orders-edge|data-overflow/.test(orders) && !/orders-edge|orders-scroller\[/.test(css))
   const walk = (dir: string): string[] =>
     readdirSync(join(process.cwd(), dir), { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".tsx") ? [`${dir}/${e.name}`] : [])
-  const offenders = [...walk("app/app"), ...walk("components/app")]
+  const offenders = [...walk("app/(storelib)/app"), ...walk("components/app")]
     .filter((f) => /<(td|th)\b[^>]*(sticky left-|orders-sticky)/.test(read(f)) && !/<ScrollEdge\b/.test(read(f)))
   check("no other table in /app freezes a column without it", offenders.length === 0, offenders.join(", "))
 }
@@ -103,7 +103,7 @@ console.log("\nAn email's page, opened over the list the way an order is")
       && /hasUAVisualTransition/.test(page) && /data-order-open=\{listCovered \? "" : undefined\}/.test(page) && /orders-pane orders-list page-scroll/.test(page)
       && /data-arrival="list"/.test(page) && /inert=\{!openId\}/.test(page) && !/visibility: listCovered/.test(page))
   check("the row it came from is marked like an order's row, so the eye lands where it left", /className=\{cn\("orders-row", pressable\)\}[^>]*data-order-id=\{c\.id\}/.test(home) && /markRow\(list, rowOf\(openId\), "held"\)/.test(page) && /markRow\(list, was && rowOf\(was\), "fading"\)/.test(page))
-  check("/app/emails/<id> lands on it", /redirect\(UUID\.test\(id\) \? `\/app\/emails\?tab=published&email=/.test(read("app/app/emails/[id]/page.tsx")))
+  check("/app/emails/<id> lands on it", /redirect\(UUID\.test\(id\) \? `\/app\/emails\?tab=published&email=/.test(read("app/(storelib)/app/emails/[id]/page.tsx")))
   check("the email is shown as it went out, in the sandboxed preview", /<EmailPreview/.test(detail) && /sandbox="allow-same-origin"/.test(read("components/email/compose/email-preview.tsx")))
   const report = read("app/api/email/campaigns/[id]/report/route.ts")
   check("its numbers come from the send's own rows, for the creator's own email only", /requireCreator\(\)/.test(report) && /\.eq\("creator_id", ctx\.creatorId\)/.test(report) && /countRecipients\(/.test(report) && /"opened_at", "is", null/.test(report))
@@ -121,8 +121,8 @@ console.log("\nAn email's page, opened over the list the way an order is")
 console.log("\nA contact, opened from its row")
 {
   const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
-  const detail = code("app/app/emails/contact-detail.tsx")
-  const homeCode = code("app/app/emails/emails-home.tsx")
+  const detail = code("app/(storelib)/app/emails/contact-detail.tsx")
+  const homeCode = code("app/(storelib)/app/emails/emails-home.tsx")
   check("a finger on the row, or a pointer resting on it as long as on an order's row, asks for the contact's runs",
     /\{\.\.\.press\(s\.id, \(\) => prefetchContact\(s\.email\)\)\}/.test(homeCode) && /onPointerDown: \(e: React\.PointerEvent<HTMLElement>\) => \{\s*intent\?\.\(\)/.test(homeCode)
       && /hover\.current = window\.setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(homeCode) && /import \{ HOVER_PREFETCH_MS \} from "\.\.\/orders\/order-prefetch"/.test(homeCode))
@@ -131,8 +131,8 @@ console.log("\nA contact, opened from its row")
   check("the tap waits for them, at most a moment, and the latest tap wins",
     /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{[\s\S]{0,200}?if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(e\) => openContact\(s, e\.currentTarget\)\}/.test(homeCode))
   check("it opens as its own page over the list, like an order: a real address, the bar, cards; no sheet or side panel",
-    /onOpenContact=\{onOpenContact\}/.test(code("app/app/emails/emails-client.tsx")) && /p\.set\("contact", s\.id\)/.test(code("app/app/emails/emails-client.tsx"))
-      && /<ContactPage/.test(code("app/app/emails/emails-client.tsx")) && /<OrderBarFrame/.test(detail) && !/BottomSheet|aside/.test(detail)
+    /onOpenContact=\{onOpenContact\}/.test(code("app/(storelib)/app/emails/emails-client.tsx")) && /p\.set\("contact", s\.id\)/.test(code("app/(storelib)/app/emails/emails-client.tsx"))
+      && /<ContactPage/.test(code("app/(storelib)/app/emails/emails-client.tsx")) && /<OrderBarFrame/.test(detail) && !/BottomSheet|aside/.test(detail)
       && /live\.current\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
   check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(contact\.email\)\} contact=\{contact\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
   /* Round 40: read on the server by the store (app/api/email/area); a failed read is null and is not kept. */
@@ -151,8 +151,8 @@ console.log("\nA contact, opened from its row")
 console.log("\nBack to the list is the list, as it was")
 {
   const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
-  const client = code("app/app/emails/emails-client.tsx")
-  const motion = code("app/app/orders/order-motion.ts")
+  const client = code("app/(storelib)/app/emails/emails-client.tsx")
+  const motion = code("app/(storelib)/app/orders/order-motion.ts")
   check("an email or a contact closed on a computer leaves the list whole at once: no half faded, 2px low settle",
     /\{ settle: settleIn = true \}: \{ settle\?: boolean \} = \{\}/.test(motion) && /done\?\.\(\)\s*if \(!settleIn\) return\s*for \(const layer of list\.children\)/.test(motion)
       && /\{ settle: false \}/.test(client))
@@ -177,8 +177,8 @@ console.log("\nBack to the list is the list, as it was")
 console.log("\nCustomers: buyers who did not ask for news")
 {
   const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
-  const homeCode = code("app/app/emails/emails-home.tsx")
-  const contact = code("app/app/emails/contact-detail.tsx")
+  const homeCode = code("app/(storelib)/app/emails/emails-home.tsx")
+  const contact = code("app/(storelib)/app/emails/contact-detail.tsx")
   check("a customer is shown as a Customer, in the list and on the contact, never as Unsubscribed",
     /if \(s\.status === "customer"\) return "Customer"/.test(contact) && /const label = contactStatusLabel\(s\)/.test(homeCode) && /const status = contactStatusLabel\(contact\)/.test(contact))
   check("Subscribers counts the list alone, and Customers the buyers who did not ask",

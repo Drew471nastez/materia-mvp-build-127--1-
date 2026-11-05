@@ -111,7 +111,7 @@ async function main() {
     const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string }> }
     check("  and that is every scheduled job", vercel.crons.every((c) => crons.includes(c.path.replace("/api/cron/", ""))), vercel.crons.map((c) => c.path).join(", "))
     check("old job runs and errors are forgotten", read("app/api/cron/storage-cleanup/route.ts").includes('rpc("storelib_purge_ops_logs", {})'))
-    const panel = read("app/admin/_console/view-platform.tsx")
+    const panel = read("app/(storelib)/admin/_console/view-platform.tsx")
     check("the admin lists the errors", panel.includes("<ErrorsPanel errors={data.errors} />") && read("lib/admin/views/system.ts").includes('"error_events"'))
   }
 

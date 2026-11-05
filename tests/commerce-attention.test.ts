@@ -202,7 +202,7 @@ async function main() {
   }
 
   console.log("\nWired in")
-  check("Home reads the counts with the rest, bounded", /within\(commerceActionCounts\(adminSupabase, creator\.id, now\), 2_000, null\)/.test(read("app/app/page.tsx")) && /initialAttention=\{attention\}/.test(read("app/app/page.tsx")))
+  check("Home reads the counts with the rest, bounded", /within\(commerceActionCounts\(adminSupabase, creator\.id, now\), 2_000, null\)/.test(read("app/(storelib)/app/page.tsx")) && /initialAttention=\{attention\}/.test(read("app/(storelib)/app/page.tsx")))
   check("and draws them under the readiness banner", /<AttentionList initial=\{initialAttention\}/.test(read("components/app/dashboard-client.tsx")))
   const list = read("components/app/home/attention-list.tsx")
   check("read again when the tab comes back, never on a timer", /visibilitychange/.test(list) && !/setInterval/.test(list) && /AGAIN_AFTER_MS = 30_000/.test(list))

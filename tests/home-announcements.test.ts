@@ -220,7 +220,7 @@ function main() {
   check("every button goes to a page in /app, or opens the share sheet", texts.every((a) => a.action === "share" || a.href.startsWith("/app/")), texts.map((a) => a.href))
 
   /* Home reads no order rows in the browser (a read stops at 1,000): the page counts every order on the server and reads only the last 30 days and the first few. */
-  console.log("\nthe sales without every order (salesSummaryFrom, app/app/page.tsx)")
+  console.log("\nthe sales without every order (salesSummaryFrom, app/(storelib)/app/page.tsx)")
   const history = [...Array.from({ length: 1200 }, (_, i) => order(40 + i / 10, 700)), ...Array.from({ length: 6 }, (_, i) => order(20 - i, 2500)), order(2, 60000), order(1, 90000)]
   const full = salesSummary(history, NOW)
   const recentRows = history.filter((o) => NOW - Date.parse(o.created_at) <= 30 * DAY)
@@ -232,7 +232,7 @@ function main() {
   const noTotals = salesSummaryFrom({ recent: recentRows, earliest: earliestRows, totals: null }, NOW)
   check("totals not counted: at least what was read, never less", noTotals.count === recentRows.length && same(noTotals.last30, full.last30))
   const banner = readFileSync(join(process.cwd(), "components/app/home/home-banner.tsx"), "utf8")
-  const page = readFileSync(join(process.cwd(), "app/app/page.tsx"), "utf8")
+  const page = readFileSync(join(process.cwd(), "app/(storelib)/app/page.tsx"), "utf8")
   check("the banner is handed the sales, and reads no orders itself",
     /sales: SalesSummary/.test(banner) && !/OrderRow|orders:/.test(banner)
     && /* Changed on purpose (round rel-db): no ECB download from the render. */ /creatorSalesRows\(adminSupabase, creator\.id, now(, \{ noFetch: true \})?\)/.test(page) && /salesSummaryFrom\(\{ \.\.\.bannerRows, totals: salesTotals \}, now\)/.test(page) && /bannerSales=\{bannerSales\}/.test(page))

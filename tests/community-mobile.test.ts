@@ -23,7 +23,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   else { failed++; console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail)}`}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const MEMBER = "app/(marketing)/community/[slug]/(member)"
+const MEMBER = "app/(storelib)/(marketing)/community/[slug]/(member)"
 
 console.log("\nGOING BACK: clear of the bars, by translate and scale")
 {
@@ -78,7 +78,7 @@ console.log("\n/account")
   const sub = read("components/account/settings-subpage.tsx")
   check("Settings opened from the profile's copy keeps a creator's flags, and is filled in once the whole read lands", /isSeller: base\?\.isSeller \?\? false/.test(sub) && /complete: false \}/.test(sub) && /key=\{full \? "full" : "seed"\}/.test(sub))
   check("a sheet reopened while the last slides out is not closed by the last one's timer", /setOpen\(\(cur\) => \(cur\?\.id === id \? null : cur\)\)/.test(sub))
-  check("/account has its own error boundary, so a throw keeps the header and the tab bar", existsSync(join(process.cwd(), "app/account/error.tsx")))
+  check("/account has its own error boundary, so a throw keeps the header and the tab bar", existsSync(join(process.cwd(), "app/(storelib)/account/error.tsx")))
   const bar = read("components/account/save-bar.tsx")
   check("the docked save bar's padding opens with its row, never in one jump", /data-account-save-track=""/.test(bar) && !/paddingTop: docked \? \(shown \? 8 : 0\)/.test(bar))
 }

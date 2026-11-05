@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { SWATCHES, safeColor } from "@/lib/email-campaigns/blocks"
 import { tt } from "@/lib/i18n/text"
 
-export { buttonAccent, buttonPrimary, buttonSecondary, card, iconButton, StatusBadge } from "@/app/app/orders/order-parts"
+export { buttonAccent, buttonPrimary, buttonSecondary, card, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
 
 /** 16px on a phone, or iOS zooms the page to type. */
 export const inputClass =

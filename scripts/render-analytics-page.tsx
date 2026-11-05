@@ -29,7 +29,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
+import { AnalyticsClient } from "@/app/(storelib)/app/analytics/analytics-client"
 import { AnalyticsSummaryFact, AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { LanguageProvider } from "@/lib/i18n/context"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"

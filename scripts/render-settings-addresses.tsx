@@ -1,7 +1,7 @@
 /**
  * The real Settings page on General, for scripts/check-settings-addresses.mjs:
  * the owner's account (andrewrullz, a published website called Luca
- * Dragoste) inside a shell shaped like app/app/layout.tsx.
+ * Dragoste) inside a shell shaped like app/(storelib)/app/layout.tsx.
  *
  * `?site=none` has no published website, `?site=sub` has one at the
  * username's subdomain, and `?site=domain` also has a domain connected to it

@@ -1,5 +1,5 @@
 /**
- * THE CHECKOUT'S OPTION PICKER, USED FOR REAL (app/checkout/parts/variant-edit.tsx)
+ * THE CHECKOUT'S OPTION PICKER, USED FOR REAL (app/(storelib)/checkout/parts/variant-edit.tsx)
  *
  * Mounts it in Chromium (scripts/render-variant-edit.tsx) on two lines, a
  * hoodie with Size and Colour and an ebook with two editions, and uses it:
@@ -63,7 +63,7 @@ try {
     folded === 0 ? ok("Done folds it away") : fail("the selects stayed after Done")
     await page.click(`${line("ebook")} [data-variant-edit-toggle]`)
     const edition = await page.$$eval(`${line("ebook")} select option`, (els) => els.map((o) => o.textContent))
-    /* In the currency checkout charges in (../app/checkout/parts/ui money), whatever this machine's platform currency is. */
+    /* In the currency checkout charges in (../app/(storelib)/checkout/parts/ui money), whatever this machine's platform currency is. */
     edition.length === 2 && /^Standard · .*15\.00$/.test(edition[0]) && /^Deluxe · .*29\.00$/.test(edition[1]) ? ok("the ebook offers its editions with their prices") : fail(`editions ${JSON.stringify(edition)}`)
     await page.select(`${line("ebook")} select`, "dlx")
     await new Promise((r) => setTimeout(r, 80))

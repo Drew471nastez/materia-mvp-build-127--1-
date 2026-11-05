@@ -165,7 +165,7 @@ const SHOTS = [
   { name: "order-shipped", phone: true, view: "order", q: "order=shipped", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
   { name: "order-pickup", view: "order", q: "order=pickup", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
   { name: "inventory-page", phone: true, view: "inventory", width: 1200, height: 760, clip: viewport(760) },
-  /* The website's checkout, on the site's own address (app/checkout/site), with a stand in for Stripe's card form. */
+  /* The website's checkout, on the site's own address (app/(storelib)/checkout/site), with a stand in for Stripe's card form. */
   {
     name: "checkout-ship", view: "site-checkout", width: 1200, height: 1500,
     act: [async (p) => {
@@ -194,7 +194,7 @@ const SHOTS = [
     clip: (p) => p.evaluate(() => { const h = [...document.querySelectorAll("h1")].find((e) => e.textContent.trim() === "Payouts"); return window.__rect([h, window.__card("Balance")], 16) }),
   },
   { name: "upsells-and-bundles", view: "offers", width: 1100, height: 760, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot h1"), document.querySelector("[data-offers-card]")], 24)) },
-  /* Round 24: an offer opened from the list, its editor and preview (app/app/offers/offer-editor.tsx). */
+  /* Round 24: an offer opened from the list, its editor and preview (app/(storelib)/app/offers/offer-editor.tsx). */
   { name: "offer-bundle-editor", view: "offers", width: 1100, height: 1400, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o1"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
   { name: "offer-quantity-break-editor", view: "offers", width: 1100, height: 1600, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o3"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
   { name: "website-commerce", view: "website-commerce", width: 1280, height: 860, clip: viewport(860), settle: 2500 },

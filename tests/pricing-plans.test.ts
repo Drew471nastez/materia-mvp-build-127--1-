@@ -54,8 +54,8 @@ const OFFER_SURFACES = [
   "lib/billing/plans.ts",
   "components/billing/plan-cards.tsx",
   "components/marketing/pricing-section.tsx",
-  "app/(marketing)/pricing/pricing-client.tsx",
-  "app/(marketing)/pricing/loading.tsx",
+  "app/(storelib)/(marketing)/pricing/pricing-client.tsx",
+  "app/(storelib)/(marketing)/pricing/loading.tsx",
   "components/app/billing/upgrade-page-client.tsx",
   "components/app/billing/billing-page-client.tsx",
   "components/billing/compare-plans.tsx",
@@ -79,7 +79,7 @@ const MENTION_SURFACES: Record<string, string[]> = {
   /* Changed on purpose (r40): the legal text moved to components/legal, shared by the pages and a OnePage's sheet. */
   "components/legal/terms-body.tsx": ["Growth Plan", "Professional Plan"],
   "components/legal/privacy-body.tsx": ["Growth plan", "Professional plan", "Growth, or Professional"],
-  "app/(marketing)/blog/[slug]/page.tsx": ["Growth Plan", "$19/mo", "$49/mo", "3% on Growth"],
+  "app/(storelib)/(marketing)/blog/[slug]/page.tsx": ["Growth Plan", "$19/mo", "$49/mo", "3% on Growth"],
 }
 
 function main() {
@@ -144,8 +144,8 @@ function main() {
       return false
     }
   }
-  const products = readCode("app/app/products/new/product-editor.tsx")
-  const analytics = readCode("app/app/analytics/page.tsx") + readCode("app/app/analytics/analytics-client.tsx")
+  const products = readCode("app/(storelib)/app/products/new/product-editor.tsx")
+  const analytics = readCode("app/(storelib)/app/analytics/page.tsx") + readCode("app/(storelib)/app/analytics/analytics-client.tsx")
   const fromTables = new Set([
     getFeeDescription("free"),
     getFeeDescription("growth"),
@@ -160,9 +160,9 @@ function main() {
     ["Everything in Free", true],
     /* Digital files and courses are the two product types there are, and no plan caps how many. */
     ["Unlimited digital products and courses", /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(readCode("lib/billing/plans.ts") + readCode("lib/storage/plans.ts"))],
-    [`A creator page and ${siteLimits("free").maxSites} websites`, exists("app/creator-page/page.tsx") && siteLimits("free").maxSites > 0],
-    ["Payouts to your bank through Stripe", /stripe_account_id/.test(readCode("lib/checkout/fulfil-payment.ts")) && exists("app/app/payouts/payouts-client.tsx")],
-    ["Email your buyers and subscribers", exists("app/app/emails/page.tsx") && exists("app/api/email/send/route.ts")],
+    [`A creator page and ${siteLimits("free").maxSites} websites`, exists("app/(storelib)/creator-page/page.tsx") && siteLimits("free").maxSites > 0],
+    ["Payouts to your bank through Stripe", /stripe_account_id/.test(readCode("lib/checkout/fulfil-payment.ts")) && exists("app/(storelib)/app/payouts/payouts-client.tsx")],
+    ["Email your buyers and subscribers", exists("app/(storelib)/app/emails/page.tsx") && exists("app/api/email/send/route.ts")],
     ["Sales and visitor analytics", /\S/.test(analytics) && !/subscription_plan_id|userPlan|isPro\b/.test(analytics)],
     ["Verified badge", true],
   ]
@@ -255,7 +255,7 @@ function main() {
   const section = readCode("components/marketing/pricing-section.tsx")
   check("the pricing section starts checkout with PRO_CHECKOUT_PLAN_ID", /onPlanSelect\(PRO_CHECKOUT_PLAN_ID\)/.test(section))
   check("and never names the pro id", !/["']pro["']/.test(section))
-  const client = readCode("app/(marketing)/pricing/pricing-client.tsx")
+  const client = readCode("app/(storelib)/(marketing)/pricing/pricing-client.tsx")
   check("/pricing posts the plan it was handed as planId", /body: JSON\.stringify\(\{\s*planId,/.test(client))
   check("and is typed to the growth id only", /type CheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID/.test(client) && !/["']pro["']/.test(client))
   const upgrade = readCode("components/app/billing/upgrade-page-client.tsx")
@@ -278,7 +278,7 @@ function main() {
   for (const route of ["app/api/billing/subscription/create/route.ts", "app/api/billing/subscription/change/route.ts"]) {
     check(`${route} still maps pro to its price`, /if \(planId === "pro"\) return PRICE_PRO/.test(readCode(route)))
   }
-  for (const file of ["lib/billing/overview.ts", "app/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts"]) {
+  for (const file of ["lib/billing/overview.ts", "app/(storelib)/app/settings/billing/upgrade/page.tsx", "app/api/billing/subscription/route.ts"]) {
     const code = readCode(file)
     check(`${file}: the pro fallback is still there`, /id: "pro",[\s\S]{0,40}price_cents: 9900/.test(code))
     check(`${file}: growth's fallback is 2900, not 2990`, /id: "growth",[\s\S]{0,40}price_cents: 2900/.test(code) && !/2990/.test(code))
@@ -367,7 +367,7 @@ function main() {
     /* One source for the art. */
     check("the pictures, their dimming and their grain are written in one place, PLAN_ART",
       /export const PLAN_ART: Record<OfferedPlanId/.test(cards) && /const look = PLAN_ART\[plan\.id\]/.test(cards) && /style=\{\{ filter: look\.filter \}\}/.test(cards))
-    const elsewhere = ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/marketing/pricing-section.tsx", "components/app/creator-onboarding-modal.tsx", "app/(marketing)/pricing/pricing-client.tsx"]
+    const elsewhere = ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/marketing/pricing-section.tsx", "components/app/creator-onboarding-modal.tsx", "app/(storelib)/(marketing)/pricing/pricing-client.tsx"]
       .filter((f) => /ChatGPT%20Image%20Sep%2025|PLAN_GRAIN|feTurbulence/.test(readCode(f)))
     check("no other offer surface draws its own picture or grain", elsewhere.length === 0, elsewhere.join(", "))
     const free = /free: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]

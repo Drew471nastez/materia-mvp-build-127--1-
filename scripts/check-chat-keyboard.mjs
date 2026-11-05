@@ -71,7 +71,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const css = await appCss(root)
 
 /* The fixture's sheet has to be the editor's AI sheet. */
-const editor = readFileSync(join(srcRoot, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+const editor = readFileSync(join(srcRoot, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
 const fixture = readFileSync(join(srcRoot, "scripts/render-chat-keyboard.tsx"), "utf8")
 const editorSheet = (editor.match(/\{isMobileView && aiMounted && \(\s*<MobileEditorSheet ([^>]*)>/) || [])[1] || ""
 const fixtureSheet = (fixture.match(/<MobileEditorSheet ([^>]*)>/) || [])[1] || ""

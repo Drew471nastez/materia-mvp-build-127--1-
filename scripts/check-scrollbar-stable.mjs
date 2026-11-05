@@ -15,7 +15,7 @@
  * no `--hide-scrollbars`, which puppeteer adds by default and which makes
  * every number here zero.
  *
- * The real AppStage and top bar over a shell shaped like app/app/layout.tsx
+ * The real AppStage and top bar over a shell shaped like app/(storelib)/app/layout.tsx
  * (scripts/render-scrollbar-stable.tsx), with the REAL Dashboard, Products
  * (three products, nothing to scroll), Orders (a hundred and thirty), Emails,
  * Coupons, Analytics, Payouts, Settings, Customers, the website list and the
@@ -239,7 +239,7 @@ const READ = `(() => {
     if (s.translate && s.translate !== "none") shift += parseFloat(s.translate.split(" ")[1] || "0") || 0
     if (s.transform && s.transform !== "none") shift += new DOMMatrixReadOnly(s.transform).m42
   }
-  /* An order or an email fading in over its list (app/app/orders/order-motion.ts):
+  /* An order or an email fading in over its list (app/(storelib)/app/orders/order-motion.ts):
      the list's own track is drawn under it, still, at full strength, in the
      same column, so what the eye sees is the track, and the two thumbs
      crossing. */

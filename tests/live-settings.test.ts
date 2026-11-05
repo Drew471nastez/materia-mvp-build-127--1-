@@ -83,7 +83,7 @@ console.log("\nWIRED")
   check("the slider's drag is a gesture: begun on the press, ended after its last value is sent", /beginLive\(\)/.test(slider) && /live\.current\.flush\(\)\s*endLive\(\)/.test(slider))
   const chip = read("components/website-builder/editor/color-chip.tsx")
   check("a colour dragged in the picker is a gesture too", /gesture\.begin\(\); handleSvPoint/.test(chip) && /gesture\.begin\(\); handleHuePoint/.test(chip))
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the editor's section, block and theme writers draw live during a gesture and defer their commit", /if \(isLive\(\)\) \{\s*setLiveSectionSetting/.test(page) && /setLiveBlockSetting\(sectionId, blockKey, key, value\)/.test(page) && /if \(isLive\(\)\) \{\s*setLiveThemeSetting/.test(page))
   check("only the section a value belongs to renders it", /const section = useLiveSection\(props\.section\)/.test(read("components/website-builder/sections/SectionRenderer.tsx")))
   /* Changed on purpose (round 34): onto the sections on screen while the finger is down, and onto the root once committed (canvasThemePatcher; tests/editor-live-edit-34.test.ts). */

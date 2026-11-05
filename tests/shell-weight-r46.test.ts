@@ -118,7 +118,7 @@ function chain(g: Map<string, string | null>, f: string): string {
 /** The client components the root layout and the marketing layout draw: every marketing page's first script. */
 function layoutClientEntries(): string[] {
   const out: string[] = []
-  for (const layout of ["app/layout.tsx", "app/(marketing)/layout.tsx"]) {
+  for (const layout of ["app/(storelib)/layout.tsx", "app/(storelib)/(marketing)/layout.tsx"]) {
     for (const m of read(layout).matchAll(/from "@\/((?:components|lib)\/[^"]+)"/g)) {
       for (const c of [`${m[1]}.tsx`, `${m[1]}.ts`]) {
         if (existsSync(join(ROOT, c)) && /^\s*"use client"/.test(read(c))) out.push(c)

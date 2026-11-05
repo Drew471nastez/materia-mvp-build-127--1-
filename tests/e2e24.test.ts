@@ -971,10 +971,10 @@ async function round24(j: Journey, c: Ctx) {
   check("buyers only ever see their reference (#XXXXXXXX), never the seller's #100x", seq.length === 0, seq.map((m) => [m.to, m.subject]))
 }
 
-/** The buyer's order page (app/checkout/physical/order/[token]), rendered as the server renders it. */
+/** The buyer's order page (app/(storelib)/checkout/physical/order/[token]), rendered as the server renders it. */
 async function renderBuyerPage(token: string): Promise<string> {
   try {
-    const { default: Page } = await import("@/app/checkout/physical/order/[token]/page")
+    const { default: Page } = await import("@/app/(storelib)/checkout/physical/order/[token]/page")
     const { renderToStaticMarkup } = await import("react-dom/server")
     const tree = await Page({ params: Promise.resolve({ token }), searchParams: Promise.resolve({}) })
     return renderToStaticMarkup(tree)
@@ -983,7 +983,7 @@ async function renderBuyerPage(token: string): Promise<string> {
   }
 }
 
-/** A product as the product editor writes it (app/app/products/new/product-editor.tsx), through the same database. */
+/** A product as the product editor writes it (app/(storelib)/app/products/new/product-editor.tsx), through the same database. */
 async function newProduct(j: Journey, creatorId: string, p: { type: string; title: string; priceCents: number; salesLimit?: number | null }): Promise<string> {
   const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   const [row] = j.db.insert(

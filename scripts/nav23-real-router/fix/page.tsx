@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Mounts } from "./mounts"
 /* A plain /app page: heading, a few cards, links the probe presses. */
 export function PlainPage({ title, rows = 8, pane = false }: { title: string; rows?: number; pane?: boolean }) {
-  /* `pane`: the list pages' own scroller and fade, as app/app/products/products-client.tsx draws them. */
+  /* `pane`: the list pages' own scroller and fade, as app/(storelib)/app/products/products-client.tsx draws them. */
   if (pane) return <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter"><PlainPage title={title} rows={rows} /></div>
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 lg:px-8" data-harness-page={title}>

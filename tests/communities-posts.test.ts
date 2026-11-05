@@ -392,7 +392,7 @@ async function main() {
   check("with a net under each: the page asks again while the stream is not joined", /if \(!joined && document\.visibilityState === "visible"\) poll\(\)/.test(dm) && /joined = status === "SUBSCRIBED"/.test(dm))
   check("chat spaces have the same net", /if \(!joined && document\.visibilityState === "visible"\) void catchUp\(\)/.test(code("components/community/member/chat.tsx")))
   const note = code("components/community/member/messages-setup-note.tsx")
-  check("staff are told in /app when only part 83 keeps the Messages button away", /missing\(error\) \? true : null/.test(note) && /<MessagesSetupNote chatEnabled=\{!!ctx\.community\.chat_enabled\} \/>/.test(code("app/app/community/[id]/page.tsx")) && /^import "server-only"/m.test(read("components/community/member/messages-setup-note.tsx")))
+  check("staff are told in /app when only part 83 keeps the Messages button away", /missing\(error\) \? true : null/.test(note) && /<MessagesSetupNote chatEnabled=\{!!ctx\.community\.chat_enabled\} \/>/.test(code("app/(storelib)/app/community/[id]/page.tsx")) && /^import "server-only"/m.test(read("components/community/member/messages-setup-note.tsx")))
 
   /* ── Round 9 ────────────────────────────────────────────────────────── */
   console.log("\nRound 9: rows, the sheet, the editor, the slider, GIFs")

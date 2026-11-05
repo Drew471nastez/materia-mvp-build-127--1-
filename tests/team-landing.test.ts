@@ -76,22 +76,22 @@ eq("  and with nothing: Discover, as before", destinationAfterAuth({ intent: nul
 
 console.log("\nThe wiring\n")
 {
-  const layout = read("app/app/layout.tsx")
+  const layout = read("app/(storelib)/app/layout.tsx")
   check("the dashboard asks appLanding with the memberships it already read, and adopts before /sell", /appLanding\(\{ acting: !!teamStore, ownAccess, memberships: memberOf\.length/.test(layout) && /if \(landing\.kind === "adopt"\) redirect\(landing\.to\)/.test(layout) && layout.indexOf('landing.kind === "adopt"') < layout.indexOf('redirect("/sell")'))
   check("  own access is the account's own store, never the team store's", /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(layout))
   check("  Back to my account opens their own home (ownAccountHref)", /ownHome=\{ownAccountHref\(\{ ownAccess, actingIn: acting\.creatorId \}\)\}/.test(layout) && /window\.location\.href = ownHome/.test(read("components/app/team-bar.tsx")))
   const pages = ["offers", "reviews", "files", "integrations", "inventory", "support", "products/collections", "coupons", "coupons/new", "coupons/[id]"]
-  const left = pages.filter((p) => /redirect\("\/sell"\)/.test(read(`app/app/${p}/page.tsx`)) || !/return noStorePage\("\/app\//.test(read(`app/app/${p}/page.tsx`)))
+  const left = pages.filter((p) => /redirect\("\/sell"\)/.test(read(`app/(storelib)/app/${p}/page.tsx`)) || !/return noStorePage\("\/app\//.test(read(`app/(storelib)/app/${p}/page.tsx`)))
   check("every /app page that sent a storeless account to /sell asks noStorePage instead", left.length === 0, left)
   const server = read("lib/team/server.ts")
   check("  noStorePage: in a team store, nothing (the team bar says what the role has); on a team, back into it; else /sell", /if \(acting\) return null/.test(server) && /if \(rows\.length > 0\) redirect\(teamHomeHref\(path\)\)/.test(server))
   const route = read("app/api/team/home/route.ts")
   check("/api/team/home writes the same cookie as accepting an invite, from the decision only", /teamHomeDecision\(/.test(route) && /res\.cookies\.set\(TEAM_STORE_COOKIE, decision\.store, \{ httpOnly: true, sameSite: "lax", secure: true, path: "\/", maxAge: 60 \* 60 \* 24 \* 90 \}\)/.test(route))
   check("  only memberships the database has, of stores that still exist", /\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server) && /memberRowsOf\(db, user\.id\)/.test(route))
-  const sell = read("app/(auth)/sell/page.tsx")
+  const sell = read("app/(storelib)/(auth)/sell/page.tsx")
   check("/sell's Not now goes back to the team store for a member", /sellLeaveHref\(\{/.test(sell) && /fallback: \[next, fromReferer\]\.find\(\(p\) => p && !isApp\(p\)\) \?\? BUYER_HOME/.test(sell))
   check("the switcher's own account opens its setup when it has no store (no bounce back into the team)", /openTeam\(null, b\.userId, ownAccountHref\(\{ ownAccess: b\.ready, actingIn: actingIn\.creatorId \}\)\)/.test(read("components/app/business-switcher.tsx")))
-  for (const f of ["app/auth/continue/route.ts", "app/auth/callback/route.ts"]) check(`${f} tells destinationAfterAuth about the team`, /destinationAfterAuth\(carry, access, \{ teamMember \}\)/.test(read(f)) && /const teamMember = !hasSellerAccess\(access\) && \(await onATeam\(/.test(read(f)))
+  for (const f of ["app/(storelib)/auth/continue/route.ts", "app/(storelib)/auth/callback/route.ts"]) check(`${f} tells destinationAfterAuth about the team`, /destinationAfterAuth\(carry, access, \{ teamMember \}\)/.test(read(f)) && /const teamMember = !hasSellerAccess\(access\) && \(await onATeam\(/.test(read(f)))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

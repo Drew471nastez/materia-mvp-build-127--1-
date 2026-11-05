@@ -9,7 +9,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import StoreEditorPage from "@/app/website-builder/editor/[installId]/page"
+import StoreEditorPage from "@/app/(storelib)/website-builder/editor/[installId]/page"
 import { EditorToaster } from "@/components/ui/editor-toaster"
 import { SlimScrollRail } from "@/components/website-builder/editor/slim-scroll-rail"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -334,7 +334,7 @@ declare global { interface Window { probeCalls: string[] } }
 window.probeCalls = calls
 
 /**
- * The builder's error boundary, as app/website-builder/error.tsx puts one over the editor: a throw while
+ * The builder's error boundary, as app/(storelib)/website-builder/error.tsx puts one over the editor: a throw while
  * drawing is kept in probeBoundary (the error screen a person would see), so a probe can count them.
  */
 class ProbeBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
@@ -352,7 +352,7 @@ const appRoot = createRoot(document.getElementById("app")!)
 appRoot.render(
   React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
     React.createElement(ProbeBoundary, null, React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) })),
-    /* The toasts, as app/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
+    /* The toasts, as app/(storelib)/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
     React.createElement(EditorToaster),
     /* PROBE_RAIL: the sidebar's drawn scrollbar, as the layout mounts it (scripts/check-editor-details-z1.mjs). */
     (window as unknown as { PROBE_RAIL?: boolean }).PROBE_RAIL ? React.createElement(SlimScrollRail) : null),

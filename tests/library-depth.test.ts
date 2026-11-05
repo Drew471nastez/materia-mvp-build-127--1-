@@ -193,8 +193,8 @@ async function main() {
 
   // ── The page and the shell around it ask once between them ───────────
   /** The runner runs compiled tests from the repository root, as the other suites assume. */
-  const page = readFileSync(join("app", "account", "library", "page.tsx"), "utf8")
-  const layout = readFileSync(join("app", "account", "library", "layout.tsx"), "utf8")
+  const page = readFileSync(join("app", "(storelib)", "account", "library", "page.tsx"), "utf8")
+  const layout = readFileSync(join("app", "(storelib)", "account", "library", "layout.tsx"), "utf8")
 
   check(
     "the library page reads downloads, profile and wishlist together",

@@ -65,7 +65,7 @@ const ROUTES = "app/api/website-builder/themes/[installId]/"
   res = await putJsonWithRetry("/x", { a: 1 })
   check("a gateway down for good: three tries, then its answer", res.status === 504 && seen.length === 3)
   globalThis.fetch = real
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   /* Changed on purpose (round 34): one writer of the draft (sendDraft), which autosave and publish both reach through the draft's queue. */
   check("autosave and publish both save through it", (editor.match(/putJsonWithRetry\(`\/api\/website-builder\/themes\/\$\{installId\}\/(settings|sections)`/g) ?? []).length === 2 && /const result = await draftQueue\.save\(snap\)/.test(editor) && /const written = await deadline\(draftQueue\.save\(snap\), PUBLISH_SAVE_MS/.test(editor)) /* Changed on purpose (r51): the save in front of Publish has an end. */
 

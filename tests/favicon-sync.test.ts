@@ -36,7 +36,7 @@ check("the imported theme's when the site has none", faviconOf({ ...imported, sh
 check("nothing a browser cannot fetch", faviconOf({ ...imported, shopify: { favicon: "shopify://shop_images/f.png" } }) === "")
 
 console.log("\nWired in")
-const editor = readFileSync("app/website-builder/editor/[installId]/page.tsx", "utf8")
+const editor = readFileSync("app/(storelib)/website-builder/editor/[installId]/page.tsx", "utf8")
 check("every settings write in the editor carries the other value in the same draft change", /const follows = faviconFollows\(settingsRef\.current as Record<string, unknown>, key, value\)/.test(editor) && /\.\.\.faviconFollows\(prev as Record<string, unknown>, key, value\)/.test(editor))
 check("Website settings shows the one value", /faviconOf\(ctx\.settings as Record<string, unknown>\)/.test(readFileSync("components/website-builder/website-settings/general.tsx", "utf8")))
 

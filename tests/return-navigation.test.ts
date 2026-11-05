@@ -38,7 +38,7 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
 
 /** Surfaces whose control names the page behind it. */
 const RETURNS: Array<[string, string]> = [
-  ["app/checkout/checkout-client.tsx", "Back to product"],
+  ["app/(storelib)/checkout/checkout-client.tsx", "Back to product"],
   /* The product's screen is drawn by its client component now. My Downloads
      became the library itself (it redirects there), and the wishlist sits
      under the library's own tabs, which is where "Library" is. */
@@ -110,13 +110,13 @@ function main() {
     check(`  and imports it`, /from "@\/components\/navigation\/return-link"/.test(src))
   }
   /* An order opens over the Orders list rather than on a route of its own
-     (app/app/orders/orders-client.tsx). Its back arrow has the same duty as
+     (app/(storelib)/app/orders/orders-client.tsx). Its back arrow has the same duty as
      a ReturnLink: when the order was opened from the list, it pops that
      entry instead of pushing the list again. */
-  const orders = read("app/app/orders/orders-client.tsx")
+  const orders = read("app/(storelib)/app/orders/orders-client.tsx")
   check("an order's back arrow pops the entry it pushed", /if \(pushed\.current\) backThen\(closeOver\)/.test(orders) && /const closeOver = \(\) => writeAddress\(\(p\) => p\.delete\("order"\), "replace"\)/.test(orders))
   check("  and opening one pushes exactly one entry", /writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(orders))
-  check("the old order address still lands on the order", /redirect\(`\/app\/orders\?order=/.test(read("app/app/orders/[id]/page.tsx")))
+  check("the old order address still lands on the order", /redirect\(`\/app\/orders\?order=/.test(read("app/(storelib)/app/orders/[id]/page.tsx")))
 
   /*
     BACK TO A LIST LANDS NOTHING. Emails first, then Orders, Products and
@@ -127,10 +127,10 @@ function main() {
     scripts/check-lists-back.mjs measures it frame by frame.
   */
   for (const [file, returning] of [
-    ["app/app/emails/emails-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
-    ["app/app/orders/orders-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
-    ["app/app/products/products-client.tsx", /const \[returning\] = useState\(isReturning\)/],
-    ["app/app/coupons/coupons-client.tsx", /const \[returning\] = useState\(isReturning\)/],
+    ["app/(storelib)/app/emails/emails-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
+    ["app/(storelib)/app/orders/orders-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
+    ["app/(storelib)/app/products/products-client.tsx", /const \[returning\] = useState\(isReturning\)/],
+    ["app/(storelib)/app/coupons/coupons-client.tsx", /const \[returning\] = useState\(isReturning\)/],
   ] as const) {
     const src = read(file)
     check(`${file}: a return is the list as it was, with no landing`,
@@ -141,7 +141,7 @@ function main() {
 
   /* The reported one specifically: it was an <a href>, which is a full
      document load AS WELL AS a push. */
-  const checkout = read("app/checkout/checkout-client.tsx")
+  const checkout = read("app/(storelib)/checkout/checkout-client.tsx")
   check(
     "the checkout's control is no longer a bare anchor",
     !/<a href=\{productUrl\}/.test(checkout),
@@ -163,8 +163,8 @@ function main() {
   )
   check(
     "and the old checkout receipt address forwards to the one receipt",
-    /redirect\(`\/receipt\/\$\{token\}`\)/.test(read("app/checkout/receipt/page.tsx")) &&
-      !existsSync(join(process.cwd(), "app/checkout/receipt/checkout-receipt-client.tsx")),
+    /redirect\(`\/receipt\/\$\{token\}`\)/.test(read("app/(storelib)/checkout/receipt/page.tsx")) &&
+      !existsSync(join(process.cwd(), "app/(storelib)/checkout/receipt/checkout-receipt-client.tsx")),
   )
 
   /* ---------------------------------------------------------------------
@@ -235,7 +235,7 @@ function main() {
     pressing back there would take them somewhere else entirely. They stay
     links, and this records that it was a decision rather than an oversight.
   */
-  for (const f of ["app/not-found.tsx", "app/(auth)/request/page.tsx"]) {
+  for (const f of ["app/(storelib)/not-found.tsx", "app/(storelib)/(auth)/request/page.tsx"]) {
     if (!existsSync(join(process.cwd(), f))) continue
     check(`${f} keeps a plain link`, !/<ReturnLink/.test(read(f)))
   }

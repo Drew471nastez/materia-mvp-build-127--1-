@@ -38,7 +38,7 @@ export const shopify: Competitor = {
     { text: "Built for digital products from the start: files and courses are product types, not an app added to a store made for parcels.", code: "lib/billing/plans.ts" },
     { text: `No monthly fee on Free. Shopify's cheapest listed plan is $39 a month billed monthly; Storelib Pro is ${STORELIB.proPrice}.`, code: "lib/billing/plans.ts" },
     { text: "A bio link page, a creator page and a website from one account, without installing apps.", code: "lib/onepage/address.ts" },
-    { text: "Email campaigns, discount codes, bundles and upsells are part of Storelib rather than separate apps.", code: "app/app/offers" },
+    { text: "Email campaigns, discount codes, bundles and upsells are part of Storelib rather than separate apps.", code: "app/(storelib)/app/offers" },
   ],
   whenToStay: [
     { text: "You ship physical products at volume and depend on Shopify's inventory, shipping and point of sale.", sources: ["shopify-pricing"], status: "verified" },
@@ -57,14 +57,14 @@ export const shopify: Competitor = {
     { text: "Digital delivery needs an app rather than being part of the product.", sources: ["shopify-digital-app"], status: "verified" },
   ],
   storelibStrengths: [
-    { text: "Digital products and courses without apps.", code: "app/app/courses" },
+    { text: "Digital products and courses without apps.", code: "app/(storelib)/app/courses" },
     { text: `A free plan, and Pro at ${STORELIB.proPrice} a month.`, code: "lib/billing/plans.ts" },
     { text: "OnePage for your bio link and a creator page, on top of the website.", code: "lib/onepage/address.ts" },
   ],
   storelibLimits: [
     { text: "Storelib takes a percentage of each sale; Shopify Payments takes none beyond its card rate.", code: "lib/payments/fees/defaults.ts" },
     { text: "Physical selling is newer on Storelib and built for creators, not warehouses.", code: "lib/platform/physical-commerce.ts", flag: "physical", textOff: "Storelib does not sell physical products today: it is built for digital products and courses." },
-    { text: "No app store: what Storelib does is what is built in.", code: "app/app/integrations" },
+    { text: "No app store: what Storelib does is what is built in.", code: "app/(storelib)/app/integrations" },
     { text: "No point of sale for selling in person.", code: "lib/platform/physical-commerce.ts" },
   ],
   features: [

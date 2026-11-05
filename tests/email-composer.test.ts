@@ -41,17 +41,17 @@ const editor = code("components/email/compose/block-editor.tsx")
 const bar = code("components/email/compose/format-bar.tsx")
 const text = code("components/email/compose/text-block.tsx")
 const layer = code("components/email/compose/preview-layer.tsx")
-const home = code("app/app/emails/emails-home.tsx")
+const home = code("app/(storelib)/app/emails/emails-home.tsx")
 
 console.log("\nFull screen on a phone")
-for (const route of ["app/app/emails/new/layout.tsx", "app/app/emails/edit/[id]/layout.tsx"]) {
+for (const route of ["app/(storelib)/app/emails/new/layout.tsx", "app/(storelib)/app/emails/edit/[id]/layout.tsx"]) {
   const l = code(route)
   check(`${route}: a phone layer with no nav pill, padding the status bar itself`, /<PageLayer inset="page" phoneOnly>\{children\}<\/PageLayer>/.test(l) && !/\bpill\b/.test(l))
 }
-check("the automation pages too", /<PageLayer inset="bar" phoneOnly>/.test(code("app/app/emails/flow/layout.tsx")) && !/\bpill\b/.test(code("app/app/emails/flow/layout.tsx")))
+check("the automation pages too", /<PageLayer inset="bar" phoneOnly>/.test(code("app/(storelib)/app/emails/flow/layout.tsx")) && !/\bpill\b/.test(code("app/(storelib)/app/emails/flow/layout.tsx")))
 check("the list opens them with the layer's move", /onClick=\{layerLinkClick\(router, "\/app\/emails\/new"\)\}/.test(home) && /onClick=\{layerLinkClick\(router, "\/app\/emails\/flow\/new"\)\}/.test(home) && /openLayer\(router, `\/app\/emails\/edit\/\$\{c\.id\}`\)/.test(home) && /openLayer\(router, href\(f\)\)/.test(home))
-check("and they leave with it", /leaveLayer\(\(\) => \{/.test(code("components/email/compose/compose-page.tsx")) && /leaveLayer\(\(\) => \{/.test(code("app/app/emails/flow/[id]/builder.tsx")) && /leaveLayer\(\(\) => \{/.test(code("app/app/emails/flow/new/chooser.tsx")))
-check("the move is page-layer's own, not a second one here", /moveLayer\("enter"/.test(code("app/app/emails/layer-nav.ts")) && /moveLayer\("leave"/.test(code("app/app/emails/layer-nav.ts")))
+check("and they leave with it", /leaveLayer\(\(\) => \{/.test(code("components/email/compose/compose-page.tsx")) && /leaveLayer\(\(\) => \{/.test(code("app/(storelib)/app/emails/flow/[id]/builder.tsx")) && /leaveLayer\(\(\) => \{/.test(code("app/(storelib)/app/emails/flow/new/chooser.tsx")))
+check("the move is page-layer's own, not a second one here", /moveLayer\("enter"/.test(code("app/(storelib)/app/emails/layer-nav.ts")) && /moveLayer\("leave"/.test(code("app/(storelib)/app/emails/layer-nav.ts")))
 check("on a phone Preview and Send are at the foot, and step aside while typing", /data-compose-foot=""/.test(composer) && /inert=\{typing\}/.test(composer) && /md:hidden/.test(composer.slice(composer.indexOf("data-compose-foot"), composer.indexOf("data-compose-foot") + 600)))
 check("the foot clears the home indicator", /pb-\[calc\(10px\+env\(safe-area-inset-bottom,0px\)\)\]/.test(composer))
 

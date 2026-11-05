@@ -197,17 +197,17 @@ async function main() {
   console.log("\nThe route and the page, read")
   /*
     Changed on purpose (round R4): the page a website's cart is paid on is the
-    website's own checkout at https://<site host>/checkout (app/checkout/site),
+    website's own checkout at https://<site host>/checkout (app/(storelib)/checkout/site),
     with Storelib's card form, not storelib.com/checkout/cart with Stripe's
     embedded form. storelib.com/checkout/cart only sends old links on. What
     this section protected is pinned on the new page: the server's prices,
     one shop, something that ships handled, readiness, Back held to the shop.
   */
   const route = code("app/api/checkout/cart/route.ts")
-  const oldPage = code("app/checkout/cart/page.tsx")
-  const page = code("app/checkout/site/page.tsx")
+  const oldPage = code("app/(storelib)/checkout/cart/page.tsx")
+  const page = code("app/(storelib)/checkout/site/page.tsx")
   const quote = code("lib/checkout/site-quote-server.ts")
-  const client = code("app/checkout/site/site-checkout.tsx")
+  const client = code("app/(storelib)/checkout/site/site-checkout.tsx")
   check("the website's own request gets its own checkout's address, after every check and before any Stripe session", route.lastIndexOf("siteCheckoutHref({") > route.indexOf("checkoutReadyForCreator(creator.id as string)") && route.lastIndexOf("siteCheckoutHref({") < route.indexOf("stripe.checkout.sessions.create"))
   check("  a cart that ships from the site goes to that same checkout, which asks for the address", route.indexOf("siteCheckoutHref({") > route.indexOf('decision.kind === "ships"') && /* Changed on purpose (round 13): the shipped lines given back their personalization answers first (lib/products/personalization itemsWithAnswers). */ /const shipped = itemsWithAnswers\(decision\.items, body\.items\)/.test(route) && /items: shipped/.test(route))
   check("  carrying only the lines that priced", /kept\.has\(`\$\{i\.productId\}::\$\{i\.variantId \?\? ""\}`\)/.test(route))
@@ -226,7 +226,7 @@ async function main() {
 
   console.log("\nThe physical checkout, branded and paid in the page")
   const phys = code("lib/physical/checkout-server.ts")
-  const physPage = code("app/checkout/physical/physical-checkout.tsx")
+  const physPage = code("app/(storelib)/checkout/physical/physical-checkout.tsx")
   const physRoute = code("app/api/physical/checkout/route.ts")
   check("its session can be Stripe's form inside the page", /ui_mode: "embedded" as const,\s*return_url: `\$\{input\.platformOrigin\}\/api\/physical\/checkout\/complete/.test(phys) && /embedded: body\.ui === "embedded"/.test(physRoute))
   check("the page draws the shop's bar and mounts the form after Pay", /<ShopBar brand=\{bar\}/.test(physPage) && /setPayment\(\{ clientSecret: data\.clientSecret \}\)/.test(physPage) && /<EmbeddedCheckoutProvider key=\{payment\.clientSecret\}/.test(physPage))

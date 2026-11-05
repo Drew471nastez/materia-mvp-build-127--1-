@@ -187,7 +187,7 @@ async function main() {
   for (const u of ["https://andrew.storelib.com/products/x", "https://loudlib.shop/products/x", "https://storelib.com/l/andrew", "https://storelib.com/andrew/links", "https://storelib.com/app/products", "https://storelib.com/checkout?productId=1", "", "not a url"]) {
     check(`not the marketplace: ${u || "(none)"}`, !marketplaceReferrer(u, M))
   }
-  check("checkout charges dollars for a storelib.com page without the tag, never for a website (?site=)", /const onMarketplace = ctx === "mp" \|\| \(!ctx && !site && marketplaceReferrer\(requestHeaders\.get\("referer"\)/.test(readFileSync(join(process.cwd(), "app/checkout/page.tsx"), "utf8")))
+  check("checkout charges dollars for a storelib.com page without the tag, never for a website (?site=)", /const onMarketplace = ctx === "mp" \|\| \(!ctx && !site && marketplaceReferrer\(requestHeaders\.get\("referer"\)/.test(readFileSync(join(process.cwd(), "app/(storelib)/checkout/page.tsx"), "utf8")))
 
   /* The bank statement follows the store's name. */
   check("statement: no name typed uses the store's name", pickStatementName({ custom: null, storeName: "Offgrid Sounds", displayName: "Andrew", slug: "andrewrullz" }) === "OFFGRID")

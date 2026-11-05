@@ -40,11 +40,11 @@ console.log("\nPrices in the store's currency")
   check("yen has no decimals", formatStoreMoney(250000, "JPY") === "¥2,500" && moneyPlaceholder("JPY") === "0")
   check("anything unreadable is US dollars", storeCurrencyOf(null) === "USD" && storeCurrencyOf("dollars") === "USD" && storeCurrencyOf(" ron ") === "RON")
   check("a longer mark gets more room", markInset("CAD") > markInset("USD") && markInset("RON") > markInset("USD"))
-  const loader = read("app/app/products/load-editor.ts")
+  const loader = read("app/(storelib)/app/products/load-editor.ts")
   /* Changed on purpose: a typed price is charged in the platform's currency (lib/store/shop-money.ts), so that is
      the one its field shows. The payout currency is where the money goes, and it used to be shown over lei. */
   check("the editor's price fields are in the currency a price is charged in, not the payout currency", /* Changed on purpose: the store's own currency. */ /currency: store\.currency,/.test(loader) && !/payout_currency/.test(loader.replace(/\/\*[\s\S]*?\*\//g, "")))
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("no price field in the editor prints a bare $", !/>\$<\/span>/.test(editor) && /\{priceMark\.node\}/.test(editor) && /<StoreCurrencyProvider currency=\{creator\.currency\}>/.test(editor))
   const ui = read("components/physical/ui.tsx")
   check("the physical cards' price field takes the store's mark", /useMoneyMark\(/.test(ui) && !/>\s*\$\s*<\/span>/.test(ui))
@@ -104,7 +104,7 @@ console.log("\nWho ships it: the store's setting, unless the product has its own
 
 console.log("\nSales channels a physical product sells on")
 {
-  const ch = read("app/app/products/new/sales-channels-card.tsx")
+  const ch = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
   check("Creator page and Explore are not listed for a physical product", /const shown = physical \? loaded\.channels\.filter\(forPhysical\) : loaded\.channels/.test(ch))
   check("a new one never starts on no channel when Settings starts new products on the creator page", /physical \? startingChannels\(d\.channels\.filter\(forPhysical\), d\.defaultKey\)/.test(ch))
   check("the API is unchanged: the same PUT with the channels it is off", /body: JSON\.stringify\(\{ productId: id, off \}\)/.test(ch))
@@ -125,7 +125,7 @@ console.log("\nCustom fields, typed")
   check("a field saved before types reads as hidden text", JSON.stringify(readCustomFields({ isbn: "978" })[0]) === JSON.stringify({ key: "isbn", value: "978", label: "Isbn", type: "text", show: false, pos: 1000 }) && fieldRows({ isbn: "978" })[0].show === false)
   check("a wrong value says why", fieldProblem({ key: "Guide", value: "nope", type: "url" }) === "Guide should be a link starting with https://" && fieldProblem({ key: "Pages", value: "12a", type: "number" }) === "Pages should be a number" && fieldProblem({ key: "", value: "x" }) !== null && fieldProblem({ key: "", value: "" }) === null)
   check("javascript: is not a link", fieldProblem({ key: "Guide", value: "javascript:alert(1)", type: "url" }) !== null)
-  const editor = read("app/app/products/new/product-editor.tsx")
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("Save stops on a field that does not fit its type, and saves the typed shape", /customFields\.map\(fieldProblem\)/.test(editor) && /custom_fields: storedCustomFields\(customFields\)/.test(editor))
 }
 
@@ -141,7 +141,7 @@ console.log("\nCategories: found by the words people use, and used by collection
 
 console.log("\nThe product's questions and details reach the buyer")
 {
-  const page = read("app/(marketing)/p/[slug]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("creator page product view: no download answers or Lifetime access on a physical product", /if \(product\.type === "physical"\) return \[\]/.test(page) && /product\.type === "physical"\s*\? configFaqs/.test(page) && /displayFaqs\.length > 0 \? \(/.test(page))
   check("  and its shown custom fields under Details", /data-details-section/.test(page) && /shownCustomFields\(/.test(page))
   const schema = JSON.parse(read("themes/default/sections/product.json")) as { blocks: { type: string }[]; presets: { blocks: { type: string }[] }[] }

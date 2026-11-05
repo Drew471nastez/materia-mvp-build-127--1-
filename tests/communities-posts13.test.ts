@@ -162,12 +162,12 @@ async function main() {
   console.log("\n7. Share")
   check("the app's Share plugin, else navigator.share, else the link copied", /native\.Plugins\.Share\.share\(/.test(card) && /navigator\.share\(ios \? \{ title/.test(card) && /navigator\.clipboard\.writeText\(url\)/.test(card) && /"cancelled"/.test(card))
   check("Share post and Copy link in the menu; Share in the opened post", /label: "Share post"/.test(card) && /label: "Copy link"/.test(card) && /data-share-post=""/.test(card))
-  check("the shared link's picture card carries the post's first picture", /sharePicture\(firstPicture\(facts\.post\.media\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")))
+  check("the shared link's picture card carries the post's first picture", /sharePicture\(firstPicture\(facts\.post\.media\)/.test(code("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")))
 
   /* ── 8 ─────────────────────────────────────────────────────────────── */
   console.log("\n8. A public post for somebody who is not a member")
-  const layout = code("app/(marketing)/community/[slug]/(member)/layout.tsx")
-  const postPage = code("app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
+  const layout = code("app/(storelib)/(marketing)/community/[slug]/(member)/layout.tsx")
+  const postPage = code("app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
   check("a reader who is not a member is sent to About, posts included", /if \(page\.state === "signed_out" \|\| page\.state === "not_member"\) \{\s*redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout) && /POST_PATH = \/\^\\\/community\\\/\[\^\/\?#\]\+\\\/post\\\//.test(layout))
   check("a public post's metadata is not forced noindex by the member layout", /export async function generateMetadata/.test(layout) && /if \(await publicPostOpen\(slug\)\) return \{\}/.test(layout))
   check("and nothing else: every other page still goes to About", /redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout))
@@ -275,8 +275,8 @@ async function main() {
     "lib/communities/server/feed.ts",
     "lib/communities/server/comments.ts",
     "lib/communities/server/realtime.ts",
-    "app/(marketing)/community/[slug]/(member)/layout.tsx",
-    "app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/layout.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx",
   ]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders.join(", "))

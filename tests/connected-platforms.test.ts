@@ -610,8 +610,8 @@ async function main() {
   console.log("\n11. The pages\n")
   {
     check("Integrations lists Brevo, MailerLite and Kit as connectable, never Coming soon", ["brevo", "mailerlite", "kit"].every((id) => { const i = INTEGRATIONS.find((x) => x.id === id); return !!i && i.appId === "marketing_sync" && i.marketingProvider === id && !i.comingSoon }))
-    const tab = read("app/app/emails/emails-home.tsx")
-    check("Emails has a Platforms tab drawing the connected platforms", /\{ id: "platforms"/.test(tab) && /<ConnectedPlatforms /.test(tab) && /"platforms"/.test(read("app/app/emails/page.tsx")))
+    const tab = read("app/(storelib)/app/emails/emails-home.tsx")
+    check("Emails has a Platforms tab drawing the connected platforms", /\{ id: "platforms"/.test(tab) && /<ConnectedPlatforms /.test(tab) && /"platforms"/.test(read("app/(storelib)/app/emails/page.tsx")))
     const ui = read("components/email/connected-platforms.tsx")
     check("  the panel shows no key, only what the server answers", !/apiKey|secret_ciphertext/.test(ui))
     check("SQL 341: the provider checks and email_sending_domains", /mailerlite/.test(read("supabase/sql/run-now/341_connected_email_platforms.sql")) && /email_sending_domains/.test(read("supabase/sql/run-now/341_connected_email_platforms.sql")) && /p341_connected_email_platforms/.test(read("supabase/sql/run-now/99_check_after.sql")))

@@ -228,23 +228,23 @@ function main() {
 
     console.log("\n  the live page resolves its blocks, every render")
 
-    const route = strip(read("app/(marketing)/l/[slug]/page.tsx"))
+    const route = strip(read("app/(storelib)/(marketing)/l/[slug]/page.tsx"))
     /* Through liveBlocksFor: withLiveProducts once per request for the metadata and the body (lib/onepage/published-page.ts). */
     check("the OnePage route reads the products", /liveBlocksFor\(/.test(route) && /withLiveProducts\(/.test(strip(read("lib/onepage/published-page.ts"))))
     check("and puts the answer back into the blocks it draws",
       /transformedOnepage\.blocks = await liveBlocksFor\(/.test(route))
     check("on a route that is not cached, so a delete shows at once", /export const dynamic = "force-dynamic"/.test(route))
     check("the handle's address draws the same route, so it is fixed too",
-      /import PublicOnePageRoute/.test(read("app/(marketing)/[sellername]/links/page.tsx")))
+      /import PublicOnePageRoute/.test(read("app/(storelib)/(marketing)/[sellername]/links/page.tsx")))
 
     console.log("\n  every other public surface asks the product row for its status")
 
     const published2 = (file: string) => /\.eq\("status", "published"\)/.test(read(file))
-    check("the creator page", published2("app/(marketing)/u/[username]/page.tsx"))
+    check("the creator page", published2("app/(storelib)/(marketing)/u/[username]/page.tsx"))
     check("the product page's shared read", published2("lib/commerce/product-page-cache.ts"))
     check("the product page's own read", published2("lib/commerce/product-page-data.ts"))
-    check("explore", published2("app/(marketing)/explore/page.tsx"))
-    check("explore by category", published2("app/(marketing)/explore/[category]/page.tsx"))
+    check("explore", published2("app/(storelib)/(marketing)/explore/page.tsx"))
+    check("explore by category", published2("app/(storelib)/(marketing)/explore/[category]/page.tsx"))
     check("the built website's shop", published2("lib/website-builder/shop-products.ts"))
     check("the products a website section picked by hand", published2("lib/website-builder/storefront-data-server.ts"))
     check("the website's own product page", published2("components/website-builder/theme/render-product.tsx"))
@@ -254,7 +254,7 @@ function main() {
     check("and an archived product is not offered to a search engine",
       /p\.status !== "published" \|\| p\.archived === true/.test(read("lib/seo/indexing.ts")))
     check("a product page that finds no published row is a 404, not a broken card",
-      /notFound\(\)/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+      /notFound\(\)/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
 
     console.log("\n  a delete drops what was cached of the product")
 
@@ -283,7 +283,7 @@ function main() {
 
     console.log("\n  every screen that deletes or hides a product says so")
 
-    const list = strip(read("app/app/products/products-client.tsx"))
+    const list = strip(read("app/(storelib)/app/products/products-client.tsx"))
     /* A delete is the server's now, which forgets the product once the row is really gone (tests/product-delete.test.ts). */
     const deleteRoute = strip(read("app/api/products/delete/route.ts"))
     check("the products list, after a delete",
@@ -294,7 +294,7 @@ function main() {
     const edit = strip(read("components/app/product-edit-form.tsx"))
     check("the product editor, after a delete", (edit.match(/await forgetProduct\(/g) ?? []).length === 2)
     check("the course editor, through the same delete", /await deleteProduct\(product\.id\)/.test(read("components/app/course-edit-form.tsx")))
-    check("the product editor's delete and publish switch", /await deleteProduct\(productId\)/.test(read("app/app/products/new/product-editor.tsx")) && /await forgetProduct\(productId, slug\)/.test(read("app/app/products/new/product-editor.tsx")))
+    check("the product editor's delete and publish switch", /await deleteProduct\(productId\)/.test(read("app/(storelib)/app/products/new/product-editor.tsx")) && /await forgetProduct\(productId, slug\)/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
     check("the course builder's publish switch", /await forgetProduct\(/.test(read("components/app/course-builder.tsx")))
     check("and an admin deleting one from the console",
       /forgetDeletedProduct\(supabase, \{/.test(read("app/api/admin/blog/seo-metrics/route.ts")))

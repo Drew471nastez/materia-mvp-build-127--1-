@@ -36,7 +36,7 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
 
 function main() {
   const css = read("app/globals.css")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const panels = read("components/website-builder/editor/design-panels.tsx")
   const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
   const picker = read("components/website-builder/editor/image-picker.tsx")

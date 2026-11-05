@@ -253,8 +253,8 @@ async function main() {
     check("a digital order never asks for a company, a phone or an apartment, whatever the store says", missingField(fieldPlan({ ...DEFAULT_CHECKOUT, company: "required", phone: "required", address2: "required" }, { ships: false }), { email: "a@b.co", first: "Jane", last: "" }) === null)
     check("the news box is the store's switch", fieldPlan({ ...DEFAULT_CHECKOUT, marketingOptIn: true }, { ships: false }).newsBox && !fieldPlan({ ...DEFAULT_CHECKOUT, marketingOptIn: false }, { ships: false }).newsBox)
 
-    const site = code("app/checkout/site/site-checkout.tsx")
-    const explore = code("app/checkout/checkout-client.tsx")
+    const site = code("app/(storelib)/checkout/site/site-checkout.tsx")
+    const explore = code("app/(storelib)/checkout/checkout-client.tsx")
     check("the website checkout draws the plan: Full name or First and Last, company, apartment and phone as the store asks", /plan\.company !== "off"/.test(site) && /plan\.address2 !== "off"/.test(site) && /plan\.phone !== "off"/.test(site) && /id="checkout-first"/.test(site) && /id="checkout-last"/.test(site) && /id="checkout-name"/.test(site))
     check("the Explore checkout asks First and Last apart too when the store asks for both", /splitName \? \(/.test(explore) && /id="checkout-first"/.test(explore) && /id="checkout-last"/.test(explore) && /nameFields === "first_and_last"/.test(explore))
     check("both put the unticked news box under the email, in the same words", /Email me with news and offers/.test(site) && /Email me with news and offers/.test(explore) && /useState\(false\)/.test(site) && explore.indexOf('id="checkout-news"') < explore.indexOf('id="checkout-first"'))
@@ -275,9 +275,9 @@ async function main() {
     check("a held checkout counts the website account as an account, and its address as confirmed", /config\.requireAccount && !input\.buyerId && !input\.buyerSignedIn/.test(code("lib/physical/checkout-server.ts")) && /buyerEmailConfirmed: contact\.signedIn/.test(route))
     const explore = code("app/api/checkout/stripe-session/route.ts")
     check("the Explore checkout keeps its rule: a Storelib account, its email confirmed", /checkoutConfig\.requireAccount && !user/.test(explore) && /checkoutConfig\.requireConfirmedEmail && !user\?\.email_confirmed_at/.test(explore))
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("the page reads the website's own session cookie for this host and creator", /sessionCookieName\(site\.host\)/.test(page) && /needsSignIn=\{gate\.kind === "sign-in"\}/.test(page))
-    check("the sign in link goes to the website's own sign in page, back to this checkout", /siteSignInHref\(here\)/.test(code("app/checkout/site/site-checkout.tsx")))
+    check("the sign in link goes to the website's own sign in page, back to this checkout", /siteSignInHref\(here\)/.test(code("app/(storelib)/checkout/site/site-checkout.tsx")))
   }
 
   console.log("\nOnly a ticked box subscribes")
@@ -318,9 +318,9 @@ async function main() {
     check("the webhook writes both kinds once, before the product checkout's own handler, never a Checkout Session's PaymentIntent twice", hook.indexOf("isCartIntent(pi)") > 0 && hook.indexOf("isCartIntent(pi)") < hook.indexOf("isCheckoutIntent(pi)") && /physical\.isPhysicalIntent\(pi\)/.test(hook))
     const fulfil = code("lib/checkout/fulfil-cart-session.ts")
     check("the buyer's browser needs the client secret, and the basket mark, to be handed a receipt", /sameSecret\(pi\.client_secret, opts\.clientSecret\)/.test(fulfil) && /pi\.metadata\?\.cart === "1" && pi\.metadata\?\.site_basket === "1"/.test(fulfil))
-    const ui = code("app/checkout/site/site-checkout.tsx")
+    const ui = code("app/(storelib)/checkout/site/site-checkout.tsx")
     check("the page uses Storelib's own form (StripePay), never Stripe's embedded or hosted page", /<StripePay/.test(ui) && !/EmbeddedCheckout/.test(ui) && !/window\.location\.href = data\.url/.test(ui))
-    check("the old embedded basket page is gone; storelib.com/checkout/cart only sends its links on", !existsSync("app/checkout/cart/basket-checkout.tsx") && !/EmbeddedCheckout/.test(code("app/checkout/cart/page.tsx")) && /legacyBasketTarget\(origin, q/.test(code("app/checkout/cart/page.tsx")))
+    check("the old embedded basket page is gone; storelib.com/checkout/cart only sends its links on", !existsSync("app/(storelib)/checkout/cart/basket-checkout.tsx") && !/EmbeddedCheckout/.test(code("app/(storelib)/checkout/cart/page.tsx")) && /legacyBasketTarget\(origin, q/.test(code("app/(storelib)/checkout/cart/page.tsx")))
   }
 
   console.log("\nThe website's carts and buttons go to their own checkout")
@@ -336,10 +336,10 @@ async function main() {
     const cartRoute = code("app/api/checkout/cart/route.ts")
     check("the cart route answers a website with its own checkout, a cart that ships included", (cartRoute.match(/siteCheckoutHref\(\{/g) ?? []).length === 2)
     check("a built site's cart and drawer send a cart that ships to the site's own checkout", /siteCheckoutHref\(\{ items: checkoutItems\(lines\)/.test(code("components/website-builder/cart-page-body.tsx")) && /siteCheckoutHref\(\{ items: checkoutItems\(lines\)/.test(code("lib/website-builder/cart-checkout.ts")))
-    const page = code("app/checkout/site/page.tsx")
+    const page = code("app/(storelib)/checkout/site/page.tsx")
     check("a membership or a community's tier keeps the Explore checkout on storelib.com", /p\.type === "membership" \|\| p\.community_id/.test(page) && /redirect\(`https:\/\/\$\{getMainDomain\(\)\}\/checkout\?/.test(page))
     check("a product of another shop under this site is not found", /p\.creator_id !== site\.creatorId\) notFound\(\)/.test(page))
-    const thanks = code("app/checkout/site/thanks/[token]/page.tsx")
+    const thanks = code("app/(storelib)/checkout/site/thanks/[token]/page.tsx")
     check("after paying: the thank you page on the site, the receipt one press away on the site, the cart emptied", /siteOfHost\(admin/.test(thanks) && /`\/receipt\/\$\{encodeURIComponent\(token\)\}`/.test(thanks) && /ClearCart/.test(thanks) && /referrer: "no-referrer"/.test(thanks))
     const fulfil = code("lib/checkout/fulfil-cart-session.ts")
     check("the emailed receipt link opens on the website, the seller's links stay on Storelib", /receiptBaseUrl: s\.buyerBaseUrl \?\? null/.test(fulfil) && /baseUrl: s\.baseUrl,\n\s+sale:/.test(fulfil))
@@ -369,8 +369,8 @@ async function main() {
     check("  an unpaid basket PaymentIntent older than the code's hold is cancelled and its place given back", /metadata\['site_basket'\]:'1' AND status:'\$\{status\}' AND created<\$\{before\}/.test(sweep) && /releaseCouponHold\(db, pi\.metadata\.coupon_id/.test(sweep))
     const cron = code("app/api/cron/physical/route.ts")
     check("  every ten minutes, physical commerce on or off", cron.indexOf("cancelStaleSitePayments(db") > 0 && cron.indexOf("cancelStaleSitePayments(db") < cron.indexOf("isPhysicalCommerceEnabled()"))
-    check("  a held checkout past its hold is never paid into again, and the page makes a new one after 25 minutes", /new Date\(existing\.expires_at\)\.getTime\(\) > Date\.now\(\)/.test(code("lib/physical/checkout-server.ts")) && /INTENT_REUSE_MS = 25 \* 60_000/.test(code("app/checkout/site/site-checkout.tsx")))
-    check("  a changed name, phone, note or news box is a new held checkout, never stale details", /body\.firstName, body\.lastName, body\.phone, body\.buyerNote, (body\.cartAttributes, )?body\.emailOptIn\]\)/.test(code("app/checkout/site/site-checkout.tsx")))
+    check("  a held checkout past its hold is never paid into again, and the page makes a new one after 25 minutes", /new Date\(existing\.expires_at\)\.getTime\(\) > Date\.now\(\)/.test(code("lib/physical/checkout-server.ts")) && /INTENT_REUSE_MS = 25 \* 60_000/.test(code("app/(storelib)/checkout/site/site-checkout.tsx")))
+    check("  a changed name, phone, note or news box is a new held checkout, never stale details", /body\.firstName, body\.lastName, body\.phone, body\.buyerNote, (body\.cartAttributes, )?body\.emailOptIn\]\)/.test(code("app/(storelib)/checkout/site/site-checkout.tsx")))
     check("the confirm call is rate limited like the other payment calls", /async function confirm[\s\S]{0,600}rateLimit\(\{ bucket: "payment", subjects: \[addressSubject\(request\)\]/.test(route))
 
     const proxy = code("proxy.ts")
@@ -384,7 +384,7 @@ async function main() {
     check("only a published website of this shop serves its checkout", (await servingSiteOrigin(db, SHOP, "https://andrews.storelib.com")) === "https://andrews.storelib.com" && (await servingSiteOrigin(db, OTHER, "https://andrews.storelib.com")) === null && (await servingSiteOrigin(db, OTHER, "https://otherone.storelib.com")) === null && (await servingSiteOrigin(db, SHOP, "https://waiting.shop")) === null)
     check("  the shop's connected domain is preferred when a link names no site", (await firstServingSite(db, SHOP, ["andrews.storelib.com", "www.andrew.shop"])) === "https://www.andrew.shop" && (await firstServingSite(db, OTHER, ["otherone.storelib.com"])) === null)
     const cartRoute = code("app/api/checkout/cart/route.ts")
-    check("the cart route, the old basket page and the physical page choose the site's checkout only when it serves one", /const siteServes = siteOrigin !== platformOrigin && !!\(await servingSiteOrigin\(admin, creatorId, siteOrigin\)\)/.test(cartRoute) && (cartRoute.match(/if \(siteServes\) \{/g) ?? []).length === 2 && /siteOrigin: siteServes \? siteOrigin : undefined/.test(cartRoute) && /firstServingSite\(admin, shop/.test(code("app/checkout/cart/page.tsx")) && /<SiteProblem/.test(code("app/checkout/cart/page.tsx")) && /await servingSiteOrigin\(db, shop, site\.origin\)/.test(code("app/checkout/physical/page.tsx")))
+    check("the cart route, the old basket page and the physical page choose the site's checkout only when it serves one", /const siteServes = siteOrigin !== platformOrigin && !!\(await servingSiteOrigin\(admin, creatorId, siteOrigin\)\)/.test(cartRoute) && (cartRoute.match(/if \(siteServes\) \{/g) ?? []).length === 2 && /siteOrigin: siteServes \? siteOrigin : undefined/.test(cartRoute) && /firstServingSite\(admin, shop/.test(code("app/(storelib)/checkout/cart/page.tsx")) && /<SiteProblem/.test(code("app/(storelib)/checkout/cart/page.tsx")) && /await servingSiteOrigin\(db, shop, site\.origin\)/.test(code("app/(storelib)/checkout/physical/page.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

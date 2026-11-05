@@ -15,7 +15,7 @@ import { SettingsSheet } from "@/components/app/settings-sheet"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { ErrorScreen } from "@/components/platform/error-screen"
 
-/* What app/app/error.tsx is to the sheet in the app: the boundary over it, with the app's own error screen. */
+/* What app/(storelib)/app/error.tsx is to the sheet in the app: the boundary over it, with the app's own error screen. */
 class AppBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }
   static getDerivedStateFromError(error: Error) {

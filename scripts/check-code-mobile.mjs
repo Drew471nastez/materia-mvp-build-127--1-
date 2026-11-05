@@ -53,7 +53,7 @@ const PHONE = 390, DESK = 820
  * The page is the source. A field that cannot be found in it fails the run
  * rather than quietly dropping out of the list.
  */
-const page = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
 const classOf = (label, marker) => {
   const at = page.indexOf(marker)
   if (at < 0) fail(`Could not find the ${label} field in the code editor (looked for ${marker}).`)

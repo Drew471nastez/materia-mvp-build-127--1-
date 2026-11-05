@@ -73,7 +73,7 @@ function check(label: string, ok: boolean, detail?: string) {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
-  const page = read("app/(marketing)/u/[username]/page.tsx")
+  const page = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
   /* The branch taken by a creator who has never opened the builder starts at
      the comment that says so. */
   const fallbackAt = page.indexOf("// Default rendering when no custom config exists")

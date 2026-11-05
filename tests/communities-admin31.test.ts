@@ -83,15 +83,15 @@ function main() {
   const skip = stage.indexOf("if (sameStageFrame(from, pathname)) return")
   check("the stage places no scroll and plays no landing between sections of one community", skip > 0 && skip < stage.indexOf("const saved = traversal ? recalledScroll(key) : null"))
   const pages: [string, string][] = [
-    ["app/app/community/[id]/page.tsx", "overview"],
-    ["app/app/community/[id]/feed/page.tsx", "feed"],
-    ["app/app/community/[id]/spaces/page.tsx", "spaces"],
-    ["app/app/community/[id]/learn/page.tsx", "classroom"],
-    ["app/app/community/[id]/events/page.tsx", "events"],
-    ["app/app/community/[id]/members/page.tsx", "members"],
-    ["app/app/community/[id]/moderation/page.tsx", "moderation"],
-    ["app/app/community/[id]/analytics/page.tsx", "analytics"],
-    ["app/app/community/[id]/settings/page.tsx", "settings"],
+    ["app/(storelib)/app/community/[id]/page.tsx", "overview"],
+    ["app/(storelib)/app/community/[id]/feed/page.tsx", "feed"],
+    ["app/(storelib)/app/community/[id]/spaces/page.tsx", "spaces"],
+    ["app/(storelib)/app/community/[id]/learn/page.tsx", "classroom"],
+    ["app/(storelib)/app/community/[id]/events/page.tsx", "events"],
+    ["app/(storelib)/app/community/[id]/members/page.tsx", "members"],
+    ["app/(storelib)/app/community/[id]/moderation/page.tsx", "moderation"],
+    ["app/(storelib)/app/community/[id]/analytics/page.tsx", "analytics"],
+    ["app/(storelib)/app/community/[id]/settings/page.tsx", "settings"],
   ]
   for (const [f, id] of pages) check(`${f} hands its content to the shell as ${id}`, new RegExp(`<SectionSeed id="${id}"`).test(code(f)))
 
@@ -107,7 +107,7 @@ function main() {
   /* Changed on purpose (round 33): the page is a section of its own; ?tab=general and ?tab=page are sent there by the settings page (pageTabAsked) and fall back to the first panel here. */
   check("old tab names still land", settingsTabOf("general") === "access" && settingsTabOf("gamification") === "gamification")
   const settings = code("components/community/creator/settings-section.tsx")
-  check("the settings page tells the section whether a panel was asked for", /asked=\{settingsTabAsked\(query\.tab\)\}/.test(code("app/app/community/[id]/settings/page.tsx")))
+  check("the settings page tells the section whether a panel was asked for", /asked=\{settingsTabAsked\(query\.tab\)\}/.test(code("app/(storelib)/app/community/[id]/settings/page.tsx")))
   check("a phone opens on the list of panels, a row each with what it holds", /useState<"list" \| "panel">\(asked \? "panel" : "list"\)/.test(settings) && /data-settings-row=\{t\.value\}/.test(settings) && /<ChevronRight/.test(settings))
   check("a row pushes a history entry so Back returns to the list", /window\.history\.pushState\(\{ \[PANEL_ENTRY\]: true \}/.test(settings) && /return window\.history\.back\(\)/.test(settings))
   check("no pill and sheet to pick a panel any more", !/data-settings-picker/.test(settings) && !/ResponsiveActionMenu/.test(settings))
@@ -137,7 +137,7 @@ function main() {
   console.log("\nGALLERY")
   const editor = code("components/community/creator/gallery-editor.tsx")
   const tiles = code("components/community/creator/gallery-tiles.tsx")
-  check("the product editor's hold to drag: mouse 4px, finger 300ms, keyboard", /useHoldToDragSensors\(\)/.test(editor) && /from "@\/app\/app\/products\/new\/hold-to-drag"/.test(editor))
+  check("the product editor's hold to drag: mouse 4px, finger 300ms, keyboard", /useHoldToDragSensors\(\)/.test(editor) && /from "@\/app\/\(storelib\)\/app\/products\/new\/hold-to-drag"/.test(editor))
   check("the whole tile is the handle, the menu its own button over it", /setActivatorNodeRef/.test(tiles) && /\{\.\.\.listeners\}/.test(tiles) && /data-tile-menu=""/.test(tiles))
   check("files dropped on the gallery go up", /takeFiles\(Array\.from\(e\.dataTransfer\.files\)\)/.test(editor))
   check("the cover: one frame, one menu to change it, a remove", /data-cover-frame=""/.test(editor) && /\{has \? "Change cover" : "Add a cover"\}/.test(editor) && /label="Remove the cover"/.test(editor))

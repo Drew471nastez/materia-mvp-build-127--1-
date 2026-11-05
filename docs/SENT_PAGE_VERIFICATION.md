@@ -183,4 +183,4 @@ SELECT * FROM email_campaigns WHERE creator_id = 'YOUR_CREATOR_ID' ORDER BY crea
 - `app/api/email/track/route.ts` - Open tracking pixel
 - `app/api/email/click/route.ts` - Click tracking redirect
 - `app/api/email/unsubscribe/route.ts` - Unsubscribe handler
-- `app/app/emails/page.tsx` - Frontend emails page
+- `app/(storelib)/app/emails/page.tsx` - Frontend emails page

@@ -487,7 +487,7 @@ async function main() {
     check("a held post or comment is answered 202 held and never announced live", [postsRoute, commentsRoute].every((r) => /if \(isHeld\(result\)\) return NextResponse\.json\(\{ \w+, held: true, message: HELD_MESSAGE \}, \{ status: 202/.test(r) && r.indexOf("isHeld(result)") < r.indexOf("after(")))
     const creator = code("lib/communities/server/creator.ts")
     check("saving the welcome steps keeps the slow mode, and slow mode is a setting", /\.\.\.keptSafety\(c\.onboarding\)/.test(creator) && /b\.slowMode !== undefined/.test(creator) && /withSlowMode\(patch\.onboarding \?\? c\.onboarding, seconds\)/.test(creator))
-    check("the moderation page hands the slow mode to the screen", /slowMode=\{slowModeOf\(c\)\}/.test(code("app/app/community/[id]/moderation/page.tsx")))
+    check("the moderation page hands the slow mode to the screen", /slowMode=\{slowModeOf\(c\)\}/.test(code("app/(storelib)/app/community/[id]/moderation/page.tsx")))
     const section = read("components/community/creator/moderation-section.tsx")
     const options = [...section.matchAll(/\{ seconds: (\d+), label:/g)].map((m) => Number(m[1]))
     check("the slow mode menu offers exactly the server's choices", options.join() === SAFETY.slowModeChoices.join(), options.join())

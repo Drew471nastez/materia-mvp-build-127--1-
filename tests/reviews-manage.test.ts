@@ -453,9 +453,9 @@ function emailBuild() {
 
 function wiring() {
   realLog("\nWiring")
-  const page = read("app/app/reviews/page.tsx")
+  const page = read("app/(storelib)/app/reviews/page.tsx")
   /* Changed on purpose (round 27, the owner: Products › Reviews is /app/reviews, not the Integrations page): /app/reviews draws the integration's page itself, and the page reads ?review and ?status as it did. */
-  check("/app/reviews is Storelib Reviews' page, alone, and still opens the review and the tab a link named", /<IntegrationsDirectory page only="storelib-reviews" \/>/.test(read("app/app/reviews/reviews-client.tsx")) && /<ReviewsClient \/>/.test(page) && !/redirect\(`/.test(page) && /review: p\.get\("review"\)/.test(read("components/reviews/manage/reviews-manage.tsx")) && /\(REVIEW_TABS as readonly string\[\]\)\.includes\(s \?\? ""\)/.test(read("components/reviews/manage/reviews-manage.tsx")))
+  check("/app/reviews is Storelib Reviews' page, alone, and still opens the review and the tab a link named", /<IntegrationsDirectory page only="storelib-reviews" \/>/.test(read("app/(storelib)/app/reviews/reviews-client.tsx")) && /<ReviewsClient \/>/.test(page) && !/redirect\(`/.test(page) && /review: p\.get\("review"\)/.test(read("components/reviews/manage/reviews-manage.tsx")) && /\(REVIEW_TABS as readonly string\[\]\)\.includes\(s \?\? ""\)/.test(read("components/reviews/manage/reviews-manage.tsx")))
   const apps = read("components/app/settings/integration-apps.tsx")
   check("the integration page draws Storelib Reviews' own tabs and body through the built in apps' plug-in API", /const reviewsView: IntegrationAppView = reviewsIntegrationView/.test(apps) && /"storelib-reviews": reviewsView/.test(apps) && /dynamic\(\(\) => import\("\.\/reviews-manage"\)/.test(read("components/reviews/manage/integration-view.tsx")))
   const shell = read("components/reviews/manage/reviews-manage.tsx")
@@ -465,11 +465,11 @@ function wiring() {
   const list = read("components/reviews/manage/reviews-view.tsx")
   check("a change shows at once and is put back when the server says no", /patchRow\(review\.id, predicted\(review, action, photo\)\)/.test(list) && /restore\(\[review\]\)/.test(list))
   check("the trust rules are said where they apply", /never get the Verified purchase label and never count in your Storelib rating/.test(read("components/reviews/manage/import-dialog.tsx")) && /Only verified buyers count toward your Storelib rating/.test(read("components/reviews/manage/overview-view.tsx")))
-  const rp = read("app/review/[token]/page.tsx")
-  const form = read("app/review/[token]/review-form.tsx")
+  const rp = read("app/(storelib)/review/[token]/page.tsx")
+  const form = read("app/(storelib)/review/[token]/review-form.tsx")
   /* Changed on purpose (the buyer language rule, lib/markets/buyer-language.ts): the order's checkout language while the store still publishes it, else the store's default, English when bought on Storelib; never the sl_lang cookie. */
   check("the review page in the store's language: the order's, through the checkout's words", /buyerPageLanguage\(ctx\.request\.creator_id, \{ channel, order: origin\?\.lang \}\)/.test(rp) && /const origin = cleanOrigin\(ctx\.order\?\.source_detail\)/.test(rp) && !/sl_lang/.test(rp) && /<CheckoutWords lang=\{language\.lang\} words=\{language\.words\}>/.test(rp) && /const ct = useCt\(\)/.test(form) && !/>Post review</.test(form))
-  check("  its sentences listed for Translate", /"app\/review"/.test(read("scripts/i18n/checkout-sentences.mjs")) && read("lib/markets/checkout-words.generated.ts").includes('"Verified purchase"'))
+  check("  its sentences listed for Translate", /"app\/\(storelib\)\/review"/.test(read("scripts/i18n/checkout-sentences.mjs")) && read("lib/markets/checkout-words.generated.ts").includes('"Verified purchase"'))
   const sql = read("supabase/sql/run-now/215_reviews_manage.sql")
   check("part 215: one statement a line, safe again, the import table server only, no public policy", sql.split("\n").filter((l) => l.trim()).every((l) => /;\s*$/.test(l) || l.startsWith("/*")) && /REVOKE ALL ON public.review_imports FROM PUBLIC, anon, authenticated/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql) && !/CREATE POLICY/.test(sql) && /IF NOT EXISTS/.test(sql))
   check("  in the README, the check after, migrations and the generated parts", read("supabase/sql/run-now/README.md").includes("`215_reviews_manage.sql`") && /p215_reviews_manage/.test(read("supabase/sql/run-now/99_check_after.sql")) && read("supabase/migrations/20270129_reviews_manage.sql") === sql && /215_reviews_manage\.sql/.test(read("lib/admin/sql-parts.generated.ts")))

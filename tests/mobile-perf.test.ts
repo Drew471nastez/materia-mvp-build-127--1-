@@ -79,12 +79,12 @@ console.log("\nPolling that waits for the page to be seen")
   check("  at once on the way back, and the listener is taken off", /addEventListener\("visibilitychange", read\)/.test(dash) && /removeEventListener\("visibilitychange", read\)/.test(dash))
   check("  no bare interval left on fetchLiveVisitors", !/setInterval\(fetchLiveVisitors/.test(dash))
 
-  const analytics = readCode("app/app/analytics/analytics-client.tsx")
+  const analytics = readCode("app/(storelib)/app/analytics/analytics-client.tsx")
   check("Analytics' minute refresh: nothing while hidden", /const again = \(\) => \{\s*if \(document\.visibilityState === "hidden"\) return/.test(analytics))
   check("  every minute while shown, at once on the way back", /setInterval\(again, 60_000\)/.test(analytics) && /addEventListener\("visibilitychange", again\)/.test(analytics) && /removeEventListener\("visibilitychange", again\)/.test(analytics))
   check("  no bare minute interval left", !/setInterval\(\(\) => setTick\(\(n\) => n \+ 1\), 60_000\)/.test(analytics))
 
-  const payouts = readCode("app/app/payouts/payouts-client.tsx")
+  const payouts = readCode("app/(storelib)/app/payouts/payouts-client.tsx")
   check("Payouts: one chart read for a return's visibilitychange and focus together", /let lastRead = 0;\s*const tick = \(\) => \{\s*if \(document\.visibilityState !== "visible"\) return;\s*const now = Date\.now\(\);\s*if \(now - lastRead < 10000\) return;/.test(payouts))
   check("  the cadence the owner set is unchanged (tests/polling-costs)", /setInterval\(tick, 60000\)/.test(payouts) && /setInterval\(tick, 120000\)/.test(payouts))
 }

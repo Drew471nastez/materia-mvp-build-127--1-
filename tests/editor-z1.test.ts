@@ -39,7 +39,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 
 console.log("\nSWITCH: the card itself, a frame at a time")
 {
-  const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+  const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const lib = readCode("lib/website-builder/canvas-switch.ts")
   const pane = readCode("components/website-builder/preview-mode-switch.tsx")
   check("one duration for the card and the sidebar, the editor's sheet curve", CANVAS_SWITCH_MS === 320 && /const FULL_SCREEN_MS = CANVAS_SWITCH_MS/.test(editor) && /cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(lib))

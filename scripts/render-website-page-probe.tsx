@@ -11,7 +11,7 @@ import { join } from "node:path"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PageSpinner } from "@/components/ui/activity-spinner"
-import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
+import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 
 const OUT = process.env.OUT_DIR!
 const now = new Date().toISOString()

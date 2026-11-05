@@ -1,7 +1,7 @@
 /**
  * /account as you arrive on it from a community, for
  * scripts/check-account-pills16.mjs: the account layout's pieces in its order
- * (app/account/layout.tsx and the root layout), each the real component.
+ * (app/(storelib)/account/layout.tsx and the root layout), each the real component.
  *
  *   the boot script that holds a bar's room before the page wakes
  *   AccountCommunityChrome   the community's own bar over the profile

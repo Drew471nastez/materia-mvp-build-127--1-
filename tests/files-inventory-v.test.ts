@@ -479,7 +479,7 @@ async function main() {
 
   console.log("\nInventory: the page")
   {
-    const page = read("app/app/inventory/inventory-client.tsx")
+    const page = read("app/(storelib)/app/inventory/inventory-client.tsx")
     check("adjust: Add, Remove, Set to, the result before it is saved", /label: \(\) => "Add"/.test(page) && /label: \(\) => "Remove"/.test(page) && /label: \(\) => "Set to"/.test(page) && /<LevelRow level=\{level\} after=\{planned && !planned\.unchanged/.test(page))
     check("  a dialog on a computer, the sheet on a phone (the shared Modal)", /<Modal\s+open\s+onClose=\{onClose\}\s+title="Adjust stock"/.test(page))
     check("  the settings beside it: Track stock, Keep selling, Low stock at, Units on order", ["Track stock", "Keep selling when out of stock", "Low stock at", "Units on order"].every((w) => page.includes(w)))

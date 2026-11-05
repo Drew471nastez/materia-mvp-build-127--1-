@@ -83,7 +83,7 @@ console.log("\nCHARGE: the market's currency when Storelib can charge it")
   check("a cart that ships, and cash on delivery, pass the visitor's market", (route.match(/marketCountry: countryOfRequest\(request\)/g) ?? []).length === 3)
   const server = code("lib/physical/checkout-server.ts")
   check("  the held checkout converts its lines, delivery and totals, and keeps the currency", /const converted = convertOrder\(q\.lines, q\.totals, charge\)/.test(server) && /const storeCurrency = market\?\.charge \? market\.chargeCurrency : ownCurrency/.test(server))
-  const page = code("app/checkout/site/page.tsx")
+  const page = code("app/(storelib)/checkout/site/page.tsx")
   check("the checkout page draws the first quote in it and charges in it", /quoteInMarket\(priced\.quote, market\.charge\)/.test(page) && /* Changed on purpose (AD4): with the way its amounts are written. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}( locale=\{[^}]+\})?>/.test(page))
   check("the live site's cart note follows the same rule", /storefrontDisplay\(pricing, moneyLocale, chargeCurrencyFor\(pricing, base\)\)/.test(code("lib/markets/live.ts")))
 }
@@ -113,15 +113,15 @@ console.log("\nCHECKOUT: at once, from the right country, back where it came fro
   const gone = optimisticQuote(quote, [{ productId: "b", variantId: "v", quantity: 2 }])!
   check("a line removed leaves the rest", gone.lines.length === 1 && gone.totals.itemsSubtotalCents === 1000)
   check("something the quote never priced waits for the server", optimisticQuote(quote, [{ productId: "c", variantId: null, quantity: 1 }]) === null)
-  const site = code("app/checkout/site/site-checkout.tsx")
+  const site = code("app/(storelib)/checkout/site/site-checkout.tsx")
   check("the total and the quantity never fade while it is priced again", !/quoting && "opacity-60"/.test(site) && !/busy && "opacity-60"/.test(site))
   check("a change shows its amounts at once", /if \(!swap\) setQuote\(\(q\) => \(q \? \(optimisticQuote\(q, next\) \?\? q\) : q\)\)/.test(site))
   check("the first quote is not asked for again for the same country", /firstAsk\.current && shipsKey === pricedWith\.current/.test(site))
   check("the delivery country is there from the first frame, and a pick is remembered", /country: initialCountry \?\? ""/.test(site) && /rememberCheckoutCountry\(address\.country\)/.test(site))
-  const page = code("app/checkout/site/page.tsx")
+  const page = code("app/(storelib)/checkout/site/page.tsx")
   check("  the page knows it: the last pick, the website's selector, then where they are", /* Changed on purpose (more currencies): where they are wins over the selector's first country of the same market (deliveryCountryGuess). */ /countryCode\(jar\.get\(CHECKOUT_COUNTRY_COOKIE\)\?\.value\) \?\? countryCode\(deliveryCountryGuess\(/.test(page) && /* Changed on purpose (round BC): priced for the signed in customer's default address's country when they have one (countryOf). */ /countryCode\(b\?\.address\?\.country\) \?\? initialCountry/.test(page) && /\.\.\.\(country \? \{ country \} : \{\}\)/.test(page))
   check("the last line removed goes back to the page it came from", /<BackToShop to=\{backTo\} orReferrer=\{backIsDefault\} \/>/.test(site) && /from\.host === window\.location\.host && !from\.pathname\.startsWith\("\/checkout"\)/.test(site))
-  const physical = code("app/checkout/physical/physical-checkout.tsx")
+  const physical = code("app/(storelib)/checkout/physical/physical-checkout.tsx")
   check("  the shop's own checkout too, never an empty page", /emptiedHere\.current && \(backUrl \|\| shopUrl\)\) return <LeaveTo/.test(physical) && /optimisticQuote\(q, next\)/.test(physical))
 }
 
@@ -146,7 +146,7 @@ console.log("\nJOBS: Translate with AI on the server")
 
 console.log("\nBUILDER: the theme's own selectors, the defaults in General")
 {
-  const editor = code("app/website-builder/editor/[installId]/page.tsx")
+  const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("no language or currency button over the canvas, and none in the phone's menu", !/PreviewLanguageSwitch/.test(editor) && !/Preview prices in/.test(editor) && !/label: `Preview in /.test(editor))
   check("the canvas opens on the website's own language and the store's currency", /* Changed on purpose (round K3, the owner: "remember the choice per session"): a new tab opens on the defaults; within one tab, on the language and currency last picked for that website. */ /let start: string \| null = null[\s\S]{0,200}sessionStorage\.getItem\(remembered\(installId\)\) \|\| null[\s\S]{0,200}localeRef\.current = start\s*setLocaleState\(start\)/.test(code("components/website-builder/use-preview-language.ts")) && /setMarketState\(start\)\s*void read\(\)/.test(code("components/website-builder/use-preview-market.ts")))
   check("the theme's own switch is still the canvas's, as a preview", /language=\{canvasChoice\}/.test(editor) && /languagePreview=\{canvasSwitch\}/.test(editor))

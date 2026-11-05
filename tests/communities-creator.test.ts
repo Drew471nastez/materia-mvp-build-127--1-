@@ -318,7 +318,7 @@ async function main() {
   check("only the owner and admins edit the rules; a moderator reads them", /const canEdit = head\.can\.manage_settings === true/.test(modSrc) && can("moderator", "review_reports") && !can("moderator", "manage_settings"))
   check("removing reported content goes through the moderation route", /send\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
   check("an author action from a report resolves the report", /fromReport\.current = r/.test(modSrc) && /setStatus\(r, "resolved"/.test(modSrc))
-  const modPage = code("app/app/community/[id]/moderation/page.tsx")
+  const modPage = code("app/(storelib)/app/community/[id]/moderation/page.tsx")
   /* Changed on purpose (round 32): the page's reads moved to lib/communities/server/admin-sections.ts, so the page can stream them under a Suspense boundary. */
   const modReads = code("lib/communities/server/admin-sections.ts")
   check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modReads) && /can\(ctx\.role, "view_audit", ctx\.viewer\.perms\) \? auditLog/.test(modReads) && /moderationReads\(ctx, query\)/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
@@ -375,7 +375,7 @@ async function main() {
   /* Changed on purpose (round 32): Explore and search is a panel of its own, so ?tab=discovery opens it rather than Access. */
   /* Changed on purpose (round 33): the page is a section of its own (?tab=page and ?tab=general are sent there by the settings page); an unknown tab opens Access and prices. */
   check("old tab names land on the tab that holds them now", settingsTabOf("general") === "access" && settingsTabOf("discovery") === "discovery" && settingsTabOf("domain") === "address" && settingsTabOf("gamification") === "gamification" && settingsTabOf("nonsense") === "access" && settingsTabOf(undefined) === "access")
-  check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.slug\}\/settings\?tab=gamification`\)/.test(code("app/app/community/[id]/gamification/page.tsx")))
+  check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.slug\}\/settings\?tab=gamification`\)/.test(code("app/(storelib)/app/community/[id]/gamification/page.tsx")))
   check("lists are one card: views and actions in its first row (ListCard)", ["members", "moderation", "feed", "events", "spaces", "classroom"].every((f) => /<ListCard/.test(code(`components/community/creator/${f}-section.tsx`))))
 
   /* ── Routes ──────────────────────────────────────────────────────────── */
@@ -412,7 +412,7 @@ async function main() {
 
   /* ── Pages ───────────────────────────────────────────────────────────── */
   console.log("\npages")
-  const pages = walk("app/app/community").filter((f) => /(page|layout)\.tsx$/.test(f))
+  const pages = walk("app/(storelib)/app/community").filter((f) => /(page|layout)\.tsx$/.test(f))
   check("the list, new, the layout and ten sections exist", pages.length >= 13, String(pages.length))
   for (const f of pages) {
     const src = code(f)
@@ -433,7 +433,7 @@ async function main() {
       !!rx && rx.test("/app/community/0b6c/settings") && rx.test("/app/community/0b6c/settings/") && !rx.test("/app/community/0b6c") && !rx.test("/app/community/0b6c/members")
         && /COMMUNITY_SETTINGS_PATH\.test\(pathname\)\) && "!hidden"/.test(sidebar))
   }
-  check("the /app layout reads the switch and hands it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/app/layout.tsx")))
+  check("the /app layout reads the switch and hands it to the sidebar", /communitiesEnabled\(\)\.catch\(\(\) => false\)/.test(code("app/(storelib)/app/layout.tsx")) && /communitiesEnabled=\{communitiesOn\}/.test(code("app/(storelib)/app/layout.tsx")))
   check("search does not offer Community while it is off", !matchPages("community").some((p) => p.href === "/app/community"))
   check("and offers it while it is on", matchPages("community", 5, { communities: true })[0]?.href === "/app/community")
   /* Changed on purpose (round 42): the search now offers six places and passes the physical commerce switch beside this one. */

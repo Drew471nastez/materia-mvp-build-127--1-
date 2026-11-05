@@ -428,16 +428,16 @@ async function main() {
   {
     const cron = read("app/api/cron/physical/route.ts")
     check("/api/cron/physical runs the tracking sweep inside its time", /runTrackingSweep\(db/.test(cron) && /budgetMs/.test(cron))
-    const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
+    const view = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
     const timeline = read("components/physical/tracking-timeline.tsx")
     /* Changed on purpose: in the buyer's language (ct). */
-    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(timeline) && /c\.location, when\(c\.at, locale\)/.test(timeline) && /<TrackingTimeline/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    check("the buyer's page shows the scans with place and time, and the estimated delivery", /data-tracking-checkpoints/.test(timeline) && /c\.location, when\(c\.at, locale\)/.test(timeline) && /<TrackingTimeline/.test(view) && /Estimated delivery/.test(view) && /checkpoints/.test(read("app/(storelib)/checkout/physical/order/[token]/page.tsx")))
     const panel = read("components/physical/order-panel.tsx")
     check("the seller's order page shows the scans, Updated automatically, and Pause automatic updates", /<TrackingTimeline/.test(panel) && /Updated automatically/.test(panel) && /Pause automatic updates/.test(panel) && /Mark as delivered/.test(panel))
     check("  and says when tracking is not set up yet", /Automatic updates turn on when Storelib's tracking is set up/.test(panel))
     const status = read("lib/admin/commerce-status.ts")
-    check("/admin/physical-commerce reads the tracking status from real data", /platformTrackingState/.test(status) && /tracking_checked_at/.test(status) && /Automatic updates turn on when Storelib's tracking is set up/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")))
-    check("  with the platform webhook address, Copy, and the steps for AfterShip and 17TRACK, admin only", /trackingWebhookUrl\(tp\.provider, "platform"\)/.test(status) && /data-tracking-webhook/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")) && /Tracking, Settings, Webhooks/.test(read("app/admin/physical-commerce/commerce-docs-admin.tsx")) && /requireAdmin/.test(read("app/api/admin/commerce-status/route.ts")))
+    check("/admin/physical-commerce reads the tracking status from real data", /platformTrackingState/.test(status) && /tracking_checked_at/.test(status) && /Automatic updates turn on when Storelib's tracking is set up/.test(read("app/(storelib)/admin/physical-commerce/commerce-docs-admin.tsx")))
+    check("  with the platform webhook address, Copy, and the steps for AfterShip and 17TRACK, admin only", /trackingWebhookUrl\(tp\.provider, "platform"\)/.test(status) && /data-tracking-webhook/.test(read("app/(storelib)/admin/physical-commerce/commerce-docs-admin.tsx")) && /Tracking, Settings, Webhooks/.test(read("app/(storelib)/admin/physical-commerce/commerce-docs-admin.tsx")) && /requireAdmin/.test(read("app/api/admin/commerce-status/route.ts")))
     check("part 160 is in run-now with its check column", /p160_courier_tracking/.test(read("supabase/sql/run-now/99_check_after.sql")) && /commerce_tracking_accounts/.test(read("supabase/sql/run-now/160_courier_tracking.sql")))
     check("no network host other than the two stubs was called", strayHosts.length === 0, strayHosts)
   }

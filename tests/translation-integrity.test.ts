@@ -49,7 +49,7 @@ async function main() {
   check("a record whose title is unchanged is translated", localizeRecord({ title: "Mug" }, `product:${P1}`, ["title"], map, { approvedOnly: true, fresh: true }).title === "Tasse")
   check("the live site and imported themes lay them over this way", /const opts = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/live.ts")) && /const opts = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/compat.ts")))
   /* Changed on purpose (translation coverage): an imported theme's canvas lays its products over with compat-fields.ts compatCardIn, the live site's own function, whose default options are these. */
-  check("and so does the editor's preview, so both agree", (read("app/website-builder/editor/[installId]/page.tsx").match(/approvedOnly: true, fresh: true/g) ?? []).length >= 3 && /const LIVE = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/compat-fields.ts")) && /compatCardIn\(/.test(read("components/website-builder/compat/compat-canvas.tsx")))
+  check("and so does the editor's preview, so both agree", (read("app/(storelib)/website-builder/editor/[installId]/page.tsx").match(/approvedOnly: true, fresh: true/g) ?? []).length >= 3 && /const LIVE = \{ approvedOnly: true, fresh: true \}/.test(read("lib/markets/compat-fields.ts")) && /compatCardIn\(/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 
   console.log("\nA card's description")
   const html = "<p>Hand <strong>thrown</strong> stoneware.</p><p>Dishwasher safe.</p>"
@@ -84,7 +84,7 @@ async function main() {
   check("  Storelib AI's written for an older text is not", shown.cookie_banner_text === "We use cookies.")
   check("the translations list reads them from the theme settings schema", /themeTextTranslatables\(theme, THEME_SETTINGS_GROUPS\.flatMap/.test(read("lib/markets/server.ts")))
   check("every live page lays the theme over in its language, not only the home page", ["products/shop-page.tsx", "collections/page.tsx", "collections/[handle]/collection-page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
-  check("and the editor's language preview does too", /* Changed on purpose (merge with main): the theme in the language and the market previewed. */ /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("and the editor's language preview does too", /* Changed on purpose (merge with main): the theme in the language and the market previewed. */ /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 
   console.log("\nOptions and variants")
   const listed = optionTranslatables([[{ name: "Size", values: ["Small", "Large"] }, { name: "Colour", values: ["Red"] }], [{ name: "Size", values: ["Small"] }]])
@@ -98,7 +98,7 @@ async function main() {
   check("a variant named from its values is named again from theirs, its id and price kept", ss.variants[0].name === "Petit / Rouge" && ss.variants[0].id === "v1" && ss.variants[0].price === "$20.00" && ss.variants[0].options.join() === "Petit,Rouge,", ss.variants[0])
   check("  one the merchant named themselves keeps its name, its values translated", ss.variants[2].name === "Gift box" && ss.variants[2].options[0] === "Petit")
   check("the product page's data the same way", (localizeOptions({ options: [{ name: "Size", values: ["Small"] }], variants: [{ id: "v", name: "Small", options: ["Small", null, null] }] }, optMap, { approvedOnly: true, fresh: true }) as { variants: { name: string }[] }).variants[0].name === "Petit")
-  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /* Changed on purpose (merge with main): the market's conversion is handed over after (drawnShown). */ /_product_data: localizeOptions\(data, previewMap/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("  on the live product page, and in the editor's preview", /productData = localizer \? localizer\.options\(productRead\)/.test(read("components/website-builder/theme/render-product.tsx")) && /* Changed on purpose (merge with main): the market's conversion is handed over after (drawnShown). */ /_product_data: localizeOptions\(data, previewMap/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   check("the translations list has them, read from the products' options", /optionTranslatables\(lists\)/.test(read("lib/markets/server.ts")) && /title: "Product options"/.test(read("lib/markets/server.ts")))
 
   console.log("\nStorelib AI never replaces what the merchant wrote")

@@ -1,7 +1,7 @@
 /**
  * The seller's way back out of an editor, for scripts/check-app-back-stall.mjs:
  * the real page layer (components/app/page-layer.tsx) with the real returns
- * (app/app/products/list-return.ts, app/app/coupons/list-return.ts) and the
+ * (app/(storelib)/app/products/list-return.ts, app/(storelib)/app/coupons/list-return.ts) and the
  * real Android back handler (components/app/native-back-handler.tsx), with
  * stand-ins for the lists they go to.
  *
@@ -23,8 +23,8 @@ import { useRouter } from "next/navigation"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { PageLayer } from "@/components/app/page-layer"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
-import { openEditor, returnToProducts, useListOrigin } from "@/app/app/products/list-return"
-import { openCoupon, returnToCoupons, useCouponListOrigin } from "@/app/app/coupons/list-return"
+import { openEditor, returnToProducts, useListOrigin } from "@/app/(storelib)/app/products/list-return"
+import { openCoupon, returnToCoupons, useCouponListOrigin } from "@/app/(storelib)/app/coupons/list-return"
 
 const q = new URLSearchParams(location.search)
 const LIST = q.get("list") === "coupons" ? "coupons" : "products"
@@ -135,7 +135,7 @@ function App() {
 
 createRoot(document.getElementById("app")!).render(
   <>
-    {/* The shell's own answer to a navigation, as app/app/layout.tsx mounts it. */}
+    {/* The shell's own answer to a navigation, as app/(storelib)/app/layout.tsx mounts it. */}
     <React.Suspense fallback={null}>
       <NavigationLoadingBar />
     </React.Suspense>

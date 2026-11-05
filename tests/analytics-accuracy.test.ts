@@ -384,12 +384,12 @@ console.log("\nBugs fixed, with the old code's number beside the new one")
   const spring = compareBounds({ start: "2026-03-23", end: "2026-03-29" }, { mode: "previous_period" }, TZ, Date.parse("2026-03-29T12:00:00Z"))
   check("  and a week with the 23 hour day is cut at the same hour too (15:00 on 22 March)", spring!.end === midnightOf("2026-03-22", TZ) + 15 * 3_600_000, spring && new Date(spring.end).toISOString())
   check(`BUG 5 a yen store's cards read 100 times too little: 2,500 yen was "${formatCurrency(2500 / 100, "JPY", "en")}", now "${formatMinor(2500, "JPY", "en")}" (the tab above always read it right)`, formatCurrency(2500 / 100, "JPY", "en") === "¥25" && formatMinor(2500, "JPY", "en") === "¥2,500")
-  check("  the cards and the sales reports format with the currency's own decimals", /formatMinor\(cents \|\| 0, reportCurrency/.test(read("app/app/analytics/analytics-reports.tsx")) && /formatMinor\(n, data\?\.currency/.test(read("app/app/analytics/commerce-reports.tsx")) && !/shopMoneyIn|\/ 100, reportCurrency/.test(read("app/app/analytics/analytics-reports.tsx") + read("app/app/analytics/commerce-reports.tsx")))
+  check("  the cards and the sales reports format with the currency's own decimals", /formatMinor\(cents \|\| 0, reportCurrency/.test(read("app/(storelib)/app/analytics/analytics-reports.tsx")) && /formatMinor\(n, data\?\.currency/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")) && !/shopMoneyIn|\/ 100, reportCurrency/.test(read("app/(storelib)/app/analytics/analytics-reports.tsx") + read("app/(storelib)/app/analytics/commerce-reports.tsx")))
   const digitalWithSite = profileOf({ products: [{ type: "digital" }], onePageId: null, websites: [{ published: true }], communities: 0 })
   const oldShips = digitalWithSite.physical || digitalWithSite.publishedWebsite
   check(`BUG 6 a seller of downloads with a website was shown shipping and fulfilment: was ${oldShips}, now ${sectionsFor(digitalWithSite, { property: "all", productKind: null }).shipping}`, oldShips === true && !sectionsFor(digitalWithSite, { property: "all", productKind: null }).shipping && !sectionsFor(digitalWithSite, { property: "all", productKind: null }).fulfillment)
-  check("BUG 7 the sales reports read at most 50,000 lines and said nothing: the cap is now 200,000 a stretch, and the page says when it is reached", /truncated: read\.truncated/.test(read("lib/analytics/commerce-server.ts")) && /data-commerce-truncated/.test(read("app/app/analytics/commerce-reports.tsx")) && !/CEILING = 50_000/.test(read("app/api/analytics/commerce/route.ts")))
-  check("BUG 8 there was no order fulfillment rate, only a time: now fulfilled of the physical orders, by the same filters", c.fulfillmentRate.rate === 0.5 && /data-card="fulfil"/.test(read("app/app/analytics/commerce-reports.tsx")) && /card="shipping" title=\{tt\("Shipping"\)\}/.test(read("app/app/analytics/commerce-reports.tsx")))
+  check("BUG 7 the sales reports read at most 50,000 lines and said nothing: the cap is now 200,000 a stretch, and the page says when it is reached", /truncated: read\.truncated/.test(read("lib/analytics/commerce-server.ts")) && /data-commerce-truncated/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")) && !/CEILING = 50_000/.test(read("app/api/analytics/commerce/route.ts")))
+  check("BUG 8 there was no order fulfillment rate, only a time: now fulfilled of the physical orders, by the same filters", c.fulfillmentRate.rate === 0.5 && /data-card="fulfil"/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")) && /card="shipping" title=\{tt\("Shipping"\)\}/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")))
   /* The old rule: each order's money less whatever it ever had refunded, on the order's own day. */
   const byOrderDay = (w: { start: number; end: number }) => salesFor(ORDERS, ALL, W1).filter((o) => Date.parse(o.createdAt) >= w.start && Date.parse(o.createdAt) < w.end).reduce((a, o) => a + moneyOf(o).net, 0)
   const oldWeek = byOrderDay(span)
@@ -413,7 +413,7 @@ console.log("\nThe page morphs to what the store sells")
   check("both: the switch; Digital hides shipping and fulfillment, Physical hides downloads", sellsOf(both) === "both" && !s(both, "digital").shipping && !s(both, "digital").fulfillment && s(both, "physical").shipping && !s(both, "physical").downloads && s(both, "all").shipping && s(both, "all").downloads)
   check("  the Physical and Digital tabs inside Top products only while the switch is on All", s(both, "all").productKinds && !s(both, "digital").productKinds)
   check("nothing to sell yet: no sales sections", sellsOf(none) === "none" && !s(none).sales && !s(none).shipping)
-  const client = read("app/app/analytics/analytics-client.tsx")
+  const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
   check("  and the page draws the visits and one line, not zeros: three traffic tabs and the no-sales note", /sells === "none" \? TRAFFIC_TABS : CORE_TABS/.test(client) && /data-no-sales/.test(client))
   /*
     Changed on purpose twice. Round AC2 (the owner: "I don't like the All /
@@ -424,14 +424,14 @@ console.log("\nThe page morphs to what the store sells")
     in the address (dropped for All).
   */
   check("  the kind pills only when there is a choice, All counting both kinds, ?kind= in the address", /const kindPills = useMemo/.test(client) && /* Changed on purpose (round 42): one filter chip (components/app/kind-picker), not segments. */ /\{kindPills\.length \? <KindPicker /.test(client) && /: "all"\s*$/m.test(client.split("const mode: SalesMode =")[1]?.split("\n")[0] ?? "") && /if \(next === "all"\) url\.searchParams\.delete\("kind"\)/.test(client))
-  check("  and the split is drawn where it matters: the breakdown's kind columns, the kind of each top product, Shipping only with a physical order", /showKinds=\{sections\.productKinds\}/.test(client) && /data-kind-columns/.test(read("app/app/analytics/commerce-reports.tsx")) && /physicalOrders > 0/.test(read("app/app/analytics/commerce-reports.tsx")) && /data-kind-split/.test(read("app/app/analytics/analytics-reports.tsx")))
+  check("  and the split is drawn where it matters: the breakdown's kind columns, the kind of each top product, Shipping only with a physical order", /showKinds=\{sections\.productKinds\}/.test(client) && /data-kind-columns/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")) && /physicalOrders > 0/.test(read("app/(storelib)/app/analytics/commerce-reports.tsx")) && /data-kind-split/.test(read("app/(storelib)/app/analytics/analytics-reports.tsx")))
 }
 
 /* ═══ 5. THE LAYOUT AND THE EXPORT ══════════════════════════════════════ */
 
 console.log("\nAdd report at the bottom, Export in the period's row")
 {
-  const client = read("app/app/analytics/analytics-client.tsx")
+  const client = read("app/(storelib)/app/analytics/analytics-client.tsx")
   const head = client.slice(client.indexOf("data-analytics-head"), client.indexOf("data-analytics-controls"))
   /* Changed on purpose (round 49, the owner: Export "on the same line as the Analytics heading ... icon only"): the heading's line holds Send to and Export at its right, still no Add report. */
   check("no Add report in the heading row; Export and Send to at its right", !/marker="add-report"/.test(client) && !/AddReportButton/.test(head) && /<SendAnalyticsButton \/>\s*<ExportButton query=\{exportQuery\} name=\{exportName\} options=\{exportOptions\} range=\{exportRange\} \/>/.test(head))

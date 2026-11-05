@@ -225,9 +225,9 @@ async function run() {
 
   console.log("\n5. Noncritical reads have their own ceiling")
   {
-    const layout = read("app/app/layout.tsx")
+    const layout = read("app/(storelib)/app/layout.tsx")
     check("the account menu's businesses never hold the shell", /within\(listBusinesses\(user\.id\), SHELL_EXTRA_MS, \[\]\)/.test(layout))
-    const home = read("app/app/page.tsx")
+    const home = read("app/(storelib)/app/page.tsx")
     check("Home's banner sales never hold Home", /within\(creatorSalesRows\(adminSupabase, creator\.id, now(, \{ noFetch: true \})?\), HOME_EXTRA_MS, NO_BANNER_ROWS\)/.test(home))
   }
 

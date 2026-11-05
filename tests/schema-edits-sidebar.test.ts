@@ -248,7 +248,7 @@ async function main() {
     theirs.settings.push({ type: "text", id: "kicker", label: "Kicker" })
     const saved = await saveThemeFile(db as never, INSTALL, "sections/slideshow.storelib", withTheirs(before, theirs))
     check("a save that changed the theme's schema answers with the file as kept, its panel made again", saved.ok === true && typeof saved.source === "string" && /"id": "kicker"/.test(saved.source.split('"shopify": {')[0]))
-    check("  and the code editor shows the file as kept", /typeof saved\?\.stored === "string"/.test(read("app/website-builder/code/[installId]/page.tsx")) && /stored: result\.source/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
+    check("  and the code editor shows the file as kept", /typeof saved\?\.stored === "string"/.test(read("app/(storelib)/website-builder/code/[installId]/page.tsx")) && /stored: result\.source/.test(read("app/api/website-builder/themes/[installId]/files/route.ts")))
     const markup = await saveThemeFile(db as never, INSTALL, "sections/slideshow.storelib", text("sections/slideshow.storelib")!.replace('class="slideshow"', 'class="slideshow x"'))
     check("a save of the markup alone keeps the file exactly as sent", markup.ok === true && markup.source === undefined)
     const refused = await saveThemeFile(db as never, INSTALL, SETTINGS_SCHEMA_FILE, "{ nope")
@@ -346,7 +346,7 @@ async function main() {
 
   console.log("\nThe open editor takes a push in place")
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("a page or the settings a push rewrote is read again quietly: no loading state, the open section stays", /const loadData = useCallback\(async \(opts: \{ quiet\?: boolean \} = \{\}\) => \{\s*const quiet = opts\.quiet === true[\s\S]{0,900}?if \(!quiet\) \{\s*setLoading\(true\)/.test(editor) /* Changed on purpose (r51): each open is numbered first (openEpoch), and the slow notice reset with the loading state. */ && /await loadData\(\{ quiet: true \}\)/.test(editor))
     check("  an edit made while it was on its way is not written over: the choice is shown", /if \(quiet && \(isDirtyRef\.current \|\| savingRef\.current\)\) \{\s*setSyncConflict/.test(editor))
     check("  a failed quiet read leaves the editor as it was", /if \(!quiet\) \{\s*setLoadFailure\(\{[^}]*\}\)\s*setLoadFailed\(true\)/.test(editor))

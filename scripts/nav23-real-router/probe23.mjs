@@ -3,7 +3,7 @@
  *  ROUND 23: CLOSES, RELOADS AND LANDINGS, COUNTED UNDER THE REAL ROUTER
  * ===========================================================================
  * Against this harness (build.sh, serve.sh): the real /app shell, the real
- * settings sheet over a page (app/app/@sheet), the real website builder
+ * settings sheet over a page (app/(storelib)/app/@sheet), the real website builder
  * editor page, the real product layer.
  *
  *   node probe23.mjs <port> <outdir> flow=<name> [w=1440|390] [cpu=4] [n=3] [film=1]

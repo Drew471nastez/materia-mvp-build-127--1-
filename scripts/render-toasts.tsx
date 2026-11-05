@@ -1,7 +1,7 @@
 /**
  * The real Toaster (components/ui/toaster.tsx) and the real nav pill
  * (components/app/sidebar-mobile-nav.tsx) in a shell with the same boxes as
- * app/app/layout.tsx: the phone header (68px under the status bar), the
+ * app/(storelib)/app/layout.tsx: the phone header (68px under the status bar), the
  * desktop header (58px), the rail from md, and a page of cards. Toasts are
  * raised through the real `toast()` (hooks/use-toast.ts), the way every page
  * raises them. Bundled by scripts/check-toasts.mjs.

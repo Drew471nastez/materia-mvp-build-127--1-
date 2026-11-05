@@ -420,12 +420,12 @@ async function main() {
     ] } })
     const sold = await soldThrough(orders, SHOP, [QB, BUNDLE])
     check("Sold: units of paid lines an offer saved on or a theme added through it, each line once, the store's own only", sold[QB] === 3 && sold[BUNDLE] === 2, sold)
-    const area = read("app/app/offers/offers-client.tsx")
+    const area = read("app/(storelib)/app/offers/offers-client.tsx")
     check("  the list shows it beside each offer", /data-offer-sold=/.test(area) && /\{n\} sold/.test(area))
     const exp = read("app/api/physical/orders/export/route.ts")
     check("the orders export ends with each line's properties and offers", /"Buyer reference", "Properties", "Offers"\]/.test(exp) && /propertiesText\(l\.properties\), offersText\(l\.offers\)\]/.test(exp))
     check("the store's edits stay the owner's (or their team's): shopCaller on every write", /const c = await shopCaller\("marketing"(?:, \{ read: true \})?\)/.test(read("app/api/store/offers/route.ts")) /* Round 40: a team member reaches offers with Marketing. */)
-    const draft = read("app/app/offers/offer-draft.ts")
+    const draft = read("app/(storelib)/app/offers/offer-draft.ts")
     check("the editor checks each tier where it is typed, with the server's limits", /export function tierProblems/.test(draft) && /MAX_TIER_QUANTITY/.test(draft) && /MAX_FREE_QUANTITY/.test(draft))
   }
 
@@ -503,7 +503,7 @@ async function main() {
     const long = await answer(site, { method: "GET", path: "/checkout", query: new URLSearchParams(), body: null, cart: many as never, note: "", attributes: {}, discountCode: "SAVE10", ajax: false, referer: "/" })
     const longParams = readSiteCheckoutParams(new URL(long.headers?.Location ?? "", "https://shop.test").searchParams)
     check("a whole cart too long for an address goes to checkout without items, which reads the cookie, code kept", long.status === 303 && longParams.items.length === 0 && longParams.wholeCart && longParams.couponCode === "SAVE10" && (long.headers?.Location ?? "").length < 2000, long.headers?.Location?.slice(0, 200))
-    check("  and the checkout page reads the cart from its cookie when the address has none", /if \(items\.length === 0\) \{\n\s+const theme = readCartCookie/.test(read("app/checkout/site/page.tsx")))
+    check("  and the checkout page reads the cart from its cookie when the address has none", /if \(items\.length === 0\) \{\n\s+const theme = readCartCookie/.test(read("app/(storelib)/checkout/site/page.tsx")))
   }
 
   section("EMAILS AND THE ORDER PAGES: each saving its own row; the buyer never sees a theme's notes")
@@ -517,8 +517,8 @@ async function main() {
     check("the confirmation lists the saving on its own row, then the code's part as Discount", /Buy 2 get 1 free/.test(mail.html) && /-\$36\.00/.test(mail.html) && /Discount/.test(mail.html) && /-\$7\.20/.test(mail.html) && /Buy 2 get 1 free: -\$36\.00/.test(mail.text), mail.text)
     check("  the buyer's own words are on the line, a name starting with _ never is", /Engraving: Ana/.test(mail.html) && !/_sl_offer_id/.test(mail.html + mail.text))
     check("the store's order page lists every property and each line's offers", /data-order-line-properties/.test(read("components/physical/order-panel.tsx")) && /data-line-offer=/.test(read("components/physical/order-panel.tsx")) && /offers: offersOfSnapshot\(s\.offers\)/.test(read("lib/physical/orders-server.ts")))
-    check("the buyer's order page shows their own words only", /properties: buyerProperties\(l\.properties\)/.test(read("app/checkout/physical/order/[token]/page.tsx")))
-    check("the checkout shows each saving on its own row", /data-offer-saving=""/.test(read("app/checkout/site/site-checkout.tsx")))
+    check("the buyer's order page shows their own words only", /properties: buyerProperties\(l\.properties\)/.test(read("app/(storelib)/checkout/physical/order/[token]/page.tsx")))
+    check("the checkout shows each saving on its own row", /data-offer-saving=""/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
   }
 
   section("SQL PART 304")

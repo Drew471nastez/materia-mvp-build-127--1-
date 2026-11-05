@@ -217,7 +217,7 @@ function flaky(): Response {
 /* What the editor said before this round, for every way its first read could fail. */
 const OLD_EDITOR_WORDS = "Your website didn't load. Check your connection and try again."
 /** The words the editor shows now, or the old fixed sentence when the old code is under test. */
-const EDITOR_SOURCE = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+const EDITOR_SOURCE = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
 /** Whether the editor under test words its problem by cause and tries again by itself (false for the code before this round). */
 const EDITOR_EXPLAINS = /explainLoadProblem\(loadFailure/.test(EDITOR_SOURCE)
 const EDITOR_AUTO = /LOAD_AUTO_RETRY_MS\[loadAutoTries\]/.test(EDITOR_SOURCE)
@@ -230,7 +230,7 @@ function editorWords(f: { status?: number | null; error?: unknown }, retryingNow
 }
 
 /*
-  The editor's first read, as app/website-builder/editor/[installId]/page.tsx
+  The editor's first read, as app/(storelib)/website-builder/editor/[installId]/page.tsx
   loadData asks it (the same calls: retrying, fetchWithin, waits 700 and
   2000ms), and then, when `auto` is given, the page's automatic tries
   (LOAD_AUTO_RETRY_MS, here divided by `scale` so a minute runs in a moment).
@@ -457,7 +457,7 @@ async function main() {
   /* ────────────────────────────────────────────────────────────────────── */
   out("\n12. The pieces are where they should be")
   {
-    const editor = src("app/website-builder/editor/[installId]/page.tsx")
+    const editor = src("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor tries a failed first read again by itself (LOAD_AUTO_RETRY_MS) and at once when back online",
       /LOAD_AUTO_RETRY_MS\[loadAutoTries\]/.test(editor) && /addEventListener\("online", back/.test(editor))
     check("  and its words come from explainLoadProblem, not one fixed sentence",

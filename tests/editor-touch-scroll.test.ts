@@ -170,7 +170,7 @@ function main() {
     stop()
     check("and it all comes off", win.count("touchend") === 0 && doc.count("visibilitychange") === 0)
   }
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the editor installs it",
     /watchTouchLeftovers\(window, document, \(\) => \{\s*\n\s*healTouchLeftovers\(\{/.test(page) && /releaseStrayDrawerHold\(el, lockHolders\(el\)\)/.test(page))
   const bottom = read("components/ui/bottom-sheet.tsx")

@@ -186,7 +186,7 @@ async function main() {
   const tracker = code("components/platform/app-history-tracker.tsx")
   check("a route that replaced its entry is not counted as a page behind",
     /if \(!grew && !poppedOnce\.current\) \{\s*lastPath\.current = pathname\s*return/.test(tracker) && tracker.indexOf("!grew && !poppedOnce") < tracker.indexOf("noteClientNavigation(lastPath.current)"))
-  check("the product page hands the breadcrumb the creator's page", /creatorHref=\{creatorPageHref\(creatorUsername\)\}/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+  check("the product page hands the breadcrumb the creator's page", /creatorHref=\{creatorPageHref\(creatorUsername\)\}/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

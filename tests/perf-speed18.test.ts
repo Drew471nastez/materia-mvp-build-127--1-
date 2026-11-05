@@ -253,7 +253,7 @@ async function onePage() {
     Here: both sides go through the one cached reader, keyed by the blocks.
   */
   const lib = code("lib/onepage/published-page.ts")
-  check("the metadata and the body share one read of the page's products, per request", /const liveBlocksOnce = cache\(/.test(lib) && /liveProducts \? await liveBlocksFor\(/.test(lib) && /\.blocks = await liveBlocksFor\(\w+\.seller_id/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("the metadata and the body share one read of the page's products, per request", /const liveBlocksOnce = cache\(/.test(lib) && /liveProducts \? await liveBlocksFor\(/.test(lib) && /\.blocks = await liveBlocksFor\(\w+\.seller_id/.test(code("app/(storelib)/(marketing)/l/[slug]/page.tsx")))
   const first = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
   const productReads = (r: typeof first) => r.trips.filter((t) => t.table === "products").length
   check("and it answers what withLiveProducts answers", JSON.stringify(first.value) === JSON.stringify(await (await import("@/lib/onepage/live-products")).withLiveProducts((await import("@/lib/supabase/admin")).createAdminClient() as never, SITE.creatorId, blocks)))
@@ -273,7 +273,7 @@ async function onePage() {
   const next = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
   check("a deleted product leaves the page on the next visit after the store's purge", productReads(next) === 1 && !JSON.stringify(next.value).includes(named))
 
-  const route = code("app/(marketing)/l/[slug]/page.tsx")
+  const route = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   /* Changed on purpose (rel-public): Analytics' own view event is the count; the render writes nothing (lib/onepage/visit-gate). */
   check("the render writes no view of its own, and reads no cookie", !/onepage_views/.test(route) && !/\bafter\(/.test(route) && !/cookies\(\)/.test(route))
   check("and the page still renders for every visitor (a block's schedule is decided at each draw)", /export const dynamic = "force-dynamic"/.test(route))
@@ -283,7 +283,7 @@ async function explore() {
   section("Explore's catalogue is one copy for everybody (lib/explore/catalogue-cache.ts)")
   const { EXPLORE_CATALOGUE_TAG, cachedExploreCatalogue } = await import("@/lib/explore/catalogue-cache")
   const { purgeProductCaches } = await import("@/lib/products/forget-product")
-  const pageModule = await import("@/app/(marketing)/explore/page")
+  const pageModule = await import("@/app/(storelib)/(marketing)/explore/page")
   nextCache.resetCache()
   const fixture = buildFixture()
   useFixture(fixture)
@@ -332,7 +332,7 @@ async function explore() {
   const empty = await visit(() => cachedExploreCatalogue(async () => [] as unknown[]))
   check("nor is an empty answer", !!empty.error && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
 
-  const category = await import("@/app/(marketing)/explore/[category]/page")
+  const category = await import("@/app/(storelib)/(marketing)/explore/[category]/page")
   nextCache.resetCache()
   useFixture(buildFixture())
   const renderCategory = () => category.default({ params: Promise.resolve({ category: "design" }), searchParams: Promise.resolve({}) } as never)
@@ -346,7 +346,7 @@ async function explore() {
   const saveRoute = code("app/api/revalidate/route.ts")
   check("a product save clears Explore and the creator's website shop", /exploreCatalogueChanged\(\)/.test(saveRoute) && /revalidateTag\(creatorShopTag\(owned\.creator_id\), "max"\)/.test(saveRoute) && /\.eq\("creator_id", creator\.id\)/.test(saveRoute))
   check("a ban and a closed account take their products off it at once", /exploreCatalogueTakenDown\(\)/.test(code("app/api/admin/creators/moderate/route.ts")) && /exploreCatalogueTakenDown\(\)/.test(code("lib/account/delete-account.ts")))
-  const page = code("app/(marketing)/explore/page.tsx")
+  const page = code("app/(storelib)/(marketing)/explore/page.tsx")
   check("For you and the visitor stay outside it, per visit", /cachedExploreCatalogue\(\(\) => readCatalog\(createPublicReadClient\(\)/.test(page) && !/cachedExploreCatalogue\([^\n]*(interests|getUser|cookies)/.test(page))
 }
 
@@ -367,7 +367,7 @@ async function profileByName() {
   check("a name ILIKE read as a pattern is now its own page, not a 404", (pattern.value as { username?: string } | null)?.username === "a_b")
   const nobody = await visit(() => publicProfileByName(db(), "nobody-here"))
   check("nobody by that name is still nobody", nobody.value === null)
-  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
   const batch = page.indexOf("{ data: catalogue, error: productsError }")
   /* Changed on purpose (round 38): a creator page reads no follower or following count, so there is no followingPromise to start. */
   /* Changed on purpose (round 40): "on creator pages there should be no follow button", so the page no longer asks whether the viewer follows the creator; location and channels still start with the first batch. */

@@ -1,5 +1,5 @@
 /**
- * /account as the layout draws it (app/account/layout.tsx), for
+ * /account as the layout draws it (app/(storelib)/account/layout.tsx), for
  * scripts/check-account-center.mjs: the REAL site header
  * (components/platform/platform-header-client.tsx, with Supabase stubbed by
  * the probe as a signed in buyer), then the main column with the real hub

@@ -41,7 +41,7 @@ import {
 } from "@/lib/offers/offers"
 import { loadOffers, offerLinesFor, offerOf } from "@/lib/offers/offers-read"
 import { priceCart } from "@/lib/checkout/pricing"
-import { bodyOf, draftOf, problemsOf } from "@/app/app/offers/offer-draft"
+import { bodyOf, draftOf, problemsOf } from "@/app/(storelib)/app/offers/offer-draft"
 import { withOffersBlock, OFFERS_ADDED, AUTO_OFFERS_ID } from "@/lib/website-builder/product-page"
 
 let passed = 0
@@ -257,7 +257,7 @@ async function main() {
     const row = offerRow({ kind: "checkout", product_ids: [C], trigger_collection_ids: [COLL], discount_type: "fixed", discount_value: 350, placements: ["cart", "checkout"], starts_at: saved.startsAt, ends_at: saved.endsAt, combines_with_codes: false, max_per_order: 3, min_subtotal_cents: 2500 })
     const fromRow = offerOf(row as never)
     check("and each column reads back into the same setting (offerOf)", fromRow.triggerCollectionIds!.join() === COLL && fromRow.placements!.join() === "cart,checkout" && fromRow.startsAt === saved.startsAt && fromRow.combinesWithCodes === false && fromRow.maxPerOrder === 3 && fromRow.minSubtotalCents === 2500)
-    const editor = read("app/app/offers/offer-editor.tsx")
+    const editor = read("app/(storelib)/app/offers/offer-editor.tsx")
     const rules: [string, RegExp, boolean][] = [
       ["kind: bundle or upsell", /label=\{tt\("Kind of offer"\)\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1 && applyOffers([line(A, 1000), line(C, 1000)], [upsell()]).applied.length === 1],
       ["name buyers see", /id="offer-title"/, readOffer({ kind: "bundle", title: "  ", productIds: [A, B] }).ok === false],
@@ -356,7 +356,7 @@ async function main() {
     const block = read("components/website-builder/sections/renderers/product/offers-block.tsx")
     check("  each colour painted on its element", ["s.heading_color", "s.text_color", "s.price_color", "s.border_color", "s.badge_background", "s.badge_text", "s.button_background", "s.button_text"].every((k) => block.includes(k)))
     check("  in the editor a sample shows so it can be styled; live it reads the product's offers", /ctx\.sample \? SAMPLE : live/.test(block) && /useProductOffers\(productId, !ctx\.sample\)/.test(block))
-    check("  registered with the product blocks, and on the canvas, the live page and the sidebar", /offers: OffersBlock/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(raw\)\)\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(s\)\)\)/.test(read("components/website-builder/theme/render-product.tsx")) && /loaded = loaded\.map\(\(s\) => withOffersBlock\(s\)\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("  registered with the product blocks, and on the canvas, the live page and the sidebar", /offers: OffersBlock/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(raw\)\)\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(s\)\)\)/.test(read("components/website-builder/theme/render-product.tsx")) && /loaded = loaded\.map\(\(s\) => withOffersBlock\(s\)\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
     check("  Add all to cart puts every line in the website's cart", /* Round 23: every line or none (addAllLines). */ /return cart\.addAll\(withAnswersLines\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
   }
 
@@ -387,24 +387,24 @@ async function main() {
   {
     check("the cart drawer shows the savings and what to add", /useCartOffers\(lines, shopId, open && live && !scopedToPreview\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /<CartOfferSuggestions/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /<CartOfferSavings/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")))
     check("the cart page too, and the code's line is the code's part", /useCartOffers\(lines, shopId, ready\)/.test(read("components/website-builder/cart-page-body.tsx")) && /applied\.discountCents - applied\.offerCents/.test(read("components/website-builder/cart-page-body.tsx")))
-    const siteCheckout = read("app/checkout/site/site-checkout.tsx")
+    const siteCheckout = read("app/(storelib)/checkout/site/site-checkout.tsx")
     check("the website's checkout: Add to your order, into the order and the cart", /<CheckoutSuggestions suggestions=\{editable \? \(quote\.suggestions \?\? \[\]\) : \[\]\}/.test(siteCheckout) && /commitItems\(\[\.\.\.items\.filter/.test(siteCheckout))
     check("  and an offer isn't counted in the discount line as well as its own line", /* Merged with main: lib/checkout/summary-rows.ts takes the offers out of the code's line. */ /const rows = quote \? summaryRows\(quote\) : null/.test(siteCheckout) && /const discountCents = rows\?\.discount \?\? 0/.test(siteCheckout) && /let discount = whole - offerSum/.test(read("lib/checkout/summary-rows.ts")))
-    check("the physical checkout keeps its Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
+    check("the physical checkout keeps its Add to your order", /<CheckoutSuggestions/.test(read("app/(storelib)/checkout/physical/physical-checkout.tsx")))
     check("Storelib's product page keeps its bundles under the buy box", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
   }
 
   console.log("\nThe /app page")
   {
-    const page = read("app/app/offers/page.tsx")
+    const page = read("app/(storelib)/app/offers/page.tsx")
     /* Changed on purpose: no route loading boundary, like every /app page (tests/page-performance.test.ts): the page you are on stays while this one loads. */
-    check("read on the server (no fetch after it lands), and no route loading boundary", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(page) && !existsSync(join(root, "app/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
-    const client = read("app/app/offers/offers-client.tsx")
+    check("read on the server (no fetch after it lands), and no route loading boundary", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(page) && !existsSync(join(root, "app/(storelib)/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
+    const client = read("app/(storelib)/app/offers/offers-client.tsx")
     check("the list: views with counts, a search, phone rows, a table, a menu per row", /role="tablist"/.test(client) && /data-offer-search=""/.test(client) && /md:hidden/.test(client) && /md:table/.test(client) && /<ResponsiveActionMenu/.test(client))
     check("no made up numbers: nothing about views, accepts or revenue", !/revenue|accepts|accepted|conversion|impressions/i.test(client.replace(/\/\*[\s\S]*?\*\//g, "")))
     /* Changed on purpose: the owner asked for an offer to open as a sub page, as an order does, not a dialog or a bottom sheet (tests/offers-subpages.test.ts). */
-    check("the editor: a page of its own, Save with Ctrl or Cmd and S or Enter", !/<SheetDialog/.test(read("app/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/app/offers/new/page.tsx")))
-    check("changes kept: leaving with edits asks first", /Discard changes\?/.test(read("app/app/offers/offer-editor.tsx")))
+    check("the editor: a page of its own, Save with Ctrl or Cmd and S or Enter", !/<SheetDialog/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/new/page.tsx")))
+    check("changes kept: leaving with edits asks first", /Discard changes\?/.test(read("app/(storelib)/app/offers/offer-editor.tsx")))
     check("in the menu for every store, beside Coupons", /mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\([\s\S]{0,200}\{ href: "\/app\/offers", label: tt\("Upsells and bundles"\) \}/.test(read("components/app/sidebar.tsx")) && !/if \(physicalCommerce\) mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\(/.test(read("components/app/sidebar.tsx")))
   }
 

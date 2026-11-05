@@ -7,7 +7,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { AnalyticsReports } from "@/app/app/analytics/analytics-reports"
+import { AnalyticsReports } from "@/app/(storelib)/app/analytics/analytics-reports"
 import { PhysicalAnalyticsCard } from "@/components/physical/analytics-card"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { buildReports, type StepRow, type ViewRow } from "@/lib/analytics/reports"

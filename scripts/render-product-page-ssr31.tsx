@@ -1,7 +1,7 @@
 /**
  * THE PRODUCT PAGE AS EXPLORE OPENS IT, for scripts/check-product-dark-round31.mjs.
  *
- * The real app/(marketing)/p/[slug]/page.tsx and its layout, called the way the app router calls them for
+ * The real app/(storelib)/(marketing)/p/[slug]/page.tsx and its layout, called the way the app router calls them for
  * /<handle>/<slug>?layout=discover&recommended=1, with the data they read answered from fixtures (the probe swaps the
  * loaders, the Supabase clients and next/headers for stubs that read globalThis.__productFixture).
  *
@@ -24,8 +24,8 @@
  */
 import React from "react"
 import { renderToReadableStream } from "react-dom/server"
-import ProductPage from "@/app/(marketing)/p/[slug]/page"
-import ProductLayout from "@/app/(marketing)/p/[slug]/layout"
+import ProductPage from "@/app/(storelib)/(marketing)/p/[slug]/page"
+import ProductLayout from "@/app/(storelib)/(marketing)/p/[slug]/layout"
 import { defaultProductPageConfig, themePresets } from "@/lib/store-builder/defaults"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 

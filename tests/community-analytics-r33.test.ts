@@ -173,10 +173,10 @@ async function main() {
   check("a prerendered page waits until it is shown", /if \(doc\.prerendering\) \{\s*doc\.addEventListener\("prerenderingchange", send, \{ once: true \}\)/.test(beacon))
   check("once a UTC day per browser, remembered only once the server answered", /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/.test(beacon) && /if \(window\.localStorage\.getItem\(key\) === day\) return/.test(beacon) && /if \(!answer\?\.ok\) return\s*try \{\s*window\.localStorage\.setItem\(key, day\)/.test(beacon))
   check("it sends the address as the page opened, the referrer and the touch points", /opened\.current = `\$\{window\.location\.pathname\}\$\{window\.location\.search\}`/.test(beacon) && /referrer: referer \|\| document\.referrer \|\| null/.test(beacon) && /navigator\.maxTouchPoints/.test(beacon))
-  const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+  const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
   check("every page of a published community carries it, in both frames", (layout.match(/\{visit\}/g) ?? []).length === 2 && /const visit = visitBeacon\(page, \(await headers\(\)\)\.get\("referer"\)\)/.test(layout))
   check("never for its owner or the store's account, never for a draft", /if \(!c \|\| c\.status !== "published" \|\| page\.viewer\?\.isOwner \|\| page\.viewer\?\.isCreatorAccount\) return null/.test(layout))
-  check("no page counts a view while it renders (a prefetch renders too)", !/scheduleCommunityView/.test(code("app/(marketing)/community/[slug]/page.tsx")) && !/scheduleCommunityView/.test(code("app/(marketing)/community/[slug]/about/page.tsx")) && !/scheduleCommunityView/.test(code("lib/communities/server/record-view.ts")))
+  check("no page counts a view while it renders (a prefetch renders too)", !/scheduleCommunityView/.test(code("app/(storelib)/(marketing)/community/[slug]/page.tsx")) && !/scheduleCommunityView/.test(code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")) && !/scheduleCommunityView/.test(code("lib/communities/server/record-view.ts")))
   check("the member's heartbeat still writes the member's day", /recordMemberDay\(db, gate\.community\.id, String\(gate\.viewer\.userId\)\)/.test(code("app/api/community/[communityId]/presence/route.ts")))
 
   /* ── Nightly ─────────────────────────────────────────────────────────── */
@@ -286,7 +286,7 @@ async function main() {
     "lib/communities/server/analytics-report.ts",
     "lib/communities/server/analytics.ts",
     "app/api/community/[communityId]/visit/route.ts",
-    "app/(marketing)/community/[slug]/layout.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/layout.tsx",
     "scripts/check-community-analytics-round33.mjs",
   ]
   for (const f of mine) {

@@ -281,7 +281,7 @@ function wiring() {
   console.log("\nThe ground under the editor, and no reload from under it")
   const ground = read("components/website-builder/editor-ground.tsx")
   check("the editor's grey under it however it was opened, never the bar's near black", /EDITOR_GROUND = "#eef1f5"/.test(ground) && /if \(!h\.style\.backgroundColor\) h\.style\.backgroundColor = EDITOR_GROUND/.test(ground) && /useLayoutEffect/.test(ground))
-  check("  the same grey the frame and the head script paint", /bg-\[#eef1f5\]/.test(read("components/website-builder/editor-frame.tsx")) && read("app/layout.tsx").includes("_wb.style.backgroundColor='#eef1f5'"))
+  check("  the same grey the frame and the head script paint", /bg-\[#eef1f5\]/.test(read("components/website-builder/editor-frame.tsx")) && read("app/(storelib)/layout.tsx").includes("_wb.style.backgroundColor='#eef1f5'"))
   check("the app does not reload in the background under the website builder", !reloadWhileAway("/website-builder/editor/0f0c0a5e-0000-4000-8000-000000000000", false) && !reloadWhileAway("/store/ana/themes/abc/editor", false))
   check("  nor under OnePage or checkout", !reloadWhileAway("/app/onepage", false) && !reloadWhileAway("/checkout/site", false))
   check("  nor anywhere with unsaved work", !reloadWhileAway("/app/products", true))
@@ -289,7 +289,7 @@ function wiring() {
   check("  the check is the one the listener uses", /reloadWhileAway\(window\.location\.pathname, !!leaveGuard\(\)\)/.test(read("lib/ui/new-deploy.ts")))
 
   console.log("\nWhat a push waits on has an end, and lands even when the draft read fails")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const texts = editor.slice(editor.indexOf("async function readThemeTexts"), editor.indexOf("async function readThemeTexts") + 1800)
   check("each file read", (texts.match(/signal: AbortSignal\.timeout\(PUSH_READ_MS\)/g) ?? []).length === 2, texts.length)
   check("the theme's sources", /files\?sources=1`, \{ cache: "no-store", signal: AbortSignal\.timeout\(PUSH_READ_MS\) \}/.test(editor))
@@ -309,7 +309,7 @@ function wiring() {
   check("  bounded per tab, so it is never a reload loop", /MAX_RECOVERIES = 2/.test(gate) && /noteRecovery\(\)\s*postSessionSync\(session, currentPath\)/.test(gate))
   const stage = read("components/app/app-stage.tsx")
   check("a press loaded as a document that never finishes gives way", /window\.location\.assign\(nav\.href as string\)[\s\S]{0,900}?timers\.push\(window\.setTimeout\(\(\) => \{\s*if \(getAppNavigation\(\) !== nav\) return\s*try \{ window\.stop\(\) \}[\s\S]{0,300}?\}, DOCUMENT_LOAD_CAP_MS\)\)/.test(stage) && /DOCUMENT_LOAD_CAP_MS = 15_000/.test(stage))
-  const page = read("app/app/onepage/page.tsx")
+  const page = read("app/(storelib)/app/onepage/page.tsx")
   check("the editor's own reads end in the editor or an error, never a page that waits", /readTwice\(/.test(page) && /throw new Error\("The OnePage could not be made"\)/.test(page) && /if \(!user\) return <SessionRecovery \/>/.test(page))
 }
 

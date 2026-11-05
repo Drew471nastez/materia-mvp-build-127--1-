@@ -325,7 +325,7 @@ async function main() {
     const folder = tree.find((n) => n.path === "shopify")
     check("the code editor shows an imported theme's own files under original/", folder?.name === "original")
     check("  and every path a creator reads there says original/; the stored path is kept", shownPath("shopify/sections/header.liquid") === "original/sections/header.liquid" && shownPath("shopify/") === "original/" && shownPath("sections/shopify/x.json") === "sections/shopify/x.json" && shownPath("shopifyish/x") === "shopifyish/x")
-    const editor = read("app/website-builder/code/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/code/[installId]/page.tsx")
     check("  the rename and duplicate field shows the folder as original/ and writes the stored one back", /\{shownPath\(dir\)\}/.test(editor) && /onChange\(`\$\{dir\}\$\{asFileName\(e\.target\.value\)\}\$\{ext\}`\)/.test(editor))
     check("  the breadcrumb and the editor's messages too", /shownPath\(selectedFile\.path\)\.split\("\/"\)/.test(editor) && /You moved off \$\{shownPath\(path\)\}/.test(editor) && /\$\{shownPath\(to\)\} already exists/.test(editor))
     const files = read("app/api/website-builder/themes/[installId]/files/route.ts")

@@ -1,7 +1,7 @@
 /**
  * The real shell pieces that decide how an /app page arrives (the top bar,
  * AppStage and its spinner for a slow page) over a shell shaped like
- * app/app/layout.tsx, with a router that is only what these components can
+ * app/(storelib)/app/layout.tsx, with a router that is only what these components can
  * see of one: an address that changes when the new page commits, with the
  * new page, in the same render.
  *
@@ -23,8 +23,8 @@
  *                           router writes its commit (history state `__NA`)
  *                           at the address already showing, nothing moves
  *   /app/boom               the page throws: the /app error boundary
- *                           (app/app/error.tsx, the real one)
- *   /app/missing            the not-found page (app/app/not-found.tsx)
+ *                           (app/(storelib)/app/error.tsx, the real one)
+ *   /app/missing            the not-found page (app/(storelib)/app/not-found.tsx)
  *   /app/hang               never answers
  *   [data-handled]          a link the page handles itself: nothing starts
  *   __throwHere()           the page showing throws, the address unchanged
@@ -36,7 +36,7 @@ import { usePathname } from "next/navigation"
 import { NavigationLoadingBar, startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { AppStage, PageLanded } from "@/components/app/app-stage"
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
-import AppError from "@/app/app/error"
+import AppError from "@/app/(storelib)/app/error"
 import { AppNotFoundBody } from "@/components/app/app-not-found-body"
 
 type W = Window & {

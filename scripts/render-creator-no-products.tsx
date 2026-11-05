@@ -1,7 +1,7 @@
 /**
  * A creator page with no products, and a member's /account communities row,
  * for scripts/check-creator-no-products.mjs. The real components, composed
- * the way app/(marketing)/u/[username]/page.tsx composes them:
+ * the way app/(storelib)/(marketing)/u/[username]/page.tsx composes them:
  *
  *   ?<scheme>&<view>&<content>
  *     scheme    default (Storelib light), sage (tinted), astrid (dark)

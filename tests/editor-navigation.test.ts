@@ -115,7 +115,7 @@ function main() {
 
   console.log("\n  and the editor reads the page at the moment of the click")
 
-  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(process.cwd(), "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
   /*
     THE ACTUAL BUG, PINNED. The callback must not read `currentPage`,
     `handlePageChange` or `handleSelectProductPage` out of the render that

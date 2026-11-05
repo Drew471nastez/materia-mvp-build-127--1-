@@ -492,7 +492,7 @@ console.log("\n3. The filters")
 console.log("\n4. A category page, /explore/[category]")
 /*
   The same questions asked of the category page and its loading screen
-  (app/(marketing)/explore/[category]/loading.tsx): the frame is the page's,
+  (app/(storelib)/(marketing)/explore/[category]/loading.tsx): the frame is the page's,
   on the page's ground, and lines up with it; its category pill and its
   Filters are Explore's panel and sheet, with the category page's own picks.
 */

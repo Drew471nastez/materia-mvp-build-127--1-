@@ -1,9 +1,9 @@
 /**
  * Limit sales for a download, drawn for scripts/check-limit21.mjs.
  *
- *   ?editor  the real product editor (app/app/products/new/product-editor),
+ *   ?editor  the real product editor (app/(storelib)/app/products/new/product-editor),
  *            mounted from the rows the server page hands it, with a saved
- *            limit of 100 and 97 copies sold (app/app/products/load-editor)
+ *            limit of 100 and 97 copies sold (app/(storelib)/app/products/load-editor)
  *   ?shop    the product page's real buy box (components/checkout/
  *            purchase-status-wrapper) sold out and with three left, and the
  *            real Explore card (components/explore/product-card), which the
@@ -11,8 +11,8 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ProductEditor } from "@/app/app/products/new/product-editor"
-import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductEditor } from "@/app/(storelib)/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/(storelib)/app/products/new/editor-form"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ProductCard } from "@/components/explore/product-card"
 

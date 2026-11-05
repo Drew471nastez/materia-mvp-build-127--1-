@@ -65,12 +65,12 @@ console.log("\n2. One profile photo")
   check("nor over a photo that is there", !copyProviderAvatar({ profileExists: true, profileAvatar: "https://x/avatars/u/a.jpg", providerAvatar: google, chosen: false, accountAgeMs: 2000 }))
   check("the old placeholder is no photo", profileAvatar("/placeholder.svg?height=40") === null && profileAvatar("") === null && profileAvatar("https://x/a.jpg") === "https://x/a.jpg")
 
-  const callback = readCode("app/auth/callback/route.ts")
+  const callback = readCode("app/(storelib)/auth/callback/route.ts")
   check("the sign in callback asks the provider photo rule, both when it makes the profile and when it finds one",
     (callback.match(/providerPhotoWanted\(\{/g) ?? []).length === 2 && !/if \(!existingProfile\.avatar_url && avatarUrl\) updates\.avatar_url = avatarUrl/.test(callback)
       && /AVATAR_CHOSEN\] === true/.test(callback))
 
-  const layout = readCode("app/app/layout.tsx")
+  const layout = readCode("app/(storelib)/app/layout.tsx")
   check("the header's photo is the profile's, with no fallback", /const avatarUrl = profileAvatar\(profile\?\.avatar_url\)/.test(layout)
     && !/googleAvatar|user_metadata\?\.picture|storeBuilderAvatar|onepage\?\.avatar_url \|\| googleAvatar/.test(layout))
   const sidebar = readCode("components/app/sidebar.tsx")
@@ -89,9 +89,9 @@ console.log("\n2. One profile photo")
       && /supabase\.from\("profiles"\)\.update\(\{ avatar_url: url \}\)\.eq\("id", user\.id\)/.test(save) && /supabase\.auth\.updateUser\(\{ data: \{ \[AVATAR_CHOSEN\]: true \} \}\)/.test(save))
   check("and only takes a photo from the person's own folder", /\/storage\/v1\/object\/public\/avatars\/\$\{userId\}\//.test(route))
 
-  const settings = readCode("app/app/settings/_server.ts")
+  const settings = readCode("app/(storelib)/app/settings/_server.ts")
   check("Settings reads no other photo to fall back to", !/googleAvatarUrl|storeBuilderAvatarUrl|onepageAvatarUrl/.test(settings + form) && /useShellAvatar\(profile\.avatar_url\) \?\? ""/.test(form))
-  for (const f of ["app/account/library/page.tsx", "app/account/settings/page.tsx", "components/marketing/header.tsx", "components/marketing/header-client.tsx", "components/platform/platform-header-client.tsx"]) {
+  for (const f of ["app/(storelib)/account/library/page.tsx", "app/(storelib)/account/settings/page.tsx", "components/marketing/header.tsx", "components/marketing/header-client.tsx", "components/platform/platform-header-client.tsx"]) {
     check(`${f}: no Google fallback either`, !/user_metadata\??\.(avatar_url|picture)|googleAvatar/.test(readCode(f)))
   }
 }
@@ -191,11 +191,11 @@ console.log("\n6. The time zone, saved and followed")
   check("and sets the cookie the server renders in, unencoded (Next encodes it)", /res\.cookies\.set\(TIME_ZONE_COOKIE, zone,/.test(route))
   check("Settings saves it to the account, not only to this browser", /fetch(?:WithDeadline)?\("\/api\/account\/time-zone"/.test(form) && !/localStorage\.setItem\('storelib_timezone'/.test(form))
   /* Changed on purpose: the account's zone, or UTC, on the server and in the first draw alike (a reload's hydration used to throw Settings away when they differed); the browser's own choice comes in before paint. */
-  check("and starts from the account's zone", /useState<string>\(accountTimeZone \?\? "UTC"\)/.test(form) && /if \(accountTimeZone\) return\n/.test(form) && /accountTimeZone=\{data\.timeZone\}/.test(readCode("app/app/settings/_view.tsx")))
-  const layout = readCode("app/app/layout.tsx")
+  check("and starts from the account's zone", /useState<string>\(accountTimeZone \?\? "UTC"\)/.test(form) && /if \(accountTimeZone\) return\n/.test(form) && /accountTimeZone=\{data\.timeZone\}/.test(readCode("app/(storelib)/app/settings/_view.tsx")))
+  const layout = readCode("app/(storelib)/app/layout.tsx")
   check("every /app page reads the account's zone on every device", /accountTimeZone\(null, user\.user_metadata\)/.test(layout) && /timeZoneScript\(accountZone\)/.test(layout) && /<TimeZoneSync accountZone=\{accountZone\} \/>/.test(layout))
   check("an account with none is given the browser's, once", /fetch\("\/api\/account\/time-zone"/.test(readCode("components/app/time-zone-sync.tsx")) && /storelib_tz_asked/.test(readCode("components/app/time-zone-sync.tsx")))
-  check("Home's greeting and the Orders page's first render follow it", /accountTimeZone\(null, user\.user_metadata\)\)/.test(readCode("app/app/page.tsx")) && /timeZone=\{accountTimeZone\(null, user\.user_metadata\) \?\? readTimeZone/.test(readCode("app/app/orders/sales/page.tsx")))
+  check("Home's greeting and the Orders page's first render follow it", /accountTimeZone\(null, user\.user_metadata\)\)/.test(readCode("app/(storelib)/app/page.tsx")) && /timeZone=\{accountTimeZone\(null, user\.user_metadata\) \?\? readTimeZone/.test(readCode("app/(storelib)/app/orders/sales/page.tsx")))
   const email = readCode("lib/email.tsx")
   /* The first sale email is the notification engine's FIRST_SALE now (lib/notify), no longer a sender in lib/email.tsx. */
   check("the sale email is written in it", /creatorTimeZone\(admin, creatorId\)/.test(email) && /formatForCreator\(sale\.occurredAt, creatorZone \?\? null\)/.test(email) && !/function sendFirstSaleEmail/.test(email))

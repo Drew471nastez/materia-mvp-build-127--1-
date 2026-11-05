@@ -7,7 +7,7 @@
  * focus border", "the what's included check marks look AI", and "the chosen
  * category should be a lighter grey with a little depth, like the X".
  *
- *   SAVING (app/app/products/new/variant-save.ts). One row per variant, in
+ *   SAVING (app/(storelib)/app/products/new/variant-save.ts). One row per variant, in
  *   the list's order; pay what you want listed at its minimum; a compare at
  *   only above the price; a removed variant deleted, unless the editor never
  *   read the saved ones; every file link replaced in one go and kept to the
@@ -24,8 +24,8 @@
  */
 import { readFileSync } from "node:fs"
 import { stripComments } from "./_source"
-import { saveVariants, variantRow } from "../app/app/products/new/variant-save"
-import { snapshotOf, variantsOf, type ProductVariant, type SnapshotFields } from "../app/app/products/new/editor-form"
+import { saveVariants, variantRow } from "../app/(storelib)/app/products/new/variant-save"
+import { snapshotOf, variantsOf, type ProductVariant, type SnapshotFields } from "../app/(storelib)/app/products/new/editor-form"
 import { priceOrder, priceCart, variantSoldOut } from "../lib/checkout/pricing"
 
 let passed = 0
@@ -124,7 +124,7 @@ function fakeDb(tables: Record<string, Row[]>) {
 const PRODUCT = "11111111-1111-4111-8111-111111111111"
 
 async function main() {
-  console.log("\nOne variant, one row (app/app/products/new/variant-save.ts)")
+  console.log("\nOne variant, one row (app/(storelib)/app/products/new/variant-save.ts)")
   {
     const r = variantRow("p1", variant({ price: "19.99", compareAtPrice: "29", maxPurchases: "50" }), 2)
     check("its price, compare at, limit and place in the list", r.price_cents === 1999 && r.compare_at_price_cents === 2900 && r.max_purchases === 50 && r.position === 2 && r.product_id === "p1", r)
@@ -166,7 +166,7 @@ async function main() {
     check("and removing every variant in the form does delete them", db.tables.product_variants.length === 0)
   }
 
-  console.log("\nWhat counts as unsaved (app/app/products/new/editor-form.ts)")
+  console.log("\nWhat counts as unsaved (app/(storelib)/app/products/new/editor-form.ts)")
   {
     const base: SnapshotFields = {
       title: "T", description: "", price: "", compareAtPrice: "", mediaItems: [], digitalFiles: [], variants: [variant({ id: "new-variant-1", isExpanded: true }), variant({ id: "v2", name: "Pro" })],
@@ -211,8 +211,8 @@ async function main() {
     check("a basket leaves the sold out option out and names it", cart.ok === true && cart.lines.length === 1 && cart.lines[0].item.variantId === "open" && cart.dropped.length === 1, cart)
   }
 
-  console.log("\nThe editor's look (app/app/products/new/product-editor.tsx)")
-  const editor = code("app/app/products/new/product-editor.tsx")
+  console.log("\nThe editor's look (app/(storelib)/app/products/new/product-editor.tsx)")
+  const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
   const variants = editor.slice(editor.indexOf("sectionRefs.current.variants = el"), editor.indexOf(">Pricing</h2>"))
   check("no info circles anywhere in the editor", !/TooltipIcon|TooltipProvider|PopoverTrigger|rounded-full bg-violet-100/.test(editor))
   check("the variants have no violet and no layers badge", !/violet|purple|#8b5cf6|Layers/.test(variants) && !/violet/.test(editor.slice(editor.indexOf("const VariantFileCheckbox"), editor.indexOf("const VariantFileCheckbox") + 2500)))
@@ -224,13 +224,13 @@ async function main() {
   const included = editor.slice(editor.indexOf("What's Included</h2>"), editor.indexOf("sectionRefs.current.files = el"))
   check("what's included: one thin grey check, no green or violet", /<Check aria-hidden strokeWidth=\{2\} className="h-4 w-4 shrink-0 text-\[#6b7280\]" \/>/.test(included) && !/green|violet/.test(included))
 
-  console.log("\nThe product page (app/(marketing)/p/[slug]/page.tsx)")
-  const page = code("app/(marketing)/p/[slug]/page.tsx")
+  console.log("\nThe product page (app/(storelib)/(marketing)/p/[slug]/page.tsx)")
+  const page = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   const icon = page.slice(page.indexOf("function getIncludedItemIcon"), page.indexOf("export const dynamic"))
   check("what's included is the same thin check on every line, grey unless the theme sets a colour", /text-\[#6b7280\]/.test(icon) && !/text-green-600|<Download|<Files|<Infinity/.test(icon))
 
-  console.log("\nThe category field (app/app/products/new/category-picker.tsx)")
-  const picker = code("app/app/products/new/category-picker.tsx")
+  console.log("\nThe category field (app/(storelib)/app/products/new/category-picker.tsx)")
+  const picker = code("app/(storelib)/app/products/new/category-picker.tsx")
   check("the chosen category is a light grey chip with a little depth, and the x beside it is drawn the same", /data-category-chip=""/.test(picker) && /const CHIP_DEPTH = "bg-\[#f6f7f8\] shadow-\[/.test(picker) && (picker.match(/CHIP_DEPTH/g) ?? []).length >= 3)
   check("the picker is memoised, so the editor's typing does not draw its sheet again", /export const CategoryPicker = React\.memo\(function CategoryPicker\(/.test(picker))
   check("its field focuses quietly too", /focus:border-\[#9ca3af\] focus:ring-\[3px\] focus:ring-\[rgba\(17,24,39,0\.06\)\]/.test(picker) && !/focus:border-\[#1a1a2e\]/.test(picker))

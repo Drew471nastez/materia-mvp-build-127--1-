@@ -14,7 +14,7 @@
  * (SWITCH_MS), the browser loads the new business's /app as a document
  * (the server takes DOC_MS, its script JS_MS), and that HTML is the tree
  * rendered on the server with the arrival screen when the switch's cookie
- * came, as app/app/layout.tsx does. The new business's photo and page
+ * came, as app/(storelib)/app/layout.tsx does. The new business's photo and page
  * picture come PHOTO_MS late, its chart's figures FIGURES_MS after its
  * script runs.
  *
@@ -205,14 +205,14 @@ rmSync(dir, { recursive: true, force: true })
 
 const css = `${await appCss(root)}\n${interFaces(root).replace(/url\(file:\/\//g, "url(/__font?p=")}`
 /* The stylesheet as a file, as the app sends it (render blocking, cached after the first page), not inlined: a megabyte of <style> parsed inside the document is parser time the real page never spends. */
-/* What app/layout.tsx runs in the head of every document before its body is
+/* What app/(storelib)/layout.tsx runs in the head of every document before its body is
    parsed (lib/businesses/switch-screen SWITCH_FIRST_PAINT_SCRIPT). EXPECT=off
    makes its `rel=expect` link inert, which is what a browser that does not
    know that relation does with it: what is left to hold the glass then is the
    canvas the same script paints. */
 const headScript = process.env.EXPECT === "off" ? ssr.head.replace('l.rel="expect"', 'l.rel="x-no-expect"') : ssr.head
 const HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/app.css"><script>${headScript}</script>`
-/* The root layout's <html> and <body> (app/layout.tsx). */
+/* The root layout's <html> and <body> (app/(storelib)/layout.tsx). */
 const BODY = `class="font-sans antialiased bg-background text-foreground"`
 const oldHtml = `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}</head><body ${BODY}><div id="app"></div><script src="/client.js"></script></body></html>`
 /**
@@ -307,7 +307,7 @@ const server = createServer((req, res) => {
   if (u.pathname === "/api/figures") return setTimeout(() => send(200, "application/json", JSON.stringify({ figures: ["860", "$1,240", "18", "2.1%"] })), FIGURES_MS)
   if (u.pathname.startsWith("/api/")) return send(200, "application/json", "{}")
   if (u.pathname === "/app") {
-    /* As app/app/layout.tsx reads it (lib/businesses/switch-screen readSwitchCookie). */
+    /* As app/(storelib)/app/layout.tsx reads it (lib/businesses/switch-screen readSwitchCookie). */
     const raw = /(?:^|;\s*)storelib_switching=([^;]*)/.exec(req.headers.cookie || "")?.[1]
     let arriving = null
     try {

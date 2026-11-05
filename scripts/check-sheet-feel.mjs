@@ -52,7 +52,7 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 /* The fixture's scroller has to be the editor's scroller, or every number
    about the list is about some other list. Read the editor's markers. */
-const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+const editor = readFileSync(join(root, "app/(storelib)/website-builder/editor/[installId]/page.tsx"), "utf8")
 const sheetBlock = editor.slice(editor.indexOf("Segmented tabs"), editor.indexOf("</MobileEditorSheet>", editor.indexOf("Segmented tabs")))
 const editorScroller = (sheetBlock.match(/<div (data-[^>]*?)className="flex-1 min-h-0 overflow-y-auto/) || [])[1] || ""
 const editorMarkers = (editorScroller.match(/data-[a-z-]+/g) || []).sort().join(" ")

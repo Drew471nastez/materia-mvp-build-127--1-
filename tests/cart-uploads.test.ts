@@ -346,7 +346,7 @@ async function main() {
     const slip = slipLines({ lines: [{ orderId: "o1", title: "Mug", variantName: null, sku: null, imageUrl: null, quantity: 1, fulfilled: 0, requiresShipping: true, locationId: null, properties: { Name: "Ana", Photo: value } }], shipments: [] } as never)
     check("the packing slip says the file name", JSON.stringify(slip[0]?.properties) === JSON.stringify([["Name", "Ana"], ["Photo", "Mug-photo.jpg"]]))
     check("the orders export and the seller's email say the file name", /propertyText\(v\)/.test(read("app/api/physical/orders/export/route.ts")) && /propertyText\(str\(v, 250\)\)/.test(read("lib/notify/seller-commerce.ts")))
-    check("the order page shows each picture with Download; the receipt and the checkout show it small", /data-order-line-files/.test(read("components/physical/order-panel.tsx")) && /data-line-files/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /readUploadValue\(v\)/.test(read("app/checkout/site/site-checkout.tsx")))
+    check("the order page shows each picture with Download; the receipt and the checkout show it small", /data-order-line-files/.test(read("components/physical/order-panel.tsx")) && /data-line-files/.test(read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")) && /readUploadValue\(v\)/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
   }
 
   section("7b. Print partners (a stub of each)")

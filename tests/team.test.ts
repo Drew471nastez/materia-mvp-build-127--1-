@@ -80,8 +80,8 @@ console.log("\nEvery way in asks the server")
   }
   check("the orders export and invoices read the store through lib/team", /creatorFor\(admin, user\.id, "orders"\)/.test(read("app/api/app/orders/export/route.ts")) && /storeIdFor\("orders"(?:, \{ read: true \})?\)/.test(read("app/api/invoice/route.ts")))
 
-  const sales = read("app/app/orders/sales/page.tsx")
-  check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(sales) && /onRefund=\{canRefund && /.test(read("app/app/orders/order-detail.tsx")) && /\.\.\.\(canRefund && refundable/.test(read("app/app/orders/order-detail.tsx")))
+  const sales = read("app/(storelib)/app/orders/sales/page.tsx")
+  check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(sales) && /onRefund=\{canRefund && /.test(read("app/(storelib)/app/orders/order-detail.tsx")) && /\.\.\.\(canRefund && refundable/.test(read("app/(storelib)/app/orders/order-detail.tsx")))
   check("the refund route itself is untouched: the signed in account's own orders only", !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
 
   const join = read("app/api/team/join/route.ts")
@@ -92,7 +92,7 @@ console.log("\nEvery way in asks the server")
   }
   check("the store cookie only names a store and is not readable by scripts", (read("app/api/team/act/route.ts").match(/httpOnly: true, sameSite: "lax", secure: true/g) ?? []).length === 1)
 
-  const layout = read("app/app/layout.tsx")
+  const layout = read("app/(storelib)/app/layout.tsx")
   check("the dashboard draws the store only for a verified member", /teamStoreForRequest\(user\.id\)/.test(layout) && /const acting = await actingStore\(db, userId\)/.test(read("lib/team/server.ts")) && /teamStore && acting \? <TeamBar/.test(layout))
 }
 

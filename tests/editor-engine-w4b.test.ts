@@ -73,7 +73,7 @@ console.log("\nE1  NO PRESS, HOVER OR FOCUS RESTYLES THE WHOLE DOCUMENT")
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
   check("the header's fade siblings reads the nav's own hover", /hover:\[--nav-fade:0\.4\] \[&_a:hover\]:opacity-100/.test(header) && !/\[&:has\(a:hover\)\]/.test(header))
   check("the rich text field's halo follows focus-within", /focus-within:border-\[#c9ccd3\] focus-within:shadow-/.test(read("components/app/rich-text-editor.tsx")))
-  const rows = ["app/app/products/products-client.tsx", "app/app/products/collections/collections-client.tsx", "app/app/coupons/coupons-client.tsx"]
+  const rows = ["app/(storelib)/app/products/products-client.tsx", "app/(storelib)/app/products/collections/collections-client.tsx", "app/(storelib)/app/coupons/coupons-client.tsx"]
   check("list rows grey from the press mark their link sets", rows.every((f) => /data-\[pressed\]:bg-\[#/.test(read(f)) && /\{\.\.\.pressMark\}/.test(read(f))))
   const mark = read("lib/press-mark.ts")
   check("the press mark is set on the press and taken off on release, cancel and leave",
@@ -168,7 +168,7 @@ console.log("\nN2  A COMMITTED CHANGE IS DRAWN BY ITS SECTION BEFORE THE DEFERRE
   reconcileEchoes(() => undefined)
   check("an echo of a section that is gone is dropped", echoOf("h1") === undefined)
   resetLive()
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the editor echoes a section's and a block's committed setting, after the same-value check", /if \(current && sameSettingValue\(current\.settings\?\.\[key\], value\)\) return\s*\/\*[^*]*\*\/\s*if \(current\) echoSectionSetting\(sectionId, key, value\)/.test(editor) && /if \(block\) echoBlockSetting\(sectionId, blockKey, key, value\)/.test(editor))
   check("and checks every echo against its own state after each render", /* Changed on purpose (round ed-1022): the theme's echo too (live-settings.ts reconcileThemeEcho). */ /useLayoutEffect\(\(\) => \{\s*reconcileEchoes\(\(id\) => sectionsRef\.current\.find\(\(s\) => s\.id === id\)\)\s*reconcileThemeEcho\(settingsRef\.current as Record<string, unknown>\)\s*\}\)/.test(editor))
   const live = read("lib/website-builder/live-settings.ts")

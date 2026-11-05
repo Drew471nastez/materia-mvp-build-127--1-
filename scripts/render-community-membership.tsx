@@ -14,7 +14,7 @@
  *                    subscription and the contact form in their slots; the
  *                    parts read GET /membership (answered by the probe).
  *   ?case=checkout   a community's membership checkout
- *                    (app/checkout/membership-checkout.tsx) with the refund
+ *                    (app/(storelib)/checkout/membership-checkout.tsx) with the refund
  *                    policy and the EU waiver; ?locale=de-DE&currency=eur
  *                    writes the price the buyer's way.
  *
@@ -26,7 +26,7 @@ import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
 import { MembershipSection } from "@/components/community/membership"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
-import MembershipCheckout from "@/app/checkout/membership-checkout"
+import MembershipCheckout from "@/app/(storelib)/checkout/membership-checkout"
 import type { CommunityMembershipView } from "@/lib/communities/membership-policy"
 import { MembershipPage } from "@/components/community/member/membership"
 import { decideJoin } from "@/components/community/public/join-state"

@@ -10,11 +10,11 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
+import { PhysicalCheckout } from "@/app/(storelib)/checkout/physical/physical-checkout"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { PhysicalFulfillment, ShippingCard, usePhysicalOrder } from "@/components/physical/order-panel"
-import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
+import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "shipping"

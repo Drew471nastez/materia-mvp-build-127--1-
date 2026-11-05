@@ -35,7 +35,7 @@ function check(label: string, ok: boolean) {
   }
 }
 
-const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
+const editor = readCode("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 const writing = readCode("components/website-builder/editor/writing-section.tsx")
 const css = readFileSync("app/globals.css", "utf8")
 

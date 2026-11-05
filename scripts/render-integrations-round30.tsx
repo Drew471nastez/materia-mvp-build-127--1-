@@ -1,8 +1,8 @@
 /**
- * The /app shell as app/app/layout.tsx and components/app/app-layout-wrapper
+ * The /app shell as app/(storelib)/app/layout.tsx and components/app/app-layout-wrapper
  * draw it: the real sidebar, the real NavigationLoadingBar and AppStage (how
  * a page arrives, its scroll on a Back, its landing), and the real
- * Integrations page (app/app/integrations/integrations-client.tsx), with
+ * Integrations page (app/(storelib)/app/integrations/integrations-client.tsx), with
  * physical commerce on. For scripts/check-integrations-round30.mjs, which
  * stubs the router with one that moves the address for real (pushState,
  * popstate), so a card that leaves for one of Storelib's apps and the Back
@@ -20,13 +20,13 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { AppSidebar } from "@/components/app/sidebar"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
-import { IntegrationsClient } from "@/app/app/integrations/integrations-client"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar } from "@/app/app/orders/order-parts"
+import { IntegrationsClient } from "@/app/(storelib)/app/integrations/integrations-client"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar } from "@/app/(storelib)/app/orders/order-parts"
 import { railStateOf, railWidth } from "@/lib/ui/app-rail"
 
 const rail = railStateOf(new URLSearchParams(location.search).get("rail"))
 
-/* Copied from app/app/layout.tsx; the probe fails if they ever differ. */
+/* Copied from app/(storelib)/app/layout.tsx; the probe fails if they ever differ. */
 export const ROOT_CLASS = "h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar"
 export const MAIN_CLASS =
   "h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content"

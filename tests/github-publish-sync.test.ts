@@ -321,7 +321,7 @@ async function main() {
   /* ─────────────────────────────────────────────────────────────────── */
   console.log("\nThe editor")
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("reads the server's answer and turns Publish on with it", /useSyncStatus\(installId\)/.test(editor) && /if \(syncStatus\.pending\?\.any\) setUnpublished\(true\)/.test(editor))
     check("every agent or GitHub write marks the site unpublished, whatever page it touched", /if \(events\.length( > 0)?\) setUnpublished\(true\)/.test(editor))
     check("a code editor save does too", /storelib:file-saved[\s\S]{0,200}setUnpublished\(true\)/.test(editor))

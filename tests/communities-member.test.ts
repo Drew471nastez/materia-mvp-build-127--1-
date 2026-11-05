@@ -377,7 +377,7 @@ async function main() {
 
   /* ── Pages ───────────────────────────────────────────────────────────── */
   console.log("\nThe pages")
-  const G = "app/(marketing)/community/[slug]/(member)"
+  const G = "app/(storelib)/(marketing)/community/[slug]/(member)"
   const layout = code(`${G}/layout.tsx`)
   check("the layout: 404 when off or missing, about for non members, a plain screen otherwise", /page\.state === "off" \|\| page\.state === "missing"[\s\S]{0,60}notFound\(\)/.test(layout) && /redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout) && /MemberStateScreen/.test(layout))
   check("member pages are never indexed", /robots: \{ index: false, follow: false \}/.test(layout))
@@ -391,7 +391,7 @@ async function main() {
   const feedPage = read("components/community/member/feed-page.tsx")
   check("CommunityFeedPage({ slug }) is exported for /community/[slug]", /export const CommunityFeedPage = [\s\S]*\(props: \{ slug: string \}\)/.test(feedPage))
   check("CommunityShell({ community, viewer, active, children }) is exported", /export const CommunityShell = [\s\S]*active\?: ShellSection; children: React\.ReactNode/.test(read("components/community/member/shell.tsx")))
-  check("the invite landing sits outside the member group and calls the redeem route", existsSync("app/(marketing)/community/[slug]/join/page.tsx") && /\/invite\/redeem/.test(code("components/community/member/invite-landing.tsx")))
+  check("the invite landing sits outside the member group and calls the redeem route", existsSync("app/(storelib)/(marketing)/community/[slug]/join/page.tsx") && /\/invite\/redeem/.test(code("components/community/member/invite-landing.tsx")))
 
   /* ── Boundary ────────────────────────────────────────────────────────── */
   console.log("\nNo server code in the browser")
@@ -437,7 +437,7 @@ async function main() {
     ...serverMods,
     "lib/communities/server/jobs/fanout_announcement.ts",
     ...walk(G),
-    "app/(marketing)/community/[slug]/join/page.tsx",
+    "app/(storelib)/(marketing)/community/[slug]/join/page.tsx",
     ...routes,
     "scripts/check-community-member.mjs",
     "scripts/render-community-member.tsx",

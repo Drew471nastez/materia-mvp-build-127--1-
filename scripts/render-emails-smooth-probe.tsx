@@ -1,5 +1,5 @@
 /**
- * The whole Emails page (app/app/emails/emails-client.tsx) against a stand-in
+ * The whole Emails page (app/(storelib)/app/emails/emails-client.tsx) against a stand-in
  * server whose every route waits as long as the probe says
  * (window.__delays[prefix], ms), for scripts/check-emails-smooth.mjs to
  * measure tab switches, the Customer emails families and editor, a contact's
@@ -7,7 +7,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { EmailsClient } from "@/app/app/emails/emails-client"
+import { EmailsClient } from "@/app/(storelib)/app/emails/emails-client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 
 type W = { __requests: { method: string; url: string; at: number }[]; __delays: Record<string, number>; __defaultDelay: number }

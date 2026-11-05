@@ -82,7 +82,7 @@ async function main() {
     check("the website builder's routes ask lib/team/website for the store now", builderRoutes.every((p) => /websiteCaller\((?:"store", \{ read: true \}|\{ read: true \})?\)/.test(read(p)) && !/\.eq\("user_id", user\.id\)/.test(read(p))), builderRoutes)
     check("  and its site files are read and written under row level security alone (lib/sites/projects never imports the admin client)", !/createAdminClient|supabase\/admin/.test(read("lib/sites/projects.ts")))
     /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing opened (tests/team-areas-r42.test.ts). */
-    check("the creator page is the owner's account profile, read by the store owner's account", /\.from\("profiles"\)\.select\("username, display_name"\)\.eq\("id", page\.profileId\)/.test(read("app/creator-page/page.tsx")))
+    check("the creator page is the owner's account profile, read by the store owner's account", /\.from\("profiles"\)\.select\("username, display_name"\)\.eq\("id", page\.profileId\)/.test(read("app/(storelib)/creator-page/page.tsx")))
   }
 
   console.log("\nProducts: uploads into the store's folder")
@@ -101,8 +101,8 @@ async function main() {
     check("the signing route asks the database who is acting, then the path, then signs that path once", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /if \(!acting \|\| !teamUploadPathOk\(acting, body\?\.bucket, body\?\.path\)\)/.test(route) && /createSignedUploadUrl\(path\)/.test(route) && !/upsert/.test(route))
     check("  the owner never gets one (their own folder is theirs)", /if \(!acting \|\|/.test(route))
     const fallback = read("lib/team/upload-fallback.ts")
-    check("the browser asks only after storage refused, and every direct upload uses it", /fetch\("\/api\/team\/upload-url"/.test(fallback) && /if \(!\(await teamSignedUpload\(bucket, path, body, type, onProgress\)\)\) throw refused/.test(read("lib/files/upload-video.ts")) && /teamSignedUpload\("product-images", path, upload, upload\.type\)/.test(read("lib/rich-text/upload-image.ts")) && /teamSignedUpload\("product-images", filePath, file, file\.type/.test(read("app/app/products/new/product-editor.tsx")))
-    check("a product video goes into the store owner's folder", /uploadVideo\(file, "products", [\s\S]*?loadedCreator\.team_owner \?\? null\)/.test(read("app/app/products/new/product-editor.tsx")) && /const path = `\$\{owner \|\| user\.id\}\/\$\{folder\}/.test(read("lib/files/upload-video.ts")))
+    check("the browser asks only after storage refused, and every direct upload uses it", /fetch\("\/api\/team\/upload-url"/.test(fallback) && /if \(!\(await teamSignedUpload\(bucket, path, body, type, onProgress\)\)\) throw refused/.test(read("lib/files/upload-video.ts")) && /teamSignedUpload\("product-images", path, upload, upload\.type\)/.test(read("lib/rich-text/upload-image.ts")) && /teamSignedUpload\("product-images", filePath, file, file\.type/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
+    check("a product video goes into the store owner's folder", /uploadVideo\(file, "products", [\s\S]*?loadedCreator\.team_owner \?\? null\)/.test(read("app/(storelib)/app/products/new/product-editor.tsx")) && /const path = `\$\{owner \|\| user\.id\}\/\$\{folder\}/.test(read("lib/files/upload-video.ts")))
     check("the Files library uploads into the folder its list names", /libraryFolder = typeof r\.data\.folder === "string"/.test(read("components/files/files-library.tsx")) && /\$\{libraryFolder \|\| user\.id\}\/files\//.test(read("components/files/files-library.tsx")) && /folder: c\.ownerUserId/.test(read("app/api/files/route.ts")))
     const prepare = read("app/api/v2/upload/prepare/route.ts")
     check("the shared upload takes a product file from a member with Products, recorded as uploaded by them", /if \(isDigital && !mayUploadProductFile\(store\)\)/.test(prepare) && /uploaded_by: user\.id/.test(prepare))
@@ -127,13 +127,13 @@ async function main() {
 
   console.log("\nProducts: pages and routes read the store")
   {
-    for (const p of ["app/app/products/collections/page.tsx", "app/app/products/size-charts/page.tsx", "app/app/products/size-charts/load-size-charts.ts", "app/app/inventory/page.tsx", "app/app/files/page.tsx", "app/app/reviews/page.tsx", "app/app/memberships/page.tsx", "app/app/memberships/[id]/page.tsx"]) {
+    for (const p of ["app/(storelib)/app/products/collections/page.tsx", "app/(storelib)/app/products/size-charts/page.tsx", "app/(storelib)/app/products/size-charts/load-size-charts.ts", "app/(storelib)/app/inventory/page.tsx", "app/(storelib)/app/files/page.tsx", "app/(storelib)/app/reviews/page.tsx", "app/(storelib)/app/memberships/page.tsx", "app/(storelib)/app/memberships/[id]/page.tsx"]) {
       check(`${p} asks teamPageStore("products")`, read(p).includes('teamPageStore("products")') && !/currentCreatorId\(\)/.test(read(p)))
     }
-    const list = read("app/app/products/page.tsx")
+    const list = read("app/(storelib)/app/products/page.tsx")
     check("the list: a member's read with the service role by the store's id, the owner's on their own client as before", /* Changed on purpose (round rel-db): the same two clients through lib/products/list-read */ /readProductList<ListedRow>\(admin, team\.creatorId\)/.test(list) && /readProductList<ListedRow>\(supabase, creator\.id\)/.test(list) && /const supabase = await createClient\(\)/.test(list))
-    check("  and the list's pull to refresh reads the store, not the member's own", /\?\? storeId/.test(read("app/app/products/products-client.tsx")))
-    const editor = read("app/app/products/load-editor.ts")
+    check("  and the list's pull to refresh reads the store, not the member's own", /\?\? storeId/.test(read("app/(storelib)/app/products/products-client.tsx")))
+    const editor = read("app/(storelib)/app/products/load-editor.ts")
     check("the editor: a member's product read by id and by the store, kept only when it is the store's", /if \(!permits\(team\.acting\.permissions, "products"\)\) return \{ state: "signed-out" \}/.test(editor) && /\.eq\("id", id\)\.eq\("creator_id", acting\.creatorId\)/.test(editor) && /product\.creator_id !== acting\.creatorId/.test(editor))
     check("  the owner's path reads with their own client as it did", /creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\),\s*productReads/.test(editor))
     const routes = ["app/api/collections/route.ts", "app/api/collections/[id]/route.ts", "app/api/collections/product/route.ts", "app/api/store/channels/product/route.ts", "app/api/files/usage/route.ts", "app/api/app/reviews/route.ts", "app/api/app/reviews/bulk/route.ts", "app/api/reviews/widgets/route.ts", "app/api/physical/products/[id]/route.ts", "app/api/physical/inventory/route.ts", "app/api/size-charts/route.ts"]
@@ -181,7 +181,7 @@ async function main() {
     check("the route: the owner, or a member with Store settings, and a member's change checked key by key", /shopCaller\(\["store", "settings"\]\)/.test(route) && /if \(c\.isOwner === false && !memberMaySave\(body\)\) return physicalJson\(\{ error: OWNER_KEEPS_SETTING \}, 403\)/.test(route))
     check("  the suggested email is the store owner's, and the bank statement is renamed by the owner's save only", /getUserById\(c\.ownerUserId \?\? c\.userId\)/.test(route) && /if \("storeName" in body && c\.isOwner !== false\)/.test(route))
     const form = read("components/app/settings-form-new.tsx")
-    check("the page shows a member their own account's sections and Store details", /tab\.group === "account" && !STORE_SIDE_ACCOUNT_TABS\.includes\(tab\.id\)\) \|\| teamTabs\.includes\(tab\.id\)/.test(form) /* Changed on purpose (round 42 team): Plan is the store's for a member, shown with Billing */ && /teamTabs = memberSettingsTabs\(/.test(read("app/app/settings/_server.ts")))
+    check("the page shows a member their own account's sections and Store details", /tab\.group === "account" && !STORE_SIDE_ACCOUNT_TABS\.includes\(tab\.id\)\) \|\| teamTabs\.includes\(tab\.id\)/.test(form) /* Changed on purpose (round 42 team): Plan is the store's for a member, shown with Billing */ && /teamTabs = memberSettingsTabs\(/.test(read("app/(storelib)/app/settings/_server.ts")))
     check("  Store details for a member: no currency, no business details, no shipping origin, and Profile's email left alone", /member \? null : <CurrencyLink \/>/.test(read("components/app/settings/store-details-panel.tsx")) && /member \? null : <Business/.test(read("components/app/settings/store-details-panel.tsx")) && /physical && !member \? <OrdersFrom/.test(read("components/app/settings/store-details-panel.tsx")) && /onSupportEmail=\{teamActing \? undefined :/.test(form))
   }
 
@@ -199,7 +199,7 @@ async function main() {
     check("the tags and email tools a page loads: read for OnePage, changed by the owner", /export async function GET\(\) \{[\s\S]*?shopCaller\(\["store", "onepage"\](?:, \{ read: true \})?\)/.test(read("app/api/store/integrations/route.ts")) && /export async function PUT[\s\S]*?shopCaller\(\)/.test(read("app/api/store/integrations/route.ts")) && /* Changed on purpose (round 43): Emails › Platforms reads the same status for a member with Marketing; connecting stays the owner's (POST). */ /export async function GET\(\) \{[\s\S]*?shopCaller\(\["store", "onepage"(, "marketing")?\](?:, \{ read: true \})?\)/.test(read("app/api/store/integrations/marketing/route.ts")) && /export async function POST[\s\S]*?shopCaller\(\)/.test(read("app/api/store/integrations/marketing/route.ts")))
     check("  the domain row is the store's, from the page", /useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(read("components/onepage/settings-integrations.tsx")))
     const preview = read("components/onepage/live-preview.tsx")
-    check("the preview's owner name and photo come with the page for a member, never from their browser or their own photo", /if \(!ownerId \|\| team\) return/.test(preview) && /team \? \{ displayName: team\.ownerName \?\? null, avatarUrl: team\.ownerAvatar \?\? null \}/.test(preview) && /admin\.from\("profiles"\)\.select\("display_name, avatar_url"\)\.eq\("id", ownerUserId\)/.test(read("app/app/onepage/page.tsx")))
+    check("the preview's owner name and photo come with the page for a member, never from their browser or their own photo", /if \(!ownerId \|\| team\) return/.test(preview) && /team \? \{ displayName: team\.ownerName \?\? null, avatarUrl: team\.ownerAvatar \?\? null \}/.test(preview) && /admin\.from\("profiles"\)\.select\("display_name, avatar_url"\)\.eq\("id", ownerUserId\)/.test(read("app/(storelib)/app/onepage/page.tsx")))
     check("the free products a lead magnet lists are the store's", /const teamStore = teamStoreForProducts\(\)/.test(read("components/onepage/storelib-blocks.tsx")))
   }
 

@@ -171,7 +171,7 @@ function main() {
   section("The editor uses it everywhere a layer can close")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("coming back to the foreground clears the document", /clearStaleDocumentLocks\(document\)/.test(editor))
     check("and the old guard that never ran on a phone is gone", !/\[data-mobile-bottom-sheet\], \[data-mobile-top-sheet\]'\)\s*\n\s*if \(!liveLayer\)/.test(editor) && !/const liveLayer = /.test(editor))
     check("closing the code pane or settings clears it before touching the scroller", (() => {
@@ -460,7 +460,7 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const guard = read("components/platform/stuck-layer-guard.tsx")
-    const layout = read("app/layout.tsx")
+    const layout = read("app/(storelib)/layout.tsx")
     check("the guard is in the root layout", /<StuckLayerGuard \/>/.test(layout) && /from "@\/components\/platform\/stuck-layer-guard"/.test(layout))
     check("it watches html and body for the attributes a lock arrives in", /attributeFilter: \["style", "class", "data-scroll-locked"\]/.test(guard) && /mo\.observe\(document\.documentElement/.test(guard) && /mo\.observe\(document\.body/.test(guard))
     check("and it disconnects", /return \(\) => mo\.disconnect\(\)/.test(guard))

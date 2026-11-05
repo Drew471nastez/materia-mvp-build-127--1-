@@ -47,7 +47,7 @@ import { sourceHash, type TranslationMap } from "@/lib/markets/translate"
 import { pricingFor, storeCentsFromShown, storefrontDisplay } from "@/lib/markets/pricing"
 import { cartAmounts } from "@/lib/markets/cart-money"
 import { checkoutMoneyLocale, convertOrder, marketCharge } from "@/lib/markets/checkout-charge"
-import { moneyIn } from "@/app/checkout/parts/ui"
+import { moneyIn } from "@/app/(storelib)/checkout/parts/ui"
 import { themeSettingsForNewBase } from "@/lib/markets/base-change"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { inEmailLanguage } from "@/lib/emails/words"
@@ -141,8 +141,8 @@ console.log("\n4. The checkout writes a market's amounts as the website did\n")
   const atCheckout = moneyIn(order.totals.totalCents, "EUR", checkoutMoneyLocale(charge, "de"))
   check("the cart's total and the checkout's are written the same way", cart.total === atCheckout, { cart: cart.total, checkout: atCheckout })
   check("  the store's own prices stay as every page writes them", checkoutMoneyLocale(null, "de") === "en-US" && moneyIn(4800, "RON", checkoutMoneyLocale(null, "de")) === "48.00\u00a0lei")
-  check("  the website's checkout is told the language when it charges a market", /<CheckoutCurrency currency=\{market\.chargeCurrency\} locale=\{checkoutMoneyLocale\(market\.charge, language\.lang\)\}>/.test(read("app/checkout/site/page.tsx")))
-  check("  and a tip's whole amount drops its decimals either way", /money\(cents\)\.replace\(\/\[\.,\]00/.test(read("app/checkout/parts/order-summary.tsx")))
+  check("  the website's checkout is told the language when it charges a market", /<CheckoutCurrency currency=\{market\.chargeCurrency\} locale=\{checkoutMoneyLocale\(market\.charge, language\.lang\)\}>/.test(read("app/(storelib)/checkout/site/page.tsx")))
+  check("  and a tip's whole amount drops its decimals either way", /money\(cents\)\.replace\(\/\[\.,\]00/.test(read("app/(storelib)/checkout/parts/order-summary.tsx")))
 }
 
 console.log("\n5. The website's free shipping amount moves with the store's currency\n")

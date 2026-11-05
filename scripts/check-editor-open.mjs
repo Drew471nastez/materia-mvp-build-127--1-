@@ -8,7 +8,7 @@
  *
  * scripts/render-layer-motion.tsx draws the real Products list and the real
  * editor on the React the app router runs, with `window.__slowMs` standing in
- * for the editor's server read (app/app/products/load-editor.ts), so a press
+ * for the editor's server read (app/(storelib)/app/products/load-editor.ts), so a press
  * can be held open for as long as the probe likes. At 390, 1280 and 1920 this
  * presses a row and watches the list while the editor is on its way:
  *

@@ -56,7 +56,7 @@ console.log("\n3. The cover and the photo, a little bigger")
   check("the cover 157 / 233 / 264 (148 / 220 / 294 plus about six percent)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 264 && /h-\[157px\] sm:h-\[233px\] lg:h-\[264px\]/.test(hero))
   check("the photo 125 / 142 (118 / 134 plus about six percent), half over the band's edge", /PROFILE_AVATAR_PX = \{ phone: 125, wide: 142 \}/.test(hero) && /h-\[125px\] w-\[125px\]/.test(hero) && /sm:h-\[142px\] sm:w-\[142px\]/.test(hero) && /-mt-\[62\.5px\]/.test(hero) && /sm:-mt-\[71px\]/.test(hero))
   /* Round 12: /@handle is the creator page's template, so its loading is the creator page's (the page's colour) plus its top bar; the hero sizes are /account's. */
-  check("the profile's loading shape is the creator page's: the ground and the top bar, nothing guessed", /PERSON_CHROME\.pageBackground/.test(read("app/(marketing)/member/[username]/loading.tsx")) && /<div className="h-14" \/>/.test(read("app/(marketing)/member/[username]/loading.tsx")))
+  check("the profile's loading shape is the creator page's: the ground and the top bar, nothing guessed", /PERSON_CHROME\.pageBackground/.test(read("app/(storelib)/(marketing)/member/[username]/loading.tsx")) && /<div className="h-14" \/>/.test(read("app/(storelib)/(marketing)/member/[username]/loading.tsx")))
 }
 
 console.log("\n5. Save changes, a bar of its own")
@@ -80,7 +80,7 @@ console.log("\n6. Profile to Settings, warm")
   check("from the profile, Settings (the pill and Edit profile's address) is read ahead once the page is idle", /prefetchOnIdle\(router, ahead\.split\(" "\)\)/.test(pills) && /p\.key === "settings" && p\.key !== fromPath/.test(pills) && /EDIT_PROFILE_HREF/.test(pills))
   /* Round 15: each pill is its own component that decides on the lift (first tap); the read ahead moved to its press handler, still on the finger landing. */
   check("  and a finger on a pill reads its page at once", /onDown=\{\(\) => \{\s*if \(p\.key !== fromPath\) prefetchHref\(router, p\.href, "press"\)/.test(pills) && /onPointerDown=\{\(e\) => \{\s*(if \(e\.button === 0 && !on( && e\.pointerType === "mouse")?\) pressPill\(e\.currentTarget\)\s*)?tap\.onPointerDown\(e\)\s*onDown\(\)/.test(pills))
-  check("Settings and /account still have no loading screen of their own (no skeleton flash, the sign in redirect decided first)", !existsSync(join(process.cwd(), "app/account/settings/loading.tsx")) && !existsSync(join(process.cwd(), "app/account/loading.tsx")))
+  check("Settings and /account still have no loading screen of their own (no skeleton flash, the sign in redirect decided first)", !existsSync(join(process.cwd(), "app/(storelib)/account/settings/loading.tsx")) && !existsSync(join(process.cwd(), "app/(storelib)/account/loading.tsx")))
 }
 
 console.log("\nThe copy")

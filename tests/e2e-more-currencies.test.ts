@@ -405,7 +405,7 @@ async function main() {
   process.exit(failed ? 1 : 0)
 }
 
-/** The checkout settings as app/checkout/site/page.tsx hands them to the page, for a visitor in `country`. */
+/** The checkout settings as app/(storelib)/checkout/site/page.tsx hands them to the page, for a visitor in `country`. */
 async function checkoutConfigShown(creatorId: string, country: string, _market: string): Promise<{ codFeeCents: number }> {
   const { loadCheckoutConfig } = await import("@/lib/store/settings-server")
   const { checkoutMarket } = await import("@/lib/markets/checkout-market-server")

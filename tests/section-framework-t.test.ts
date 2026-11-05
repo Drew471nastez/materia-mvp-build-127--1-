@@ -229,9 +229,9 @@ function main() {
     /* Both surfaces hand the engine the same menus. */
     check("the published site passes siteMenus to the engine", /menus: siteMenus\(site\.themeSettings/.test(read("lib/website-builder/published-site.ts")))
     /* Changed on purpose (round 34): handed the page's header alone (the one section siteMenus reads), so an edit elsewhere keeps the same menus. */
-    check("and so does the builder's canvas", /* Changed on purpose (round 12, WBPERF): keyed on the menus alone, which is all siteMenus reads of the theme. */ /siteMenus\(\{ menus: activeMenus \}, menuHeader \? \[menuHeader\] : \[\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /menus: canvasMenus/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("and so does the builder's canvas", /* Changed on purpose (round 12, WBPERF): keyed on the menus alone, which is all siteMenus reads of the theme. */ /siteMenus\(\{ menus: activeMenus \}, menuHeader \? \[menuHeader\] : \[\]\)/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")) && /menus: canvasMenus/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
     check("the sidebar draws link_list as the menu picker", /case "link_list":\s*\n\s*return <MenuPickerControl/.test(read("components/website-builder/editor/controls/index.tsx")))
-    check("a url setting is drawn by the link picker", /if \(kind === "url"\) \{\s*\n\s*return <LinkFieldEditor/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("a url setting is drawn by the link picker", /if \(kind === "url"\) \{\s*\n\s*return <LinkFieldEditor/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   }
 
   /* ── 3. theme globals ─────────────────────────────────────────────── */
@@ -441,7 +441,7 @@ function main() {
     check("image_picker is drawn by the image control", /case "image_picker":[\s\S]{0,140}<ImagePickerControl/.test(idx))
     check("the control is the picker with an address box under it", ctl.indexOf("<WbImagePicker") > 0 && ctl.indexOf("<WbImagePicker") < ctl.indexOf("data-image-address"))
     check("choosing a file replaces the address", /onChange=\{\(next\) => commit\(next \?\? ""\)\}/.test(ctl))
-    const page = read("app/website-builder/editor/[installId]/page.tsx")
+    const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the older image fields in the section panel use it too", (page.match(/<ImagePickerControl/g) ?? []).length >= 2)
   }
 

@@ -164,7 +164,7 @@ async function main() {
     check("every page under /community/<slug> is its own screen: the platform header is not drawn", /function isOwnScreen\(p: string\): boolean \{[^}]*p\.startsWith\("\/community\/"\)/.test(header))
     check("and that is decided in the first render, so it never flashes in", /useState\(\s*\(\) => !isOwnScreen\(pathname\)/.test(header))
     check("the old hide-it-after-paint class is gone", !existsSync("components/community/public/plain-chrome.tsx") && !/community-plain/.test(read("app/globals.css")))
-    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
     check("the layout draws the member frame for an active member", /page\.state === "member" && page\.community && page\.viewer\)[\s\S]{0,80}<CommunityShell community=\{page\.community\} viewer=\{page\.viewer\}>/.test(layout))
     check("and the bar alone for anybody else who may see the community", /barVisible\(page\)\)[\s\S]{0,80}<CommunityPublicShell community=\{page\.community\} viewer=\{page\.viewer\}>/.test(layout))
     check("never around a missing, switched off or suspended community", /page\.state === "off" \|\| page\.state === "missing" \|\| page\.state === "closed"\) return false/.test(layout))
@@ -260,7 +260,7 @@ async function main() {
     const chips = code("components/community/member/space-chips.tsx")
     check("chips: All, then each visible space at its canonical address; no Saved chip", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{placeHref\(slug, \{ kind: "space", slug: s\.slug \}\)\}/.test(chips) && !/data-space-chip="saved"|\/saved`/.test(chips))
     /* Round 7: the feed, a feed space and Saved are one feed (CommunityFeed) that draws the chips itself; a chat space keeps its own row of chips. */
-    const spacePage = code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")
+    const spacePage = code("app/(storelib)/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")
     /* Round 15: places are drawn by the community's shell from the one place loader (lib/communities/server/places.ts, components/community/member/place-host.tsx, place-views.tsx); the same intent, at its new home. */
     const placesLoader = code("lib/communities/server/places.ts")
     const views = code("components/community/member/place-views.tsx")
@@ -283,7 +283,7 @@ async function main() {
     check("a conversation's name opens the person's page, not a member page", /<a href=\{memberHref\(slug, \{ id: other\.id, username: other\.username \}\)\}/.test(code("components/community/member/messages.tsx")) && !/members\/\$\{other\.id\}/.test(code("components/community/member/messages.tsx")))
     const dir = code("lib/communities/server/directory.ts")
     check("who has a storefront is read once per page of people (finished onboarding, as /<handle> checks)", /from\("creators"\)\.select\("user_id"\)\.in\("user_id", list\)\.eq\("onboarding_completed", true\)/.test(dir) && (dir.match(/storefrontsOf\(db,/g) || []).length >= 3)
-    const M = "app/(marketing)/community/[slug]/(member)/members/[userId]"
+    const M = "app/(storelib)/(marketing)/community/[slug]/(member)/members/[userId]"
     const old = code(`${M}/page.tsx`)
     check("the member page inside a community is a place of the shell now (?profile=), with no page or loading screen of its own", existsSync("components/community/member/member-profile.tsx") && !existsSync(`${M}/loading.tsx`) && !/MemberProfile|memberProfile\(/.test(old) && /case "profile":/.test(code("lib/communities/server/places.ts")))
     /* Round 15, the owner: a person inside a community is /community/<slug>?profile=<handle>; the old address goes there. */
@@ -792,7 +792,7 @@ async function main() {
       "components/community/member/messages.tsx",
       "lib/communities/server/people.ts",
       "app/api/community/[communityId]/people/[userId]/card/route.ts",
-      "app/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx",
       "components/community/public/gallery.ts",
       "components/community/public/gallery-view.tsx",
       "components/community/public/stats-row.tsx",
@@ -801,7 +801,7 @@ async function main() {
       "components/community/public/join-controls.tsx",
       "lib/communities/server/presence.ts",
       "app/api/community/[communityId]/presence/route.ts",
-      "app/(marketing)/community/[slug]/layout.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/layout.tsx",
       "components/community/member/wall.tsx",
       "components/community/member/search.tsx",
       "components/community/member/composer.tsx",
@@ -820,8 +820,8 @@ async function main() {
       "components/community/member/feed-page.tsx",
       "components/community/member/ui.ts",
       "components/community/member/nav.ts",
-      "app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx",
-      "app/(marketing)/community/[slug]/(member)/saved/page.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/(member)/space/[space]/page.tsx",
+      "app/(storelib)/(marketing)/community/[slug]/(member)/saved/page.tsx",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)
@@ -981,7 +981,7 @@ async function main() {
     check("an iOS style spinner: the /app ActivitySpinner itself, at its own size", /import \{ ActivitySpinner, SPINNER_SIZE \} from "@\/components\/ui\/activity-spinner"/.test(spin) && /size = SPINNER_SIZE/.test(spin) && /<ActivitySpinner size=\{size\}/.test(spin) && !/<svg/.test(spin))
     /* Round 15: the place host has already waited 250ms before its waiting screen shows, so there it passes delay 0. */
     check("it waits ~240ms and fades in, so a quick place never shows it; a status for a screen reader", /export const WAIT_MS = 240/.test(spin) && /delay = WAIT_MS/.test(spin) && /skeleton-reveal 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) \$\{delay\}ms both/.test(spin) && /role="status"/.test(spin))
-    const base = "app/(marketing)/community/[slug]"
+    const base = "app/(storelib)/(marketing)/community/[slug]"
     const loadings = ["", "/(member)/post/[postId]", "/(member)/learn", "/(member)/learn/[programId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
     const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>|<PlaceLoading title="[^"]+"/.test(read(f)) || /Skeleton/.test(read(f)))
     check("every member page's loading screen is the spinner (round 24: under the page's title on some), none a skeleton (the community's home too)", bad.length === 0, bad)

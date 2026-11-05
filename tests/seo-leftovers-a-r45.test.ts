@@ -83,7 +83,7 @@ async function main() {
     check("  and the stored object is left as it was", settings.contactEmail === "hello@maker.studio")
     check("  undefined stays undefined", withoutContactEmail(undefined) === undefined)
 
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("the creator page hands the header withoutContactEmail(headerSettings)", /settings=\{withoutContactEmail\(headerSettings\)\}/.test(page) && !/settings=\{headerSettings\}/.test(page))
     /* Round 49: the gate is the browser's (useContactShown, from /api/creator-page/viewer); the address is still answered only by /api/creator-contact. */
     check("the About block gets the handle, gated, never the address", /sellerContactHandle=\{publicContactHandle\}/.test(page) && /const publicContactHandle = profile\.username \|\| username/.test(page) && /\{contactHandle && contactShown && \(/.test(code("components/store-builder/unified-section-renderer.tsx")) && !/sellerContactEmail=/.test(page))
@@ -130,7 +130,7 @@ async function main() {
     check("the card keeps the public id, handle, tags and face", card?.id === "c1" && card.slug === "maker" && card.profile?.username === "maker" && card.profile.display_name === "Maker" && card.profile.avatar_url === "https://x/a.png" && JSON.stringify(card.niche_tags) === '["audio"]')
     check("  and no account id under any key", !json.includes("auth-uuid") && !json.includes("user_id") && !json.includes("acct_x"), json)
     check("no creator, no card creator", cardCreator(null, null) === null && cardCreator({ slug: "x" }, null) === null)
-    for (const p of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+    for (const p of ["app/(storelib)/(marketing)/explore/page.tsx", "app/(storelib)/(marketing)/explore/[category]/page.tsx"]) {
       const src = code(p)
       check(`${p}: the client gets cardCreator(...), never the creator row`, /cardCreator\(creator, /.test(src) && !/\{ \.\.\.creator, profile/.test(src))
     }
@@ -174,8 +174,8 @@ async function main() {
     check("a language tag is checked", languageTag("en") === "en" && languageTag("pt-BR") === "pt-BR" && languageTag("<script>") === undefined)
     const site = code("app/(site)/w/[username]/products/[slug]/page.tsx")
     check("the website product page passes that language to its JSON-LD", /const language = websitePageLanguage\(langs, locale,/.test(site) && /language \}\),/.test(site) && /inLanguage: site\.language/.test(code("components/website-builder/theme/render-product.tsx")))
-    const store = code("app/(marketing)/p/[slug]/page.tsx")
-    check("storelib.com's product page prints no inLanguage on its Product; the layout's <html lang> says it", !/inLanguage:/.test(store) && /<html lang=\{STORELIB_PAGE_LANG\}/.test(code("app/layout.tsx")) && STORELIB_PAGE_LANG === "en")
+    const store = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
+    check("storelib.com's product page prints no inLanguage on its Product; the layout's <html lang> says it", !/inLanguage:/.test(store) && /<html lang=\{STORELIB_PAGE_LANG\}/.test(code("app/(storelib)/layout.tsx")) && STORELIB_PAGE_LANG === "en")
   }
 
   /* ------------------------------------------------------------------ */

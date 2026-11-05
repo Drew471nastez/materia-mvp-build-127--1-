@@ -57,7 +57,7 @@ export default function Link({ href, children, ...rest }) { return React.createE
 export const useLinkStatus = () => ({ pending: false })
 `)
 
-/* The canvas, copied from app/website-builder/editor/[installId]/page.tsx. */
+/* The canvas, copied from app/(storelib)/website-builder/editor/[installId]/page.tsx. */
 const CANVAS_CLASS = "relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"
 
 const SCROLL_TO = 900

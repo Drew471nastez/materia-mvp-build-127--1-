@@ -46,7 +46,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
   const slider = read("components/website-builder/editor/slider-number-control.tsx")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const chip = read("components/website-builder/editor/color-chip.tsx")
   const gradient = read("components/website-builder/editor/gradient-editor.tsx")
   const probe = read("scripts/render-control-frames.tsx")

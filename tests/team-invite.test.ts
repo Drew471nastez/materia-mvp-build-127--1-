@@ -98,8 +98,8 @@ async function main() {
     check("an account: Log in, with the email and the invite as next", login.startsWith("/login?") && new URLSearchParams(login.split("?")[1]).get("next") === `/team/join?token=${TOKEN}` && new URLSearchParams(login.split("?")[1]).get("email") === "ana@example.com")
     check("no account: Create account", signup.startsWith("/signup?"))
     check("the login page keeps the email only on the way back to an invite", inviteEmailFrom(new URLSearchParams(login.split("?")[1])) === "ana@example.com" && inviteEmailFrom(new URLSearchParams("email=ana@example.com&next=/app")) === null && inviteEmailFrom(new URLSearchParams("email=not-an-email&next=/team/join?token=x")) === null)
-    const loginPage = read("app/(auth)/login/page.tsx")
-    const signupPage = read("app/(auth)/signup/page.tsx")
+    const loginPage = read("app/(storelib)/(auth)/login/page.tsx")
+    const signupPage = read("app/(storelib)/(auth)/signup/page.tsx")
     check("  and both pages fill it in and lock it", /inviteEmailFrom\(searchParams\)/.test(loginPage) && /readOnly=\{!!inviteEmail\}/.test(loginPage) && /inviteEmailFrom\(searchParams\)/.test(signupPage) && /readOnly=\{!!inviteEmail\}/.test(signupPage))
   }
 
@@ -170,13 +170,13 @@ async function main() {
     check("the invite page lists what the access lets them do", permissionLinesEn(["orders", "customers"]).length === 2)
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar draws only what the permissions open", /memberSees\(teamPermissions, item\.href\)/.test(sidebar) && (sidebar.match(/items=\{navItems\}/g) ?? []).length === 2)
-    const layout = read("app/app/layout.tsx")
+    const layout = read("app/(storelib)/app/layout.tsx")
     check("the layout hands the sidebar the permissions and the stores they are on", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(layout) && /teamStoresForRequest\(user\.id\)/.test(layout))
     check("the account switcher lists team stores and opens them through /api/team/act", /data-business-row="team"/.test(read("components/app/business-switcher.tsx")) && /\/api\/team\/act/.test(read("components/app/business-switcher.tsx")))
     const settings = read("components/app/settings-form-new.tsx")
     /* Changed on purpose (round 42 team): Plan, in the account group, is the store's plan for a member, shown only with Billing (lib/team/settings STORE_SIDE_ACCOUNT_TABS). */
     check("Settings while working in another store shows only the account's own sections", /!teamActing \|\| \(tab\.group === "account" && !STORE_SIDE_ACCOUNT_TABS\.includes\(tab\.id\)\)/.test(settings))
-    check("a member with no store of their own still reaches Team in Settings", /memberOnly: true as const/.test(read("app/app/settings/_server.ts")) && /data\.memberOnly/.test(read("app/app/settings/_view.tsx")))
+    check("a member with no store of their own still reaches Team in Settings", /memberOnly: true as const/.test(read("app/(storelib)/app/settings/_server.ts")) && /data\.memberOnly/.test(read("app/(storelib)/app/settings/_view.tsx")))
   }
 
   console.log("\n'Use another account' signs out for real")
@@ -195,7 +195,7 @@ async function main() {
     check("the email links to /team/join", joinPath(TOKEN) === `/team/join?token=${TOKEN}` && /const link = joinLink\(token\)/.test(read("lib/team/server.ts")))
     check("'team' is a platform word, never a creator's handle", isReservedRootSegment("team") && (WEB_ONLY_SEGMENTS as readonly string[]).includes("team"))
     check("the iOS app opens invite links (apple-app-site-association)", (APP_PATHS as readonly string[]).includes("/team/join") && opensInApp("/team/join") && !opensInApp("/team"))
-    const page = read("app/team/join/page.tsx")
+    const page = read("app/(storelib)/team/join/page.tsx")
     const cards = read("components/team/join-card.tsx")
     check("the page has a card for every state", /<StateCard state=\{read\.state\}/.test(page) && ["invalid", "gone", "store_gone", "accepted", "expired", "own_store", "seats_full", "signed_out", "wrong_account", "ready"].every((k) => cards.includes(`case "${k}":`)))
     check("  and is never indexed", /robots: \{ index: false/.test(page))

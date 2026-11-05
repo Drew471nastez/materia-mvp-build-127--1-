@@ -5,8 +5,8 @@
  * path; every POST is recorded in `window.__sent`.
  */
 import { createRoot } from "react-dom/client"
-import { SupportClient } from "@/app/app/support/support-client"
-import { ResolutionCenter } from "@/app/admin/resolution/resolution-center"
+import { SupportClient } from "@/app/(storelib)/app/support/support-client"
+import { ResolutionCenter } from "@/app/(storelib)/admin/resolution/resolution-center"
 
 type W = Window & { __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[] }
 const w = window as W

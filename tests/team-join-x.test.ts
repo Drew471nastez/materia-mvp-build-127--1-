@@ -88,7 +88,7 @@ async function main() {
     check("a creator's subdomain (same-site, their own HTML) is refused", !fromOwnPage(headers({ origin: "https://shop.storelib.com", "sec-fetch-site": "same-site" }), url))
     check("a sandboxed frame elsewhere (Origin null, cross-site) is refused", !fromOwnPage(headers({ origin: "null", "sec-fetch-site": "cross-site" }), url))
     check("an Origin that is not a URL is refused", !fromOwnPage(headers({ origin: "storelib.com" }), url))
-    const page = read("app/team/join/page.tsx")
+    const page = read("app/(storelib)/team/join/page.tsx")
     check("the page asks for same-origin, not no-referrer (which makes the browser send Origin: null)", /referrer: "same-origin"/.test(page) && !/referrer: "no-referrer"/.test(page))
   }
 
@@ -125,8 +125,8 @@ async function main() {
     check("the invite cookie: a sign in with nowhere to go goes back to the invite", inviteFallbackNext(null, TOKEN) === next)
     check("  never over a next that was given", inviteFallbackNext("/app/orders", TOKEN) === "/app/orders")
     check("  and a made up value is ignored", inviteFallbackNext(null, "../../evil") === null && inviteFallbackNext(null, "") === null)
-    const cb = read("app/auth/callback/route.ts")
-    const cont = read("app/auth/continue/route.ts")
+    const cb = read("app/(storelib)/auth/callback/route.ts")
+    const cont = read("app/(storelib)/auth/continue/route.ts")
     check("/auth/callback and /auth/continue both read the invite cookie once", [cb, cont].every((s) => /jar\.get\(INVITE_COOKIE\)/.test(s) && /jar\.delete\(INVITE_COOKIE\)/.test(s) && /inviteFallbackNext\(carry\.next, invite\)/.test(s)))
     const signIn = read("app/api/team/join/sign-in/route.ts")
     check("Log in to accept keeps the invite in a short lived httpOnly cookie", /cookies\.set\(INVITE_COOKIE, token, \{ httpOnly: true, sameSite: "lax"/.test(signIn) && /INVITE_COOKIE_MAX_AGE_SECONDS/.test(signIn) && /tokenShapeOk\(token\)/.test(signIn) && INVITE_COOKIE === "sl_team_invite")
@@ -180,7 +180,7 @@ async function main() {
     check("a used link is refused for anybody else", used.ok === false && used.status === 409, used)
     const forged = await acceptInvite(world() as never, "Zz71z9xBGdzyJXsxmNkRlWBo9ZyF8OPw", { id: BEN, email: RELAY })
     check("a link nobody sent is refused", forged.ok === false && forged.status === 404, forged)
-    const page = read("app/team/join/page.tsx")
+    const page = read("app/(storelib)/team/join/page.tsx")
     check("refusals are drawn by the page as cards, never JSON", /<StateCard state=\{read\.state\}/.test(page))
   }
 

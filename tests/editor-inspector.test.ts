@@ -116,7 +116,7 @@ async function main() {
   check("it says when its first page has painted: its first screen in, FIRST_PAINT_MS after ready at the most", /const FIRST_PAINT_MS = 1200/.test(canvas) && /if \(isFront\) setTimeout\(\(\) => setPainted\(true\), FIRST_PAINT_MS\)/.test(canvas) && /m\.type === "loaded"\) \{\s*slot\.loaded = true\s*if \(isFront\) setPainted\(true\)/.test(canvas) && /onPainted\.current\?\.\(\)/.test(canvas))
 
   console.log("The editor")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the frame gets the switch itself", /inspectorEnabled=\{inspectorEnabled && !fullView\}\s*\n\s*onSelect=\{selectFromCompatCanvas\}/.test(editor))
   check("the name chip and outline go on the press", /<CanvasHover enabled=\{inspectorEnabled && canvasInspecting && /.test(editor))
   check("the add-a-section strip fades with the rings", /<div className="wb-ring relative isolate z-20 h-0 w-full">/.test(editor))

@@ -52,7 +52,7 @@ const layout = THEME_SETTINGS_GROUPS.find((g) => g.id === "layout")
 const crumbs = (layout?.fields ?? []).filter((f) => f.id.startsWith("breadcrumbs_")).map((f) => f.id).join()
 check("Theme settings › Layout › Breadcrumbs: show, the separator, the style and the home icon", crumbs === "breadcrumbs_enabled,breadcrumbs_separator,breadcrumbs_style,breadcrumbs_home_icon" && (layout?.fields ?? []).some((f) => f.type === "header" && f.label === "Breadcrumbs"))
 check("every storefront page gets it through dressPage", /withDynamicSources\(withThemeBreadcrumbs\(searchListsTheShop\(sections\), site\.themeSettings, template\)/.test(read("lib/website-builder/published-site.ts")))
-const editor = read("app/website-builder/editor/[installId]/page.tsx")
+const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 check("the editor's canvas draws it too, and a click on it opens its setting", /* Changed on purpose (round V8): the language is laid over before the bindings are filled. */ (/withThemeBreadcrumbs\(\s*withDynamicSources\(searchListsTheShop\((canvasSections|sectionsInLanguage)\),/.test(editor) || /* Changed on purpose (round AI2): one step function, given sectionsInLanguage. */ (/withThemeBreadcrumbs\(\s*withDynamicSources\(searchListsTheShop\(list\),/.test(editor) && /filledStep\(sectionsInLanguage,/.test(editor))) && /sectionId === THEME_BREADCRUMBS_ID[\s\S]{0,300}setExpandedSettings\("layout"\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

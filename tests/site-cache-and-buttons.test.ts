@@ -178,7 +178,7 @@ function main() {
        the visitor (/explore, a product, a creator page) read it themselves.
        lib/platform/header-props keeps the reads for the account and receipt
        layouts, which are per visitor anyway. */
-    const marketingLayout = read("app/(marketing)/layout.tsx")
+    const marketingLayout = read("app/(storelib)/(marketing)/layout.tsx")
     check(
       "the marketing layout reads no request data, so the pages under it can be static",
       !/readWishlistCount\(\)|isPlatformDomain\(\)|next\/headers|cookies\(\)|headers\(\)/.test(marketingLayout) &&

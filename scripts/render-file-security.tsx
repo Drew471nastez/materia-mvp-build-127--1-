@@ -18,9 +18,9 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
-import { SecurityAdmin, type SecurityOverview } from "@/app/admin/security/security-admin"
-import { DigitalFiles, type FileUpload, type FileUploads } from "@/app/app/products/new/file-uploads"
-import type { UploadedFile } from "@/app/app/products/new/editor-form"
+import { SecurityAdmin, type SecurityOverview } from "@/app/(storelib)/admin/security/security-admin"
+import { DigitalFiles, type FileUpload, type FileUploads } from "@/app/(storelib)/app/products/new/file-uploads"
+import type { UploadedFile } from "@/app/(storelib)/app/products/new/editor-form"
 
 const q = new URLSearchParams(location.search)
 const view = q.get("view") || "editor"

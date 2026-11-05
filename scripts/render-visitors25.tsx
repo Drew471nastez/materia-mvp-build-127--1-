@@ -13,7 +13,7 @@
  *                     change the page without a full load, and Explore
  *   ?view=onepage     a OnePage stand-in with the store's tag
  *   ?view=checkout    begin_checkout, then Pay says it was paid (as
- *                     app/checkout/checkout-client.tsx does)
+ *                     app/(storelib)/checkout/checkout-client.tsx does)
  *   ?view=thanks      a thank you page's purchase
  *   ?view=settings    Settings › Integrations › Google Analytics (GaConnect)
  *   ?view=commerce    Website settings › Commerce, its Integrations row

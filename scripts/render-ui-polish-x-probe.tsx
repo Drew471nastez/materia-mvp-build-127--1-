@@ -20,7 +20,7 @@ import { Maximize2, Monitor } from "lucide-react"
 import { ProjectSettings, type SettingsSection } from "@/components/website-builder/project-settings"
 import { PreviewLocaleButton, SidebarLanguageBar, type PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
 import { PromptCopy } from "@/components/website-builder/ask-activity"
-import { ProductTranslationsCard } from "@/app/app/products/new/product-translations-card"
+import { ProductTranslationsCard } from "@/app/(storelib)/app/products/new/product-translations-card"
 
 const hash = window.location.hash.slice(1)
 const [part, arg] = hash.split("=")
@@ -44,7 +44,7 @@ function useLocaleModel(): PreviewLocaleModel {
   }
 }
 
-/* The editor's own classes for the two round buttons beside the chip (app/website-builder/editor/[installId]/page.tsx). */
+/* The editor's own classes for the two round buttons beside the chip (app/(storelib)/website-builder/editor/[installId]/page.tsx). */
 const ROUND = "hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1]"
 
 function TopBar() {

@@ -1,7 +1,7 @@
 /**
  * THE PRODUCT PAGE, RENDERED ON THE SERVER, for scripts/check-transitions-round30.mjs (PRODUCT).
  *
- * The real app/(marketing)/p/[slug]/page.tsx and its layout, called the way the app router calls them, with the data
+ * The real app/(storelib)/(marketing)/p/[slug]/page.tsx and its layout, called the way the app router calls them, with the data
  * they read answered from fixtures (the probe swaps the loaders, the Supabase clients and next/headers for stubs) and
  * the element they return rendered to HTML. Not hydrated: what is measured is what the page paints, its colours.
  *
@@ -10,8 +10,8 @@
  */
 import React from "react"
 import { renderToReadableStream } from "react-dom/server"
-import ProductPage from "@/app/(marketing)/p/[slug]/page"
-import ProductLayout from "@/app/(marketing)/p/[slug]/layout"
+import ProductPage from "@/app/(storelib)/(marketing)/p/[slug]/page"
+import ProductLayout from "@/app/(storelib)/(marketing)/p/[slug]/layout"
 
 async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
   const reader = stream.getReader()

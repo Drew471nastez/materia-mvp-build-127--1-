@@ -255,8 +255,8 @@ async function main() {
 
   console.log("\nRound AE: the checkout says what the quote means")
   {
-    const phys = read("app/checkout/physical/physical-checkout.tsx")
-    const site = read("app/checkout/site/site-checkout.tsx")
+    const phys = read("app/(storelib)/checkout/physical/physical-checkout.tsx")
+    const site = read("app/(storelib)/checkout/site/site-checkout.tsx")
     check("a shop that ships by state asks for the state, never says it can't ship there", /quote\.delivery\.needsRegion \? \(/.test(phys) && /data-needs-region=""/.test(phys) && /needsRegion\?: boolean/.test(phys))
     check("  and the totals say so too, on both checkouts", /quote\.delivery\.needsRegion \? `Choose your/.test(phys) && /* Changed on purpose: the website checkout says it in the visitor's language (ct). */ /quote\.delivery\.needsRegion && !address\.region\.trim\(\) \? \(fmt\.region \? ct\(`Choose your/.test(site))
     check("a free shipping code shows every method free, the old price struck through, on both checkouts", /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(phys) && /quote\.coupon\?\.freeShipping && o\.priceCents > 0/.test(site))

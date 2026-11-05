@@ -409,11 +409,11 @@ async function main() {
     "the buyer tab bar is inside a community for members, never on /community alone",
     buyerTabsBelongOn("/community/makers", { signedIn: true }) && !buyerTabsBelongOn("/community") && buyerTabsBelongOn("/community/makers/events", { sellerStore: true, signedIn: true }) && buyerTabsBelongOn("/account/library"),
   )
-  const index = code("app/(marketing)/community/page.tsx")
+  const index = code("app/(storelib)/(marketing)/community/page.tsx")
   check("/community: Explore's communities when on, a 404 when off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*redirect\("\/explore\?type=communities"\)/.test(index))
   /* /app/community is the new creator area now (W1); what must be gone is the old feed it used to render. */
-  check("the old creator feed is gone", !existsSync("components/app/community-feed.tsx") && (!existsSync("app/app/community/page.tsx") || !/community_posts|CommunityFeed/.test(code("app/app/community/page.tsx"))))
-  check("the old buyer pages send to the library", ["app/dashboard/communities/page.tsx", "app/dashboard/communities/[creatorId]/page.tsx"].every((f) => /redirect\("\/account\/communities"\)/.test(code(f)) && !/community_posts|CommunityFeed/.test(code(f))))
+  check("the old creator feed is gone", !existsSync("components/app/community-feed.tsx") && (!existsSync("app/(storelib)/app/community/page.tsx") || !/community_posts|CommunityFeed/.test(code("app/(storelib)/app/community/page.tsx"))))
+  check("the old buyer pages send to the library", ["app/(storelib)/dashboard/communities/page.tsx", "app/(storelib)/dashboard/communities/[creatorId]/page.tsx"].every((f) => /redirect\("\/account\/communities"\)/.test(code(f)) && !/community_posts|CommunityFeed/.test(code(f))))
 
   /* ── Copy and the client boundary ────────────────────────────────────── */
   console.log("\nCopy rules, and no server code in the browser")
@@ -425,7 +425,7 @@ async function main() {
     "app/api/platform/flags/route.ts",
     "app/api/admin/flags/route.ts",
     "app/api/cron/community/route.ts",
-    "app/(marketing)/community/page.tsx",
+    "app/(storelib)/(marketing)/community/page.tsx",
     P,
   ]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))

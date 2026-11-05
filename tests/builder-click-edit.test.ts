@@ -156,7 +156,7 @@ console.log("\nA click becomes a field\n")
 
 console.log("\nThe editor wires it up\n")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("the canvas click asks which field", /clickTarget\(\s*chainFrom\(/.test(page))
   check("the sidebar's section fields say which setting they are", /data-setting-field=\{field\.id\}/.test(page) && /data-block-field=\{field\.id\}/.test(page))
   check("the panel says which section it is", /data-wb-section-panel=\{section\.id\}/.test(page))
@@ -175,7 +175,7 @@ console.log("\nThe editor wires it up\n")
 
 console.log("\nFull screen, the third way of looking\n")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check(
     "one icon switches desktop and phone, on a computer only (round 22: Large is no longer a stop)",
     /\{!isMobileView && \(\(\) => \{\s*const SIZES = \[/.test(page) &&

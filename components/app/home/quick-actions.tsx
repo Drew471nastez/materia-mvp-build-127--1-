@@ -5,8 +5,8 @@ import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { AppLink } from "@/components/app/app-link"
 import { useLanguage } from "@/lib/i18n"
-import { asksInPlace, useNewProductChooser } from "@/app/app/products/new/kind-chooser"
-import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
+import { asksInPlace, useNewProductChooser } from "@/app/(storelib)/app/products/new/kind-chooser"
+import { NEW_PRODUCT_HREF } from "@/app/(storelib)/app/products/new/product-kinds"
 import { tt } from "@/lib/i18n/text"
 
 /**

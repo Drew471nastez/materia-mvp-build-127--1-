@@ -1,7 +1,7 @@
 /**
  * AN ORDER'S PAGE: ITS ACTIONS, ITS FILES AND ITS TIMELINE
  *
- * The order opened over the Orders list (app/app/orders/order-detail.tsx)
+ * The order opened over the Orders list (app/(storelib)/app/orders/order-detail.tsx)
  * resends the receipt, changes the buyer's email, downloads the invoice and
  * copies the order id, and the phone apps save the invoice and the export
  * through the system browser sheet. These are the parts that would go wrong
@@ -137,7 +137,7 @@ async function main() {
     check("  and covers every row of the order", /for \(const line of lines\)/.test(invoice))
     check("  and does not print what Storelib kept on the buyer's invoice", !/Platform Fee|Net Earnings/.test(invoice))
     check("resending and changing the email are rate limited", /bucket: "order-resend"/.test(code("app/api/app/orders/[id]/resend/route.ts")) && /bucket: "order-email-change"/.test(code("app/api/app/orders/[id]/email/route.ts")))
-    const client = code("app/app/orders/orders-client.tsx")
+    const client = code("app/(storelib)/app/orders/orders-client.tsx")
     check("the page no longer hands the buyer's receipt token to a route", !/receiptToken/.test(client) && !/receipt\/resend|receipt\/update-email/.test(client))
     check("  and sends only the order id", /\/api\/app\/orders\/\$\{encodeURIComponent\(order\.id\)\}\/resend/.test(client) && /\/api\/app\/orders\/\$\{encodeURIComponent\(order\.id\)\}\/email/.test(client))
     const notify = code("lib/orders/notify.ts")
@@ -148,7 +148,7 @@ async function main() {
     const refund = code("app/api/stripe/refund/route.ts")
     check("only a paid order can be refunded", /if \(order\.status !== "completed" && order\.status !== "refunded"\)/.test(refund) && /Number\.isFinite\(refundAmountCents\)/.test(refund))
     check("  and a partly refunded one only up to what is left", /maxRefundCents = Math\.max\(0, \(order\.amount_cents \|\| 0\) - alreadyRefunded\)/.test(refund))
-    const page = code("app/app/orders/sales/page.tsx")
+    const page = code("app/(storelib)/app/orders/sales/page.tsx")
     /* Changed on purpose (rel-commerce, database audit F8): a found refund goes through lib/stripe/refund-sync, as the charge.refunded webhook does, which applies it to the row it names or shares it across the basket, each refund once, with its ledger line. */
     check("a refund on one item of a basket does not mark the whole basket", /await syncChargeRefund\(admin, stripe, charge\)/.test(page) && !/update\(\{ status: "refunded" \}\)/.test(page))
   }
@@ -207,7 +207,7 @@ async function main() {
     check("  and no plugin that is not installed is imported", !/@capacitor\/(filesystem|share)/.test(saver))
     check("a download's address is not revoked while the browser still reads it", /setTimeout\(\(\) => URL\.revokeObjectURL\(url\), \d{3,}\)/.test(saver))
     check("the invoice and the export both save through it",
-      /await saveFile\(/.test(code("app/app/orders/orders-client.tsx")) && /saveFile\(\{/.test(code("app/app/orders/export-dialog.tsx")) && !/function download\(/.test(code("app/app/orders/export-dialog.tsx")))
+      /await saveFile\(/.test(code("app/(storelib)/app/orders/orders-client.tsx")) && /saveFile\(\{/.test(code("app/(storelib)/app/orders/export-dialog.tsx")) && !/function download\(/.test(code("app/(storelib)/app/orders/export-dialog.tsx")))
   }
 
   console.log("\nA link to one file, for five minutes")
@@ -278,7 +278,7 @@ async function main() {
     check("no dashes reach the page from Stripe's words", events.every((e) => !/ [—–] /.test(e.detail || "")))
     check("a free order says so", paymentMethodOf(groupOrders([row("z", "2025-04-01T10:00:00Z", { amount_cents: 0 })])[0]) === "No payment needed")
 
-    const detail = code("app/app/orders/order-detail.tsx")
+    const detail = code("app/(storelib)/app/orders/order-detail.tsx")
     const timeline = detail.slice(detail.indexOf("function Timeline("), detail.indexOf("function RefundDialog("))
     check("the timeline has no violet dots", !/8b5cf6|6d4ae0|violet|purple/i.test(timeline))
     check("  it draws a glyph per kind of event, in semantic colours", /GLYPH\[event\.glyph\]/.test(timeline) && /GLYPH_TONE\[event\.tone\]/.test(detail))
@@ -305,14 +305,14 @@ async function main() {
 
   console.log("\nThe controls and the slide")
   {
-    const detail = code("app/app/orders/order-detail.tsx")
+    const detail = code("app/(storelib)/app/orders/order-detail.tsx")
     check("copying goes through the helper that falls back when the clipboard is missing", /copyText\(text\)/.test(detail) && !/navigator\.clipboard/.test(detail))
     check("previous and next say what they do, whatever the list is sorted by", /aria-label="Previous order"/.test(detail) && /aria-label="Next order"/.test(detail) && !/Newer order|Older order/.test(detail))
     check("changing the email is always offered, not only with a receipt", /label: "Change customer email", icon: <Mail className="h-4 w-4" \/>, onClick: \(\) => fromMenu\("email"\)/.test(detail))
     check("a second tap while one action runs does nothing", /if \(busy\) return false/.test(detail))
-    const client = code("app/app/orders/orders-client.tsx")
+    const client = code("app/(storelib)/app/orders/orders-client.tsx")
     const css = read("app/globals.css")
-    const motion = code("app/app/orders/order-motion.ts")
+    const motion = code("app/(storelib)/app/orders/order-motion.ts")
     /* "Not so direct or clunky": the phone's own push and pop, started
        before the frame that draws the order is painted, on the compositor.
        The slide that came out once ("too smooth and flowy", a bar that
@@ -366,28 +366,28 @@ async function main() {
     check("the row the order came from is tinted, then fades, on opacity alone, written without drawing the list again",
       /markRow\(list, shownId, "held"\)/.test(client) && /markRow\(list, was, "fading"\)/.test(client)
         && /@keyframes orders-row-fade \{\s*0%, 30% \{ opacity: 1; \}\s*100% \{ opacity: 0; \}/.test(css)
-        && /data-order-id=\{order\.id\}/.test(code("app/app/orders/orders-list.tsx")))
+        && /data-order-id=\{order\.id\}/.test(code("app/(storelib)/app/orders/orders-list.tsx")))
     check("a finger on a row, or a pointer resting on one, reads the order's history ahead, and the timeline starts from it",
-      /onPointerDown=\{\(\) => prefetchOrder\(order\)\}/.test(code("app/app/orders/orders-list.tsx"))
-        && /HOVER_PREFETCH_MS/.test(code("app/app/orders/orders-list.tsx"))
-        && /useState<OrderActivity\[\]>\(\(\) => activityOf\(cachedJson\(activityUrl\(order\.id\)\)\) \?\? \[\]\)/.test(code("app/app/orders/order-detail.tsx"))
-        && /readJson\(activityUrl\(order\.id\), revision > 0\)/.test(code("app/app/orders/order-detail.tsx")))
+      /onPointerDown=\{\(\) => prefetchOrder\(order\)\}/.test(code("app/(storelib)/app/orders/orders-list.tsx"))
+        && /HOVER_PREFETCH_MS/.test(code("app/(storelib)/app/orders/orders-list.tsx"))
+        && /useState<OrderActivity\[\]>\(\(\) => activityOf\(cachedJson\(activityUrl\(order\.id\)\)\) \?\? \[\]\)/.test(code("app/(storelib)/app/orders/order-detail.tsx"))
+        && /readJson\(activityUrl\(order\.id\), revision > 0\)/.test(code("app/(storelib)/app/orders/order-detail.tsx")))
     check("the next order starts at its top before it is drawn, a leaving one where it was", /* Changed on purpose: a pane drawn for the first time is at its top already, and scrolling it made the browser lay out the whole page in the commit that starts the rise. */
       /const fresh = pane !== scrolledPane\.current\s*scrolledPane\.current = pane\s*if \(shownId && pane && !fresh\) pane\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shownId\]\)/.test(client))
     check("a step draws the next order's cards fresh, the bar staying put", /<div key=\{order\.id\} className=\{cn\("orders-body /.test(detail) && detail.indexOf("<OrderBarFrame") < detail.indexOf("key={order.id}"))
     check("opened straight onto an order, the page does not fade in as a whole", /!openedOnOrder && "app-page-enter"/.test(client))
 
     /* Export: the shared sheet on a phone, a panel from the button wider. */
-    const exporter = code("app/app/orders/export-dialog.tsx")
+    const exporter = code("app/(storelib)/app/orders/export-dialog.tsx")
     check("Export is the shared sheet on a phone, with its title and no close button",
       /<BottomSheet isOpen=\{open\} onClose=\{onClose\} title="Export orders" dismissible=\{!busy\}>/.test(exporter) && !/<Dialog\b/.test(exporter) && !/aria-label="Close"/.test(exporter))
     check("  48px rows and one full width 48px button", /compact \? "min-h-\[48px\] px-3 text-\[15px\]/.test(exporter) && /className="flex h-12 w-full items-center justify-center rounded-xl bg-\[#1a1a2e\]/.test(exporter))
-    check("  and a panel hung from the Export button on a computer", /<PopoverAnchor virtualRef=\{measure\} \/>/.test(exporter) && /align="end"/.test(exporter) && /data-orders-export=""/.test(code("app/app/orders/orders-list.tsx")))
+    check("  and a panel hung from the Export button on a computer", /<PopoverAnchor virtualRef=\{measure\} \/>/.test(exporter) && /align="end"/.test(exporter) && /data-orders-export=""/.test(code("app/(storelib)/app/orders/orders-list.tsx")))
     check("  whose choices are fresh on its first frame, not an effect later",
       /if \(open !== wasOpen\) \{\s*setWasOpen\(open\)\s*if \(open\) \{\s*setScope\(selected\.size > 0 \? "selected" : "matching"\)/.test(exporter) && !/React\.useEffect\(\(\) => \{\s*if \(!open\) return/.test(exporter))
     check("  and it stays up, saying so, until the file is made, then says how many",
       /setBusy\(true\)[\s\S]{0,120}const outcome = await saveFile\(/.test(exporter) && /onDone\(outcome === "downloaded" \? `\$\{what\} exported`/.test(exporter) && /"Exporting…"/.test(exporter))
-    const parts = code("app/app/orders/order-parts.tsx")
+    const parts = code("app/(storelib)/app/orders/order-parts.tsx")
     check("the bar is on the pane, its full width, and the date is inside it",
       /data-orders-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-10 bg-\[#f8f9fa\]"/.test(parts) && /<OrderBarFrame[\s\S]*subtitle=\{/.test(detail))
     check("  with depth only once something is under it", /\.orders-bar\[data-scrolled="true"\] \{/.test(css) && /pane\.addEventListener\("scroll", read, \{ passive: true \}\)/.test(parts))
@@ -397,11 +397,11 @@ async function main() {
       /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\] lg:grid-rows-\[auto_auto_auto_1fr\]/.test(detail) && /lg:col-start-2 lg:row-span-4 lg:row-start-1/.test(detail))
     /* Changed on purpose: a pull to refresh reads the page again, and that is the one router.refresh in the file. */
     check("an action updates the rows from the server's answer, without reloading every order", (client.match(/router\.refresh\(\)/g) ?? []).length === 1 && /rowsArrived\.current = resolve\s+router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
-    const list = code("app/app/orders/orders-list.tsx")
+    const list = code("app/(storelib)/app/orders/orders-list.tsx")
     /* Changed on purpose: the list has one page of orders, and knows how many there are in all from the server (lib/orders/paged.ts summary). */
     check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{summary\.total === 0\}/.test(list))
     check("  44px to tap on a phone, 32px to see", /cn\(buttonAccent, "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"\)/.test(list))
-    check("  near black (no purple on the app's actions, the owner's ask), white, a step lighter on hover, with a shadow", /buttonAccent =\s*"[^"]*bg-\[#1a1a2e\][^"]*text-white[^"]*hover:bg-\[#2a2a40\]/.test(read("app/app/orders/order-parts.tsx")) && !/buttonAccent =\s*"[^"]*8b5cf6/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
+    check("  near black (no purple on the app's actions, the owner's ask), white, a step lighter on hover, with a shadow", /buttonAccent =\s*"[^"]*bg-\[#1a1a2e\][^"]*text-white[^"]*hover:bg-\[#2a2a40\]/.test(read("app/(storelib)/app/orders/order-parts.tsx")) && !/buttonAccent =\s*"[^"]*8b5cf6/.test(read("app/(storelib)/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/(storelib)/app/orders/order-parts.tsx")))
   }
 
     {

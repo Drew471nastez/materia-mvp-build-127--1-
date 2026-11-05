@@ -144,7 +144,7 @@ console.log("\nPOSTS: the Posts pill end to end")
 
 console.log("\nEXPLORE AND THE LIBRARY: no embed on a key that does not exist")
 {
-  const explore = code("app/(marketing)/explore/page.tsx")
+  const explore = code("app/(storelib)/(marketing)/explore/page.tsx")
   const extras = code("lib/library/library-extras.ts")
   check("Explore embeds its creators on products.creator_id and nothing on creators to profiles", /const CREATOR_EMBED = "creator:creators\(id, user_id, slug, niche_tags\)"/.test(explore) && !/profiles!creators_user_id_fkey/.test(explore))
   check("the faces are one read by user id, beside the sales channels and the intervals", /from\("profiles"\)\.select\(PROFILE_FIELDS\)\.in\("id", userIds\)/.test(explore) && /const together = Promise\.all\(\[/.test(explore))

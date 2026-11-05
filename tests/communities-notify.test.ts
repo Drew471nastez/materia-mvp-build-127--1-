@@ -415,7 +415,7 @@ async function main() {
     check("Settings asks only from the Allow tap or turning push on", /onClick=\{phone\.ask\}/.test(settings) && /onTurnedOn=\{phone\.askIfNeeded\}/.test(settings) && (settings.match(/askPushPermission\(/g) || []).length === 1 && /const ask = useCallback\(\(\) => \{\s*if \(!inApp \|\| asking\) return/.test(settings))
     check("  turning push on asks straight from the switch's own tap", /if \(v\) onTurnedOn\?\.\(\)/.test(code("components/account/push-switch-row.tsx")))
     check("  a no says where to turn it on, and opens the phone's settings", /Notifications are off for Storelib on this phone/.test(settings) && /phoneSettingsPath\(platform\)/.test(settings) && /Check again/.test(settings) && /openPhoneSettings\(\)/.test(settings))
-    const launchAsks = ["components/native-push-init.tsx", "components/app/app-layout-wrapper.tsx", "app/layout.tsx"].filter((f) => /askPushPermission|requestPermissions/.test(code(f)))
+    const launchAsks = ["components/native-push-init.tsx", "components/app/app-layout-wrapper.tsx", "app/(storelib)/layout.tsx"].filter((f) => /askPushPermission|requestPermissions/.test(code(f)))
     check("the launch ask is the one sheet (components/platform/notifications-ask.tsx), not the layouts", launchAsks.length === 0 && /askPushPermission\(\)/.test(code("components/platform/notifications-ask.tsx")))
   }
 
@@ -427,7 +427,7 @@ async function main() {
     check("PATCH { push, email } changes only the person's own choice, rate limited like the switch", /if \(body\.push !== undefined \|\| body\.email !== undefined/.test(route) && /saveChoice\(db, userId, next\)/.test(route) && route.indexOf("rateLimit(") < route.indexOf("body.push !== undefined"))
     const page = read("components/account/account-settings.tsx")
     check("a Notifications section between Privacy and Preferences", /\{ key: "privacy", label: "Privacy" \},\s*\{ key: "notifications", label: "Notifications" \},\s*\{ key: "preferences", label: "Preferences" \}/.test(page) && /key === "notifications" \? \(\s*<NotificationSettings \/>/.test(page))
-    check("?section=notifications opens it", /SECTION_KEYS = \["profile", "account", "privacy", "notifications", "preferences"\]/.test(read("app/account/settings/page.tsx")))
+    check("?section=notifications opens it", /SECTION_KEYS = \["profile", "account", "privacy", "notifications", "preferences"\]/.test(read("app/(storelib)/account/settings/page.tsx")))
     const settings = code("components/account/notification-settings.tsx")
     check("the kinds are live only while push is on, and save one at a time", /checked=\{live && s\.value\} disabled=\{!live\}/.test(settings) && /chain = run\.catch/.test(settings))
     check("the report email is offered only to someone who moderates", /initial\.moderates \? <EmailRow/.test(settings))

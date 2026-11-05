@@ -235,7 +235,7 @@ console.log("\nPublished output and the canvas read one deadline\n")
 
 console.log("\nWired into the editor and the canvas\n")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("section and block settings both draw it, in place of the settings it covers", (page.match(/const countdown = countdownGroup\(/g) ?? []).length === 2 && (page.match(/countdown\?\.absorbed\.includes\(field\.id\) \? null/g) ?? []).length === 2 && (page.match(/<CountdownControl/g) ?? []).length === 2)
   check("  writing through the same setting writers as every control", /updateSectionSetting\(section\.id, k, v\)/.test(page) && /onUpdate\(blockKey, k, v, virtual\)/.test(page))
   const control = read("components/website-builder/editor/controls/countdown-control.tsx")

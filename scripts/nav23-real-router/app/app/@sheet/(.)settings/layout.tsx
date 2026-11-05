@@ -1,1 +1,1 @@
-export { default } from "@/app/app/@sheet/(.)settings/layout"
+export { default } from "@/app/(storelib)/app/@sheet/(.)settings/layout"

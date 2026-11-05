@@ -41,7 +41,7 @@ function check(label: string, ok: boolean, detail?: string) {
 const FRAME = "components/website-builder/drawer-frame.ts"
 const HEADER = "components/website-builder/sections/renderers/HeaderSection.tsx"
 /* The canvas is where the other half of the navigation rule lives. */
-const EDITOR = "app/website-builder/editor/[installId]/page.tsx"
+const EDITOR = "app/(storelib)/website-builder/editor/[installId]/page.tsx"
 const src = readFileSync(join(process.cwd(), FRAME), "utf8")
 const header = readFileSync(join(process.cwd(), HEADER), "utf8")
 const editor = readFileSync(join(process.cwd(), EDITOR), "utf8")

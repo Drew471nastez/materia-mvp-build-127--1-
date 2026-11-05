@@ -1,8 +1,8 @@
 /**
- * The Emails list (app/app/emails/emails-client.tsx, the real one) inside
+ * The Emails list (app/(storelib)/app/emails/emails-client.tsx, the real one) inside
  * the real shell pieces that decide how an /app page arrives
  * (NavigationLoadingBar and AppStage), over a shell shaped like
- * app/app/layout.tsx, for scripts/check-emails-back.mjs.
+ * app/(storelib)/app/layout.tsx, for scripts/check-emails-back.mjs.
  *
  * The router is only what these components can see of one: `push` writes
  * the address after `__delay` ms and the page for it commits with it; back
@@ -21,7 +21,7 @@ import { createRoot } from "react-dom/client"
 import { usePathname, useRouter } from "next/navigation"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
-import { EmailsClient } from "@/app/app/emails/emails-client"
+import { EmailsClient } from "@/app/(storelib)/app/emails/emails-client"
 
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 window.fetch = async (input: RequestInfo | URL) => {

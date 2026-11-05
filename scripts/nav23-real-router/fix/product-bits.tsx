@@ -1,6 +1,6 @@
 "use client"
 import { useRouter } from "next/navigation"
-import { openEditor, returnToProducts, useListOrigin, listShown } from "@/app/app/products/list-return"
+import { openEditor, returnToProducts, useListOrigin, listShown } from "@/app/(storelib)/app/products/list-return"
 import { useEffect } from "react"
 import { Mounts } from "./mounts"
 export function OpenProduct() {

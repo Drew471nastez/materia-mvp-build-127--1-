@@ -129,7 +129,7 @@ async function main() {
         !/startRouteLoading\(\{ cover: true \}\)/.test(code("components/community/public/join-nav.ts")) &&
         /prefetchJoinAuth/.test(code("components/community/public/join-controls.tsx")),
     )
-    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/community/[slug]/layout.tsx")
     /* Changed on purpose: both frames come from one import line (ddcbaf919), so the name CommunityPublicShell now stands above the member frame's pill; each frame's own element is read instead. */
     check(
       "signed-out visitors do not get the Open in app pill; signed-in members still do",
@@ -410,20 +410,20 @@ async function main() {
     check("the library's sub pills carry Communities only while the switch is on", JSON.stringify(libraryTabs()) === JSON.stringify([...LIBRARY_TABS]) && !LIBRARY_TABS.some((t) => /communities/.test(t.href)) && libraryTabs(true)[2]?.href === "/account/library/communities")
     check("the profile's Communities pill is there only while the switch is on", ownerPillLinks(true).some((p) => p.key === "communities" && p.href === "/account/communities") && !ownerPillLinks(false).some((p) => p.key === "communities"))
     check("/account/communities is that pill, and /library/communities answers with it", ownerPillFor("/account/communities") === "communities" && legacyLibraryTarget("/library/communities") === "/account/communities" && !showsLibraryTabs("/account/communities"))
-    check("the layout hands the switch to the pills", /communitiesEnabled\(\)/.test(code("app/account/layout.tsx")) && /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(read("app/account/layout.tsx")))
+    check("the layout hands the switch to the pills", /communitiesEnabled\(\)/.test(code("app/(storelib)/account/layout.tsx")) && /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(read("app/(storelib)/account/layout.tsx")))
   }
 
   console.log("\nPages and routes")
   {
-    const page = code("app/(marketing)/community/[slug]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/community/[slug]/page.tsx")
     check("/community/<slug> is a 404 while off, read per request", /* Changed on purpose (round AH: the first reads start together, the switch among them, still before anything is drawn). */ /await connection\(\)[\s\S]{0,400}const \[on, \{ slug \}, query, \{ user \}\] = await Promise\.all\(\[communitiesEnabled\(\),[\s\S]{0,120}if \(!on\) notFound\(\)/.test(page))
     /* Changed on purpose: round 15 seeds the member's home through PlacePage, which draws the feed (or the place the address names) inside the shell (components/community/member/place-page.tsx, ddcbaf919). */
     /* Changed on purpose (round 39): a member is found from the request's own memberPage first, the sales page's load after; both draw memberHome. */
     check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(page\.state === "member" && page\.community && page\.viewer\) return memberHome\(/.test(page) && /if \(load\.viewer\.active\) \{[\s\S]{0,200}return memberHome\(load\.community\.slug/.test(page) && /const place = placeFromUrl\([\s\S]*\?\? \{ kind: "feed" as const \}\s*return <PlacePage slug=\{communitySlug\} place=\{place\} \/>/.test(page) && /import \{ PlacePage \} from "@\/components\/community\/member\/place-page"/.test(page))
     check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras(, askWhy)? \}\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
-    const about = code("app/(marketing)/community/[slug]/about/page.tsx")
+    const about = code("app/(storelib)/(marketing)/community/[slug]/about/page.tsx")
     check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras(, askWhy)? \}\} \/>/.test(about) && !/viewer\.active/.test(about))
-    check("/account/communities is a 404 while off", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(code("app/account/communities/page.tsx")))
+    check("/account/communities is a 404 while off", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(code("app/(storelib)/account/communities/page.tsx")))
     const routes = ["join", "leave", "onboarding", "invite/redeem"].map((r) => `app/api/community/[communityId]/${r}/route.ts`)
     for (const r of routes) {
       const src = code(r)
@@ -435,7 +435,7 @@ async function main() {
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))
     check("the join bucket is community-join, with a ten minute and a daily window", JOIN_BUCKET === "community-join" && JOIN_WINDOWS.length === 2)
     /* Round 4: communities are found inside Explore (/explore?type=communities); the old page is a redirect and the card counts views (tests/explore-communities.test.ts). */
-    check("/explore/communities is a 404 while off and otherwise a permanent redirect into Explore", /if \(!\(await communitiesEnabled\(\)\)\) return new NextResponse\("Not found", \{ status: 404 \}\)[\s\S]*legacyCommunitiesTarget\([\s\S]*NextResponse\.redirect\([^)]*\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")))
+    check("/explore/communities is a 404 while off and otherwise a permanent redirect into Explore", /if \(!\(await communitiesEnabled\(\)\)\) return new NextResponse\("Not found", \{ status: 404 \}\)[\s\S]*legacyCommunitiesTarget\([\s\S]*NextResponse\.redirect\([^)]*\), 308\)/.test(code("app/(storelib)/(marketing)/explore/communities/route.ts")))
     check("the explore route takes the pill, its subcategory and the price as well as the word and the order", /category: url\.searchParams\.get\("c"\), sub: url\.searchParams\.get\("sub"\), price: url\.searchParams\.get\("price"\)/.test(code("app/api/explore/communities/route.ts")))
     check("a card says what is real: views only when read (with the rows, else one read for the list), stars only from reviews, the launch date", /viewCount: viewsOf\(c\.view_count !== undefined \? c\.view_count : views\?\.get\(c\.id\)\)/.test(code("lib/communities/server/public.ts")) && /rating: cardRating\(own\.map\(\(t\) => t\.product_id\), products\)/.test(code("lib/communities/server/public.ts")) && /launchedAt: c\.created_at \?\? null/.test(code("lib/communities/server/public.ts")))
     const server = ["lib/communities/server/public.ts", "lib/communities/server/join.ts", "lib/communities/server/explore.ts"].map(code).join("\n")
@@ -460,14 +460,14 @@ async function main() {
       "lib/communities/server/join.ts",
       "lib/communities/server/explore.ts",
       "lib/communities/listing.ts",
-      ...walk("app/(marketing)/community/[slug]").filter((f) => !f.includes("(member)")),
-      "app/(marketing)/explore/communities/route.ts",
+      ...walk("app/(storelib)/(marketing)/community/[slug]").filter((f) => !f.includes("(member)")),
+      "app/(storelib)/(marketing)/explore/communities/route.ts",
       "app/api/explore/communities/route.ts",
       ...walk("app/api/community/[communityId]/join"),
       ...walk("app/api/community/[communityId]/leave"),
       ...walk("app/api/community/[communityId]/onboarding"),
       ...walk("app/api/community/[communityId]/invite"),
-      ...walk("app/account/communities"),
+      ...walk("app/(storelib)/account/communities"),
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)

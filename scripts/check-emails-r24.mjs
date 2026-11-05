@@ -72,7 +72,7 @@ function from(table) {
   let eqValue = null
   const q = {
     select() { return q }, eq(_c, v) { eqValue = v; return q }, in() { return q }, order() { return q }, delete() { return q }, update() { return q },
-    /* A contact's automation runs (app/app/emails/contact-detail.tsx), answered late. */
+    /* A contact's automation runs (app/(storelib)/app/emails/contact-detail.tsx), answered late. */
     limit() {
       if (table !== "email_flow_runs") return q
       ;(window.__runsAsked = window.__runsAsked || []).push(eqValue)

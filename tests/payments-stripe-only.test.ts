@@ -59,7 +59,7 @@ console.log("\n1. The integration is gone")
     "lib/payments/store.ts",
     "lib/payments/readiness.ts",
     "lib/payments/active-provider.ts",
-    "app/checkout/parts/airwallex-redirect.ts",
+    "app/(storelib)/checkout/parts/airwallex-redirect.ts",
     "app/api/payments/airwallex/return",
   ]
   for (const p of removed) check(`${p} is removed`, !existsSync(join(root, p)))
@@ -72,7 +72,7 @@ console.log("\n1. The integration is gone")
     "lib/payments/hub-types.ts", // airwallexBefore on the overview
     "app/api/payments/airwallex/webhook/route.ts", // 410 Gone
     "app/api/stripe/refund/route.ts", // refuses an Airwallex order with the note
-    "app/app/orders/order-detail.tsx", // the note where Refund would be
+    "app/(storelib)/app/orders/order-detail.tsx", // the note where Refund would be
     "lib/orders/order-view.ts", // canRefundLine says no
     "lib/orders/timeline.ts", // the payment method names it
     "lib/orders/load-rows.ts", // reads provider for that
@@ -95,9 +95,9 @@ console.log("\n1. The integration is gone")
   check("the page no longer allows Airwallex's scripts or frames", !/airwallex/i.test(csp) && !/airwallex/i.test(read("vercel.json")))
   check("no Airwallex environment variable is read", !/AIRWALLEX_|STORELIB_PAYMENTS_AIRWALLEX/.test(walk(join(root, "lib")).concat(walk(join(root, "app"))).filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => readFileSync(f, "utf8")).join("\n")))
 
-  const client = read("app/checkout/checkout-client.tsx")
-  check("checkout has no Airwallex branch or prop", !/airwallex/i.test(client) && !/paymentProvider/.test(client) && !/paymentProvider/.test(read("app/checkout/page.tsx")))
-  check("Settings has no provider switch", !/paymentsProvider/.test(read("components/app/settings-form-new.tsx")) && !/providerFor/.test(read("app/app/settings/_server.ts")))
+  const client = read("app/(storelib)/checkout/checkout-client.tsx")
+  check("checkout has no Airwallex branch or prop", !/airwallex/i.test(client) && !/paymentProvider/.test(client) && !/paymentProvider/.test(read("app/(storelib)/checkout/page.tsx")))
+  check("Settings has no provider switch", !/paymentsProvider/.test(read("components/app/settings-form-new.tsx")) && !/providerFor/.test(read("app/(storelib)/app/settings/_server.ts")))
 
   const api = read("app/api/payments/[action]/route.ts")
   check("the hub API has no Airwallex-only actions", !/case "(verify|form-status|payout-account|payout)":/.test(api) && !/airwallex/i.test(api))
@@ -141,7 +141,7 @@ console.log("\n3. Orders paid through Airwallex stay readable, without Refund")
   const refuse = refund.indexOf("if (paidThroughAirwallex(order))")
   check("the refund route refuses it with where to refund, before any Stripe call", refuse > 0 && refuse < refund.indexOf("stripe.refunds.create(") && /error: PAST_PROVIDER_REFUND_NOTE \}, \{ status: 409 \}/.test(refund))
   check("  in plain words", PAST_PROVIDER_REFUND_NOTE === "Refund this order in your Airwallex account.")
-  const detail = read("app/app/orders/order-detail.tsx")
+  const detail = read("app/(storelib)/app/orders/order-detail.tsx")
   check("the order page says it where Refund would be", /paidThroughAirwallex\(l\) && refundableCents\(l\) > 0/.test(detail) && /tt\("Refund this order in your Airwallex account\."\)/.test(detail))
 }
 

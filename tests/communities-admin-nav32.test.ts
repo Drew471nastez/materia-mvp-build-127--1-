@@ -69,15 +69,15 @@ function main() {
   check("Learn: whether payouts take payments is asked beside the programs", /await Promise\.all\(\[loadLearnBuilder\(/.test(learn) && !/await checkoutReadyForCreator/.test(learn))
 
   const pages: [string, string, string][] = [
-    ["app/app/community/[id]/page.tsx", "overview", "overviewReads"],
-    ["app/app/community/[id]/feed/page.tsx", "feed", "feedReads"],
-    ["app/app/community/[id]/spaces/page.tsx", "spaces", "spacesReads"],
-    ["app/app/community/[id]/learn/page.tsx", "classroom", "learnReads"],
-    ["app/app/community/[id]/events/page.tsx", "events", "eventsReads"],
-    ["app/app/community/[id]/members/page.tsx", "members", "membersReads"],
-    ["app/app/community/[id]/moderation/page.tsx", "moderation", "moderationReads"],
-    ["app/app/community/[id]/analytics/page.tsx", "analytics", "analyticsReads"],
-    ["app/app/community/[id]/settings/page.tsx", "settings", "settingsReads"],
+    ["app/(storelib)/app/community/[id]/page.tsx", "overview", "overviewReads"],
+    ["app/(storelib)/app/community/[id]/feed/page.tsx", "feed", "feedReads"],
+    ["app/(storelib)/app/community/[id]/spaces/page.tsx", "spaces", "spacesReads"],
+    ["app/(storelib)/app/community/[id]/learn/page.tsx", "classroom", "learnReads"],
+    ["app/(storelib)/app/community/[id]/events/page.tsx", "events", "eventsReads"],
+    ["app/(storelib)/app/community/[id]/members/page.tsx", "members", "membersReads"],
+    ["app/(storelib)/app/community/[id]/moderation/page.tsx", "moderation", "moderationReads"],
+    ["app/(storelib)/app/community/[id]/analytics/page.tsx", "analytics", "analyticsReads"],
+    ["app/(storelib)/app/community/[id]/settings/page.tsx", "settings", "settingsReads"],
   ]
   const reads = code("lib/communities/server/admin-sections.ts")
   for (const [f, id, r] of pages) {
@@ -111,7 +111,7 @@ function main() {
   check("and its toolbar is ListCard's toolbar", !!toolbar && frame.includes(`const TOOLBAR = "${toolbar}"`), toolbar)
   check("the shapes wait 200ms before they show (components/ui/shimmer)", /from "@\/components\/ui\/shimmer"/.test(frame) && /<ShimmerRows/.test(frame))
   check("a frame for every section", ["overview", "feed", "spaces", "classroom", "events", "members", "moderation", "analytics", "settings"].every((id) => frame.includes(`case "${id}":`)))
-  check("the server's frame for Posts and Settings is told what the shell's is", /facts=\{\{ composer \}\}/.test(code("app/app/community/[id]/feed/page.tsx")) && /facts=\{\{ settingsList: !settingsTabAsked\(query\.tab\) \}\}/.test(code("app/app/community/[id]/settings/page.tsx")))
+  check("the server's frame for Posts and Settings is told what the shell's is", /facts=\{\{ composer \}\}/.test(code("app/(storelib)/app/community/[id]/feed/page.tsx")) && /facts=\{\{ settingsList: !settingsTabAsked\(query\.tab\) \}\}/.test(code("app/(storelib)/app/community/[id]/settings/page.tsx")))
 
   console.log("\nWIDTH")
   /* Round 40: Products went to Orders' 1200px column on every width; the shell keeps the width it was given. */

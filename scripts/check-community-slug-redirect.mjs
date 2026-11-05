@@ -3,7 +3,7 @@
  *  AN OLD COMMUNITY ADDRESS, FOLLOWED END TO END (without a server)
  * ===========================================================================
  * The real proxy (proxy.ts) and the real community layout
- * (app/(marketing)/community/[slug]/layout.tsx), with Next's own
+ * (app/(storelib)/(marketing)/community/[slug]/layout.tsx), with Next's own
  * permanentRedirect: a request for /community/<old>/... goes through the
  * proxy, which hands the layout the path and query in its header; the
  * layout, given a community that now lives at <new> (as loadCommunity
@@ -41,7 +41,7 @@ try {
   writeFileSync(join(dir, "data.js"), `export async function memberPage(slug) { return globalThis.__page(slug) }\n`)
   writeFileSync(join(dir, "shell.js"), `export const CommunityShell = () => "member frame"\nexport const CommunityPublicShell = () => "public frame"\n`)
   writeFileSync(join(dir, "server.js"), `export * from "next/server.js"\nexport async function connection() {}\n`)
-  writeFileSync(join(dir, "entry.ts"), `export { proxy } from "../proxy"\nexport { default as Layout } from "../app/(marketing)/community/[slug]/layout"\nexport { NextRequest } from "next/server.js"\n`)
+  writeFileSync(join(dir, "entry.ts"), `export { proxy } from "../proxy"\nexport { default as Layout } from "../app/(storelib)/(marketing)/community/[slug]/layout"\nexport { NextRequest } from "next/server.js"\n`)
   await build({
     entryPoints: [join(dir, "entry.ts")],
     bundle: true,

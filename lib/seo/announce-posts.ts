@@ -13,7 +13,7 @@ import "server-only"
  */
 import { admin } from "@/lib/communities/server/db"
 import { communitiesEnabled } from "@/lib/communities/flag"
-import { indexablePost, postPath, type PostFacts } from "@/app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
+import { indexablePost, postPath, type PostFacts } from "@/app/(storelib)/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
 import { creatorIsBanned } from "./bans"
 import { indexNowKey } from "./indexnow"
 

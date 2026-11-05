@@ -4,7 +4,7 @@
  * ===========================================================================
  * "The bottom sheets must be absolutely optimized for fast loading, 200 fps
  * smooth, not laggy at all, like the others." The phone's toolbar has two
- * (app/app/products/pick-sheet.tsx): the view's name ("All") opens the views
+ * (app/(storelib)/app/products/pick-sheet.tsx): the view's name ("All") opens the views
  * alone, and Sort opens the orders alone. This opens and closes each one
  * again and again on the real page (scripts/render-products-probe.tsx, fifty
  * products, the list and the table both drawn), with the CPU slowed four
@@ -112,7 +112,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   /* The harness, pointed at another products-client when comparing. */
   let entry = "scripts/render-products-probe.tsx"
   if (process.env.BEFORE) {
-    const src = readFileSync(join(root, entry), "utf8").replace('from "@/app/app/products/products-client"', `from "@/${relative(root, process.env.BEFORE).replace(/\.tsx$/, "")}"`)
+    const src = readFileSync(join(root, entry), "utf8").replace('from "@/app/(storelib)/app/products/products-client"', `from "@/${relative(root, process.env.BEFORE).replace(/\.tsx$/, "")}"`)
     entry = relative(root, join(stubs, "harness-before.tsx"))
     writeFileSync(join(root, entry), src)
   }

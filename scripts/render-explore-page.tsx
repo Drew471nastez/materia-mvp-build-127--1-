@@ -1,13 +1,13 @@
 /**
  * The real Explore page client, its loading screen, and the pieces its
  * panels are made of, inside the same <main> and container the route draws
- * (app/(marketing)/explore/page.tsx and loading.tsx).
+ * (app/(storelib)/(marketing)/explore/page.tsx and loading.tsx).
  *
  *   #page      ExplorePageClient over thirty made-up products
  *   #loading   ExploreSkeleton, as loading.tsx draws it (grid not deferred,
  *              so it can be measured straight away)
  *   #cat-page/<category>[/<sub>]      CategoryPageClient, as
- *              app/(marketing)/explore/[category]/page.tsx draws it
+ *              app/(storelib)/(marketing)/explore/[category]/page.tsx draws it
  *   #cat-loading/<category>[/<sub>]   CategorySkeleton, as that route's
  *              loading.tsx draws it (grid not deferred)
  *

@@ -1,6 +1,6 @@
 /**
  * Round 8 of the phone polish, the email side, for scripts/check-emails-mobile-r8.mjs: the real composer
- * (components/email/compose/composer.tsx) in its route's layer (app/app/emails/new/layout.tsx: PageLayer, phone only),
+ * (components/email/compose/composer.tsx) in its route's layer (app/(storelib)/app/emails/new/layout.tsx: PageLayer, phone only),
  * over a shell shaped like /app's (the header marked [data-shell-chrome], the content scroller), and the Emails list's
  * top (the violet Try Pro strip) it goes back to. window.__go("new" | "list") moves between the two; the composer's own
  * Back goes to the list. The keyboard is window.__keyboard(px) on a stand-in visualViewport, as in

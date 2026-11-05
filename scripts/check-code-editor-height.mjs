@@ -28,8 +28,8 @@ const dir = join(root, ".next/static/chunks")
 if (!existsSync(dir)) fail("No production build found. Run `pnpm build` first.")
 const css = readdirSync(dir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(dir, f), "utf8")).join("\n")
 
-const layout = readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8")
-const page = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+const layout = readFileSync(join(root, "app/(storelib)/website-builder/layout.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/website-builder/code/[installId]/page.tsx"), "utf8")
 const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
 const layoutClass = layout.match(/<div className="(fixed inset-0[^"]*)"/)?.[1]
 const rootClass = page.match(/className="(wb-code h-full flex flex-col[^"]*)"/)?.[1]

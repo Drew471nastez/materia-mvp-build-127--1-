@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THREE PARTS OF THE PRODUCT EDITOR, MEASURED
  * ===========================================================================
- * The real editor (app/app/products/new/product-editor.tsx), mounted from a
+ * The real editor (app/(storelib)/app/products/new/product-editor.tsx), mounted from a
  * saved product by scripts/render-product-editor.tsx, at 390 and 1280.
  *
  *   FILES. The uploader (lib/storage/chunked-upload.ts) is a stand-in the

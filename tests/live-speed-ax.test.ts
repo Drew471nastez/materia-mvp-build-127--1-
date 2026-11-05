@@ -77,9 +77,9 @@ check("the wishlist's first read is non-urgent", /startTransition\(\(\) => setRe
 check("a section script asking for the sandbox is non-urgent", /startTransition\(\(\) => setNeeded\(true\)\)/.test(sandbox))
 
 console.log("\nA native site does not download Storelib's own app\n")
-const rootLayout = code("app/layout.tsx")
+const rootLayout = code("app/(storelib)/layout.tsx")
 const appOnly = code("components/platform/app-only.tsx")
-const notFound = code("app/not-found.tsx")
+const notFound = code("app/(storelib)/not-found.tsx")
 const headerLazy = code("components/platform/platform-header-lazy.tsx")
 /* Changed on purpose (camera and notifications access): the sheet for a refused permission is the sixth piece, loaded the same way. */
 check("the root layout takes the community bar, the settings layer, the sign-in bridge, push, the ask and the access sheet from app-only", /import \{ AccessSheet, AccountCommunityChrome, NativeOAuthBridge, NativePushInit, NotificationsAsk, SettingsSubpageHost \} from "@\/components\/platform\/app-only"/.test(rootLayout))
@@ -97,7 +97,7 @@ check("the public page does not ship the theme settings schema (fonts come from 
 check("no bare Buffer in cart links or own-database (it shipped a 19 KB polyfill to browsers)", ["lib/physical/cart-link.ts", "lib/website-builder/own-database.ts"].every((f) => !/(^|[^.\w])Buffer\.from/m.test(code(f))))
 
 console.log("\nA creator page does not ship the owner's editing tools to visitors\n")
-const storefront = code("app/(marketing)/u/[username]/page.tsx")
+const storefront = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
 const ownerLazy = code("components/storefront/owner-controls-lazy.tsx")
 check("Edit profile, Edit about and the owner's menu come from the on-demand file", /import \{ EditAboutButton(?:ForOwner)?, EditProfileButton, OwnerMenu \} from "@\/components\/storefront\/owner-controls-lazy"/.test(storefront) && !/from "@\/components\/storefront\/(edit-profile-button|edit-about-button|owner-menu)"/.test(storefront))
 check("  each loaded with dynamic(), still drawn on the server for the owner", (ownerLazy.match(/= dynamic\(\(\) => import\(/g) ?? []).length === 3 && !/ssr: false/.test(ownerLazy))

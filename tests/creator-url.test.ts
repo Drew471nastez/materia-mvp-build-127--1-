@@ -5,7 +5,7 @@
  *   <handle>.storelib.com   the website they built in the website builder
  *   storelib.com/<handle>   their creator page
  *
- * The bare path has rendered the creator page since app/(marketing)/[sellername]
+ * The bare path has rendered the creator page since app/(storelib)/(marketing)/[sellername]
  * existed. Nothing linked to it: every link went through
  * `getStoreInternalPath`, which said `/u/<handle>`, so the address existed and
  * nobody ever saw it.
@@ -69,8 +69,8 @@ const LINKERS = [
   "lib/url-helpers.ts",
   "components/app/creator-page-share.tsx",
   "components/smart-link.tsx",
-  "app/(marketing)/p/[slug]/page.tsx",
-  "app/(marketing)/c/[slug]/page.tsx",
+  "app/(storelib)/(marketing)/p/[slug]/page.tsx",
+  "app/(storelib)/(marketing)/c/[slug]/page.tsx",
   "lib/seo/sitemaps.ts",
 ]
 /**
@@ -89,8 +89,8 @@ for (const file of LINKERS) {
 check(
   "the canonical tag names the bare path",
   /* Or the creator page's own domain when it has one (lib/custom-domains): still one address, never /u/, under the username as stored. */
-  /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
-    /canonical: pageUrl,/.test(code("app/(marketing)/u/[username]/page.tsx")),
+  /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) &&
+    /canonical: pageUrl,/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")),
   "two spellings competing as duplicate content is the thing a canonical exists to stop",
 )
 check(
@@ -185,7 +185,7 @@ check("and so does the relative form", getProductInternalPath("t-shirt") === "/p
  * COLLAPSE. `/p/<slug>` still renders the page, so the tag has to name the
  * address everything links to, or the two compete.
  */
-const productPage = code("app/(marketing)/p/[slug]/page.tsx")
+const productPage = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
 check(
   "the product's canonical names the nested address",
   /canonical: productUrl/.test(productPage) && /const productUrl = getProductShareUrl\(/.test(productPage),
@@ -312,11 +312,11 @@ check("with no /l/ prefix", !getLinksInternalPath("x").startsWith("/l/"))
  */
 check(
   "the address is a real route",
-  existsSync(join(root, "app/(marketing)/[sellername]/links/page.tsx")),
+  existsSync(join(root, "app/(storelib)/(marketing)/[sellername]/links/page.tsx")),
   "without it the path is a product lookup",
 )
 {
-  const route = code("app/(marketing)/[sellername]/links/page.tsx")
+  const route = code("app/(storelib)/(marketing)/[sellername]/links/page.tsx")
   check(
     "and it renders the page /l/<slug> already renders, rather than a second copy",
     /from "\.\.\/\.\.\/l\/\[slug\]\/page"/.test(route),
@@ -365,7 +365,7 @@ check(
 )
 check(
   "and the product form applies it",
-  /avoidReservedProductSlug\(finalSlug, suffix\)/.test(code("app/app/products/new/product-editor.tsx")),
+  /avoidReservedProductSlug\(finalSlug, suffix\)/.test(code("app/(storelib)/app/products/new/product-editor.tsx")),
   "the rule is worth nothing if the one place that writes a slug does not use it",
 )
 

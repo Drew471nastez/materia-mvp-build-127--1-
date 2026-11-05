@@ -43,7 +43,7 @@ const cssFiles = [
 if (!cssFiles.length) fail("The build produced no stylesheet, so nothing here would be styled.")
 const css = cssFiles.map((f) => readFileSync(f, "utf8")).join("\n").replace(/url\(\.\.\/media\//g, "url(./")
 
-const page = readFileSync(join(root, "app/(marketing)/p/[slug]/page.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/(marketing)/p/[slug]/page.tsx"), "utf8")
 const galleryTitle = (page.match(/className="(text-2xl sm:text-3xl font-semibold[^"]*)"/) || [])[1]
 const cardTitleAnchor = page.indexOf('className="hidden lg:block lg:col-span-2')
 const cardTitleMatch = cardTitleAnchor > 0

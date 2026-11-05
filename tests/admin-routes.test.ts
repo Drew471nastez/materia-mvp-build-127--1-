@@ -115,12 +115,12 @@ console.log("\nThe routes that must stay, stay as they are\n")
 
 console.log("\nEvery admin page checks on the server\n")
 {
-  const pages = walk("app/admin", /^page\.tsx$/)
+  const pages = walk("app/(storelib)/admin", /^page\.tsx$/)
   check("the pages are there to check", pages.length >= 6, `${pages.length} pages`)
-  /* Changed on purpose: 171abff5 (Payments Operations Center) gates /admin/payments once, in its server layout, and its pages are client pages that read through the gated /api/admin/payments routes. So a page counts as asking when it asks itself or a server layout above it under app/admin refuses everyone but a signed in admin. */
+  /* Changed on purpose: 171abff5 (Payments Operations Center) gates /admin/payments once, in its server layout, and its pages are client pages that read through the gated /api/admin/payments routes. So a page counts as asking when it asks itself or a server layout above it under app/(storelib)/admin refuses everyone but a signed in admin. */
   const serverGate = (src: string) => !/^\s*["']use client["']/.test(src) && /await isAdminAuthenticated\(\)/.test(src)
   const gatedByLayout = (file: string) => {
-    for (let dir = join(file, ".."); dir.startsWith("app/admin"); dir = join(dir, "..")) {
+    for (let dir = join(file, ".."); dir.startsWith("app/(storelib)/admin"); dir = join(dir, "..")) {
       const layout = join(dir, "layout.tsx")
       if (!existsSync(layout)) continue
       const src = stripComments(readFileSync(layout, "utf8"))
@@ -132,7 +132,7 @@ console.log("\nEvery admin page checks on the server\n")
     const src = stripComments(readFileSync(file, "utf8"))
     check(`${file} asks for the admin session on the server`, serverGate(src) || gatedByLayout(file))
   }
-  const console_ = stripComments(readFileSync("app/admin/page.tsx", "utf8"))
+  const console_ = stripComments(readFileSync("app/(storelib)/admin/page.tsx", "utf8"))
   check(
     "the console is rendered only for a signed in admin, and the login otherwise",
     /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin/.test(console_) || /authed \? <AdminConsole/.test(console_),

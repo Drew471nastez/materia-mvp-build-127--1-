@@ -84,7 +84,7 @@ check(
     // The table names moved to lib/commerce/product-page-data.ts when the
     // three files that render this page stopped each querying them for
     // themselves. The batch is still the page's; the rule follows the work.
-    const src = code("app/(marketing)/p/[slug]/page.tsx")
+    const src = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     const loaders = code("lib/commerce/product-page-data.ts")
     return (
       /Promise\.all\(\[/.test(src) &&
@@ -98,7 +98,7 @@ check(
       /\.from\("product_page_configs"\)/.test(code("lib/store-builder/public-config.ts"))
     )
   })(),
-  "        app/(marketing)/p/[slug]/page.tsx",
+  "        app/(storelib)/(marketing)/p/[slug]/page.tsx",
 )
 
 check(
@@ -106,10 +106,10 @@ check(
   (() => {
     // Both key off creator.id alone. The profile → creator hop above them is
     // genuinely sequential and is deliberately NOT asserted away.
-    const src = code("app/(marketing)/u/[username]/page.tsx")
+    const src = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     return /Promise\.all\(\[/.test(src) && /getPublishedConfig\(creator\.id, "shop"\),/.test(src)
   })(),
-  "        app/(marketing)/u/[username]/page.tsx",
+  "        app/(storelib)/(marketing)/u/[username]/page.tsx",
 )
 
 // ---------------------------------------------------------------------------
@@ -127,11 +127,11 @@ section("A fast page shows no skeleton at all")
  * start, which is worse than the thing being guarded against.
  */
 const INSTANT_BY_DESIGN = new Set([
-  "app/native-start/loading.tsx",
-  "app/auth/auth-code-error/loading.tsx",
-  "app/(auth)/signup/loading.tsx",
-  "app/(auth)/login/loading.tsx",
-  "app/(auth)/welcome/loading.tsx",
+  "app/(storelib)/native-start/loading.tsx",
+  "app/(storelib)/auth/auth-code-error/loading.tsx",
+  "app/(storelib)/(auth)/signup/loading.tsx",
+  "app/(storelib)/(auth)/login/loading.tsx",
+  "app/(storelib)/(auth)/welcome/loading.tsx",
 ])
 
 function loadingFiles(dir: string): string[] {
@@ -175,14 +175,14 @@ check(
  * holds the old page until the new one is ready, and the shell shows its
  * spinner only if that takes a while (components/app/app-stage.tsx). Products is
  * looked after with that page and keeps its own for now. The settings sheet's
- * slot (app/app/@sheet) keeps one too: it fills only the sheet's slot, never
+ * slot (app/(storelib)/app/@sheet) keeps one too: it fills only the sheet's slot, never
  * the page, and it draws nothing, so the page you are on stays under the sheet
  * as it rises.
  */
 check(
   "no /app page has a route loading boundary, so the page you are on stays while the next one loads",
   (() => {
-    const offenders = loadingFiles("app/app").filter((f) => !f.startsWith("app/app/products/") && !f.startsWith("app/app/@sheet/"))
+    const offenders = loadingFiles("app/(storelib)/app").filter((f) => !f.startsWith("app/(storelib)/app/products/") && !f.startsWith("app/(storelib)/app/@sheet/"))
     if (offenders.length) console.log("        " + offenders.join("\n        "))
     return offenders.length === 0
   })(),
@@ -277,7 +277,7 @@ check(
      */
     const header = code("components/platform/platform-header-client.tsx")
     const conditional = code("components/marketing/conditional-header.tsx")
-    const layout = code("app/(marketing)/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/layout.tsx")
 
     const missing: string[] = []
     if (!/useState\(initialWishlistCount\)/.test(header))
@@ -304,7 +304,7 @@ check(
        account layout, which is per visitor anyway, still threads it. */
     if (/readWishlistCount\(\)/.test(layout))
       missing.push("marketing layout: reads the wishlist cookie again, which makes every marketing page dynamic")
-    if (!/readWishlistCount\(\)/.test(code("app/account/layout.tsx")))
+    if (!/readWishlistCount\(\)/.test(code("app/(storelib)/account/layout.tsx")))
       missing.push("account layout: no longer asks for the count")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -418,7 +418,7 @@ check(
      * launch.
      */
     const proxy = code("proxy.ts")
-    const layout = read("app/layout.tsx")
+    const layout = read("app/(storelib)/layout.tsx")
     const serverGate =
       /NATIVE_BLOCKED\s*=\s*\["\/pricing", "\/features", "\/faq", "\/blog", "\/alternatives"\]/.test(proxy) &&
       /url\.pathname = "\/native-start"/.test(proxy) &&
@@ -431,7 +431,7 @@ check(
       /pricing\|features\|faq\|blog\|alternatives/.test(layout)
     return serverGate && clientGate
   })(),
-  "        proxy.ts + app/layout.tsx boot script",
+  "        proxy.ts + app/(storelib)/layout.tsx boot script",
 )
 
 check(
@@ -452,7 +452,7 @@ check(
      * looping on first launch after the update.
      */
     const bridge = code("lib/native-bridge.ts")
-    const start = code("app/native-start/page.tsx")
+    const start = code("app/(storelib)/native-start/page.tsx")
     const offline = read("out/index.html")
 
     const sanitiserRejectsRoot =
@@ -471,14 +471,14 @@ check(
     if (!sanitiserRejectsRoot) missing.push("lib/native-bridge.ts: sanitizeNativeHome allowlist")
     if (!sanitisedOnWrite) missing.push("lib/native-bridge.ts: cacheNativeHome does not sanitise")
     if (!sanitisedOnRead) missing.push("lib/native-bridge.ts: getCachedNativeHome does not sanitise")
-    if (!startGuards) missing.push("app/native-start/page.tsx: safeRedirect unguarded")
+    if (!startGuards) missing.push("app/(storelib)/native-start/page.tsx: safeRedirect unguarded")
     if (!offlineGuards) missing.push("out/index.html: offline fallback unguarded")
     /**
      * "Store Builder" became "Creator Page", and a rename that breaks the old
      * address is a removal. /store-builder is in bookmarks and in links people
      * have sent each other, so it still answers.
      */
-    if (!existsSync(join(root, "app/store-builder/page.tsx")))
+    if (!existsSync(join(root, "app/(storelib)/store-builder/page.tsx")))
       missing.push("the old /store-builder address no longer answers")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -518,7 +518,7 @@ check(
      * platform chrome on a seller subdomain or a custom domain, somebody's shop
      * grows a Storelib header — so the answer must be BOTH checks, not just one.
      */
-    const layout = code("app/(marketing)/layout.tsx")
+    const layout = code("app/(storelib)/(marketing)/layout.tsx")
     const header = code("components/marketing/conditional-header.tsx")
     return (
       /* The host test lives in lib/platform/header-props now; the layout
@@ -533,11 +533,11 @@ check(
       /<ConditionalHeader platformHomeFromRoute /.test(layout) &&
       /hostSaysPlatform \|\| \(platformHomeFromRoute && segmentBelow === null\)/.test(header) &&
       /const segmentBelow = useSelectedLayoutSegment\(\)/.test(header) &&
-      /isPlatformDomain\(\)/.test(code("app/account/layout.tsx")) &&
+      /isPlatformDomain\(\)/.test(code("app/(storelib)/account/layout.tsx")) &&
       /pathname === "\/" && onPlatformDomain/.test(header)
     )
   })(),
-  "        app/(marketing)/layout.tsx + conditional-header.tsx",
+  "        app/(storelib)/(marketing)/layout.tsx + conditional-header.tsx",
 )
 
 check(
@@ -782,7 +782,7 @@ check(
      * off. Both are evaluated below against the real expression lifted from
      * the page, so a future edit that breaks either one fails here.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const bar = code("components/store-builder/subscribe-bar.tsx")
     const sidebar = code("components/store-builder/sections-sidebar.tsx")
     const preview = code("components/store-builder/preview-canvas.tsx")
@@ -1120,7 +1120,7 @@ check(
      * adding a NEW profile block beside the existing one instead of editing
      * it. Two headers on one page is the failure either way round.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
     const headers = page.match(/<ShopHeaderRenderer/g)?.length ?? 0
@@ -1195,7 +1195,7 @@ check(
      * is the case that matters and asserting a regex exists would not prove it
      * is rejected.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const api = read("app/api/creator-profile/route.ts")
     const missing: string[] = []
 
@@ -1483,7 +1483,7 @@ check(
      * The rule is evaluated here, not pattern-matched, because the whole point
      * is which inputs it treats as "unchosen".
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
     const surface = read("lib/store-builder/page-surface.ts")
     const missing: string[] = []
@@ -1545,7 +1545,7 @@ check(
      */
     const card = code("components/storefront/storefront-product-card.tsx")
     const menu = code("components/storefront/product-owner-menu.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
     if (!/if \(!isOwner\) return card/.test(card))
@@ -1561,7 +1561,7 @@ check(
       missing.push("opening the menu navigates the card underneath it")
 
     if (!menu.includes("/app/products/${productId}")) missing.push("Edit product no longer opens that product")
-    if (!existsSync(join(root, "app/app/products/[id]/page.tsx")))
+    if (!existsSync(join(root, "app/(storelib)/app/products/[id]/page.tsx")))
       missing.push("/app/products/[id] has no route behind it — Edit product 404s")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -1613,7 +1613,7 @@ check(
      * that exists — a menu item leading to a 404 is worse than no menu.
      */
     const menu = code("components/storefront/owner-menu.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
     /** It takes `embedded` now, so match the tag rather than one spelling of it. */
@@ -1628,7 +1628,8 @@ check(
         missing.push(`the menu no longer links to ${href}`)
         continue
       }
-      const route = `app${href}/page.tsx`
+      /* Changed on purpose (r52): Storelib's pages are under app/(storelib), the published websites' root is app/(site). */
+      const route = `app/(storelib)${href}/page.tsx`
       if (!existsSync(join(root, route))) missing.push(`${href} has no route behind it — the menu item 404s`)
     }
 
@@ -1714,7 +1715,7 @@ check(
      * turns it off.
      */
     const tabs = code("components/storefront/storefront-tabs.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const css = read("app/globals.css")
     const missing: string[] = []
 
@@ -1882,7 +1883,7 @@ check(
      * never travel — and the follow itself points at a PROFILE, not a creator
      * row, because a person is the thing you follow.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const api = code("app/api/follow/route.ts")
     const missing: string[] = []
 
@@ -2278,7 +2279,7 @@ check(
      */
     if (!/showCategoryFilter && \(/.test(grid))
       missing.push("the products tab ignores the Hide Category Filter setting")
-    if (!/showCategoryFilter=\{/.test(code("app/(marketing)/u/[username]/page.tsx")))
+    if (!/showCategoryFilter=\{/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")))
       missing.push("the page no longer passes Hide Category Filter through — the builder toggle is dead again")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -2303,7 +2304,7 @@ check(
      * the width back to the words, where three stretched tabs across 1100px
      * would read as site navigation rather than as a filter on the page.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
     const missing: string[] = []
 
@@ -2451,7 +2452,7 @@ check(
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
     // Just this one component: ProductAboutSection further down the file is a
@@ -3062,7 +3063,7 @@ check(
      * the real dialog, against a mutating endpoint, updated a server-rendered
      * value with no reload.
      */
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const about = code("components/storefront/edit-about-button.tsx")
     const profile = code("components/storefront/edit-profile-button.tsx")
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
@@ -3304,7 +3305,7 @@ check(
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const dialog = code("components/storefront/edit-profile-button.tsx")
     const api = code("app/api/creator-profile/route.ts")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
     if (!/\(settings\.showReviews \?\? true\)/.test(renderer))
@@ -3395,7 +3396,7 @@ section("The product page does not ask one question at a time")
  * `await` back up beside the query.
  */
 {
-  const src = code("app/(marketing)/p/[slug]/page.tsx")
+  const src = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   /*
     INSIDE THE PAGE COMPONENT, not the first Promise.all in the file.
     generateMetadata gained one of its own — the creator and the shop config,

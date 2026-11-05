@@ -121,7 +121,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   }
   const css = await appCss(root, sheet)
   const fonts = interFaces(root)
-  /* The dark look is its own stylesheet (app/layout.tsx imports it beside globals.css); it only applies under the attribute. */
+  /* The dark look is its own stylesheet (app/(storelib)/layout.tsx imports it beside globals.css); it only applies under the attribute. */
   const darkCss = readFileSync(join(root, "app/theme-dark.css"), "utf8")
   const { build } = await import("esbuild")
   await build({

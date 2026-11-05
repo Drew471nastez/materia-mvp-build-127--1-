@@ -1,7 +1,7 @@
 /**
- * The /app shell as app/app/layout.tsx draws it: the real sidebar
+ * The /app shell as app/(storelib)/app/layout.tsx draws it: the real sidebar
  * (components/app/sidebar.tsx, its rail and its collapse control) beside the
- * real Integrations page (app/app/integrations/integrations-client.tsx), with
+ * real Integrations page (app/(storelib)/app/integrations/integrations-client.tsx), with
  * physical commerce on. For scripts/check-sidebar-round29.mjs, which stubs
  * the router, Supabase and every /api answer, and checks that the root and
  * <main> here carry the same classes as the layout's.
@@ -14,12 +14,12 @@ import { LanguageProvider } from "@/lib/i18n"
 import { LocaleProvider } from "@/components/locale-provider"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { AppSidebar } from "@/components/app/sidebar"
-import { IntegrationsClient } from "@/app/app/integrations/integrations-client"
+import { IntegrationsClient } from "@/app/(storelib)/app/integrations/integrations-client"
 import { railStateOf, railWidth } from "@/lib/ui/app-rail"
 
 const rail = railStateOf(new URLSearchParams(location.search).get("rail"))
 
-/* Copied from app/app/layout.tsx; the probe fails if they ever differ. */
+/* Copied from app/(storelib)/app/layout.tsx; the probe fails if they ever differ. */
 export const ROOT_CLASS = "h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar"
 export const MAIN_CLASS =
   "h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[var(--app-rail-w,240px)] transition-[padding-left] duration-(--rail-ms) ease-(--rail-ease) motion-reduce:transition-none bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content"

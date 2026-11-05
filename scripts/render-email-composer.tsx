@@ -1,8 +1,8 @@
 /**
  * The email composer (components/email/compose/composer.tsx) as the router
  * draws it, for scripts/check-email-composer.mjs: inside the shell (the
- * black bar and the nav pill, marked the way app/app/layout.tsx marks them)
- * and inside its route's layer (app/app/emails/new/layout.tsx), with the
+ * black bar and the nav pill, marked the way app/(storelib)/app/layout.tsx marks them)
+ * and inside its route's layer (app/(storelib)/app/emails/new/layout.tsx), with the
  * page's keyboard number published by the real ViewportVars.
  *
  * The keyboard is simulated where the browser reports one, on

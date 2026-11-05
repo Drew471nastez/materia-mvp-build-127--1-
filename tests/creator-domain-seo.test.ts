@@ -198,8 +198,8 @@ async function main() {
     check("a website domain with a published website: the website's own; every other connected domain: the creator page's own",
       /if \(website\) seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`\s*else seoUrl\.pathname = `\/u\/\$\{username\}\$\{pathname\}`/.test(proxy)
         && /const website = domainPurpose === "website" && !\(await hasLiveAiSite\(username\)\) && \(await hasPublishedWebsite\(username\)\)/.test(proxy))
-    const sitemapRoute = code("app/(marketing)/u/[username]/sitemap.xml/route.ts")
-    const robotsRoute = code("app/(marketing)/u/[username]/robots.txt/route.ts")
+    const sitemapRoute = code("app/(storelib)/(marketing)/u/[username]/sitemap.xml/route.ts")
+    const robotsRoute = code("app/(storelib)/(marketing)/u/[username]/robots.txt/route.ts")
     check("the sitemap route: the domain's list, a 404 without one, a 503 for a failed read",
       /creatorDomainSitemap\(username, host\)/.test(sitemapRoute) && /status: 404/.test(sitemapRoute) && /if \(e instanceof SitemapReadFailed\) return sitemapUnavailable\(\)/.test(sitemapRoute) && /urlsetXml\(entries\)/.test(sitemapRoute))
     check("both routes answer for the Host header the proxy read, which a rewrite keeps",
@@ -214,16 +214,16 @@ async function main() {
   {
     const host = "links.maralind.com"
     const [page, links, prints] = creatorDomainEntries({ host, handle: "mariapopescu", banned: false, products: [{ slug: "prints", status: "published", updated_at: null }], onePage: { updatedAt: null } }).map((e) => e.url)
-    const u = code("app/(marketing)/u/[username]/page.tsx")
+    const u = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
     check("storelib.com/<handle> names the domain as its canonical and og:url when one is live",
       /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(u) && /canonical: pageUrl,/.test(u) && /url: pageUrl,/.test(u) && /primaryHostFor\(creator\?\.id, "creator_page"\)/.test(u))
     check("  which is the address the domain's sitemap lists", page === `https://${host}/` && page === getStoreShareUrl("mariapopescu", host))
     check("  and storelib.com/<handle>/<slug> and /p/<slug> name the domain's /<slug>",
-      prints === getProductShareUrl("mariapopescu", "prints", host) && /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")) && /canonical: productUrl,/.test(code("app/(marketing)/p/[slug]/page.tsx")) && /url: productUrl,/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+      prints === getProductShareUrl("mariapopescu", "prints", host) && /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug, pageHost\)/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && /canonical: productUrl,/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && /url: productUrl,/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
     check("  and the OnePage names the domain's /links", links === getLinksUrlWithCustomDomain("mariapopescu", host) && links === getLinksShareUrl("mariapopescu", host) && /url: seo\.url,/.test(code("lib/onepage/seo.ts")) && /return getLinksShareUrl\(slug, pageHost\)/.test(code("lib/onepage/published-page.ts")))
     check("the structured data names the same address as the canonical",
-      /const pageAddress = pageHost \? `https:\/\/\$\{pageHost\}\/` : /.test(u) && /url: pageAddress,/.test(u) && /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-    const pages = ["app/(marketing)/u/[username]/page.tsx", "app/(marketing)/p/[slug]/page.tsx", "app/(marketing)/l/[slug]/page.tsx", "app/(marketing)/[sellername]/page.tsx", "app/(marketing)/[sellername]/[productSlug]/page.tsx", "app/(marketing)/[sellername]/links/page.tsx"]
+      /const pageAddress = pageHost \? `https:\/\/\$\{pageHost\}\/` : /.test(u) && /url: pageAddress,/.test(u) && /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
+    const pages = ["app/(storelib)/(marketing)/u/[username]/page.tsx", "app/(storelib)/(marketing)/p/[slug]/page.tsx", "app/(storelib)/(marketing)/l/[slug]/page.tsx", "app/(storelib)/(marketing)/[sellername]/page.tsx", "app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx", "app/(storelib)/(marketing)/[sellername]/links/page.tsx"]
     check("no hreflang alternates on these pages that could name a second address", pages.every((p) => !/languages\s*:|hreflang|hrefLang/.test(code(p))))
     const announce = code("lib/seo/announce.ts")
     check("IndexNow is told the domain's addresses beside storelib.com's",

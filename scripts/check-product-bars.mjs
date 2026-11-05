@@ -53,7 +53,7 @@ const css = cssFiles.map((f) => readFileSync(f, "utf8")).join("\n").replace(/url
   THE CLASSES COME OUT OF THE PAGE. Copying them here by hand would make this
   a probe of a copy — it would keep passing after somebody edited the page.
 */
-const page = readFileSync(join(root, "app/(marketing)/p/[slug]/page.tsx"), "utf8")
+const page = readFileSync(join(root, "app/(storelib)/(marketing)/p/[slug]/page.tsx"), "utf8")
 const linkClass = (page.match(/className="(creator-link inline-flex[^"]*)"/) || [])[1]
 const arrowClass = (page.match(/className="(creator-link-arrow -ml-1 h-4 w-4[^"]*)"/) || [])[1]
 if (!linkClass) fail("No `creator-link` row found in the product page. Either it was renamed or it is gone.")

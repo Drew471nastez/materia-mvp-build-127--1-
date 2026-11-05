@@ -540,7 +540,7 @@ async function main() {
     sellers /app and everybody else /explore. tests/native-app-links.test.ts
     pins the new start; here, only that the old ask is gone from it.
   */
-  const start = code("app/native-start/page.tsx")
+  const start = code("app/(storelib)/native-start/page.tsx")
   check("the start no longer asks the server for a community: the kept page stands in for it", !/communityStart|\/api\/native\/start/.test(start) && /readLastPlace\(\)/.test(start))
   const nativeRoute = code("app/api/native/start/route.ts")
   const nativeLib = code("lib/communities/server/native-start.ts")
@@ -549,7 +549,7 @@ async function main() {
 
   /* ── Copy ────────────────────────────────────────────────────────────── */
   console.log("\nCopy")
-  /* app/native-start/page.tsx is older than this round (its CSS says transform, its old notes have dashes); what this round added there is checked above. */
+  /* app/(storelib)/native-start/page.tsx is older than this round (its CSS says transform, its old notes have dashes); what this round added there is checked above. */
   const mine = [P, B, "lib/notifications/user-inbox.ts", "lib/notifications/user-inbox-shared.ts", "lib/notifications/fanout.ts", "lib/communities/server/jobs/fanout_followers.ts", "lib/communities/server/jobs/fanout_membership_post.ts", "lib/communities/server/native-start.ts", "app/api/notifications/inbox/route.ts", "app/api/notifications/read/route.ts", "app/api/native/start/route.ts"]
   check("every file is there", mine.every((f) => existsSync(f)))
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))

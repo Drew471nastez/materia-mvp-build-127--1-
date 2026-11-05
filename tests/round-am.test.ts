@@ -180,10 +180,10 @@ async function main() {
     check("and charges what priceOrder priced", /const storeCurrency = priced\.currency/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session))
     check("and writes how a marketplace price was made, in one metadata key, before the 50-key check", /priced\.pricing\.context === "marketplace"\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session) && /fitStripeMetadata\(metadata\)/.test(session))
     check("a pause is answered with its own code", /priced\.code \? \{ code: priced\.code \}/.test(session))
-    const page = code("app/checkout/page.tsx")
+    const page = code("app/(storelib)/checkout/page.tsx")
     /* Changed on purpose (round AQ): ?ctx=mp, or a storelib.com marketplace page before it; never a website (?site=). */ check("the checkout page converts only on the marketplace with the switch on", /const onMarketplace = ctx === "mp" \|\| \(!ctx && !site && marketplaceReferrer\(/.test(page) && /onMarketplace && priceCurrency !== MARKETPLACE_CURRENCY && \(await marketplaceUsdFor\(product\.creator_id\)\)/.test(page)) /* Changed on purpose (currency round AP): the switch is awaited (launch lock). */
     check("and waits, with a plain message, when no rate is fresh", /<RatesPaused/.test(page) && page.includes(`checkoutMsg("${RATES_PAUSED_MESSAGE}")`))
-    const client = code("app/checkout/checkout-client.tsx")
+    const client = code("app/(storelib)/checkout/checkout-client.tsx")
     check("the client sends the pricing back with Pay and with a code", (client.match(/\bpricing,/g) ?? []).length >= 2)
     check("order rows note it, without ever failing the order", /tagOrderPricing\(admin, order\.id/.test(code("lib/checkout/fulfil-payment.ts")) && /tagOrderPricing\(supabaseAdmin, order\.id/.test(code("app/api/stripe/webhook/route.ts")))
     const packed = encodePricing({ context: "marketplace", listCurrency: "RON", listAmountCents: 4900, source: "converted", fxAsOf: today, fxRate: 0.2173 })
@@ -198,12 +198,12 @@ async function main() {
 
   console.log("\nThe marketplace's pages")
   {
-    check("Explore prices its cards through the marketplace", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(marketing)/explore/page.tsx")) && /\.\.\.priceOf\(product\)/.test(code("app/(marketing)/explore/page.tsx")))
-    check("and its categories", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(marketing)/explore/[category]/page.tsx")))
-    check("a creator page's cards", /marketplacePricer\(createAdminClient\(\), \[creator\.id\], /.test(code("app/(marketing)/u/[username]/page.tsx")))
-    const p = code("app/(marketing)/p/[slug]/page.tsx")
+    check("Explore prices its cards through the marketplace", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(storelib)/(marketing)/explore/page.tsx")) && /\.\.\.priceOf\(product\)/.test(code("app/(storelib)/(marketing)/explore/page.tsx")))
+    check("and its categories", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(storelib)/(marketing)/explore/[category]/page.tsx")))
+    check("a creator page's cards", /marketplacePricer\(createAdminClient\(\), \[creator\.id\], /.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")))
+    const p = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
     check("a product page: the product and each option at one rate day", /productPageQuote\(loaded/.test(p) && /pageQuote\.convert\(loaded\)/.test(p) && /productVariants\.map\(\(v\) => pageQuote\.convert\(/.test(p))
-    check("its Buy links carry the marketplace and the rate day", /<MarketplaceQuote active=/.test(code("components/platform/product-page-frame.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/[sellername]/[productSlug]/page.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/buy-button.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/smart-buy-button.tsx")))
+    check("its Buy links carry the marketplace and the rate day", /<MarketplaceQuote active=/.test(code("components/platform/product-page-frame.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(storelib)/(marketing)/[sellername]/[productSlug]/page.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/buy-button.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/smart-buy-button.tsx")))
     const e = entryOf({ id: "w", product_id: PRODUCT, created_at: today, products: { id: PRODUCT, title: "Pack", slug: "pack", type: "digital", price_cents: 4900, currency: "RON" } })!
     check("the wishlist writes a lei price in lei, never as dollars", /lei|RON/i.test(priceOf(e).main) && !/\$/.test(priceOf(e).main), priceOf(e))
     check("with the switch off its Buy is the link it always was", actionOf(e).href === `/checkout?productId=${PRODUCT}`)
@@ -215,8 +215,8 @@ async function main() {
 
   console.log("\nPhysical products are the website's only")
   {
-    check("a product page sends a physical product to its website", /product\.type === "physical"/.test(code("app/(marketing)/p/[slug]/page.tsx")))
-    check("the wishlist leaves them out", /item\.products\.type === "physical"/.test(code("app/api/wishlist/route.ts")) && /r\.products\.type !== "physical"/.test(code("app/account/library/wishlist/load-wishlist.ts")))
+    check("a product page sends a physical product to its website", /product\.type === "physical"/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
+    check("the wishlist leaves them out", /item\.products\.type === "physical"/.test(code("app/api/wishlist/route.ts")) && /r\.products\.type !== "physical"/.test(code("app/(storelib)/account/library/wishlist/load-wishlist.ts")))
     check("the single-product checkout refuses one", /type === "physical"\) return \{ ok: false/.test(code("lib/checkout/pricing.ts")))
   }
 
@@ -240,8 +240,8 @@ async function main() {
     check("rates are read only when some sale needs them", !needsConversion([rows[0], rows[3]], "RON") && needsConversion(rows, "RON"))
     check("a day is the ECB's calendar day", dayOf("2026-10-18T23:30:00Z") === "2026-10-18")
     check("the revenue chart is in the store's currency", /inStoreCurrency\(adminSupabase, creator\.id/.test(code("app/api/stripe/revenue-chart/route.ts")) && !/salesCurrencyOf/.test(code("app/api/stripe/revenue-chart/route.ts")))
-    check("Payouts' 1099-K years are converted to dollars, not relabelled", /taxYearsInUsd\(/.test(code("app/app/payouts/page.tsx")) && /taxYearsInUsd\(/.test(code("app/api/stripe/payouts/route.ts")) && /inStoreCurrency\(adminSupabase, creator\.id,[\s\S]{0,400}?"USD"\)/.test(code("app/api/stripe/tax-summary/route.ts")))
-    check("Analytics says when sales were converted", /data-analytics-converted/.test(code("app/app/analytics/analytics-reports.tsx")) && /* Changed on purpose: the answer is counted in lib/analytics/report-answer.ts. */ /conversion: o\.conversion/.test(code("lib/analytics/report-answer.ts")))
+    check("Payouts' 1099-K years are converted to dollars, not relabelled", /taxYearsInUsd\(/.test(code("app/(storelib)/app/payouts/page.tsx")) && /taxYearsInUsd\(/.test(code("app/api/stripe/payouts/route.ts")) && /inStoreCurrency\(adminSupabase, creator\.id,[\s\S]{0,400}?"USD"\)/.test(code("app/api/stripe/tax-summary/route.ts")))
+    check("Analytics says when sales were converted", /data-analytics-converted/.test(code("app/(storelib)/app/analytics/analytics-reports.tsx")) && /* Changed on purpose: the answer is counted in lib/analytics/report-answer.ts. */ /conversion: o\.conversion/.test(code("lib/analytics/report-answer.ts")))
   }
 
   console.log("\nNo guessed currency, no made-up rate")

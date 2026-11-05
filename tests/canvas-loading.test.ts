@@ -118,9 +118,9 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("Theme settings never stays on Loading when the files do not come", /\}, \(\) => \{\s*if \(live\) setGroups\(themeGroups\(\[\]\)\)/.test(settings))
   }
 
-  console.log("\nThe editor (app/website-builder/editor/[installId]/page.tsx)\n")
+  console.log("\nThe editor (app/(storelib)/website-builder/editor/[installId]/page.tsx)\n")
   {
-    const editor = code("app/website-builder/editor/[installId]/page.tsx")
+    const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the website and its sections are asked for with an end", /* Changed on purpose (round 12, WBPERF): through fetchSignedIn (a 401 asked about first), and a page's sections through readSections, which tries a 5xx again quietly. */ /fetchSignedIn\(\(\) => fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}`, \{\}, SECTIONS_WAIT_MS\)\)/.test(editor) && /fetchSignedIn\(\(\) => fetchWithin\(url, \{\}, SECTIONS_WAIT_MS\)\)/.test(editor) && /readSections\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\?page=\$\{page\}`\)/.test(editor))
     check("a first load that fails says so over the canvas, with Try again", /setLoadFailed\(true\)/.test(editor) && /\{loadFailed && !loading && \(\(\) => \{/.test(editor) && /onRetry=\{\(\) => \{\s*setLoadAutoTries\(0\)\s*void loadData\(\)/.test(editor))
     check("a server error is never drawn as an empty page (an autosave would write it)", /* Changed on purpose (round 50): a 429 too. */ /if \(res\.status >= 500 \|\| res\.status === 429\) throw new Error/.test(editor))
@@ -143,7 +143,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 
   console.log("\nThe Website page's cover\n")
   {
-    const client = code("app/app/website-builder/website-builder-client.tsx")
+    const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
     const route = code("app/api/website-builder/themes/[installId]/cover/route.ts")
     const refresh = code("lib/website-builder/cover-refresh.ts")
     check("asking for a cover has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{\s*method: "POST",\s*keepalive: true,\s*\}, REQUEST_WAIT_MS\)/.test(refresh))

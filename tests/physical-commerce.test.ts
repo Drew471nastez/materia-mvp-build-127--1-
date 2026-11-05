@@ -290,7 +290,7 @@ console.log("\nPickup and processing, end to end")
   check("the ready email has the address and instructions", pe.subject.includes("ready to pick up") && pe.text.includes("12 Main St") && pe.text.includes("Side door"))
   const ls = lowStockEmail({ shopName: "Shop", items: [{ title: "Hoodie", variantName: "M", available: 0, threshold: 5 }], inventoryUrl: "https://x/app/inventory?filter=low" })
   check("the low stock email lists what is low and opens Inventory on it", ls.text.includes("Hoodie (M): sold out") && ls.html.includes("Open Inventory"))
-  check("the checkout page shows no shipping clearly and offers pickup", /Shipping isn't available to/.test(code("app/checkout/physical/physical-checkout.tsx")) && /How do you want it\?/.test(code("app/checkout/physical/physical-checkout.tsx")))
+  check("the checkout page shows no shipping clearly and offers pickup", /Shipping isn't available to/.test(code("app/(storelib)/checkout/physical/physical-checkout.tsx")) && /How do you want it\?/.test(code("app/(storelib)/checkout/physical/physical-checkout.tsx")))
 }
 
 console.log("\nThe help centre guide follows the switch")
@@ -307,7 +307,7 @@ console.log("\nThe help centre guide follows the switch")
   check("step by step, with pictures, every drawing drawn", figures.length + shots.length >= 24 && figures.every((f) => HELP_FIGURE_IDS.includes(f)) && physical.filter((a) => a.body.some((b) => b.type === "steps")).length >= 7)
   const text = JSON.stringify(physical)
   check("plain words: no em dashes or filler", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(text))
-  for (const page of ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx"]) {
+  for (const page of ["app/(storelib)/help/page.tsx", "app/(storelib)/help/[category]/page.tsx", "app/(storelib)/help/[category]/[article]/page.tsx", "app/(storelib)/help/search/page.tsx"]) {
     check(`${page} asks the switch`, /isPhysicalCommerceEnabled\(\)/.test(code(page)))
   }
   check("the sitemap asks the switch", /const physicalGuide = await isPhysicalCommerceEnabled\(\)/.test(code("lib/seo/sitemaps.ts")))
@@ -345,7 +345,7 @@ console.log("\nThe digital checkout is untouched and never sells a physical prod
 const pricing = code("lib/checkout/pricing.ts")
 check("a single product checkout refuses a physical product", /type === "physical"\) return \{ ok: false/.test(pricing))
 check("a digital basket leaves a physical product out", /if \(product\.type === "physical"\) \{ dropped\.push/.test(pricing))
-for (const f of ["app/checkout/page.tsx", "app/checkout/checkout-client.tsx", "app/api/checkout/stripe-session/route.ts", "app/api/checkout/process/route.ts"]) {
+for (const f of ["app/(storelib)/checkout/page.tsx", "app/(storelib)/checkout/checkout-client.tsx", "app/api/checkout/stripe-session/route.ts", "app/api/checkout/process/route.ts"]) {
   check(`${f} has no postage`, !/shippingCents|quoteDelivery|quoteMatches|isShippable|MarketplaceCheckout|deliveryMode|awb/i.test(code(f)))
 }
 
@@ -382,30 +382,30 @@ check("the switch's table is made if it is missing, so the flag always exists", 
 
 console.log("\nThe switch, in the app")
 {
-  const kinds = code("app/app/products/new/product-kinds.ts")
+  const kinds = code("app/(storelib)/app/products/new/product-kinds.ts")
   /* The answers changed on purpose in round 5 (Membership left, Paid community joined behind its own switch); what stays is that physical is added only while this switch is on. */
   check("the New product question has no physical answer while it is off", /const list: KindOption\[\] = \[\.\.\.KIND_OPTIONS\]\s*if \(physical\) list\.push\(PHYSICAL_KIND_OPTION\)/.test(kinds) && !/physical/.test(kinds.slice(kinds.indexOf("export const KIND_OPTIONS"), kinds.indexOf("export const PHYSICAL_KIND_OPTION"))))
-  check("a physical product page asks the question again while it is off", /kind === "physical" && !\(await isPhysicalCommerceEnabled\(\)\)\) return ask\(\)/.test(code("app/app/products/new/page.tsx")))
+  check("a physical product page asks the question again while it is off", /kind === "physical" && !\(await isPhysicalCommerceEnabled\(\)\)\) return ask\(\)/.test(code("app/(storelib)/app/products/new/page.tsx")))
   check("the sidebar adds Inventory only while it is on; Collections are every shop's", /\.\.\.\(physicalCommerce \? \[\{ href: "\/app\/inventory", label: "Inventory" \}\] : \[\]\),\s*\{ href: "\/app\/products\/collections", label: "Collections" \}/.test(code("components/app/sidebar.tsx")))
-  check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/app/products/collections/page.tsx")) && /shopCaller\(("products"|"store")?(?:, \{ read: true \})?\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
+  check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/(storelib)/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/(storelib)/app/products/collections/page.tsx")) && /shopCaller\(("products"|"store")?(?:, \{ read: true \})?\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
   const settings = code("components/app/settings-form-new.tsx")
   // Changed on purpose: Shipping and the new Integrations section both follow the switch (COMMERCE_TABS).
   /* Changed on purpose (round T): Shipping's parts are sections of their own, all behind the switch. Taxes and
      Returns and refunds now belong to every store (tests/taxes-t, tests/reasons-t); return reasons and the return
      window inside the latter still follow the switch. */
   check("Settings shows Shipping and Locations only while it is on, and the commerce integrations with them", /const COMMERCE_TABS = new Set<string>\(\["shipping", "locations"\]\)/.test(settings) && /INTEGRATIONS\.filter\(\(i\) => physical \|\| !i\.physical\)/.test(code("lib/integrations/catalog.ts")) && /TABS\.filter\(\(tab\) => \(?!COMMERCE_TABS\.has\(tab\.id\) \|\| physicalCommerce\)?/.test(settings) && /\{physicalCommerce && <ShippingSettings part="returns" \/>\}/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" \/>/.test(settings) && /panelTab === "integrations" && <IntegrationsDirectory \/>/.test(settings))
-  for (const page of ["app/app/inventory/page.tsx", "app/checkout/physical/page.tsx"]) {
+  for (const page of ["app/(storelib)/app/inventory/page.tsx", "app/(storelib)/checkout/physical/page.tsx"]) {
     check(`${page} is a 404 while it is off`, /await requirePhysicalPage\(\)/.test(code(page)))
   }
-  const editor = code("app/app/products/new/product-editor.tsx")
+  const editor = code("app/(storelib)/app/products/new/product-editor.tsx")
   check("the editor saves a physical product's variants through its own card, never the download variants", /productType === "physical"\) \{\s*const problem = physicalRef\.current \? await physicalRef\.current\.save\(finalProductId\)/.test(editor))
   check("a physical product needs no file", /\} else if \(productType === "physical"\) \{/.test(editor))
-  check("a saved physical product stays physical", /product\.type === "physical" \? "physical"/.test(code("app/app/products/new/editor-form.ts")))
+  check("a saved physical product stays physical", /product\.type === "physical" \? "physical"/.test(code("app/(storelib)/app/products/new/editor-form.ts")))
   check("off, the product cards change nothing and say why", /props\.handle\.current = \{ check: \(\) => null, save: async \(\) => null \}/.test(code("components/physical/product-cards.tsx")))
   check("the product page sells a physical product with its own buy box", /props\.productType === "physical"\) \{\s*return \(\s*<PhysicalBuyBox/.test(code("components/checkout/purchase-status-wrapper.tsx")))
   check("off, the buy box says it can't be bought rather than failing", /if \(!enabled \|\| failed/.test(code("components/physical/buy-box.tsx")))
   check("a website cart with something to ship goes to the physical checkout", /lines\.some\(\(l\) => l\.physical\)/.test(code("components/website-builder/cart-page-body.tsx")) && /row\.physical === true/.test(code("lib/website-builder/cart.ts")))
-  check("the Orders page shows a physical order's shipping, and Fulfilled only once it has shipped", /physicalOrder && physicalCommerce \?/.test(code("app/app/orders/order-detail.tsx")) && /r\.physical_fulfillment === "fulfilled"/.test(code("lib/orders/order-view.ts")))
+  check("the Orders page shows a physical order's shipping, and Fulfilled only once it has shipped", /physicalOrder && physicalCommerce \?/.test(code("app/(storelib)/app/orders/order-detail.tsx")) && /r\.physical_fulfillment === "fulfilled"/.test(code("lib/orders/order-view.ts")))
   check("the cron is scheduled and listed in /admin", /"\/api\/cron\/physical"/.test(read("vercel.json")) && /\/api\/cron\/physical/.test(code("lib/admin/schema-expectations.ts")))
   check("free shipping codes may take nothing else off only while it is on", /const allowZero = await freeShippingCode\(body\)/.test(code("app/api/coupons/route.ts")) && /return isPhysicalCommerceEnabled\(\)/.test(code("lib/physical/coupon-options.ts")))
 }

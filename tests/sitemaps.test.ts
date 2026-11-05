@@ -194,10 +194,10 @@ section("Pages a visitor can reach but no index should hold carry noindex")
       && !/\.or\(`slug\.eq\./.test(site) && /creatorIdByHandle\(lower, admin\)/.test(code("lib/website-builder/published-site.ts")))
   /* Round I: a good preview link's tab is the draft page's own title (tab-title.ts); noindex either way. */
   check("a preview is noindex", /return \{ title: \{ absolute: title \}, robots: \{ index: false, follow: false \} \}/.test(site) && /return \{ title: \{ absolute: "Preview" \}, robots: \{ index: false, follow: false \} \}/.test(site))
-  for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/account/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
+  for (const layout of ["app/(storelib)/app/layout.tsx", "app/(storelib)/website-builder/layout.tsx", "app/(storelib)/account/library/layout.tsx", "app/(storelib)/creator-page/layout.tsx", "app/(storelib)/dashboard/layout.tsx", "app/(storelib)/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
     check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ (?:title: [^\n]*?, )?robots: \{ index: false, follow: false \} \}/.test(code(layout)))
   }
-  const product = code("app/(marketing)/p/[slug]/page.tsx")
+  const product = code("app/(storelib)/(marketing)/p/[slug]/page.tsx")
   check("a product page's robots tag is the sitemap's rule", /index: productIndexable\(product, sellerHandle \?\? null\)/.test(product))
   const themeProduct = code("components/website-builder/theme/render-product.tsx")
   check("a site's product page is canonical on the site, the platform's copy at storelib.com/<handle>/<slug>",
@@ -242,7 +242,7 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
   const client = code("lib/seo/announce-client.ts")
   check("the screens that save call it only after the save succeeded, and never wait for it",
     /keepalive: true/.test(client) && /\.catch\(\(\) => \{\}\)/.test(client) &&
-      /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/app/products/new/product-editor.tsx")) &&
+      /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/(storelib)/app/products/new/product-editor.tsx")) &&
       /if \(!statusError\) announceChange\(\{ product: product\.id \}\)/.test(code("components/app/product-edit-form.tsx")) &&
       /announceChange\(\{ profile: true \}\)/.test(code("components/app/settings-form-new.tsx")))
 
@@ -263,7 +263,7 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
     /after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, published\)\)\)/.test(aiSite) &&
       /if \(was\) after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, publishedUrl\(was\)\)\)\)/.test(aiSite) &&
       aiSite.indexOf("aiSiteAddresses(site.creatorId, published)") > aiSite.indexOf("if (!result.ok)"))
-  const products = code("app/app/products/products-client.tsx")
+  const products = code("app/(storelib)/app/products/products-client.tsx")
   check("a deleted product by the slug it had, only once the delete went through, and only if it was live",
     /if \(product\.status === "published" && product\.slug\) announceChange\(\{ removedProduct: product\.slug \}\)/.test(products) &&
       products.indexOf("announceChange({ removedProduct") > products.indexOf('if (result.outcome === "deleted")'))
@@ -374,15 +374,15 @@ async function bansAndOneRule() {
   const render = code("app/(site)/w/[username]/render-site.tsx")
   check("a website's pages say noindex under a farm's handle, as its sitemap already left them out",
     /websiteIndexable\(settings as Record<string, unknown>\) && !builtSiteIndexable\(settings as Record<string, unknown>, username\)\s*\? \{ robots: \{ index: false, follow: false \} \}/.test(render))
-  const onepage = code("app/(marketing)/l/[slug]/page.tsx")
+  const onepage = code("app/(storelib)/(marketing)/l/[slug]/page.tsx")
   /* Changed on purpose (rel-public): the render counts no view (Analytics' event is the count), so "before a view" is before the page is drawn. */
   check("a banned owner's OnePage is not served, before anything is drawn, and is never indexable",
     /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("publishedShape(onepage") &&
       /const indexable = !owner\.banned && onePageIndexable\(/.test(onepage))
   check("a banned creator's page and a product they put back are noindex",
     /* Changed on purpose (round 41): creatorIndexable, with the spam verdict. */
-    /creatorIndexable\(\{ publishedProducts, handle, spamState \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
-      /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+    /creatorIndexable\(\{ publishedProducts, handle, spamState \}\) && !isBanned\(creator\)/.test(code("app/(storelib)/(marketing)/u/[username]/page.tsx")) &&
+      /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(storelib)/(marketing)/p/[slug]/page.tsx")))
   const announce = code("lib/seo/announce.ts")
   check("and nothing of theirs is announced", /* Changed on purpose (round 45 leftovers): except the ban's own announcement, so engines drop the pages (bannedCreatorAddresses). */ /if \(isBanned\(c\) && !evenIfBanned\) return null/.test(announce) && (announce.match(/handleOfCreator\([^)]*, true\)/g) ?? []).length === 1 && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))
 }

@@ -143,7 +143,7 @@ console.log("\nCopy: no em dash, none of the banned words")
     check(`${c.name}: no em dash`, !words.includes("—") && !words.includes("–"))
     check(`${c.name}: no banned words`, !banned.test(words), words.match(banned)?.[0])
   }
-  const pages = ["components/alternatives/alternative-page.tsx", "components/alternatives/hub-sections.tsx", "components/alternatives/fee-calculator.tsx", "components/alternatives/disclaimer.tsx", "app/(marketing)/alternatives/page.tsx", "lib/alternatives/seo.ts"]
+  const pages = ["components/alternatives/alternative-page.tsx", "components/alternatives/hub-sections.tsx", "components/alternatives/fee-calculator.tsx", "components/alternatives/disclaimer.tsx", "app/(storelib)/(marketing)/alternatives/page.tsx", "lib/alternatives/seo.ts"]
   check("the page code prints no em dash either", pages.every((p) => !code(p).includes("—")))
   check("no testimonials, ratings or review counts are claimed", ALTERNATIVES.every((c) => !/\b(\d(\.\d)? stars?|rated \d|testimonial|reviews? from)\b/i.test(wordsOf(c))))
 }
@@ -230,14 +230,14 @@ console.log("\nMetadata and structured data")
   check("a flagged answer reads its off answer while the switch is off", resolveFaqs([flagged], ALL_OFF)[0].a === flagged.aOff && resolveFaqs([flagged], ALL_ON)[0].a === flagged.a)
   const hubLd = hubJsonLd() as Any
   check("the hub lists every comparison in an ItemList", hubLd["@graph"][0].mainEntity.itemListElement.length === ALTERNATIVES.length)
-  check("structured data goes through jsonLdScript", code("components/alternatives/alternative-page.tsx").includes("jsonLdScript(") && code("app/(marketing)/alternatives/page.tsx").includes("jsonLdScript("))
+  check("structured data goes through jsonLdScript", code("components/alternatives/alternative-page.tsx").includes("jsonLdScript(") && code("app/(storelib)/(marketing)/alternatives/page.tsx").includes("jsonLdScript("))
 }
 
 console.log("\nRoutes, sitemap, IndexNow")
 {
-  const route = code("app/(marketing)/alternatives/[slug]/page.tsx")
+  const route = code("app/(storelib)/(marketing)/alternatives/[slug]/page.tsx")
   check("pages are statically generated from the list, anything else a 404", route.includes("generateStaticParams") && /dynamicParams = false/.test(route) && route.includes("ALTERNATIVES.map"))
-  check("the hub is not dynamic", !/force-dynamic|headers\(\)|cookies\(\)/.test(code("app/(marketing)/alternatives/page.tsx")))
+  check("the hub is not dynamic", !/force-dynamic|headers\(\)|cookies\(\)/.test(code("app/(storelib)/(marketing)/alternatives/page.tsx")))
   const sm = code("lib/seo/sitemaps.ts")
   check("the sitemap lists the hub and every page from the same list", sm.includes("${BASE}${HUB_PATH}") && sm.includes("ALTERNATIVES.map((c) => ({ url: `${BASE}${alternativePath(c.slug)}`"))
   const all = alternativesAddresses()
@@ -254,9 +254,9 @@ console.log("\nLinks into and out of the pages")
   check("the header draws on /alternatives and no longer links Compare", code("components/marketing/conditional-header.tsx").includes('p.startsWith("/alternatives/")') && !code("components/platform/platform-header-client.tsx").includes('label: "Compare"'))
   check("the phone menu has no Compare either", !/<span>Compare<\/span>/.test(code("components/platform/platform-header-client.tsx")))
   check("the footer links Compare and draws on these pages", code("components/marketing/footer.tsx").includes('{ label: "Compare", href: "/alternatives" }') && code("components/marketing/conditional-footer.tsx").includes('pathname.startsWith("/alternatives/")'))
-  check("/pricing carries the Compare Storelib line", code("app/(marketing)/pricing/page.tsx").includes("<CompareStrip />") && code("components/alternatives/compare-strip.tsx").includes("Compare Storelib"))
+  check("/pricing carries the Compare Storelib line", code("app/(storelib)/(marketing)/pricing/page.tsx").includes("<CompareStrip />") && code("components/alternatives/compare-strip.tsx").includes("Compare Storelib"))
   const gum = getAlternative("gumroad")!
-  check("the Gumroad page names the importer only if its route exists", !gum.importer || existsSync(join(process.cwd(), "app/app/products/import/gumroad/page.tsx")))
+  check("the Gumroad page names the importer only if its route exists", !gum.importer || existsSync(join(process.cwd(), "app/(storelib)/app/products/import/gumroad/page.tsx")))
 }
 
 console.log("\nSign up links keep the visit's own tags")
@@ -269,7 +269,7 @@ console.log("\nSign up links keep the visit's own tags")
   const back = readSignupSource(new URLSearchParams("intent=sell&src=alternatives-gumroad&ref=x&utm_source=y"))
   check("the signup page reads the same tags back", back?.src === "alternatives-gumroad" && back.ref === "x" && back.utm_source === "y")
   check("  and nothing when there are none", readSignupSource(new URLSearchParams("intent=sell")) === null)
-  const signup = code("app/(auth)/signup/page.tsx")
+  const signup = code("app/(storelib)/(auth)/signup/page.tsx")
   check("signup tells analytics when it opens from a tagged link and when the account exists", signup.includes('trackAlternatives("Signup started"') && signup.includes('trackAlternatives("Signup completed"'))
   const track = code("lib/alternatives/track.ts")
   check("events go through Vercel Web Analytics' track, which the consent banner gates", track.includes('from "@vercel/analytics"') && code("components/cookie-consent-banner.tsx").includes("consent?.analytics === true"))

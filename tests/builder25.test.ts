@@ -59,7 +59,7 @@ function main() {
     check("Website settings' box says it the same way", /<span data-wb-image-problem="" className="truncate text-\[13px\] leading-\[18px\] text-muted-foreground">\{fromOldStore \? brokenLine : "Couldn't load this picture"\}<\/span>/.test(picker))
     const control = read("components/website-builder/editor/controls/image-picker-control.tsx")
     check("the setting's field draws the picture from the theme's own copy, the saved value unchanged", /const drawn = shown \? pictureAddress\(shown, env\?\.pictureMedia\) : ""/.test(control) && /<WbImagePicker value=\{drawn \|\| undefined\} onChange=\{\(next\) => commit\(next \?\? ""\)\}/.test(control))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor hands the field an imported theme's asset map", /setCompatMedia\(assetAddresses\(files\)\)/.test(editor) && /pictureMedia: compatInstall \? compatMedia : null,/.test(editor))
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("and the canvas draws such a picture from it, as the live site does", /imageUrl: \(v\) => \(\/\^https\?:\\\/\\\/\/\.test\(v\) \|\| v\.startsWith\("\/"\) \? v : media\[shopImageName\(v\) \?\? ""\] \?\? ""\)/.test(canvas))
@@ -78,7 +78,7 @@ function main() {
 
   console.log("\nA page switch (editor/[installId]/page.tsx)\n")
   {
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("each page is kept once read, a built one a moment only", /const PAGE_AHEAD_MS = 10 \* 60_000/.test(editor) && /const GENERATED_AHEAD_MS = 15_000/.test(editor) && /if \(data\.generated === true\) generatedPages\.current\.add\(page\)/.test(editor))
     check("  a switch opens from what was kept, a copy, and the reload button reads afresh", /return had\.then\(\(list\) => structuredClone\(list\), \(\) => fetchPageSections\(page\)\)/.test(editor) && /pageSectionsNow\(page, page === leaving\),/.test(editor))
     check("  the page left is kept as it stands once its save landed", /if \(page !== leaving\) keepPageLeft\(leaving, leavingSections, savedOk, leavingDirty\)/.test(editor) && /if \(!saved\) \{ pageCache\.current\.delete\(page\); return \}/.test(editor))

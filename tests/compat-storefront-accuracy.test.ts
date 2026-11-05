@@ -195,7 +195,7 @@ async function main() {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("the canvas opens the account pages itself, drawn by the theme", /canvasAccountPage\(canvasSite\(\), accountPath, extra\)/.test(canvas) && /CANVAS_ACCOUNT_PATHS as readonly string\[\]\)\.includes\(to\)/.test(canvas))
     check("  and leaves them for any other link or page", /if \(accountRef\.current\) setAccountPath\(null\)/.test(canvas) && /useEffect\(\(\) => setAccountPath\(null\), \[pageKey, productId\]\)/.test(canvas))
-    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("the editor says so in its toast: Sign in works on your live site", /toast\("Sign in works on your live site"/.test(editor) && /what === "account" \? "account" : "checkout"/.test(canvas))
   }
 

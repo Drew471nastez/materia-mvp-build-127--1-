@@ -164,11 +164,11 @@ check("no visitor client reads, filters on, or returns a private column or `*` o
 
 for (const f of SUPABASE_IS_ADMIN) check(`${f} still reads with the service role`, /const supabase = createAdminClient\(\)/.test(readFileSync(f, "utf8")))
 
-const login = readFileSync("app/(auth)/login/page.tsx", "utf8")
+const login = readFileSync("app/(storelib)/(auth)/login/page.tsx", "utf8")
 check("the login page no longer looks an account up by email from the browser", !/from\("profiles"\)[\s\S]{0,80}\.eq\("email"/.test(login) && login.includes("/api/auth/unconfirmed-account"))
 const unconfirmed = readFileSync("app/api/auth/unconfirmed-account/route.ts", "utf8")
 check("  and the server answers only after the password is right", unconfirmed.includes("signInWithPassword") && unconfirmed.includes("email not confirmed") && unconfirmed.includes("rateLimit("))
-const page = readFileSync("app/(marketing)/u/[username]/page.tsx", "utf8")
+const page = readFileSync("app/(storelib)/(marketing)/u/[username]/page.tsx", "utf8")
 /* Changed on purpose (round 49): the creator page reads no address at all; /api/creator-contact reads the sign in email on the server for a buyer. */
 check("a creator page reads the sign in email on the server, never from the public profile row", !page.includes("profile.email") && !page.includes("loadAccountEmail") && readFileSync("app/api/creator-contact/route.ts", "utf8").includes("loadAccountEmail(userId)"))
 

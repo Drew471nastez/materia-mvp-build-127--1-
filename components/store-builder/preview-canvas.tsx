@@ -32,7 +32,7 @@ import {
 } from "@/lib/store-builder/defaults"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { CoverImageEditor } from "./cover-image-editor"
-import { cleanDescription } from "@/app/app/products/new/description-action"
+import { cleanDescription } from "@/app/(storelib)/app/products/new/description-action"
 
 interface PreviewCanvasProps {
   creatorId: string

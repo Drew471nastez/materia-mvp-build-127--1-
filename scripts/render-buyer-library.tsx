@@ -1,7 +1,7 @@
 /**
  * The library's screens for scripts/check-buyer-library.mjs: the real components
  * (components/library/*) with fixture purchases, inside the same container
- * the layout gives them (app/library/layout.tsx), Next's router and links
+ * the layout gives them (app/(storelib)/library/layout.tsx), Next's router and links
  * stood in for. `window.__mode` picks the screen.
  */
 import React from "react"
@@ -11,7 +11,7 @@ import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
 import { AccountColumn } from "@/components/account/account-column"
 import { TAB_BAR_BODY } from "@/components/nav/buyer-tab-bar"
-import { TAB_SKELETON } from "@/app/account/library/loading"
+import { TAB_SKELETON } from "@/app/(storelib)/account/library/loading"
 import { skeletonFor } from "@/components/library/library-skeletons"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 import type { WishlistEntry } from "@/components/wishlist/wishlist-entry"
@@ -89,13 +89,13 @@ const manyItems = [
 const w = window as unknown as { __mode?: string; __focus?: string; __cold?: boolean; __navigate?: (href: string) => void; __navStore?: { path: string; listeners: Set<() => void> } }
 const mode = w.__mode || "home"
 
-/* The server's decision, made the way app/library/layout.tsx makes it: the request's user agent and the closed cookie. */
+/* The server's decision, made the way app/(storelib)/library/layout.tsx makes it: the request's user agent and the closed cookie. */
 const banner = bannerPhone(navigator.userAgent || "", (document.cookie.match(/(?:^|;\s*)storelib_app_banner=([^;]+)/) ?? [])[1])
 
-/* The layout's column, as app/library/layout.tsx draws it: the app banner, then the stage with the pills over the screen. */
+/* The layout's column, as app/(storelib)/library/layout.tsx draws it: the app banner, then the stage with the pills over the screen. */
 function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: boolean }) {
   /*
-    window.__accountShell: the library as app/account/layout.tsx and app/account/library/layout.tsx really draw it on a phone (round 12,
+    window.__accountShell: the library as app/(storelib)/account/layout.tsx and app/(storelib)/account/library/layout.tsx really draw it on a phone (round 12,
     the page that scrolled with nothing to scroll): the profile's min-h-svh column, the header's room, a main that grows, the account
     column, the library's own div, and the tab bar's room at the end. No footer: the library has none.
   */
@@ -122,7 +122,7 @@ function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: bo
       <div className="sticky top-0 z-40 h-14 border-b border-black/10 bg-[#0b0b10]" data-fake-header="" />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
-          {/* The banner sits UNDER the library, as app/library/layout.tsx has it. */}
+          {/* The banner sits UNDER the library, as app/(storelib)/library/layout.tsx has it. */}
           <LibraryPanel head={tabs ? <LibraryTabs /> : null}>{children}</LibraryPanel>
           <OpenInApp phone={banner} />
         </div>

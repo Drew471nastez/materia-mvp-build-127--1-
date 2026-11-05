@@ -56,7 +56,7 @@ console.log("\nTyping never stops\n")
 
 console.log("\nTaller, never sideways\n")
 {
-  const page = read("app/website-builder/editor/[installId]/page.tsx")
+  const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("a one line text setting is a box that wraps and grows", /function EchoTextInput[\s\S]{0,400}<AutoTextarea\s+singleLine/.test(page))
   check("  where Enter is refused and a pasted break is a space", /if \(singleLine && e\.key === "Enter"\) e\.preventDefault\(\)/.test(read("components/website-builder/auto-textarea.tsx")))
   check("the heading editor grows to a ceiling, then scrolls up and down only", /overflow-x-hidden overflow-y-auto wb-slim-scroll max-h-\[180px\]/.test(read("components/website-builder/editor/controls/inline-richtext-control.tsx")))

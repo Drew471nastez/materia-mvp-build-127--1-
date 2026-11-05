@@ -92,7 +92,7 @@ check("the original menu is not changed in place", menu.length === 3 && menu[0].
 console.log("\nThe editor asks for two things\n")
 const editor = read("components/website-builder/editor/controls/link-list-editor.tsx")
 const menus = read("components/website-builder/editor/controls/menus-editor.tsx")
-const page = read("app/website-builder/editor/[installId]/page.tsx")
+const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
 check("an opened link shows Label and Link", />Label</.test(editor) && />Link</.test(editor))
 check("no Handle, Links to or Submenu links in the sidebar", !/>\s*(Handle|Links to|Submenu links)\s*</.test(editor) && !/Submenu links|Add Link to \{label\}/.test(page))
 /* The header reads the Main menu now (tests/menus-main-menu.test.ts), and its sidebar picks a menu rather than drawing a second list. */

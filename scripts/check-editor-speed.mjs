@@ -5,7 +5,7 @@
  * "It takes so much time to load a product edit page."
  *
  * A press on a row costs two things: the server's read (the auth round trip
- * and the five reads, app/app/products/load-editor.ts) and the browser's own
+ * and the five reads, app/(storelib)/app/products/load-editor.ts) and the browser's own
  * work (the route's code, the render, hydration, the pictures). The first is
  * a network and is stood in for here by `window.__slowMs`; this measures the
  * second, which is the part the code decides, with the real list and the real

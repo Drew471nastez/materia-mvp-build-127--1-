@@ -118,7 +118,7 @@ async function main() {
     const route = read("app/api/email/view/route.ts")
     check("never indexed, never shared-cached, no referrer, no script", /"X-Robots-Tag": "noindex, nofollow"/.test(route) && /"Cache-Control": "private, no-store"/.test(route) && /"Referrer-Policy": "no-referrer"/.test(route) && /default-src 'none'/.test(route) && !/script-src [^']*'self'/.test(route))
     check("the email's report gives the scheduled or sent email's page", /view_url: status === "draft" \? null : viewOnlineUrl\(\{ kind: "campaign", id: c\.id \}\)/.test(read("app/api/email/campaigns/[id]/report/route.ts")))
-    check("the email's page in Emails opens it", /tt\("View in browser"\)/.test(read("app/app/emails/email-detail.tsx")) && /report\?\.view_url/.test(read("app/app/emails/email-detail.tsx")))
+    check("the email's page in Emails opens it", /tt\("View in browser"\)/.test(read("app/(storelib)/app/emails/email-detail.tsx")) && /report\?\.view_url/.test(read("app/(storelib)/app/emails/email-detail.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

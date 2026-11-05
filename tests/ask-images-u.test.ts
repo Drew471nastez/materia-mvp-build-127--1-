@@ -271,7 +271,7 @@ async function main() {
     check("and draws it over the line while it works", /data-ask-subject=""/.test(chat) && /\{exchange\.running && activity\.subject && \(/.test(chat))
     check("the canvas is told the same words with the sections it marks", /onWorkingChange\?\.\(\[\.\.\.working\], subject \|\| undefined\)/.test(chat) && /onWorkingChange\?\.\(\[WRITING_SECTION_ID\], subject\)/.test(chat))
     const overlay = read("components/website-builder/editor/ai-working-overlay.tsx")
-    check("and labels the section with them", /data-ai-label=""/.test(overlay) && /\{label\}/.test(overlay) && /label=\{aiWorkingLabel\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("and labels the section with them", /data-ai-label=""/.test(overlay) && /\{label\}/.test(overlay) && /label=\{aiWorkingLabel\}/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -303,7 +303,7 @@ async function main() {
     const ui = read("components/website-builder/ask-activity.tsx")
     check("a file the page assistant wrote is one folded line, View code, the source only when asked", /const \[open, setOpen\] = React\.useState\(false\)/.test(ui) && /\{open \? "Hide code" : "View code"\}/.test(ui) && /\{open && \(\s*\/\*[^*]*\*\/\s*<pre/.test(ui))
     check("the old card with its Open the code button is gone", !/Open the code/.test(read("components/website-builder/theme-chat.tsx")))
-    check("the editor answers with the placed section's id", /return id\n\s*\},\n\s*\[loadStorelibSources, pushUndo, revealSection\]/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    check("the editor answers with the placed section's id", /return id\n\s*\},\n\s*\[loadStorelibSources, pushUndo, revealSection\]/.test(read("app/(storelib)/website-builder/editor/[installId]/page.tsx")))
 
     /* The stream reader hands every line to the chat as it lands, and the answer at the end. */
     const body = [

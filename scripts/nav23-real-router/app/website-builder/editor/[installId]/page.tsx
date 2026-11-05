@@ -1,2 +1,2 @@
 "use client"
-export { default } from "@/app/website-builder/editor/[installId]/page"
+export { default } from "@/app/(storelib)/website-builder/editor/[installId]/page"

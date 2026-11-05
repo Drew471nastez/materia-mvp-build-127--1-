@@ -185,7 +185,7 @@ async function main() {
   check("the hover is what a click would pick: the block, or its section", /var targetOf = function \(el\) \{ var s = sectionOf\(el\); return s \? blockOf\(el, s\) \|\| s : null; \};/.test(CANVAS_BRIDGE) && /hov !== blk && !\(hov === sec && !blk\)/.test(CANVAS_BRIDGE))
 
   console.log("\nThe section's toolbar")
-  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("it is placed against its own containing box, so in the phone preview it is on the page and not at the canvas's edge", /const host = \(barRef\.current\?\.offsetParent as HTMLElement \| null\) \?\? scroller/.test(editor) && /useLayoutEffect\(\(\) => \{ if \(mounted\) measureNow\.current\(\) \}, \[mounted\]\)/.test(editor))
 
   console.log("\nThe fixture theme's product page")

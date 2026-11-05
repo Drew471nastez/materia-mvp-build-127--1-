@@ -20,7 +20,7 @@
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, StatusBadge, card } from "@/app/app/orders/order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, StatusBadge, card } from "@/app/(storelib)/app/orders/order-parts"
 import { money, pricePer } from "@/lib/memberships/state"
 import type { CreatorMembershipRow } from "@/lib/memberships/view-types"
 import { tt } from "@/lib/i18n/text"
