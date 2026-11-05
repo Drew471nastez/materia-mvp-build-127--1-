@@ -12,6 +12,7 @@ import { ArrowRight, Check, Package } from "lucide-react"
 import { AppLink } from "@/components/app/app-link"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import type { PhysicalStep } from "@/lib/home/physical-setup"
+import { requestJson } from "@/lib/net/request"
 import { useReadiness } from "@/components/physical/readiness-client"
 import { tt } from "@/lib/i18n/text"
 
@@ -24,17 +25,27 @@ export function PhysicalSetupCard() {
   React.useEffect(() => {
     if (!physical) return
     let live = true
-    fetch("/api/home/physical-setup", { cache: "no-store", credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { steps?: PhysicalStep[]; blockers?: PhysicalStep[] } | null) => {
-        if (live && d && Array.isArray(d.steps)) {
-          setSteps(d.steps)
-          setBlockers(Array.isArray(d.blockers) ? d.blockers : [])
-        }
-      })
-      .catch(() => undefined)
+    let again: number | undefined
+    /*
+      ASKED AGAIN, NOT DROPPED (round 52). One failed answer (a slow
+      database, a deploy's 503) left Home without this card until the next
+      full load, with nothing to say it was missing. requestJson asks a read
+      once more by itself; after that, twice more, 3s and 8s later.
+    */
+    const load = async (attempt: number) => {
+      const r = await requestJson<{ steps?: PhysicalStep[]; blockers?: PhysicalStep[] }>("/api/home/physical-setup", { cache: "no-store", credentials: "same-origin" })
+      if (!live) return
+      if (r.ok && Array.isArray(r.data.steps)) {
+        setSteps(r.data.steps)
+        setBlockers(Array.isArray(r.data.blockers) ? r.data.blockers : [])
+      } else if (attempt < 2 && r.kind !== "auth" && r.kind !== "refused") {
+        again = window.setTimeout(() => void load(attempt + 1), attempt === 0 ? 3_000 : 8_000)
+      }
+    }
+    void load(0)
     return () => {
       live = false
+      window.clearTimeout(again)
     }
   }, [physical])
 

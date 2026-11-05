@@ -28,6 +28,7 @@ import { createHmac } from "node:crypto"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
 import { forgetSigningKeys, userFromClaims, type VerifiedClaims } from "@/lib/auth/verify-token"
 import { routeUserFrom } from "@/lib/auth/route-user"
+import { isRecoveryToken } from "@/lib/auth/recovery-session"
 import { readCode } from "./_source"
 
 let passed = 0
@@ -195,6 +196,17 @@ async function main() {
     check(`${f}: fullUserForRequest (email_confirmed_at)`, /fullUserForRequest\(\)/.test(readCode(f)) && !/currentUserForRequest\(\)/.test(readCode(f)))
   }
   check("community checkout: routeUser({ full: true })", /routeUser\(\{ full: true \}\)/.test(readCode("app/api/community/[communityId]/checkout/route.ts")))
+
+  console.log("\n8. Reset password: Back to log in ends a recovery session first (the owner's report)")
+  {
+    const tok = (amr: unknown) => `x.${Buffer.from(JSON.stringify({ sub: "u1", amr })).toString("base64url")}.y`
+    check("a token from a reset link is a recovery session", isRecoveryToken(tok([{ method: "recovery", timestamp: 1 }])))
+    check("  a password, OAuth or OTP session is not", !isRecoveryToken(tok([{ method: "password", timestamp: 1 }])) && !isRecoveryToken(tok([{ method: "oauth" }])) && !isRecoveryToken(tok([{ method: "otp" }])))
+    check("  nothing, junk or no amr: not", !isRecoveryToken(null) && !isRecoveryToken("junk") && !isRecoveryToken(tok(undefined)))
+    const page = readCode("app/(auth)/reset-password/page.tsx")
+    check("both Back to log in links end a recovery session, then open /login", (page.match(/<BackToLogin \/>/g) ?? []).length === 2 && !/<a href="\/login"/.test(page) && /await endRecoverySession\(\)[\s\S]{0,80}window\.location\.assign\("\/login"\)/.test(page))
+    check("  on this device only, and never held up by a slow Auth", /signOut\(\{ scope: "local" \}\)/.test(page) && /setTimeout\(r, 2_000\)/.test(page))
+  }
 
   void ({} as CurrentUser)
   console.log(`\n${passed} passed, ${failed} failed`)

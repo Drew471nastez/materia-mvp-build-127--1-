@@ -1,6 +1,7 @@
 "use client"
 
 import { readCarry, withCarry } from "@/lib/auth/continue"
+import { isRecoveryToken } from "@/lib/auth/recovery-session"
 import { getMainDomain } from "@/lib/url-helpers"
 import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
@@ -113,6 +114,56 @@ async function exchangeBridgeCode(code: string): Promise<{
 function dismissNativeOverlay() {
   notifyNativeAuthDone()
   try { sessionStorage.removeItem("nativeAuthInProgress") } catch {}
+}
+
+/*
+  ===========================================================================
+   BACK TO LOG IN ENDS THE SESSION A RESET LINK LEFT HERE (round 52)
+  ===========================================================================
+  The owner: "From the link expired page of the reset password, when I try to
+  go back to login, it doesn't work." A reset link's first open spends its
+  code and leaves a recovery session in this browser. Opened again it says
+  "Link expired", and Back to log in went to /login, which found that session
+  and sent the person on into their library: never the form they asked for.
+  Measured with scripts/check-auth-flows-r52.mjs (desktop, phone, the app).
+
+  So the link ends a session that came from a reset link (its token's amr
+  says "recovery"), on this device only, and then opens the form. Any other
+  session is left alone. The token is only read here, never trusted: ending
+  a session is the safe direction whatever it says.
+*/
+async function endRecoverySession(): Promise<void> {
+  try {
+    const supabase = createClient()
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token || !isRecoveryToken(token)) return
+    /* Two seconds at most: Auth being slow must not keep the person on this page. */
+    await Promise.race([supabase.auth.signOut({ scope: "local" }), new Promise((r) => setTimeout(r, 2_000))])
+  } catch {
+    /* the form opens either way */
+  }
+}
+
+function BackToLogin() {
+  const [leaving, setLeaving] = useState(false)
+  return (
+    <a
+      href="/login"
+      aria-busy={leaving || undefined}
+      onClick={async (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+        e.preventDefault()
+        if (leaving) return
+        setLeaving(true)
+        await endRecoverySession()
+        window.location.assign("/login")
+      }}
+      className="text-[14px] font-medium text-purple-600 hover:text-purple-700"
+    >
+      Back to log in
+    </a>
+  )
 }
 
 type Phase = "initializing" | "handoff" | "form" | "success" | "expired"
@@ -478,9 +529,7 @@ function ResetPasswordContent() {
             </Button>
           </a>
           <div className="mt-4">
-            <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
-              Back to log in
-            </a>
+            <BackToLogin />
           </div>
         </div>
       </div>
@@ -546,9 +595,7 @@ function ResetPasswordContent() {
         </form>
 
         <div className="mt-6">
-          <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
-            Back to log in
-          </a>
+          <BackToLogin />
         </div>
       </div>
     </div>
