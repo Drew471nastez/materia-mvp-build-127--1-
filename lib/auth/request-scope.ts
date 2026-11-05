@@ -10,6 +10,7 @@ import { sellerAccessFrom, type SellerAccess } from "@/lib/account/seller-access
 import { ServiceUnavailable, classifyServiceError, dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 import { currentRequestId, logLine, logServiceFailure } from "@/lib/net/log"
 import { lastGood } from "@/lib/net/last-good"
+import { supabaseRetryBudget } from "@/lib/net/retry-budget"
 
 /**
  * ===========================================================================
@@ -210,7 +211,8 @@ const profileRead = cache(async (userId: string): Promise<{ row: RequestProfile 
   try. Now:
 
     1  a read that failed with a blip (ServiceUnavailable.transient) is asked
-       once more here, after RETRY_PAUSE_MS. Both rows are one key lookup;
+       once more here, after RETRY_PAUSE_MS, paid from the instance's retry
+       budget (lib/net/retry-budget). Both rows are one key lookup;
     2  still failing, the last row this instance read for the same person
        stands in (lib/net/last-good.ts), marked stale;
     3  only with neither is the failure handed on.
@@ -231,8 +233,9 @@ async function keptRead<T>(key: string, read: () => Promise<T>): Promise<{ row: 
       if (!isServiceUnavailable(e)) throw e
       logServiceFailure(e)
       failure = e
-      if (!e.transient) break
-      if (attempt === 0) await new Promise((r) => setTimeout(r, RETRY_PAUSE_MS + Math.round(Math.random() * 150)))
+      /* A query that will fail again is not asked again, and the retry is paid from the instance's budget (lib/net/retry-budget, round 50): in an outage the kept copy answers at once. */
+      if (!e.transient || attempt > 0 || !supabaseRetryBudget.spend()) break
+      await new Promise((r) => setTimeout(r, RETRY_PAUSE_MS + Math.round(Math.random() * 150)))
     }
   }
   const kept = lastGood.recall<T>(key)

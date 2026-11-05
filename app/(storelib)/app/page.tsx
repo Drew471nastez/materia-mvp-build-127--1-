@@ -20,6 +20,7 @@ import { commerceActionCounts } from "@/lib/physical/action-counts-server"
 import { within } from "@/lib/website-builder/load-guard"
 import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 import { lastGood } from "@/lib/net/last-good"
+import { supabaseRetryBudget } from "@/lib/net/retry-budget"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -65,7 +66,7 @@ const homeCreator = cache(async (userId: string) => {
       return row
     } catch (e) {
       if (!isServiceUnavailable(e)) throw e
-      if (attempt === 0 && e.transient) {
+      if (attempt === 0 && e.transient && supabaseRetryBudget.spend()) {
         await new Promise((r) => setTimeout(r, 250 + Math.round(Math.random() * 150)))
         continue
       }
