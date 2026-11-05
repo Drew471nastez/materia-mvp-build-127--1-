@@ -12006,7 +12006,11 @@ const words: Record<string, string> = {
  "The list of posts.": "L'elenco degli articoli.",
  "How every post looks.": "L'aspetto di ogni articolo.",
  "You get the records to add where you bought it. Usually live within the hour.": "Ricevi i record da aggiungere dove l'hai acquistato. Di solito attivo entro un'ora.",
- "For sections that save your own data, like a waitlist.": "Per sezioni che salvano i tuoi dati, come una lista d'attesa."
+ "For sections that save your own data, like a waitlist.": "Per sezioni che salvano i tuoi dati, come una lista d'attesa.",
+ "Purchase conversion label": "Etichetta di conversione acquisto",
+ "Google Ads › Goals › Conversions › your purchase › Event snippet, after {id}/ in send_to.": "Google Ads › Obiettivi › Conversioni › il tuo acquisto › Snippet evento, dopo {id}/ in send_to.",
+ "Saved. Each paid order is now a Google Ads conversion.": "Salvato. Ogni ordine pagato ora è una conversione Google Ads.",
+ "Removed. Orders are no longer sent as conversions.": "Rimosso. Gli ordini non vengono più inviati come conversioni."
 }
 
 export default words

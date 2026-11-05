@@ -978,6 +978,9 @@ function TrackerInstall({ item, value, label, ready, onSaved }: { item: Integrat
  * is a conversion of that action (lib/store/tracking.ts purchaseTags); the
  * ID alone attributes none. The same row as the ID above.
  */
+/* What a conversion label looks like: an example, not words to translate. */
+const ADS_LABEL_EXAMPLE = "AbC-D_efGh12"
+
 function AdsLabelInstall({ value, adsId, onSaved }: { value: string | null; adsId: string; onSaved: (t: Tracking) => void }) {
   const [typed, setTyped] = React.useState(value ?? "")
   const [busy, setBusy] = React.useState(false)
@@ -1000,7 +1003,7 @@ function AdsLabelInstall({ value, adsId, onSaved }: { value: string | null; adsI
     <div className="space-y-3" data-ads-label="">
       <Field label={tt("Purchase conversion label")} htmlFor="tracker-google_ads_label">
         <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]" data-tracker-row="">
-          <TextInput id="tracker-google_ads_label" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="AbC-D_efGh12" autoComplete="off" spellCheck={false} inputMode="text" aria-describedby="tracker-google_ads_label-where" />
+          <TextInput id="tracker-google_ads_label" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={ADS_LABEL_EXAMPLE} autoComplete="off" spellCheck={false} inputMode="text" aria-describedby="tracker-google_ads_label-where" />
           <div className="order-last mt-2 flex gap-2 sm:order-none sm:mt-0">
             {value ? (
               <button type="button" className={cn(BTN_DANGER, "h-11 flex-1 sm:h-10 sm:flex-none")} disabled={busy} onClick={() => void save(null)}>

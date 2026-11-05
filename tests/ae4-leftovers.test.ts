@@ -158,7 +158,7 @@ async function main() {
     ]
     check("only lines placed in the period, of orders that are sales", unconvertedIncluded(left, window) === 2, unconvertedIncluded(left, window))
     check("  none left out: none to say", unconvertedIncluded([], window) === 0 && unconvertedIncluded(undefined, window) === 0)
-    check("  Analytics' report and its sales cards count it so", /unconvertedIncluded\(inStore\.left, counted \?\? spans\[spans\.length - 1\]\)/.test(read("lib/analytics/report-read.ts")) && /readOrders\(admin, spans, q\.creatorId, q\.product, q\.window\)/.test(read("lib/analytics/report-answer.ts")) && /unconvertedIncluded\(inStore\.left as unknown as Array<\{ created_at: string \}>, q\.span\)/.test(read("lib/analytics/commerce-server.ts")))
+    check("  Analytics' report and its sales cards count it so", /unconvertedIncluded\(inStore\.left, counted \?\? spans\[spans\.length - 1\]\)/.test(read("lib/analytics/report-read.ts")) && /* Changed on purpose (r52): with the community's sales for every place (lib/analytics/community-sales). */ /readOrders\(admin, spans, q\.creatorId, q\.product, q\.window, \{ community: q\.selector\.type === "all" \}\)/.test(read("lib/analytics/report-answer.ts")) && /unconvertedIncluded\(inStore\.left as unknown as Array<\{ created_at: string \}>, q\.span\)/.test(read("lib/analytics/commerce-server.ts")))
   }
 
   console.log("\nA formula behind a space, a tab or a line break is text in an export\n")
