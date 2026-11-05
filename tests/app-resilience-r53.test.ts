@@ -22,7 +22,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key-for-tests-long-enough"
 
 import { readCode } from "./_source"
 import { LastGood, LAST_GOOD_MS } from "../lib/net/last-good"
-import { creatorOrThrowForRequest, profileOrThrowForRequest, RETRY_PAUSE_MS } from "../lib/auth/request-scope"
+import { creatorOrThrowForRequest, keptShellRows, profileOrThrowForRequest, RETRY_PAUSE_MS } from "../lib/auth/request-scope"
 import { endDeviceSession } from "../lib/auth/log-out"
 import { isServiceUnavailable } from "../lib/net/service-error"
 
@@ -117,6 +117,10 @@ async function main() {
   const creatorAgain = await settle(creatorOrThrowForRequest("u-1"))
   check("  and once read, a failed read stands on it", !creatorAgain.error && (creatorAgain.value as { id?: string } | null)?.id === "c-1", creatorAgain.error ? String(creatorAgain.error) : creatorAgain.value)
 
+  const kept2 = keptShellRows("u-1")
+  check("a shell slower than its ceiling draws from both kept rows at once", !!kept2 && kept2[0].username === "ana" && kept2[1].id === "c-1", kept2)
+  check("  and nobody else's", keptShellRows("u-2") === null)
+
   script.profiles = ["none"]
   const gone = await settle(profileOrThrowForRequest("u-1"))
   check("an answer of no row is no row, never the kept copy", !gone.error && gone.value === null)
@@ -132,7 +136,7 @@ async function main() {
   check("nobody is sent to /sell on a membership read that failed", /&& !memberRead\.failed\) \{\s*redirect\("\/sell"\)/.test(layout))
   check("every decoration has a ceiling: OnePage, team stores, ring, communities, currency", /within\(\s*Promise\.resolve\(supabase\.from\("onepages"\)/.test(layout) && /within\(teamStoresReadForRequest\(user\.id\), SHELL_EXTRA_MS/.test(layout) && /within\(ringRead, SHELL_SETUP_MS, null\)/.test(layout) && /within\(communitiesEnabled\(\), SHELL_SETUP_MS, false\)/.test(layout) && /within\(cachedStoreCurrency\(creator\.id\), SHELL_SETUP_MS, null\)/.test(layout))
   check("the ring is left out rather than drawn with a wrong count", /setupProgress=\{setup \? \{ completed: setup\.completed, total: setup\.total \} : undefined\}/.test(layout))
-  check("drawn from a copy or the session alone, the shell asks again by itself", /\{refill \? <ShellRefill \/> : null\}/.test(layout))
+  check("past the ceiling the kept rows stand in; with none, the shell asks again by itself", /answered !== TIMED_OUT \? answered : keptShellRows\(user\.id\) \?\? TIMED_OUT/.test(layout) && /const refill = !known/.test(layout) && /\{refill \? <ShellRefill \/> : null\}/.test(layout))
   const refill = readCode("components/app/shell-refill.tsx")
   check("  in a transition, twice at most, never while one is on its way, and when back online", /startTransition\(\(\) => router\.refresh\(\)\)/.test(refill) && /REFILL_WAITS_MS = \[4_000, 15_000\]/.test(refill) && /if \(pendingRef\.current \|\| navigator\.onLine === false\)/.test(refill) && /addEventListener\("online"/.test(refill))
 

@@ -216,7 +216,10 @@ async function settle(page, t0) {
         const el = document.querySelector("[data-app-slow-page], [aria-busy='true'], [data-app-quiet-retry]")
         if (!el) return null
         const tag = [...el.attributes].map((a) => a.name).filter((n) => n.startsWith("data-") || n === "aria-busy").join(" ")
-        return `${el.tagName.toLowerCase()} ${tag} "${(el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40)}"`
+        let up = el.parentElement
+        while (up && ![...up.attributes].some((a) => a.name.startsWith("data-") && a.name !== "data-shimmer")) up = up.parentElement
+        const where = up ? [...up.attributes].filter((a) => a.name.startsWith("data-")).map((a) => a.name).join(" ") : ""
+        return `${el.tagName.toLowerCase()} ${tag} "${(el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40)}" in ${where || "?"}`
       })(),
       /* The page itself: inside the shell, the main column; a page drawn with an empty main (a redirect on its way, a stream not in) is not settled. */
       text: (document.querySelector("main") ? document.querySelector("main").innerText : document.body?.innerText || "").trim().length,

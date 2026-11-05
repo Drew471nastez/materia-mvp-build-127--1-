@@ -329,13 +329,15 @@ const creatorRead = cache(async (userId: string): Promise<{ row: RequestCreator 
 )
 
 /**
- * Whether this request's profile or creator row is a kept copy, or could not
- * be read at all (round 53): the /app shell draws from what it has and asks
- * again quietly instead of deciding where somebody belongs from it.
+ * The last good profile and creator rows this instance read for this person,
+ * for a shell whose reads are slower than its ceiling (round 53): it draws
+ * from them at once instead of waiting, or drawing from the session alone.
+ * null unless both are kept. Never an answer for anybody else.
  */
-export async function shellRowsState(userId: string): Promise<{ stale: boolean; missing: boolean }> {
-  const [p, c] = await Promise.all([profileRead(userId), creatorRead(userId)])
-  return { stale: !!(p.stale || c.stale), missing: !!(p.failure || c.failure) }
+export function keptShellRows(userId: string): [RequestProfile, RequestCreator] | null {
+  const profile = lastGood.recall<RequestProfile>(`profile:${userId}`)
+  const creator = lastGood.recall<RequestCreator>(`creator:${userId}`)
+  return profile && creator ? [profile, creator] : null
 }
 
 async function creatorRow(userId: string): Promise<RequestCreator | null> {

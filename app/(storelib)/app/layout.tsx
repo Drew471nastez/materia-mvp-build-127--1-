@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { byCreator, scopedOrders } from "@/lib/analytics/creator-orders"
-import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, profileOrThrowForRequest, shellRowsState } from "@/lib/auth/request-scope"
+import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, keptShellRows, profileOrThrowForRequest } from "@/lib/auth/request-scope"
 import { isServiceUnavailable } from "@/lib/net/service-error"
 import { ShellRefill } from "@/components/app/shell-refill"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -265,13 +265,19 @@ export default async function AppLayout({
     /* The stores they are on as a team member, for the account menu's switcher. Past the ceiling, unknown: never "on no team". */
     within(teamStoresReadForRequest(user.id), SHELL_EXTRA_MS, { stores: [], failed: true }),
   ])
-  const [rows, onepage, businesses, team, memberRead] = await shellReads
+  const [answered, onepage, businesses, team, memberRead] = await shellReads
+  /* Not answered in time (or failed with no copy): the last good copy this instance read for this person, when it has one. */
+  const rows = answered !== TIMED_OUT ? answered : keptShellRows(user.id) ?? TIMED_OUT
   const known = rows !== TIMED_OUT
   const [gateCheck, ownCreator] = rows !== TIMED_OUT ? rows : [null, null]
   const profile = gateCheck
   const memberOf = memberRead.stores
-  /* A kept copy, or nothing read at all: the shell asks again by itself once it is drawn. */
-  const refill = !known || (await shellRowsState(user.id)).stale
+  /*
+    Nothing to draw the shell from but the session: it asks again by itself once it is drawn. A kept copy is
+    drawn as it is and not asked again here (the next page load reads it afresh): a refresh is the whole page
+    read again, and on a slow database that doubled the load for the sake of a sidebar.
+  */
+  const refill = !known
   /*
     A TEAM MEMBER'S DASHBOARD IS THE STORE'S. The chrome (its name, its
     address, its plan) is the store they work in; who they are (their photo,

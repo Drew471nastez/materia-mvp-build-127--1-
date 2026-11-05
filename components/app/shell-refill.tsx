@@ -4,9 +4,10 @@
  * ===========================================================================
  *  THE SHELL ASKS AGAIN, QUIETLY, WHEN IT WAS DRAWN WITHOUT ITS ROWS (round 53)
  * ===========================================================================
- * The /app layout draws the sidebar from a kept copy, or from the name on the
- * session alone, when the profile or the creator row could not be read in
- * time (app/app/layout.tsx). Nothing is put over the page for it. This asks
+ * The /app layout draws the sidebar from the name on the session alone when
+ * the profile and the creator row could not be read in time and this
+ * instance has no copy of them (app/app/layout.tsx). Nothing is put over the
+ * page for it. This asks
  * the server for the page again in the background (router.refresh, inside a
  * transition, so what is on screen stays until the new answer is ready),
  * after REFILL_WAITS_MS, and at once when the browser comes back online.
