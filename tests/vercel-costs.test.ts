@@ -77,7 +77,8 @@ check("nothing the app reads lives in a skipped folder", !/from ["'](@\/|\.\.\/)
 
 console.log("\n2. Visits")
 const proxy = readCode("proxy.ts")
-check("a built website's homepage on a connected domain is cached 60s like its subdomain, not the landing page's hour", /else if \(builtSite && \(pathname === "\/" \|\| pathname === ""\)\) r\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(proxy))
+/* Changed on purpose (r54): the landing rule names storelib.com's hosts (round 51), so a website's `/` keeps its own ISR header like its subdomain, with no override. */
+check("a built website's homepage on a connected domain is held like its subdomain, not the landing page's hour", !/"public, s-maxage=60, stale-while-revalidate=300"/.test(proxy) && /source: '\/',\s*has: \[\{ type: 'host', value: `\(\?:\$\{STORELIB_HOSTS\}\)` \}\]/.test(config))
 check("and a password page or a market's prices are still never shared", /if \(guardedDomain\) r\.headers\.set\("Cache-Control", "private, no-store"\)/.test(proxy) && /else if \(\/~m-\/\.test\(rewritePath\)\) r\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(proxy))
 check("Supabase pictures are optimized only from storage paths", (config.match(/supabase\.co',\n\s*pathname: '\/storage\/v1\/\*\*'/g) ?? []).length === 2)
 

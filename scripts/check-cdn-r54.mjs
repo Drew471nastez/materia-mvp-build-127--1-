@@ -34,7 +34,8 @@
  *          (the later of LCP and load), the documents, RSC requests, any
  *          request made twice, redirects, and blank or flashing frames from
  *          Chrome's own screencast (a frame that is one flat colour after a
- *          frame that was not).
+ *          frame that was not). ONLY=Explore,Community limits the browser part
+ *          to those page types; SKIP=model,browser leaves a part out.
  */
 import { spawn, execFileSync } from "node:child_process"
 import { createServer as createHttpsServer } from "node:https"
@@ -119,8 +120,10 @@ const VISITORS = [
   ["RSC move", { rsc: "1", accept: "*/*", "sec-fetch-dest": "empty" }],
   ["RSC prefetch", { rsc: "1", "next-router-prefetch": "1", accept: "*/*", "sec-fetch-dest": "empty" }],
 ]
+const firstAfterBoot = {}
 for (const [type, host, path] of SURFACES) {
-  await ask(host, path)
+  /* The first request for each page type after `next start`: its route's code loaded and its reads asked for the first time (the cold half of a cold start; a new Vercel instance also pays the boot itself). */
+  firstAfterBoot[type] = Math.round((await ask(host, path)).ttfb)
   await ask(host, path)
   for (const [who, headers, query] of VISITORS) {
     const r = await ask(host, `${path}${query ?? ""}`, headers)
@@ -130,6 +133,9 @@ for (const [type, host, path] of SURFACES) {
     console.log(`  ${type.padEnd(28)} ${who.padEnd(24)} ${r.status} keeps=${String(rule.keeps).padEnd(5)} fresh=${String(rule.fresh).padStart(5)} stale=${String(rule.stale).padStart(6)} isr=${row.isr ?? "-"}  cc="${row.cc ?? ""}" cdn="${row.cdn ?? ""}" vary="${row.vary ?? ""}" set-cookie=${row.setCookie.join("|") || "-"}`)
   }
 }
+
+out.firstAfterBoot = firstAfterBoot
+console.log(`\n  first request after boot, TTFB: ${Object.entries(firstAfterBoot).map(([t, v]) => `${t} ${v} ms`).join(", ")}`)
 
 /* ── MODEL: twelve hours of visits against those headers ── */
 if (!SKIP.has("model")) {
@@ -269,7 +275,7 @@ if (!SKIP.has("browser")) {
   const ms = (n) => (Number.isFinite(n) ? `${Math.round(n)} ms` : "-")
   console.log("\nBROWSER (iPhone, CPU 4x slower; full = the later of LCP and the load event)\n")
   for (const profile of PROFILES) {
-    for (const [type, host, path] of SURFACES) {
+    for (const [type, host, path] of SURFACES.filter(([t]) => !process.env.ONLY || process.env.ONLY.split(",").some((o) => t.includes(o)))) {
       for (const mode of ["cdn-cold", "cdn-warm"]) {
         const runs = []
         for (let i = 0; i < RUNS; i++) {

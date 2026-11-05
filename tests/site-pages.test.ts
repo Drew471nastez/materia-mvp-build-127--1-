@@ -319,7 +319,7 @@ function main() {
       "and nothing about the request is read on the server",
       !/headers\(\)/.test(body) && !/cookies\(\)/.test(nf),
     )
-    check("which is a rule because the pages under it are cached", /export const revalidate = 60/.test(home))
+    check("which is a rule because the pages under it are cached (an hour since r54: Changed on purpose)", /export const revalidate = 3600/.test(home))
     check("there is no second not-found under the site routes to compete with it", !existsSync(join(process.cwd(), "app/(site)/w/[username]/not-found.tsx")))
 
     /**

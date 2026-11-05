@@ -1,3 +1,4 @@
+import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import "server-only"
 
 /**
@@ -30,7 +31,7 @@ export async function loadReviewsApp(db: Db, creatorId: string): Promise<{ setti
   return { settings: readReviewsApp(data?.reviews), ready: true }
 }
 
-/** For a published page and the public review routes: cached for two minutes, cleared on save. Never throws. */
+/** For a published page and the public review routes: held an hour, cleared on save (round 54: two minutes here kept a website's product page at two minutes, lib/delivery/holds.ts). Never throws. */
 export function publishedReviewsApp(db: Db, creatorId: string): Promise<ReviewsAppSettings> {
   return unstable_cache(
     async () => {
@@ -41,7 +42,7 @@ export function publishedReviewsApp(db: Db, creatorId: string): Promise<ReviewsA
       }
     },
     ["reviews-app", creatorId],
-    { revalidate: 120, tags: [reviewsAppTag(creatorId)] },
+    { revalidate: PUBLISHED_HOLD_S, tags: [reviewsAppTag(creatorId)] },
   )()
 }
 

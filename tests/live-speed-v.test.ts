@@ -80,7 +80,7 @@ function cacheRules() {
   const routes = "app/(site)/w/[username]"
   for (const r of ["page.tsx", "[page]/page.tsx", "products/[slug]/page.tsx", "reviews/page.tsx"]) {
     const src = code(`${routes}/${r}`)
-    check(`${r}: revalidate = 60`, /export const revalidate = 60/.test(src))
+    check(`${r}: revalidate = 3600 (Changed on purpose (r54))`, /export const revalidate = 3600/.test(src))
     check(`${r}: not drawn per visitor`, !/export const dynamic = "force-dynamic"/.test(src) && !/export const fetchCache/.test(src) && !/\bcookies\(\)|\bheaders\(\)/.test(src))
   }
   for (const r of ["page.tsx", "[page]/page.tsx", "products/[slug]/page.tsx"]) check(`${r}: every name may be generated on demand and kept`, /export function generateStaticParams\(\)/.test(code(`${routes}/${r}`)))
@@ -89,7 +89,7 @@ function cacheRules() {
   const renderSite = code(`${routes}/render-site.tsx`)
   check("a page's data is read through the admin client, never the visitor's cookies", !/@\/lib\/supabase\/server/.test(renderSite))
   const proxy = read("proxy.ts")
-  check("the front page's CDN header matches the route's minute", /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(proxy))
+  check("the front page takes the route's own ISR header, no override (Changed on purpose (r54))", !/"public, s-maxage=60, stale-while-revalidate=300"/.test(proxy))
   check("a visitor let in with a password is never in a shared cache", /if \(guarded\) rewritten\.headers\.set\("Cache-Control", "private, no-store"\)/.test(proxy))
 }
 

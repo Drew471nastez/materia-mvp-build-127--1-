@@ -105,10 +105,10 @@ export async function MarketingHeader() {
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white hover:bg-white/10">
-                  <Link href="/login">Sign in</Link>
+                  <Link href="/login" prefetch={false}>Sign in</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link href="/signup" className="whitespace-nowrap">
+                  <Link href="/signup" prefetch={false} className="whitespace-nowrap">
                     Sign up
                   </Link>
                 </Button>

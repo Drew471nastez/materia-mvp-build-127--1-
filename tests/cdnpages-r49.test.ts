@@ -167,7 +167,8 @@ async function main() {
       }
       return out
     }
-    const EDGE = "public, s-maxage=60, stale-while-revalidate=300"
+    /* Changed on purpose (r54): five minutes fresh and a day stale (tests/cdn-r54). */
+    const EDGE = "public, s-maxage=300, stale-while-revalidate=86400"
     const session = "sb-abcdefghijkl-auth-token"
     const visitors: Record<string, Parameters<typeof answer>[1]> = {
       stranger: {},

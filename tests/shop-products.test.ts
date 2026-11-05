@@ -239,7 +239,7 @@ async function main() {
      * to tell a cache about it, so holding products for the hour the page is
      * held would leave a corrected price wrong on a live site for an hour.
      */
-    check("products are cached apart from the page", /const SHOP_TTL = 60/.test(site) && /\["shop-products", match\.creatorId\]/.test(site))
+    check("products are cached apart from the page (the shop's hold: Changed on purpose (r54))", /revalidate: shopHoldSeconds\(\)/.test(site) && /\["shop-products", match\.creatorId\]/.test(site))
     check("and the page is still drawn from cached inputs, not re-read", /sectionSources\(admin as never, row\.id\)/.test(site))
   }
 

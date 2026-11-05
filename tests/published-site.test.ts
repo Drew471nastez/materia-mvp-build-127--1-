@@ -184,7 +184,7 @@ function main() {
      * about, so it is held for a minute. The site changes when somebody
      * publishes, which we are told about exactly.
      */
-    check("the name map is held for a minute, no more", /const NAME_TTL = 60/.test(cache))
+    check("the name map is held for an hour under each name's tag (Changed on purpose (r54))", /const NAME_TTL = PUBLISHED_HOLD_S/.test(cache) && /tags: \[siteNameTag\(lower\)\], revalidate: NAME_TTL/.test(cache))
     check("the site is held until Publish says otherwise", /const SITE_TTL = 3600/.test(cache) && /tags: \[creatorSiteTag\(match\.creatorId\)\]/.test(cache))
     check("a creator who has not published yet is not cached as missing for an hour", (() => {
       // The "no such creator" answer lives in the short-lived name layer,

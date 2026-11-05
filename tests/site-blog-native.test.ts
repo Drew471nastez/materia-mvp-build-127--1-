@@ -248,7 +248,7 @@ async function main() {
     const routes = ["page.tsx", "[blog]/page.tsx", "[blog]/page/[n]/page.tsx", "[blog]/tagged/[tag]/page.tsx", "[blog]/tagged/[tag]/page/[n]/page.tsx", "[blog]/category/[category]/page.tsx", "[blog]/category/[category]/page/[n]/page.tsx", "[blog]/[article]/page.tsx", "[blog]/~preview/[token]/page.tsx"]
     for (const r of routes.filter((r) => !r.includes("~preview"))) {
       const src = code(`${dir}/${r}`)
-      check(`${r}: held a minute, drawn on demand${r === "page.tsx" ? "" : ", with metadata of its own"}`, /export const revalidate = 60/.test(src) && /generateStaticParams\(\) \{\s*return \[\]/.test(src) && (r === "page.tsx" || /generateMetadata/.test(src)))
+      check(`${r}: held an hour, drawn on demand${r === "page.tsx" ? "" : ", with metadata of its own"} (Changed on purpose (r54))`, /export const revalidate = 3600/.test(src) && /generateStaticParams\(\) \{\s*return \[\]/.test(src) && (r === "page.tsx" || /generateMetadata/.test(src)))
     }
     const preview = code(`${dir}/[blog]/~preview/[token]/page.tsx`)
     check("the preview: per request, never held, noindex", /export const dynamic = "force-dynamic"/.test(preview) && /unstable_noStore\(\)/.test(preview) && /robots: \{ index: false, follow: false \}/.test(preview) && !/revalidate/.test(preview))

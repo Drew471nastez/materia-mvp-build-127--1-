@@ -269,7 +269,7 @@ function heldSubPages() {
   for (const [held, twin, mod] of routes) {
     const h = code(`${base}/${held}`)
     const t = code(`${base}/${twin}`)
-    check(`${held} is held a minute and kept per name (revalidate 60, generateStaticParams)`, /export const revalidate = 60/.test(h) && /export function generateStaticParams\(\) \{\s*return \[\]\s*\}/.test(h) && !/searchParams|force-dynamic/.test(h), h.slice(0, 300))
+    check(`${held} is held an hour and kept per name (revalidate 3600, generateStaticParams; Changed on purpose (r54))`, /export const revalidate = 3600/.test(h) && /export function generateStaticParams\(\) \{\s*return \[\]\s*\}/.test(h) && !/searchParams|force-dynamic/.test(h), h.slice(0, 300))
     check("  and asks for nothing from the address", /asked: \{\} \}\)/.test(h))
     check(`${twin} is drawn per request with the address's filters`, /export const dynamic = "force-dynamic"/.test(t) && /searchParams/.test(t))
     check(`  both draw the one page in ${mod}.tsx`, h.includes(`from "./${mod}"`) && t.includes(`from "../${mod}"`))

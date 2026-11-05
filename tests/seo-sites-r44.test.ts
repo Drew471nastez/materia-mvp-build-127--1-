@@ -151,7 +151,7 @@ console.log("\nThe sitemap, at any size")
     /else body = sitemapIndexXml\(chunks\.map\(\(_, i\) => `\$\{seo\.origin\}\/sitemap\.xml\?page=\$\{i \+ 1\}`\)\)/.test(route) && /return new Response\("Not found", \{ status: 404 \}\)/.test(route))
   const data = read("lib/website-builder/site-seo-data.ts")
   check("products are read to 50,000, a thousand per request, each page held on its own under the shop's tag",
-    /export const MAX_LISTED_PRODUCTS = 50_000/.test(data) && /\["site-seo-products", creatorId, String\(from\)\]/.test(data) && /\.order\("id", \{ ascending: true \}\)\s*\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(data) && /tags: \[creatorShopTag\(creatorId\)\], revalidate: 600/.test(data))
+    /export const MAX_LISTED_PRODUCTS = 50_000/.test(data) && /\["site-seo-products", creatorId, String\(from\)\]/.test(data) && /\.order\("id", \{ ascending: true \}\)\s*\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(data) && /tags: \[creatorShopTag\(creatorId\)\], revalidate: shopHoldSeconds\(\)/.test(data)) /* Changed on purpose (r54): the shop's hold. */
   check("  each page small enough for the data cache (pictures capped)", /gallery_urls: \(p\.gallery_urls \?\? \[\]\)\.slice\(0, LISTED_IMAGES\)/.test(data) && /const LISTED_IMAGES = 10/.test(data))
   check("  once each, and not one taken off the Online store", /!off\.has\(p\.id \?\? ""\) && !seen\.has\(p\.slug\)/.test(data))
   check("collections are read past 200, a thousand at a time", !/\.limit\(200\)/.test(data) && /const MAX_LISTED_COLLECTIONS = 10_000/.test(data) && /\.from\("product_collections"\)[\s\S]{0,300}\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(data))

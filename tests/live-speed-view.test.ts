@@ -14,7 +14,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 console.log("\nThe website's product page")
 const route = read("app/(site)/w/[username]/products/[slug]/page.tsx")
-check("is held for a minute, like the site's other pages", /export const revalidate = 60/.test(route) && /export function generateStaticParams\(\)/.test(route))
+check("is held for an hour, like the site's other pages (Changed on purpose (r54))", /export const revalidate = 3600/.test(route) && /export function generateStaticParams\(\)/.test(route))
 check("and is no longer drawn per visit", !/export const dynamic = "force-dynamic"/.test(route) && !/export const fetchCache/.test(route))
 const renderer = read("components/website-builder/theme/render-product.tsx")
 check("its product is read without the visitor's cookies", !/@\/lib\/supabase\/server/.test(renderer) && /const supabase = createAdminClient\(\)/.test(renderer))

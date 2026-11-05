@@ -92,6 +92,7 @@ async function main() {
       "lib/website-builder/site-seo-data.ts",
       "lib/markets/live.ts",
       "lib/markets/server.ts",
+      "lib/reviews/app-server.ts",
     ]
     for (const p of drawn) {
       const src = code(p)
@@ -129,6 +130,36 @@ async function main() {
     check(`  ${p}`, /s-maxage=60, stale-while-revalidate=86400/.test(code(p)))
   }
   check("  the shop's owner still gets a private answer", /owner \? "private, no-store" :/.test(code("app/api/physical/storefront/shop/route.ts")))
+
+  console.log("\n5. No request a page view did not need")
+  {
+    const { sharedJson, forgetSharedReads, SHARED_READ_MS } = await import("@/lib/net/shared-read")
+    const asked: string[] = []
+    const realFetch = globalThis.fetch
+    let clock = 1000
+    globalThis.fetch = (async (url: string) => { asked.push(String(url)); return new Response(JSON.stringify({ n: asked.length }), { status: 200 }) }) as typeof fetch
+    try {
+      forgetSharedReads()
+      const [a, b] = await Promise.all([sharedJson<{ n: number }>("/api/offers?product=p1", undefined, () => clock), sharedJson<{ n: number }>("/api/offers?product=p1", undefined, () => clock)])
+      check("two parts of a page asking at once: one request, one answer", asked.length === 1 && a?.n === 1 && b?.n === 1, asked)
+      clock += SHARED_READ_MS + 1
+      await sharedJson("/api/offers?product=p1", undefined, () => clock)
+      check("  asked again once the moment has passed, so a change is never hidden", asked.length === 2, asked)
+      await sharedJson("/api/offers?product=p2", undefined, () => clock)
+      check("  another address is its own read", asked.length === 3)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+    check("the product page's wishlist and offers reads go through it", /sharedJson<[^>]+>\(`\/api\/wishlist\/check\?productId=/.test(code("components/wishlist/wishlist-button.tsx")) && /sharedJson<[\s\S]{0,200}>\(`\/api\/offers\?product=/.test(code("components/offers/bundle-offers.tsx")))
+    const { worthReadingAhead } = await import("@/lib/nav/prefetch-policy")
+    check("a signed out visitor's tab bar never reads sign in or the library ahead", !worthReadingAhead("/login?next=%2Faccount", false) && !worthReadingAhead("/account/library", null) && !worthReadingAhead("/signup", false) && worthReadingAhead("/explore", false))
+    check("  a signed in one still reads every tab", worthReadingAhead("/account/library", true) && worthReadingAhead("/account", true))
+    const bar = code("components/nav/buyer-tab-bar.tsx")
+    check("  both of the tab bar's read aheads filter by it", (bar.match(/\.filter\(\(href\) => worthReadingAhead\(href, signedIn\)\)/g) ?? []).length === 2)
+    check("Log in and Sign up in the platform header are read on press", /const READ_ON_PRESS = /.test(code("components/platform/platform-header-client.tsx")) && /READ_ON_PRESS\.test\(path\) \? \{ prefetch: false as const \}/.test(code("components/platform/platform-header-client.tsx")))
+    check("  and in the marketing headers", /<Link href="\/login" prefetch=\{false\}>/.test(code("components/marketing/header-client.tsx")) && /<Link href="\/signup" prefetch=\{false\}/.test(code("components/marketing/header.tsx")))
+    check("Storelib's tab icon is cacheable (its query names its picture)", /source: '\/:icon\(icon\|apple-icon\)-:hash\(\[a-z0-9\]\+\)\.png'/.test(read("next.config.mjs")))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

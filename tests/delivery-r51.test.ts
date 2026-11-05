@@ -79,7 +79,7 @@ async function main() {
     check("a OnePage: one answer for every visitor", new Set(all).size === 1, all)
     const page = answer("storelib.me", "/satori")
     check("  Vercel-CDN-Cache-Control, the same rule as a creator page, tagged by its name", page["vercel-cdn-cache-control"] === ONEPAGE_EDGE && page["vercel-cache-tag"] === onePageCdnTag("satori") && page["cache-control"] === undefined, page)
-    check("  a minute, served stale for five while drawn again (round 49's EDGE_PAGE)", ONEPAGE_EDGE === "public, s-maxage=60, stale-while-revalidate=300" && /EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"/.test(read("next.config.mjs")))
+    check("  five minutes, served stale for a day while drawn again (round 49's EDGE_PAGE; Changed on purpose (r54))", ONEPAGE_EDGE === "public, s-maxage=300, stale-while-revalidate=86400" && /EDGE_PAGE = "public, s-maxage=300, stale-while-revalidate=86400"/.test(read("next.config.mjs")))
     check("  a name with a dot or an underscore (pages older than the rules) too", answer("storelib.me", "/old.page_1")["vercel-cache-tag"] === "onepage-old.page_1")
     check("never an RSC request (a client side move, ScheduleRefresh's own ask)", answer("storelib.me", "/satori", { rsc: "1" })["vercel-cdn-cache-control"] === undefined)
     check("never another storelib.me answer: robots, a sitemap, a file, the canvas, an API call, two segments", ["/robots.txt", "/sitemap.xml", "/favicon.ico", "/site.webmanifest", "/api/onepage/track", "/__canvas/abc", "/satori/links", "/sitemap/onepages-1-of-2.xml", "/"].every((p) => answer("storelib.me", p)["vercel-cdn-cache-control"] === undefined))
@@ -125,7 +125,8 @@ async function main() {
       site: async (c) => { seen.push(`site ${c}`) },
       onePage: (c) => { seen.push(`onepage ${c.ownerUserId} ${c.names.join(",")}`) },
     })
-    const want = ["tag creator-banned:c1", "tag profile-spam-state:u1", "creator c1 u1 lena,satori", "site c1", "onepage u1 lena,satori"]
+    /* Changed on purpose (r54): each name's website lookup is expired too (lib/delivery/holds siteNameTag). */
+    const want = ["tag creator-banned:c1", "tag profile-spam-state:u1", "tag site-name:lena", "tag site-name:satori", "creator c1 u1 lena,satori", "site c1", "onepage u1 lena,satori"]
     check("the verdicts first, then the creator page, the website and the OnePage, each by every name", JSON.stringify(seen) === JSON.stringify(want), seen)
     const failing = await publicPagesChanged({ creatorId: "c1", userId: null, names: [] }, { expire: () => { throw new Error("x") }, creatorPages: async () => {}, site: async () => {}, onePage: () => {} }).then(() => true, () => false)
     check("  never throws", failing)

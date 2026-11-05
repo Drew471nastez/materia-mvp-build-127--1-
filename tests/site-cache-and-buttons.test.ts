@@ -137,7 +137,7 @@ function main() {
     try { manifest = JSON.parse(read(".next/prerender-manifest.json")) } catch { manifest = null }
 
     check("the site routes are not force-dynamic any more", !/export const dynamic/.test(home) && !/export const dynamic/.test(sub))
-    check("they are held for a minute", /export const revalidate = 60/.test(home) && /export const revalidate = 60/.test(sub))
+    check("they are held for an hour (Changed on purpose (r54))", /export const revalidate = 3600/.test(home) && /export const revalidate = 3600/.test(sub))
     check("and they are registered as pages that can be cached", /generateStaticParams/.test(home) && /generateStaticParams/.test(sub))
 
     /**
@@ -207,8 +207,9 @@ function main() {
      */
     check(
       "the homepage's own header agrees with the route's revalidate",
-      /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(read("proxy.ts")) &&
-        /export const revalidate = 60/.test(home),
+      /* Changed on purpose (r54): the front page's own ISR header, no override, and an hour. */
+      !/"public, s-maxage=60, stale-while-revalidate=300"/.test(read("proxy.ts")) &&
+        /export const revalidate = 3600/.test(home),
     )
     check("the creator page is still private", /rewritePath\.startsWith\("\/u\/"\)[\s\S]{0,200}"private, no-cache, must-revalidate"/.test(read("proxy.ts")))
   }
