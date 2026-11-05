@@ -422,17 +422,20 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     under the chart with the half beside them empty, and the channels sat in a tall card of their own across from the
     chart. Below 1024px every card is the full width, one under the other.
   */
+  /* Given up on (round 53): one line with Try again where the cards would be, not gray shapes that never fill. */
+  if (failed && !data) {
+    return (
+      <div role="alert" data-read-failed="" data-commerce-reports="" className="flex items-center justify-between gap-3 rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3">
+        <p className="min-w-0 text-[13px] text-[#8a1c0f]">{tt("The sales reports could not be loaded.")}</p>
+        <button type="button" onClick={quiet.again} className="h-8 shrink-0 cursor-pointer rounded-lg px-3 text-[13px] font-medium text-[#8a1c0f] hover:bg-[#fde8e7]">
+          {tt("Try again")}
+        </button>
+      </div>
+    )
+  }
   return (
     <OpenDetailContext.Provider value={openDetail}>
     <div aria-busy={state.loading} className={cn("grid grid-cols-1 gap-4 transition-opacity duration-200 lg:grid-cols-3", soft ? "opacity-60 delay-150" : "opacity-100")} data-commerce-reports="">
-      {failed && !data ? (
-        <div role="alert" data-read-failed="" className="flex items-center justify-between gap-3 rounded-xl border border-[#fde8e7] bg-[#fff7f6] px-4 py-3 lg:col-span-3">
-          <p className="min-w-0 text-[13px] text-[#8a1c0f]">{tt("The sales reports could not be loaded.")}</p>
-          <button type="button" onClick={quiet.again} className="h-8 shrink-0 cursor-pointer rounded-lg px-3 text-[13px] font-medium text-[#8a1c0f] hover:bg-[#fde8e7]">
-            {tt("Try again")}
-          </button>
-        </div>
-      ) : null}
 
       <Card
         card="sales-over-time"

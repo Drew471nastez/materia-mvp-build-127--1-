@@ -1803,7 +1803,8 @@ function ReportsView({ state, property, sections, extra, added, standing }: { st
           </div>
         ) : null}
 
-        <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />
+        {/* Given up on (round 53): the line above stands in their place, not gray shapes that never fill. */}
+        {failed && !shown ? null : <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />}
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
