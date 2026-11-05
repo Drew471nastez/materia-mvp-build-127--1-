@@ -53,6 +53,8 @@ const SUITES = [
   "tests/auth-refresh-outage.test.ts",
   /* Round 50: refresh outages keep the session, one renewal per token, the proxy waits for its renewal, the editor asks before "Sign in" */
   "tests/auth-session-reliability-r50.test.ts",
+  /* Round 52: an ordinary read or change takes the access token's verified signature first and never waits on Supabase Auth (was every change: "We could not check your sign in just now"); the strict list (password, email, deletion, payouts, billing, Stripe Connect, keys, team roles) still asks Auth itself; forged, expired or foreign tokens never a user; the cookie's user_metadata and created_at, never its app_metadata or email; the verifier logged once. scripts/check-auth-local-r52.mjs counts it against a slow or down Auth. */
+  "tests/auth-strict-r52.test.ts",
   /* Round rel-security (F4): GET /auth/sync-session writes no cookies, it only goes on to its path; every caller posts. */
   "tests/auth-sync-session-get.test.ts",
   /* Round rel-security (F6): a device code gets five guesses per order, then every live one is burned; confirm-device is limited per caller address. */

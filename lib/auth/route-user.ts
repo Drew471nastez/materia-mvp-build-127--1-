@@ -6,7 +6,7 @@ import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser, type CurrentUser } from "@/lib/auth/current-user"
 import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
-import { currentUserForRequest, oncePerRequest } from "@/lib/auth/request-scope"
+import { currentUserForRequest, fullUserForRequest, oncePerRequest } from "@/lib/auth/request-scope"
 import { verifierKind } from "@/lib/auth/verify-token"
 import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
 
@@ -37,6 +37,11 @@ export { AUTH_CHECK_HEADER }
   The extra tries ask about the token read from the cookie (getUser(jwt)),
   so a try that hung does not hold up the next one (lib/auth/current-user
   tokenFirst).
+
+  Changed on purpose (round 52): "a change" above now means only a change
+  where revocation matters (routeUser `fresh: true`, strictUserForRequest).
+  Every other read and change takes the token's verified signature first and
+  does not wait on Auth at all (lib/auth/request-scope currentUserForRequest).
 */
 export const STRICT_EXTRA_TIMEOUT_MS = 3_000
 export const AUTH_RETRY_PAUSES_MS = [400, 1_000] as const
@@ -54,11 +59,26 @@ async function askAuthAgain(tries: number, timeoutMs = STRICT_EXTRA_TIMEOUT_MS):
   return readCurrentUser(supabase, { tokenFirst: true, retries: tries - 1, timeoutMs, pauseMs: (a) => retryPause(a + 1) })
 }
 
-/** For a read: the page's answer, and when nothing could check the token, one more Auth try after a pause. */
+/**
+ * For an ordinary read or change: the page's answer (round 52: the token's
+ * signature, checked here, with no Supabase Auth round trip), and when
+ * nothing could check the token, one more Auth try after a pause.
+ */
 export const readerForRequest = cache(
   (): Promise<CurrentUser> =>
     oncePerRequest("reader", async () => {
       const first = await currentUserForRequest()
+      if (first.user || first.state === "anonymous") return first
+      const again = await askAuthAgain(1, READ_EXTRA_TIMEOUT_MS)
+      return again.user || again.state === "anonymous" ? again : first
+    }),
+)
+
+/** The same, Supabase Auth first: for a route that needs email_confirmed_at or identities (lib/auth/request-scope fullUserForRequest). */
+export const fullReaderForRequest = cache(
+  (): Promise<CurrentUser> =>
+    oncePerRequest("full-reader", async () => {
+      const first = await fullUserForRequest()
       if (first.user || first.state === "anonymous") return first
       const again = await askAuthAgain(1, READ_EXTRA_TIMEOUT_MS)
       return again.user || again.state === "anonymous" ? again : first
@@ -72,9 +92,9 @@ export const readerForRequest = cache(
  * person; now they take a page's answer (round 49). Row level security still
  * applies to every query, through the token in the cookie.
  */
-export async function readUserForRoute(): Promise<{ data: { user: CurrentUser["user"] } }> {
+export async function readUserForRoute({ full = false }: { full?: boolean } = {}): Promise<{ data: { user: CurrentUser["user"] } }> {
   try {
-    return { data: { user: (await readerForRequest()).user } }
+    return { data: { user: (await (full ? fullReaderForRequest() : readerForRequest())).user } }
   } catch {
     return { data: { user: null } }
   }
@@ -84,7 +104,8 @@ export async function readUserForRoute(): Promise<{ data: { user: CurrentUser["u
 export const strictUserForRequest = cache(
   (): Promise<CurrentUser> =>
     oncePerRequest("strict", async () => {
-      const first = await currentUserForRequest()
+      /* Auth first (round 52: the ordinary read no longer asks it at all). */
+      const first = await fullUserForRequest()
       if (first.verifiedBy === "user" || first.state === "anonymous") return first
       /* Claims: Auth had one short try, so two more. No answer at all: it already had two, so one more. */
       const again = await askAuthAgain(first.verifiedBy === "claims" ? 2 : 1)
@@ -125,12 +146,20 @@ export async function authCheckHeader(current: CurrentUser): Promise<string> {
  *                 NOTHING IS ALLOWED on this answer. The action is refused,
  *                 only with a true reason.
  *
- * `fresh` (the default) asks Supabase Auth itself and never accepts the
- * token's signature alone: a change, a payment, a key saved. A read may pass
- * `fresh: false`, and when Auth does not answer the access token's signature
- * is checked against Supabase's public keys instead (lib/auth/current-user.ts
- * readCurrentUser fallbackClaims), the same check row level security makes
- * on every query.
+ * Round 52: the default checks the access token here, by its signature,
+ * expiry, issuer, audience and role (lib/auth/verify-token.ts), with no
+ * round trip to Supabase Auth, for reads and ordinary changes alike: the
+ * same check row level security makes on every query. A slow or down Auth
+ * no longer refuses a save.
+ *
+ * `fresh: true` asks Supabase Auth itself and never accepts the token's
+ * signature alone. It is for where a session ended within the token's life
+ * must not act: password, email and phone changes, account deletion,
+ * payouts and bank details, API and AI keys, team roles, Stripe Connect and
+ * billing, security and sessions. tests/auth-strict-r52.test.ts lists them.
+ *
+ * `full: true` is a read that needs email_confirmed_at or identities, which
+ * a token does not carry: Auth first, the signature when Auth is slow.
  */
 export type RouteUser =
   | { kind: "user"; user: User }
@@ -145,15 +174,16 @@ export function routeUserFrom(current: CurrentUser): RouteUser {
 
 /*
   Round 49: one answer per request, shared with the page's own read
-  (lib/auth/request-scope). `fresh: false` (a read) takes what a page takes:
-  Supabase Auth, or the token's verified signature when Auth is slow, and
-  one more Auth try when nothing could check the token. `fresh` (a change)
-  still needs Auth itself to answer, and asks it again with backoff before
-  refusing (strictUserForRequest).
+  (lib/auth/request-scope). The default (round 52, was `fresh: false` for a
+  read only) takes what a page takes: the token's verified signature, or
+  Supabase Auth when it cannot be checked here, and one more Auth try when
+  nothing could check the token. `fresh: true` still needs Auth itself to
+  answer, and asks it again with backoff before refusing
+  (strictUserForRequest).
 */
-export async function routeUser({ fresh = true }: { fresh?: boolean } = {}): Promise<RouteUser> {
+export async function routeUser({ fresh = false, full = false }: { fresh?: boolean; full?: boolean } = {}): Promise<RouteUser> {
   try {
-    return routeUserFrom(await (fresh ? strictUserForRequest() : readerForRequest()))
+    return routeUserFrom(await (fresh ? strictUserForRequest() : full ? fullReaderForRequest() : readerForRequest()))
   } catch {
     /* No cookie store (called outside a request) or a client that would not build: not an answer about anybody. */
     return { kind: "unavailable", reason: "threw" }

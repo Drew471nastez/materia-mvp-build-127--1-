@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const adminSupabase = createAdminClient()
 
     // Check authentication
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     const user = who.kind === "user" ? who.user : null
     if (!user) {

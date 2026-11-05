@@ -20,7 +20,7 @@ import { createHmac } from "node:crypto"
 import { createServerClient } from "@supabase/ssr"
 import { readCurrentUser, readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
 import { forgetSigningKeys } from "@/lib/auth/verify-token"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { currentUserForRequest, fullUserForRequest } from "@/lib/auth/request-scope"
 import { pageUser } from "@/lib/auth/page-user"
 import { routeUser } from "@/lib/auth/route-user"
 import { POST as syncPost } from "@/app/auth/sync-session/route"
@@ -118,7 +118,8 @@ async function main() {
     check(`  ${mode}: well under the 10s deadline (${took}ms)`, took < 3_200, took)
     /* One readCurrentUser per request. A 503 is asked again by lib/net/deadline's read retry, inside the same short budget. */
     const asked = auth.hits.filter((h) => h === "/auth/v1/user").length
-    check(`  ${mode}: one question to Supabase Auth (${asked} request${asked === 1 ? "" : "s"})`, mode === "503" ? asked >= 1 && asked <= 3 : asked === 1, auth.hits)
+    /* Changed on purpose (r52): the token is checked here first, so Supabase Auth is not asked at all. */
+    check(`  ${mode}: no question to Supabase Auth (${asked} requests)`, asked === 0, auth.hits)
     const u = await pageUser().catch((e) => e)
     check(`  ${mode}: pageUser hands the page its user, no redirect to /login`, (u as { id?: string })?.id === "u1", String(u))
   }
@@ -148,8 +149,13 @@ async function main() {
   auth.mode = "revoked"
   holdRequest([sessionCookie(good)])
   {
-    const c = await currentUserForRequest()
-    check("a session Auth says no longer exists: anonymous, even with a good signature", c.state === "anonymous" && !c.user && shouldSendToLogin(c), c)
+    /* Changed on purpose (r52): the ordinary read trusts a valid signed token until it expires; Auth's own no is final wherever Auth is asked (the full read, the strict routes). */
+    const c = await fullUserForRequest()
+    check("a session Auth says no longer exists: anonymous, even with a good signature (full read)", c.state === "anonymous" && !c.user && shouldSendToLogin(c), c)
+    const strict = await routeUser({ fresh: true })
+    check("  and for a strict route", strict.kind === "anonymous", strict)
+    const local = await currentUserForRequest()
+    check("  the ordinary read: the signed token, until it expires", local.state === "authenticated" && local.verifiedBy === "claims", local)
   }
 
   console.log("\n4. Without the secret: as before (could not tell, never signed out)")
@@ -184,8 +190,11 @@ async function main() {
     const r = await routeUser({ fresh: false })
     check("a read: the user", r.kind === "user" && r.user.id === "u1", r)
     const t = Date.now()
-    const w = await routeUser()
-    check("  a change (fresh): unavailable (503), never the signature alone", w.kind === "unavailable", { w, took: Date.now() - t })
+    /* Changed on purpose (r52): an ordinary change takes the verified token too; only the strict list asks fresh. */
+    const plain = await routeUser()
+    check("  an ordinary change: the user, from the signature", plain.kind === "user" && plain.user.id === "u1", plain)
+    const w = await routeUser({ fresh: true })
+    check("  a strict change (fresh): unavailable (503), never the signature alone", w.kind === "unavailable", { w, took: Date.now() - t })
   }
 
   console.log("\n7. POST /auth/sync-session while Auth hangs")

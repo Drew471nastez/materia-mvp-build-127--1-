@@ -66,6 +66,8 @@ export async function physicalCaller(area: TeamArea = "store", opts: CallerOptio
  */
 export interface CallerOptions {
   read?: boolean
+  /** Round 52: Supabase Auth itself must answer (lib/auth/route-user `fresh`): a key or a secret saved. Everything else takes the token's verified signature. */
+  strict?: boolean
 }
 /** For a read-only GET: `shopCaller("analytics", READ)`. */
 export const READ: CallerOptions = Object.freeze({ read: true })
@@ -77,7 +79,7 @@ export const READ: CallerOptions = Object.freeze({ read: true })
  */
 export async function shopCaller(area: TeamArea | readonly TeamArea[] = "store", opts: CallerOptions = {}): Promise<PhysicalCaller | NextResponse> {
   /* Bounded, retried with backoff, and a 503 with Try again when Supabase Auth did not answer, never "Sign in" (lib/auth/route-user). Nothing is allowed on that answer. A read takes a page's answer (CallerOptions). */
-  const who = await routeUser({ fresh: !opts.read })
+  const who = await routeUser({ fresh: opts.strict === true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return physicalJson({ error: "Sign in to continue." }, 401)
   const user = who.user

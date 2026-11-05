@@ -30,7 +30,7 @@ import type { CommunityCheckoutTerms } from "@/components/community/membership/c
 import { rowsOwn } from "@/lib/checkout/owned"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { fullUserForRequest } from "@/lib/auth/request-scope"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { PLAN_CURRENCY, productPriceCurrency } from "@/lib/money/product-currency"
 import { MARKETPLACE_CURRENCY, marketplaceAmounts, marketplaceReferrer } from "@/lib/money/marketplace"
@@ -85,7 +85,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     it), so they are asked with it rather than after it. Nothing they say is
     used until the product is known to be published.
   */
-  const userRead = early(currentUserForRequest().then((c) => c.user))
+  const userRead = early(fullUserForRequest().then((c) => c.user))
   const ownedEarly = early(
     userRead.then(async (u): Promise<{ data: { id: string; variant_id: string | null }[] | null }> => {
       if (!u) return { data: null }
@@ -161,7 +161,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     const { checkoutGate } = await import("@/lib/communities/server/join")
     const {
       data: { user: buyer },
-    } = await currentUserForRequest().then((c) => ({ data: { user: c.user } }))
+    } = await fullUserForRequest().then((c) => ({ data: { user: c.user } }))
     const gate = await checkoutGate(product as { id: string; community_id?: string | null }, buyer?.id ?? null)
     if (gate.refusal) redirect(gate.refusal.url)
     if (gate.community) {
@@ -418,7 +418,7 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
   const supabase = await createClient()
   const [creatorRead, userRead, planRead] = await Promise.all([
     supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
-    currentUserForRequest().then((c) => ({ data: { user: c.user } })),
+    fullUserForRequest().then((c) => ({ data: { user: c.user } })),
     supabase.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, benefits, currency").eq("product_id", product.id).maybeSingle(),
   ])
   const creator = creatorRead.data

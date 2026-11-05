@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     const user = who.kind === "user" ? who.user : null
     if (!user) {

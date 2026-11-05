@@ -22,7 +22,7 @@ export async function GET() {
 
 /** { provider, step: "check" | "connect", apiKey, listId, backfill } or { provider, listId } or { provider, step: "lists" } or { provider, disconnect: true }. */
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("store", { strict: true })
   if (c instanceof NextResponse) return c
   /* A check or a connect asks the provider: a few a minute is plenty, and keeps their limits ours to spend. */
   const limited = await rateLimit({ bucket: "marketing-integration", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 20, seconds: 60 }, { limit: 300, seconds: 86400 }] })

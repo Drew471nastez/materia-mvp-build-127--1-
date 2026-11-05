@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+/* Round 52: the token's verified signature, with no Supabase Auth round trip (lib/auth/route-user). */
+import { readerForRequest } from "@/lib/auth/route-user"
 import { isAppearance } from "@/lib/appearance/site-appearance"
 
 export const runtime = "nodejs"
@@ -18,7 +19,7 @@ const noStore = { "Cache-Control": "no-store" }
 
 export async function GET() {
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (!current.user) return NextResponse.json({ appearance: null }, { headers: noStore })
   const v = (current.user.user_metadata as { storelib_appearance?: unknown } | null)?.storelib_appearance
   return NextResponse.json({ appearance: isAppearance(v) ? v : null }, { headers: noStore })
@@ -33,7 +34,7 @@ export async function PUT(request: NextRequest) {
   }
   if (!isAppearance(body.appearance)) return NextResponse.json({ error: "Pick light or dark." }, { status: 400, headers: noStore })
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") return NextResponse.json({ error: "Could not reach Storelib. Try again." }, { status: 503, headers: noStore })
   /* Signed out: the browser keeps it, there is no account to keep it on. */
   if (!current.user) return NextResponse.json({ ok: true, kept: "browser" }, { headers: noStore })

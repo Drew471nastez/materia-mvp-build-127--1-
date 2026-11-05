@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+/* Round 52: the token's verified signature, with no Supabase Auth round trip (lib/auth/route-user). */
+import { readerForRequest } from "@/lib/auth/route-user"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { rememberAppOpen, safeAppOpenPath } from "@/lib/account/app-open"
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (!path) return NextResponse.json({ error: "Bad request" }, { status: 400, headers: NO_STORE })
 
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") {
     return NextResponse.json({ error: "Could not reach Storelib. Check your connection and try again." }, { status: 503, headers: NO_STORE })
   }

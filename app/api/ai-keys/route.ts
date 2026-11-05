@@ -40,7 +40,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const creatorId = who.kind === "user" ? await routeCreatorId(who.user.id) : null
   if (creatorId === "unavailable") return authUnavailableResponse()
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   /* Asked fresh, with a ceiling: a 503 with Try again when Supabase Auth did not answer, never "sign in" (lib/auth/route-user). */
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const creatorId = who.kind === "user" ? await routeCreatorId(who.user.id) : null
   if (creatorId === "unavailable") return authUnavailableResponse()

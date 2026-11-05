@@ -147,10 +147,17 @@ export async function readCurrentUser(
     tokenFirst = false,
     /** The pause before retry `attempt` (1-based). Default: 200ms plus jitter, as before. */
     pauseMs = defaultPause,
-  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null; firstTryMs?: number; tokenFirst?: boolean; pauseMs?: (attempt: number) => number } = {},
+    /**
+     * Round 52: the token's signature is checked HERE FIRST, and Supabase
+     * Auth is asked only when it cannot be checked here (no secret, no
+     * public keys) or does not check out. Needs `fallbackClaims` (the
+     * Supabase URL). See readWithFallback below.
+     */
+    localFirst = false,
+  }: { timeoutMs?: number; retries?: number; fallbackClaims?: string | null; firstTryMs?: number; tokenFirst?: boolean; pauseMs?: (attempt: number) => number; localFirst?: boolean } = {},
 ): Promise<CurrentUser> {
   if ((fallbackClaims || tokenFirst) && typeof (supabase.auth as { getSession?: unknown }).getSession === "function") {
-    return readWithFallback(supabase, fallbackClaims, { timeoutMs, retries, firstTryMs, pauseMs })
+    return readWithFallback(supabase, fallbackClaims, { timeoutMs, retries, firstTryMs, pauseMs, localFirst })
   }
 
   let reason = "unknown"
@@ -210,11 +217,11 @@ async function readWithFallback(
   supabase: SupabaseClient,
   /** null: no local check, Auth alone answers (tokenFirst). */
   supabaseUrl: string | null,
-  { timeoutMs, retries, firstTryMs, pauseMs }: { timeoutMs: number; retries: number; firstTryMs: number; pauseMs: (attempt: number) => number },
+  { timeoutMs, retries, firstTryMs, pauseMs, localFirst = false }: { timeoutMs: number; retries: number; firstTryMs: number; pauseMs: (attempt: number) => number; localFirst?: boolean },
 ): Promise<CurrentUser> {
   const read = await getSessionBounded(supabase, timeoutMs)
   if (read.timedOut) return { user: null, state: "indeterminate", reason: "timed out" }
-  const { data: sessionData, error: sessionError } = read as { data: { session: { access_token?: string } | null }; error: unknown }
+  const { data: sessionData, error: sessionError } = read as { data: { session: { access_token?: string; user?: unknown } | null }; error: unknown }
   if (sessionError) {
     const verdict = classify(sessionError)
     if (verdict.signedOut) return { user: null, state: "anonymous" }
@@ -223,6 +230,21 @@ async function readWithFallback(
   const token = sessionData?.session?.access_token
   /* No token: what getUser() answers with AuthSessionMissingError. */
   if (!token) return { user: null, state: "anonymous" }
+  const sessionUser = sessionData?.session?.user
+
+  /*
+    ROUND 52: THE TOKEN'S OWN SIGNATURE FIRST. This is what Supabase calls
+    getClaims and what PostgREST does on every query: signature, expiry,
+    issuer, audience and role, here, with no request to Supabase Auth. A
+    token that checks out is the answer, whatever Auth is doing. One that
+    does not (expired, forged, another project's, or no key here to check
+    it with) goes to Auth below exactly as before, so nothing is let in on
+    a failed check and nobody is signed out by one either.
+  */
+  if (localFirst && supabaseUrl) {
+    const claims = await verifyAccessToken(token, supabaseUrl)
+    if (claims) return { user: userFromClaims(claims, sessionUser), state: "authenticated", verifiedBy: "claims" }
+  }
 
   const local = supabaseUrl ? await canVerifyLocally(supabaseUrl) : false
   const tries = local ? 0 : retries
@@ -245,7 +267,7 @@ async function readWithFallback(
 
   if (local && supabaseUrl) {
     const claims = await verifyAccessToken(token, supabaseUrl)
-    if (claims) return { user: userFromClaims(claims), state: "authenticated", verifiedBy: "claims", reason }
+    if (claims) return { user: userFromClaims(claims, sessionUser), state: "authenticated", verifiedBy: "claims", reason }
   }
   return { user: null, state: "indeterminate", reason }
 }

@@ -140,7 +140,7 @@ async function main() {
   console.log("\nEach Privacy switch is saved where it is read")
   {
     const route = readCode("app/api/account/preferences/route.ts")
-    check("the route asks who is signing in, and a blip is a 503, not a 401", /readCurrentUser/.test(route) && /state === "indeterminate"\) return unavailable\(\)/.test(route))
+    check("the route asks who is signing in, and a blip is a 503, not a 401", /readCurrentUser|readerForRequest/.test(route) /* Changed on purpose (r52): the request's read, the token's signature first */ && /state === "indeterminate"\) return unavailable\(\)/.test(route))
     check(
       "personalized recommendations: profiles column, on the person's own client",
       /supabase\.from\("profiles"\)\.update\(\{ personalized_recommendations: personalized \}\)\.eq\("id", user\.id\)/.test(route),

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { readCurrentUser } from "@/lib/auth/current-user"
+/* Round 52: the token's verified signature, with no Supabase Auth round trip (lib/auth/route-user). */
+import { readerForRequest } from "@/lib/auth/route-user"
 import { missingSchema, readNewsletter, writeNewsletter } from "@/lib/account/preferences"
 
 export const runtime = "nodejs"
@@ -41,7 +42,7 @@ function unavailable() {
 
 export async function GET() {
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") return unavailable()
   if (!current.user) return NextResponse.json({ error: "Sign in again to see this." }, { status: 401 })
 
@@ -76,7 +77,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") return unavailable()
   if (!current.user) return NextResponse.json({ error: "Your session ended. Sign in again to change this." }, { status: 401 })
   const user = current.user

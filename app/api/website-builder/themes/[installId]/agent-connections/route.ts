@@ -31,12 +31,13 @@ const BASE_COLUMNS = "id, name, prefix, created_at, last_used_at"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function ownInstall(installId: string) {
+/** `strict`: a key made or ended (round 52), so Supabase Auth itself must say who this is (lib/auth/route-user `fresh`). */
+async function ownInstall(installId: string, { strict = false }: { strict?: boolean } = {}) {
   /* Not a site id at all: no session lookup, no query, and no database
      error about a malformed uuid on its way back to the browser. */
   if (!UUID.test(installId)) return null
   /* Supabase Auth not answering is "Try again" (503), never "Not found" (lib/auth/route-user). */
-  const who = await routeUser()
+  const who = await routeUser({ fresh: strict })
   if (who.kind === "unavailable") return "unavailable" as const
   if (who.kind !== "user") return null
   const user = who.user
@@ -87,7 +88,7 @@ export async function GET(_req: Request, { params }: Params) {
 
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
-  const own = await ownInstall(installId)
+  const own = await ownInstall(installId, { strict: true })
   if (own === "unavailable") return authUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -154,7 +155,7 @@ export async function POST(req: Request, { params }: Params) {
 
 export async function DELETE(req: Request, { params }: Params) {
   const { installId } = await params
-  const own = await ownInstall(installId)
+  const own = await ownInstall(installId, { strict: true })
   if (own === "unavailable") return authUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const id = new URL(req.url).searchParams.get("id")

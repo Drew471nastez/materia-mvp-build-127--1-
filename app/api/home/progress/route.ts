@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { readCurrentUser } from "@/lib/auth/current-user"
+/* Round 52: the token's verified signature, with no Supabase Auth round trip (lib/auth/route-user). */
+import { readerForRequest } from "@/lib/auth/route-user"
 import { readProgressFacts } from "@/lib/home/progress-server"
 
 export const runtime = "nodejs"
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const current = await readCurrentUser(supabase)
+  const current = await readerForRequest()
   if (current.state === "indeterminate") {
     return NextResponse.json({ error: "Could not reach Storelib. Try again in a moment." }, { status: 503, headers: { "Cache-Control": "no-store" } })
   }
