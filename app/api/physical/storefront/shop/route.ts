@@ -37,6 +37,6 @@ export async function GET(request: Request) {
   const facts = await shopFacts(createAdminClient(), creatorId)
   return NextResponse.json(
     facts,
-    { headers: { "Cache-Control": owner ? "private, no-store" : "public, max-age=0, s-maxage=60, stale-while-revalidate=300" } },
+    { headers: { "Cache-Control": owner ? "private, no-store" : "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" } },
   )
 }

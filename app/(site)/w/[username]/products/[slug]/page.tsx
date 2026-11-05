@@ -34,7 +34,7 @@ import { jsonLdScript } from "@/lib/website-builder/site-seo"
  * and counts stock again itself (lib/checkout/pricing.ts), so a page a
  * minute old never sells something that is gone.
  */
-export const revalidate = 60
+export const revalidate = 3600
 
 /** Empty on purpose: it is what lets a product page be kept (see ../../page.tsx). */
 export function generateStaticParams() {

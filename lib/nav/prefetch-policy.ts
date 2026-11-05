@@ -177,6 +177,23 @@ function pathOf(href: string): string | null {
 }
 
 /**
+ * WHETHER A TAB'S PAGE IS WORTH READING BEFORE ANYBODY PRESSES IT (round 54).
+ * The buyer tab bar read every other tab's whole page as soon as it was up,
+ * for every visitor. For somebody not signed in that was the sign in page
+ * and the library (which sends them to sign in): measured on a production
+ * build, a stranger's Explore, community or product page asked the server
+ * for /login and /account/library before they touched anything, each a
+ * render no CDN may hold (an RSC request never is). A signed out visitor
+ * from a shared link almost never opens either, and when they do the press
+ * itself still reads it (prefetchHref "press" on the touch).
+ */
+export function worthReadingAhead(href: string, signedIn: boolean | null | undefined): boolean {
+  if (signedIn) return true
+  const path = href.split(/[?#]/)[0]
+  return !/^\/(?:login|signup|account)(?:\/|$)/.test(path)
+}
+
+/**
  * Read one page ahead, if the plan says this intent is worth it. A press
  * always reads (it is the page the person is about to see); the other
  * intents follow the tier. Returns whether a read was asked for.

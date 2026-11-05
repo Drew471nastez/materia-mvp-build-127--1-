@@ -49,7 +49,15 @@ const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /* (?:/|$), not $: inside the address's pattern a $ is the end of the whole path, and /p/<slug> would have passed as a handle "p". */
 const HANDLE_SEGMENT = RESERVED_FIRST_SEGMENTS ? `(?!(?:${RESERVED_FIRST_SEGMENTS.map(reEscape).join("|")})(?:/|$))[^/.]+` : null
 const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
-export const EDGE_PAGE = "public, s-maxage=60, stale-while-revalidate=300"
+/*
+ * FIVE MINUTES FRESH, A DAY SERVED STALE (round 54). It was a minute and five: a page nobody opened in the last six
+ * minutes was a MISS and a whole render, and most creator pages, product pages and OnePages are opened less often than
+ * that, so production saw a 35% CDN hit rate. Now a page anybody opened in the last day is answered at once from the
+ * CDN and drawn again behind that visitor, and a page in demand is drawn at most once every five minutes, not every
+ * minute. A save still takes the copy down at once by its tag (lib/storefront/creator-page-purge, lib/onepage/public-cache);
+ * the five minutes only bound what no tag names (a count, a review's stars). tests/cdn-r54 pins the lifetime.
+ */
+export const EDGE_PAGE = "public, s-maxage=300, stale-while-revalidate=86400"
 /* A OnePage's name as its one spelling (lowercase, lib/onepage/username isResolvableOnePageName), never a file the host answers (robots.txt, sitemap.xml). */
 const ONEPAGE_NAME_SEGMENT = "[a-z0-9](?:[a-z0-9_-]|\\.(?!(?:txt|xml|ico|png|jpe?g|svg|webp|webmanifest|json|js|css|map)$))*"
 const NEVER_HELD = [
@@ -427,6 +435,18 @@ const nextConfig = {
         has: [{ type: 'host', value: `(?:${STORELIB_HOSTS})` }],
         headers: [
           { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=7200' },
+        ],
+      },
+      {
+        /*
+          STORELIB'S TAB ICON (app/(storelib)/icon.png and apple-icon.png, round 54). Next names the file with a hash in
+          its query (/icon-1p7opv.png?icon.370c8acb.png) and sends it `max-age=0, must-revalidate`, so a phone browser
+          asked for it again on every page, three times on a creator page (scripts/check-cdn-r54.mjs). A new picture is a
+          new query, so a day in the browser and a week at the CDN are safe.
+        */
+        source: '/:icon(icon|apple-icon)-:hash([a-z0-9]+).png',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800' },
         ],
       },
       {

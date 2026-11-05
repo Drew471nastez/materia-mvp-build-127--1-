@@ -9,7 +9,7 @@ import { BlogPostPage, blogPostMetadata } from "../../blog-route"
  * post may take one as its slug (lib/site-blog/slug.ts RESERVED_POST_SLUGS).
  */
 /** Held a minute like every published page; a publish expires the blog and the site's pages (lib/site-blog/cache.ts). */
-export const revalidate = 60
+export const revalidate = 3600
 
 /** Every blog may be drawn on demand and then kept (see ../../../page.tsx). */
 export function generateStaticParams() {

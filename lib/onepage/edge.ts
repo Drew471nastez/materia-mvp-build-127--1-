@@ -32,7 +32,8 @@
  * not one name (robots, sitemaps, the canvas, the API calls the page makes).
  * Vercel's CDN stores only GET and HEAD.
  */
-export const ONEPAGE_EDGE = "public, s-maxage=60, stale-while-revalidate=300"
+/* Five minutes fresh and a day stale since round 54, as next.config.mjs EDGE_PAGE says why. A scheduled block still turns on time: ScheduleRefresh asks the server, never the CDN. */
+export const ONEPAGE_EDGE = "public, s-maxage=300, stale-while-revalidate=86400"
 
 /** The tag every CDN copy of a OnePage carries (next.config.mjs `onepage-:name`), by the name in its address, lower case. */
 export const onePageCdnTag = (name: string) => `onepage-${name.trim().toLowerCase()}`

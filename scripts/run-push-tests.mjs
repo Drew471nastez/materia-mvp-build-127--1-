@@ -1190,6 +1190,8 @@ const SUITES = [
   "tests/delivery-r51.test.ts",
   /* Round 53: an imported theme's page is one page for everybody, at the CDN under the site's tags (a cart or a sign in no longer keeps it private, only one without its readable hint), the visitor's sections, layout and owned notice filled in after load from a private answer, unknown query keys left out of the shared copy's address, the first big picture preloaded, limits on posts, private draws and shared misses; scripts/check-site-speed-r53.mjs measures a production build. */
   "tests/site-speed-r53.test.ts",
+  /* Round 54: how long the CDN and ISR hold a public page (five minutes fresh and a day stale at the CDN; a website's pages an hour, and every held read in their draw at least the shop's five minutes so the page keeps it; the names a site answers to expired by every change that moves one; the front page no longer sent a five minute stale window), and who gets a shared copy unchanged; scripts/check-cdn-r54.mjs measures a production build. */
+  "tests/cdn-r54.test.ts",
 ]
 
 /**

@@ -29,8 +29,8 @@ import "server-only"
 import { gunzipSync, gzipSync } from "node:zlib"
 import { unstable_cache } from "next/cache"
 
-/** How long a held page lasts when nothing clears it: the CDN rule's own minute. */
-export const STRANGER_HOLD_SECONDS = 60
+/** How long a held page lasts when nothing clears it: the CDN rule's own five minutes (./anonymous-cache.ts SHARED_PAGE_CDN, round 54). */
+export const STRANGER_HOLD_SECONDS = 300
 
 export interface DrawnPage {
   status: number

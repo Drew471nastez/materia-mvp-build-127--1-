@@ -21,6 +21,7 @@ import "server-only"
 import { uiTranslatables } from "./ui-words"
 import { checkoutTranslatables, emailTranslatables } from "./checkout-words"
 import { unstable_cache, revalidateTag } from "next/cache"
+import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageSections } from "@/lib/website-builder/preview-link"
 import { sectionSources } from "@/lib/website-builder/storefront-render"
@@ -447,7 +448,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
 export function cachedLocalization(creatorId: string, baseCurrency: string): Promise<Localization> {
   return unstable_cache(async () => (await localizationOf(createAdminClient(), creatorId, baseCurrency)).value, ["site-localization", creatorId, baseCurrency], {
     tags: [localizationTag(creatorId)],
-    revalidate: 300,
+    revalidate: PUBLISHED_HOLD_S,
   })()
 }
 
@@ -455,7 +456,7 @@ export function cachedLocalization(creatorId: string, baseCurrency: string): Pro
 export function cachedTranslations(creatorId: string, locale: string): Promise<TranslationRow[]> {
   return unstable_cache(async () => (await translationsOf(createAdminClient(), creatorId, locale)).rows, ["site-translations", creatorId, locale.toLowerCase()], {
     tags: [translationsTag(creatorId, locale)],
-    revalidate: 300,
+    revalidate: PUBLISHED_HOLD_S,
   })()
 }
 
@@ -488,7 +489,7 @@ export async function originalProductsOf(db: Db, creatorId: string): Promise<{ r
 export function cachedOriginalProducts(creatorId: string): Promise<string[]> {
   return unstable_cache(async () => (await originalProductsOf(createAdminClient(), creatorId)).ids, ["site-translation-originals", creatorId], {
     tags: [originalsTag(creatorId)],
-    revalidate: 300,
+    revalidate: PUBLISHED_HOLD_S,
   })()
 }
 

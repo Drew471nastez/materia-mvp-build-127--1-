@@ -5,7 +5,7 @@ import { renderSite, siteMetadata } from "../render-site"
 import { splitSiteName } from "@/lib/markets/site-name"
 
 /** Same reasoning as the home route: see the comment in ../page.tsx. */
-export const revalidate = 60
+export const revalidate = 3600
 
 /**
  * Empty on purpose, and it is what turns the cache on.

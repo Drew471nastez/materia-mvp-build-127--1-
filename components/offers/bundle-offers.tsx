@@ -21,6 +21,7 @@
  */
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import * as React from "react"
+import { sharedJson } from "@/lib/net/shared-read"
 import { useSellerMoney } from "@/components/platform/price-currency"
 import { Package, Plus } from "lucide-react"
 import type { CartLine } from "@/lib/website-builder/cart"
@@ -90,9 +91,8 @@ export function useProductOffers(productId: string | null | undefined, enabled =
     setData(null)
     if (!productId || !enabled) return
     let gone = false
-    /* One read for the three (lib/offers/offers-public.ts): its checkout offers are the upsells this page shows. */
-    fetch(`/api/offers?product=${encodeURIComponent(productId)}`)
-      .then((r) => (r.ok ? r.json() : null))
+    /* One read for the three (lib/offers/offers-public.ts): its checkout offers are the upsells this page shows. And one for every part of the page that asks (lib/net/shared-read.ts, round 54): the product page draws its buy box twice. */
+    sharedJson<{ bundles?: BundleCard[]; checkoutOffers?: UpsellCard[]; quantityBreaks?: BreakCard[]; product?: { personalized?: unknown; options?: unknown } }>(`/api/offers?product=${encodeURIComponent(productId)}`)
       .then((d: { bundles?: BundleCard[]; checkoutOffers?: UpsellCard[]; quantityBreaks?: BreakCard[]; product?: { personalized?: unknown; options?: unknown } } | null) => {
         const self = d?.product && typeof d.product === "object" ? { personalized: d.product.personalized === true, options: Number(d.product.options) || 0 } : undefined
         if (!gone) setData({ bundles: Array.isArray(d?.bundles) ? d!.bundles : [], upsells: Array.isArray(d?.checkoutOffers) ? d!.checkoutOffers : [], quantityBreaks: Array.isArray(d?.quantityBreaks) ? d!.quantityBreaks : [], ...(self ? { product: self } : {}) })

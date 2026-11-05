@@ -1137,7 +1137,7 @@ async function nativeFromRecord(request: NextRequest, name: string | null): Prom
   to.search = search
   const r = NextResponse.rewrite(to)
   r.headers.set("x-seller-subdomain", record.name)
-  if (pathname === "/") r.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
+  /* No Cache-Control of its own for `/` (round 54): the page's ISR header stands, as on every other page (SITE_FRONT_PAGE_OWN_HEADER below). */
   return r
 }
 
@@ -2127,10 +2127,15 @@ async function routeRequest(request: NextRequest) {
        * the two numbers have to be the same one or the front page and every
        * page under it go stale on different clocks.
        */
-      /* Not when the page is drawn in the visitor's market's currency: that answer is theirs, never a shared cache's. */
-      if (pathname === "/" && !(inLanguage?.kind === "page" && /~m-/.test(inLanguage.path))) {
-        rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
-      }
+      /*
+        SITE_FRONT_PAGE_OWN_HEADER, NO MORE (round 54). Since round 51 next.config's `/` rule names storelib.com's own
+        hosts, so it no longer reaches a website's `/` and nothing needs overriding. What this said instead,
+        `public, s-maxage=60, stale-while-revalidate=300`, was the one page of a website with a five minute stale
+        window: every other page carries Next's own ISR header (s-maxage the page's lifetime, stale for a year), so
+        the front page, the page visited most, was a whole draw for anybody who came six minutes after the last
+        visitor (scripts/check-cdn-r54.mjs: half its visits a MISS, against 8% for a product page). Now it is held
+        like the rest, and Publish and saves still expire it at once (lib/website-builder/published-site.ts).
+      */
       if (inLanguage?.kind === "page" && /~m-/.test(inLanguage.path)) rewritten.headers.set("Cache-Control", "private, no-cache")
       /* Let in with a pass: this answer is this visitor's, never one for a shared cache to hand on. */
       if (guarded) rewritten.headers.set("Cache-Control", "private, no-store")
@@ -2624,13 +2629,10 @@ async function routeRequest(request: NextRequest) {
       r.headers.set("x-seller-subdomain", seller)
       if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
       /*
-        A built website's homepage on a connected domain: the same rule as on
-        its subdomain (the long comment there). Without it, `/` took the
-        marketing landing page's `public, s-maxage=3600, stale-while-revalidate=7200`
-        from next.config, so a creator's front page on their own domain could
-        stay as it was for up to three hours after Publish.
+        A built website's homepage on a connected domain once said a minute here, because `/` took the marketing landing
+        page's hour from next.config. That rule names storelib.com's hosts since round 51, so since round 54 the page's
+        own ISR header stands, as on its subdomain (SITE_FRONT_PAGE_OWN_HEADER above).
       */
-      else if (builtSite && (pathname === "/" || pathname === "")) r.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
       if (guardedDomain) r.headers.set("Cache-Control", "private, no-store")
       /* Drawn in the visitor's market's currency: theirs alone (visitorMarket). */
       else if (/~m-/.test(rewritePath)) r.headers.set("Cache-Control", "private, no-cache")

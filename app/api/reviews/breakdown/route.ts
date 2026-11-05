@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
   }
   return NextResponse.json(
     { breakdown: summary.stars, count: summary.count, average: summary.average },
-    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=86400" } },
   )
 }

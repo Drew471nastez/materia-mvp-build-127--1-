@@ -7,7 +7,7 @@ import { siteMetadata } from "../render-site"
 import { renderAccountPage } from "../render-account"
 
 /** Reviews change as they come in; the shop's reviews are held a minute on their own (lib/reviews/storefront-server). */
-export const revalidate = 60
+export const revalidate = 3600
 
 interface PageProps {
   params: Promise<{ username: string }>

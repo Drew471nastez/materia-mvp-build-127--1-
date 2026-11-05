@@ -24,7 +24,7 @@ import { StoreTracking } from "@/components/website-builder/store-tracking"
  * no query string, no cookie. The front page's reasoning applies:
  * ../page.tsx.
  */
-export const revalidate = 60
+export const revalidate = 3600
 
 /** Every name may be drawn on demand and then kept (see ../page.tsx). */
 export function generateStaticParams() {

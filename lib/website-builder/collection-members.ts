@@ -14,12 +14,12 @@
  * database that blinked is never a held 404.
  */
 import { unstable_cache } from "next/cache"
+import { shopHoldSeconds } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productsInCollection } from "@/lib/physical/collections-server"
 import { creatorShopTag } from "@/lib/website-builder/published-site"
 
-/** As the shop: a price or a collection edited in the app is on the site within the minute. */
-const SHOP_TTL = 60
+/** As the shop (lib/delivery/holds.ts shopHoldSeconds): a collection saved in the app expires creatorShopTag at once. */
 
 class NoSuchCollection extends Error {}
 
@@ -29,5 +29,5 @@ export async function collectionMembers(creatorId: string, slug: string): Return
     if (!found) throw new NoSuchCollection(slug)
     return found
   }
-  return unstable_cache(read, ["collection-members", creatorId, slug], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })().catch(() => null)
+  return unstable_cache(read, ["collection-members", creatorId, slug], { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() })().catch(() => null)
 }

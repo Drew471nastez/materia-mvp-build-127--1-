@@ -6,7 +6,7 @@ import { blogsIndexTarget } from "./blog-route"
  * so the bare folder answers 308 to the site's blog, and 404 while the site
  * has none with a live post (./blog-route.tsx).
  */
-export const revalidate = 60
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return []

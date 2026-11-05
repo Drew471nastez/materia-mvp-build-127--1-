@@ -29,6 +29,6 @@ export async function GET(request: NextRequest) {
     reviewsCount: product.reviews_count || 0,
     reviewsAverage: product.reviews_average || 0,
   }, {
-    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=86400" },
   })
 }

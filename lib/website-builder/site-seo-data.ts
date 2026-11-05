@@ -8,6 +8,7 @@ import "server-only"
 import { offChannel } from "@/lib/store/channel-filter"
 import { cache } from "react"
 import { unstable_cache } from "next/cache"
+import { PUBLISHED_HOLD_S, shopHoldSeconds } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -63,7 +64,7 @@ const siteOriginOnce = cache(async function siteOriginOnce(creatorId: string, na
   /* Without a domain, the name the website was given, else the one it was reached by. */
   const handle = host
     ? null
-    : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: 300 })().catch(() => null)
+    : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: PUBLISHED_HOLD_S })().catch(() => null)
   const origin = host ?? `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
   const protocol = origin.includes("localhost") ? "http" : "https"
   return `${protocol}://${origin}`
@@ -94,7 +95,7 @@ export async function creatorAvatar(creatorId: string, knownUserId?: string | nu
     /* Tagged, so a photo changed in Settings clears this rather than
        sitting for five minutes (lib/commerce/product-page-cache creatorTag,
        cleared by /api/account/avatar and /api/account/profile-changed). */
-    { revalidate: 300, tags: [creatorTag(creatorId)] },
+    { revalidate: PUBLISHED_HOLD_S, tags: [creatorTag(creatorId)] },
   )()
 }
 
@@ -147,7 +148,7 @@ function productPage(creatorId: string, from: number): Promise<ListedProduct[]> 
       return ((data ?? []) as ListedProduct[]).map((p) => ({ ...p, gallery_urls: (p.gallery_urls ?? []).slice(0, LISTED_IMAGES) }))
     },
     ["site-seo-products", creatorId, String(from)],
-    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+    { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() },
   )()
 }
 
@@ -182,7 +183,7 @@ async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
       return [...off]
     },
     ["site-seo-off-channel", creatorId],
-    { tags: [creatorShopTag(creatorId)], revalidate: 600 },
+    { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() },
   )().catch(() => [] as string[])
   const off = new Set(offIds)
   /* Once each, should a product added mid read have moved a row onto the next page. */
@@ -263,7 +264,7 @@ async function pageTimes(creatorId: string, installId: string): Promise<{ publis
         return { publishedAt: ((install.data as { published_at?: string | null } | null)?.published_at ?? null) || null, pages }
       },
       ["site-seo-page-times", installId],
-      { tags: [creatorSiteTag(creatorId)], revalidate: 600 },
+      { tags: [creatorSiteTag(creatorId)], revalidate: PUBLISHED_HOLD_S },
     )()
   } catch {
     return { publishedAt: null, pages: {} }

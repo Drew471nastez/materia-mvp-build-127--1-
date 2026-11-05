@@ -47,6 +47,7 @@ import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { siteRead } from "@/lib/website-builder/site-read"
 import { cache } from "react"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
+import { PUBLISHED_HOLD_S, SHOP_HOLD_UNPINGED_S, shopHoldSeconds, siteNameTag } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
@@ -103,15 +104,27 @@ export const creatorSiteTag = (creatorId: string) => `published-site:${creatorId
 export const creatorShopTag = (creatorId: string) => `shop-products:${creatorId}`
 
 /** Held until Publish says otherwise; the hour is only a backstop. */
-const SITE_TTL = 3600
-/** The name map: short, because nothing announces a signup or a rename. */
-const NAME_TTL = 60
+const SITE_TTL = PUBLISHED_HOLD_S
 /**
- * The shop: short, for the same reason. A price is edited from the app's own
- * screens, straight to the database, with no route in between to tell this
- * cache about it.
+ * The name map, an hour (round 54). It was a minute "because nothing
+ * announces a signup or a rename", and that minute was every website page's
+ * lifetime too: Next shortens a page to its shortest held read
+ * (lib/delivery/holds.ts). Now each name is held under siteNameTag, and every
+ * change that moves a name says so: Publish and unpublish, the website's own
+ * address (app/api/website-address), a username or photo saved
+ * (lib/account/identity-caches) and a ban all run revalidatePublishedSite,
+ * which expires the tag of every name the site answers to. A name nobody
+ * has published under is only ever held as "missing", and its first Publish
+ * clears that.
  */
-const SHOP_TTL = 60
+const NAME_TTL = PUBLISHED_HOLD_S
+export { siteNameTag }
+/*
+ * The shop: shopHoldSeconds() (lib/delivery/holds.ts). An hour when the
+ * database pings on every product write, else five minutes, because then a
+ * sale's stock change is told to nobody. Every save from Storelib's own
+ * screens expires creatorShopTag at once either way (app/api/revalidate).
+ */
 
 export interface PublishedSite {
   creatorId: string
@@ -255,7 +268,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
 export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
   /* Named for the data cache by a fixed label, so the entry outlives a deploy and is served stale when a read fails (./last-good.ts). */
-  return unstable_cache(keyedAs("site-name:v1", () => lookUpName(lower)), ["site-name", lower], { revalidate: NAME_TTL })()
+  return unstable_cache(keyedAs("site-name:v1", () => lookUpName(lower)), ["site-name", lower], { tags: [siteNameTag(lower)], revalidate: NAME_TTL })()
 })
 
 /**
@@ -495,7 +508,7 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
  */
 export async function siteCatalogue(creatorId: string, opts: { cached: boolean } = { cached: true }): Promise<ProductCard[]> {
   /* Held: a failed read throws (never a held []), and every caller falls back to the products it already has. */
-  if (opts.cached) return unstable_cache(() => heldShopCatalogue(createAdminClient() as never, creatorId), ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+  if (opts.cached) return unstable_cache(() => heldShopCatalogue(createAdminClient() as never, creatorId), ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() })()
   return shopCatalogue(createAdminClient() as never, creatorId)
 }
 
@@ -587,7 +600,7 @@ export async function dressPage(
         ? unstable_cache(
             read,
             ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
-            { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
+            { tags: [creatorShopTag(site.creatorId)], revalidate: shopHoldSeconds() },
           )()
         : read()
       : Promise.resolve([] as ProductCard[]),
@@ -595,13 +608,13 @@ export async function dressPage(
     communityIds.length
       ? import("@/lib/communities/server/blocks").then(({ communityCardsFor }) => {
           const load = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
-          return opts.cached ? unstable_cache(load, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })() : load()
+          return opts.cached ? unstable_cache(load, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_HOLD_UNPINGED_S })() : load()
         }).catch(() => ({}))
       : Promise.resolve(undefined),
     pageWantsCollections(sections, schemaOf, sourceOf)
       ? import("@/lib/website-builder/storefront-collections-server").then(({ siteCollections }) => {
           const load = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
-          return opts.cached ? unstable_cache(load, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })() : load()
+          return opts.cached ? unstable_cache(load, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: shopHoldSeconds() })() : load()
         }).catch(() => undefined)
       : Promise.resolve(undefined),
     pageWantsReviews(sections, sourceOf)
@@ -623,7 +636,7 @@ export async function dressPage(
         : Promise.resolve(null),
     refs.ids.length || refs.slugs.length
       ? (opts.cached
-          ? unstable_cache(readDescriptions, ["picked-descriptions", site.creatorId, [...refs.ids].sort().join(","), [...refs.slugs].sort().join(",")], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
+          ? unstable_cache(readDescriptions, ["picked-descriptions", site.creatorId, [...refs.ids].sort().join(","), [...refs.slugs].sort().join(",")], { tags: [creatorShopTag(site.creatorId)], revalidate: shopHoldSeconds() })()
           : readDescriptions()
         ).catch(() => ({}) as Record<string, string>)
       : Promise.resolve({} as Record<string, string>),
@@ -786,7 +799,7 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
   const match = await creatorByName(lower)
 
   if (!match) {
-    const to = await unstable_cache(() => renamedTo(lower), ["site-renamed", lower], { revalidate: NAME_TTL })()
+    const to = await unstable_cache(() => renamedTo(lower), ["site-renamed", lower], { tags: [siteNameTag(lower)], revalidate: NAME_TTL })()
     return to ? { kind: "renamed", to } : { kind: "missing" }
   }
 
@@ -808,13 +821,13 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     unstable_cache(
       () => heldShopProducts(createAdminClient() as never, match.creatorId),
       ["shop-products", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+      { tags: [creatorShopTag(match.creatorId)], revalidate: shopHoldSeconds() },
     )(),
     /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
     unstable_cache(
       () => publishedProductCount(createAdminClient() as never, match.creatorId),
       ["shop-count", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+      { tags: [creatorShopTag(match.creatorId)], revalidate: shopHoldSeconds() },
     )(),
   ])
   /* Never an unhandled rejection when the site is not there to wait for it. */
@@ -884,7 +897,7 @@ export async function cachedShopProducts(creatorId: string): Promise<ProductCard
   return unstable_cache(
     () => heldShopProducts(createAdminClient() as never, creatorId),
     ["shop-products", creatorId],
-    { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL },
+    { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() },
   )()
 }
 
@@ -924,7 +937,11 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
    * `"layout"` rather than `"page"`: it takes the front page and every page
    * below it, which is what a publish changes.
    */
-  for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+  for (const name of await siteNames(creatorId)) {
+    /* The name's own lookup (siteNameTag), held an hour since round 54: a new address, a site taken down or put back is read again. */
+    revalidateTag(siteNameTag(name), { expire: 0 })
+    revalidatePath(`/w/${name}`, "layout")
+  }
   /* And the site's stored copies, asked again after the answer (lib/edge/snapshot-capture.ts): new pages kept, a taken down site's deleted. */
   refreshSiteSoon(creatorId)
 }
@@ -1047,10 +1064,10 @@ export async function ownerOf(
       ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
       : readProfile(),
     opts.cached
-      ? unstable_cache(() => heldShopProducts(createAdminClient() as never, creatorId), ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      ? unstable_cache(() => heldShopProducts(createAdminClient() as never, creatorId), ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() })()
       : readProducts(),
     opts.cached
-      ? unstable_cache(readCount, ["shop-count", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      ? unstable_cache(readCount, ["shop-count", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: shopHoldSeconds() })()
       : readCount(),
   ])
   const name = profile.name ?? ""

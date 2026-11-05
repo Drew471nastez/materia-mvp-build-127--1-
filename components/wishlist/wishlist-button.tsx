@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Heart, Loader2, ChevronRight, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { sharedJson } from "@/lib/net/shared-read"
 import { paintAs, tint } from "@/lib/appearance/site-paint"
 import { useSitePaint, useSitePaintOn } from "@/lib/appearance/site-paint-context"
 import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
@@ -56,12 +57,9 @@ export function WishlistButton({
   useEffect(() => {
     const checkWishlist = async () => {
       try {
-        const res = await fetch(`/api/wishlist/check?productId=${productId}`, {
-          credentials: "include",
-        })
-        
-        if (res.ok) {
-          const data = await res.json()
+        /* One read for both of the product page's buy boxes (lib/net/shared-read.ts, round 54). */
+        const data = await sharedJson<{ isWishlisted?: boolean; isLoggedIn?: boolean }>(`/api/wishlist/check?productId=${productId}`, { credentials: "include" })
+        if (data) {
           setIsWishlisted(data.isWishlisted || false)
           setUserLoggedIn(data.isLoggedIn || false)
         }

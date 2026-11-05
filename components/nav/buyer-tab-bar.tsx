@@ -92,7 +92,7 @@ import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere, useNativeShell, useSignedInKnown } from "@/lib/nav/use-buyer-tabs-where"
-import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { prefetchHref, prefetchOnIdle, worthReadingAhead } from "@/lib/nav/prefetch-policy"
 import { noteTabArrival, swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
@@ -722,22 +722,23 @@ function TabBar({
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
     /* Search and Create post are screens over the page, and inside a community Home is the shell's feed: nothing to fetch for any of them. Profile is the account page: read ahead. */
+    /* Never the sign in page or the library for somebody signed out, until they press it (worthReadingAhead, round 54). */
     const hrefs = tabs.flatMap((tab, i) =>
       tab.key === "search" || tab.key === "compose" || i === current || (navHere && tab.key === "home") ? [] : [hrefOf(i)],
-    )
+    ).filter((href) => worthReadingAhead(href, signedIn))
     /* The page you are about to open, whole, as soon as this bar is up.
        Idle-only reads were still in flight when Home or Profile was tapped,
        so the router fetched again and the spinner sat on a blank page. */
     for (const href of hrefs) prefetchHref(router, href, "press")
     return prefetchOnIdle(router, hrefs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefetchKey, current, router, !!navHere])
+  }, [prefetchKey, current, router, !!navHere, signedIn])
 
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
     const hrefs = tabs.flatMap((tab, i) =>
       tab.key === "search" || tab.key === "compose" || i === current || (navHere && tab.key === "home") ? [] : [hrefOf(i)],
-    )
+    ).filter((href) => worthReadingAhead(href, signedIn))
     /*
       AND THE PROFILE'S COVER, DECODED AND KEPT (round 18, components/account/cover-warm.ts): the account page then draws it
       whole on its first frame instead of fading it in over a grey band. Once the page has settled, never in its way.

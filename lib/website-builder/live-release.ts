@@ -25,13 +25,14 @@
  */
 import "server-only"
 import { unstable_cache } from "next/cache"
+import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorSiteTag } from "@/lib/website-builder/published-site"
 import { releasesKnownMissing, releasesMissing } from "@/lib/website-builder/site-releases-server"
 import { sha256Hex } from "@/lib/website-builder/site-releases"
 
-/** How long what is live is held when nothing clears it: the release pointer's own minute (site-releases-server.ts POINTER_HOLD_S). */
-const LIVE_HOLD_S = 60
+/** How long what is live is held when nothing clears it: the release pointer's own hold (site-releases-server.ts POINTER_HOLD_S). Publish expires it at once. */
+const LIVE_HOLD_S = PUBLISHED_HOLD_S
 
 export interface LiveSite {
   /** What is live, as the marker a page carries. */

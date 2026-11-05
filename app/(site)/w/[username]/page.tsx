@@ -20,12 +20,15 @@ import { renderSite, siteMetadata } from "./render-site"
  * button, no owner menu, no follow state. Two strangers get the same bytes,
  * so the page is rendered once and reused.
  *
- * A MINUTE, said plainly: publish and a new visitor sees it within 60
- * seconds — less, because publishing purges this page as well as the data
- * under it. Inside that window one visitor may be served the previous
- * version while the new one is fetched behind them. Checking work in
- * progress is immediate either way, because the preview address is never
- * cached.
+ * AN HOUR, AS A BACKSTOP (round 54, lib/delivery/holds.ts). It was a
+ * minute, and in production that was 85K ISR revalidations in 12 hours
+ * against 11K reads: every page drawn and written again each minute
+ * somebody opened it. Publish, a save and the database's own pings expire
+ * this page and the data under it at once, so nothing waits for the hour.
+ * Next keeps the shortest lifetime of any held read in the draw, so the
+ * shop's reads make it five minutes when the database cannot ping
+ * (shopHoldSeconds). Checking work in progress is immediate either way,
+ * because the preview address is never cached.
  *
  * THE ONE LINE THAT WOULD TURN THE DATA CACHE OFF WITHOUT SAYING SO, kept
  * here because it still applies: Next's `unstable_cache` gates on
@@ -36,7 +39,7 @@ import { renderSite, siteMetadata } from "./render-site"
  * export here would silently put every visitor back on eight database round
  * trips; a test refuses it.
  */
-export const revalidate = 60
+export const revalidate = 3600
 
 /**
  * Empty on purpose, and it is what turns the cache on.

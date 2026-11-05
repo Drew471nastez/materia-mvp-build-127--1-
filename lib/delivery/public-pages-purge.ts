@@ -23,6 +23,7 @@ import "server-only"
  */
 import { revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { siteNameTag } from "@/lib/delivery/holds"
 
 export interface PublicNames {
   creatorId: string | null
@@ -93,6 +94,8 @@ export async function publicPagesChanged(who: PublicNames, deps?: PublicPurgeDep
     const { creatorBanTag, spamStateTag } = await import("@/lib/seo/ban-tags")
     if (who.creatorId) d.expire(creatorBanTag(who.creatorId))
     if (who.userId) d.expire(spamStateTag(who.userId))
+    /* Each name's website lookup, held an hour since round 54: read before a deletion, so a deleted account's names are found here even when the rows are gone. */
+    for (const name of who.names) d.expire(siteNameTag(name))
     /* The verdict first, so the redraw each purge below causes reads the new one. */
     await Promise.all([
       d.creatorPages({ creatorId: who.creatorId, userId: who.userId, handles: who.names }).catch(() => undefined),

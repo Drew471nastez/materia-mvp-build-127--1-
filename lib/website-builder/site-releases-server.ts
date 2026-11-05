@@ -39,6 +39,7 @@
  * job that can take a lock, not in a publish.
  */
 import { unstable_cache } from "next/cache"
+import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { keyedAs } from "./last-good"
 import { blobGroups, buildManifest, filesOf, readManifest, releaseList, RELEASES_KEPT, rollbackFailure, sha256Hex, type ReleaseListItem, type ReleaseManifest, type ReleasePage, type RollbackFailure } from "./site-releases"
@@ -67,8 +68,8 @@ export function resetReleasesMissing() {
   missingUntil = 0
 }
 
-/** How long the pointer is held. A publish clears it at once through the site's tag; an edit outside Publish is seen within this. */
-export const POINTER_HOLD_S = 60
+/** How long the pointer is held. Only Publish, a restore and an unpublish move it, and each clears it at once through the site's tag (round 54: an hour, lib/delivery/holds.ts). */
+export const POINTER_HOLD_S = PUBLISHED_HOLD_S
 
 export interface LivePointer {
   installId: string

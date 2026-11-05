@@ -84,7 +84,8 @@
  * wait, and a change no tag names (a review approved, an offer that ended)
  * shows within a minute and one visit. Writes purge it by tag at once.
  */
-export const SHARED_PAGE_CDN = "public, s-maxage=60, stale-while-revalidate=86400"
+/* Five minutes fresh since round 54 (a minute before): a page in demand is drawn twelve times an hour, not sixty. The hold beside it (./stranger-hold.ts) keeps the same five minutes. */
+export const SHARED_PAGE_CDN = "public, s-maxage=300, stale-while-revalidate=86400"
 
 /** What a stranger's page is sent with: what every page of a theme says (./site.ts pageHtml), which keeps Back and Forward instant and no shared cache holds. */
 export const PUBLIC_PAGE_CACHE = "private, no-cache"

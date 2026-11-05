@@ -12,7 +12,7 @@ import { ShopPage, shopMetadata } from "./shop-page"
  * proxy sends an address that asks for a filter, a sort or a page to
  * ./~list/page.tsx, drawn per request (lib/website-builder/held-list.ts).
  */
-export const revalidate = 60
+export const revalidate = 3600
 
 /** Every name may be drawn on demand and then kept (see ../page.tsx). */
 export function generateStaticParams() {

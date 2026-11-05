@@ -21,6 +21,7 @@ import "server-only"
 import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
 import { cache } from "react"
 import { unstable_cache } from "next/cache"
+import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { textFieldsFrom } from "@/lib/website-builder/custom-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -152,7 +153,7 @@ export async function marketPricing(creatorId: string, marketId: string | null |
 const LANGUAGES_SHAPE = "v2-home-country"
 /* Once per request (React's cache): the page, its metadata and the localizer all ask, side by side. */
 export const siteLanguages = cache(function siteLanguages(creatorId: string): Promise<SiteLanguages> {
-  return unstable_cache(() => readLanguages(creatorId), ["site-languages", LANGUAGES_SHAPE, creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
+  return unstable_cache(() => readLanguages(creatorId), ["site-languages", LANGUAGES_SHAPE, creatorId], { tags: [localizationTag(creatorId)], revalidate: PUBLISHED_HOLD_S })().catch(() => NONE)
 })
 
 const PRODUCT_FIELDS = ["title", "description", "seo_title", "seo_description"] as const

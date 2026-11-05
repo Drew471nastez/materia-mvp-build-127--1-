@@ -3,7 +3,7 @@ import { BlogListPage, blogListMetadata } from "../../../blog-route"
 
 /** Page n of the blog, /blogs/<handle>/page/<n>: its own canonical, and /page/1 is 308 to the blog. Drawn by blogs/blog-route.tsx. */
 /** Held a minute like every published page; a publish expires the blog and the site's pages (lib/site-blog/cache.ts). */
-export const revalidate = 60
+export const revalidate = 3600
 
 /** Every blog may be drawn on demand and then kept (see ../../../../page.tsx). */
 export function generateStaticParams() {
