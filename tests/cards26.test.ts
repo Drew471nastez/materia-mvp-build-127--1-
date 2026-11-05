@@ -175,7 +175,22 @@ async function main() {
     const pro = await communityRoom(db, CREATOR, "pro")
     check("Pro has no limit", pro.ok && pro.limit.max === null)
 
-    const list = await loadCreatorCommunities(db, CREATOR, OWNER)
+    /* Changed on purpose (r53): the list reads the real clock, and the owner's example date (November 5) has arrived, so the list is read as on October 16. */
+    const RealDate = Date
+    class FixedDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date> | []) {
+        if (args.length === 0) super(NOW)
+        else super(...(args as ConstructorParameters<typeof Date>))
+      }
+      static now() { return NOW }
+    }
+    globalThis.Date = FixedDate as DateConstructor
+    let list: Awaited<ReturnType<typeof loadCreatorCommunities>>
+    try {
+      list = await loadCreatorCommunities(db, CREATOR, OWNER)
+    } finally {
+      globalThis.Date = RealDate
+    }
     const leaving = list.rows.find((r) => r.id === LEAVING)
     const kept = list.rows.find((r) => r.id === KEEP_ID)
     check("the list still shows the one being deleted, with its date", list.available && !!leaving?.deleting && leaving.deleting.deleteAt === NOV5 && leaving.deleting.canKeep === true && leaving.archived === true, leaving)
