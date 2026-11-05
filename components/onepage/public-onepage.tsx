@@ -2196,7 +2196,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
           {/* Modal */}
           <div
-            className="op-sheet relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
+            className="op-sheet relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90dvh] sm:max-h-[85dvh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {quickCheckoutBody(quickCheckoutModalData)}
@@ -2232,7 +2232,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={closePdfModal}
         >
           <div
-            className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+            className="relative w-full h-full sm:h-auto sm:max-h-[90dvh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {pdfBody(pdfModalData, { onClick: closePdfModal })}

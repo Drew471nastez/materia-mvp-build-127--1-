@@ -111,10 +111,13 @@ for (const theme of ["default", "midnight"]) {
     await sleep(700)
     const step = await p.evaluate(() => {
       const s = (window.__R || document).querySelector("[data-product-sheet-gallery] .snap-x")
-      const dots = [...(window.__R || document).querySelectorAll("[data-product-sheet-dots] span")].map((d) => Math.round(d.getBoundingClientRect().width))
+      /* Changed on purpose (r53): the lit dot is one that rides the scroll (data-product-sheet-dot-on), not a wider bar: which dot it stands over. */
+      const row = [...(window.__R || document).querySelectorAll("[data-product-sheet-dots] span:not([data-product-sheet-dot-on])")].map((d) => d.getBoundingClientRect())
+      const on = (window.__R || document).querySelector("[data-product-sheet-dot-on]")?.getBoundingClientRect()
+      const dots = row.map((r) => (on && Math.abs(r.left - on.left) < 1 ? 1 : 0))
       return { at: Math.round(s.scrollLeft / s.clientWidth), dots, current: [...(window.__R || document).querySelectorAll("[data-product-sheet-thumbs] button")].findIndex((b) => b.getAttribute("aria-current") === "true") }
     })
-    expect(step.at === 1 && step.dots[1] === 16 && step.current === 1, w === 1280 ? "Next goes to the second picture; its dot and thumbnail follow" : "a swipe goes to the second picture; its dot and thumbnail follow", step)
+    expect(step.at === 1 && step.dots.join() === "0,1,0,0,0" && step.current === 1, w === 1280 ? "Next goes to the second picture; its dot and thumbnail follow" : "a swipe goes to the second picture; its dot and thumbnail follow", step)
 
     /* Sand: its picture, and M crossed out (Sand / M is sold out). */
     await click(p, '[data-product-sheet-value="Sand"]')

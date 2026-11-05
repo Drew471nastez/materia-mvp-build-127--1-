@@ -58,7 +58,7 @@
  * words, options and button on the right.
  */
 import * as React from "react"
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Plus, Ruler } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pause, Play, Plus, Ruler } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -69,7 +69,10 @@ import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartBody, SizeChartPanel } from "@/components/product/size-chart-panel"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { choose, pickerOptions, valueAvailable, variantFor, type ProductOptionData } from "@/lib/products/product-page-model"
-import { isSizeOption, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
+import { DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, dotPosition, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
+import { mediaOf, type MediaEntry } from "@/lib/media/video"
+import { firstFrameSrc, prefersStill } from "@/lib/onepage/poster-video"
+import { ProductLightbox, preloadLightboxPlayer } from "./product-lightbox"
 import { PersonalizationFields, usePersonalization } from "@/components/personalization/personalization-fields"
 import { filledAnswers } from "@/lib/products/personalization"
 import type { SizeChart } from "@/lib/size-charts/model"
@@ -257,7 +260,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   const gallery = images.length ? (
     /* Inside the sheet, with room above and its own corners: the handle sits alone on the sheet over it. */
     <div className={twoColumns ? "min-h-0 p-5 pr-0" : "px-4 pt-2 sm:px-5 sm:pt-5"}>
-      <Gallery images={images} title={title} phone={phone} focus={focusImage} tall={twoColumns} />
+      <Gallery images={images} title={title} phone={phone} focus={focusImage} tall={twoColumns} active={open} />
     </div>
   ) : null
 
@@ -394,7 +397,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         Round 43: on a computer, two columns when there are pictures: they on the left, the rest on the right.
       */
       className={cn(
-        "op-sheet flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden rounded-[20px] border-[#ececf1] bg-white p-0 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/90 [&>[data-slot=dialog-close]]:p-1.5",
+        "op-sheet flex max-h-[min(90dvh,820px)] flex-col gap-0 overflow-hidden rounded-[20px] border-[#ececf1] bg-white p-0 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/90 [&>[data-slot=dialog-close]]:p-1.5",
         twoColumns ? "sm:max-w-[920px]" : "sm:max-w-[560px]",
       )}
       /* Kept built once the block is seen (keepMounted): opening is a transform, never a render of the whole product on the tap. */
@@ -539,32 +542,126 @@ function OptionRow({
   )
 }
 
-/* ── The pictures ──────────────────────────────────────────────────────── */
+/* ── The pictures and videos ───────────────────────────────────────────── */
 
 /**
  * Swiped on a phone (scroll snap), stepped with arrows and the arrow keys on a computer; with two or more, dots on
  * a dark capsule over them and a row of thumbnails under them. `focus` is a picture to go to (a variant's own).
+ *
+ * ROUND 53, the owner: "the dots glitch and flash on phones", "the arrows are hidden or badly coloured", "a bit
+ * taller", "a proper image and video player".
+ *
+ *   DOTS      the lit dot is moved with the scroll itself, in every frame (its `translate` written from the scroll
+ *             position, no render): it follows the thumb and lands with the snap. It was a bar that jumped from one
+ *             dot to the next when the scroll crossed half way, its width animated over 300ms behind the finger,
+ *             and a step by an arrow or a thumbnail moved it at once while the picture took its time.
+ *   SLIDES    keyed by their place, not their address: when the product's own pictures arrive over the block's,
+ *             the same <img> takes the new address, and a browser keeps the old picture until the new one is
+ *             decoded, so no frame is empty. The dots fade in when they arrive (starting style), never pop.
+ *   STEPS     an arrow or a thumbnail scrolls to its slide; the slide index moves at once and the scroll's own
+ *             positions on the way are not read back as steps.
+ *   ARROWS    the sheet's own surface and ink (the page's theme), with a hairline, so they read on a white photo
+ *             and on a dark sheet; dimmed at the ends rather than gone.
+ *   RATIO     4:5 on a phone, square in its column (lib/onepage/product-sheet mediaFit: filled when that cuts
+ *             little, whole otherwise).
+ *   VIDEO     a video in the product's gallery (products.gallery_urls, lib/media/video) is a video: muted, inline
+ *             and looping, from its stored first frame, playing while it is the one shown and the sheet is up,
+ *             with a play and pause button; never by itself with reduced motion or Save Data. A tap on any slide
+ *             opens it full screen (./product-lightbox), where a video plays in Storelib's own player.
  */
-function Gallery({ images, title, phone, focus = -1, tall = false }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean }) {
-  const ref = React.useRef<HTMLDivElement>(null)
+function Gallery({ images, title, phone, focus = -1, tall = false, active = true }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean; active?: boolean }) {
+  const media = React.useMemo(() => mediaOf(images), [images])
+  const count = media.length
+  const ratio = tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO
+  const strip = React.useRef<HTMLDivElement>(null)
+  const lit = React.useRef<HTMLSpanElement>(null)
   const thumbs = React.useRef<HTMLDivElement>(null)
   const [at, setAt] = React.useState(0)
-  const many = images.length > 1
+  const atRef = React.useRef(0)
+  /* The slide an arrow or a thumbnail is scrolling to: the scroll's positions on the way there are not steps. */
+  const heading = React.useRef<number | null>(null)
+  const [lightbox, setLightbox] = React.useState<number | null>(null)
+  const ratios = React.useRef<Record<number, number>>({})
+  const many = count > 1
+  const hasVideo = media.some((m) => m.type === "video")
+
+  const settle = React.useCallback((n: number) => {
+    if (n === atRef.current) return
+    atRef.current = n
+    setAt(n)
+  }, [])
+
+  /* The lit dot to the scroll, written straight to its style: once per scroll event, no render. */
+  const track = React.useCallback(() => {
+    const el = strip.current
+    if (!el) return
+    const pos = dotPosition(el.scrollLeft, el.clientWidth, count)
+    if (lit.current) lit.current.style.translate = `${pos * DOT_STEP_PX}px 0`
+    if (heading.current !== null) {
+      if (Math.abs(pos - heading.current) > 0.01) return
+      heading.current = null
+    }
+    settle(Math.round(pos))
+  }, [count, settle])
+
   const go = React.useCallback(
     (i: number, smooth = true) => {
-      const el = ref.current
+      const el = strip.current
       if (!el) return
-      const n = Math.max(0, Math.min(images.length - 1, i))
+      const n = Math.max(0, Math.min(count - 1, i))
+      heading.current = smooth ? n : null
       el.scrollTo({ left: n * el.clientWidth, behavior: smooth ? "smooth" : "auto" })
-      setAt(n)
+      settle(n)
+      if (!smooth) track()
+      /* Where scrollend is not heard: the step lets go once a smooth scroll has surely finished. */
+      else
+        window.setTimeout(() => {
+          if (heading.current !== n) return
+          heading.current = null
+          track()
+        }, 900)
     },
-    [images.length],
+    [count, settle, track],
   )
-  /* A variant chosen with a picture of its own: to it. */
+
+  /* A finger or a wheel takes over from a step on its way; the end of any scroll reads where it stopped. */
   React.useEffect(() => {
-    if (focus >= 0) go(focus)
-  }, [focus, go])
-  /* The thumbnail of the picture shown stays in view in its row. */
+    const el = strip.current
+    if (!el) return
+    const takeOver = () => {
+      heading.current = null
+    }
+    const ended = () => {
+      heading.current = null
+      track()
+    }
+    el.addEventListener("pointerdown", takeOver, { passive: true })
+    el.addEventListener("touchstart", takeOver, { passive: true })
+    el.addEventListener("wheel", takeOver, { passive: true })
+    el.addEventListener("scrollend", ended)
+    return () => {
+      el.removeEventListener("pointerdown", takeOver)
+      el.removeEventListener("touchstart", takeOver)
+      el.removeEventListener("wheel", takeOver)
+      el.removeEventListener("scrollend", ended)
+    }
+  }, [track, many])
+
+  /* The dot where the strip is, before the first paint and whenever the count changes. */
+  React.useLayoutEffect(() => {
+    track()
+  }, [track])
+
+  /* A variant chosen with a picture of its own: to it. The first time without moving (the sheet is opening). */
+  const focused = React.useRef(false)
+  React.useEffect(() => {
+    if (focus < 0) return
+    go(focus, focused.current)
+    focused.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, count])
+
+  /* The thumbnail of the slide shown stays in view in its row. */
   React.useEffect(() => {
     const row = thumbs.current
     const t = row?.children[at] as HTMLElement | undefined
@@ -572,14 +669,25 @@ function Gallery({ images, title, phone, focus = -1, tall = false }: { images: s
     const left = t.offsetLeft - (row.clientWidth - t.offsetWidth) / 2
     row.scrollTo({ left: Math.max(0, left), behavior: "smooth" })
   }, [at])
-  if (!images.length) return null
+
+  /* The full player's file, asked for while the page is idle when there is a video to play in it. */
+  React.useEffect(() => {
+    if (!hasVideo || !active) return
+    const w = window as Window & { requestIdleCallback?: (f: () => void) => number; cancelIdleCallback?: (id: number) => void }
+    const id = w.requestIdleCallback ? w.requestIdleCallback(preloadLightboxPlayer) : window.setTimeout(preloadLightboxPlayer, 1500)
+    return () => (w.cancelIdleCallback ? w.cancelIdleCallback(id) : window.clearTimeout(id))
+  }, [hasVideo, active])
+
+  if (!count) return null
+  const fitOf = (w: number, h: number) => mediaFit(w, h, ratio)
+
   return (
-    <div data-product-sheet-gallery="" data-count={images.length}>
+    <div data-product-sheet-gallery="" data-count={count}>
       <div
-        className="group/gal relative overflow-hidden rounded-2xl bg-[#f4f4f6] [contain:paint]"
+        className={cn("relative isolate overflow-hidden rounded-2xl bg-[#f4f4f6]", tall ? "aspect-square" : "aspect-[4/5]")}
         tabIndex={many && !phone ? 0 : undefined}
         aria-roledescription={many ? "carousel" : undefined}
-        aria-label={many ? `${title}, picture ${at + 1} of ${images.length}` : undefined}
+        aria-label={many ? `${title}, ${at + 1} of ${count}` : undefined}
         onKeyDown={(e) => {
           if (!many) return
           if (e.key === "ArrowRight") {
@@ -592,37 +700,68 @@ function Gallery({ images, title, phone, focus = -1, tall = false }: { images: s
         }}
       >
         <div
-          ref={ref}
+          ref={strip}
           data-sheet-no-drag={many ? "" : undefined}
-          onScroll={(e) => {
-            const el = e.currentTarget
-            const n = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
-            if (n !== at) setAt(n)
-          }}
-          className={cn("flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", tall ? "aspect-square" : "aspect-[4/3]")}
+          data-product-sheet-strip=""
+          onScroll={track}
+          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {images.map((src, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={src} src={src} alt={i === 0 ? title : ""} className="h-full w-full shrink-0 snap-center snap-always object-cover" loading={i === 0 ? "eager" : "lazy"} decoding="async" draggable={false} />
-          ))}
+          {media.map((m, i) =>
+            m.type === "video" ? (
+              <SlideVideo
+                key={i}
+                entry={m}
+                label={`${title}, video`}
+                near={Math.abs(i - at) <= 1}
+                shown={i === at && active && lightbox === null}
+                fitOf={fitOf}
+                onRatio={(r) => (ratios.current[i] = r)}
+                onOpen={() => setLightbox(i)}
+              />
+            ) : (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightbox(i)}
+                aria-label={many ? `${i + 1} of ${count}, full screen` : "Full screen"}
+                className="relative block h-full w-full shrink-0 snap-center snap-always cursor-zoom-in outline-none [-webkit-tap-highlight-color:transparent]"
+                data-product-sheet-expand=""
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={m.url}
+                  alt={i === 0 ? title : ""}
+                  className="h-full w-full object-cover"
+                  loading={i === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  draggable={false}
+                  onLoad={(e) => {
+                    const img = e.currentTarget
+                    img.style.objectFit = fitOf(img.naturalWidth, img.naturalHeight)
+                  }}
+                />
+              </button>
+            ),
+          )}
         </div>
         {many ? (
           <>
-            {/* On a dark capsule, so the dots read on a white photo as on a dark one; the one shown is a short bar. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center" data-product-sheet-dots="">
-              <div className="flex items-center gap-[5px] rounded-full bg-black/35 px-2 py-[5px]">
-                {images.map((_, i) => (
-                  <span key={i} className={cn("block h-[6px] rounded-full bg-white transition-[width,opacity] duration-300", EASE, i === at ? "w-4 opacity-100" : "w-[6px] opacity-60")} />
+            {/* On a dark capsule, so the dots read on a white photo as on a dark one; the lit one rides the scroll. */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center transition-opacity duration-200 ease-out starting:opacity-0" data-product-sheet-dots="">
+              <div className="relative flex items-center gap-[6px] rounded-full bg-black/35 px-2 py-[5px]">
+                {media.map((_, i) => (
+                  <span key={i} className="block h-[6px] w-[6px] rounded-full bg-white/45" />
                 ))}
+                <span ref={lit} aria-hidden className="absolute left-2 top-[5px] block h-[6px] w-[6px] rounded-full bg-white [will-change:translate]" data-product-sheet-dot-on="" />
               </div>
             </div>
             {!phone ? (
               <>
-                <button type="button" aria-label="Previous picture" onClick={() => go(at - 1)} disabled={at === 0} className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#111113] shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-[opacity,scale] duration-150 hover:scale-105 disabled:pointer-events-none disabled:opacity-0" data-product-sheet-prev="">
-                  <ChevronLeft className="h-5 w-5" />
+                <button type="button" aria-label="Previous" onClick={() => go(at - 1)} disabled={at === 0} className={cn(ARROW, "left-3")} data-product-sheet-prev="">
+                  <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2.25} />
                 </button>
-                <button type="button" aria-label="Next picture" onClick={() => go(at + 1)} disabled={at === images.length - 1} className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#111113] shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-[opacity,scale] duration-150 hover:scale-105 disabled:pointer-events-none disabled:opacity-0" data-product-sheet-next="">
-                  <ChevronRight className="h-5 w-5" />
+                <button type="button" aria-label="Next" onClick={() => go(at + 1)} disabled={at === count - 1} className={cn(ARROW, "right-3")} data-product-sheet-next="">
+                  <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2.25} />
                 </button>
               </>
             ) : null}
@@ -631,22 +770,127 @@ function Gallery({ images, title, phone, focus = -1, tall = false }: { images: s
       </div>
       {many ? (
         <div ref={thumbs} className="mt-2.5 flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
-          {images.map((src, i) => (
-            <button
-              key={src}
-              type="button"
-              aria-label={`Picture ${i + 1}`}
-              aria-current={i === at ? "true" : undefined}
-              onClick={() => go(i)}
-              className={cn("relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/30 sm:h-16 sm:w-16", i === at ? "opacity-100" : "opacity-55 hover:opacity-85")}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" draggable={false} />
-              <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-[10px] transition-shadow duration-200", i === at ? "shadow-[inset_0_0_0_2px_var(--opk-ink,#111113)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]")} />
-            </button>
-          ))}
+          {media.map((m, i) => {
+            const still = m.type === "video" ? m.poster : m.url
+            return (
+              <button
+                key={i}
+                type="button"
+                aria-label={m.type === "video" ? `Video ${i + 1}` : `Picture ${i + 1}`}
+                aria-current={i === at ? "true" : undefined}
+                onClick={() => go(i)}
+                className={cn("relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/30 sm:h-16 sm:w-16", i === at ? "opacity-100" : "opacity-55 hover:opacity-85")}
+              >
+                {still ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={still} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" draggable={false} />
+                ) : null}
+                {m.type === "video" ? (
+                  <span aria-hidden className="absolute inset-0 grid place-items-center" data-product-sheet-thumb-video="">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-white">
+                      <Play className="ml-px h-3 w-3 fill-current" />
+                    </span>
+                  </span>
+                ) : null}
+                <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-[10px] transition-shadow duration-200", i === at ? "shadow-[inset_0_0_0_2px_var(--opk-ink,#111113)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]")} />
+              </button>
+            )
+          })}
         </div>
       ) : null}
+      <ProductLightbox media={media} title={title} index={lightbox} ratios={ratios.current} onClose={(i) => {
+        setLightbox(null)
+        go(i, false)
+      }} />
+    </div>
+  )
+}
+
+/**
+ * The sheet's arrows: its own surface and ink (lib/onepage/sheet-theme, the page's colours), not a white disc whose
+ * chevron took the ink, which on a dark sheet is white: white on white. A hairline and a soft shadow keep the disc
+ * apart from a photo of its own colour. Only opacity and scale move.
+ */
+const ARROW =
+  "absolute top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-[var(--opk-surface,#ffffff)]/92 text-[color:var(--opk-ink,#111113)] shadow-[0_1px_3px_rgba(0,0,0,0.16),0_0_0_1px_rgba(0,0,0,0.06)] outline-none transition-[opacity,scale] duration-150 ease-out hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-[color:var(--opk-ink,#111113)]/40 disabled:pointer-events-none disabled:opacity-35"
+
+/**
+ * One video in the gallery: its stored first frame, the video over it once it plays (opacity only), and its button.
+ * It plays while it is the one shown and the sheet is up, muted and inline, and waits otherwise. Reduced motion or
+ * Save Data: it waits for its button. A refused play() (iOS Low Power Mode) leaves it on its frame with the button.
+ */
+function SlideVideo({ entry, label, near, shown, fitOf, onRatio, onOpen }: { entry: Extract<MediaEntry, { type: "video" }>; label: string; near: boolean; shown: boolean; fitOf: (w: number, h: number) => "cover" | "contain"; onRatio: (r: number) => void; onOpen: () => void }) {
+  const ref = React.useRef<HTMLVideoElement>(null)
+  /* Paused by the buyer, or by reduced motion and Save Data until the button is pressed. */
+  const [held, setHeld] = React.useState(() => typeof window !== "undefined" && prefersStill(window as never))
+  const [playing, setPlaying] = React.useState(false)
+  const [fit, setFit] = React.useState<"cover" | "contain">("cover")
+  const wasShown = React.useRef(shown)
+
+  React.useEffect(() => {
+    const v = ref.current
+    if (!v) return
+    /* Swiped away: it waits, and plays again by itself the next time it is shown (unless motion is reduced). */
+    if (wasShown.current && !shown) setHeld(prefersStill(window as never))
+    wasShown.current = shown
+    if (!shown || held || document.hidden) {
+      v.pause()
+      return
+    }
+    const p = v.play()
+    if (p && typeof p.catch === "function") p.catch(() => setHeld(true))
+  }, [shown, held])
+
+  React.useEffect(() => {
+    const onVisibility = () => {
+      const v = ref.current
+      if (!v) return
+      if (document.hidden) v.pause()
+      else if (shown && !held) void v.play().catch(() => setHeld(true))
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => document.removeEventListener("visibilitychange", onVisibility)
+  }, [shown, held])
+
+  return (
+    <div className="relative h-full w-full shrink-0 snap-center snap-always overflow-hidden bg-[#0b0b0c]" data-product-sheet-slide="video">
+      {entry.poster ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={entry.poster} alt="" aria-hidden className="absolute inset-0 h-full w-full" style={{ objectFit: fit }} decoding="async" draggable={false} loading={near ? "eager" : "lazy"} />
+      ) : null}
+      <video
+        ref={ref}
+        src={entry.poster ? entry.url : firstFrameSrc(entry.url)}
+        poster={entry.poster ?? undefined}
+        muted
+        loop
+        playsInline
+        disablePictureInPicture
+        disableRemotePlayback
+        preload={near ? "metadata" : "none"}
+        aria-label={label}
+        className="absolute inset-0 h-full w-full transition-opacity duration-300 ease-out motion-reduce:transition-none"
+        style={{ objectFit: fit, opacity: playing || !entry.poster ? 1 : 0 }}
+        onLoadedMetadata={(e) => {
+          const v = e.currentTarget
+          if (v.videoWidth > 0 && v.videoHeight > 0) {
+            setFit(fitOf(v.videoWidth, v.videoHeight))
+            onRatio(v.videoWidth / v.videoHeight)
+          }
+        }}
+        onPlaying={() => setPlaying(true)}
+      />
+      {/* The surface opens it full screen; the button plays and pauses it where it is. */}
+      <button type="button" onClick={onOpen} aria-label={`${label}, full screen`} className="absolute inset-0 cursor-zoom-in outline-none [-webkit-tap-highlight-color:transparent]" data-product-sheet-expand="" />
+      <button
+        type="button"
+        onClick={() => setHeld((h) => !h)}
+        aria-label={held || !shown ? "Play" : "Pause"}
+        className="absolute bottom-3 left-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-black/60 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/70"
+        data-product-sheet-play=""
+      >
+        {held || !shown ? <Play aria-hidden className="ml-0.5 h-4 w-4 fill-current" /> : <Pause aria-hidden className="h-4 w-4 fill-current" />}
+      </button>
     </div>
   )
 }

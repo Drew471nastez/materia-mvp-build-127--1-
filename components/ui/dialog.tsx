@@ -108,15 +108,23 @@ function OverscrollGuard({ portalRef }: { portalRef: React.RefObject<HTMLDivElem
     }
 
     let startY = 0
+    let startX = 0
 
     const handleTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY
+      startX = e.touches[0].clientX
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       const target = e.target as HTMLElement
       const currentY = e.touches[0].clientY
       const deltaY = currentY - startY
+      /*
+        Round 53: a sideways swipe is left alone. Pull to refresh and the page's bounce are vertical, and this used to
+        cancel every move that had no vertical scroller under it, sideways ones too: a snap strip of pictures in a
+        dialog (the product sheet's gallery on a tablet, its full screen view on a phone) could not be swiped.
+      */
+      if (Math.abs(e.touches[0].clientX - startX) > Math.abs(deltaY)) return
 
       // Walk up DOM to find nearest scrollable ancestor
       let el: HTMLElement | null = target

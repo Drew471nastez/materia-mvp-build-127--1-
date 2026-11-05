@@ -19,7 +19,7 @@ import { extname, join, normalize } from "node:path"
 import { appCss, interFaces } from "./probe-css.mjs"
 
 /* The file types a probe page asks this server for, beside the page itself. */
-const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".gif": "image/gif" }
+const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".gif": "image/gif", ".webm": "video/webm", ".mp4": "video/mp4" }
 
 /**
  * `statics` maps an address prefix to a folder: `/images/` is the app's own

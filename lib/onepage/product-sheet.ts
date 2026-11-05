@@ -145,3 +145,33 @@ export function savedPercent(nowCents: number, wasCents: number | null | undefin
   const pct = Math.round(((was - nowCents) / was) * 100)
   return pct >= 1 && pct <= 99 ? pct : null
 }
+
+/*
+ * ROUND 53, THE GALLERY. "A bit taller on a phone, closer to Shopify's 4:5, and no crop surprises": the box is 4:5 on
+ * a phone (square in its column on a computer), and each picture or video fills it only when that cuts little of it.
+ * A landscape photo in a portrait box would lose its sides, so it is drawn whole on the gallery's ground instead.
+ */
+
+/** The gallery's box, width over height: 4:5 on a phone, square beside the details on a computer. */
+export const SHEET_PHONE_RATIO = 4 / 5
+export const SHEET_COLUMN_RATIO = 1
+
+/** At most this share of a picture is cut off to fill the box; past it the picture is drawn whole. */
+export const SHEET_MAX_CROP = 0.2
+
+/** How a picture or video of this size sits in a box of `box` (width over height): filled, or whole. */
+export function mediaFit(width: number, height: number, box: number): "cover" | "contain" {
+  if (!(width > 0) || !(height > 0) || !(box > 0)) return "cover"
+  const r = width / height
+  const kept = Math.min(r / box, box / r)
+  return 1 - kept <= SHEET_MAX_CROP + 1e-9 ? "cover" : "contain"
+}
+
+/** From one dot's centre to the next: 6px dots, 6px apart. The lit dot moves this far for each slide scrolled. */
+export const DOT_STEP_PX = 12
+
+/** Where the lit dot stands for a scroll, in slides (a fraction while it moves), between the first and the last. */
+export function dotPosition(scrollLeft: number, slideWidth: number, count: number): number {
+  if (!(slideWidth > 0) || count < 2) return 0
+  return Math.max(0, Math.min(count - 1, scrollLeft / slideWidth))
+}

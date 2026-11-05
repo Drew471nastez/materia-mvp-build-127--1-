@@ -125,9 +125,15 @@ export function ProductQuestions({ faqs, heading = "Questions", className }: { f
   return (
     <div className={className} data-product-questions="">
       {heading ? <p className="mb-1 text-[15px] font-semibold text-[#111113]">{heading}</p> : null}
-      <div className="divide-y divide-[#f0f0f3] border-y border-[#f0f0f3]">
+      {/*
+        Round 53: every line is the same one, each question's own bottom border under a top one, all `border-[#f0f0f3]`.
+        The lines between used to be `divide-[#f0f0f3]`, which the page's theme does not recolour (the .op-sheet rules in
+        globals.css name the border classes): in the product sheet the first and last took the theme's line and the ones
+        between stayed #f0f0f3, a lighter line between two darker ones on a light page and a white one on a dark page.
+      */}
+      <div className="border-t border-[#f0f0f3]">
         {faqs.map((f, i) => (
-          <details key={i} className="group/faq">
+          <details key={i} className="group/faq border-b border-[#f0f0f3]">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-[14.5px] font-medium text-[#111113] [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
               <span className="min-w-0">{f.question}</span>
               <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 group-open/faq:rotate-180" />
