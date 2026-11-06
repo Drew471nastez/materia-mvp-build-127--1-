@@ -263,8 +263,9 @@ async function main() {
   const panel = read("lib/notifications/dm-panel.ts")
   check("the panel reads only this person's message rows, unread, with communities on", /\.eq\("user_id", userId\)\s*\.eq\("kind", DM_NOTIFICATION_KIND\)\s*\.is\("read_at", null\)/.test(panel) && /communitiesEnabled\(\)/.test(panel))
   const bell = read("components/notifications/notification-bell.tsx")
-  check("the bell hears a row raised in place (an UPDATE) on its own inbox", /if \(table === "user_notifications"\) channel\.on\("postgres_changes", \{ event: "UPDATE", schema: "public", table, filter: `user_id=eq\.\$\{userId\}` \}, raised\)/.test(bell))
-  check("a row being read does not count as raised", /const raised = [^]*?if \(!payload\.new \|\| payload\.new\.read_at\) return/.test(bell))
+  /* Changed on purpose (r55): heard on the person's own topic (part 370 sends op "update" when a row is raised unread), and the same UPDATE on the old subscription until part 370 has run. */
+  check("the bell hears a row raised in place (an UPDATE) on its own inbox", /if \(p\.op === "update"\) raised\(p\.unread !== false\)/.test(bell) && /if \(table === "user_notifications"\) channel\.on\("postgres_changes", \{ event: "UPDATE", schema: "public", table, filter: `user_id=eq\.\$\{userId\}` \}, \(payload: \{ new\?: \{ read_at\?: string \| null \} \}\) => \{\s*if \(payload\.new\) raised\(!payload\.new\.read_at\)/.test(bell))
+  check("a row being read does not count as raised", /const raised = \(unread: boolean\) => \{\s*if \(!unread\) return/.test(bell))
 
   console.log("\nPart 284")
   const sql = read("supabase/sql/run-now/284_direct_message_notifications.sql")

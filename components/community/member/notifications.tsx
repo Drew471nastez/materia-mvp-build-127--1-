@@ -4,7 +4,7 @@
  * THE MEMBER'S INBOX for this community: replies, mentions, likes,
  * announcements and the rest, newest first, unread ones marked with a dot.
  * Opening one marks it read; "Mark all read" does them all. New ones arrive
- * live (Supabase realtime on the member's own community_notifications rows)
+ * live (Supabase realtime: the member's own topic, lib/realtime/own-topic.ts)
  * and the bell in the shell follows the same count. What they hear about is
  * chosen here too (notify_level).
  */
@@ -15,6 +15,7 @@ import { MemberAvatar } from "./member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import type { NotifyLevel } from "@/lib/communities/types"
 import { createClient } from "@/lib/supabase/client"
+import { listenOwn } from "@/lib/realtime/own-topic"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
 import { announceUnread, realtimeAuth } from "./realtime"
@@ -50,34 +51,49 @@ export function NotificationsList({
 
   useEffect(() => announceUnread(communityId, unread), [communityId, unread])
 
-  /* New ones, live. */
+  /* New ones, live: on the member's own topic (lib/realtime/own-topic.ts, part 370), or the old way until it has run. */
   useEffect(() => {
     let gone = false
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
+    let stop: (() => void) | null = null
+    const arrived = async () => {
+      const r = await api<{ notifications: NotificationView[]; unread: number }>(`${base}/notifications`)
+      if (!r.ok || gone) return
+      setItems((cur) => [...r.data.notifications.filter((n) => !cur.some((c) => c.id === n.id)), ...cur])
+      setUnread(r.data.unread)
+    }
     void (async () => {
       try {
-        supabase = createClient()
+        const supabase = createClient()
         /* Signed in before the join (./realtime realtimeAuth), or the inbox is read as a visitor and stays still. */
         await realtimeAuth(supabase)
         if (gone) return
-        channel = supabase
-          .channel(`community-inbox-page:${communityId}:${userId}`)
-          .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, async (payload: { new?: { community_id?: string } }) => {
-            if (payload.new?.community_id !== communityId) return
-            const r = await api<{ notifications: NotificationView[]; unread: number }>(`${base}/notifications`)
-            if (!r.ok) return
-            setItems((cur) => [...r.data.notifications.filter((n) => !cur.some((c) => c.id === n.id)), ...cur])
-            setUnread(r.data.unread)
-          })
-          .subscribe()
+        stop = listenOwn(
+          supabase,
+          userId,
+          "notification",
+          (p) => {
+            if (p.table === "community_notifications" && p.op === "insert" && p.community_id === communityId) void arrived()
+          },
+          () => {
+            const channel = supabase
+              .channel(`community-inbox-page:${communityId}:${userId}`)
+              .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, (payload: { new?: { community_id?: string } }) => {
+                if (payload.new?.community_id === communityId) void arrived()
+              })
+              .subscribe()
+            return () => {
+              supabase.removeChannel(channel)
+            }
+          },
+        )
+        if (gone) stop()
       } catch {
         /* No realtime: the list is the one the page arrived with. */
       }
     })()
     return () => {
       gone = true
-      if (supabase && channel) supabase.removeChannel(channel)
+      stop?.()
     }
   }, [base, communityId, userId])
 

@@ -1333,6 +1333,8 @@ const STRICT_SUITES = [
   "tests/app-resilience-r53.test.ts",
   /* Round 54 (database load): the SEO cron takes only what is due (a page scored, a site listed and Google asked a day after the last time, a sitemap walk six hours after the last), a read with a missing column is refused once per server and not on every read (lib/supabase/missing-memory, tolerant-select), and the live site and the editor read only the columns they draw. */
   "tests/db-load-r54.test.ts",
+  /* Round 55 (database load): the bell, a community's inbox, Home's orders and the plan watch hear their own private topic (lib/realtime/own-topic.ts, SQL part 370) instead of postgres_changes, and open the old subscription when the topic is refused; the warm after a deploy draws only the sites visited in the last 7 days, their front page and /products where it is used (SQL part 371), counted with a stub database and a stub fetch. */
+  "tests/realtime-warm-r55.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

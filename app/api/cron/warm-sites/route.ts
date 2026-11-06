@@ -8,9 +8,10 @@ import { warmPublishedSites } from "@/lib/website-builder/warm-sites"
  * GET /api/cron/warm-sites
  *
  * Every five minutes (vercel.json), and nothing at all once this deployment
- * has been warmed: each published website's front page and products page
- * are drawn before their first visitor after a deploy
- * (lib/website-builder/warm-sites.ts). Protected by CRON_SECRET.
+ * has been warmed: the front page of each website visited in the last week,
+ * and its products page where visitors open it, are drawn before their first
+ * visitor after a deploy (lib/website-builder/warm-sites.ts). Protected by
+ * CRON_SECRET.
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -27,7 +28,7 @@ async function runJob(request: Request) {
     const summary = await warmPublishedSites({ budgetMs: RUN_BUDGET_MS, started })
     const ms = Date.now() - started
     /* A line only when it did something: an already warmed deploy is silent. */
-    if (!summary.skipped) console.log(`[cron/warm-sites] ${summary.sites} sites, pages ${summary.pages.drawn} drawn ${summary.pages.held} already held ${summary.pages.failed} failed, ${summary.done ? "done" : "more next run"}, ${ms}ms`)
+    if (!summary.skipped) console.log(`[cron/warm-sites] ${summary.sites} sites (${summary.source}), pages ${summary.pages.drawn} drawn ${summary.pages.held} already held ${summary.pages.failed} failed, ${summary.done ? "done" : "more next run"}, ${ms}ms`)
     return NextResponse.json({ ...summary, ms }, { headers: { "Cache-Control": "no-store" } })
   } catch (e) {
     console.error("[cron/warm-sites] the run failed:", e instanceof Error ? e.message : e)

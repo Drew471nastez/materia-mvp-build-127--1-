@@ -85,7 +85,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/community", schedule: "*/5 * * * *", what: "Community jobs: announcement and event fan outs, reminders, recounts, the daily rollup and trending" },
   { path: "/api/cron/translations", schedule: "47 * * * *", what: "Translate changes automatically, the safety sweep: queues a store nothing has queued for a day (store_localization.translate_dirty_at); before part 186, translates the stores itself" },
   { path: "/api/cron/translation-jobs", schedule: "*/5 * * * *", what: "Translate with AI in the background: carries on a language's translation that a run let go of or was cut off from (store_translation_jobs), and translates the stores whose website changed a few minutes ago (Translate changes automatically)" },
-  { path: "/api/cron/warm-sites", schedule: "*/5 * * * *", what: "After a deploy, loads every published website's home and products pages once so the first visitor gets them from the cache (lib/website-builder/warm-sites.ts); does nothing once a deploy is warmed" },
+  { path: "/api/cron/warm-sites", schedule: "*/5 * * * *", what: "After a deploy, loads the home page (and products page where it is used) of each website visited in the last 7 days once, so the first visitor gets it from the cache (lib/website-builder/warm-sites.ts); does nothing once a deploy is warmed" },
   { path: "/api/cron/seo-index", schedule: "*/10 * * * *", what: "SEO status in /admin/seo: reads the next sitemap files into the inventory, asks Google's URL Inspection API about this run's share of the daily quota (never checked first, then the stalest), and scores the pages checked longest ago" },
 ] as const
 

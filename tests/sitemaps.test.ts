@@ -364,7 +364,8 @@ async function bansAndOneRule() {
   /* Changed on purpose (round BA): a fourth reader, the published websites warmed after a deploy (publishedWebsiteOrigins), leaves them out too. */
   check("products, creator pages, websites and the websites warmed after a deploy all leave banned creators out",
     /* Changed on purpose (round 41): a fifth reader, the communities file, leaves a banned creator's community out. */
-    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 5 && /creatorIds = \[\.\.\.new Set\(installs\.map\(\(i\) => i\.creator_id\)\.filter\(\(id\) => !banned\.has\(id\)\)\)\]/.test(maps) && /banned\.has\(row\.creator_id\)/.test(maps) &&
+    /* Changed on purpose (r55): a sixth, the websites visited this week that the warm asks for (publishedWebsiteOriginsOf). */
+    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 6 && /return websiteOriginsOf\(admin, ids\.filter\(\(id\) => live\.has\(id\) && !banned\.has\(id\)\)\)/.test(maps) &&/creatorIds = \[\.\.\.new Set\(installs\.map\(\(i\) => i\.creator_id\)\.filter\(\(id\) => !banned\.has\(id\)\)\)\]/.test(maps) && /banned\.has\(row\.creator_id\)/.test(maps) &&
       /!banned\.has\(c\.id\)/.test(maps) && /!banned\.has\(i\.creator_id\)/.test(maps))
   /* Changed on purpose (round 41): with the owner's spam verdict beside the handle. */
   check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle, owner && spam\.has\(owner\) \? "confirmed" : null\)/.test(maps))

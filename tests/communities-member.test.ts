@@ -426,7 +426,9 @@ async function main() {
   for (const f of subscribers) {
     const src = code(f)
     const joins = src.split("supabase.channel(").length - 1 + (src.split(/supabase\s*\n\s*\.channel\(/).length - 1)
-    const awaited = (src.match(/await realtimeAuth\(supabase\)\s*\n\s*if \(gone\) return\s*\n\s*(const ch = )?(channel = )?supabase[\s.]*channel\(/g) || []).length
+    /* Changed on purpose (r55): the inbox and its page join the person's own topic (stop = listenOwn(...)), and their old channel opens only inside it, after the same await. */
+    const own = (src.match(/await realtimeAuth\(supabase\)\s*\n\s*if \(gone\) return\s*\n\s*stop = listenOwn\(/g) || []).length
+    const awaited = (src.match(/await realtimeAuth\(supabase\)\s*\n\s*if \(gone\) return\s*\n\s*(const ch = )?(channel = )?supabase[\s.]*channel\(/g) || []).length + own
     check(`${f}: every channel joins after the session is in (await realtimeAuth, then .channel)`, joins > 0 && awaited === joins, `${awaited} of ${joins}`)
   }
 

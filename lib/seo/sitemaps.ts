@@ -934,8 +934,7 @@ export async function websitesSitemap(chunk: number, of?: number, admin: Admin =
  * own domain (at that domain, the host a visitor uses) and sites not open to
  * search engines, since both still get visitors. Banned creators are left out.
  */
-export async function publishedWebsiteOrigins(from: number, count: number): Promise<{ origins: string[]; read: number }> {
-  const admin = createAdminClient()
+export async function publishedWebsiteOrigins(from: number, count: number, admin: Admin = createAdminClient()): Promise<{ origins: string[]; read: number }> {
   const installs = await readRange<{ creator_id: string }>(
     (a, b) =>
       admin
@@ -950,6 +949,30 @@ export async function publishedWebsiteOrigins(from: number, count: number): Prom
   )
   const banned = await bannedCreatorIds(admin)
   const creatorIds = [...new Set(installs.map((i) => i.creator_id).filter((id) => !banned.has(id)))]
+  return { origins: [...(await websiteOriginsOf(admin, creatorIds)).values()], read: installs.length }
+}
+
+/**
+ * The same addresses for the creators named, in their order, only where the
+ * website is published and the creator is not banned (round 55: the warm
+ * after a deploy asks only for sites visitors used, lib/website-builder/warm-sites.ts).
+ * creator id → origin.
+ */
+export async function publishedWebsiteOriginsOf(creatorIds: string[], admin: Admin = createAdminClient()): Promise<Map<string, string>> {
+  const ids = [...new Set(creatorIds.filter(Boolean))]
+  if (!ids.length) return new Map()
+  const installs = await eachBatch(ids, (batch) =>
+    rowsOf<{ creator_id: string }>(() => admin.from("store_theme_installs").select("creator_id").eq("status", "published").in("creator_id", batch), "warm visited websites"),
+  )
+  const live = new Set(installs.flat().map((i) => i.creator_id))
+  const banned = await bannedCreatorIds(admin)
+  return websiteOriginsOf(admin, ids.filter((id) => live.has(id) && !banned.has(id)))
+}
+
+/** creator id → the address a visitor uses for their website: its connected domain, else its storelib.com subdomain. In the order given. */
+async function websiteOriginsOf(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (!creatorIds.length) return out
   const creators = await eachBatch(creatorIds, (batch) =>
     rowsOf<{ id: string; user_id: string }>(() => admin.from("creators").select("id, user_id").in("id", batch), "warm website creators"),
   )
@@ -960,17 +983,16 @@ export async function publishedWebsiteOrigins(from: number, count: number): Prom
     websiteNames(admin, creatorIds),
   ])
   const main = getMainDomain()
-  const origins: string[] = []
   for (const id of creatorIds) {
     const domain = domains.get(id)
     if (domain) {
-      origins.push(`https://${domain}`)
+      out.set(id, `https://${domain}`)
       continue
     }
     const handle = chosen.get(id) ?? names.get(userOf.get(id) ?? "")
-    if (handle) origins.push(siteOrigin({ handle, mainDomain: main }))
+    if (handle) out.set(id, siteOrigin({ handle, mainDomain: main }))
   }
-  return { origins, read: installs.length }
+  return out
 }
 
 /* ── One built site, on its own host ───────────────────────────────────── */

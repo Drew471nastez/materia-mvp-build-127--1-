@@ -236,4 +236,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "360", file: "360_theme_publish_jobs.sql", sha256: "d704893a20d2954e2e5f8e3f2fbc18cf0b9ae1e0033876da402f8b0cf7138add" },
   { part: "363", file: "363_membership_livemode.sql", sha256: "8a09a2f61d5284b703738fae2a4fc718a8afb2fe92200ef5f23e6bdf57139bce" },
   { part: "366", file: "366_deleted_community_notifications.sql", sha256: "49628cf429f5668299f6c6096a649f1727e7fb33c397966692f747a4f5b7fb1b" },
+  { part: "370", file: "370_realtime_own_topic.sql", sha256: "c01c181f307567506f5fe3818e76b8eaf2cf7896900bbf63de648ff61dfc04cc" },
+  { part: "371", file: "371_warm_visited_websites.sql", sha256: "25fbab66c2678870c77527f35a0a4d1277e886dfb489587b72c4c8755e9c9102" },
 ]

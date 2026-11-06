@@ -19,7 +19,7 @@ import { Suspense, createElement } from "react"
 import { renderToReadableStream } from "react-dom/server"
 import { lazySection } from "../components/website-builder/sections/lazy-section"
 import { STREAMED_SECTIONS_CSS } from "../lib/website-builder/streamed-sections"
-import { pagesFromSitemap, publishWarmList, warmAfterPublish, PUBLISH_WARM_PAGES, SITEMAP_PAGES } from "../lib/website-builder/warm-sites"
+import { publishWarmList, warmAfterPublish, warmListOf, PUBLISH_WARM_PAGES } from "../lib/website-builder/warm-sites"
 
 let passed = 0
 let failed = 0
@@ -104,13 +104,9 @@ function filesUnder(dir: string, out: string[] = []): string[] {
   const broken = await warmAfterPublish("creator-1", { fetcher, addresses: async () => { throw new Error("database") } })
   check("a failed read of the addresses is only a page left for the next visitor", broken.drawn === 0 && broken.failed === 0)
 
-  console.log("\nAfter a deploy, a site's own pages too\n")
-  const xml = `<urlset><url><loc>${site}/</loc></url><url><loc>${site}/products</loc></url><url><loc>${site}/products/a</loc></url><url><loc>${site}/about/</loc></url><url><loc>https://elsewhere.com/x</loc></url><url><loc>${site}/faq</loc></url><url><loc>${site}/c1</loc></url><url><loc>${site}/c2</loc></url><url><loc>${site}/c3</loc></url></urlset>`
-  const extra = pagesFromSitemap(site, xml)
-  check("the sitemap's other pages, never the front page or the shop twice", extra[0] === `${site}/about` && !extra.includes(`${site}/`) && !extra.includes(`${site}/products`), extra)
-  check("  no product page and nothing on another host", !extra.some((u) => /\/products\/|elsewhere/.test(u)))
-  check(`  at most ${SITEMAP_PAGES}`, extra.length === SITEMAP_PAGES)
-  check("  a sitemap that is not one is nothing", pagesFromSitemap(site, "<html>oops</html>").length === 0)
+  /* Changed on purpose (r55): the warm after a deploy no longer reads a site's sitemap or its other pages; only the front page of a site visited this week, and /products where it is used (tests/realtime-warm-r55.test.ts counts it). A Publish still draws every page of its site, above. */
+  console.log("\nAfter a deploy, the front page, and the shop where it is used\n")
+  check("the front page alone, or with /products", warmListOf({ origin: site, products: false }).join() === `${site}/` && warmListOf({ origin: site, products: true }).join() === `${site}/,${site}/products`)
 
   const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
   const release = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId })")
