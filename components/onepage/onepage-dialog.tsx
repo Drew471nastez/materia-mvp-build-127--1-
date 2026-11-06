@@ -201,8 +201,9 @@ function CenteredCard({
   useEffect(() => {
     if (open) {
       setMounted(true)
-      const f = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
-      return () => cancelAnimationFrame(f)
+      let second = 0
+      const f = requestAnimationFrame(() => { second = requestAnimationFrame(() => setShown(true)) })
+      return () => { cancelAnimationFrame(f); cancelAnimationFrame(second) }
     }
     setShown(false)
     const t = window.setTimeout(() => setMounted(false), OUT_MS)
@@ -216,19 +217,28 @@ function CenteredCard({
 
   /* Focus moves into the card and back to whatever opened it; Escape closes; the page behind does not scroll. */
   useEffect(() => {
-    if (!open) return
+    if (!open || !mounted) return
     const before = document.activeElement as HTMLElement | null
     const f = requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }))
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeRef.current()
+      if (e.key === "Tab") {
+        const nodes = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0)
+        const first = nodes[0]
+        if (!first) { e.preventDefault(); return }
+        const index = nodes.indexOf(document.activeElement as HTMLElement)
+        e.preventDefault()
+        const next = index < 0 ? (e.shiftKey ? nodes.length - 1 : 0) : (index + (e.shiftKey ? -1 : 1) + nodes.length) % nodes.length
+        nodes[next].focus({preventScroll:true})
+      }
     }
-    document.addEventListener("keydown", onKey)
+    document.addEventListener("keydown", onKey, true)
     return () => {
       cancelAnimationFrame(f)
-      document.removeEventListener("keydown", onKey)
-      before?.focus?.({ preventScroll: true })
+      document.removeEventListener("keydown", onKey, true)
+      if (before?.isConnected) before.focus({ preventScroll: true })
     }
-  }, [open])
+  }, [open, mounted])
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
@@ -254,8 +264,8 @@ function CenteredCard({
           maxHeight: "min(86vh, 820px)",
           opacity: shown ? 1 : 0,
           /* translate and scale, named: the compositor moves them, and nothing transitions `transform`. */
-          translate: shown ? "0 0" : "0 8px",
-          scale: shown ? "1" : "0.985",
+          translate: bare || shown ? "0 0" : "0 8px",
+          scale: bare || shown ? "1" : "0.985",
           transition: `opacity ${shown ? IN_MS : OUT_MS}ms ${EASE}, translate ${shown ? IN_MS : OUT_MS}ms ${EASE}, scale ${shown ? IN_MS : OUT_MS}ms ${EASE}`,
         }}
         className={cn(

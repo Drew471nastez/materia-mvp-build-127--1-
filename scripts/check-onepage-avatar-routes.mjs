@@ -42,7 +42,7 @@ try{
   const {GET,PUT}=await load('app/api/onepage/route.ts')
   const {POST}=await load('app/api/onepage/publish/route.ts')
   const request=(method,body)=>new Request('https://storelib.com/api/onepage',{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})})
-  const payload={id:'page',avatar_url:existing.avatar_url,draft_blocks:[],theme:{button_hover_animation:'fill',button_hover_fill:'#12695e',button_hover_text:'#f0a24a'}}
+  const payload={id:'page',avatar_url:existing.avatar_url,draft_blocks:[{id:'link',type:'link_button',enabled:true,sort_order:0,data:{label:'Book',url:'https://example.com'},style:{presentation:{subtitle:'Your tailored plan',variant:'visual',size:'half',title_size:22,subtitle_color:'#eeeeee',media_mode:'card'}}}],theme:{button_hover_animation:'fill',button_hover_fill:'#12695e',button_hover_text:'#f0a24a'}}
   for(const [fn,method] of [[GET,'GET'],[PUT,'PUT'],[POST,'POST']]){
     writes.length=0
     const response=await fn(request(method,method==='GET'?null:payload))
@@ -57,10 +57,12 @@ try{
     assert.equal((await read.json()).onepage.avatar_url,photo)
     writes.length=0
     assert.equal((await PUT(request('PUT',payload))).status,200)
+    assert.deepEqual(writes[0].draft_blocks,payload.draft_blocks,'Custom appearance and descriptions survive the real save route')
     assert.equal(writes[0].avatar_url,photo,'A stale editor cannot reintroduce a removed/replaced avatar')
     assert.deepEqual(writes[0].theme,payload.theme,'Hover colors survive the real save route')
     writes.length=0
     assert.equal((await POST(request('POST',payload))).status,200)
+    assert.deepEqual(writes[0].published_blocks,payload.draft_blocks,'Custom blocks survive publication unchanged')
     assert.equal(writes[0].published_profile.avatar_url,photo)
     assert.deepEqual(writes[0].published_theme,payload.theme)
   }

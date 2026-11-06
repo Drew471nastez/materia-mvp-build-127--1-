@@ -1,5 +1,8 @@
 "use client"
 
+import { BlockPresentationFrame, BlockSubtitle, VisualLinkCard } from "./block-presentation"
+import { presentationOf } from "@/lib/onepage/block-presentation"
+
 import { ProfileImage } from "./profile-image"
 
 import { personName } from "@/lib/profile/display-name"
@@ -1321,6 +1324,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* The gap is the page's spacing, tighter on the Compact layout; the alignment is the classic header's (lib/onepage/theme-layout). */}
       <div
         className={cn("flex flex-col items-center", blockGapClass(safeTheme))}
+        data-mixed-blocks={blockLayoutOf(safeTheme) === "masonry" || safeBlocks.some((b: OnePageBlock) => ["half", "tall"].includes(presentationOf(b).size || "")) ? "" : undefined}
         data-block-layout={blockLayoutOf(safeTheme)}
         data-op-align={headerAlignOf(safeTheme)}
       >
@@ -1391,6 +1395,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 style={animStyle}
                 data-onepage-enter={animClass ? "" : undefined}
                 data-sensitive-label={sensitiveLabel(block)}
+                data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
               >
               <PublicBlockRenderer
                 block={block}
@@ -2627,7 +2632,7 @@ function GroupBlockRenderer({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
-        >
+         data-block-title="">
           {data.title}
         </h3>
       )}
@@ -3047,7 +3052,11 @@ const isBlockVisible = (block: any): boolean => isBlockShown(block)
 const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boolean): OnePageBlock[] =>
   (children || []).filter((c) => isBlockVisible(c) || (inPreview && isIncompleteLink(c)))
 
-function PublicBlockRenderer({
+function PublicBlockRenderer(props: PublicBlockRendererProps) {
+  return <BlockPresentationFrame block={props.block}><CoreBlockRenderer {...props} /></BlockPresentationFrame>
+}
+
+function CoreBlockRenderer({
   block,
   theme,
   profile,
@@ -3698,6 +3707,8 @@ function PublicBlockRenderer({
         picked is an icon the page can draw. This used to be a 40 icon copy of
         a 155 icon list, and a house, a cart or a clock drew nothing here.
       */
+      const p = presentationOf(block)
+      if ((p.variant && p.variant !== "original") || p.media_mode === "native" || p.media_mode === "card") return <VisualLinkCard block={block} theme={theme} onClick={() => { void trackClick(block.id, data.url) }} />
       const linkIcon = resolveLinkIcon(data.icon, data.url)
 
       /*
@@ -3829,7 +3840,7 @@ function PublicBlockRenderer({
                   lineHeight: '1.4',
                 }}
               >
-                <span className="truncate font-medium" style={{ color: theme.button_text_color }}>
+                <span className="truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
                   {data.label || "Watch on YouTube"}
                 </span>
               </a>
@@ -3941,9 +3952,9 @@ function PublicBlockRenderer({
                 lineHeight: '1.4',
               }}
             >
-              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }}>
+              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }} data-block-title="">
                 {data.label || "Link"}
-              </span>
+              </span><BlockSubtitle subtitle={p.subtitle} />
               {/* Spotify metadata display for Pro Layout */}
               {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
@@ -4110,7 +4121,7 @@ function PublicBlockRenderer({
               <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
             <div className={labelColumn(hasThumbnail)}>
-              <span className={labelText}>{data.label || "Link"}</span>
+              <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
@@ -4165,7 +4176,7 @@ function PublicBlockRenderer({
               <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
             <div className={labelColumn(true)}>
-              <span className={labelText}>{data.label || "Link"}</span>
+              <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
@@ -4229,7 +4240,7 @@ function PublicBlockRenderer({
             <LinkIcon name={linkIcon} className={iconPlace} />
           ) : null}
           <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
-            <span className={labelText}>{data.label || "Link"}</span>
+            <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
@@ -4956,7 +4967,7 @@ function PublicBlockRenderer({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
-            >
+             data-block-title="">
               {data.title}
             </h3>
           )}
@@ -5159,9 +5170,9 @@ function PublicBlockRenderer({
               </div>
               {/* Content - Title and Description vertically aligned */}
               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
+                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
                   {data.title || "PDF Document"}
-                </span>
+                </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                 {data.description && (
                   <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
                     {data.description}
@@ -5190,9 +5201,9 @@ function PublicBlockRenderer({
           style={pdfButtonStyles}
         >
           {/* Title */}
-          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
             {data.title || "PDF Document"}
-          </span>
+          </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
           {/* Button text with PDF icon */}
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
             <svg
@@ -5345,9 +5356,9 @@ function PublicBlockRenderer({
               </div>
               {/* Content - Title and Description vertically aligned */}
               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
+                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
                   {data.title || "Menu"}
-                </span>
+                </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                 {data.description && (
                   <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
                     {data.description}
@@ -5376,9 +5387,9 @@ function PublicBlockRenderer({
           style={menuButtonStyles}
         >
           {/* Title */}
-          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
             {data.title || "Menu"}
-          </span>
+          </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
           {/* Button text with menu icon */}
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
             <svg
@@ -5554,9 +5565,9 @@ function PublicBlockRenderer({
                 </div>
                 {/* Content - Title and Description vertically aligned */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
+                  <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
                     {data.title || "Book a Meeting"}
-                  </span>
+                  </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                   {data.description && (
                     <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
                       {data.description}
@@ -5592,7 +5603,7 @@ function PublicBlockRenderer({
                         <path d="M19 12H5M12 19l-7-7 7-7" />
                       </svg>
                     </button>
-                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
                       {data.title || "Book a Meeting"}
                     </h3>
                     <button
@@ -5633,9 +5644,9 @@ function PublicBlockRenderer({
             style={calendlyButtonStyles}
           >
             {/* Title */}
-            <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+            <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
               {data.title || "Book a Meeting"}
-            </span>
+            </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
             {/* Button text with Calendar icon */}
             <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
               <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: textColor }} />
@@ -5666,7 +5677,7 @@ function PublicBlockRenderer({
                       <path d="M19 12H5M12 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
                     {data.title || "Book a Meeting"}
                   </h3>
                   <button

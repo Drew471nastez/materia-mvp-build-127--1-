@@ -110,7 +110,7 @@ section("Dialogs: the page keeps its scrollbar")
   const dialog = code("components/onepage/onepage-dialog.tsx")
   check("nothing sets overflow on html or body", !/documentElement\.style\.overflow|body\.style\.overflow|html\.style\.overflow/.test(dialog))
   check("the page is held still by refusing the scroll instead", /useStillPage\(open, rootRef\)/.test(dialog) && /addEventListener\("wheel", onWheel, opts\)/.test(dialog) && /addEventListener\("touchmove", onMove, opts\)/.test(dialog))
-  check("the card moves with translate and scale, never a transition of transform", !/transform/.test(dialog) && /translate: shown \? "0 0" : "0 8px"/.test(dialog))
+  check("Share stays still while other cards settle without transform transitions", !/transform/.test(dialog) && /translate: bare \|\| shown \? "0 0" : "0 8px"/.test(dialog) && /scale: bare \|\| shown \? "1"/.test(dialog))
   const page = code("components/onepage/public-onepage.tsx")
   check("the share and bell buttons slide in with translate", !/transform: shouldShow/.test(page) && (page.match(/translate: shouldShow \? "0 0" : "0 -10px"/g) ?? []).length === 2)
 }

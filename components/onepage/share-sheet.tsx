@@ -250,8 +250,8 @@ export function OnePageShareSheet({
               <AppAvatar waitForPhoto src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
             )}
           </div>
-          <p className={`truncate text-[20px] font-bold leading-tight ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>
-          <p className={`mx-auto mt-1 max-w-[240px] truncate text-[14px] ${onBand ? "text-white/80" : "text-[#4b5563]"}`} data-share-url="">
+          <p className={`truncate text-[20px] font-bold leading-[25px] ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>
+          <p className={`mx-auto mt-1 max-w-[240px] truncate text-[14px] leading-5 ${onBand ? "text-white/80" : "text-[#4b5563]"}`} data-share-url="">
             {shown}
           </p>
         </div>

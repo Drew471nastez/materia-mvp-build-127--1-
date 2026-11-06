@@ -61,7 +61,7 @@ export interface OnePageTheme {
   button_text_align?: "center" | "left"
   button_icon_position?: "left" | "right"
   /* Round 40 (lib/onepage/theme-layout): how the blocks are laid out, and the classic header's alignment. Missing is a list, centred. */
-  block_layout?: "list" | "grid" | "cards" | "compact" | null
+  block_layout?: "list" | "grid" | "cards" | "compact" | "masonry" | null
   header_align?: "center" | "left" | null
   /* Round 42 (lib/onepage/theme-layout): how product blocks are shown, and a wide cover picture over the classic header. Missing is each block's own layout, and no cover. */
   product_layout?: "own" | "grid" | "rows" | null
@@ -576,6 +576,7 @@ export type OnePageBlockData =
   | PromoCodeBlockData
 
 export interface OnePageBlockStyle {
+  presentation?: import("./block-presentation").BlockPresentation
   background_color?: string
   text_color?: string
   border_radius?: number

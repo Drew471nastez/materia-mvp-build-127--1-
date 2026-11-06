@@ -1816,6 +1816,7 @@ export function PlatformHeaderClient({
     covered. The word boundary keeps a creator called "communityx" a creator,
     as it does in components/marketing/conditional-header.
   */
+  const isReceiptRoute = pathname === "/receipt" || pathname.startsWith("/receipt/") || pathname === "/checkout/receipt"
   const isCommunityRoute = pathname === "/community" || pathname.startsWith("/community/")
   /* The phone's strip: its line is still 8px from the top of the window. */
   const searchInHeader = useSearchHandoff(isExploreSurface)
@@ -2435,6 +2436,7 @@ export function PlatformHeaderClient({
             See lib/explore/use-search-handoff.
           */}
           {(() => {
+            if (isReceiptRoute) return <div className="hidden md:block flex-1" />
             const shown = deskHandoff.inHeader || searchModalOpen
             return (
           <div
@@ -2975,7 +2977,7 @@ export function PlatformHeaderClient({
         y63"). An element that first appears is not a shift; one that moves
         is.
       */}
-      {headerH > 0 && searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isUseCaseRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
+      {headerH > 0 && searchInHeader && !isReceiptRoute && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isCompareRoute && !isUseCaseRoute && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on

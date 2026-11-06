@@ -21,8 +21,8 @@
 
 import { buttonSize } from "./button-style"
 
-export type BlockLayout = "list" | "grid" | "cards" | "compact"
-export const BLOCK_LAYOUTS: readonly BlockLayout[] = ["list", "grid", "cards", "compact"]
+export type BlockLayout = "list" | "grid" | "cards" | "compact" | "masonry"
+export const BLOCK_LAYOUTS: readonly BlockLayout[] = ["list", "grid", "cards", "compact", "masonry"]
 
 export type BlockSpacing = "compact" | "normal" | "comfortable"
 export type HeaderAlign = "center" | "left"
@@ -31,7 +31,7 @@ type LayoutThemeLike = { block_layout?: unknown; spacing?: unknown; header_align
 
 export function blockLayoutOf(theme: LayoutThemeLike): BlockLayout {
   const v = theme?.block_layout
-  return v === "grid" || v === "cards" || v === "compact" ? v : "list"
+  return v === "grid" || v === "cards" || v === "compact" || v === "masonry" ? v : "list"
 }
 
 export function blockSpacingOf(theme: LayoutThemeLike): BlockSpacing {
@@ -74,11 +74,11 @@ export function linkDrawnAsCard(theme: LayoutThemeLike, data: LinkDataLike): boo
   return blockLayoutOf(theme) === "cards" && typeof data?.thumbnail_url === "string" && data.thumbnail_url.length > 0
 }
 
-type BlockLike = { id: string; type: string; data?: unknown }
+type BlockLike = { id: string; type: string; data?: unknown; style?: {presentation?: {size?: string}} }
 
 /** A link that can sit in the Grid layout's two columns: a plain link, not a featured card. */
 export function isGridLink(block: BlockLike): boolean {
-  if (block.type !== "link_button") return false
+  if (block.type !== "link_button" || (block.style?.presentation?.size && block.style.presentation.size !== "auto")) return false
   const d = (block.data || {}) as { url?: unknown; layout_type?: unknown }
   return typeof d.url === "string" && d.url.length > 0 && d.layout_type !== "pro"
 }

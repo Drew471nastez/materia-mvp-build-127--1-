@@ -78,7 +78,7 @@ check("each lands in its own kind, after that kind's old ones", merged.map((t) =
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")
-check("four layouts", BLOCK_LAYOUTS.join() === "list,grid,cards,compact")
+check("five layouts, including mixed tiles", BLOCK_LAYOUTS.join() === "list,grid,cards,compact,masonry")
 check("a saved page with no layout is a list", blockLayoutOf({}) === "list" && blockLayoutOf({ block_layout: "nonsense" }) === "list" && blockLayoutOf(null) === "list")
 check("the old spacing gaps are exactly the old strings", blockGapClass({ spacing: "compact" }) === "gap-3 sm:gap-4" && blockGapClass({}) === "gap-4 sm:gap-5" && blockGapClass({ spacing: "comfortable" }) === "gap-5 sm:gap-6")
 check("Compact is tighter than any spacing", blockGapClass({ block_layout: "compact", spacing: "comfortable" }) === "gap-2 sm:gap-2.5")
