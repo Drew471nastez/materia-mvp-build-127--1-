@@ -17,13 +17,13 @@
  *   the server     Settings refreshes the route, so the header the server
  *                  draws on the next load is the same answer
  */
-import { useEffect, useRef, useSyncExternalStore } from "react"
+import { useSyncExternalStore } from "react"
 import { profileAvatar } from "./avatar"
-import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { AUTH_SNAPSHOT_EVENT, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
 /* ── the shell's copy, changed the moment Settings changes it ────────────── */
 
-type Latest = { url: string | null } | null
+type Latest = { url: string | null; userId: string | null } | null
 let latest: Latest = null
 const listeners = new Set<() => void>()
 
@@ -33,13 +33,23 @@ let channel: BroadcastChannel | null | undefined
 function tabs(): BroadcastChannel | null {
   if (channel !== undefined) return channel
   channel = null
+  if (typeof window !== "undefined") window.addEventListener(AUTH_SNAPSHOT_EVENT, () => {
+    const current = readAuthSnapshot()
+    if (latest && (!current?.signedIn || (latest.userId && latest.userId !== current.userId))) {
+      latest = null
+      for (const fn of listeners) fn()
+    }
+  })
   if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return channel
   try {
     const opened = new BroadcastChannel(CHANNEL)
     opened.onmessage = (e: MessageEvent) => {
-      const data = e.data as { url?: unknown } | null
+      const data = e.data as { url?: unknown; userId?: unknown } | null
       if (!data || (data.url !== null && typeof data.url !== "string")) return
+      const current = readAuthSnapshot()
+      if (typeof data.userId === "string" && current?.userId !== data.userId) return
       apply(data.url as string | null)
+      correctSnapshot(data.url as string | null)
     }
     channel = opened
   } catch {
@@ -55,8 +65,19 @@ const subscribe = (fn: () => void) => {
 }
 const read = () => latest
 
+/** A profile read may adopt its result only if no photo changed while it
+ * was in flight. Used on editor entry and when returning to its tab. */
+export const avatarReadToken = () => latest
+export function acceptAvatarRead(url: string | null, started: ReturnType<typeof avatarReadToken>): boolean {
+  if (latest !== started) return false
+  const clean = profileAvatar(url)
+  if (latest?.url !== clean) announceAvatar(clean)
+  else correctSnapshot(clean)
+  return true
+}
+
 function apply(url: string | null) {
-  latest = { url: profileAvatar(url) }
+  latest = { url: profileAvatar(url), userId: readAuthSnapshot()?.userId ?? null }
   for (const fn of listeners) fn()
 }
 
@@ -78,7 +99,7 @@ export function announceAvatar(url: string | null) {
   apply(clean)
   correctSnapshot(clean)
   try {
-    tabs()?.postMessage({ url: clean })
+    tabs()?.postMessage({ url: clean, userId: latest?.userId })
   } catch {
     /* A closed channel: the other tabs catch up on their next page. */
   }
@@ -86,19 +107,13 @@ export function announceAvatar(url: string | null) {
 
 /**
  * The photo to draw: the one just announced, else the one the server sent.
- * When the server's own answer changes (the refresh after a save has landed)
- * it is the truth again and the announcement is let go.
+ * A committed announcement survives older in-flight reads and is cleared
+ * on an account change, rather than by an unrelated subscriber's props.
  */
-export function useShellAvatar(fromServer: string | null | undefined): string | null {
+export function useShellAvatar(fromServer: string | null | undefined, ownerId?: string): string | null {
   const announced = useSyncExternalStore(subscribe, read, () => null)
   const server = profileAvatar(fromServer)
-  const seen = useRef(server)
-  useEffect(() => {
-    if (seen.current === server) return
-    seen.current = server
-    if (!latest) return
-    latest = null
-    for (const fn of listeners) fn()
-  }, [server])
-  return announced ? announced.url : server
+  /* An older server read may finish after an upload. It cannot acknowledge
+     or clear a newer committed announcement for every other subscriber. */
+  return announced && (!ownerId || !announced.userId || announced.userId === ownerId) ? announced.url : server
 }

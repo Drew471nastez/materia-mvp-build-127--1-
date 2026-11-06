@@ -247,7 +247,7 @@ export function OnePageShareSheet({
             {avatarVideoUrl ? (
               <PosterVideo src={avatarVideoUrl} fallback={onePageImageSrc(avatarUrl, 160)} alt={pageTitle} />
             ) : (
-              <AppAvatar src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
+              <AppAvatar waitForPhoto src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
             )}
           </div>
           <p className={`truncate text-[20px] font-bold leading-tight ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>

@@ -236,7 +236,7 @@ const layout = code("app/(storelib)/account/layout.tsx")
 check("signed out it is sign in first, then back to the page that was opened", /pageUser\(accountLoginPath\("\/account"\)\)/.test(home) && /pageUser\(accountLoginPath\("\/account\/settings"\)\)/.test(route) && !/redirect\(/.test(layout))
 check("the native app's session is recovered before it decides, as the library's is", /<NativeAuthGate requireAuth/.test(layout))
 check("/account has nothing to type: no photo control, no name field", !/<ProfilePhoto\b|<input\b/.test(home) && !/<input\b/.test(code("components/account/account-hub.tsx")))
-check("the photo is changed on Settings' own one photo, through the one photo route", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(account) && /fetch\("\/api\/account\/avatar"/.test(code("components/account/account-photo.tsx")))
+check("the photo is changed on Settings' own one photo, through the one photo route", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(account) && code("components/account/account-photo.tsx").includes("saveAccountPhoto as savePhoto"))
 check("the name and the bio save on the person's own client and their copies follow", /\.from\("profiles"\)\.update\(patch\)\.eq\("id", userId\)/.test(account) && /patch\.bio = nextBio \|\| null/.test(account) && /\/api\/account\/profile-changed/.test(account))
 check("the email changes with a code to each address", /<EmailChangeFlow\b/.test(account))
 /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */

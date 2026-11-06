@@ -1,3 +1,4 @@
+import { profileAvatar } from "@/lib/account/avatar"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { OnePage } from "@/lib/onepage/types"
@@ -101,7 +102,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ onepage })
+    const { data: profile, error: photoError } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+    if (photoError) return NextResponse.json({ error: "Your profile could not be read. Try again." }, { status: 503, headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json({ onepage: { ...onepage, avatar_url: profileAvatar(profile?.avatar_url) } }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("OnePage GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -210,7 +213,8 @@ export async function PUT(request: Request) {
     */
     let photoNow: string | null | undefined
     if (avatar_url !== undefined) {
-      const { data: profile } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+      const { data: profile, error: photoError } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+      if (photoError) return NextResponse.json({ error: "Your profile could not be read. Try again." }, { status: 503, headers: { "Cache-Control": "no-store" } })
       photoNow = typeof profile?.avatar_url === "string" && profile.avatar_url.trim() !== "" ? profile.avatar_url.trim() : null
       updates.avatar_url = photoNow
     }

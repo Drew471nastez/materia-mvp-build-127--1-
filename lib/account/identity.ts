@@ -134,7 +134,8 @@ export function creatorPhoto(input: {
   /** profiles.avatar_url */
   live?: unknown
 }): string | null {
-  return profileAvatar(text(input.live)) || keptPhoto(input.published) || keptPhoto(input.own) || null
+  if (input.live !== undefined) return profileAvatar(text(input.live))
+  return keptPhoto(input.published) || keptPhoto(input.own) || null
 }
 
 /**

@@ -27,7 +27,8 @@ import { useEffect, useRef, useState } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createClient } from "@/lib/supabase/client"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { announceAvatar } from "@/lib/account/avatar-store"
+import { useShellAvatar } from "@/lib/account/avatar-store"
+import { saveAccountPhoto as savePhoto } from "@/lib/onepage/photo-save"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -57,24 +58,6 @@ async function squareOf(file: File): Promise<Blob> {
   )
 }
 
-/**
- * Saved through app/api/account/avatar, which also marks the account as
- * having chosen, so signing in with Google again never brings its picture
- * back over a photo that was removed (lib/account/avatar).
- */
-async function savePhoto(url: string | null) {
-  const res = await fetch("/api/account/avatar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  }).catch(() => null)
-  if (!res) throw new Error(tt("Could not reach Storelib. Check your connection and try again."))
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(data?.error || (url ? tt("The photo did not upload. Try again in a moment.") : tt("The photo was not removed. Try again in a moment.")))
-  }
-}
-
 export function ProfilePhoto({
   userId,
   src,
@@ -93,6 +76,13 @@ export function ProfilePhoto({
   const [error, setError] = useState<string | null>(null)
   const previewRef = useRef<string | null>(null)
   useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
+  const canonicalPhoto = useShellAvatar(undefined, userId)
+  useEffect(() => {
+    if (busy || !previewRef.current) return
+    URL.revokeObjectURL(previewRef.current)
+    previewRef.current = null
+    setPreview(null)
+  }, [busy, canonicalPhoto])
 
   const showPreview = (url: string | null) => {
     if (previewRef.current && previewRef.current !== url) URL.revokeObjectURL(previewRef.current)
@@ -131,7 +121,6 @@ export function ProfilePhoto({
         data: { publicUrl },
       } = supabase.storage.from("avatars").getPublicUrl(path)
       await savePhoto(publicUrl)
-      announceAvatar(publicUrl)
       onChanged(publicUrl)
     } catch (err) {
       console.error("[settings] photo not saved:", err)
@@ -150,7 +139,6 @@ export function ProfilePhoto({
       await savePhoto(null)
       showPreview(null)
       /* The header and the account sheet show the initials now, not the Google picture. */
-      announceAvatar(null)
       onChanged(null)
     } catch (err) {
       setError(err instanceof Error && err.message ? err.message : tt("The photo was not removed. Try again in a moment."))

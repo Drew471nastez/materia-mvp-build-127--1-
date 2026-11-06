@@ -99,8 +99,9 @@ export function buttonIconSide(theme: ButtonThemeLike): ButtonIconSide {
 }
 
 /** The hover a saved page asked for. "default", null and anything unknown is Lift. */
-export function buttonHover(theme: ButtonThemeLike): ButtonHover {
+export function buttonHover(theme: ButtonThemeLike, stationary = false): ButtonHover {
   const h = theme.button_hover_animation
+  if (stationary) return h === "fill" || h === "pop" ? "fill" : "none"
   switch (h) {
     case "none":
     case "fade":

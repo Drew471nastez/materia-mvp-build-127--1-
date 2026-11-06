@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileImage } from "@/components/onepage/profile-image"
+
 import { useState, useEffect, useRef, useCallback, memo, type ReactNode } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createPortal, preload } from "react-dom"
@@ -7,7 +9,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useOnePage } from "@/lib/onepage/context"
 import { createClient } from "@/lib/supabase/client"
-import { announceAvatar } from "@/lib/account/avatar-store"
+import { useShellAvatar } from "@/lib/account/avatar-store"
+import { saveAccountPhoto } from "@/lib/onepage/photo-save"
 import {
   Check,
   X,
@@ -163,7 +166,7 @@ const TemplateCard = memo(function TemplateCard({
               <span className="absolute left-0 right-0 top-0 h-[55%] overflow-hidden">
                 {avatarUrl ? (
                   <>
-                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    <ProfileImage fallback={initial} src={avatarUrl} alt="" className="h-full w-full object-cover" />
                     <span className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${c.background_color} 100%)` }} />
                   </>
                 ) : (
@@ -182,7 +185,7 @@ const TemplateCard = memo(function TemplateCard({
               {/* A circle whatever the card's height: it keeps its size, and the column cannot squash it oval. */}
               <span data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full relative overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${text}30` }}>
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  <ProfileImage fallback={initial} src={avatarUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-xs font-bold" style={{ color: text }}>
                     {initial}
@@ -489,11 +492,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     return saved?.selectedGoal || null
   })
 
-  // Step 3 state - initialize from saved progress
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
-    const saved = getSavedProgress()
-    return saved?.avatarUrl || null
-  })
+  // The photo follows the canonical account state, including a removal.
+  const avatarUrl = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
@@ -668,12 +669,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             setBio(bioToUse)
           }
 
-          // Avatar - prefer fresh onepage, then profile avatar
-          const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
-          if (avatarToUse) {
-            setAvatarUrl(avatarToUse)
-          }
-
           // For goal and template, use saved progress if available
           if (savedProgress) {
             if (savedProgress.selectedGoal) setSelectedGoal(savedProgress.selectedGoal)
@@ -731,7 +726,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           // Fallback to context data if database fetch fails
           setDisplayName(onepage.title || "")
           setBio(onepage.bio || "")
-          setAvatarUrl(onepage.avatar_url || null)
         }
       }
 
@@ -850,14 +844,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       /* One profile photo: the picture chosen here IS the account's photo,
          saved where it lives, so onboarding cannot leave a second face
          behind (app/api/account/avatar, lib/account/profile-follow). */
-      await fetch("/api/account/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: publicUrl }),
-      }).catch(() => null)
-      announceAvatar(publicUrl)
+      await saveAccountPhoto(publicUrl)
 
-      setAvatarUrl(publicUrl)
       setShowCropModal(false)
       if (tempImageUrl) URL.revokeObjectURL(tempImageUrl)
       setTempImageUrl(null)
@@ -1469,7 +1457,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         className="w-20 h-20 sm:w-24 sm:h-24 aspect-square shrink-0 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
                       >
                         {avatarUrl ? (
-                          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                          <ProfileImage name={displayName} src={avatarUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-2xl sm:text-3xl font-bold text-gray-400">
                             {displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}

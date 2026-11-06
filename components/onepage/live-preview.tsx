@@ -28,7 +28,7 @@ import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/pu
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { useShellAvatar } from "@/lib/account/avatar-store"
+import { acceptAvatarRead, avatarReadToken, useShellAvatar } from "@/lib/account/avatar-store"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
@@ -62,26 +62,37 @@ function useMedia(query: string): boolean {
 export function useOwnerProfile(ownerId: string | undefined) {
   /* Round 41: a team member is handed the owner's name and photo with the page (lib/onepage/team-context): nothing is read from their browser, and the shell's photo (theirs) is never put in the owner's place. */
   const team = useOnePageTeam()
-  const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: null })
-  const shellAvatar = useShellAvatar(owner.avatarUrl)
+  const { onepage } = useOnePage()
+  const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: onepage?.avatar_url ?? null })
+  const shellAvatar = useShellAvatar(owner.avatarUrl, ownerId)
   useEffect(() => {
     if (!ownerId || team) return
     let live = true
-    createClient()
-      .from("profiles")
-      .select("display_name, avatar_url")
-      .eq("id", ownerId)
-      .maybeSingle()
-      .then(
-        ({ data }: { data: unknown }) => {
-          if (!live || !data) return
-          const row = data as { display_name?: string | null; avatar_url?: string | null }
-          setOwner({ displayName: row.display_name ?? null, avatarUrl: row.avatar_url ?? null })
-        },
-        () => undefined,
-      )
+    const refresh = () => {
+      if (!live || document.hidden) return
+      const started = avatarReadToken()
+      createClient()
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("id", ownerId)
+        .maybeSingle()
+        .then(
+          ({ data, error }: { data: unknown; error?: unknown }) => {
+            if (!live || error || !data || Array.isArray(data)) return
+            const row = data as { display_name?: string | null; avatar_url?: string | null }
+            acceptAvatarRead(row.avatar_url ?? null, started)
+            setOwner({ displayName: row.display_name ?? null, avatarUrl: row.avatar_url ?? null })
+          },
+          () => undefined,
+        )
+    }
+    refresh()
+    window.addEventListener("focus", refresh)
+    window.addEventListener("online", refresh)
     return () => {
       live = false
+      window.removeEventListener("focus", refresh)
+      window.removeEventListener("online", refresh)
     }
   }, [ownerId, team])
   return useMemo(

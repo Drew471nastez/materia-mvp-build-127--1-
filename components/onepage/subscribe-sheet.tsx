@@ -142,7 +142,7 @@ export function OnePageSubscribeSheet({
             {avatarVideoUrl ? (
               <PosterVideo src={avatarVideoUrl} fallback={onePageImageSrc(avatarUrl, 128)} alt={sellerName} />
             ) : (
-              <AppAvatar src={onePageImageSrc(avatarUrl, 128)} name={sellerName} alt={sellerName} size={64} tone={dark ? "dark" : "light"} kind="mark" sizedByClass className="flex h-16 w-16 text-[22px] font-semibold" />
+              <AppAvatar waitForPhoto src={onePageImageSrc(avatarUrl, 128)} name={sellerName} alt={sellerName} size={64} tone={dark ? "dark" : "light"} kind="mark" sizedByClass className="flex h-16 w-16 text-[22px] font-semibold" />
             )}
           </div>
           <span

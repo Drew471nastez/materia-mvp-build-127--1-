@@ -85,7 +85,7 @@ async function main() {
     check("the live page draws the profile photo, whatever the row's old copy holds", live.avatar_url === PROFILE_NEW, live.avatar_url)
     const preview = publicOnePageFromDraft(row(), { liveAvatarUrl: PROFILE_NEW })
     check("and so does the preview", preview.avatar_url === PROFILE_NEW, preview.avatar_url)
-    const noProfile = publicOnePage(row(), { source: "published", liveAvatarUrl: null })
+    const noProfile = publicOnePage(row(), { source: "published" })
     check("a page drawn without the profile to hand still shows a face", noProfile.avatar_url === PAGE_UPLOAD, noProfile.avatar_url)
     check("an address in Storelib's own storage is never taken for a sign in picture", !providerPhoto(PAGE_UPLOAD) && !providerPhoto(PROFILE_NEW))
     check("a Google Photos picture somebody chose is kept", keptPhoto(GOOGLE_PHOTOS) === GOOGLE_PHOTOS)

@@ -12,6 +12,7 @@
  * reason is carried to the sheet as a SaveError, whose words it shows
  * (components/onepage/crop-upload).
  */
+import { announceAvatar } from "@/lib/account/avatar-store"
 import { tt } from "@/lib/i18n/text"
 
 /** A failure after the upload, with words for the person. The crop sheet shows them as they are. */
@@ -38,19 +39,37 @@ export function photoSaveMessage(status: number, body: unknown): string {
 }
 
 /** Saves an uploaded photo as the account's profile photo. Throws a SaveError that says why when it does not. */
-export async function saveAccountPhoto(url: string, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<void> {
+async function persistAccountPhoto(url: string | null, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<void> {
   let res: Awaited<ReturnType<FetchLike>>
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    res = await fetchImpl("/api/account/avatar", {
+    res = await Promise.race([fetchImpl("/api/account/avatar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
+      signal: controller.signal,
       body: JSON.stringify({ url }),
-    })
+    }), new Promise<never>((_, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new Error("Photo save timed out")) }, 20_000)
+    })])
   } catch {
-    throw new SaveError(tt("The photo went up, but saving it did not reach Storelib. Check your connection and try again."))
+    throw new SaveError(url === null ? tt("Could not reach Storelib. Check your connection and try again.") : tt("The photo went up, but saving it did not reach Storelib. Check your connection and try again."))
   }
-  if (res.ok) return
+  finally { if (timer) clearTimeout(timer) }
+  if (res.ok) {
+    announceAvatar(url)
+    return
+  }
   const body = await res.json().catch(() => null)
-  throw new SaveError(photoSaveMessage(res.status, body), res.status)
+  const removal = body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string" ? (body as { error: string }).error : tt("The photo was not removed. Try again in a moment.")
+  throw new SaveError(url === null ? removal : photoSaveMessage(res.status, body), res.status)
+}
+
+// Upload/replace/remove requests from this tab commit and announce in order.
+let pendingPhoto: Promise<void> = Promise.resolve()
+export function saveAccountPhoto(url: string | null, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<void> {
+  const next = pendingPhoto.catch(() => undefined).then(() => persistAccountPhoto(url, fetchImpl))
+  pendingPhoto = next
+  return next
 }

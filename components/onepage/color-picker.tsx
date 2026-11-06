@@ -184,12 +184,6 @@ export function ColorPickerPanel({
      else (undo, a swatch, another field), the square follows it; when it is
      only our own drag coming back, the square keeps its hue (greys). */
   const lastOut = React.useRef(current)
-  React.useEffect(() => {
-    if (current !== lastOut.current) {
-      lastOut.current = current
-      setHsv((prev) => hsvFromHex(current, prev.h))
-    }
-  }, [current])
 
   /* One write to the page per frame, however fast the pointer moves. */
   const pending = React.useRef<string | null>(null)
@@ -204,8 +198,17 @@ export function ColorPickerPanel({
   }, [])
   React.useEffect(() => () => {
     if (frame.current !== null) cancelAnimationFrame(frame.current)
-    flush()
+    pending.current = null
   }, [flush])
+  React.useEffect(() => {
+    if (current !== lastOut.current) {
+      if (frame.current !== null) cancelAnimationFrame(frame.current)
+      frame.current = null
+      pending.current = null
+      lastOut.current = current
+      setHsv((prev) => hsvFromHex(current, prev.h))
+    }
+  }, [current])
   const emit = (next: Hsv) => {
     setHsv(next)
     const hex = hsvToHex(next)
@@ -276,7 +279,7 @@ export function ColorPickerPanel({
   const thumb = compact ? 22 : 16
 
   return (
-    <div data-color-picker="" className={cn("flex flex-col", compact ? "gap-4" : "gap-2.5")}>
+    <div onPointerUp={flush} data-color-picker="" className={cn("flex flex-col", compact ? "gap-4" : "gap-2.5")}>
       <div
         ref={square.ref}
         role="slider"

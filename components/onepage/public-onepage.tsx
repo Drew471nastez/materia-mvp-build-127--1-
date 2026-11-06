@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileImage } from "./profile-image"
+
 import { personName } from "@/lib/profile/display-name"
 import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 import { shopMoneyIn } from "@/lib/store/shop-money"
@@ -29,7 +31,7 @@ import { socialLinkId } from "@/lib/onepage/link-keys"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
@@ -3303,8 +3305,9 @@ function PublicBlockRenderer({
                   priority
                 />
               ) : (
-                <img
+                <ProfileImage
                   src={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX) || "/placeholder.svg"}
+                  name={profile.title || ""}
                   alt={profile.title || ""}
                   className="absolute inset-0 w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
@@ -3525,33 +3528,19 @@ function PublicBlockRenderer({
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
-                    <AvatarImage
+                    <ProfileImage
                       src={onePageImageSrc(profile.avatar_url, 160) || undefined}
-                      className="object-cover"
+                      className="w-full h-full object-cover text-2xl sm:text-3xl font-semibold rounded-[inherit]"
+                      name={profile.title}
+                      fallback={profile.title?.trim() ? profile.title.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
+                      fallbackStyle={theme.button_style === "glass" || theme.button_style === "outline"
+                        ? { backgroundColor: `color-mix(in srgb, ${theme.text_color} 16%, ${theme.background_color || "#ffffff"})`, color: theme.text_color }
+                        : { backgroundColor: theme.button_color, color: theme.button_text_color }}
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
                       }}
                     />
-                    {/* The page's first letter, or a plain person when it has
-                        no title. It was a "?", and before that, for 600ms with
-                        no picture coming, an empty circle. */}
-                    <AvatarFallback
-                      delayMs={profile.avatar_url ? undefined : 0}
-                      className="text-2xl sm:text-3xl font-semibold rounded-[inherit]"
-                      /*
-                        A solid button's colours; on a glass or outline theme the
-                        button colour is see-through white and the circle under it
-                        is white, so the letter was white on white (Graphite,
-                        Midnight, Ocean with no picture). There it is the text
-                        colour on a tint of it over the page's own colour.
-                      */
-                      style={theme.button_style === "glass" || theme.button_style === "outline"
-                        ? { backgroundColor: `color-mix(in srgb, ${theme.text_color} 16%, ${theme.background_color || "#ffffff"})`, color: theme.text_color }
-                        : { backgroundColor: theme.button_color, color: theme.button_text_color }}
-                    >
-                      {profile.title?.trim() ? profile.title.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
-                    </AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -3722,7 +3711,7 @@ function PublicBlockRenderer({
       const align = buttonAlign(theme)
       const iconSide = buttonIconSide(theme)
       const buttonHoverAttrs = {
-        "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme),
+        "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup),
         "data-shadow": themeButtonShadow(theme),
         "data-align": align,
       }
@@ -4127,7 +4116,7 @@ function PublicBlockRenderer({
                 <span
                     className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                     style={{
-                      color: theme.button_text_color,
+                      color: "inherit",
                       opacity: 0.75
                     }}
                   >
@@ -4182,7 +4171,7 @@ function PublicBlockRenderer({
                 <span
                   className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                   style={{
-                    color: theme.button_text_color,
+                    color: "inherit",
                     opacity: 0.75
                   }}
                 >
@@ -4246,7 +4235,7 @@ function PublicBlockRenderer({
               <span
                 className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
-                  color: theme.button_text_color,
+                  color: "inherit",
                   opacity: 0.75
                 }}
               >
@@ -4267,7 +4256,7 @@ function PublicBlockRenderer({
               <span
                 className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
-                  color: theme.button_text_color,
+                  color: "inherit",
                   opacity: 0.75
                 }}
               >
@@ -5115,7 +5104,7 @@ function PublicBlockRenderer({
       const textColor = theme.button_text_color
       /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
@@ -5301,7 +5290,7 @@ function PublicBlockRenderer({
       const textColor = theme.button_text_color
       /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
@@ -5498,7 +5487,7 @@ function PublicBlockRenderer({
       const textColor = theme.button_text_color
       /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
       const isInlineEmbed = data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl

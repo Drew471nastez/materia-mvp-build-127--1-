@@ -1,7 +1,9 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useCallback, useMemo, useRef } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useLayoutEffect } from "react"
+import { useShellAvatar } from "@/lib/account/avatar-store"
+import { useOnePageTeam } from "./team-context"
 import type {
   OnePage,
   OnePageBlock,
@@ -181,6 +183,9 @@ async function serverError(res: Response): Promise<string | null> {
 
 export function OnePageProvider({ children, initialOnePage }: OnePageProviderProps) {
   const [onepage, setOnePageState] = useState<OnePage | null>(initialOnePage || null)
+  const team = useOnePageTeam()
+  const shellAvatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
+  const canonicalAvatar = team ? team.ownerAvatar ?? null : shellAvatar
   const [isLoading, setIsLoading] = useState(false)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<ActiveSection>("blocks")
@@ -412,8 +417,12 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   }, [syncHistoryFlags])
 
   const updateProfile = useCallback((updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => {
-    // Extract avatar_video_crop and store it in settings instead of top-level
-    const { avatar_video_crop, ...otherUpdates } = updates
+    // The account photo is already committed through /api/account/avatar.
+    // It follows the store outside draft history; undo must not resurrect it.
+    const { avatar_url: _accountPhoto, avatar_video_crop, ...otherUpdates } = updates
+    const current = latestOnepageRef.current
+    if (!current) return
+    if (otherUpdates.avatar_video_url === null && current.avatar_video_url == null) delete otherUpdates.avatar_video_url
     if (avatar_video_crop === undefined) {
       updateOnePage(otherUpdates)
       return
@@ -776,6 +785,14 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
       console.error("Failed to load templates")
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const page = latestOnepageRef.current
+    if (!page || page.avatar_url === canonicalAvatar) return
+    const next = { ...page, avatar_url: canonicalAvatar }
+    latestOnepageRef.current = next
+    setOnePageState(next)
+  }, [canonicalAvatar, onepage?.avatar_url])
 
   return (
     <OnePageContext.Provider

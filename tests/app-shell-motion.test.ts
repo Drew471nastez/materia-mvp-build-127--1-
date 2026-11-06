@@ -751,13 +751,14 @@ section("Toasts on a phone")
 section("Avatars")
 {
   const avatar = code("components/app/app-avatar.tsx")
+  const imageLoader = code("lib/account/avatar-image.ts")
   check("while a photo is on its way the circle has no initials in it",
     /\{photo \? \(/.test(avatar) && /data-state=\{photo \? \(loaded \? "photo" : "waiting"\) : "initials"\}/.test(avatar))
   check("it fades in over 150ms, and only when it arrived after the first paint",
-    /transition: fade \? "opacity 150ms ease-out" : undefined/.test(avatar) && /if \(img\.complete && img\.naturalWidth > 0\)/.test(avatar))
-  check("a photo already shown in this tab is drawn at once", /useState\(\(\) => !!url && shown\.has\(url\)\)/.test(avatar))
+    /transition: "opacity 150ms ease-out"/.test(avatar) && /useLayoutEffect\(/.test(imageLoader) && /useDrawnByServer\(/.test(avatar))
+  check("a photo already shown in this tab is drawn at once", /const cached = decoded\.get\(wanted\)/.test(imageLoader) && /src: cached, loaded: true/.test(imageLoader))
   check("it is asked for at its drawn size, never through a storage transform",
-    /optimizedSrcSet\(url,/.test(avatar) && /toOriginalImageUrl\(src\)/.test(avatar) && !/render\/image/.test(avatar))
+    /optimizedSrcSet\(url,/.test(avatar) && /originalAvatarUrl\(src\)/.test(avatar) && !/render\/image/.test(avatar))
   /* The phone's account trigger and sheet live in their own file now (components/app/mobile-account-menu.tsx). */
   const sidebar = code("components/app/sidebar.tsx") + code("components/app/mobile-account-menu.tsx")
   check("the header, the account sheet and the sidebar all use it, and none draws initials under a photo",
@@ -768,8 +769,8 @@ section("Avatars")
     /<ProfilePhoto\s+userId=\{profile\.id\}\s+src=\{avatarUrl \|\| null\}/.test(settings) && /<AppAvatar src=\{src \|\| null\}/.test(photo)
       && !/from-\[#8b5cf6\] to-\[#a78bfa\]/.test(settings))
   check("a photo that failed before hydration (a page drawn on the server) ends on the initials, not an empty circle",
-    /\} else if \(img\.complete\) \{[\s\S]{0,900}img\.decode\(\)\.then\([\s\S]{0,200}setFailed\(url\)/.test(avatar))
-  check("a provider's photo loaded from its own host sends no referrer", /referrerPolicy=\{optimized \? undefined : "no-referrer"\}/.test(avatar))
+    /probe\.onerror = \(\) => finish\(false\)/.test(imageLoader) && /src: undefined, loaded: false, failed: true/.test(imageLoader))
+  check("a provider's photo loaded from its own host sends no referrer", /referrerPolicy="no-referrer"/.test(avatar))
   /*
     The checkout bar drew the creator with next/image, and the optimizer
     refuses any host outside next.config's remotePatterns: a creator whose
