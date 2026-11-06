@@ -2,9 +2,12 @@
 
 /**
  * THE BELL'S LIVE NUMBER, from Supabase realtime and from nothing else:
- * the member's own community_notifications rows (part 81 lets a member read
- * only theirs), counted up as new ones arrive and set by the notifications
- * page when it marks them read.
+ * the member's own community_notifications rows, counted up as new ones
+ * arrive and set by the notifications page when it marks them read. Heard on
+ * the member's own topic since round 55 (lib/realtime/own-topic.ts, SQL part
+ * 370: a trigger says a row arrived, for which community, and nothing else);
+ * until part 370 has run the topic is refused and the rows are watched the
+ * old way (postgres_changes, part 81 lets a member read only theirs).
  *
  * Who is online is not a realtime channel any more: it is the presence
  * heartbeat the frame sends to the server (shell-frame.tsx,
@@ -13,6 +16,7 @@
 import { useEffect, useState } from "react"
 /* Not the client itself: the platform header's bell imports this file on every marketing page, so the client is fetched where it is used (lib/supabase/browser-lazy.ts, round 46). */
 import { browserSupabase, type BrowserSupabase } from "@/lib/supabase/browser-lazy"
+import { listenOwn } from "@/lib/realtime/own-topic"
 
 export const INBOX_EVENT = "storelib:community-inbox"
 
@@ -55,27 +59,40 @@ export function useUnreadNotifications(communityId: string, userId: string | nul
   useEffect(() => {
     if (!userId) return
     let gone = false
-    let supabase: BrowserSupabase | null = null
-    let channel: ReturnType<BrowserSupabase["channel"]> | null = null
+    let stop: (() => void) | null = null
     void (async () => {
       try {
-        supabase = await browserSupabase()
+        const supabase = await browserSupabase()
         if (gone) return
         await realtimeAuth(supabase)
         if (gone) return
-        channel = supabase
-          .channel(`community-inbox:${communityId}:${userId}`)
-          .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, (payload: { new?: { community_id?: string; read_at?: string | null } }) => {
-            if (payload.new?.community_id === communityId && !payload.new.read_at) setCount((c) => c + 1)
-          })
-          .subscribe()
+        stop = listenOwn(
+          supabase,
+          userId,
+          "notification",
+          (p) => {
+            if (p.table === "community_notifications" && p.op === "insert" && p.community_id === communityId && p.unread !== false) setCount((c) => c + 1)
+          },
+          () => {
+            const channel = supabase
+              .channel(`community-inbox:${communityId}:${userId}`)
+              .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, (payload: { new?: { community_id?: string; read_at?: string | null } }) => {
+                if (payload.new?.community_id === communityId && !payload.new.read_at) setCount((c) => c + 1)
+              })
+              .subscribe()
+            return () => {
+              supabase.removeChannel(channel)
+            }
+          },
+        )
+        if (gone) stop()
       } catch {
         /* No realtime here: the count is the one the page arrived with. */
       }
     })()
     return () => {
       gone = true
-      if (supabase && channel) supabase.removeChannel(channel)
+      stop?.()
     }
   }, [communityId, userId])
   return count

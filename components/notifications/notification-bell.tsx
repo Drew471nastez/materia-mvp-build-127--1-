@@ -23,13 +23,16 @@
  * marked read on the way. More rows load as the list is scrolled to its
  * end.
  *
- * LIVE. Supabase realtime on the person's own rows in both tables (each
- * table may only be read by its owner, parts 81 and 85): a new row counts up
- * the badge at once and, while the list is open, is fetched into it. The
- * realtime client is given the session's token before it joins
- * (realtimeAuth), or the join goes as a visitor and nothing ever arrives.
- * The count is read again when the tab comes back into view, so reads made
- * on another device or in a community's own inbox show here too.
+ * LIVE. The person's own private realtime topic (lib/realtime/own-topic.ts,
+ * SQL part 370): a trigger says a row of theirs arrived in either table, or
+ * was raised again unread, and only that; a new row counts up the badge at
+ * once and, while the list is open, the list is read again. Before part 370
+ * has run the topic is refused and the bell listens to its own rows the old
+ * way (postgres_changes on both tables, each readable only by its owner,
+ * parts 81 and 85). The realtime client is given the session's token before
+ * it joins, or the join goes as a visitor and nothing ever arrives. The count
+ * is read again when the tab comes back into view, so reads made on another
+ * device or in a community's own inbox show here too.
  *
  * Signed out it draws nothing.
  *
@@ -79,6 +82,7 @@ import { Bell, Check, ChevronDown } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { INBOX_EVENT, realtimeAuth } from "@/components/community/member/realtime"
+import { listenOwn } from "@/lib/realtime/own-topic"
 import { relativeTime } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem, type InboxPage } from "@/lib/notifications/user-inbox-shared"
@@ -380,23 +384,22 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     }
   }, [userId, active, refreshCount])
 
-  /* New rows, live, from both tables. One channel each, so a table missing from the publication cannot stop the other. Only while this bell is on screen. */
+  /* New rows, live, from both tables, on the person's own topic (or the old way until part 370 has run). Only while this bell is on screen. */
   useEffect(() => {
     if (!userId || !active) return
     let gone = false
     let timer: number | null = null
-    let supabase: BrowserSupabase | null = null
-    const channels: ReturnType<BrowserSupabase["channel"]>[] = []
-    const arrived = (payload: { new?: { read_at?: string | null } }) => {
-      if (payload.new && !payload.new.read_at) setUnread((n) => n + 1)
+    let stop: (() => void) | null = null
+    const arrived = (unread: boolean) => {
+      if (unread) setUnread((n) => n + 1)
       /* Kept warm: open or not, a list already read is read again, so the next open shows the new row at once. */
       if (!openRef.current && !hasItemsRef.current) return
       if (timer) window.clearTimeout(timer)
       timer = window.setTimeout(() => void loadFirst(filterRef.current), 400)
     }
     /* Round BC: a message's row is one per conversation and is raised again in place (lib/notifications/dm-notify-shared.ts), an UPDATE, not an INSERT: the count is asked again rather than guessed. */
-    const raised = (payload: { new?: { read_at?: string | null } }) => {
-      if (!payload.new || payload.new.read_at) return
+    const raised = (unread: boolean) => {
+      if (!unread) return
       if (timer) window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         void refreshCount()
@@ -405,15 +408,35 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     }
     void (async () => {
       try {
-        supabase = await browserSupabase()
+        const supabase = await browserSupabase()
         if (gone) return
         await realtimeAuth(supabase)
         if (gone) return
-        for (const table of ["user_notifications", "community_notifications"]) {
-          const channel = supabase.channel(`bell:${table}:${userId}`).on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${userId}` }, arrived)
-          if (table === "user_notifications") channel.on("postgres_changes", { event: "UPDATE", schema: "public", table, filter: `user_id=eq.${userId}` }, raised)
-          channels.push(channel.subscribe())
-        }
+        stop = listenOwn(
+          supabase,
+          userId,
+          "notification",
+          (p) => {
+            if (p.table !== "user_notifications" && p.table !== "community_notifications") return
+            if (p.op === "update") raised(p.unread !== false)
+            else arrived(p.unread !== false)
+          },
+          /* The old way, one channel per table, so a table missing from the publication cannot stop the other. */
+          () => {
+            const channels: ReturnType<BrowserSupabase["channel"]>[] = []
+            for (const table of ["user_notifications", "community_notifications"]) {
+              const channel = supabase.channel(`bell:${table}:${userId}`).on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${userId}` }, (payload: { new?: { read_at?: string | null } }) => arrived(!!payload.new && !payload.new.read_at))
+              if (table === "user_notifications") channel.on("postgres_changes", { event: "UPDATE", schema: "public", table, filter: `user_id=eq.${userId}` }, (payload: { new?: { read_at?: string | null } }) => {
+                if (payload.new) raised(!payload.new.read_at)
+              })
+              channels.push(channel.subscribe())
+            }
+            return () => {
+              for (const ch of channels) supabase.removeChannel(ch)
+            }
+          },
+        )
+        if (gone) stop()
       } catch {
         /* No realtime: the count is read when the tab comes back. */
       }
@@ -421,7 +444,7 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
     return () => {
       gone = true
       if (timer) window.clearTimeout(timer)
-      if (supabase) for (const ch of channels) supabase.removeChannel(ch)
+      stop?.()
     }
   }, [userId, active, loadFirst, refreshCount])
 

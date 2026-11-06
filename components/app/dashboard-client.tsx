@@ -53,6 +53,7 @@ const LazyAreaChart = dynamic(
   { ssr: false, loading: () => null },
 )
 import { createClient } from "@/lib/supabase/client"
+import { listenOwn } from "@/lib/realtime/own-topic"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
@@ -766,36 +767,73 @@ export function DashboardClient({
      nor the server answers it with what they kept from before the order. */
   const askPastKept = useRef(false)
 
-  // Subscribe to new/updated orders for this creator's products
+  /*
+    New or changed orders of this store. Round 55: on the creator's own
+    realtime topic (lib/realtime/own-topic.ts, SQL part 370), where a trigger
+    says an order of theirs was made, deleted, or changed its status, amount
+    or refund, and nothing about it. It used to be postgres_changes on the
+    whole orders table, which had the database check this page's row level
+    security on every order of every store. Until part 370 has run the topic
+    is refused and the old subscription is opened instead.
+  */
   useEffect(() => {
     if (!productIds || productIds.length === 0) return
     const supabase = createClient()
     let pending: number | undefined
-    const channel = supabase
-      .channel("dashboard-orders")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-        },
-        (payload) => {
-          const row = (payload.new || payload.old) as LiveOrder | undefined
-          if (!row || !(row.creator_id === creatorId || (row.product_id && productIds.includes(row.product_id)))) return
-          /* A basket writes a row per product in a burst: one question for all of them. */
-          window.clearTimeout(pending)
-          pending = window.setTimeout(() => {
-            askPastKept.current = true
-            setOrdersChanged((n) => n + 1)
-          }, 1500)
-        }
-      )
-      .subscribe()
+    let gone = false
+    let stop: (() => void) | null = null
+    const changed = () => {
+      /* A basket writes a row per product in a burst: one question for all of them. */
+      window.clearTimeout(pending)
+      pending = window.setTimeout(() => {
+        askPastKept.current = true
+        setOrdersChanged((n) => n + 1)
+      }, 1500)
+    }
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        const userId = data.session?.user?.id
+        if (gone || !userId) return
+        stop = listenOwn(
+          supabase,
+          userId,
+          "order",
+          (p) => {
+            if (!p.creator_id || p.creator_id === creatorId) changed()
+          },
+          () => {
+            const channel = supabase
+              .channel("dashboard-orders")
+              .on(
+                "postgres_changes",
+                {
+                  event: "*",
+                  schema: "public",
+                  table: "orders",
+                },
+                (payload: { new?: LiveOrder | Record<string, never>; old?: LiveOrder }) => {
+                  const row = (payload.new || payload.old) as LiveOrder | undefined
+                  if (!row || !(row.creator_id === creatorId || (row.product_id && productIds.includes(row.product_id)))) return
+                  changed()
+                }
+              )
+              .subscribe()
+            return () => {
+              supabase.removeChannel(channel)
+            }
+          },
+        )
+        if (gone) stop()
+      } catch {
+        /* No realtime: the next visit to Home reads the orders as they are. */
+      }
+    })()
 
     return () => {
+      gone = true
       window.clearTimeout(pending)
-      supabase.removeChannel(channel)
+      stop?.()
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 

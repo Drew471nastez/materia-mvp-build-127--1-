@@ -2,7 +2,7 @@ import "server-only"
 
 /**
  * ===========================================================================
- *  EVERY PUBLISHED WEBSITE IS DRAWN BEFORE ITS FIRST VISITOR, AFTER A DEPLOY
+ *  THE SITES VISITORS USE ARE DRAWN BEFORE THEIR FIRST VISITOR, AFTER A DEPLOY
  * ===========================================================================
  * A published page is kept by Vercel for every visitor after it is drawn once
  * (revalidate 60, served stale while it is drawn again). But a new deployment
@@ -11,23 +11,41 @@ import "server-only"
  * 0.5 to 1.6 s to the first byte, measured right after a deploy on five sites,
  * against about 0.2 s once held.
  *
- * So, once per deployment, each published website's front page, its
- * products page and the first few other pages its sitemap lists are asked
- * for through the public address (the same CDN entry a visitor gets), a few
- * sites at a time. A page already held costs the CDN a
- * cached answer and nothing else. Progress is kept in platform_settings, so a
- * run cut short by its budget carries on in the next, and the same deploy is
- * never warmed twice. Content is never changed here: freshness stays with
- * revalidate and the tags each publish clears.
+ * So, once per deployment, pages are asked for through the public address
+ * (the same CDN entry a visitor gets), a few sites at a time. A page already
+ * held costs the CDN a cached answer and nothing else. Progress is kept in
+ * platform_settings, so a run cut short by its budget carries on in the
+ * next, and the same deploy is never warmed twice. Content is never changed
+ * here: freshness stays with revalidate and the tags each publish clears.
+ *
+ * ROUND 55: ONLY THE SITES SOMEBODY VISITED. Every published site's front
+ * page, products page, sitemap and four sitemap pages used to be drawn, and
+ * each draw reads the database: production showed about 5,000 database
+ * requests a minute right after a deploy, almost all for sites nobody opened
+ * that week. Now only websites with a page view in the last VISITED_DAYS
+ * (analytics_property_daily, the daily rollup of part 61) are warmed, busiest
+ * first, and only their front page, plus /products where their visitors
+ * opened it (part 371 `warm_visited_websites` says so in one read; without
+ * it the rollup is read directly and the front page alone is drawn). When
+ * the rollup cannot say who visited (no table, a failed read, no day rolled
+ * up in ROLLUP_FRESH_DAYS) every published site's front page is drawn, as
+ * before but without the other pages. Measured with a counting stub in
+ * tests/realtime-warm-r55.test.ts.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
-import { publishedWebsiteOrigins } from "@/lib/seo/sitemaps"
+import { publishedWebsiteOrigins, publishedWebsiteOriginsOf } from "@/lib/seo/sitemaps"
 import { websiteAddresses } from "@/lib/seo/announce"
 import { backfillSiteCopies } from "@/lib/edge/snapshot-capture"
 
 export const WARM_KEY = "website_cache_warmed"
-/** The pages asked for on each site: what a visitor lands on and goes to first. */
+/** The pages a site can have asked for: its front page always, its products page when its visitors open it (round 55). */
 export const WARM_PATHS = ["/", "/products"] as const
+/** A site is warmed when it had a page view in this many days. */
+export const VISITED_DAYS = 7
+/** The rollup is trusted to say who visited only when it rolled up a day this recent. */
+export const ROLLUP_FRESH_DAYS = 3
+/** Rows of the rollup read when part 371 is not there (a site has one a day), a thousand a read. */
+const VISITED_ROWS_MAX = 20_000
 /**
  * Sites read per page. A page is finished inside one run or (when its sites
  * cannot be matched one to one to its rows) done again from its start next
@@ -49,64 +67,89 @@ export const WARM_HARD_STOP_MS = 7_000
 /** A site's copies are taken in a run only with at least this long left before its budget. */
 const BACKFILL_MIN_MS = 10_000
 
-/** And this many more of a site's own pages, from its sitemap, so the menu's About or FAQ is drawn too. */
-export const SITEMAP_PAGES = 4
+type Source = "visited" | "all"
+type Progress = { deployment: string; offset: number; done: boolean; source?: Source }
 
-type Progress = { deployment: string; offset: number; done: boolean }
-
-/**
- * The pages warmed on one site: WARM_PATHS, then its first few other pages
- * from its own /sitemap.xml (a held answer, read through the public address
- * as any crawler does). Product pages are left to their visitors. A sitemap
- * that cannot be read leaves WARM_PATHS. Exported for the tests.
- */
-export function pagesFromSitemap(origin: string, xml: string): string[] {
-  const out: string[] = []
-  for (const m of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
-    let u: URL
-    try {
-      u = new URL(m[1].trim())
-    } catch {
-      continue
-    }
-    if (u.origin !== origin) continue
-    const path = u.pathname.replace(/\/$/, "") || "/"
-    if ((WARM_PATHS as readonly string[]).includes(path) || /^\/products\//.test(path) || out.includes(`${origin}${path}`)) continue
-    out.push(`${origin}${path}`)
-    if (out.length >= SITEMAP_PAGES) break
-  }
-  return out
-}
+/** A site to warm, and whether its visitors open its products page. */
+export type WarmSite = { origin: string; products: boolean }
+type Admin = Pick<ReturnType<typeof createAdminClient>, "from">
 
 /** A request's own limit: EACH_MS, or less when the run has less left. */
 function limitFor(hardStop: number): number {
   return Math.min(EACH_MS, hardStop - Date.now())
 }
 
-async function warmListOf(origin: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY): Promise<string[]> {
-  const first = WARM_PATHS.map((p) => `${origin}${p}`)
-  const ms = limitFor(hardStop)
-  if (ms < MIN_REQUEST_MS) return first
-  const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), ms)
+/** The pages drawn on one site: its front page, and its products page when its visitors open it. Exported for the tests. */
+export function warmListOf(site: WarmSite): string[] {
+  return site.products ? WARM_PATHS.map((p) => `${site.origin}${p}`) : [`${site.origin}/`]
+}
+
+/** A UTC day, YYYY-MM-DD, `days` before `now`. */
+function dayBefore(now: number, days: number): string {
+  return new Date(now - days * 86_400_000).toISOString().slice(0, 10)
+}
+
+type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string } | null }>
+
+/**
+ * The websites with a page view in the last VISITED_DAYS, busiest first:
+ * creator id, and whether the visitors opened /products. From the daily
+ * rollup (part 61): part 371's `warm_visited_websites` adds it up in one
+ * read; without it the rows are read and added up here, and /products is not
+ * known. Null when the rollup cannot say: no table, a failed read, or no day
+ * rolled up in the last ROLLUP_FRESH_DAYS (the rollup cron not running would
+ * otherwise read as "nobody visited"). Exported for the tests.
+ */
+export async function visitedWebsites(admin: Admin, now = Date.now()): Promise<{ creatorId: string; products: boolean }[] | null> {
   try {
-    const r = await fetcher(`${origin}/sitemap.xml`, { headers: { "user-agent": "StorelibCacheWarm/1.0" }, redirect: "manual", signal: ctl.signal, cache: "no-store" })
-    return r.ok ? [...first, ...pagesFromSitemap(origin, await r.text())] : first
+    const latest = await admin.from("analytics_rollup_days").select("day").order("day", { ascending: false }).limit(1).maybeSingle()
+    const day = (latest.data as { day?: string } | null)?.day
+    if (latest.error || typeof day !== "string" || day < dayBefore(now, ROLLUP_FRESH_DAYS)) return null
+    const since = dayBefore(now, VISITED_DAYS)
+    const rpc = (admin as { rpc?: Rpc }).rpc
+    if (typeof rpc === "function") {
+      const summed = await rpc.call(admin, "warm_visited_websites", { p_since: since })
+      if (!summed.error && Array.isArray(summed.data)) {
+        return (summed.data as { creator_id?: string; shop_views?: number | string | null }[])
+          .filter((r) => typeof r.creator_id === "string")
+          .map((r) => ({ creatorId: r.creator_id as string, products: Number(r.shop_views ?? 0) > 0 }))
+      }
+    }
+    /* Part 371 not run: the rows themselves, a thousand at a time, added up per creator. */
+    const views = new Map<string, number>()
+    for (let from = 0; from < VISITED_ROWS_MAX; from += 1000) {
+      const { data, error } = await admin
+        .from("analytics_property_daily")
+        .select("creator_id, page_views")
+        .eq("property_type", "website")
+        .gte("day", since)
+        .gt("page_views", 0)
+        .order("creator_id", { ascending: true })
+        .order("day", { ascending: true })
+        .range(from, from + 999)
+      if (error) return null
+      const rows = (data ?? []) as { creator_id: string; page_views: number }[]
+      for (const r of rows) views.set(r.creator_id, (views.get(r.creator_id) ?? 0) + Number(r.page_views || 0))
+      if (rows.length < 1000) break
+    }
+    return [...views].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).map(([creatorId]) => ({ creatorId, products: false }))
   } catch {
-    return first
-  } finally {
-    clearTimeout(timer)
+    return null
   }
 }
+
+type SiteSource = (offset: number, count: number) => Promise<{ sites: WarmSite[]; read: number }>
 
 export function deploymentOf(env: Record<string, string | undefined> = process.env): string | null {
   return env.VERCEL_DEPLOYMENT_ID || env.VERCEL_URL || null
 }
 
 /** Where to start for this deployment: from the top on a new one, where it stopped on the same one. */
-export function startFrom(saved: unknown, deployment: string): { offset: number; done: boolean } {
+export function startFrom(saved: unknown, deployment: string, source?: Source): { offset: number; done: boolean } {
   const p = saved as Partial<Progress> | null
   if (!p || p.deployment !== deployment) return { offset: 0, done: false }
+  /* The list changed kind between two runs (the rollup came back or went): its offsets mean something else, so from the top. */
+  if (source && !p.done && p.source !== source) return { offset: 0, done: false }
   return { offset: typeof p.offset === "number" && p.offset >= 0 ? p.offset : 0, done: p.done === true }
 }
 
@@ -146,10 +189,14 @@ async function some<T>(items: T[], work: (item: T) => Promise<boolean | void>, u
   return firstUnfinished === -1 ? items.length : firstUnfinished
 }
 
-/** `started`: when the request began (the cron passes it), so the budget counts from there. */
-export async function warmPublishedSites(options: { budgetMs: number; fetcher?: typeof fetch; started?: number; hardStopMs?: number; origins?: typeof publishedWebsiteOrigins; admin?: Pick<ReturnType<typeof createAdminClient>, "from"> }): Promise<{
+/**
+ * `started`: when the request began (the cron passes it), so the budget counts from there.
+ * `origins` (tests): the published sites to walk instead of the visited ones, front page only.
+ */
+export async function warmPublishedSites(options: { budgetMs: number; fetcher?: typeof fetch; started?: number; hardStopMs?: number; origins?: typeof publishedWebsiteOrigins; admin?: Admin; now?: number }): Promise<{
   deployment: string | null
   skipped?: "no-deployment" | "already-warmed"
+  source?: Source
   sites: number
   pages: { held: number; drawn: number; failed: number }
   done: boolean
@@ -160,51 +207,75 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
   const until = (options.started ?? Date.now()) + options.budgetMs
   const hardStop = until + (options.hardStopMs ?? WARM_HARD_STOP_MS)
   const fetcher = options.fetcher ?? fetch
-  const readOrigins = options.origins ?? publishedWebsiteOrigins
   const admin = options.admin ?? createAdminClient()
   const { data } = await admin.from("platform_settings").select("value").eq("key", WARM_KEY).maybeSingle()
-  let { offset, done } = startFrom((data as { value?: unknown } | null)?.value ?? null, deployment)
-  if (done) return { deployment, skipped: "already-warmed", sites: 0, pages, done: true }
+  const saved = (data as { value?: unknown } | null)?.value ?? null
+  if (startFrom(saved, deployment).done) return { deployment, skipped: "already-warmed", sites: 0, pages, done: true }
+
+  /* Who to warm: the sites visited lately, or (the rollup cannot say) every published one, front page only. */
+  const visited = options.origins ? null : await visitedWebsites(admin, options.now)
+  const source: Source = visited ? "visited" : "all"
+  const db = admin as ReturnType<typeof createAdminClient>
+  const readSites: SiteSource = visited
+    ? async (offset, count) => {
+        const slice = visited.slice(offset, offset + count)
+        const originOf = await publishedWebsiteOriginsOf(slice.map((v) => v.creatorId), db)
+        const sites: WarmSite[] = []
+        for (const v of slice) {
+          const origin = originOf.get(v.creatorId)
+          if (origin && !sites.some((x) => x.origin === origin)) sites.push({ origin, products: v.products })
+        }
+        return { sites, read: slice.length }
+      }
+    : async (offset, count) => {
+        const { origins, read } = await (options.origins ?? ((o: number, c: number) => publishedWebsiteOrigins(o, c, db)))(offset, count)
+        return { sites: origins.map((origin) => ({ origin, products: false })), read }
+      }
+  let { offset, done } = startFrom(saved, deployment, source)
 
   let sites = 0
   while (Date.now() < until) {
-    const { origins, read } = await readOrigins(offset, PAGE)
+    const { sites: batch, read } = await readSites(offset, PAGE)
     if (read === 0) {
       done = true
       break
     }
     /* Each site's pages one after another, a few sites at a time; a site stops at the hard stop and is done again next run. */
-    const finished = await some(origins, async (o) => {
-      const list = await warmListOf(o, fetcher, hardStop)
+    const finished = await some(batch, async (site) => {
+      const o = site.origin
+      const list = warmListOf(site)
       for (const u of list) {
         if (hardStop - Date.now() < MIN_REQUEST_MS) return false
-        pages[await ask(u, fetcher, hardStop)]++
+        const answer = await ask(u, fetcher, hardStop)
+        pages[answer]++
+        /* Cut off by the hard stop: not warmed, so done again next run (a site is one or two pages now, so this is often its last). */
+        if (answer === "failed" && hardStop - Date.now() < MIN_REQUEST_MS) return false
       }
       /* A site with no stored copies gets them now (lib/edge/snapshot-capture.ts backfillSiteCopies), inside the same run's time. */
       if (!options.fetcher && until - Date.now() > BACKFILL_MIN_MS) await backfillSiteCopies(o, list, until).catch(() => false)
       return true
     }, until)
-    if (finished < origins.length) {
+    if (finished < batch.length) {
       /*
         Out of time partway: the next run starts at the first site not
         finished. It used to start this whole page of 200 again, so a page
         that could not be warmed inside one run never moved on.
       */
-      if (origins.length === read) {
+      if (batch.length === read) {
         sites += finished
         offset += finished
       }
       break
     }
-    sites += origins.length
+    sites += batch.length
     offset += read
     if (read < PAGE) {
       done = true
       break
     }
   }
-  await admin.from("platform_settings").upsert({ key: WARM_KEY, value: { deployment, offset, done }, updated_at: new Date().toISOString(), updated_by: "cron/warm-sites" })
-  return { deployment, sites, pages, done }
+  await admin.from("platform_settings").upsert({ key: WARM_KEY, value: { deployment, offset, done, source }, updated_at: new Date().toISOString(), updated_by: "cron/warm-sites" })
+  return { deployment, source, sites, pages, done }
 }
 
 /* ─────────────────── after a Publish: the pages a visitor opens next ─────────────────── */
